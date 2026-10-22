@@ -1874,6 +1874,52 @@ public enum BipeStrings {
 
     public static var appClose: String { NSLocalizedString("bipe_app_close", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appLockWrong: String { NSLocalizedString("bipe_app_lock_wrong", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appLockBiometricOfferTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_lock_biometric_offer_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appLockBiometricOfferUse(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_lock_biometric_offer_use", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appLinkedDevicesSignOutLoading: String { NSLocalizedString("bipe_app_linked_devices_sign_out_loading", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkedDevicesSignOutError: String { NSLocalizedString("bipe_app_linked_devices_sign_out_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkedDevicesSignedOut: String { NSLocalizedString("bipe_app_linked_devices_signed_out", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSignOutTitle: String { NSLocalizedString("bipe_app_sign_out_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appSignOutBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_sign_out_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appSignOutNoWayBack: String { NSLocalizedString("bipe_app_sign_out_no_way_back", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSignOutHistory: String { NSLocalizedString("bipe_app_sign_out_history", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSignOutAddWay: String { NSLocalizedString("bipe_app_sign_out_add_way", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSignOutSyncedToken: String { NSLocalizedString("bipe_app_sign_out_synced_token", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSigningOut: String { NSLocalizedString("bipe_app_signing_out", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appExportPreparing: String { NSLocalizedString("bipe_app_export_preparing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSupportOpening: String { NSLocalizedString("bipe_app_support_opening", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportLogs: String { NSLocalizedString("bipe_app_report_logs", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportLogsFooter: String { NSLocalizedString("bipe_app_report_logs_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportScreenshot: String { NSLocalizedString("bipe_app_report_screenshot", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportSend: String { NSLocalizedString("bipe_app_report_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportError: String { NSLocalizedString("bipe_app_report_error", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var accountSignOut: String { NSLocalizedString("bipe_account_sign_out", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var privacyWhoCanTalk: String { NSLocalizedString("bipe_privacy_who_can_talk", tableName: "Bipe", bundle: .module, comment: "") }

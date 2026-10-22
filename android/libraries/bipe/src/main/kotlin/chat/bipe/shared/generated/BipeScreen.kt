@@ -16,11 +16,17 @@ enum class BipeScreen(val id: String) {
     /** Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json */
     ACCOUNT_START("account-start"),
 
+    /** App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json */
+    APP_LOCK("app-lock"),
+
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 
     /** Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json */
     CHAT_TIMELINE("chat-timeline"),
+
+    /** Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json */
+    DATA_EXPORT("data-export"),
 
     /** Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json */
     DEVICE_VERIFICATION("device-verification"),
@@ -40,11 +46,23 @@ enum class BipeScreen(val id: String) {
     /** Link a computer: full-access warning (flow devices). Spec: bipe-shared/product/screens/link-computer-warning.json */
     LINK_COMPUTER_WARNING("link-computer-warning"),
 
+    /** Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json */
+    LINKED_DEVICES("linked-devices"),
+
     /** Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json */
     MESSAGE_UNDECRYPTABLE("message-undecryptable"),
 
     /** Welcome (flow signup). Spec: bipe-shared/product/screens/onboarding-welcome.json */
     ONBOARDING_WELCOME("onboarding-welcome"),
+
+    /** Open source licences (flow settings). Spec: bipe-shared/product/screens/open-source-licences.json */
+    OPEN_SOURCE_LICENCES("open-source-licences"),
+
+    /** Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json */
+    PIN_CHANGE("pin-change"),
+
+    /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
+    PROBLEM_REPORT("problem-report"),
 
     /** Account moving to a new device (flow recovery). Spec: bipe-shared/product/screens/recovery-alert.json */
     RECOVERY_ALERT("recovery-alert"),
@@ -67,6 +85,15 @@ enum class BipeScreen(val id: String) {
     /** Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json */
     RECOVERY_WAITING("recovery-waiting"),
 
+    /** Settings group (flow settings). Spec: bipe-shared/product/screens/settings-group.json */
+    SETTINGS_GROUP("settings-group"),
+
+    /** Settings list in the Você tab (flow settings). Spec: bipe-shared/product/screens/settings-root.json */
+    SETTINGS_ROOT("settings-root"),
+
+    /** Sign out of this phone (flow settings). Spec: bipe-shared/product/screens/sign-out.json */
+    SIGN_OUT("sign-out"),
+
     /** Creating the account (flow signup). Spec: bipe-shared/product/screens/signup-create.json */
     SIGNUP_CREATE("signup-create"),
 
@@ -87,6 +114,9 @@ enum class BipeScreen(val id: String) {
 
     /** Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json */
     SIGNUP_WAITLIST("signup-waitlist"),
+
+    /** Talk to support (flow settings). Spec: bipe-shared/product/screens/support-open.json */
+    SUPPORT_OPEN("support-open"),
 
     /** Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json */
     TERMS_REACCEPT("terms-reaccept"),

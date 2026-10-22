@@ -10,11 +10,17 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json
     case accountStart = "account-start"
 
+    /// App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json
+    case appLock = "app-lock"
+
     /// Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json
     case chatList = "chat-list"
 
     /// Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json
     case chatTimeline = "chat-timeline"
+
+    /// Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json
+    case dataExport = "data-export"
 
     /// Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json
     case deviceVerification = "device-verification"
@@ -34,11 +40,23 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Link a computer: full-access warning (flow devices). Spec: bipe-shared/product/screens/link-computer-warning.json
     case linkComputerWarning = "link-computer-warning"
 
+    /// Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json
+    case linkedDevices = "linked-devices"
+
     /// Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json
     case messageUndecryptable = "message-undecryptable"
 
     /// Welcome (flow signup). Spec: bipe-shared/product/screens/onboarding-welcome.json
     case onboardingWelcome = "onboarding-welcome"
+
+    /// Open source licences (flow settings). Spec: bipe-shared/product/screens/open-source-licences.json
+    case openSourceLicences = "open-source-licences"
+
+    /// Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json
+    case pinChange = "pin-change"
+
+    /// Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json
+    case problemReport = "problem-report"
 
     /// Account moving to a new device (flow recovery). Spec: bipe-shared/product/screens/recovery-alert.json
     case recoveryAlert = "recovery-alert"
@@ -61,6 +79,15 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json
     case recoveryWaiting = "recovery-waiting"
 
+    /// Settings group (flow settings). Spec: bipe-shared/product/screens/settings-group.json
+    case settingsGroup = "settings-group"
+
+    /// Settings list in the Você tab (flow settings). Spec: bipe-shared/product/screens/settings-root.json
+    case settingsRoot = "settings-root"
+
+    /// Sign out of this phone (flow settings). Spec: bipe-shared/product/screens/sign-out.json
+    case signOut = "sign-out"
+
     /// Creating the account (flow signup). Spec: bipe-shared/product/screens/signup-create.json
     case signupCreate = "signup-create"
 
@@ -81,6 +108,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json
     case signupWaitlist = "signup-waitlist"
+
+    /// Talk to support (flow settings). Spec: bipe-shared/product/screens/support-open.json
+    case supportOpen = "support-open"
 
     /// Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json
     case termsReaccept = "terms-reaccept"
