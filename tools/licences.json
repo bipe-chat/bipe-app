@@ -1,0 +1,19 @@
+{
+  "allowed": ["Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0"],
+  "packages": {
+    "matrix-rust-components-swift": {
+      "ecosystem": "swiftpm",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/matrix-org/matrix-rust-components-swift",
+      "checked": "2026-10-22"
+    },
+    "org.matrix.rustcomponents:sdk-android": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/matrix-org/matrix-rust-components-kotlin",
+      "checked": "2026-10-21",
+      "unverified": true,
+      "note": "unverified: generated from matrix-org/matrix-rust-sdk, Apache-2.0; no licence file detected on matrix-org/matrix-rust-components-kotlin, 2026-10-21"
+    }
+  }
+}

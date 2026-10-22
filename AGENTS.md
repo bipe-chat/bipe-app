@@ -53,7 +53,7 @@ Other source files carry the same three lines in their own comment syntax.
 - Allowed dependency licences: Apache-2.0, MIT, BSD, ISC, MPL-2.0. Any other licence needs an ADR.
 - No analytics SDKs. No crash reporters that send data out of Brazil.
 - Icons are Phosphor (MIT) on both platforms. Do not use SF Symbols.
-- CI runs the dependency deny-list, a licence check of every dependency, the strings check and the similarity scan.
+- CI runs the dependency deny-list, a licence check of every dependency, the strings check and the similarity scan (see "Checks").
 
 ## Commits
 
