@@ -63,5 +63,6 @@ class DeadlineTest {
         task.join()
         assertThat(task.isCancelled).isTrue()
         release.complete(Unit)
+        Unit
     }
 }
