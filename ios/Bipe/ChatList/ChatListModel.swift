@@ -22,6 +22,7 @@ struct ChatSummary: Identifiable, Equatable {
     var peerUserId: String? = nil
     /// RoomInfo.isDm, the one DM test (ADR 0141).
     var isDm = false
+    var isMuted = false
 
     var id: String { roomId }
 
@@ -184,6 +185,7 @@ final class ChatListModel: ObservableObject {
                            memberCount: Int(info.activeMembersCount),
                            mentionCount: Int(info.numUnreadMentions),
                            peerUserId: info.isDirect ? info.heroes.first(where: { $0.userId != ownUserId })?.userId : nil,
-                           isDm: info.isDm)
+                           isDm: info.isDm,
+                           isMuted: info.cachedUserDefinedNotificationMode == .mute)
     }
 }

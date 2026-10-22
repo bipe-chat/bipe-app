@@ -3,12 +3,14 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Combine
 import Phosphor
 import SwiftUI
 
 /// Spec chat-list, one scope: Conversas or Grupos (ADR 0053).
 struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
+    @ObservedObject private var notifications = NotificationActions.shared
     @StateObject private var handle: HandlePickModel
     @StateObject private var encryption: EncryptionStatusModel
     @State private var path: [String]
@@ -16,6 +18,8 @@ struct ChatListView: View {
     private let scope: ChatScope
     private let account: AccountSummary?
     private let onOpenVoce: () -> Void
+    private let api: BipeAPIClient
+    @State private var showingInvites = false
     @State private var creatingGroup = false
     @State private var deletingDm: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
@@ -24,6 +28,7 @@ struct ChatListView: View {
     init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil, account: AccountSummary? = nil, onOpenVoce: @escaping () -> Void = {}) {
         self.account = account
         self.onOpenVoce = onOpenVoce
+        self.api = api
         _model = ObservedObject(wrappedValue: model)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
@@ -47,7 +52,7 @@ struct ChatListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    CreateGroupButton { creatingGroup = true }
+                    CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if let account {
@@ -60,7 +65,8 @@ struct ChatListView: View {
                 }
             }
         }
-        .groupHost(session: model.session, media: model.media, path: $path, creatingGroup: $creatingGroup, deletingDm: $deletingDm)
+        .groupHost(session: model.session, api: api, media: model.media, path: $path, creatingGroup: $creatingGroup,
+                   deletingDm: $deletingDm, showingInvites: $showingInvites)
         .environment(\.openHistoryHelp, encryption.openSheet)
         .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
             EncryptionSheet(route: route, model: encryption, session: model.session)
@@ -74,6 +80,11 @@ struct ChatListView: View {
         }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
+        }
+        // Spec notification-service, action open.
+        .onReceive(notifications.$roomToOpen.compactMap { $0 }) { roomId in
+            notifications.roomToOpen = nil
+            path = [roomId]
         }
     }
 
@@ -182,6 +193,14 @@ struct ChatRow: View {
                         .foregroundStyle(BipeColor.inkSecondary)
                         .lineLimit(2)
                     Spacer(minLength: 8)
+                    // Spec chat-notifications: a muted chat keeps its badge, without sound or notification.
+                    if chat.isMuted {
+                        PhosphorIcon.bellSlash.image
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                            .foregroundStyle(BipeColor.inkSecondary)
+                            .accessibilityLabel(BipeStrings.appNotificationModeOff)
+                    }
                     if chat.unreadCount > 0 {
                         let count = chat.unreadCount.formatted()
                         Text(count)

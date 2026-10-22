@@ -41,6 +41,7 @@ fun AppTabsScreen(
     banner: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
+    onInvite: () -> Unit = {},
 ) {
     val state by tabs.state.collectAsState()
     val account = state.accounts.firstOrNull { it.isCurrent }
@@ -58,11 +59,11 @@ fun AppTabsScreen(
                 AppTabsModel.Tab.CONVERSAS ->
                     ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner,
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm)
+                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) },
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm)
+                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite)
                 AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }

@@ -19,11 +19,23 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Tab bar (flow home). Spec: bipe-shared/product/screens/app-tabs.json
     case appTabs = "app-tabs"
 
+    /// Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json
+    case chatListFilters = "chat-list-filters"
+
     /// Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json
     case chatList = "chat-list"
 
     /// Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json
     case chatNotifications = "chat-notifications"
+
+    /// One chat request (flow home). Spec: bipe-shared/product/screens/chat-request.json
+    case chatRequest = "chat-request"
+
+    /// Chat requests (flow home). Spec: bipe-shared/product/screens/chat-requests.json
+    case chatRequests = "chat-requests"
+
+    /// Search chats (flow home). Spec: bipe-shared/product/screens/chat-search.json
+    case chatSearch = "chat-search"
 
     /// Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json
     case chatTimeline = "chat-timeline"
@@ -81,6 +93,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json
     case linkedDevices = "linked-devices"
+
+    /// Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json
+    case mediaViewer = "media-viewer"
 
     /// Message actions (flow chat). Spec: bipe-shared/product/screens/message-actions.json
     case messageActions = "message-actions"
@@ -157,6 +172,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json
     case recoveryWaiting = "recovery-waiting"
 
+    /// Remote critical banner (flow home). Spec: bipe-shared/product/screens/remote-banner.json
+    case remoteBanner = "remote-banner"
+
     /// Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json
     case scamWarning = "scam-warning"
 
@@ -196,12 +214,21 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json
     case termsReaccept = "terms-reaccept"
 
+    /// Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json
+    case timelineMedia = "timeline-media"
+
     /// Timeline rows (flow chat). Spec: bipe-shared/product/screens/timeline-rows.json
     case timelineRows = "timeline-rows"
 
     /// Typing indicator (flow chat). Spec: bipe-shared/product/screens/typing-indicator.json
     case typingIndicator = "typing-indicator"
 
+    /// Upload preview (flow chat). Spec: bipe-shared/product/screens/upload-preview.json
+    case uploadPreview = "upload-preview"
+
     /// Você (flow voce). Spec: bipe-shared/product/screens/voce.json
     case voce = "voce"
+
+    /// Voice message (flow chat). Spec: bipe-shared/product/screens/voice-message.json
+    case voiceMessage = "voice-message"
 }

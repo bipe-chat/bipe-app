@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.TermsReacceptModel
@@ -63,20 +64,20 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
+import chat.bipe.app.groups.CreateGroupButton
+import chat.bipe.app.groups.DmSwipeRow
+import chat.bipe.app.groups.GroupHost
+import chat.bipe.app.groups.withoutClearedDms
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.app.handle.HandlePromptCard
+import chat.bipe.app.recovery.RecoveryAlertModel
+import chat.bipe.app.recovery.RecoveryAlertScreen
 import chat.bipe.app.signup.SignupFlowModel
 import chat.bipe.app.signup.SignupFlowScreen
 import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.tabs.AppTabsScreen
-import chat.bipe.app.groups.CreateGroupButton
-import chat.bipe.app.groups.DmSwipeRow
-import chat.bipe.app.groups.GroupHost
-import chat.bipe.app.groups.withoutClearedDms
-import chat.bipe.app.recovery.RecoveryAlertModel
-import chat.bipe.app.recovery.RecoveryAlertScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -110,6 +111,7 @@ fun HomeScreen(
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
     val termsPhase by terms.phase.collectAsState()
+    val app = context.applicationContext as BipeApplication
     LaunchedEffect(handle) { handle.load() }
     DisposableEffect(encryption) {
         encryption.observe()
@@ -119,6 +121,22 @@ fun HomeScreen(
     LaunchedEffect(foregroundCount) { terms.check(); tabs.refreshProfiles() }
     // recovery-alert, action check: on launch and on every return to the foreground.
     LaunchedEffect(foregroundCount) { recoveryAlert.check() }
+    // Spec notification-service, action open.
+    val roomToOpen by app.roomToOpen.collectAsState()
+    LaunchedEffect(roomToOpen) {
+        roomToOpen?.let {
+            showsSettings = false
+            showsHandlePick = false
+            openRoomId = it
+            app.roomToOpen.value = null
+        }
+    }
+    // An open chat has no notifications, and its pushes show none.
+    DisposableEffect(openRoomId) {
+        app.notifications.visibleRoomId = openRoomId
+        openRoomId?.let { app.notifications.clear(it) }
+        onDispose { app.notifications.visibleRoomId = null }
+    }
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
@@ -137,7 +155,7 @@ fun HomeScreen(
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
-        else -> GroupHost(session, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
+        else -> GroupHost(session, api, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
             if (roomId != null) {
                 BackHandler { openRoomId = null }
                 ChatTimelineScreen(
@@ -157,6 +175,7 @@ fun HomeScreen(
                     banner = { HistoryBanner(encryption) },
                     onCreateGroup = groups.createGroup,
                     onDeleteDm = groups.deleteDm,
+                    onInvite = groups.openInvites,
                 )
             }
         }
@@ -180,6 +199,7 @@ fun ChatListScreen(
     banner: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
+    onInvite: () -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val allPhase by model.phase.collectAsState()
@@ -197,7 +217,7 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 )
-                CreateGroupButton(onCreateGroup)
+                CreateGroupButton(onCreateGroup, onInvite)
                 IconButton(onClick = onOpenSearch) {
                     Icon(
                         painterResource(PhosphorIcon.MAGNIFYING_GLASS.drawable),
@@ -284,6 +304,15 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                // Spec chat-notifications: a muted chat keeps its badge, without sound or notification.
+                if (chat.isMuted) {
+                    Icon(
+                        painterResource(PhosphorIcon.BELL_SLASH.drawable),
+                        contentDescription = stringResource(R.string.bipe_app_notification_mode_off),
+                        tint = colors.glyphSecondary,
+                        modifier = Modifier.padding(start = 8.dp).size(16.dp),
+                    )
+                }
                 if (chat.unreadCount > 0) {
                     val count = NumberFormat.getIntegerInstance().format(chat.unreadCount)
                     val label = stringResource(R.string.bipe_app_chat_list_unread, count)

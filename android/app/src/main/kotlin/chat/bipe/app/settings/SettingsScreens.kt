@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.encryption.RecoveryKeySaveScreen
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.notifications.NotificationSettingsScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
@@ -80,6 +81,7 @@ sealed interface SettingsRoute {
     data class Group(val group: BipeSettingsGroup) : SettingsRoute
     data object Messaging : SettingsRoute
     data object Support : SettingsRoute
+    data object Notifications : SettingsRoute
     data object PinChange : SettingsRoute
     data object AppLockSetup : SettingsRoute
     data object AppLockOff : SettingsRoute
@@ -109,9 +111,9 @@ fun SettingsHost(
     val pop: () -> Unit = { if (stack.isEmpty()) onClose() else stack.removeAt(stack.lastIndex) }
     BackHandler(onBack = pop)
     LaunchedEffect(model) { model.load() }
+    // Action openGroup. notifications opens notification-settings (bipe-chat/bipe#566).
     val openGroup: (BipeSettingsGroup) -> Unit = { group ->
-        if (group == BipeSettingsGroup.NOTIFICATIONS) openNotificationSettings(context)
-        else stack.add(SettingsRoute.Group(group))
+        stack.add(if (group == BipeSettingsGroup.NOTIFICATIONS) SettingsRoute.Notifications else SettingsRoute.Group(group))
     }
     when (val route = stack.lastOrNull()) {
         null -> {
@@ -125,6 +127,7 @@ fun SettingsHost(
         is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut)
         SettingsRoute.Messaging -> MessagingPickerScreen(model, onBack = pop)
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
+        SettingsRoute.Notifications -> NotificationSettingsScreen(session, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
@@ -411,13 +414,6 @@ fun openPage(context: Context, url: String) {
     } catch (error: ActivityNotFoundException) {
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
-}
-
-private fun openNotificationSettings(context: Context) {
-    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    runCatching { context.startActivity(intent) }
 }
 
 @Composable

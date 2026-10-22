@@ -7,6 +7,7 @@ package chat.bipe.app.account
 import android.content.Context
 import android.util.Log
 import chat.bipe.app.common.AppConfig
+import chat.bipe.app.BipeApplication
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.api.BipeApiClient
@@ -16,6 +17,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ensureActive
 import kotlin.coroutines.coroutineContext
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -158,6 +161,15 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         }
     }
 
+    /** The account, once start has opened it. A push or a notification action can start the process. */
+    suspend fun awaitSession(timeoutMs: Long = 20_000): AccountSession? {
+        start()
+        return withTimeoutOrNull(timeoutMs) {
+            phase.first { it == Phase.READY || it == Phase.NO_ACCOUNT || it == Phase.FAILED }
+            session
+        }
+    }
+
     /** Counts returns to the foreground, so screens can check again (terms-reaccept). */
     private val _foregroundCount = MutableStateFlow(0)
     val foregroundCount: StateFlow<Int> = _foregroundCount.asStateFlow()
@@ -165,14 +177,17 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     /** Starts the sync again when the app comes back to the foreground. */
     fun resume() {
         _foregroundCount.value += 1
+        (context.applicationContext as BipeApplication).push.appBecameActive()
         _sessions.value.forEach { session -> scope.launch { session.syncService.start() } }
     }
 
     /** app-tabs switchAccount: makes that account current and saves the choice for the next start. */
     fun switchAccount(userId: String) {
-        if (_sessions.value.none { it.userId == userId }) return
+        val session = _sessions.value.firstOrNull { it.userId == userId } ?: return
         _userId.value = userId
         accountList.current = userId
+        // Spec push-registration: this phone's pusher follows the current account.
+        (context.applicationContext as BipeApplication).push.attach(session)
     }
 
     /** signup-create made the account and signed in. */
@@ -205,6 +220,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     private fun removeAccount(current: AccountSession, alreadyLoggedOut: Boolean) {
         scope.launch {
+            // Spec push-registration, action signOut: the pusher of the current account goes before its session ends.
+            if (_userId.value == current.userId) (context.applicationContext as BipeApplication).push.signOut()
             current.signOut(context, sessionStore, vault, alreadyLoggedOut)
             accountList.remove(current.userId)
             _sessions.value = _sessions.value.filter { it.userId != current.userId }
@@ -259,6 +276,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     private fun show(session: AccountSession) {
         add(session)
         _userId.value = session.userId
+        // Spec push-registration: keep this phone's pusher current.
+        (context.applicationContext as BipeApplication).push.attach(session)
         _phase.value = Phase.READY
     }
 

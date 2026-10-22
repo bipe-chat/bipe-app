@@ -25,11 +25,23 @@ enum class BipeScreen(val id: String) {
     /** Tab bar (flow home). Spec: bipe-shared/product/screens/app-tabs.json */
     APP_TABS("app-tabs"),
 
+    /** Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json */
+    CHAT_LIST_FILTERS("chat-list-filters"),
+
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 
     /** Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json */
     CHAT_NOTIFICATIONS("chat-notifications"),
+
+    /** One chat request (flow home). Spec: bipe-shared/product/screens/chat-request.json */
+    CHAT_REQUEST("chat-request"),
+
+    /** Chat requests (flow home). Spec: bipe-shared/product/screens/chat-requests.json */
+    CHAT_REQUESTS("chat-requests"),
+
+    /** Search chats (flow home). Spec: bipe-shared/product/screens/chat-search.json */
+    CHAT_SEARCH("chat-search"),
 
     /** Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json */
     CHAT_TIMELINE("chat-timeline"),
@@ -87,6 +99,9 @@ enum class BipeScreen(val id: String) {
 
     /** Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json */
     LINKED_DEVICES("linked-devices"),
+
+    /** Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json */
+    MEDIA_VIEWER("media-viewer"),
 
     /** Message actions (flow chat). Spec: bipe-shared/product/screens/message-actions.json */
     MESSAGE_ACTIONS("message-actions"),
@@ -163,6 +178,9 @@ enum class BipeScreen(val id: String) {
     /** Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json */
     RECOVERY_WAITING("recovery-waiting"),
 
+    /** Remote critical banner (flow home). Spec: bipe-shared/product/screens/remote-banner.json */
+    REMOTE_BANNER("remote-banner"),
+
     /** Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json */
     SCAM_WARNING("scam-warning"),
 
@@ -202,12 +220,21 @@ enum class BipeScreen(val id: String) {
     /** Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json */
     TERMS_REACCEPT("terms-reaccept"),
 
+    /** Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json */
+    TIMELINE_MEDIA("timeline-media"),
+
     /** Timeline rows (flow chat). Spec: bipe-shared/product/screens/timeline-rows.json */
     TIMELINE_ROWS("timeline-rows"),
 
     /** Typing indicator (flow chat). Spec: bipe-shared/product/screens/typing-indicator.json */
     TYPING_INDICATOR("typing-indicator"),
 
+    /** Upload preview (flow chat). Spec: bipe-shared/product/screens/upload-preview.json */
+    UPLOAD_PREVIEW("upload-preview"),
+
     /** Você (flow voce). Spec: bipe-shared/product/screens/voce.json */
     VOCE("voce"),
+
+    /** Voice message (flow chat). Spec: bipe-shared/product/screens/voice-message.json */
+    VOICE_MESSAGE("voice-message"),
 }

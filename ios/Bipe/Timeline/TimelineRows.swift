@@ -37,6 +37,8 @@ struct MessageDetails: Equatable {
     var reactions: [MessageReaction]
     var isEdited: Bool
     var receipt: MessageReceipt?
+    /// Messages from other people only (spec scam-warning).
+    var scamWarning: ScamWarningKind?
     var canReply: Bool
     var canEdit: Bool
     var canDelete: Bool
@@ -204,6 +206,8 @@ enum TimelineRowBuilder {
                     reactions: reactions(content.reactions, facts: facts, name: name),
                     isEdited: messageContent.isEdited,
                     receipt: event.isOwn ? receipts[index] : nil,
+                    // The detector runs on the device; the cache keys on the event and the body, so an edit runs it again.
+                    scamWarning: event.isOwn ? nil : ScamDetector.warningKind(for: messageContent.body, eventID: eventId(event) ?? id),
                     canReply: event.canBeRepliedTo && isSent,
                     canEdit: event.isEditable,
                     canDelete: event.isOwn ? (facts.canRedactOwn || !isSent) : (!facts.isDm && facts.canRedactOther)
