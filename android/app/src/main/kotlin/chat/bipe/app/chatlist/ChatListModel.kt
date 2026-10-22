@@ -20,6 +20,7 @@ import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 import org.matrix.rustcomponents.sdk.RoomListEntriesListener
 import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
+import org.matrix.rustcomponents.sdk.RoomListFilterCategory
 import org.matrix.rustcomponents.sdk.RoomListEntriesWithDynamicAdaptersResult
 import org.matrix.rustcomponents.sdk.RoomListLoadingState
 import org.matrix.rustcomponents.sdk.RoomListLoadingStateListener
@@ -140,7 +141,7 @@ class ChatListModel(
         scope.launch { list.start(session, RoomListEntriesDynamicFilterKind.All(listOf(
             RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace,
             RoomListEntriesDynamicFilterKind.DeduplicateVersions,
-            RoomListEntriesDynamicFilterKind.Category(if (tab == ChatScope.CONVERSAS) org.matrix.rustcomponents.sdk.RoomCategory.PEOPLE else org.matrix.rustcomponents.sdk.RoomCategory.GROUP),
+            RoomListEntriesDynamicFilterKind.Category(if (tab == ChatScope.CONVERSAS) RoomListFilterCategory.PEOPLE else RoomListFilterCategory.GROUP),
             RoomListEntriesDynamicFilterKind.Unread,
         ))) }
     }
