@@ -22,3 +22,4 @@ rootProject.name = "bipe"
 
 include(":app")
 include(":libraries:bipe")
+include(":libraries:phosphor")

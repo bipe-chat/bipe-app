@@ -47,6 +47,7 @@ kotlin {
 
 dependencies {
     implementation(project(":libraries:bipe"))
+    implementation(project(":libraries:phosphor"))
     implementation(libs.matrix.rust.sdk)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
