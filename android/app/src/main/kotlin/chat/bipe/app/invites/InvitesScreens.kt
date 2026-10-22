@@ -50,11 +50,14 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.groups.GroupFooter
+import chat.bipe.app.groups.LocalBipeApi
 import chat.bipe.app.groups.GroupRow
 import chat.bipe.app.groups.GroupSectionHeader
 import chat.bipe.app.groups.GroupTopBar
@@ -294,6 +297,22 @@ fun InviteNoteScreen(session: AccountSession, api: BipeApiClient, onClose: () ->
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Action inviteSomeoneNew of group-invite-members: a row that opens invites for a person who is not on Bipe yet.
+ * Shown only where GroupHost provides the Bipe API client.
+ */
+@Composable
+fun InviteSomeoneNewRow(session: AccountSession, media: MediaLoader) {
+    val api = LocalBipeApi.current ?: return
+    var open by remember { mutableStateOf(false) }
+    GroupRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_contacts_invite)) { open = true }
+    if (open) {
+        Dialog(onDismissRequest = { open = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            InvitesScreen(session, api, media, onClose = { open = false }, onOpenChat = {})
         }
     }
 }
