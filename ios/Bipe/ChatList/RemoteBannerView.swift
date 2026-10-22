@@ -29,7 +29,7 @@ final class RemoteBannerModel: ObservableObject {
         }
         lastFetch = .now
         do {
-            // null: no banner, or past expires_at.
+            // nil: no banner, or past expires_at.
             banner = try await api.remoteBanner()
         } catch {
             // A failed fetch keeps the last banner until it expires.
@@ -38,17 +38,16 @@ final class RemoteBannerModel: ObservableObject {
     }
 
     private func update() {
-        var state = BipeRemoteBanner.state(of: banner, appVersion: AppVersion.name, now: .now)
+        var state = banner?.state(appVersion: AppVersion.name) ?? .hidden
         if state == .notice, banner?.id == UserDefaults.standard.string(forKey: Self.dismissedKey) {
             state = .hidden
         }
         self.state = state
     }
 
-    /// The page to open: the store page for update, the in-app browser for notice.
-    var target: URL? {
-        guard let banner else { return nil }
-        return URL(string: state == .update ? (banner.updateLinks?.ios ?? banner.link) : banner.link)
+    var isUpdate: Bool {
+        if case .update = state { return true }
+        return false
     }
 
     /// Action dismiss: notice only. That id does not show again on this phone.
@@ -80,7 +79,7 @@ struct RemoteBannerView: View {
                     Text(verbatim: banner.text)
                         .font(.subheadline)
                         .foregroundStyle(BipeColor.inkPrimary)
-                    if model.state == .update {
+                    if model.isUpdate {
                         Text(BipeStrings.remoteBannerUpdate)
                             .font(.subheadline.bold())
                             .foregroundStyle(BipeColor.accentInk)
@@ -106,11 +105,10 @@ struct RemoteBannerView: View {
             .contentShape(Rectangle())
             // Action open.
             .onTapGesture {
-                guard let target = model.target else { return }
-                if model.state == .update {
-                    openURL(target)
-                } else {
-                    page = WebPage(url: target)
+                switch model.state {
+                case .update(let store): openURL(store)
+                case .notice: page = WebPage(url: banner.link)
+                case .hidden: break
                 }
             }
             .sheet(item: $page) { page in

@@ -2,71 +2,65 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// Spec remote-banner (bipe-shared product/screens/remote-banner.json), ADR 0117. Written from the contract
-// RemoteBanner in api/openapi.yaml and the reference remoteBannerState() and compareAppVersions() in
-// bipe-shared tools/lib/registries.mjs; cases in test-vectors/remote-banner.json.
-
 import Foundation
 
-/// Contract `RemoteBanner`. Title and text are pt-BR only and show as they are.
-public struct BipeRemoteBanner: Codable, Sendable, Equatable {
-    public struct UpdateLinks: Codable, Sendable, Equatable {
-        public let ios: String
-        public let android: String
+/// The remote critical banner above the chat list (ADR 0117, bipe#386): an outage, a forced update or a change of terms.
+/// `GET /v1/banner`. Port of `remoteBannerState()` in bipe-shared; `test-vectors/remote-banner.json` holds the cases.
+public struct BipeRemoteBanner: Decodable, Sendable, Equatable {
+    public struct UpdateLinks: Decodable, Sendable, Equatable {
+        public let ios: URL
+        public let android: URL
     }
-
+    
+    public enum State: Equatable, Sendable {
+        case hidden
+        /// Opens `link`. The person can dismiss it by `id`.
+        case notice
+        /// The app is below `minAppVersion`: opens the update link and cannot be dismissed.
+        case update(URL)
+    }
+    
     public let id: String
     public let title: String
     public let text: String
-    public let link: String
+    public let link: URL
     public let minAppVersion: String?
     public let updateLinks: UpdateLinks?
-    public let expiresAt: Date
-
-    /// What the app shows for the banner.
-    public enum State: String, Sendable, Equatable {
-        case hidden
-        case notice
-        case update
-    }
-
-    /// Reference `remoteBannerState(banner, appVersion, now)`.
-    public static func state(of banner: BipeRemoteBanner?, appVersion: String, now: Date) -> State {
-        guard let banner, banner.expiresAt > now else { return .hidden }
-        if let minimum = banner.minAppVersion, compareVersions(appVersion, minimum) < 0 {
-            return .update
+    public let expiresAt: String
+    
+    public func state(appVersion: String, now: Date = .now) -> State {
+        guard let expiry = Self.parseDate(expiresAt), now < expiry else { return .hidden }
+        if let minAppVersion, Self.compareVersions(appVersion, minAppVersion) < 0, let updateLinks {
+            return .update(updateLinks.ios)
         }
         return .notice
     }
-
-    /// Reference `compareAppVersions(a, b)`: -1, 0 or 1. Missing parts count as 0; each part reads its leading digits.
+    
+    /// Compares dotted versions part by part as numbers. Each part counts its leading digits only ("2-dev" is 2).
     public static func compareVersions(_ a: String, _ b: String) -> Int {
         let pa = a.split(separator: ".", omittingEmptySubsequences: false)
         let pb = b.split(separator: ".", omittingEmptySubsequences: false)
-        func part(_ parts: [Substring], _ index: Int) -> Int {
-            guard index < parts.count else { return 0 }
-            return Int(parts[index].prefix(while: \.isASCIIDigitCharacter)) ?? 0
-        }
         for index in 0..<max(pa.count, pb.count) {
-            let x = part(pa, index), y = part(pb, index)
-            if x != y { return x < y ? -1 : 1 }
+            let x = index < pa.count ? leadingNumber(pa[index]) : 0
+            let y = index < pb.count ? leadingNumber(pb[index]) : 0
+            if x != y {
+                return x < y ? -1 : 1
+            }
         }
         return 0
     }
+    
+    private static func leadingNumber(_ part: Substring) -> Int {
+        Int(part.prefix { $0.isASCII && $0.isNumber }) ?? 0
+    }
+    
+    private static func parseDate(_ value: String) -> Date? {
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return withFraction.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+    }
 }
 
-private extension Character {
-    var isASCIIDigitCharacter: Bool { ("0"..."9").contains(self) }
-}
-
-public extension BipeAPIClient {
-    private struct BannerResponse: Decodable {
-        let banner: BipeRemoteBanner?
-    }
-
-    /// `GET /v1/banner`. No auth; sends nothing about the person.
-    func remoteBanner() async throws(BipeAPIError) -> BipeRemoteBanner? {
-        let response: BannerResponse = try await send(method: "GET", path: ["v1", "banner"], body: Empty?.none)
-        return response.banner
-    }
+struct BipeRemoteBannerResponse: Decodable, Sendable {
+    let banner: BipeRemoteBanner?
 }

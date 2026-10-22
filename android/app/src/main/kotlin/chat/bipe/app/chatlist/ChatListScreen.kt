@@ -60,6 +60,9 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.encryption.EncryptionSheet
+import chat.bipe.app.encryption.EncryptionStatusModel
+import chat.bipe.app.encryption.HistoryBanner
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeHaptic
@@ -83,8 +86,9 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     val requests = remember(session) { ChatRequestsModel(context.applicationContext, session, scope) }
     val search = remember(session) { ChatSearchModel(session, model, scope) }
-    val banner = remember(session) { RemoteBannerModel(context.applicationContext, api, scope) }
+    val remoteBanner = remember(session) { RemoteBannerModel(context.applicationContext, api, scope) }
     var showsRequests by rememberSaveable { mutableStateOf(false) }
+    val encryption = remember(session) { EncryptionStatusModel(session, scope, context.applicationContext) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsSettings by rememberSaveable { mutableStateOf(false) }
@@ -99,10 +103,14 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             search.dispose()
         }
     }
+    DisposableEffect(encryption) {
+        encryption.observe()
+        onDispose { encryption.close() }
+    }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check() }
     // remote-banner, action refresh: when the list appears and on every return to the foreground.
-    LaunchedEffect(foregroundCount) { banner.refresh() }
+    LaunchedEffect(foregroundCount) { remoteBanner.refresh() }
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
@@ -113,7 +121,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
         }
         roomId != null -> {
             BackHandler { openRoomId = null }
-            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
+            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onHistoryHelp = encryption::openSheet)
         }
         showsRequests -> ChatRequestsScreen(
             requests,
@@ -137,10 +145,12 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             onOpenSettings = { showsSettings = true },
             requests = requests,
             search = search,
-            banner = banner,
+            remoteBanner = remoteBanner,
             onOpenRequests = { showsRequests = true },
+            banner = { HistoryBanner(encryption) },
         )
     }
+    EncryptionSheet(encryption)
 }
 
 /** Spec chat-list. */
@@ -155,8 +165,9 @@ fun ChatListScreen(
     onOpenSettings: (() -> Unit)? = null,
     requests: ChatRequestsModel? = null,
     search: ChatSearchModel? = null,
-    banner: RemoteBannerModel? = null,
+    remoteBanner: RemoteBannerModel? = null,
     onOpenRequests: () -> Unit = {},
+    banner: @Composable () -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
@@ -190,7 +201,9 @@ fun ChatListScreen(
                     }
                 }
             }
-            banner?.let { RemoteBannerCard(it, context) }
+            remoteBanner?.let { RemoteBannerCard(it, context) }
+            // Spec encryption-status: the banner above the chat list.
+            banner()
             search?.let { ChatSearchField(it) }
             if (search != null && query.isNotEmpty()) {
                 ChatSearchResults(search, media) { roomId ->

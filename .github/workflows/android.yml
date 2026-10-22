@@ -37,11 +37,19 @@ jobs:
         working-directory: android
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-shared
+          path: bipe-shared
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      - name: Shared vector tests (bipe-chat/bipe#576)
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+        run: ./gradlew --no-daemon :libraries:bipe:testDebugUnitTest
       - name: Build debug and release
         run: ./gradlew --no-daemon assembleDebug assembleRelease
       - name: Upload the debug APK
