@@ -23,6 +23,9 @@ settings:
     # the App Store Connect API key (.github/workflows/testflight.yml).
     DEVELOPMENT_TEAM: 992N457T8D
     CODE_SIGN_STYLE: Automatic
+    # Name under the home screen icon. Tester builds are "Bipe Next" (ADR 0147). At the switch
+    # to the fork's IDs (ADR 0061) this becomes "Bipe". All three targets read it.
+    BIPE_DISPLAY_NAME: Bipe Next
 
 packages:
   MatrixRustSDK:
@@ -42,7 +45,7 @@ targets:
     info:
       path: SupportFiles/Bipe/Info.plist
       properties:
-        CFBundleDisplayName: Bipe
+        CFBundleDisplayName: $(BIPE_DISPLAY_NAME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: pt-BR
@@ -67,6 +70,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next
+        # Bipe/Assets.xcassets, from Bipe artwork (bipe-web public/brand/app-icon.svg).
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: MatrixRustSDK
         product: MatrixRustSDK
@@ -93,7 +98,7 @@ targets:
     info:
       path: SupportFiles/BipeNotificationService/Info.plist
       properties:
-        CFBundleDisplayName: Bipe
+        CFBundleDisplayName: $(BIPE_DISPLAY_NAME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
@@ -124,7 +129,7 @@ targets:
     info:
       path: SupportFiles/BipeShare/Info.plist
       properties:
-        CFBundleDisplayName: Bipe
+        CFBundleDisplayName: $(BIPE_DISPLAY_NAME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
