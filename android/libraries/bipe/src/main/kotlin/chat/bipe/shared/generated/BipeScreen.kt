@@ -22,6 +22,9 @@ enum class BipeScreen(val id: String) {
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 
+    /** Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json */
+    CHAT_NOTIFICATIONS("chat-notifications"),
+
     /** Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json */
     CHAT_TIMELINE("chat-timeline"),
 
@@ -31,14 +34,41 @@ enum class BipeScreen(val id: String) {
     /** Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json */
     DEVICE_VERIFICATION("device-verification"),
 
+    /** Delete a DM (Apagar conversa) (flow chat). Spec: bipe-shared/product/screens/dm-delete.json */
+    DM_DELETE("dm-delete"),
+
     /** Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
     ENCRYPTION_STATUS("encryption-status"),
+
+    /** Create a group (flow groups). Spec: bipe-shared/product/screens/group-create.json */
+    GROUP_CREATE("group-create"),
+
+    /** Group info (flow groups). Spec: bipe-shared/product/screens/group-details.json */
+    GROUP_DETAILS("group-details"),
+
+    /** Add people to a group (flow groups). Spec: bipe-shared/product/screens/group-invite-members.json */
+    GROUP_INVITE_MEMBERS("group-invite-members"),
+
+    /** Leave a group (flow groups). Spec: bipe-shared/product/screens/group-leave.json */
+    GROUP_LEAVE("group-leave"),
+
+    /** People in a group (flow groups). Spec: bipe-shared/product/screens/group-members.json */
+    GROUP_MEMBERS("group-members"),
 
     /** Handle change line (flow chat). Spec: bipe-shared/product/screens/handle-change-line.json */
     HANDLE_CHANGE_LINE("handle-change-line"),
 
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
+
+    /** Create an invite with a first message (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
+    INVITE_NOTE("invite-note"),
+
+    /** Invite as a QR code (flow invites). Spec: bipe-shared/product/screens/invite-qr.json */
+    INVITE_QR("invite-qr"),
+
+    /** Invite people to Bipe (flow invites). Spec: bipe-shared/product/screens/invites.json */
+    INVITES("invites"),
 
     /** Link a computer: approve on the MAS page (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json */
     LINK_COMPUTER_APPROVE("link-computer-approve"),
@@ -84,6 +114,12 @@ enum class BipeScreen(val id: String) {
 
     /** Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json */
     PIN_CHANGE("pin-change"),
+
+    /** Create a poll (flow chat). Spec: bipe-shared/product/screens/poll-create.json */
+    POLL_CREATE("poll-create"),
+
+    /** Poll (flow chat). Spec: bipe-shared/product/screens/poll-detail.json */
+    POLL_DETAIL("poll-detail"),
 
     /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
     PROBLEM_REPORT("problem-report"),
