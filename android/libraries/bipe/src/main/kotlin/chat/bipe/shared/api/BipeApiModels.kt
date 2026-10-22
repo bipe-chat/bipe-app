@@ -142,3 +142,19 @@ internal object InstantSerializer : KSerializer<Instant> {
 
     override fun deserialize(decoder: Decoder): Instant = OffsetDateTime.parse(decoder.decodeString()).toInstant()
 }
+
+// Moved from libraries/bipe (BipeApiModels.kt) for BipeTrustProfile.
+
+/** Contract: `BusinessClaim` (ADR 0042). Only the parts the trust card reads. */
+@Serializable
+data class BipeBusinessClaim(
+    /** `registry_pending`, `awaiting_proof`, `verified`, `rejected` or `revoked`. */
+    @SerialName("status") val status: String,
+    @SerialName("domains") val domains: List<BipeBusinessDomain> = emptyList(),
+)
+
+@Serializable
+data class BipeBusinessDomain(
+    @SerialName("domain") val domain: String,
+    @Serializable(with = InstantSerializer::class) @SerialName("verified_at") val verifiedAt: Instant? = null,
+)

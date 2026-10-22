@@ -16,11 +16,19 @@ androidx-core = "1.16.0"
 androidx-activity = "1.10.1"
 androidx-browser = "1.8.0"
 compose-bom = "2025.08.00"
+tink = "1.18.0"
+junit = "4.13.2"
+truth = "1.4.4"
 
 [libraries]
 matrix-rust-sdk = { module = "org.matrix.rustcomponents:sdk-android", version.ref = "matrix-rust-sdk" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tink" }
+# Test only (ADR 0148): JUnit is EPL-1.0 and must stay on testImplementation lines.
+junit = { module = "junit:junit", version.ref = "junit" }
+truth = { module = "com.google.truth:truth", version.ref = "truth" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "androidx-annotation" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }

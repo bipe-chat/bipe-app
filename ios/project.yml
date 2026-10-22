@@ -14,7 +14,7 @@ options:
   # when no preferred language of the phone matches a localization.
   developmentLanguage: pt-BR
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "18.0"
   createIntermediateGroups: true
 
 settings:
@@ -54,10 +54,13 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: pt-BR
         CFBundleLocalizations: [pt-BR, en]
+        # Credential mutations always name this expanded own group; the fork group is read-only (ADR 0147).
+        BipeOwnedKeychainGroup: $(AppIdentifierPrefix)chat.bipe.app.next
+        BipeLegacyKeychainReadGroups: [992N457T8D.chat.bipe.app.dev]
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIRequiresFullScreen: true
-        # App lock and the owner checks of settings (spec app-lock, pin-change, data-export).
+        # App lock, the owner checks of settings (spec app-lock, pin-change, data-export) and device approval (device-verification).
         NSFaceIDUsageDescription: O Bipe usa o Face ID para abrir o app e para confirmar que é você.
         # The shell encrypts nothing itself. Revisit before end-to-end encryption ships.
         ITSAppUsesNonExemptEncryption: false

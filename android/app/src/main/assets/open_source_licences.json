@@ -52,7 +52,15 @@
       "licence": "Apache-2.0"
     },
     {
+      "name": "com.google.crypto.tink:tink-android",
+      "licence": "Apache-2.0"
+    },
+    {
       "name": "org.jetbrains.kotlinx:kotlinx-coroutines-android",
+      "licence": "Apache-2.0"
+    },
+    {
+      "name": "org.jetbrains.kotlinx:kotlinx-coroutines-core",
       "licence": "Apache-2.0"
     },
     {
