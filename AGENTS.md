@@ -55,6 +55,19 @@ Other source files carry the same three lines in their own comment syntax.
 - Icons are Phosphor (MIT) on both platforms. Do not use SF Symbols.
 - CI runs the dependency deny-list, a licence check of every dependency, the strings check and the similarity scan (see "Checks").
 
+## Checks
+
+The workflow `.github/workflows/licence.yml` runs these jobs on every PR. All of them are required on `main`. The tools are Node scripts in `tools/` (Node 24, built-ins only). Unit tests: `node --test tools/*.test.mjs` (job `tool-tests`).
+
+- `deny-list`: `node tools/deny-list.mjs`. Fails when `ios/project.yml`, `ios/**/Package.swift`, `ios/**/Package.resolved`, an Android Gradle file or `android/gradle/libs.versions.toml` names an Element package (`element-x-ios`, `element-x-android`, `compound-ios`, `compound-android`, `compound-design-tokens`, `matrix-rich-text-editor`, `element-call`, `element-hq/`, `io.element`).
+- `licences`: `node tools/licences.mjs`. Reads every `ios/**/Package.resolved` pin and the `[libraries]` of `android/gradle/libs.versions.toml`. Each dependency must be in `tools/licences.json` (SPDX licence, source URL, date checked) with Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC or MPL-2.0. To add a dependency, add its row to `tools/licences.json` in the same PR. An entry with `"unverified": true` prints a warning, not a failure.
+- `headers`: `node tools/headers.mjs`. Every `.swift` and `.kt` file outside folders named `Generated` or `generated` starts with the header above.
+- `strings`: `node tools/strings.mjs`. Fails on a string literal passed to SwiftUI `Text`, `Button`, `Label`, `.navigationTitle` or Compose `Text`, `text =`. UI text comes from the generated bipe-shared strings. The check is a line-based regex; its limits are in the file.
+- `similarity`: CI only. Runs JPlag 6.3.0 (SHA-256 pinned in the workflow, Java 25) with the language modules `swift` and `kotlin`. It compares each file in `ios/` with each Swift file of `element-hq/element-x-ios`, and each file in `android/` with each Kotlin file of `element-hq/element-x-android`, at their latest release tag. A self-test first proves that a copied file fails. Do not run the scan locally: it clones Element code.
+  - **Threshold: 0.5 (50 %) average similarity.** JPlag's own default threshold is 0.0 (it keeps every pair), so it cannot be a gate. 0.5 means half of the two files' tokens are in shared matches: well above the overlap that SwiftUI and Compose boilerplate cause, and low enough to catch a copied file with renamed symbols. A pair with maximum similarity above 0.5 (a small file mostly inside a large one) prints a warning to review, not a failure. Change the value in `tools/similarity.mjs` and here together, with the reason.
+  - A file that JPlag cannot parse (its Swift grammar is Swift 5.4, beta) is listed as a warning, not compared.
+- `provenance`: `PR_BODY="..." node tools/provenance.mjs`. Fails unless the PR body has a line that starts with `Provenance:`.
+
 ## Commits
 
 - Sign off every commit with the DCO: `git commit -s`. See the org [CONTRIBUTING.md](https://github.com/bipe-chat/.github/blob/main/CONTRIBUTING.md).
