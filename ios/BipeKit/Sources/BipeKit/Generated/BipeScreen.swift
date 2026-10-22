@@ -15,4 +15,31 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json
     case chatTimeline = "chat-timeline"
+
+    /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
+    case handlePick = "handle-pick"
+
+    /// Welcome (flow signup). Spec: bipe-shared/product/screens/onboarding-welcome.json
+    case onboardingWelcome = "onboarding-welcome"
+
+    /// Creating the account (flow signup). Spec: bipe-shared/product/screens/signup-create.json
+    case signupCreate = "signup-create"
+
+    /// Account created (flow signup). Spec: bipe-shared/product/screens/signup-done.json
+    case signupDone = "signup-done"
+
+    /// If you lose your phone (flow signup). Spec: bipe-shared/product/screens/signup-fallback.json
+    case signupFallback = "signup-fallback"
+
+    /// Invite code (flow signup). Spec: bipe-shared/product/screens/signup-invite-code.json
+    case signupInviteCode = "signup-invite-code"
+
+    /// Name and terms (flow signup). Spec: bipe-shared/product/screens/signup-name.json
+    case signupName = "signup-name"
+
+    /// Create PIN (flow signup). Spec: bipe-shared/product/screens/signup-pin.json
+    case signupPin = "signup-pin"
+
+    /// Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json
+    case signupWaitlist = "signup-waitlist"
 }

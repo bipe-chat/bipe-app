@@ -21,4 +21,31 @@ enum class BipeScreen(val id: String) {
 
     /** Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json */
     CHAT_TIMELINE("chat-timeline"),
+
+    /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
+    HANDLE_PICK("handle-pick"),
+
+    /** Welcome (flow signup). Spec: bipe-shared/product/screens/onboarding-welcome.json */
+    ONBOARDING_WELCOME("onboarding-welcome"),
+
+    /** Creating the account (flow signup). Spec: bipe-shared/product/screens/signup-create.json */
+    SIGNUP_CREATE("signup-create"),
+
+    /** Account created (flow signup). Spec: bipe-shared/product/screens/signup-done.json */
+    SIGNUP_DONE("signup-done"),
+
+    /** If you lose your phone (flow signup). Spec: bipe-shared/product/screens/signup-fallback.json */
+    SIGNUP_FALLBACK("signup-fallback"),
+
+    /** Invite code (flow signup). Spec: bipe-shared/product/screens/signup-invite-code.json */
+    SIGNUP_INVITE_CODE("signup-invite-code"),
+
+    /** Name and terms (flow signup). Spec: bipe-shared/product/screens/signup-name.json */
+    SIGNUP_NAME("signup-name"),
+
+    /** Create PIN (flow signup). Spec: bipe-shared/product/screens/signup-pin.json */
+    SIGNUP_PIN("signup-pin"),
+
+    /** Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json */
+    SIGNUP_WAITLIST("signup-waitlist"),
 }
