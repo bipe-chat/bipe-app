@@ -6,6 +6,7 @@ import Foundation
 import MatrixRustSDK
 
 /// A signed-in account: the SDK client and its sync service.
+/// Also compiled into the notification service extension (project.yml): keep it free of app-only types.
 final class AccountSession {
     let client: Client
     let syncService: SyncService
@@ -17,16 +18,27 @@ final class AccountSession {
         self.userId = userId
     }
 
+    /// The process that opens the store. The app and the notification service extension share the store
+    /// in the app group, so both take the SDK's cross-process lock (spec notification-service notes).
+    enum Process: String {
+        case app
+        case notificationService
+    }
+
     /// Builds a client whose store lives in the app group, one folder per account
     /// (spec account-start notes: the switch from the fork can reuse it).
-    static func makeClient(userId: String) async throws -> Client {
+    static func makeClient(userId: String, process: Process = .app) async throws -> Client {
         let paths = try storePaths(userId: userId)
-        return try await ClientBuilder()
+        var builder = ClientBuilder()
             .serverNameOrHomeserverUrl(serverNameOrUrl: AppConfig.homeserver)
             .sessionPaths(dataPath: paths.data.path, cachePath: paths.cache.path)
             .slidingSyncVersionBuilder(versionBuilder: .discoverNative)
             .setSessionDelegate(sessionDelegate: SessionSaver())
-            .build()
+            .crossProcessLockConfig(crossProcessLockConfig: .multiProcess(holderName: process.rawValue))
+        if process == .notificationService {
+            builder = builder.systemIsMemoryConstrained()
+        }
+        return try await builder.build()
     }
 
     /// Deletes the store of an account. A new sign-in needs an empty store: the crypto store

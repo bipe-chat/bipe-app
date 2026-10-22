@@ -6,6 +6,9 @@ import SwiftUI
 
 @main
 struct BipeApp: App {
+    /// Push token and notification taps (spec notification-service).
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
         WindowGroup {
             AccountStartView()

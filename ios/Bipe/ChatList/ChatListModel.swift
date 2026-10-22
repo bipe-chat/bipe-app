@@ -14,6 +14,7 @@ struct ChatSummary: Identifiable, Equatable {
     var lastActivity: Date?
     var unreadCount: Int
     var isDirect: Bool
+    var isMuted = false
 
     var id: String { roomId }
 }
@@ -136,6 +137,7 @@ final class ChatListModel: ObservableObject {
                            lastMessage: lastMessage,
                            lastActivity: lastActivity,
                            unreadCount: Int(info.numUnreadMessages),
-                           isDirect: info.isDirect)
+                           isDirect: info.isDirect,
+                           isMuted: info.cachedUserDefinedNotificationMode == .mute)
     }
 }

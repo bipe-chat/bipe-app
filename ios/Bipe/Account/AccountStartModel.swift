@@ -46,7 +46,11 @@ final class AccountStartModel: ObservableObject {
             }
             let syncService = try await client.syncService().finish()
             await syncService.start()
-            session = AccountSession(client: client, syncService: syncService, userId: try client.userId())
+            let session = AccountSession(client: client, syncService: syncService, userId: try client.userId())
+            self.session = session
+            // Spec push-registration: keep this phone's pusher current; notification actions use the account.
+            PushRegistration.shared.attach(session)
+            NotificationActions.shared.attach(session)
             phase = .ready
         } catch {
             phase = .failed
@@ -62,5 +66,6 @@ final class AccountStartModel: ObservableObject {
     /// Starts the sync again when the app comes back to the foreground.
     func resume() async {
         await session?.syncService.start()
+        await PushRegistration.shared.appBecameActive()
     }
 }
