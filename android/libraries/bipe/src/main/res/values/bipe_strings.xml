@@ -881,6 +881,9 @@
     <string name="bipe_profile_display_name_footer">Aparece para quem conversa com você.</string>
     <string name="bipe_profile_choose_file">Escolher arquivo</string>
     <string name="bipe_chats_appearance">Aparência</string>
+    <string name="bipe_chats_appearance_system">Igual ao celular</string>
+    <string name="bipe_chats_appearance_light">Claro</string>
+    <string name="bipe_chats_appearance_dark">Escuro</string>
     <string name="bipe_notifications_enable">Ligar neste celular</string>
     <string name="bipe_notifications_notify_about">Avisar sobre</string>
     <string name="bipe_notifications_chats">Conversas</string>

@@ -2018,6 +2018,12 @@ public enum BipeStrings {
 
     public static var chatsAppearance: String { NSLocalizedString("bipe_chats_appearance", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var chatsAppearanceSystem: String { NSLocalizedString("bipe_chats_appearance_system", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsAppearanceLight: String { NSLocalizedString("bipe_chats_appearance_light", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsAppearanceDark: String { NSLocalizedString("bipe_chats_appearance_dark", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var notificationsEnable: String { NSLocalizedString("bipe_notifications_enable", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var notificationsNotifyAbout: String { NSLocalizedString("bipe_notifications_notify_about", tableName: "Bipe", bundle: .module, comment: "") }
