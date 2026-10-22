@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(../bipe-ios/**)",
+      "Read(../bipe-android/**)",
+      "Read(../bipe-tokens/**)",
+      "Read(~/Dev/Bipe/bipe-ios/**)",
+      "Read(~/Dev/Bipe/bipe-android/**)",
+      "Read(~/Dev/Bipe/bipe-tokens/**)",
+      "Read(~/Dev/Bipe/.worktrees/**)",
+      "Read(~/Dev/Bipe/.factory/**)",
+      "Read(//Users/mz/Dev/Bipe/bipe-ios/**)",
+      "Read(//Users/mz/Dev/Bipe/bipe-android/**)",
+      "Read(//Users/mz/Dev/Bipe/bipe-tokens/**)",
+      "Read(//Users/mz/Dev/Bipe/.worktrees/**)",
+      "Read(//Users/mz/Dev/Bipe/.factory/**)",
+      "Edit(../bipe-ios/**)",
+      "Edit(../bipe-android/**)",
+      "Edit(../bipe-tokens/**)",
+      "Edit(//Users/mz/Dev/Bipe/bipe-ios/**)",
+      "Edit(//Users/mz/Dev/Bipe/bipe-android/**)",
+      "Edit(//Users/mz/Dev/Bipe/bipe-tokens/**)"
+    ]
+  }
+}
