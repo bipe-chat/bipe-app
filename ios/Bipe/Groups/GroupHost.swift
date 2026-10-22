@@ -11,17 +11,23 @@ import SwiftUI
 /// to the foreground).
 private struct GroupHostModifier: ViewModifier {
     let session: AccountSession
+    let api: BipeAPIClient
     let media: MediaLoader
     @Binding var path: NavigationPath
     @Binding var creatingGroup: Bool
     @Binding var deletingDm: String?
+    @Binding var showingInvites: Bool
     @State private var toast: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
     @Environment(\.scenePhase) private var scenePhase
 
     func body(content: Content) -> some View {
         content
-            .environment(\.closeChat, { path = NavigationPath() })
+            .sheet(isPresented: $showingInvites) {
+                InvitesView(session: session, api: api, media: media) { roomId in
+                    path.append(roomId)
+                }
+            }
             .sheet(isPresented: $creatingGroup) {
                 GroupCreateView(session: session, media: media) { roomId, allInvited in
                     path.append(roomId)
@@ -41,6 +47,9 @@ private struct GroupHostModifier: ViewModifier {
                     Task { await cleared.refresh(client: session.client) }
                 }
             }
+            // Last, so the sheets above get them too.
+            .environment(\.closeChat, { path = NavigationPath() })
+            .environment(\.bipeAPI, api)
     }
 }
 
@@ -49,18 +58,23 @@ private struct DmSheetId: Identifiable {
 }
 
 extension View {
-    func groupHost(session: AccountSession, media: MediaLoader, path: Binding<NavigationPath>, creatingGroup: Binding<Bool>,
-                   deletingDm: Binding<String?>) -> some View {
-        modifier(GroupHostModifier(session: session, media: media, path: path, creatingGroup: creatingGroup, deletingDm: deletingDm))
+    func groupHost(session: AccountSession, api: BipeAPIClient, media: MediaLoader, path: Binding<NavigationPath>,
+                   creatingGroup: Binding<Bool>, deletingDm: Binding<String?>, showingInvites: Binding<Bool>) -> some View {
+        modifier(GroupHostModifier(session: session, api: api, media: media, path: path, creatingGroup: creatingGroup,
+                                   deletingDm: deletingDm, showingInvites: showingInvites))
     }
 }
 
-/// The plus button of chat-list that opens group-create (the Grupos tab takes it over, lane D).
+/// The plus menu of chat-list: group-create and invites (the Grupos and Você tabs take them over, lane D).
 struct CreateGroupButton: View {
-    let action: () -> Void
+    let createGroup: () -> Void
+    let invite: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Menu {
+            Button(BipeStrings.groupsEmptyAction, action: createGroup)
+            Button(BipeStrings.invitesTitle, action: invite)
+        } label: {
             PhosphorIcon.plus.image.resizable().frame(width: 22, height: 22)
         }
         .accessibilityLabel(BipeStrings.groupsEmptyAction)

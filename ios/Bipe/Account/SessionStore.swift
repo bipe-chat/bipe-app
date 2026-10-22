@@ -7,7 +7,8 @@ import MatrixRustSDK
 import Security
 
 /// Keeps the SDK session (tokens, device ID) in the app's own keychain group, on this device only.
-/// Never logged.
+/// Never logged. The notification service extension reads it too: its first keychain access group is the
+/// app's (project.yml), so both use the same default group. Also compiled into the extension.
 enum SessionStore {
     private static let service = "chat.bipe.next.session"
     private static let account = "current"

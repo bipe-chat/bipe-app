@@ -17,17 +17,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import chat.bipe.app.settings.SettingsHost
 import chat.bipe.phosphor.PhosphorIcon
 import androidx.compose.ui.res.painterResource
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +51,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.TermsReacceptModel
 import chat.bipe.app.account.TermsReacceptScreen
@@ -101,6 +103,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsSettings by rememberSaveable { mutableStateOf(false) }
     val termsPhase by terms.phase.collectAsState()
+    val app = context.applicationContext as BipeApplication
     DisposableEffect(model) {
         model.start()
         handle.load()
@@ -134,6 +137,23 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
         },
         pickHandle = { showsHandlePick = true },
     )
+    // Spec notification-service, action open.
+    val roomToOpen by app.roomToOpen.collectAsState()
+    LaunchedEffect(roomToOpen) {
+        roomToOpen?.let {
+            showsSettings = false
+            peopleStack = emptyList()
+            showsHandlePick = false
+            openRoomId = it
+            app.roomToOpen.value = null
+        }
+    }
+    // An open chat has no notifications, and its pushes show none.
+    DisposableEffect(openRoomId) {
+        app.notifications.visibleRoomId = openRoomId
+        openRoomId?.let { app.notifications.clear(it) }
+        onDispose { app.notifications.visibleRoomId = null }
+    }
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
@@ -147,7 +167,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             BackHandler { navigation.pop() }
             PeopleScreen(peopleStack.last(), people, navigation)
         }
-        else -> GroupHost(session, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
+        else -> GroupHost(session, api, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
             if (roomId != null) {
                 BackHandler { openRoomId = null }
                 ChatTimelineScreen(
@@ -174,6 +194,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
                     banner = { HistoryBanner(encryption) },
                     onCreateGroup = groups.createGroup,
                     onDeleteDm = groups.deleteDm,
+                    onInvite = groups.openInvites,
                     onOpenPeople = navigation.push,
                 )
             }
@@ -195,6 +216,7 @@ fun ChatListScreen(
     banner: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
+    onInvite: () -> Unit = {},
     onOpenPeople: (PeopleRoute) -> Unit,
 ) {
     val colors = BipeTheme.colors
@@ -212,7 +234,7 @@ fun ChatListScreen(
                     modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
                 )
                 PeopleMenu(onOpenPeople)
-                CreateGroupButton(onCreateGroup)
+                CreateGroupButton(onCreateGroup, onInvite)
                 if (onOpenSettings != null) {
                     IconButton(onClick = onOpenSettings) {
                         Icon(
@@ -283,6 +305,15 @@ private fun ChatRow(chat: ChatSummary, media: MediaLoader, onClick: () -> Unit) 
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                // Spec chat-notifications: a muted chat keeps its badge, without sound or notification.
+                if (chat.isMuted) {
+                    Icon(
+                        painterResource(PhosphorIcon.BELL_SLASH.drawable),
+                        contentDescription = stringResource(R.string.bipe_app_notification_mode_off),
+                        tint = colors.glyphSecondary,
+                        modifier = Modifier.padding(start = 8.dp).size(16.dp),
+                    )
+                }
                 if (chat.unreadCount > 0) {
                     val count = NumberFormat.getIntegerInstance().format(chat.unreadCount)
                     val label = stringResource(R.string.bipe_app_chat_list_unread, count)

@@ -133,6 +133,10 @@ struct ChatTimelineView: View {
         } message: {
             Text(BipeStrings.appMessageDeleteBody)
         }
+        // Spec notification-service: an open chat has no notifications.
+        .onAppear { NotificationActions.shared.chatOpened(model.roomId) }
+        .onDisappear { NotificationActions.shared.chatOpened(nil) }
+        .notificationsPrompt(session: session, roomId: model.roomId, messages: model.rows.compactMap(\.message))
     }
 
     /// Spec dm-delete: events at or below the marker of a cleared DM are gone.
