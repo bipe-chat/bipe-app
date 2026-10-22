@@ -28,6 +28,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json
     case deviceVerification = "device-verification"
 
+    /// Delete a DM (Apagar conversa) (flow chat). Spec: bipe-shared/product/screens/dm-delete.json
+    case dmDelete = "dm-delete"
+
     /// Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json
     case encryptionStatus = "encryption-status"
 

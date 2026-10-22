@@ -34,6 +34,9 @@ enum class BipeScreen(val id: String) {
     /** Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json */
     DEVICE_VERIFICATION("device-verification"),
 
+    /** Delete a DM (Apagar conversa) (flow chat). Spec: bipe-shared/product/screens/dm-delete.json */
+    DM_DELETE("dm-delete"),
+
     /** Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
     ENCRYPTION_STATUS("encryption-status"),
 
