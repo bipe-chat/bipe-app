@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import os
 
@@ -22,46 +23,18 @@ enum AccountStep {
 
     /// Runs the step. On time-out it throws `timedOut` at once and leaves the step running; the SDK call ignores
     /// cancellation.
-    static func run<T>(_ name: String, _ operation: @escaping () async throws -> T) async throws -> T {
-        log.info("\(name, privacy: .public): start")
-        let gate = Gate()
+    static func run<T: Sendable>(_ name: String, _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        log.notice("\(name, privacy: .public): start")
         do {
-            let value: T = try await withCheckedThrowingContinuation { continuation in
-                let work = Task {
-                    do {
-                        let value = try await operation()
-                        if gate.claim() { continuation.resume(returning: value) }
-                    } catch {
-                        if gate.claim() { continuation.resume(throwing: error) }
-                    }
-                }
-                Task {
-                    try? await Task.sleep(nanoseconds: limit * 1_000_000_000)
-                    if gate.claim() {
-                        work.cancel()
-                        continuation.resume(throwing: Failure.timedOut(name))
-                    }
-                }
-            }
-            log.info("\(name, privacy: .public): done")
+            let value = try await BipeDeadline.run(seconds: TimeInterval(limit), operation: operation)
+            log.notice("\(name, privacy: .public): done")
             return value
+        } catch is BipeDeadline.Expired {
+            log.error("\(name, privacy: .public): timed out")
+            throw Failure.timedOut(name)
         } catch {
-            log.error("\(name, privacy: .public): failed, \(String(describing: error), privacy: .public)")
+            log.error("\(name, privacy: .public): failed")
             throw error
-        }
-    }
-
-    /// Lets only the first of the step and its timer resume the caller.
-    private final class Gate: @unchecked Sendable {
-        private let lock = NSLock()
-        private var claimed = false
-
-        func claim() -> Bool {
-            lock.lock()
-            defer { lock.unlock() }
-            guard !claimed else { return false }
-            claimed = true
-            return true
         }
     }
 }
