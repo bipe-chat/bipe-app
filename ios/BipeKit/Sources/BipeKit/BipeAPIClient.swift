@@ -182,10 +182,10 @@ public struct BipeAPIClient: Sendable {
     
     // MARK: - Private
     
-    private struct Empty: Encodable { }
+    struct Empty: Encodable { }
     
     /// Stands in for an empty 204 body.
-    private struct NoContent: Decodable { }
+    struct NoContent: Decodable { }
     
     private struct AttestChallengeResponse: Decodable {
         let challenge: String
@@ -257,7 +257,7 @@ public struct BipeAPIClient: Sendable {
         let triesLeft: Int?
     }
     
-    private func send<Body: Encodable, Response: Decodable>(method: String,
+    func send<Body: Encodable, Response: Decodable>(method: String,
                                                             path: [String],
                                                             body: Body?,
                                                             accessToken: String? = nil) async throws(BipeAPIError) -> Response {
@@ -273,7 +273,7 @@ public struct BipeAPIClient: Sendable {
     }
     
     /// Sends the request and returns the body of a 2xx answer. Other answers throw the contract's error.
-    private func perform(method: String,
+    func perform(method: String,
                          path: [String],
                          query: [URLQueryItem] = [],
                          rawBody: (data: Data, contentType: String)?,
@@ -327,7 +327,7 @@ public struct BipeAPIClient: Sendable {
         return (data, httpResponse)
     }
     
-    private func send<Response: Decodable>(method: String,
+    func send<Response: Decodable>(method: String,
                                            path: [String],
                                            query: [URLQueryItem] = [],
                                            rawBody: (data: Data, contentType: String)?,

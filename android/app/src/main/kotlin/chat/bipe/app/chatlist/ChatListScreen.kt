@@ -23,6 +23,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import chat.bipe.app.settings.SettingsHost
+import chat.bipe.phosphor.PhosphorIcon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,6 +80,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
+    var showsSettings by rememberSaveable { mutableStateOf(false) }
     val termsPhase by terms.phase.collectAsState()
     DisposableEffect(model) {
         model.start()
@@ -86,6 +92,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
+        showsSettings -> SettingsHost(session, api, onClose = { showsSettings = false }, onSignedOut = onSignOut)
         showsHandlePick -> {
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
@@ -94,7 +101,14 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             BackHandler { openRoomId = null }
             ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
         }
-        else -> ChatListScreen(model, media, handle, onOpenHandlePick = { showsHandlePick = true }, onOpenChat = { openRoomId = it })
+        else -> ChatListScreen(
+            model,
+            media,
+            handle,
+            onOpenHandlePick = { showsHandlePick = true },
+            onOpenChat = { openRoomId = it },
+            onOpenSettings = { showsSettings = true },
+        )
     }
 }
 
@@ -106,6 +120,8 @@ fun ChatListScreen(
     handle: HandlePickModel,
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
+    /** The temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main. */
+    onOpenSettings: (() -> Unit)? = null,
 ) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
@@ -113,12 +129,23 @@ fun ChatListScreen(
     val handleState by handle.state.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            Text(
-                stringResource(R.string.bipe_app_chat_list_title),
-                style = MaterialTheme.typography.headlineMedium,
-                color = colors.inkPrimary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.bipe_app_chat_list_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = colors.inkPrimary,
+                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+                if (onOpenSettings != null) {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            painterResource(PhosphorIcon.GEAR.drawable),
+                            contentDescription = stringResource(R.string.bipe_settings_section),
+                            tint = colors.glyphPrimary,
+                        )
+                    }
+                }
+            }
             if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

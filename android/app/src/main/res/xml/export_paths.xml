@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: AGPL-3.0-only
+  Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+  Copyright 2026 Bipe contributors
+-->
+<!-- The folder of the latest data export (spec data-export), shared through the system share sheet. -->
+<paths>
+    <cache-path name="export" path="export/" />
+</paths>
