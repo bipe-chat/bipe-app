@@ -60,6 +60,9 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.encryption.EncryptionSheet
+import chat.bipe.app.encryption.EncryptionStatusModel
+import chat.bipe.app.encryption.HistoryBanner
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -78,6 +81,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val media = remember(session) { MediaLoader(session.client) }
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
+    val encryption = remember(session) { EncryptionStatusModel(session, scope, context.applicationContext) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsSettings by rememberSaveable { mutableStateOf(false) }
@@ -86,6 +90,10 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
         model.start()
         handle.load()
         onDispose { model.close() }
+    }
+    DisposableEffect(encryption) {
+        encryption.observe()
+        onDispose { encryption.close() }
     }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check() }
@@ -99,7 +107,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
         }
         roomId != null -> {
             BackHandler { openRoomId = null }
-            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
+            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onHistoryHelp = encryption::openSheet)
         }
         else -> ChatListScreen(
             model,
@@ -108,8 +116,10 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             onOpenHandlePick = { showsHandlePick = true },
             onOpenChat = { openRoomId = it },
             onOpenSettings = { showsSettings = true },
+            banner = { HistoryBanner(encryption) },
         )
     }
+    EncryptionSheet(encryption)
 }
 
 /** Spec chat-list. */
@@ -122,6 +132,7 @@ fun ChatListScreen(
     onOpenChat: (String) -> Unit,
     /** The temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main. */
     onOpenSettings: (() -> Unit)? = null,
+    banner: @Composable () -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
@@ -147,6 +158,8 @@ fun ChatListScreen(
                 }
             }
             if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
+            // Spec encryption-status: the banner above the chat list.
+            banner()
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)

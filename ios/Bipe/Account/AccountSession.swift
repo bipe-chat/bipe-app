@@ -63,6 +63,11 @@ final class AccountSession {
             .sessionPaths(dataPath: paths.data.path, cachePath: paths.cache.path)
             .slidingSyncVersionBuilder(versionBuilder: .discoverNative)
             .setSessionDelegate(sessionDelegate: SessionSaver())
+            // Spec encryption-status: a new account gets cross-signing and key backup with no screen.
+            .autoEnableCrossSigning(autoEnableCrossSigning: true)
+            .autoEnableBackups(autoEnableBackups: true)
+            // Old messages decrypt from the key backup once this phone has the backup key (recovery-key-enter).
+            .backupDownloadStrategy(backupDownloadStrategy: .afterDecryptionFailure)
             .build()
     }
 
