@@ -9,7 +9,17 @@ private struct CloseChatKey: EnvironmentKey {
     static let defaultValue: @MainActor () -> Void = {}
 }
 
+private struct BipeAPIKey: EnvironmentKey {
+    static let defaultValue: BipeAPIClient? = nil
+}
+
 extension EnvironmentValues {
+    /// The Bipe API client for the screens that need it (invites from group-invite-members).
+    var bipeAPI: BipeAPIClient? {
+        get { self[BipeAPIKey.self] }
+        set { self[BipeAPIKey.self] = newValue }
+    }
+
     /// Closes the open chat and goes back to the chat list (group-leave and dm-delete).
     var closeChat: @MainActor () -> Void {
         get { self[CloseChatKey.self] }

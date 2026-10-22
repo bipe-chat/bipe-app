@@ -16,6 +16,8 @@ struct ChatListView: View {
     @State private var path: [String]
     @State private var showsHandlePick = false
     private let onOpenSettings: (() -> Void)?
+    private let api: BipeAPIClient
+    @State private var showingInvites = false
     @State private var creatingGroup = false
     @State private var deletingDm: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
@@ -24,6 +26,7 @@ struct ChatListView: View {
     /// onOpenSettings: the temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main.
     init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil, onOpenSettings: (() -> Void)? = nil) {
         self.onOpenSettings = onOpenSettings
+        self.api = api
         _model = StateObject(wrappedValue: ChatListModel(session: session))
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: session))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: session))
@@ -46,7 +49,7 @@ struct ChatListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    CreateGroupButton { creatingGroup = true }
+                    CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -61,7 +64,8 @@ struct ChatListView: View {
                 }
             }
         }
-        .groupHost(session: model.session, media: model.media, path: $path, creatingGroup: $creatingGroup, deletingDm: $deletingDm)
+        .groupHost(session: model.session, api: api, media: model.media, path: $path, creatingGroup: $creatingGroup,
+                   deletingDm: $deletingDm, showingInvites: $showingInvites)
         .environment(\.openHistoryHelp, encryption.openSheet)
         .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
             EncryptionSheet(route: route, model: encryption, session: model.session)
