@@ -117,11 +117,18 @@ class ChatTimelineModel(
     private val scope: CoroutineScope,
     private val greetings: InviterGreetings,
     private val strings: RowStrings,
+    private val unnamedChatText: String,
     /** Spec typing-indicator sharesTyping: the presence setting (bipe_privacy_presence). */
     private val sharesTyping: () -> Boolean,
 ) {
     private val _roomName = MutableStateFlow("")
     val roomName: StateFlow<String> = _roomName.asStateFlow()
+    private val _roomAvatarUrl = MutableStateFlow<String?>(null)
+    val roomAvatarUrl = _roomAvatarUrl.asStateFlow()
+    private val _peerUserId = MutableStateFlow<String?>(null)
+    val peerUserId = _peerUserId.asStateFlow()
+    private val _isGroup = MutableStateFlow(false)
+    val isGroup = _isGroup.asStateFlow()
     private val _rows = MutableStateFlow<List<TimelineRow>>(emptyList())
     val rows: StateFlow<List<TimelineRow>> = _rows.asStateFlow()
     /** The messages of the rows, oldest first (polls read their data here). */
@@ -162,7 +169,7 @@ class ChatTimelineModel(
         scope.launch {
             val room = runCatching { session.client.getRoom(roomId) }.getOrNull() ?: return@launch
             this@ChatTimelineModel.room = room
-            _roomName.value = room.displayName() ?: roomId
+            _roomName.value = unnamedChatText
             greetings.get()?.let { greeting ->
                 if (runCatching { session.client.getDmRoom(greeting.userId) }.getOrNull()?.id() == roomId) _inviterHint.value = greeting
             }
@@ -193,6 +200,7 @@ class ChatTimelineModel(
             loadHistory()
             for (batch in diffs) {
                 batch.forEach { items.applyDiff(it.toVectorDiff()) }
+                loadRoomFacts(room)
                 rebuild()
             }
         }
@@ -208,6 +216,13 @@ class ChatTimelineModel(
     private suspend fun loadRoomFacts(room: Room) {
         runCatching { room.roomInfo() }.getOrNull()?.let { info ->
             facts = facts.copy(isDm = info.isDm, joinedMembers = info.joinedMembersCount.toInt())
+            _isGroup.value = !info.isDm && !info.isSpace
+            val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
+            val peerName = peer?.displayName?.takeIf { it.isNotBlank() }
+                ?: peer?.userId?.let { chat.bipe.app.people.Person.localpart(it) } ?: unnamedChatText
+            _roomName.value = if (info.isDm) peerName else info.displayName ?: info.id
+            _roomAvatarUrl.value = if (info.isDm) peer?.avatarUrl else info.avatarUrl
+            _peerUserId.value = peer?.userId
         }
         runCatching { room.latestEncryptionState() }.getOrNull()?.let { state ->
             facts = facts.copy(isEncrypted = state != EncryptionState.NOT_ENCRYPTED)

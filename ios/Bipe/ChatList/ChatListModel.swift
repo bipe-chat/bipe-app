@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 
@@ -206,16 +207,19 @@ final class ChatListModel: ObservableObject {
         case .none:
             break
         }
+        let peer = info.isDm ? info.heroes.first(where: { $0.userId != ownUserId }) : nil
+        let peerName = peer?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = peerName.flatMap { $0.isEmpty ? nil : $0 } ?? peer.map { Person.localpart(of: $0.userId) } ?? BipeStrings.dmNoName
         return ChatSummary(roomId: info.id,
-                           name: info.displayName ?? info.id,
-                           avatarUrl: info.avatarUrl,
+                           name: info.isDm ? name : (info.displayName ?? info.id),
+                           avatarUrl: info.isDm ? peer?.avatarUrl : info.avatarUrl,
                            lastMessage: lastMessage,
                            lastActivity: lastActivity,
                            unreadCount: Int(info.numUnreadMessages),
                            isDirect: info.isDirect,
                            memberCount: Int(info.activeMembersCount),
                            mentionCount: Int(info.numUnreadMentions),
-                           peerUserId: info.isDirect ? info.heroes.first(where: { $0.userId != ownUserId })?.userId : nil,
+                           peerUserId: peer?.userId,
                            isDm: info.isDm)
     }
 }

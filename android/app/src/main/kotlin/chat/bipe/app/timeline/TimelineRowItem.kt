@@ -325,7 +325,7 @@ private fun ReaderAvatars(readers: List<ReceiptReader>, media: MediaLoader, onCl
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy((-4).dp),
     ) {
-        readers.take(3).forEach { reader -> Avatar(reader.name, reader.avatarUrl, media, size = 16.dp) }
+        readers.take(3).forEach { reader -> Avatar(reader.name, reader.avatarUrl, media, size = 16.dp, userId = reader.userId) }
         if (readers.size > 3) {
             Text("+${readers.size - 3}", style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary, modifier = Modifier.padding(start = 6.dp))
         }

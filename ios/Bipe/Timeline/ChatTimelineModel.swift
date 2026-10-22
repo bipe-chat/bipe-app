@@ -106,7 +106,10 @@ final class ChatTimelineModel: ObservableObject {
     static let typingInterval: TimeInterval = 4
 
     // chat-timeline and timeline-rows
-    @Published private(set) var roomName = ""
+    @Published private(set) var roomName = BipeStrings.dmNoName
+    @Published private(set) var roomAvatarUrl: String?
+    @Published private(set) var peerUserId: String?
+    @Published private(set) var isGroup = false
     @Published private(set) var rows: [TimelineRow] = []
     @Published private(set) var isLoadingHistory = false
     @Published private(set) var reachedStart = false
@@ -196,7 +199,6 @@ final class ChatTimelineModel: ObservableObject {
         started = true
         guard let room = try? session.client.getRoom(roomId: roomId) else { return }
         self.room = room
-        roomName = room.displayName() ?? roomId
         let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: false),
                                                   filter: .all,
                                                   internalIdPrefix: nil,
@@ -224,6 +226,7 @@ final class ChatTimelineModel: ObservableObject {
             for diff in diffs {
                 items.apply(diff.vectorDiff)
             }
+            await loadRoomFacts(room)
             rebuild()
         }
     }
@@ -237,6 +240,13 @@ final class ChatTimelineModel: ObservableObject {
         if let info = try? await room.roomInfo() {
             facts.isDm = info.isDm
             facts.joinedMembers = Int(info.joinedMembersCount)
+            isGroup = !info.isDm && !info.isSpace
+            let peer = info.isDm ? info.heroes.first(where: { $0.userId != session.userId }) : nil
+            let peerName = peer?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let name = peerName.flatMap { $0.isEmpty ? nil : $0 } ?? peer.map { Person.localpart(of: $0.userId) } ?? BipeStrings.dmNoName
+            roomName = info.isDm ? name : (info.displayName ?? info.id)
+            roomAvatarUrl = info.isDm ? peer?.avatarUrl : info.avatarUrl
+            peerUserId = peer?.userId
         }
         if let state = try? await room.latestEncryptionState() {
             facts.isEncrypted = state != .notEncrypted

@@ -58,6 +58,7 @@ class ChatListModel(
     val session: AccountSession,
     private val scope: CoroutineScope,
     private val undecryptableText: String,
+    private val unnamedChatText: String,
     val notes: NotesRoom,
 ) {
     enum class Phase { LOADING, EMPTY, LOADED }
@@ -211,17 +212,20 @@ class ChatListModel(
             is LatestEventValue.RemoteInvite -> lastActivity = latest.timestamp.toLong()
             LatestEventValue.None -> Unit
         }
+        val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
+        val peerName = peer?.displayName?.takeIf { it.isNotBlank() }
+            ?: peer?.userId?.let { chat.bipe.app.people.Person.localpart(it) } ?: unnamedChatText
         return ChatSummary(
             roomId = info.id,
-            name = info.displayName ?: info.id,
-            avatarUrl = info.avatarUrl,
+            name = if (info.isDm) peerName else info.displayName ?: info.id,
+            avatarUrl = if (info.isDm) peer?.avatarUrl else info.avatarUrl,
             lastMessage = lastMessage,
             lastActivity = lastActivity,
             unreadCount = info.numUnreadMessages.toInt(),
             isDirect = info.isDirect,
             memberCount = info.activeMembersCount.toInt(),
             mentionCount = info.numUnreadMentions.toInt(),
-            peerUserId = if (info.isDirect) info.heroes.firstOrNull { it.userId != session.userId }?.userId else null,
+            peerUserId = peer?.userId,
             isDm = info.isDm,
         )
     }

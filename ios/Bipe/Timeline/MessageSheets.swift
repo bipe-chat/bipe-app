@@ -192,7 +192,7 @@ struct ReadersSheet: View {
         NavigationStack {
             List(readers) { reader in
                 HStack(spacing: 12) {
-                    AvatarView(name: reader.name, mxcUrl: reader.avatarUrl, loader: media, size: 32)
+                    AvatarView(name: reader.name, mxcUrl: reader.avatarUrl, loader: media, size: 32, userId: reader.userId)
                     Text(reader.name)
                         .foregroundStyle(BipeColor.inkPrimary)
                     Spacer()
