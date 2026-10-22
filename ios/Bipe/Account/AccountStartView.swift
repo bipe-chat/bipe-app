@@ -29,9 +29,17 @@ struct AccountStartView: View {
             case .opening:
                 StartMessage(icon: .chatCircle, title: BipeStrings.appName, message: BipeStrings.appStartLoading, showsProgress: true)
             case .noAccount:
-                // Spec account-start: noAccount shows onboarding-welcome.
-                SignupFlowView(api: model.api) { session, outcome in
-                    model.didSignUp(session, outcome: outcome)
+                if model.hasPendingRecovery {
+                    // Spec account-start: a kept recovery opens recovery-waiting instead of noAccount.
+                    RecoveryWaitingView(api: model.api,
+                                        onSignedIn: { model.didRecover($0) },
+                                        onStartOver: { model.startRecoveryOver() })
+                } else {
+                    // Spec account-start: noAccount shows onboarding-welcome.
+                    SignupFlowView(api: model.api,
+                                   onSignedUp: { session, outcome in model.didSignUp(session, outcome: outcome) },
+                                   onSignedIn: { model.didRecover($0) },
+                                   onWaiting: { model.didStartRecovery() })
                 }
             case .failed:
                 StartMessage(icon: .warningCircle, title: BipeStrings.appName, message: BipeStrings.appStartError) {
@@ -50,13 +58,17 @@ struct AccountStartView: View {
     }
 }
 
-/// The signed-in app: chat-list, with terms-reaccept over it when the legal version changed.
+/// The signed-in app: chat-list, with terms-reaccept, recovery-alert and an incoming device-verification over it,
+/// and the encryption-status sheets.
 private struct SignedInView: View {
     let session: AccountSession
     let api: BipeAPIClient
     let initialRoomId: String?
     let onSignOut: () -> Void
     @StateObject private var terms: TermsReacceptModel
+    @StateObject private var alert: RecoveryAlertModel
+    @StateObject private var encryption: EncryptionModel
+    @StateObject private var verification: DeviceVerificationModel
     @Environment(\.scenePhase) private var scenePhase
 
     init(session: AccountSession, api: BipeAPIClient, initialRoomId: String?, onSignOut: @escaping () -> Void) {
@@ -65,19 +77,50 @@ private struct SignedInView: View {
         self.initialRoomId = initialRoomId
         self.onSignOut = onSignOut
         _terms = StateObject(wrappedValue: TermsReacceptModel(api: api, session: session))
+        _alert = StateObject(wrappedValue: RecoveryAlertModel(api: api, session: session))
+        _encryption = StateObject(wrappedValue: EncryptionModel(session: session))
+        _verification = StateObject(wrappedValue: DeviceVerificationModel(session: session))
     }
 
     var body: some View {
-        ChatListView(session: session, api: api, initialRoomId: initialRoomId)
-            .fullScreenCover(isPresented: Binding(get: { terms.phase != .hidden }, set: { _ in })) {
+        ZStack {
+            ChatListView(session: session, api: api, initialRoomId: initialRoomId)
+                .environmentObject(encryption)
+            if verification.isActive {
+                DeviceVerificationView(model: verification)
+            }
+            if alert.phase != .hidden {
+                RecoveryAlertView(model: alert)
+            }
+            if terms.phase != .hidden {
                 TermsReacceptView(model: terms, onSignOut: onSignOut)
             }
-            .task { await terms.check() }
-            .onChange(of: scenePhase) { _, phase in
-                if phase == .active {
-                    Task { await terms.check() }
+        }
+        .sheet(isPresented: $encryption.sheetOpen) { HistorySheet(model: encryption) }
+        .sheet(isPresented: $encryption.showsKeyEnter) {
+            RecoveryKeyEnterView(encryption: encryption.encryption) {
+                encryption.openSheet()
+            }
+        }
+        .sheet(isPresented: $encryption.showsKeySave) { RecoveryKeySaveView(encryption: encryption.encryption) }
+        .onChange(of: encryption.showsVerification) { _, shows in
+            if shows {
+                encryption.showsVerification = false
+                Task { await verification.request() }
+            }
+        }
+        .task { await terms.check() }
+        .task { await alert.check() }
+        .task { await encryption.observe() }
+        .task { await verification.start() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task {
+                    await terms.check()
+                    await alert.check()
                 }
             }
+        }
     }
 }
 

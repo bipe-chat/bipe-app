@@ -9,14 +9,21 @@ import SwiftUI
 /// The sign-up flow from onboarding-welcome to signup-create. account-start shows it when its phase is noAccount.
 struct SignupFlowView: View {
     @StateObject private var model: SignupFlowModel
+    @StateObject private var recovery: RecoveryFlowModel
+    @State private var showsRecovery = false
 
-    init(api: BipeAPIClient, onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void) {
+    /// onSignedIn and onWaiting: "Já tenho conta" (recovery-start) brought the account back, or started a delay.
+    init(api: BipeAPIClient,
+         onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void,
+         onSignedIn: @escaping (AccountSession) -> Void,
+         onWaiting: @escaping () -> Void) {
         _model = StateObject(wrappedValue: SignupFlowModel(api: api, onSignedUp: onSignedUp))
+        _recovery = StateObject(wrappedValue: RecoveryFlowModel(api: api, onSignedIn: onSignedIn, onWaiting: onWaiting))
     }
 
     var body: some View {
         NavigationStack(path: $model.path) {
-            OnboardingWelcomeView(model: model)
+            OnboardingWelcomeView(model: model) { showsRecovery = true }
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
                 .navigationDestination(for: SignupFlowModel.Route.self) { route in
                     Group {
@@ -35,8 +42,17 @@ struct SignupFlowView: View {
         .sheet(isPresented: $model.showsWaitlist) {
             SignupWaitlistView(model: model)
         }
+        .fullScreenCover(isPresented: $showsRecovery) {
+            RecoveryFlowView(model: recovery) { showsRecovery = false }
+        }
         .onOpenURL { url in
-            Task { await model.openInviteLink(url) }
+            if BipeRecoveryLink.token(from: url) != nil {
+                // The link from the recovery e-mail (recovery-email, action openLink).
+                recovery.openLink(url)
+                showsRecovery = true
+            } else {
+                Task { await model.openInviteLink(url) }
+            }
         }
     }
 }
@@ -44,7 +60,7 @@ struct SignupFlowView: View {
 // MARK: - Shared pieces
 
 /// A sign-up step: title, optional body, content, the one filled button and text buttons under it.
-private struct StepLayout<Content: View>: View {
+struct StepLayout<Content: View>: View {
     let screen: BipeScreen
     let title: String
     var message: String?
@@ -73,7 +89,7 @@ private struct StepLayout<Content: View>: View {
 }
 
 /// The one filled button of a step.
-private struct PrimaryButton: View {
+struct PrimaryButton: View {
     let title: String
     var enabled = true
     var busy = false
@@ -98,7 +114,7 @@ private struct PrimaryButton: View {
 }
 
 /// A text button under the filled button.
-private struct TextButton: View {
+struct TextButton: View {
     let title: String
     let action: () -> Void
 
@@ -113,7 +129,7 @@ private struct TextButton: View {
     }
 }
 
-private struct FieldFooter: View {
+struct FieldFooter: View {
     let text: String
     var isError = false
 
@@ -124,7 +140,7 @@ private struct FieldFooter: View {
     }
 }
 
-private struct BipeTextField: View {
+struct BipeTextField: View {
     let label: String
     let text: String
     let onChange: (String) -> Void
@@ -147,6 +163,8 @@ private struct BipeTextField: View {
 
 struct OnboardingWelcomeView: View {
     @ObservedObject var model: SignupFlowModel
+    /// Action haveAccount: recovery-start.
+    let haveAccount: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -178,9 +196,7 @@ struct OnboardingWelcomeView: View {
                     pasteRow
                 }
                 ForEach(start.text, id: \.titleKey) { button in
-                    // haveAccount: recovery-start comes with bipe-chat/bipe#556.
-                    TextButton(title: button.title) { }
-                        .disabled(true)
+                    TextButton(title: button.title, action: haveAccount)
                 }
             }
         }

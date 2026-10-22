@@ -78,6 +78,27 @@ final class AccountStartModel: ObservableObject {
         phase = .ready
     }
 
+    /// A recovery started on this phone waits for its delay (spec recovery-waiting).
+    @Published private(set) var hasPendingRecovery = BipeCredentialStore().pendingRecovery() != nil
+
+    /// recovery-pin or recovery-waiting brought the account to this phone.
+    func didRecover(_ session: AccountSession) {
+        self.session = session
+        userId = session.userId
+        hasPendingRecovery = false
+        phase = .ready
+    }
+
+    /// recovery-pin started a slow recovery: recovery-waiting shows.
+    func didStartRecovery() {
+        hasPendingRecovery = true
+    }
+
+    /// recovery-waiting, action startOver: back to onboarding.
+    func startRecoveryOver() {
+        hasPendingRecovery = false
+    }
+
     /// signup-done finished: chat-list shows, with the inviter's chat open when there is one.
     func finishSignup(openRoomId: String?) {
         initialRoomId = openRoomId

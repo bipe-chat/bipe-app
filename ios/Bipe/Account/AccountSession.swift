@@ -23,13 +23,15 @@ final class AccountSession {
         deleteStore(userId: userId)
         let client = try await makeClient(userId: userId)
         try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName, deviceId: nil)
-        SessionStore.save(try client.session())
-        return try await start(client)
+        SessionStore.save(try client.session(), storeKey: userId)
+        let session = try await start(client)
+        SessionSignInTime.record(for: session.userId)
+        return session
     }
 
     /// Restores a saved session and starts the sync.
     static func restore(_ saved: Session) async throws -> AccountSession {
-        let client = try await makeClient(userId: saved.userId)
+        let client = try await makeClient(userId: SessionStore.storeKey() ?? saved.userId)
         try await client.restoreSession(session: saved)
         return try await start(client)
     }
@@ -49,12 +51,13 @@ final class AccountSession {
     func signOut() async {
         try? await client.logout()
         await syncService.stop()
+        let storeKey = SessionStore.storeKey() ?? userId
         SessionStore.delete()
         BipeCredentialStore().deletePassword(for: userId)
-        Self.deleteStore(userId: userId)
+        Self.deleteStore(userId: storeKey)
     }
 
-    /// Builds a client whose store lives in the app group, one folder per account
+    /// Builds a client whose store (`userId` names its folder) lives in the app group, one folder per account
     /// (spec account-start notes: the switch from the fork can reuse it).
     static func makeClient(userId: String) async throws -> Client {
         let paths = try storePaths(userId: userId)
@@ -63,6 +66,9 @@ final class AccountSession {
             .sessionPaths(dataPath: paths.data.path, cachePath: paths.cache.path)
             .slidingSyncVersionBuilder(versionBuilder: .discoverNative)
             .setSessionDelegate(sessionDelegate: SessionSaver())
+            // Spec encryption-status: a new account gets cross-signing and key backup with no screen.
+            .autoEnableCrossSigning(autoEnableCrossSigning: true)
+            .autoEnableBackups(autoEnableBackups: true)
             .build()
     }
 

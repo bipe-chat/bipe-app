@@ -9,6 +9,7 @@ import SwiftUI
 struct ChatListView: View {
     @StateObject private var model: ChatListModel
     @StateObject private var handle: HandlePickModel
+    @EnvironmentObject private var encryption: EncryptionModel
     @State private var path: [String]
     @State private var showsHandlePick = false
 
@@ -47,6 +48,11 @@ struct ChatListView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
+            if encryption.showsBanner {
+                HistoryBanner(model: encryption)
+            } else if encryption.showsKeyPrompt {
+                RecoveryKeyPromptCard(model: encryption)
+            }
             handlePrompt
             list
         }

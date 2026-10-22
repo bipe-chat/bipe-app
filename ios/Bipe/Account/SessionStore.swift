@@ -20,9 +20,28 @@ enum SessionStore {
         var homeserverUrl: String
         var oauthData: String?
         var nativeSlidingSync: Bool
+        /// The folder of the SDK store. The user ID, except for a beta sign-in with an e-mail (recovery-start).
+        var storeKey: String?
     }
 
     static func load() -> Session? {
+        stored().map { stored in
+            Session(accessToken: stored.accessToken,
+                    refreshToken: stored.refreshToken,
+                    userId: stored.userId,
+                    deviceId: stored.deviceId,
+                    homeserverUrl: stored.homeserverUrl,
+                    oauthData: stored.oauthData,
+                    slidingSyncVersion: stored.nativeSlidingSync ? .native : .none)
+        }
+    }
+
+    /// The folder of the SDK store of the saved session.
+    static func storeKey() -> String? {
+        stored().map { $0.storeKey ?? $0.userId }
+    }
+
+    private static func stored() -> Stored? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -34,23 +53,20 @@ enum SessionStore {
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
               let data = result as? Data,
               let stored = try? JSONDecoder().decode(Stored.self, from: data) else { return nil }
-        return Session(accessToken: stored.accessToken,
-                       refreshToken: stored.refreshToken,
-                       userId: stored.userId,
-                       deviceId: stored.deviceId,
-                       homeserverUrl: stored.homeserverUrl,
-                       oauthData: stored.oauthData,
-                       slidingSyncVersion: stored.nativeSlidingSync ? .native : .none)
+        return stored
     }
 
-    static func save(_ session: Session) {
+    /// `storeKey` `nil` keeps the folder of the session saved before (a token refresh).
+    static func save(_ session: Session, storeKey: String? = nil) {
+        let key = storeKey ?? Self.storeKey() ?? session.userId
         let stored = Stored(accessToken: session.accessToken,
                             refreshToken: session.refreshToken,
                             userId: session.userId,
                             deviceId: session.deviceId,
                             homeserverUrl: session.homeserverUrl,
                             oauthData: session.oauthData,
-                            nativeSlidingSync: session.slidingSyncVersion == .native)
+                            nativeSlidingSync: session.slidingSyncVersion == .native,
+                            storeKey: key)
         guard let data = try? JSONEncoder().encode(stored) else { return }
         delete()
         let item: [String: Any] = [

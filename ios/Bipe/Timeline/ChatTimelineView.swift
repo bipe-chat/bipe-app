@@ -80,6 +80,7 @@ struct ChatTimelineView: View {
 
 private struct MessageRow: View {
     let message: TimelineMessage
+    @EnvironmentObject private var encryption: EncryptionModel
     let retry: () -> Void
 
     var body: some View {
@@ -112,6 +113,15 @@ private struct MessageRow: View {
                     Text(undecryptableText)
                         .font(.subheadline.italic())
                         .foregroundStyle(BipeColor.inkSecondary)
+                }
+                if message.cause == .historyNotOnThisPhone {
+                    // Spec message-undecryptable, action openHelp: the encryption-status sheet.
+                    Button { encryption.openSheet() } label: {
+                        Text(BipeStrings.appUtdHelp)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(BipeColor.accentInk)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         case .unsupported:
