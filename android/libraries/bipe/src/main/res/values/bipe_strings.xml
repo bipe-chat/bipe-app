@@ -1095,4 +1095,6 @@
     <string name="bipe_app_timeline_start">Aqui começa a conversa.</string>
     <string name="bipe_app_name">Bipe</string>
     <string name="bipe_app_sdk_version">matrix-rust-sdk %1$s</string>
+    <string name="bipe_app_signup_creating">Criando sua conta…</string>
+    <string name="bipe_app_invite_checking">Conferindo o convite…</string>
 </resources>

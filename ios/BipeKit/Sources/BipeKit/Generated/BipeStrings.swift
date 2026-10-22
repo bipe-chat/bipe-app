@@ -2519,4 +2519,8 @@ public enum BipeStrings {
     public static func appSdkVersion(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_app_sdk_version", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var appSignupCreating: String { NSLocalizedString("bipe_app_signup_creating", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appInviteChecking: String { NSLocalizedString("bipe_app_invite_checking", tableName: "Bipe", bundle: .module, comment: "") }
 }
