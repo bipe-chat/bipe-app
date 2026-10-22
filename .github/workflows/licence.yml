@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# Licence gates (bipe-chat/bipe#548). See AGENTS.md, "Checks".
+name: licence
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: licence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tool-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --test tools/*.test.mjs
+
+  deny-list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node tools/deny-list.mjs
+
+  licences:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node tools/licences.mjs
+
+  headers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node tools/headers.mjs
+
+  strings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node tools/strings.mjs
+
+  similarity:
+    runs-on: ubuntu-latest
+    env:
+      JPLAG_VERSION: 6.3.0
+      JPLAG_SHA256: 5f2c21e8b88ed77134effcb3a5a3ab13d188f6a3e16d401387f7479e92db9aa2
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+      - name: Download JPlag
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/jplag.jar" "https://github.com/jplag/JPlag/releases/download/v${JPLAG_VERSION}/jplag-${JPLAG_VERSION}-jar-with-dependencies.jar"
+          echo "${JPLAG_SHA256}  $RUNNER_TEMP/jplag.jar" | sha256sum -c -
+      - name: Self-test (a copied file must fail)
+        run: node tools/similarity.mjs self-test --jar "$RUNNER_TEMP/jplag.jar"
+      - name: iOS against element-hq/element-x-ios
+        run: node tools/similarity.mjs scan --lang swift --ours ios --repo element-hq/element-x-ios --jar "$RUNNER_TEMP/jplag.jar"
+      - name: Android against element-hq/element-x-android
+        if: success() || failure()
+        run: node tools/similarity.mjs scan --lang kotlin --ours android --repo element-hq/element-x-android --jar "$RUNNER_TEMP/jplag.jar"
+
+  provenance:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node tools/provenance.mjs
