@@ -100,16 +100,49 @@ class BipeApiClient(baseUrl: String) {
         )
     }
 
-    private fun <T> encode(serializer: KSerializer<T>, value: T): String = json.encodeToString(serializer, value)
+    internal fun <T> encode(serializer: KSerializer<T>, value: T): String = json.encodeToString(serializer, value)
 
     /** Sends the request and decodes a 2xx answer with [response] (`null`: the body is not read). */
-    private suspend fun <T> send(
+    internal suspend fun <T> send(
         method: String,
         path: List<String>,
         body: String? = null,
         accessToken: String? = null,
         response: KSerializer<T>?,
-    ): T = withContext(Dispatchers.IO) {
+    ): T = sendRaw(method, path, body?.toByteArray(Charsets.UTF_8), "application/json", accessToken, response)
+
+    /** [send] with a body of any content type, for example a JPEG. */
+    internal suspend fun <T> sendRaw(
+        method: String,
+        path: List<String>,
+        body: ByteArray?,
+        contentType: String,
+        accessToken: String? = null,
+        response: KSerializer<T>?,
+    ): T {
+        val (status, text) = exchange(method, path, body, contentType, accessToken)
+        if (status !in 200..299) throw error(status, text)
+        @Suppress("UNCHECKED_CAST")
+        if (response == null) return Unit as T
+        return decode(response, text, status)
+    }
+
+    internal fun <T> decode(serializer: KSerializer<T>, text: String, status: Int): T = try {
+        json.decodeFromString(serializer, text)
+    } catch (error: SerializationException) {
+        throw BipeApiException.UnexpectedResponse(status, error)
+    } catch (error: IllegalArgumentException) {
+        throw BipeApiException.UnexpectedResponse(status, error)
+    }
+
+    /** Sends the request and returns the status and the body text of any answer. */
+    internal suspend fun exchange(
+        method: String,
+        path: List<String>,
+        body: ByteArray? = null,
+        contentType: String = "application/json",
+        accessToken: String? = null,
+    ): Pair<Int, String> = withContext(Dispatchers.IO) {
         // Each segment is percent-encoded, so a handle or a code cannot add path segments.
         val url = URL(root + path.joinToString(separator = "/", prefix = "/") { URLEncoder.encode(it, "UTF-8").replace("+", "%20") })
         val connection = try {
@@ -125,23 +158,14 @@ class BipeApiClient(baseUrl: String) {
             accessToken?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
             if (body != null) {
                 connection.doOutput = true
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                connection.setRequestProperty("Content-Type", contentType)
+                connection.outputStream.use { it.write(body) }
             }
             val status = connection.responseCode
             val text = (if (status in 200..299) connection.inputStream else connection.errorStream)
                 ?.use { it.readBytes().toString(Charsets.UTF_8) }
                 .orEmpty()
-            if (status !in 200..299) throw error(status, text)
-            @Suppress("UNCHECKED_CAST")
-            if (response == null) return@withContext Unit as T
-            try {
-                json.decodeFromString(response, text)
-            } catch (error: SerializationException) {
-                throw BipeApiException.UnexpectedResponse(status, error)
-            } catch (error: IllegalArgumentException) {
-                throw BipeApiException.UnexpectedResponse(status, error)
-            }
+            status to text
         } catch (error: IOException) {
             throw BipeApiException.Network(error)
         } finally {
@@ -149,7 +173,7 @@ class BipeApiClient(baseUrl: String) {
         }
     }
 
-    private fun error(status: Int, text: String): BipeApiException {
+    internal fun error(status: Int, text: String): BipeApiException {
         val body = runCatching { json.decodeFromString(BipeErrorBody.serializer(), text) }.getOrNull()
             ?: return BipeApiException.UnexpectedResponse(status)
         return BipeApiException.Server(
@@ -162,7 +186,7 @@ class BipeApiClient(baseUrl: String) {
 
     companion object {
         private const val TIMEOUT_MS = 30_000
-        private val json = Json {
+        internal val json = Json {
             ignoreUnknownKeys = true
             explicitNulls = false
         }
@@ -199,6 +223,8 @@ enum class BipeApiErrorCode(val id: String) {
     UNAUTHORIZED("unauthorized"),
     NOT_FOUND("not_found"),
     RATE_LIMITED("rate_limited"),
+    PROFILE_INVALID("profile_invalid"),
+    PHOTO_INVALID("photo_invalid"),
     INTERNAL("internal"),
     PIN_WEAK("pin_weak"),
     PIN_WRONG("pin_wrong"),
@@ -257,6 +283,8 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.RECOVERY_INVALID -> context.getString(R.string.bipe_error_recovery_invalid)
             BipeApiErrorCode.EMAIL_UNAVAILABLE -> context.getString(R.string.bipe_error_email_unavailable)
             BipeApiErrorCode.TERMS_REQUIRED -> context.getString(R.string.bipe_signup_terms_required)
+            BipeApiErrorCode.PHOTO_INVALID -> context.getString(R.string.bipe_public_profile_photo_invalid)
+            BipeApiErrorCode.PROFILE_INVALID,
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL -> context.getString(R.string.bipe_error_generic)
         }
         is Network -> context.getString(R.string.bipe_error_network)

@@ -60,7 +60,7 @@ import chat.bipe.shared.generated.BipeScreen
 
 /** Spec chat-timeline. */
 @Composable
-fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: String, onBack: () -> Unit) {
+fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: String, onBack: () -> Unit, onOpenInfo: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val model = remember(roomId) { ChatTimelineModel(session, roomId, scope, InviterGreetings(context, session.userId)) }
@@ -93,15 +93,21 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                 IconButton(onClick = onBack) {
                     Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
                 }
-                Avatar(roomName, null, media, size = 32.dp)
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    roomName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.inkPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                // The header opens the chat's info: person-profile for a DM.
+                Row(
+                    modifier = if (onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Avatar(roomName, null, media, size = 32.dp)
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        roomName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colors.inkPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             LazyColumn(
                 state = listState,

@@ -55,10 +55,17 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.people.PeopleLinks
+import chat.bipe.app.people.PeopleMenu
+import chat.bipe.app.people.PeopleNavigation
+import chat.bipe.app.people.PeopleRoute
+import chat.bipe.app.people.PeopleScreen
+import chat.bipe.app.people.PeopleService
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
+import kotlinx.coroutines.launch
 
 /**
  * The signed-in app: chat-list, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, and
@@ -83,6 +90,26 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check() }
+    val people = remember(session) { PeopleService(session, api, media, scope) }
+    var peopleStack by remember { mutableStateOf(listOf<PeopleRoute>()) }
+    DisposableEffect(people) {
+        people.start()
+        onDispose { people.close() }
+    }
+    // A profile link from the system (spec profile-link-open) opens once the home screen shows.
+    val pendingLink by PeopleLinks.pending.collectAsState()
+    LaunchedEffect(pendingLink) {
+        PeopleLinks.take()?.let { peopleStack = peopleStack + it }
+    }
+    val navigation = PeopleNavigation(
+        push = { peopleStack = peopleStack + it },
+        pop = { peopleStack = peopleStack.dropLast(1) },
+        openChat = { id ->
+            peopleStack = emptyList()
+            openRoomId = id
+        },
+        pickHandle = { showsHandlePick = true },
+    )
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
@@ -90,11 +117,26 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
+        peopleStack.isNotEmpty() -> {
+            BackHandler { navigation.pop() }
+            PeopleScreen(peopleStack.last(), people, navigation)
+        }
         roomId != null -> {
             BackHandler { openRoomId = null }
-            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
+            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onOpenInfo = {
+                scope.launch {
+                    people.dmPartner(roomId)?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
+                }
+            })
         }
-        else -> ChatListScreen(model, media, handle, onOpenHandlePick = { showsHandlePick = true }, onOpenChat = { openRoomId = it })
+        else -> ChatListScreen(
+            model,
+            media,
+            handle,
+            onOpenHandlePick = { showsHandlePick = true },
+            onOpenChat = { openRoomId = it },
+            onOpenPeople = navigation.push,
+        )
     }
 }
 
@@ -106,6 +148,7 @@ fun ChatListScreen(
     handle: HandlePickModel,
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
+    onOpenPeople: (PeopleRoute) -> Unit,
 ) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
@@ -113,12 +156,15 @@ fun ChatListScreen(
     val handleState by handle.state.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            Text(
-                stringResource(R.string.bipe_app_chat_list_title),
-                style = MaterialTheme.typography.headlineMedium,
-                color = colors.inkPrimary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.bipe_app_chat_list_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = colors.inkPrimary,
+                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+                PeopleMenu(onOpenPeople)
+            }
             if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

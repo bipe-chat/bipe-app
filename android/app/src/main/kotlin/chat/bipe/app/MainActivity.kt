@@ -11,6 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import chat.bipe.app.account.AccountStartModel
+import chat.bipe.app.people.PeopleLinks
 import chat.bipe.app.account.AccountStartScreen
 
 class MainActivity : ComponentActivity() {
@@ -43,7 +44,11 @@ class MainActivity : ComponentActivity() {
 
     /** A bipe.chat/convite/<code> link (onboarding-welcome, action openInviteLink). */
     private fun readInviteLink(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_VIEW) intent.data?.let { accountStart.pendingInviteLink = it }
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val uri = intent.data ?: return
+        // A profile link waits in PeopleLinks until the home screen shows (spec profile-link-open).
+        if (PeopleLinks.offer(uri)) return
+        accountStart.pendingInviteLink = uri
     }
 
     /**

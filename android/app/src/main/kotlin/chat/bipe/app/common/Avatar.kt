@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,16 +53,19 @@ class MediaLoader(private val client: Client) {
     }
 }
 
-/** A round avatar: the thumbnail when there is one, else the first letter of the name. */
+/**
+ * A round avatar: the thumbnail when there is one, else the first letter of the name.
+ * A company account's avatar is a rounded square (ADR 0132).
+ */
 @Composable
-fun Avatar(name: String, mxcUrl: String?, loader: MediaLoader, size: Dp = 48.dp) {
+fun Avatar(name: String, mxcUrl: String?, loader: MediaLoader, size: Dp = 48.dp, isSquare: Boolean = false) {
     val colors = BipeTheme.colors
     var image by remember(mxcUrl) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(mxcUrl) {
         image = mxcUrl?.let { loader.thumbnail(it, (size.value * 3).toInt()) }
     }
     Box(
-        modifier = Modifier.size(size).clip(CircleShape).background(colors.accentWash),
+        modifier = Modifier.size(size).clip(if (isSquare) RoundedCornerShape(size * 0.22f) else CircleShape).background(colors.accentWash),
         contentAlignment = Alignment.Center,
     ) {
         val bitmap = image
