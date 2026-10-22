@@ -3,7 +3,9 @@
 // Copyright 2026 Bipe contributors
 
 // Headers: every .swift and .kt file outside folders named Generated or
-// generated starts with the Bipe header from AGENTS.md.
+// generated starts with the Bipe header from AGENTS.md. A SwiftPM manifest
+// (Package.swift) must start with its "// swift-tools-version" line, so there
+// the header starts on the second line.
 // Usage: node tools/headers.mjs [repo-root]
 
 import { readFileSync } from 'node:fs';
@@ -17,8 +19,9 @@ export const HEADER = [
 ];
 
 export function hasHeader(text) {
-  const lines = text.split(/\r?\n/, HEADER.length);
-  return HEADER.every((h, i) => lines[i] === h);
+  const lines = text.split(/\r?\n/, HEADER.length + 1);
+  const start = lines[0].startsWith('// swift-tools-version') ? 1 : 0;
+  return HEADER.every((h, i) => lines[start + i] === h);
 }
 
 export function checkHeaders(root) {

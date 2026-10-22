@@ -1,5 +1,12 @@
 {
-  "allowed": ["Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0"],
+  "allowed": [
+    "Apache-2.0",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MPL-2.0"
+  ],
   "packages": {
     "matrix-rust-components-swift": {
       "ecosystem": "swiftpm",
@@ -11,9 +18,69 @@
       "ecosystem": "gradle",
       "licence": "Apache-2.0",
       "source": "https://github.com/matrix-org/matrix-rust-components-kotlin",
-      "checked": "2026-10-21",
+      "checked": "2026-10-22",
       "unverified": true,
-      "note": "unverified: generated from matrix-org/matrix-rust-sdk, Apache-2.0; no licence file detected on matrix-org/matrix-rust-components-kotlin, 2026-10-21"
+      "note": "unverified: matrix-org/matrix-rust-components-kotlin has no LICENSE file; its README and its published POM (scripts/publish-module.gradle) name Apache-2.0; generated from matrix-org/matrix-rust-sdk (Apache-2.0). Checked 2026-10-22."
+    },
+    "androidx.annotation:annotation": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "androidx.core:core-ktx": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "androidx.activity:activity-compose": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "androidx.compose:compose-bom": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "androidx.compose.ui:ui": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "androidx.compose.foundation:foundation": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "androidx.compose.material3:material3": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "org.jetbrains.kotlinx:kotlinx-serialization-core": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/Kotlin/kotlinx.serialization/blob/master/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "androidx.compose.runtime:runtime": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "androidx.compose.ui:ui-graphics": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
     }
   }
 }

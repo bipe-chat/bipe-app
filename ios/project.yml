@@ -1,0 +1,111 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# XcodeGen spec of the iOS app (bipe-chat/bipe#549). Run `xcodegen generate` in ios/.
+# IDs: ADR 0147. Tester builds use their own IDs (chat.bipe.app.next, group.chat.bipe.next),
+# so they sit next to the fork on one phone. At the switch the app takes the fork's IDs (ADR 0061).
+# The matrix-rust-components-swift version must equal ../sdk-version (tools/sdk-version.mjs).
+name: Bipe
+
+options:
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+
+packages:
+  MatrixRustSDK:
+    url: https://github.com/matrix-org/matrix-rust-components-swift
+    exactVersion: 26.08.11
+  BipeKit:
+    path: BipeKit
+
+targets:
+  Bipe:
+    type: application
+    platform: iOS
+    sources:
+      - path: Bipe
+    info:
+      path: SupportFiles/Bipe/Info.plist
+      properties:
+        CFBundleDisplayName: Bipe
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: pt-BR
+        CFBundleLocalizations: [pt-BR, en]
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    entitlements:
+      path: SupportFiles/Bipe/Bipe.entitlements
+      properties:
+        com.apple.security.application-groups: [group.chat.bipe.next]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next
+    dependencies:
+      - package: MatrixRustSDK
+        product: MatrixRustSDK
+      - package: BipeKit
+        product: BipeKit
+      - target: BipeNotificationService
+      - target: BipeShare
+    scheme: {}
+
+  # Empty notification service extension. Decryption of pushes on the device comes later.
+  BipeNotificationService:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: NotificationService
+    info:
+      path: SupportFiles/BipeNotificationService/Info.plist
+      properties:
+        CFBundleDisplayName: Bipe
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
+    entitlements:
+      path: SupportFiles/BipeNotificationService/BipeNotificationService.entitlements
+      properties:
+        com.apple.security.application-groups: [group.chat.bipe.next]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next.nse
+
+  # Empty share extension. Sharing into a chat comes later.
+  BipeShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+    info:
+      path: SupportFiles/BipeShare/Info.plist
+      properties:
+        CFBundleDisplayName: Bipe
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsImageWithMaxCount: 1
+    entitlements:
+      path: SupportFiles/BipeShare/BipeShare.entitlements
+      properties:
+        com.apple.security.application-groups: [group.chat.bipe.next]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next.share

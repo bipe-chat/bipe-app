@@ -15,7 +15,8 @@ import { checkLicences, catalogLibraries, swiftPins, loadTable } from './licence
 import { checkHeaders, HEADER } from './headers.mjs';
 import { checkStrings, findLiterals, isUserText } from './strings.mjs';
 import { provenanceLine } from './provenance.mjs';
-import { evaluate, flatNames, parseCsv } from './similarity.mjs';
+import { evaluate, flatNames, matchedTokens, parseCsv, tokenCounts } from './similarity.mjs';
+import { checkSdkVersion, projectPin, resolvedPin, catalogPin } from './sdk-version.mjs';
 
 function tree(files) {
   const root = mkdtempSync(join(tmpdir(), 'bipe-gates-'));
@@ -113,6 +114,16 @@ test('headers fail a file without the header', () => {
   assert.equal(checkHeaders(root).errors.length, 2);
 });
 
+test('headers accept the header after the swift-tools-version line of a Package.swift', () => {
+  const root = tree({
+    'ios/BipeKit/Package.swift': '// swift-tools-version:5.9\n' + H + 'import PackageDescription\n',
+    'ios/Other/Package.swift': '// swift-tools-version:5.9\nimport PackageDescription\n',
+  });
+  const { errors } = checkHeaders(root);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].startsWith('ios/Other/Package.swift'));
+});
+
 // Strings
 
 test('strings pass generated strings, symbols and generated folders', () => {
@@ -172,11 +183,70 @@ test('similarity fails a pair above the threshold and warns on max', () => {
     ours,
     theirs,
   );
-  assert.deepEqual(r.failures, [{ ours: 'ios/Bipe/A.swift', theirs: 'ElementX/Sources/X.swift', avg: 0.75, max: 0.9 }]);
+  // No token counts: a pair above the threshold fails.
+  assert.deepEqual(r.failures, [{ ours: 'ios/Bipe/A.swift', theirs: 'ElementX/Sources/X.swift', avg: 0.75, max: 0.9, matched: Infinity }]);
   assert.equal(r.warnings.length, 1);
   assert.deepEqual(r.notCompared, []);
 });
 
+test('similarity warns, but does not fail, a pair above the threshold with few matched tokens', () => {
+  const rows = csv(['ours/o00001_A.swift,theirs/t00001_X.swift,0.55,0.7', 'ours/o00002_B.swift,theirs/t00001_X.swift,0.6,0.8']);
+  const tokens = new Map([['o00001_A.swift', 49], ['o00002_B.swift', 300], ['t00001_X.swift', 120]]);
+  const r = evaluate(rows, ours, theirs, undefined, tokens);
+  // A: 0.55 * (49 + 120) / 2 = 46 matched tokens. B: 0.6 * (300 + 120) / 2 = 126.
+  assert.deepEqual(r.failures.map((p) => [p.ours, p.matched]), [['ios/Bipe/B.swift', 126]]);
+  assert.deepEqual(r.warnings.map((p) => [p.ours, p.matched]), [['ios/Bipe/A.swift', 46]]);
+});
+
+test('similarity reads token counts from the JPlag file index', () => {
+  const index = {
+    fileIndexes: {
+      'ours_o00001_A.swift': { 'ours_o00001_A.swift/ours_o00001_A.swift': { tokenCount: 40 } },
+      't00002_X.swift': { 'x/a': { tokenCount: 10 }, 'x/b': { tokenCount: 5 } },
+    },
+  };
+  assert.deepEqual([...tokenCounts(index)], [['o00001_A.swift', 40], ['t00002_X.swift', 15]]);
+  assert.equal(matchedTokens(1, 100, 100), 100);
+  assert.equal(matchedTokens(0.9, undefined, 100), Infinity);
+});
+
 test('similarity rejects an unknown CSV header', () => {
   assert.throws(() => evaluate([['a', 'b']], ours, theirs));
+});
+
+// SDK version
+
+const SDK_FILES = {
+  'sdk-version': '26.08.11\n',
+  'ios/project.yml':
+    'packages:\n  MatrixRustSDK:\n    url: https://github.com/matrix-org/matrix-rust-components-swift\n    exactVersion: 26.08.11\n  BipeKit:\n    path: BipeKit\n',
+  'ios/Package.resolved': JSON.stringify({
+    pins: [{ identity: 'matrix-rust-components-swift', state: { revision: 'abc', version: '26.08.11' } }],
+    version: 2,
+  }),
+  'android/gradle/libs.versions.toml': '[versions]\nmatrix-rust-sdk = "26.08.11"\n\n[libraries]\nsdk = { module = "org.matrix.rustcomponents:sdk-android", version.ref = "matrix-rust-sdk" }\n',
+};
+
+test('sdk-version passes when every pin equals sdk-version', () => {
+  assert.deepEqual(checkSdkVersion(tree(SDK_FILES)).errors, []);
+});
+
+test('sdk-version fails on a different pin and on a missing file', () => {
+  const { 'ios/Package.resolved': _resolved, ...rest } = SDK_FILES;
+  const root = tree({ ...rest, 'android/gradle/libs.versions.toml': '[versions]\nmatrix-rust-sdk = "26.10.20"\n' });
+  const { errors } = checkSdkVersion(root);
+  assert.equal(errors.length, 2);
+  assert.ok(errors.some((e) => e.includes('26.10.20')));
+  assert.ok(errors.some((e) => e.startsWith('ios/Package.resolved is missing')));
+});
+
+test('sdk-version fails without the sdk-version file', () => {
+  assert.equal(checkSdkVersion(tree({})).errors.length, 1);
+});
+
+test('sdk-version parsers read each pin form', () => {
+  assert.equal(projectPin(SDK_FILES['ios/project.yml']), '26.08.11');
+  assert.equal(projectPin('packages:\n  Other:\n    exactVersion: 1.0\n'), null);
+  assert.equal(resolvedPin(SDK_FILES['ios/Package.resolved']), '26.08.11');
+  assert.equal(catalogPin('[libraries]\nmatrix-rust-sdk = "1"\n[versions]\nmatrix-rust-sdk = "2" # pin\n'), '2');
 });
