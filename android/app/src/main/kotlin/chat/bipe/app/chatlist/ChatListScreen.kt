@@ -22,12 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -62,13 +55,11 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
-import chat.bipe.app.groups.ClearedChatsStore
-import chat.bipe.app.groups.DmDeleteSheet
-import chat.bipe.app.groups.GroupCreateScreen
-import chat.bipe.app.groups.GroupDetailsScreen
-import chat.bipe.app.groups.QuietGroups
+import chat.bipe.app.groups.CreateGroupButton
+import chat.bipe.app.groups.DmSwipeRow
+import chat.bipe.app.groups.GroupHost
+import chat.bipe.app.groups.withoutClearedDms
 import chat.bipe.app.timeline.ChatTimelineScreen
-import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
@@ -89,17 +80,11 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     val termsPhase by terms.phase.collectAsState()
-    var creatingGroup by rememberSaveable { mutableStateOf(false) }
-    var groupDetailsOpen by rememberSaveable { mutableStateOf(false) }
-    val invitesFailed = stringResource(R.string.bipe_app_group_create_invites_failed)
     DisposableEffect(model) {
         model.start()
         handle.load()
         onDispose { model.close() }
     }
-    LaunchedEffect(session) { QuietGroups.applyOnce(context, session) }
-    // Spec dm-delete notes: the markers are read at start and again when the app comes to the front.
-    LaunchedEffect(session, foregroundCount) { ClearedChatsStore.refresh(session.client) }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check() }
     val roomId = openRoomId
@@ -109,44 +94,19 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
-        creatingGroup -> GroupCreateScreen(
-            session,
-            media,
-            onClose = { creatingGroup = false },
-            onCreated = { newRoomId, allInvited ->
-                creatingGroup = false
-                openRoomId = newRoomId
-                if (!allInvited) android.widget.Toast.makeText(context, invitesFailed, android.widget.Toast.LENGTH_LONG).show()
-            },
-        )
-        roomId != null && groupDetailsOpen -> GroupDetailsScreen(
-            session,
-            media,
-            roomId,
-            onBack = { groupDetailsOpen = false },
-            onLeft = {
-                groupDetailsOpen = false
-                openRoomId = null
-            },
-        )
-        roomId != null -> {
-            BackHandler { openRoomId = null }
-            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onOpenGroupDetails = { groupDetailsOpen = true })
+        else -> GroupHost(session, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
+            if (roomId != null) {
+                BackHandler { openRoomId = null }
+                ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onOpenGroupDetails = groups.openGroupDetails)
+            } else {
+                ChatListScreen(model, media, handle, onOpenHandlePick = { showsHandlePick = true }, onOpenChat = { openRoomId = it }, onCreateGroup = groups.createGroup, onDeleteDm = groups.deleteDm)
+            }
         }
-        else -> ChatListScreen(
-            model,
-            media,
-            handle,
-            onOpenHandlePick = { showsHandlePick = true },
-            onOpenChat = { openRoomId = it },
-            onCreateGroup = { creatingGroup = true },
-        )
     }
 }
 
 /** Spec chat-list. */
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun ChatListScreen(
     model: ChatListModel,
     media: MediaLoader,
@@ -154,19 +114,12 @@ fun ChatListScreen(
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
     onCreateGroup: () -> Unit = {},
+    onDeleteDm: (String) -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
     val allChats by model.chats.collectAsState()
-    val markers by ClearedChatsStore.markers.collectAsState()
-    // Spec dm-delete: a cleared DM stays hidden until a message after its marker.
-    val chats = remember(allChats, markers) {
-        allChats.filterNot { chat -> chat.roomId in markers && chat.lastActivity.let { it == null || it <= markers.getValue(chat.roomId) } }
-    }
-    var deletingDm by rememberSaveable { mutableStateOf<String?>(null) }
-    deletingDm?.let { dm ->
-        DmDeleteSheet(model.session, dm, onDismiss = { deletingDm = null }, onDeleted = { deletingDm = null })
-    }
+    val chats = withoutClearedDms(allChats, { it.roomId }, { it.lastActivity })
     val handleState by handle.state.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -177,13 +130,7 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
                 )
-                IconButton(onClick = onCreateGroup, modifier = Modifier.padding(end = 4.dp)) {
-                    Icon(
-                        painterResource(PhosphorIcon.PLUS.drawable),
-                        contentDescription = stringResource(R.string.bipe_groups_empty_action),
-                        tint = colors.glyphPrimary,
-                    )
-                }
+                CreateGroupButton(onCreateGroup)
             }
             if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
             when (phase) {
@@ -195,30 +142,7 @@ fun ChatListScreen(
                 }
                 ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(chats, key = { it.roomId }) { chat ->
-                        if (chat.isDm) {
-                            val swipe = rememberSwipeToDismissBoxState(
-                                confirmValueChange = { value ->
-                                    if (value == SwipeToDismissBoxValue.EndToStart) deletingDm = chat.roomId
-                                    false
-                                },
-                            )
-                            SwipeToDismissBox(
-                                state = swipe,
-                                enableDismissFromStartToEnd = false,
-                                backgroundContent = {
-                                    Box(
-                                        Modifier.fillMaxSize().background(colors.trustDangerWash).padding(horizontal = 16.dp),
-                                        contentAlignment = Alignment.CenterEnd,
-                                    ) {
-                                        Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk)
-                                    }
-                                },
-                            ) {
-                                Box(Modifier.background(colors.surfaceBase)) { ChatRow(chat, media) { onOpenChat(chat.roomId) } }
-                            }
-                        } else {
-                            ChatRow(chat, media) { onOpenChat(chat.roomId) }
-                        }
+                        DmSwipeRow(chat.isDm, onDelete = { onDeleteDm(chat.roomId) }) { ChatRow(chat, media) { onOpenChat(chat.roomId) } }
                         if (chat.roomId == chats.lastOrNull()?.roomId) {
                             LaunchedEffect(chats.size) { model.loadMore() }
                         }
