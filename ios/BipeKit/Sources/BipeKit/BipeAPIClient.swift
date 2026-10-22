@@ -182,10 +182,10 @@ public struct BipeAPIClient: Sendable {
     
     // MARK: - Private
     
-    private struct Empty: Encodable { }
+    struct Empty: Encodable { }
     
     /// Stands in for an empty 204 body.
-    private struct NoContent: Decodable { }
+    struct NoContent: Decodable { }
     
     private struct AttestChallengeResponse: Decodable {
         let challenge: String
@@ -257,7 +257,7 @@ public struct BipeAPIClient: Sendable {
         let triesLeft: Int?
     }
     
-    private func send<Body: Encodable, Response: Decodable>(method: String,
+    func send<Body: Encodable, Response: Decodable>(method: String,
                                                             path: [String],
                                                             body: Body?,
                                                             accessToken: String? = nil) async throws(BipeAPIError) -> Response {
@@ -292,7 +292,7 @@ public struct BipeAPIClient: Sendable {
     }
     
     /// Sends the request and returns the answer with any status code.
-    private func exchange(method: String,
+    func exchange(method: String,
                           path: [String],
                           query: [URLQueryItem] = [],
                           rawBody: (data: Data, contentType: String)?,
@@ -327,7 +327,7 @@ public struct BipeAPIClient: Sendable {
         return (data, httpResponse)
     }
     
-    private func send<Response: Decodable>(method: String,
+    func send<Response: Decodable>(method: String,
                                            path: [String],
                                            query: [URLQueryItem] = [],
                                            rawBody: (data: Data, contentType: String)?,
@@ -346,13 +346,13 @@ public struct BipeAPIClient: Sendable {
         }
     }
     
-    private static let encoder: JSONEncoder = {
+    static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         return encoder
     }()
     
-    private static let decoder: JSONDecoder = {
+    static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         decoder.dateDecodingStrategy = .custom { decoder in
