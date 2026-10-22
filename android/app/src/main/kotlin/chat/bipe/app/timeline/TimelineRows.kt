@@ -6,6 +6,8 @@ package chat.bipe.app.timeline
 
 import chat.bipe.app.common.displayName
 import chat.bipe.app.polls.PollData
+import chat.bipe.shared.ScamDetector
+import chat.bipe.shared.ScamWarningKind
 import org.matrix.rustcomponents.sdk.EmbeddedEventDetails
 import org.matrix.rustcomponents.sdk.EncryptedMessage
 import org.matrix.rustcomponents.sdk.EventOrTransactionId
@@ -42,6 +44,8 @@ data class MessageDetails(
     val reactions: List<MessageReaction>,
     val isEdited: Boolean,
     val receipt: MessageReceipt?,
+    /** Messages from other people only (spec scam-warning). */
+    val scamWarning: ScamWarningKind? = null,
     val canReply: Boolean,
     val canEdit: Boolean,
     val canDelete: Boolean,
@@ -174,6 +178,8 @@ object TimelineRowBuilder {
                                 reactions = reactions(content.reactions, facts, ::name),
                                 isEdited = kind.content.isEdited,
                                 receipt = if (event.isOwn) receipts[index] else null,
+                                // The detector runs on the device; the cache keys on the event and the body, so an edit runs it again.
+                                scamWarning = if (event.isOwn) null else ScamDetector.warningKind(kind.content.body, eventId(event) ?: id),
                                 canReply = event.canBeRepliedTo && isSent,
                                 canEdit = event.isEditable,
                                 canDelete = if (event.isOwn) facts.canRedactOwn || !isSent else !facts.isDm && facts.canRedactOther,
