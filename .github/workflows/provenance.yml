@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# Provenance gate (bipe-chat/bipe#548). Its own workflow, so an edit of the pull request body
+# reruns only this check and not the licence scans.
+name: provenance
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provenance-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node tools/provenance.mjs

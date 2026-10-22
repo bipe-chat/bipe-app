@@ -7,7 +7,7 @@ name: licence
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, synchronize, reopened]
   push:
     branches: [main]
 
@@ -81,6 +81,8 @@ jobs:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -94,20 +96,30 @@ jobs:
           echo "${JPLAG_SHA256}  $RUNNER_TEMP/jplag.jar" | sha256sum -c -
       - name: Self-test (a copied file must fail)
         run: node tools/similarity.mjs self-test --jar "$RUNNER_TEMP/jplag.jar"
-      - name: iOS against element-hq/element-x-ios
-        run: node tools/similarity.mjs scan --lang swift --ours ios --repo element-hq/element-x-ios --jar "$RUNNER_TEMP/jplag.jar"
-      - name: Android against element-hq/element-x-android
-        if: success() || failure()
-        run: node tools/similarity.mjs scan --lang kotlin --ours android --repo element-hq/element-x-android --jar "$RUNNER_TEMP/jplag.jar"
-
-  provenance:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: node tools/provenance.mjs
+      # A pull request scans only the platforms whose non-generated source it changes; a push to main
+      # scans both. The two scans run at the same time.
+      - name: Scan iOS and Android against Element X
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          changed() {
+            [ -z "$BASE" ] && return 0
+            git diff --name-only "$BASE" HEAD -- "$1" | grep -E "\\.$2\$" | grep -v -E '/(Generated|generated)/' | grep -q .
+          }
+          pids=""
+          if changed ios swift; then
+            node tools/similarity.mjs scan --lang swift --ours ios --repo element-hq/element-x-ios --jar "$RUNNER_TEMP/jplag.jar" > "$RUNNER_TEMP/ios.log" 2>&1 &
+            pids="$pids $!"
+          else
+            echo "::notice title=similarity::No iOS source changed: iOS scan skipped."
+          fi
+          if changed android kt; then
+            node tools/similarity.mjs scan --lang kotlin --ours android --repo element-hq/element-x-android --jar "$RUNNER_TEMP/jplag.jar" > "$RUNNER_TEMP/android.log" 2>&1 &
+            pids="$pids $!"
+          else
+            echo "::notice title=similarity::No Android source changed: Android scan skipped."
+          fi
+          status=0
+          for pid in $pids; do wait "$pid" || status=1; done
+          for log in "$RUNNER_TEMP/ios.log" "$RUNNER_TEMP/android.log"; do [ -f "$log" ] && cat "$log"; done
+          exit $status
