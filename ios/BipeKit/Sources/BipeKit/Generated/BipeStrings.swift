@@ -2682,6 +2682,18 @@ public enum BipeStrings {
 
     public static var appUtdHelp: String { NSLocalizedString("bipe_app_utd_help", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appTabSearch: String { NSLocalizedString("bipe_app_tab_search", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appAccountCurrentA11y(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_account_current_a11y", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appTabYouSwitchHint: String { NSLocalizedString("bipe_app_tab_you_switch_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appAccountSwitcherTitle: String { NSLocalizedString("bipe_app_account_switcher_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appAccountNew: String { NSLocalizedString("bipe_app_account_new", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appYou: String { NSLocalizedString("bipe_app_you", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appTimelineToday: String { NSLocalizedString("bipe_app_timeline_today", tableName: "Bipe", bundle: .module, comment: "") }
