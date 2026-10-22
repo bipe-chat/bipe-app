@@ -25,7 +25,7 @@ import kotlinx.serialization.json.Json
  * Requests carry PINs and access tokens: nothing here logs a body or a header.
  */
 class BipeApiClient(baseUrl: String) {
-    private val root = baseUrl.trimEnd('/')
+    internal val root = baseUrl.trimEnd('/')
 
     // Sign-up
 

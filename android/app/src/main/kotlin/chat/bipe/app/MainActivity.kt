@@ -12,6 +12,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import chat.bipe.app.account.AccountStartModel
 import chat.bipe.app.account.AccountStartScreen
+import chat.bipe.app.settings.AppLockGate
+import chat.bipe.app.settings.AppLockModel
 
 class MainActivity : ComponentActivity() {
     private val accountStart: AccountStartModel
@@ -25,7 +27,9 @@ class MainActivity : ComponentActivity() {
         accountStart.start()
         setContent {
             BipeTheme {
-                AccountStartScreen(accountStart)
+                AppLockGate {
+                    AccountStartScreen(accountStart)
+                }
             }
         }
     }
@@ -39,6 +43,12 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         accountStart.resume()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Spec app-lock, action lock: covers the app at once when it goes to the background.
+        AppLockModel.get(this).onBackground()
     }
 
     /** A bipe.chat/convite/<code> link (onboarding-welcome, action openInviteLink). */

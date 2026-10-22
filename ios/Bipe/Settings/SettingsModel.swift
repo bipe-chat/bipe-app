@@ -18,6 +18,8 @@ final class SettingsModel: ObservableObject {
     @Published private(set) var account: BipeAccountStatus?
     @Published private(set) var hasRecoveryKey = false
     @Published private(set) var notificationsOn: Bool?
+    @Published private(set) var appLockOn = AppLockModel.shared.store.isOn
+    @Published private(set) var biometricUnlockOn = AppLockModel.shared.store.biometricUnlock
 
     init(session: AccountSession, api: BipeAPIClient) {
         self.session = session
@@ -82,6 +84,12 @@ final class SettingsModel: ObservableObject {
         notificationsOn = settings.authorizationStatus == .authorized
             || settings.authorizationStatus == .provisional
             || settings.authorizationStatus == .ephemeral
+    }
+
+    /// Reads the app lock store again after a change.
+    func refreshLock() {
+        appLockOn = AppLockModel.shared.store.isOn
+        biometricUnlockOn = AppLockModel.shared.store.biometricUnlock
     }
 
     /// The subtitle of a root row. `nil` when the group has nothing to sum up or the value has not arrived.

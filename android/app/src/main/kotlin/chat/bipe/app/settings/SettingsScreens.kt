@@ -79,6 +79,9 @@ sealed interface SettingsRoute {
     data class Group(val group: BipeSettingsGroup) : SettingsRoute
     data object Messaging : SettingsRoute
     data object Support : SettingsRoute
+    data object PinChange : SettingsRoute
+    data object AppLockSetup : SettingsRoute
+    data object AppLockOff : SettingsRoute
 }
 
 /**
@@ -108,6 +111,18 @@ fun SettingsHost(session: AccountSession, api: BipeApiClient, onClose: () -> Uni
         is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut)
         SettingsRoute.Messaging -> MessagingPickerScreen(model, onBack = pop)
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
+        SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
+        SettingsRoute.AppLockSetup -> AppLockSetupScreen(onClose = pop)
+        // Spec app-lock, turnOff on a phone with no screen lock: the app lock PIN.
+        SettingsRoute.AppLockOff -> AppLockPinCheck(
+            stringResource(R.string.bipe_account_app_lock),
+            onPass = {
+                AppLockModel.get(context).store.remove()
+                AppLockModel.get(context).refresh()
+                pop()
+            },
+            onCancel = pop,
+        )
     }
 }
 
@@ -161,12 +176,22 @@ fun SettingsGroupScreen(
     var hideRequestPhotos by remember { mutableStateOf(prefs.getBoolean(SettingsKeys.HIDE_REQUEST_PHOTOS, true)) }
     var sharePresence by remember { mutableStateOf(prefs.getBoolean(SettingsKeys.SHARE_PRESENCE, true)) }
     var showsSignOut by remember { mutableStateOf(false) }
-    val sections = remember(group) {
+    val scope = rememberCoroutineScope()
+    val lock = remember { AppLockModel.get(context) }
+    val lockOn by lock.isOn.collectAsState()
+    var biometricUnlockOn by remember(lockOn) { mutableStateOf(lock.store.biometricUnlock) }
+    val hasBiometrics = remember { OwnerCheck.hasBiometrics(context) }
+    val export = remember { DataExportState() }
+    val sections = remember(group, lockOn) {
         group.sections.mapNotNull { section ->
-            val rows = section.rows.filter { it.isShownOnAndroid() && isAvailable(it) }
+            val rows = section.rows.filter { it.isShownOnAndroid() && isAvailable(it, lockOn, hasBiometrics) }
             if (rows.isEmpty()) null else section to rows
         }
     }
+    val word = biometricWord(context)
+    val lockOffReason = stringResource(R.string.bipe_account_app_lock_off_reason)
+    val biometricReason = stringResource(R.string.bipe_app_lock_biometric, word)
+    val cancel = stringResource(R.string.bipe_app_cancel)
     val copied = stringResource(R.string.bipe_help_device_id_copied)
 
     fun tap(row: BipeSettingsRow) {
@@ -178,6 +203,8 @@ fun SettingsGroupScreen(
             BipeSettingsRow.PRIVACY_MESSAGING -> onOpen(SettingsRoute.Messaging)
             BipeSettingsRow.HELP_SUPPORT -> onOpen(SettingsRoute.Support)
             BipeSettingsRow.ACCOUNT_SIGN_OUT -> showsSignOut = true
+            BipeSettingsRow.ACCOUNT_CHANGE_PIN -> onOpen(SettingsRoute.PinChange)
+            BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
             // The screens of the other rows come with their own specs (see settings-group notes).
             else -> Unit
         }
@@ -202,7 +229,35 @@ fun SettingsGroupScreen(
                         sharePresence = it
                         prefs.edit().putBoolean(SettingsKeys.SHARE_PRESENCE, it).apply()
                     }
-                    // Saved on the server or in the lock store; wired by the screen that owns it.
+                    BipeSettingsRow.ACCOUNT_APP_LOCK -> SettingsSwitchItem(title, footer, lockOn) { isOn ->
+                        if (isOn) {
+                            onOpen(SettingsRoute.AppLockSetup)
+                        } else if (OwnerCheck.canCheckOwner(context)) {
+                            // Spec app-lock, action turnOff: the owner check, then the PIN and biometric unlock go.
+                            scope.launch {
+                                if (OwnerCheck.owner(context, lockOffReason)) {
+                                    lock.store.remove()
+                                    lock.refresh()
+                                }
+                            }
+                        } else {
+                            onOpen(SettingsRoute.AppLockOff)
+                        }
+                    }
+                    BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK -> SettingsSwitchItem(
+                        stringResource(R.string.bipe_account_biometric_unlock, word),
+                        footer,
+                        biometricUnlockOn,
+                    ) { isOn ->
+                        scope.launch {
+                            // Turning it on asks for biometrics once.
+                            if (!isOn || OwnerCheck.biometrics(context, biometricReason, cancel)) {
+                                lock.store.setBiometricUnlock(isOn)
+                                biometricUnlockOn = isOn
+                            }
+                        }
+                    }
+                    // Saved on the server; wired by the screen that owns it.
                     else -> if (row.kind == BipeSettingsRowKind.SWITCH) {
                         SettingsSwitchItem(title, footer, isOn = false, enabled = false) {}
                     } else {
@@ -229,15 +284,16 @@ fun SettingsGroupScreen(
             }
         }
     }
+    DataExportDialogs(model, export)
     if (showsSignOut) {
         SignOutSheet(model, onDismiss = { showsSignOut = false }, onSignedOut = onSignedOut)
     }
 }
 
 /** Rows that exist only in some states. */
-private fun isAvailable(row: BipeSettingsRow): Boolean = when (row) {
-    // Exists only while the app lock is on (spec settings-group notes).
-    BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK -> false
+private fun isAvailable(row: BipeSettingsRow, lockOn: Boolean, hasBiometrics: Boolean): Boolean = when (row) {
+    // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
+    BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK -> lockOn && hasBiometrics
     else -> true
 }
 

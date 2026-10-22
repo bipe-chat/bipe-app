@@ -16,9 +16,19 @@ struct SettingsGroupView: View {
 
     @AppStorage(SettingsKeys.hideRequestPhotos) private var hideRequestPhotos = true
     @AppStorage(SettingsKeys.sharePresence) private var sharePresence = true
+    @StateObject private var export: DataExportModel
     @State private var page: WebPage?
     @State private var showsSignOut = false
+    @State private var showsLockSetup = false
+    @State private var pinCheck: PinCheckRequest?
     @State private var notice: String?
+
+    init(model: SettingsModel, group: BipeSettingsGroup, onSignedOut: @escaping () -> Void) {
+        self.model = model
+        self.group = group
+        self.onSignedOut = onSignedOut
+        _export = StateObject(wrappedValue: DataExportModel(model: model))
+    }
 
     var body: some View {
         List {
@@ -54,6 +64,13 @@ struct SettingsGroupView: View {
         .sheet(item: $page) { page in
             SafariPage(url: page.url).ignoresSafeArea()
         }
+        .sheet(isPresented: $showsLockSetup) {
+            AppLockSetupView { model.refreshLock() }
+        }
+        .sheet(item: $pinCheck) { request in
+            AppLockPinCheckView(title: request.title, onPass: request.onPass)
+        }
+        .dataExport(export)
         .sheet(isPresented: $showsSignOut) {
             SignOutView(model: model, onSignedOut: onSignedOut)
                 .presentationDetents([.medium, .large])
@@ -80,8 +97,8 @@ struct SettingsGroupView: View {
     /// Rows that exist only in some states.
     private func isAvailable(_ row: BipeSettingsRow) -> Bool {
         switch row {
-        // Exists only while the app lock is on (spec settings-group notes).
-        case .accountBiometricUnlock: false
+        // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
+        case .accountBiometricUnlock: model.appLockOn && OwnerCheck.biometricKind != .none
         default: true
         }
     }
@@ -117,6 +134,28 @@ struct SettingsGroupView: View {
             Toggle(isOn: $hideRequestPhotos) { SettingsRowLabel(title: row.title, footer: row.footer) }
         case .privacyPresence:
             Toggle(isOn: $sharePresence) { SettingsRowLabel(title: row.title, footer: row.footer) }
+        case .accountChangePin:
+            NavigationLink {
+                PinChangeView(model: model)
+            } label: {
+                SettingsRowLabel(title: row.title)
+            }
+        case .accountAppLock:
+            Toggle(isOn: Binding(get: { model.appLockOn }, set: { isOn in
+                if isOn {
+                    showsLockSetup = true
+                } else {
+                    Task { await turnLockOff() }
+                }
+            })) {
+                SettingsRowLabel(title: row.title)
+            }
+        case .accountBiometricUnlock:
+            Toggle(isOn: Binding(get: { model.biometricUnlockOn }, set: { isOn in
+                Task { await setBiometricUnlock(isOn) }
+            })) {
+                SettingsRowLabel(title: BipeStrings.accountBiometricUnlock(OwnerCheck.biometricWord))
+            }
         case .helpSupport:
             NavigationLink(value: SettingsRoute.support) { SettingsRowLabel(title: row.title) }
         default:
@@ -173,6 +212,8 @@ struct SettingsGroupView: View {
         switch row {
         case .accountSignOut:
             showsSignOut = true
+        case .privacyExport:
+            Task { await export.start() }
         case .chatsLanguage:
             if let url = URL(string: UIApplication.openSettingsURLString) {
                 UIApplication.shared.open(url)
@@ -181,6 +222,35 @@ struct SettingsGroupView: View {
             // The screens of the other rows come with their own specs (see settings-group notes).
             break
         }
+    }
+
+    /// Spec app-lock, action turnOff: the owner check, or the app lock PIN on a phone with no passcode.
+    private func turnLockOff() async {
+        let remove = {
+            AppLockModel.shared.store.remove()
+            AppLockModel.shared.unlockForGood()
+            model.refreshLock()
+        }
+        if OwnerCheck.canCheckOwner {
+            if await OwnerCheck.owner(reason: BipeStrings.accountAppLockOffReason) {
+                remove()
+            }
+        } else {
+            pinCheck = PinCheckRequest(title: BipeStrings.accountAppLock, onPass: remove)
+        }
+        model.refreshLock()
+    }
+
+    /// The biometricUnlock switch: turning it on asks for biometrics once.
+    private func setBiometricUnlock(_ isOn: Bool) async {
+        if isOn {
+            guard await OwnerCheck.biometrics(reason: BipeStrings.appLockBiometric(OwnerCheck.biometricWord)) else {
+                model.refreshLock()
+                return
+            }
+        }
+        AppLockModel.shared.store.setBiometricUnlock(isOn)
+        model.refreshLock()
     }
 
     private func copyDeviceId() {

@@ -10,8 +10,15 @@ package chat.bipe.shared.settings
 import android.content.Context
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.BipeApiErrorCode
+import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.generated.BipeSettingsRow
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -140,3 +147,48 @@ suspend fun BipeApiClient.accountWays(accessToken: String): BipeAccountWays =
 /** `POST /v1/me/support`. The room ID of the caller's support room (ADR 0114). */
 suspend fun BipeApiClient.supportRoomId(accessToken: String): String =
     send("POST", listOf("v1", "me", "support"), accessToken = accessToken, response = SupportRoom.serializer()).roomId
+
+@Serializable
+private data class PinRequest(@SerialName("pin") val pin: String) {
+    override fun toString(): String = "PinRequest"
+}
+
+/** `PUT /v1/me/pin`. No old PIN: the owner check on the phone stands in for it (ADR 0057). */
+suspend fun BipeApiClient.setPin(pin: String, accessToken: String) {
+    send<Unit>("PUT", listOf("v1", "me", "pin"), body = encode(PinRequest.serializer(), PinRequest(pin)), accessToken = accessToken, response = null)
+}
+
+/** The body of GET /v1/me/export as it is, and the file name to save it under. */
+class BipeDataExportBody(val bytes: ByteArray, val filename: String) {
+    override fun toString(): String = "BipeDataExportBody($filename)"
+}
+
+/** `GET /v1/me/export`. The app does not parse the body (spec data-export). */
+suspend fun BipeApiClient.exportMyData(accessToken: String): BipeDataExportBody = withContext(Dispatchers.IO) {
+    val connection = try {
+        URL("$root/v1/me/export").openConnection() as HttpURLConnection
+    } catch (error: IOException) {
+        throw BipeApiException.Network(error)
+    }
+    try {
+        connection.connectTimeout = 30_000
+        connection.readTimeout = 60_000
+        connection.setRequestProperty("Accept", "application/json")
+        connection.setRequestProperty("Authorization", "Bearer $accessToken")
+        val status = connection.responseCode
+        if (status !in 200..299) {
+            val code = when (status) {
+                401 -> BipeApiErrorCode.UNAUTHORIZED
+                429 -> BipeApiErrorCode.RATE_LIMITED
+                else -> BipeApiErrorCode.INTERNAL
+            }
+            throw BipeApiException.Server(code, reason = null, statusCode = status)
+        }
+        val bytes = connection.inputStream.use { it.readBytes() }
+        BipeDataExportBody(bytes, BipeDataExportFile.filename(connection.getHeaderField("Content-Disposition")))
+    } catch (error: IOException) {
+        throw BipeApiException.Network(error)
+    } finally {
+        connection.disconnect()
+    }
+}
