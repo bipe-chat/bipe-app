@@ -3,12 +3,15 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Phosphor
 import SwiftUI
 
 /// Spec chat-list.
 struct ChatListView: View {
     @StateObject private var model: ChatListModel
     @State private var path: [String] = []
+    @State private var creatingGroup = false
+    @State private var toast: String?
 
     init(session: AccountSession) {
         _model = StateObject(wrappedValue: ChatListModel(session: session))
@@ -22,9 +25,30 @@ struct ChatListView: View {
                 .navigationDestination(for: String.self) { roomId in
                     ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
                 }
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            creatingGroup = true
+                        } label: {
+                            PhosphorIcon.plus.image.resizable().frame(width: 22, height: 22)
+                        }
+                        .accessibilityLabel(BipeStrings.groupsEmptyAction)
+                    }
+                }
         }
+        .environment(\.closeChat, { path.removeAll() })
+        .sheet(isPresented: $creatingGroup) {
+            GroupCreateView(session: model.session, media: model.media) { roomId, allInvited in
+                openChat(roomId)
+                if !allInvited {
+                    toast = BipeStrings.appGroupCreateInvitesFailed
+                }
+            }
+        }
+        .toast($toast)
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
         .task { await model.start() }
+        .task { await QuietGroups.applyOnce(session: model.session) }
     }
 
     @ViewBuilder

@@ -3,17 +3,23 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import MatrixRustSDK
 import Phosphor
 import SwiftUI
 
 /// Spec chat-timeline.
 struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
+    @State private var isGroup = false
     private let media: MediaLoader
+    private let session: AccountSession
+    private let roomId: String
 
     init(session: AccountSession, media: MediaLoader, roomId: String) {
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
         self.media = media
+        self.session = session
+        self.roomId = roomId
     }
 
     var body: some View {
@@ -24,8 +30,26 @@ struct ChatTimelineView: View {
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(model.roomName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if isGroup {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink {
+                        GroupDetailsView(session: session, media: media, roomId: roomId)
+                    } label: {
+                        PhosphorIcon.info.image.resizable().frame(width: 22, height: 22)
+                    }
+                    .accessibilityLabel(BipeStrings.appGroupDetailsTitle)
+                }
+            }
+        }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
+        .task {
+            // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).
+            if let info = try? await session.client.getRoom(roomId: roomId)?.roomInfo() {
+                isGroup = !info.isDm && !info.isSpace
+            }
+        }
     }
 
     private var messageList: some View {

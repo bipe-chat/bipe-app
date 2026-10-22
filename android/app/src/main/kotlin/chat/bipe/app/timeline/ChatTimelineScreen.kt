@@ -35,6 +35,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -58,7 +59,13 @@ import chat.bipe.shared.generated.BipeScreen
 
 /** Spec chat-timeline. */
 @Composable
-fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: String, onBack: () -> Unit) {
+fun ChatTimelineScreen(
+    session: AccountSession,
+    media: MediaLoader,
+    roomId: String,
+    onBack: () -> Unit,
+    onOpenGroupDetails: (() -> Unit)? = null,
+) {
     val scope = rememberCoroutineScope()
     val model = remember(roomId) { ChatTimelineModel(session, roomId, scope) }
     DisposableEffect(model) {
@@ -71,6 +78,10 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val isLoadingHistory by model.isLoadingHistory.collectAsState()
     val reachedStart by model.reachedStart.collectAsState()
     val draft by model.draft.collectAsState()
+    // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).
+    val isGroup by produceState(false, roomId) {
+        value = runCatching { session.client.getRoom(roomId)?.roomInfo() }.getOrNull()?.let { !it.isDm && !it.isSpace } ?: false
+    }
     val listState = rememberLazyListState()
 
     // The list is reversed: index 0 is the newest message, so the view opens at the bottom.
@@ -96,7 +107,17 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     color = colors.inkPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
+                if (isGroup && onOpenGroupDetails != null) {
+                    IconButton(onClick = onOpenGroupDetails) {
+                        Icon(
+                            painterResource(PhosphorIcon.INFO.drawable),
+                            contentDescription = stringResource(R.string.bipe_app_group_details_title),
+                            tint = colors.glyphPrimary,
+                        )
+                    }
+                }
             }
             LazyColumn(
                 state = listState,

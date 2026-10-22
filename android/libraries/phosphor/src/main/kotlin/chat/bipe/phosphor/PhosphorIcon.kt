@@ -11,10 +11,22 @@ import androidx.annotation.DrawableRes
 /** Phosphor icons (MIT) that the app uses. Add an icon in tools/phosphor.json, then run tools/phosphor.mjs. */
 enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     ARROW_CLOCKWISE("arrow-clockwise", R.drawable.phosphor_arrow_clockwise),
+    BELL("bell", R.drawable.phosphor_bell),
     CARET_LEFT("caret-left", R.drawable.phosphor_caret_left),
+    CARET_RIGHT("caret-right", R.drawable.phosphor_caret_right),
+    CHART_BAR("chart-bar", R.drawable.phosphor_chart_bar),
     CHAT_CIRCLE("chat-circle", R.drawable.phosphor_chat_circle),
+    CHECK("check", R.drawable.phosphor_check),
+    IMAGE("image", R.drawable.phosphor_image),
+    INFO("info", R.drawable.phosphor_info),
     LOCK_SIMPLE("lock-simple", R.drawable.phosphor_lock_simple),
     PAPER_PLANE_RIGHT("paper-plane-right", R.drawable.phosphor_paper_plane_right),
+    PLUS("plus", R.drawable.phosphor_plus),
+    SIGN_OUT("sign-out", R.drawable.phosphor_sign_out),
+    TRASH("trash", R.drawable.phosphor_trash),
     USER_CIRCLE("user-circle", R.drawable.phosphor_user_circle),
+    USER_PLUS("user-plus", R.drawable.phosphor_user_plus),
+    USERS_THREE("users-three", R.drawable.phosphor_users_three),
     WARNING_CIRCLE("warning-circle", R.drawable.phosphor_warning_circle),
+    X("x", R.drawable.phosphor_x),
 }

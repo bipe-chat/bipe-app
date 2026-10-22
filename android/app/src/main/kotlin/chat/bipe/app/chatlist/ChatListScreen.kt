@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -39,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -49,7 +52,11 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.groups.GroupCreateScreen
+import chat.bipe.app.groups.GroupDetailsScreen
+import chat.bipe.app.groups.QuietGroups
 import chat.bipe.app.timeline.ChatTimelineScreen
+import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
@@ -62,33 +69,68 @@ fun HomeScreen(session: AccountSession) {
     val model = remember(session) { ChatListModel(session, scope, undecryptable) }
     val media = remember(session) { MediaLoader(session.client) }
     var openRoomId by rememberSaveable { mutableStateOf<String?>(null) }
+    var creatingGroup by rememberSaveable { mutableStateOf(false) }
+    var groupDetailsOpen by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val invitesFailed = stringResource(R.string.bipe_app_group_create_invites_failed)
     DisposableEffect(model) {
         model.start()
         onDispose { model.close() }
     }
+    LaunchedEffect(session) { QuietGroups.applyOnce(context, session) }
     val roomId = openRoomId
-    if (roomId != null) {
-        BackHandler { openRoomId = null }
-        ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
-    } else {
-        ChatListScreen(model, media, onOpenChat = { openRoomId = it })
+    when {
+        creatingGroup -> GroupCreateScreen(
+            session,
+            media,
+            onClose = { creatingGroup = false },
+            onCreated = { newRoomId, allInvited ->
+                creatingGroup = false
+                openRoomId = newRoomId
+                if (!allInvited) android.widget.Toast.makeText(context, invitesFailed, android.widget.Toast.LENGTH_LONG).show()
+            },
+        )
+        roomId != null && groupDetailsOpen -> GroupDetailsScreen(
+            session,
+            media,
+            roomId,
+            onBack = { groupDetailsOpen = false },
+            onLeft = {
+                groupDetailsOpen = false
+                openRoomId = null
+            },
+        )
+        roomId != null -> {
+            BackHandler { openRoomId = null }
+            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onOpenGroupDetails = { groupDetailsOpen = true })
+        }
+        else -> ChatListScreen(model, media, onOpenChat = { openRoomId = it }, onCreateGroup = { creatingGroup = true })
     }
 }
 
 /** Spec chat-list. */
 @Composable
-fun ChatListScreen(model: ChatListModel, media: MediaLoader, onOpenChat: (String) -> Unit) {
+fun ChatListScreen(model: ChatListModel, media: MediaLoader, onOpenChat: (String) -> Unit, onCreateGroup: () -> Unit = {}) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
     val chats by model.chats.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            Text(
-                stringResource(R.string.bipe_app_chat_list_title),
-                style = MaterialTheme.typography.headlineMedium,
-                color = colors.inkPrimary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.bipe_app_chat_list_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = colors.inkPrimary,
+                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+                IconButton(onClick = onCreateGroup, modifier = Modifier.padding(end = 4.dp)) {
+                    Icon(
+                        painterResource(PhosphorIcon.PLUS.drawable),
+                        contentDescription = stringResource(R.string.bipe_groups_empty_action),
+                        tint = colors.glyphPrimary,
+                    )
+                }
+            }
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)
