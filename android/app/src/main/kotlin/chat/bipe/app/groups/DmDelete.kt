@@ -31,7 +31,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
-import chat.bipe.shared.ClearedChats
+import chat.bipe.shared.clearedchats.ClearedChats
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 import java.net.HttpURLConnection
@@ -44,7 +45,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Room
@@ -54,17 +54,19 @@ import org.matrix.rustcomponents.sdk.Room
  * the events at or below its marker. Read from Client.accountData at start and when the app comes to the front.
  */
 object ClearedChatsStore {
-    private val _markers = MutableStateFlow<Map<String, Long>>(emptyMap())
-    val markers: StateFlow<Map<String, Long>> = _markers.asStateFlow()
+    private val _markers = MutableStateFlow(ClearedChats.EMPTY)
+    val markers: StateFlow<ClearedChats> = _markers.asStateFlow()
 
     suspend fun refresh(client: Client) {
-        val json = runCatching { client.accountData(ClearedChats.EVENT_TYPE) }.getOrNull()
-        _markers.value = ClearedChats.markers(ClearedChats.parse(json))
+        val json = runCatching { client.accountData(EVENT_TYPE) }.getOrNull()
+        _markers.value = ClearedChats.parse(json)
     }
 
     fun set(roomId: String, marker: Long) {
-        _markers.value = _markers.value + (roomId to maxOf(_markers.value[roomId] ?: 0L, marker))
+        _markers.value = _markers.value.mergedWith(mapOf(roomId to marker))
     }
+
+    const val EVENT_TYPE = BipeRegistries.CLEARED_CHATS_EVENT_TYPE
 }
 
 /** Spec dm-delete (bipe-shared product/screens/dm-delete.json). */
@@ -86,8 +88,8 @@ class DmDeleteModel(
         scope.launch {
             runCatching {
                 val ts = latestTs(room)
-                val content = ClearedChats.withClear(serverContent(), roomId, ts)
-                session.client.setAccountData(ClearedChats.EVENT_TYPE, content.toString())
+                val content = ClearedChats.contentClearing(serverContent(), roomId, ts)
+                session.client.setAccountData(ClearedChatsStore.EVENT_TYPE, content)
                 ts
             }.onSuccess { ts ->
                 ClearedChatsStore.set(roomId, ts)
@@ -110,15 +112,15 @@ class DmDeleteModel(
      * The server copy, not Client.accountData: the SDK copy waits for the next sync, so a write from it could drop a
      * marker another device just added (bipe-chat/bipe#479). Matrix client-server API GET user account data.
      */
-    private suspend fun serverContent(): JSONObject? = withContext(Dispatchers.IO) {
+    private suspend fun serverContent(): String? = withContext(Dispatchers.IO) {
         val auth = session.client.session()
         val user = URLEncoder.encode(auth.userId, "UTF-8")
-        val url = URL("${auth.homeserverUrl.trimEnd('/')}/_matrix/client/v3/user/$user/account_data/${ClearedChats.EVENT_TYPE}")
+        val url = URL("${auth.homeserverUrl.trimEnd('/')}/_matrix/client/v3/user/$user/account_data/${ClearedChatsStore.EVENT_TYPE}")
         val connection = url.openConnection() as HttpURLConnection
         try {
             connection.setRequestProperty("Authorization", "Bearer ${auth.accessToken}")
             when (connection.responseCode) {
-                200 -> ClearedChats.parse(connection.inputStream.bufferedReader().use { it.readText() })
+                200 -> connection.inputStream.bufferedReader().use { it.readText() }
                 404 -> null
                 else -> error("account data: HTTP ${connection.responseCode}")
             }

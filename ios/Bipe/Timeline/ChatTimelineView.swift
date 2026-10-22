@@ -139,6 +139,7 @@ private struct MessageRow: View {
     let message: TimelineMessage
     let openPoll: (String) -> Void
     let retry: () -> Void
+    @Environment(\.openHistoryHelp) private var openHistoryHelp
 
     var body: some View {
         switch message.kind {
@@ -171,7 +172,17 @@ private struct MessageRow: View {
                         .font(.subheadline.italic())
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
+                // Action openHelp: only historyNotOnThisPhone has a way to help.
+                if message.cause == .historyNotOnThisPhone {
+                    Button(action: openHistoryHelp) {
+                        Text(BipeStrings.appUtdHelp)
+                            .font(.subheadline)
+                            .foregroundStyle(BipeColor.accentInk)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .accessibilityIdentifier(BipeScreen.messageUndecryptable.rawValue)
         case .poll:
             if let poll = message.poll {
                 Button {

@@ -10,62 +10,63 @@ import SwiftUI
 struct ChatListView: View {
     @StateObject private var model: ChatListModel
     @StateObject private var handle: HandlePickModel
+    @StateObject private var encryption: EncryptionStatusModel
     @State private var path: [String]
     @State private var showsHandlePick = false
+    private let onOpenSettings: (() -> Void)?
     @State private var creatingGroup = false
-    @State private var toast: String?
     @State private var deletingDm: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
-    @Environment(\.scenePhase) private var scenePhase
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
-    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil) {
+    /// onOpenSettings: the temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main.
+    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil, onOpenSettings: (() -> Void)? = nil) {
+        self.onOpenSettings = onOpenSettings
         _model = StateObject(wrappedValue: ChatListModel(session: session))
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: session))
+        _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: session))
         _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            content
-                .background(BipeColor.surfaceBase.ignoresSafeArea())
-                .navigationTitle(BipeStrings.appChatListTitle)
-                .navigationDestination(for: String.self) { roomId in
-                    ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
+            VStack(spacing: 0) {
+                // Spec encryption-status: the banner above the chat list.
+                if encryption.showsBanner {
+                    HistoryBanner(model: encryption)
                 }
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            creatingGroup = true
-                        } label: {
-                            PhosphorIcon.plus.image.resizable().frame(width: 22, height: 22)
-                        }
-                        .accessibilityLabel(BipeStrings.groupsEmptyAction)
+                content
+            }
+            .background(BipeColor.surfaceBase.ignoresSafeArea())
+            .navigationTitle(BipeStrings.appChatListTitle)
+            .navigationDestination(for: String.self) { roomId in
+                ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    CreateGroupButton { creatingGroup = true }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        onOpenSettings?()
+                    } label: {
+                        PhosphorIcon.gear.image
+                            .resizable()
+                            .frame(width: 22, height: 22)
                     }
-                }
-        }
-        .environment(\.closeChat, { path.removeAll() })
-        .sheet(isPresented: $creatingGroup) {
-            GroupCreateView(session: model.session, media: model.media) { roomId, allInvited in
-                openChat(roomId)
-                if !allInvited {
-                    toast = BipeStrings.appGroupCreateInvitesFailed
+                    .accessibilityLabel(BipeStrings.settingsSection)
+                    .opacity(onOpenSettings == nil ? 0 : 1)
                 }
             }
         }
-        .sheet(item: Binding(get: { deletingDm.map(DmSheetId.init) }, set: { deletingDm = $0?.id })) { dm in
-            DmDeleteView(session: model.session, roomId: dm.id) {}
-        }
-        .toast($toast)
-        .task { await cleared.refresh(client: model.session.client) }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                Task { await cleared.refresh(client: model.session.client) }
-            }
+        .groupHost(session: model.session, media: model.media, path: $path, creatingGroup: $creatingGroup, deletingDm: $deletingDm)
+        .environment(\.openHistoryHelp, encryption.openSheet)
+        .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
+            EncryptionSheet(route: route, model: encryption, session: model.session)
         }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
+        .task { await encryption.observe() }
         .task { await model.start() }
-        .task { await QuietGroups.applyOnce(session: model.session) }
         .task { await handle.load() }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
@@ -133,9 +134,6 @@ struct ChatListView: View {
     }
 }
 
-private struct DmSheetId: Identifiable {
-    let id: String
-}
 
 private struct ChatRow: View {
     let chat: ChatSummary

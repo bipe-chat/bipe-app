@@ -4,62 +4,91 @@
 
 import Foundation
 
-/// Cleared DMs, "Apagar conversa" (bipe-chat/bipe#464, ADR 0141). Rules: bipe-shared registries/cleared-chats.json and
-/// the reference functions clearedChat* in tools/lib/registries.mjs; cases in test-vectors/cleared-chats.json.
-/// The content of the global account data event is { "rooms": { "<room_id>": { "ts": <ms> } } }.
-public enum ClearedChats {
-    public static let eventType = "chat.bipe.cleared_chats"
-
-    /// The parsed content of the event, or nil when there is none or it is not an object.
-    public static func parse(_ json: String?) -> [String: Any]? {
-        guard let data = json?.data(using: .utf8) else { return nil }
-        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+/// Cleared DMs ("Apagar conversa", bipe#464): the global account data event `chat.bipe.cleared_chats`,
+/// content `{ "rooms": { "<room_id>": { "ts": <origin_server_ts in ms> } } }`.
+/// Port of `clearedChat*` in bipe-shared `tools/lib/registries.mjs`; `test-vectors/cleared-chats.json` holds the cases.
+public struct ClearedChats: Equatable, Sendable {
+    public static let eventType = BipeRegistries.clearedChatsEventType
+    public static let empty = ClearedChats(markers: [:])
+    
+    /// The valid markers by room ID. A malformed event or entry counts as not cleared.
+    public let markers: [String: UInt64]
+    
+    public init(markers: [String: UInt64]) {
+        self.markers = markers
     }
-
-    /// clearedChatMarker: the marker (ms) of a room, or nil. A malformed event or entry counts as not cleared.
-    public static func marker(content: [String: Any]?, roomId: String) -> UInt64? {
-        guard let rooms = content?["rooms"] as? [String: Any] else { return nil }
-        return ts(rooms[roomId])
+    
+    /// Reads a content object from `JSONSerialization`. Anything other than an object with a `rooms` object is empty.
+    public init(content: Any?) {
+        var markers: [String: UInt64] = [:]
+        for (roomID, entry) in Self.rooms(in: content) ?? [:] {
+            if let ts = Self.timestamp(of: entry) {
+                markers[roomID] = ts
+            }
+        }
+        self.init(markers: markers)
     }
-
-    /// Every valid marker of the content, by room ID.
-    public static func markers(content: [String: Any]?) -> [String: UInt64] {
-        guard let rooms = content?["rooms"] as? [String: Any] else { return [:] }
-        return rooms.compactMapValues(ts)
+    
+    /// Reads the account data as the SDK returns it: a JSON string, `nil` when the event does not exist.
+    public init(json: String?) {
+        self.init(content: json.flatMap(Self.parse))
     }
-
-    /// clearedChatHidden: the chat list hides the room while it has a marker and no event after it.
-    /// latestTs is nil when the room has no latest event.
-    public static func hidden(marker: UInt64?, latestTs: UInt64?) -> Bool {
+    
+    public func marker(for roomID: String) -> UInt64? {
+        markers[roomID]
+    }
+    
+    /// True when the chat list hides the room: it has a marker and no event after it. `latestTs` is `nil` when the room has no latest event.
+    public static func isHidden(marker: UInt64?, latestTs: UInt64?) -> Bool {
         guard let marker else { return false }
         guard let latestTs else { return true }
         return latestTs <= marker
     }
-
-    /// clearedChatKeepsEvent: the timeline and search keep an event with this origin_server_ts.
+    
+    /// True when the timeline and search keep an event with this `origin_server_ts`.
     public static func keepsEvent(marker: UInt64?, eventTs: UInt64) -> Bool {
         guard let marker else { return true }
         return eventTs > marker
     }
-
-    /// clearedChatsWithClear: the content to write when the user clears roomId at ts. Keeps every other key and
-    /// entry as it is. The marker never moves back.
-    public static func withClear(content: [String: Any]?, roomId: String, ts newTs: UInt64) -> [String: Any] {
-        var base = content ?? [:]
-        var rooms = base["rooms"] as? [String: Any] ?? [:]
-        let old = ts(rooms[roomId])
-        rooms[roomId] = ["ts": max(old ?? 0, newTs)]
+    
+    /// The content to write when the user clears `roomID` at `ts`. Keeps every other key and entry as it is. The marker never moves back.
+    public static func content(clearing content: Any?, roomID: String, at ts: UInt64) -> [String: Any] {
+        var base = content as? [String: Any] ?? [:]
+        var rooms = Self.rooms(in: base) ?? [:]
+        let old = rooms[roomID].flatMap(Self.timestamp(of:))
+        rooms[roomID] = ["ts": old.map { max($0, ts) } ?? ts]
         base["rooms"] = rooms
         return base
     }
-
-    /// A valid entry is an object whose ts is a whole number of 0 or more, up to 2^53 - 1.
-    private static func ts(_ entry: Any?) -> UInt64? {
-        guard let entry = entry as? [String: Any], let number = entry["ts"] as? NSNumber else { return nil }
-        // JSON true and false also arrive as NSNumber.
-        guard CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+    
+    /// `content(clearing:roomID:at:)` on the JSON string the SDK returns. `nil` only when the result cannot be encoded.
+    public static func json(clearing json: String?, roomID: String, at ts: UInt64) -> String? {
+        let content = Self.content(clearing: json.flatMap(Self.parse), roomID: roomID, at: ts)
+        guard let data = try? JSONSerialization.data(withJSONObject: content) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+    
+    // MARK: - Private
+    
+    /// `Number.MAX_SAFE_INTEGER`: the reference implementation accepts safe integers only.
+    private static let maxSafeInteger: Double = 9_007_199_254_740_991
+    
+    private static func parse(_ json: String) -> Any? {
+        try? JSONSerialization.jsonObject(with: Data(json.utf8), options: [.fragmentsAllowed])
+    }
+    
+    private static func rooms(in content: Any?) -> [String: Any]? {
+        (content as? [String: Any])?["rooms"] as? [String: Any]
+    }
+    
+    private static func timestamp(of entry: Any) -> UInt64? {
+        // JSONSerialization reads true and false as NSNumber too.
+        guard let number = (entry as? [String: Any])?["ts"] as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID() else {
+            return nil
+        }
         let value = number.doubleValue
-        guard value >= 0, value <= 9_007_199_254_740_991, value.rounded() == value else { return nil }
+        guard value >= 0, value <= maxSafeInteger, value.rounded(.towardZero) == value else { return nil }
         return UInt64(value)
     }
 }

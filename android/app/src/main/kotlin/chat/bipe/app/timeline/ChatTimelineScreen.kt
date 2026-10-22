@@ -77,6 +77,7 @@ fun ChatTimelineScreen(
     roomId: String,
     onBack: () -> Unit,
     onOpenGroupDetails: (() -> Unit)? = null,
+    onHistoryHelp: () -> Unit = {},
     onDmDeleted: () -> Unit = onBack,
 ) {
     val scope = rememberCoroutineScope()
@@ -92,7 +93,7 @@ fun ChatTimelineScreen(
     val markers by ClearedChatsStore.markers.collectAsState()
     // Spec dm-delete: events at or below the marker of a cleared DM are gone.
     val messages = remember(allMessages, markers) {
-        val marker = markers[roomId]
+        val marker = markers.marker(roomId)
         if (marker == null) allMessages else allMessages.filter { it.sentAt > marker }
     }
     val isLoadingHistory by model.isLoadingHistory.collectAsState()
@@ -190,7 +191,7 @@ fun ChatTimelineScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(newestFirst, key = { it.id }) { message ->
-                    MessageRow(message, onRetry = { model.retrySend(message.id) }, onOpenPoll = { openPollId = it })
+                    MessageRow(message, onRetry = { model.retrySend(message.id) }, onHistoryHelp = onHistoryHelp, onOpenPoll = { openPollId = it })
                 }
                 item(key = "history") {
                     // Composed while the top of the list is on screen, again after each page (action loadHistory).
@@ -220,7 +221,7 @@ fun ChatTimelineScreen(
 }
 
 @Composable
-private fun MessageRow(message: TimelineMessage, onRetry: () -> Unit, onOpenPoll: (String) -> Unit) {
+private fun MessageRow(message: TimelineMessage, onRetry: () -> Unit, onHistoryHelp: () -> Unit, onOpenPoll: (String) -> Unit) {
     val colors = BipeTheme.colors
     when (message.kind) {
         TimelineMessage.Kind.TEXT -> Bubble(message.isOwn) {
@@ -245,13 +246,22 @@ private fun MessageRow(message: TimelineMessage, onRetry: () -> Unit, onOpenPoll
                 }
             }
         }
-        TimelineMessage.Kind.UNDECRYPTABLE -> Bubble(message.isOwn) {
+        TimelineMessage.Kind.UNDECRYPTABLE -> Bubble(message.isOwn, Modifier.testTag(BipeScreen.MESSAGE_UNDECRYPTABLE.id)) {
             if (!message.isOwn) {
                 Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(painterResource(PhosphorIcon.LOCK_SIMPLE.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(14.dp).padding(top = 2.dp))
                 Text(undecryptableText(message), style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = colors.inkSecondary)
+            }
+            // Action openHelp: only historyNotOnThisPhone has a way to help.
+            if (message.cause == TimelineMessage.UndecryptableCause.HISTORY_NOT_ON_THIS_PHONE) {
+                Text(
+                    stringResource(R.string.bipe_app_utd_help),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.accentInk,
+                    modifier = Modifier.clickable(onClick = onHistoryHelp),
+                )
             }
         }
         TimelineMessage.Kind.POLL -> message.poll?.let { poll ->
@@ -280,9 +290,9 @@ private fun undecryptableText(message: TimelineMessage): String = when (message.
 }
 
 @Composable
-private fun Bubble(isOwn: Boolean, content: @Composable () -> Unit) {
+private fun Bubble(isOwn: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val colors = BipeTheme.colors
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = if (isOwn) Arrangement.End else Arrangement.Start) {
+    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = if (isOwn) Arrangement.End else Arrangement.Start) {
         Column(
             modifier = Modifier
                 .widthIn(max = 300.dp)

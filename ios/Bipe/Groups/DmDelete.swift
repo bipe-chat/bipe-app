@@ -17,7 +17,7 @@ final class ClearedChatsStore: ObservableObject {
 
     func refresh(client: Client) async {
         let json = try? await client.accountData(eventType: ClearedChats.eventType)
-        markers = ClearedChats.markers(content: ClearedChats.parse(json ?? nil))
+        markers = ClearedChats(json: json ?? nil).markers
     }
 
     func set(roomId: String, marker: UInt64) {
@@ -25,7 +25,7 @@ final class ClearedChatsStore: ObservableObject {
     }
 
     func hidden(roomId: String, latest: Date?) -> Bool {
-        ClearedChats.hidden(marker: markers[roomId], latestTs: latest.map { UInt64(max(0, $0.timeIntervalSince1970 * 1000)) })
+        ClearedChats.isHidden(marker: markers[roomId], latestTs: latest.map { UInt64(max(0, $0.timeIntervalSince1970 * 1000)) })
     }
 
     func keeps(roomId: String, sentAt: Date) -> Bool {
@@ -62,7 +62,7 @@ final class DmDeleteModel: ObservableObject {
         phase = .deleting
         do {
             let ts = await Self.latestTs(room)
-            let content = ClearedChats.withClear(content: try await serverContent(), roomId: roomId, ts: ts)
+            let content = ClearedChats.content(clearing: try await serverContent(), roomID: roomId, at: ts)
             let data = try JSONSerialization.data(withJSONObject: content)
             try await session.client.setAccountData(eventType: ClearedChats.eventType, content: String(decoding: data, as: UTF8.self))
             ClearedChatsStore.shared.set(roomId: roomId, marker: ts)

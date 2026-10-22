@@ -33,7 +33,6 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.phosphor.PhosphorIcon
-import chat.bipe.shared.ClearedChats
 import chat.bipe.shared.R
 
 /** What the group screens on top of the home screen need from it. */
@@ -108,8 +107,7 @@ fun CreateGroupButton(onClick: () -> Unit) {
 @Composable
 fun <T> withoutClearedDms(chats: List<T>, roomId: (T) -> String, lastActivity: (T) -> Long?): List<T> {
     val markers by ClearedChatsStore.markers.collectAsState()
-    if (markers.isEmpty()) return chats
-    return chats.filterNot { ClearedChats.hidden(markers[roomId(it)], lastActivity(it)) }
+    return chats.filterNot { markers.isHidden(roomId(it), lastActivity(it)) }
 }
 
 /** A chat-list row that a swipe to the left offers to delete, for a DM (spec dm-delete notes). */
