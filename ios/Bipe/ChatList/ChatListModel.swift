@@ -14,8 +14,23 @@ struct ChatSummary: Identifiable, Equatable {
     var lastActivity: Date?
     var unreadCount: Int
     var isDirect: Bool
+    /// Joined and invited members. Not in the spec type: it decides the scope.
+    var memberCount: Int
+    /// Unread mentions and replies, for the Grupos badge (spec app-tabs gruposAttention).
+    var mentionCount: Int
 
     var id: String { roomId }
+
+    /// The scope that lists this chat: conversas holds rooms with two members, grupos rooms with more (ADR 0053).
+    var scope: ChatScope {
+        memberCount > 2 ? .grupos : .conversas
+    }
+}
+
+/// State scope of spec chat-list.
+enum ChatScope: String, CaseIterable {
+    case conversas
+    case grupos
 }
 
 /// Spec chat-list (bipe-shared product/screens/chat-list.json).
@@ -44,6 +59,17 @@ final class ChatListModel: ObservableObject {
     init(session: AccountSession) {
         self.session = session
         media = MediaLoader(client: session.client)
+    }
+
+    /// The chats of one scope, in room list order.
+    func chats(in scope: ChatScope) -> [ChatSummary] {
+        chats.filter { $0.scope == scope }
+    }
+
+    /// The phase of one scope: empty when the list loaded and the scope has no chat.
+    func phase(in scope: ChatScope) -> Phase {
+        guard phase != .loading else { return .loading }
+        return chats.contains { $0.scope == scope } ? .loaded : (listLoaded ? .empty : .loading)
     }
 
     deinit {
@@ -136,6 +162,8 @@ final class ChatListModel: ObservableObject {
                            lastMessage: lastMessage,
                            lastActivity: lastActivity,
                            unreadCount: Int(info.numUnreadMessages),
-                           isDirect: info.isDirect)
+                           isDirect: info.isDirect,
+                           memberCount: Int(info.activeMembersCount),
+                           mentionCount: Int(info.numUnreadMentions))
     }
 }

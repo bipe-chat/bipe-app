@@ -6,28 +6,30 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
-/// Spec chat-list.
+/// Spec chat-list, one scope: Conversas or Grupos (ADR 0053).
 struct ChatListView: View {
-    @StateObject private var model: ChatListModel
+    @ObservedObject private var model: ChatListModel
     @StateObject private var handle: HandlePickModel
     @State private var path: [String]
     @State private var showsHandlePick = false
+    private let scope: ChatScope
     private let onOpenSettings: (() -> Void)?
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
-    /// onOpenSettings: the temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main.
-    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil, onOpenSettings: (() -> Void)? = nil) {
+    /// onOpenSettings: the entry to settings-root until Você holds it (bipe-chat/bipe#577, second step).
+    init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil, onOpenSettings: (() -> Void)? = nil) {
         self.onOpenSettings = onOpenSettings
-        _model = StateObject(wrappedValue: ChatListModel(session: session))
-        _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: session))
+        _model = ObservedObject(wrappedValue: model)
+        _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
         _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
+        self.scope = scope
     }
 
     var body: some View {
         NavigationStack(path: $path) {
             content
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
-                .navigationTitle(BipeStrings.appChatListTitle)
+                .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
                 .navigationDestination(for: String.self) { roomId in
                     ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
                 }
@@ -46,8 +48,11 @@ struct ChatListView: View {
                 }
         }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
-        .task { await model.start() }
-        .task { await handle.load() }
+        .task {
+            if scope == .conversas {
+                await handle.load()
+            }
+        }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
         }
@@ -71,17 +76,17 @@ struct ChatListView: View {
 
     @ViewBuilder
     private var list: some View {
-        switch model.phase {
+        switch model.phase(in: scope) {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .empty:
-            Text(BipeStrings.appChatListEmpty)
-                .foregroundStyle(BipeColor.inkSecondary)
+            empty
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .loaded:
+            let chats = model.chats(in: scope)
             List {
-                ForEach(model.chats) { chat in
+                ForEach(chats) { chat in
                     Button {
                         openChat(chat.roomId)
                     } label: {
@@ -89,7 +94,7 @@ struct ChatListView: View {
                     }
                     .listRowBackground(BipeColor.surfaceBase)
                     .onAppear {
-                        if chat.id == model.chats.last?.id {
+                        if chat.id == chats.last?.id {
                             model.loadMore()
                         }
                     }
@@ -100,13 +105,32 @@ struct ChatListView: View {
         }
     }
 
+    @ViewBuilder
+    private var empty: some View {
+        switch scope {
+        case .conversas:
+            Text(BipeStrings.appChatListEmpty)
+                .foregroundStyle(BipeColor.inkSecondary)
+        case .grupos:
+            VStack(spacing: 8) {
+                Text(BipeStrings.groupsEmptyTitle)
+                    .font(.headline)
+                    .foregroundStyle(BipeColor.inkPrimary)
+                Text(BipeStrings.groupsEmptyBody)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+            .multilineTextAlignment(.center)
+            .padding(24)
+        }
+    }
+
     /// Action openChat.
     private func openChat(_ roomId: String) {
         path.append(roomId)
     }
 }
 
-private struct ChatRow: View {
+struct ChatRow: View {
     let chat: ChatSummary
     let media: MediaLoader
 

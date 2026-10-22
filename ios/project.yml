@@ -13,6 +13,7 @@ options:
   # development region (DEVELOPMENT_LANGUAGE, knownRegions) to en, and iOS falls back to it
   # when no preferred language of the phone matches a localization.
   developmentLanguage: pt-BR
+  # iOS 18: the SwiftUI Tab API with the search tab role (spec app-tabs, ADR 0053).
   deploymentTarget:
     iOS: "18.0"
   createIntermediateGroups: true

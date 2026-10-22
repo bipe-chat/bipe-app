@@ -24,7 +24,7 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
     suspend fun signOut(context: Context, sessionStore: SessionStore, vault: BipeAccountVault) {
         runCatching { client.logout() }
         syncService.stop()
-        sessionStore.delete()
+        sessionStore.delete(userId)
         // The recovery token stays, so recovery-start finds it (spec sign-out). Only the hidden password goes.
         vault.update { data ->
             val kept = data.accounts[userId]?.copy(password = null)?.takeIf { it.token != null }

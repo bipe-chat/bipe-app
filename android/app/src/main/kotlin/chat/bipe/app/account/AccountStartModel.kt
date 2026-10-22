@@ -16,11 +16,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.matrix.rustcomponents.sdk.Session
 
 /** What signup-done needs after a new account (spec signup-done). */
 data class SignupOutcome(val inviterUserId: String?, val inviterHandle: String?)
 
-/** Spec account-start (bipe-shared product/screens/account-start.json). */
+/**
+ * Spec account-start (bipe-shared product/screens/account-start.json).
+ *
+ * Opens every account on this phone (ADR 0086): one SDK client and session store per Matrix ID. The current account is
+ * the one used last, else the oldest on the phone.
+ */
 class AccountStartModel(private val context: Context, private val scope: CoroutineScope) {
     enum class Phase { OPENING, NO_ACCOUNT, FAILED, READY }
 
@@ -32,11 +38,18 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     val api = BipeApiClient(AppConfig.API_BASE_URL)
     val vault = BipeAccountVault(context)
     val sessionStore = SessionStore(context)
+    private val accountList = AccountList(context)
 
     private val _phase = MutableStateFlow(Phase.OPENING)
     val phase: StateFlow<Phase> = _phase.asStateFlow()
+
+    /** The current account. */
     private val _userId = MutableStateFlow<String?>(null)
     val userId: StateFlow<String?> = _userId.asStateFlow()
+
+    /** The open accounts, oldest first. */
+    private val _sessions = MutableStateFlow<List<AccountSession>>(emptyList())
+    val sessions: StateFlow<List<AccountSession>> = _sessions.asStateFlow()
 
     /** Set right after a sign-up: the app shows signup-done before chat-list. */
     private val _signupOutcome = MutableStateFlow<SignupOutcome?>(null)
@@ -46,8 +59,9 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     var initialRoomId: String? = null
         private set
 
-    var session: AccountSession? = null
-        private set
+    /** The current account's session. */
+    val session: AccountSession?
+        get() = _sessions.value.firstOrNull { it.userId == _userId.value }
 
     /** A bipe.chat/convite link the app was opened with, for onboarding-welcome (action openInviteLink). */
     var pendingInviteLink: android.net.Uri? = null
@@ -55,19 +69,19 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     private var running = false
 
     /**
-     * Action start: restore the saved session; else finish a pending sign-up (POST /v1/signup/resume, ADR 0094); else sign
-     * in with the device credential (the hidden password this phone keeps, or a dev test account in a debug build);
-     * else noAccount. Recovery is bipe-chat/bipe#556.
+     * Action start: open every account on this phone, from its saved session or else its device credential (the hidden
+     * password this phone keeps, or a dev test account in a debug build); with no account, finish a pending sign-up
+     * (POST /v1/signup/resume, ADR 0094); else noAccount. Recovery is bipe-chat/bipe#556.
      */
     fun start() {
-        if (session != null || running) return
+        if (_sessions.value.isNotEmpty() || running) return
         running = true
         _phase.value = Phase.OPENING
         scope.launch {
-            _phase.value = try {
+            try {
                 open()
             } catch (e: Exception) {
-                Phase.FAILED
+                _phase.value = Phase.FAILED
             } finally {
                 running = false
             }
@@ -79,10 +93,25 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         if (_phase.value == Phase.FAILED) start()
     }
 
-    /** A debug build got a dev test account: sign in with it when the phone has no account yet. */
+    /**
+     * A debug build got a dev test account: sign in with it when the phone has no account yet, or add it as another
+     * account on this phone.
+     */
     fun useDevAccount(account: DevAccount) {
         devAccount = account
-        if (_phase.value == Phase.NO_ACCOUNT || _phase.value == Phase.FAILED) start()
+        if (_phase.value == Phase.NO_ACCOUNT || _phase.value == Phase.FAILED) {
+            start()
+        } else if (_phase.value == Phase.READY && _sessions.value.none { it.userId == account.userId }) {
+            devAccount = null
+            scope.launch {
+                runCatching { AccountSession.signIn(context, account.userId, account.password, sessionStore) }
+                    .getOrNull()
+                    ?.let { session ->
+                        accountList.merge(listOf(session.userId))
+                        add(session)
+                    }
+            }
+        }
     }
 
     /** Counts returns to the foreground, so screens can check again (terms-reaccept). */
@@ -92,17 +121,23 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     /** Starts the sync again when the app comes back to the foreground. */
     fun resume() {
         _foregroundCount.value += 1
-        val syncService = session?.syncService ?: return
-        scope.launch { syncService.start() }
+        _sessions.value.forEach { session -> scope.launch { session.syncService.start() } }
+    }
+
+    /** app-tabs switchAccount: makes that account current and saves the choice for the next start. */
+    fun switchAccount(userId: String) {
+        if (_sessions.value.none { it.userId == userId }) return
+        _userId.value = userId
+        accountList.current = userId
     }
 
     /** signup-create made the account and signed in. */
     fun didSignUp(session: AccountSession, outcome: SignupOutcome) {
-        this.session = session
-        _userId.value = session.userId
         outcome.inviterUserId?.let { InviterGreetings(context, session.userId).set(it, outcome.inviterHandle) }
+        accountList.merge(listOf(session.userId))
         _signupOutcome.value = outcome
-        _phase.value = Phase.READY
+        show(session)
+        accountList.current = session.userId
     }
 
     /** signup-done finished: chat-list shows, with the inviter's chat open when there is one. */
@@ -111,29 +146,76 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         _signupOutcome.value = null
     }
 
-    /** The sign-out of terms-reaccept: the phone goes back to onboarding. */
+    /**
+     * The sign-out of terms-reaccept: the current account leaves this phone. Another account on the phone becomes
+     * current; with none left the phone goes back to onboarding.
+     */
     fun signOut() {
         val current = session ?: return
         scope.launch {
             current.signOut(context, sessionStore, vault)
-            session = null
-            _userId.value = null
+            accountList.remove(current.userId)
+            _sessions.value = _sessions.value.filter { it.userId != current.userId }
             _signupOutcome.value = null
-            _phase.value = Phase.NO_ACCOUNT
+            val next = _sessions.value.firstOrNull()
+            if (next != null) {
+                switchAccount(next.userId)
+            } else {
+                _userId.value = null
+                _phase.value = Phase.NO_ACCOUNT
+            }
         }
     }
 
-    private suspend fun open(): Phase {
-        val saved = sessionStore.load()
-        val newSession = when {
-            saved != null -> {
-                _userId.value = saved.userId
-                AccountSession.restore(context, saved, sessionStore)
-            }
-            else -> resumePendingSignup() ?: signInWithDeviceCredential() ?: return Phase.NO_ACCOUNT
+    private suspend fun open() {
+        val saved = sessionStore.loadAll()
+        val passwords = vault.read().accounts.filterValues { it.password != null }.mapValues { it.value.password!! }
+        val found = passwords.keys.toList() + saved.keys.sorted().filterNot(passwords::containsKey)
+        val accounts = accountList.merge(found)
+
+        // The current account first, so the app shows it as soon as it runs; the others open after it.
+        val rest = accountList.preferred(accounts).toMutableList()
+        var current: AccountSession? = null
+        while (current == null && rest.isNotEmpty()) {
+            val userId = rest.removeAt(0)
+            current = open(userId, saved[userId], passwords[userId])
         }
-        session = newSession
-        return Phase.READY
+        if (current != null) {
+            show(current)
+            rest.forEach { userId -> open(userId, saved[userId], passwords[userId])?.let(::add) }
+            return
+        }
+        if (accounts.isNotEmpty()) {
+            _phase.value = Phase.FAILED
+            return
+        }
+        val session = resumePendingSignup() ?: signInWithDevAccount()
+        if (session != null) show(session) else _phase.value = Phase.NO_ACCOUNT
+    }
+
+    /** Shows the account without saving it as the choice: an account that failed to open now stays the choice. */
+    private fun show(session: AccountSession) {
+        add(session)
+        _userId.value = session.userId
+        _phase.value = Phase.READY
+    }
+
+    private fun add(session: AccountSession) {
+        if (_sessions.value.any { it.userId == session.userId }) return
+        val order = accountList.order
+        _sessions.value = (_sessions.value + session).sortedBy { order.indexOf(it.userId).let { i -> if (i < 0) Int.MAX_VALUE else i } }
+    }
+
+    /**
+     * Restores the account's saved session; when there is none, or it no longer works, signs in with the hidden
+     * password. `null` when neither works now.
+     */
+    private suspend fun open(userId: String, saved: Session?, password: String?): AccountSession? {
+        if (saved != null) {
+            runCatching { AccountSession.restore(context, saved, sessionStore) }.getOrNull()?.let { return it }
+        }
+        if (password == null) return null
+        return runCatching { AccountSession.signIn(context, userId, password, sessionStore) }.getOrNull()
     }
 
     /** A sign-up whose answer never reached this phone (ADR 0094). `null` when there is nothing to finish. */
@@ -149,22 +231,17 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         }
         val credentials = response.credentials ?: return null
         vault.store(credentials.userId, credentials.password, credentials.recoveryToken)
-        _userId.value = credentials.userId
         val session = AccountSession.signIn(context, credentials.userId, credentials.password, sessionStore)
         vault.update { it.copy(pendingSignup = null) }
+        accountList.merge(listOf(session.userId))
         return session
     }
 
-    /** The newest hidden password on this phone, else a dev test account. */
-    private suspend fun signInWithDeviceCredential(): AccountSession? {
-        val stored = vault.read().accounts.entries.lastOrNull { it.value.password != null }
-        if (stored != null) {
-            _userId.value = stored.key
-            return AccountSession.signIn(context, stored.key, stored.value.password!!, sessionStore)
-        }
+    /** A dev test account of a debug build. The password is used once and never stored. */
+    private suspend fun signInWithDevAccount(): AccountSession? {
         val dev = devAccount ?: return null
-        _userId.value = dev.userId
-        // The password is used once and never stored.
-        return AccountSession.signIn(context, dev.userId, dev.password, sessionStore).also { devAccount = null }
+        val session = AccountSession.signIn(context, dev.userId, dev.password, sessionStore).also { devAccount = null }
+        accountList.merge(listOf(session.userId))
+        return session
     }
 }

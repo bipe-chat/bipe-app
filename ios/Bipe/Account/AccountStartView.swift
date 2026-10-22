@@ -6,10 +6,17 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
-/// Spec account-start: no login screen (ADR 0057). Shows chat-list when the account is ready.
+/// Spec account-start: no login screen (ADR 0057). Shows app-tabs when the current account is ready.
 struct AccountStartView: View {
-    @StateObject private var model = AccountStartModel()
+    @StateObject private var model: AccountStartModel
+    @StateObject private var tabs: AppTabsModel
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let model = AccountStartModel()
+        _model = StateObject(wrappedValue: model)
+        _tabs = StateObject(wrappedValue: AppTabsModel(start: model))
+    }
 
     var body: some View {
         Group {
@@ -21,9 +28,11 @@ struct AccountStartView: View {
                             model.finishSignup(openRoomId: roomId)
                         }
                     } else {
-                        SignedInView(session: session, api: model.api, initialRoomId: model.initialRoomId) {
+                        // One view per account: a switch builds the tabs again for the new account.
+                        SignedInView(session: session, tabs: tabs, api: model.api, initialRoomId: model.initialRoomId) {
                             Task { await model.signOut() }
                         }
+                        .id(session.userId)
                     }
                 }
             case .opening:
@@ -50,9 +59,10 @@ struct AccountStartView: View {
     }
 }
 
-/// The signed-in app: chat-list, with terms-reaccept over it when the legal version changed.
+/// The signed-in app: app-tabs, with terms-reaccept over it when the legal version changed.
 private struct SignedInView: View {
     let session: AccountSession
+    let tabs: AppTabsModel
     let api: BipeAPIClient
     let initialRoomId: String?
     let onSignOut: () -> Void
@@ -60,8 +70,9 @@ private struct SignedInView: View {
     @State private var showsSettings = false
     @Environment(\.scenePhase) private var scenePhase
 
-    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String?, onSignOut: @escaping () -> Void) {
+    init(session: AccountSession, tabs: AppTabsModel, api: BipeAPIClient, initialRoomId: String?, onSignOut: @escaping () -> Void) {
         self.session = session
+        self.tabs = tabs
         self.api = api
         self.initialRoomId = initialRoomId
         self.onSignOut = onSignOut
@@ -69,7 +80,7 @@ private struct SignedInView: View {
     }
 
     var body: some View {
-        ChatListView(session: session, api: api, initialRoomId: initialRoomId) { showsSettings = true }
+        AppTabsView(model: tabs, session: session, api: api, initialRoomId: initialRoomId) { showsSettings = true }
             .sheet(isPresented: $showsSettings) {
                 SettingsHomeView(session: session, api: api, onSignedOut: onSignOut)
             }

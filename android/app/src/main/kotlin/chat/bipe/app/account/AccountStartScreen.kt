@@ -18,14 +18,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -36,23 +37,29 @@ import chat.bipe.app.chatlist.HomeScreen
 import chat.bipe.app.signup.SignupDoneScreen
 import chat.bipe.app.signup.SignupFlowModel
 import chat.bipe.app.signup.SignupFlowScreen
+import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 
-/** Spec account-start: no login screen (ADR 0057). Shows chat-list when the account is ready. */
+/** Spec account-start: no login screen (ADR 0057). Shows app-tabs when the current account is ready. */
 @Composable
-fun AccountStartScreen(model: AccountStartModel) {
+fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
     val phase by model.phase.collectAsState()
     val outcome by model.signupOutcome.collectAsState()
     val foregroundCount by model.foregroundCount.collectAsState()
-    val session = model.session
+    val userId by model.userId.collectAsState()
+    val sessions by model.sessions.collectAsState()
+    val session = sessions.firstOrNull { it.userId == userId }
     if (phase == AccountStartModel.Phase.READY && session != null) {
         val signedUp = outcome
         if (signedUp != null) {
             SignupDoneScreen(session, signedUp, onContinue = model::finishSignup)
         } else {
-            HomeScreen(session, model.api, model.initialRoomId, foregroundCount, onSignOut = model::signOut)
+            // One screen per account: a switch builds the tabs again for the new account.
+            key(session.userId) {
+                HomeScreen(session, tabs, model.api, model.initialRoomId, foregroundCount, onSignOut = model::signOut)
+            }
         }
         return
     }

@@ -13,25 +13,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import chat.bipe.app.settings.SettingsHost
-import chat.bipe.phosphor.PhosphorIcon
-import androidx.compose.ui.res.painterResource
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -44,37 +45,49 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.TermsReacceptModel
 import chat.bipe.app.account.TermsReacceptScreen
+import chat.bipe.app.common.Avatar
+import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.app.handle.HandlePromptCard
-import chat.bipe.shared.api.BipeApiClient
-import chat.bipe.app.account.AccountSession
-import chat.bipe.app.common.Avatar
-import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.settings.SettingsHost
+import chat.bipe.app.tabs.AppTabsModel
+import chat.bipe.app.tabs.AppTabsScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
+import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
 
 /**
- * The signed-in app: chat-list, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, and
+ * The signed-in app: app-tabs, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, and
  * terms-reaccept over everything when the legal version changed.
  */
 @Composable
-fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: String?, foregroundCount: Int, onSignOut: () -> Unit) {
+fun HomeScreen(
+    session: AccountSession,
+    tabs: AppTabsModel,
+    api: BipeApiClient,
+    initialRoomId: String?,
+    foregroundCount: Int,
+    onSignOut: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable)
-    val model = remember(session) { ChatListModel(session, scope, undecryptable) }
+    val model = remember(session) { tabs.chatList(session) }
     val media = remember(session) { MediaLoader(session.client) }
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
@@ -82,11 +95,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsSettings by rememberSaveable { mutableStateOf(false) }
     val termsPhase by terms.phase.collectAsState()
-    DisposableEffect(model) {
-        model.start()
-        handle.load()
-        onDispose { model.close() }
-    }
+    LaunchedEffect(handle) { handle.load() }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check() }
     val roomId = openRoomId
@@ -101,10 +110,11 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             BackHandler { openRoomId = null }
             ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
         }
-        else -> ChatListScreen(
-            model,
-            media,
-            handle,
+        else -> AppTabsScreen(
+            tabs = tabs,
+            chatList = model,
+            media = media,
+            handle = handle,
             onOpenHandlePick = { showsHandlePick = true },
             onOpenChat = { openRoomId = it },
             onOpenSettings = { showsSettings = true },
@@ -112,29 +122,33 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     }
 }
 
-/** Spec chat-list. */
+/** Spec chat-list, one scope: Conversas or Grupos (ADR 0053). Search is an action in the top bar (spec app-tabs). */
 @Composable
 fun ChatListScreen(
     model: ChatListModel,
+    scope: ChatScope,
     media: MediaLoader,
     handle: HandlePickModel,
+    onOpenSearch: () -> Unit,
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
     /** The temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main. */
     onOpenSettings: (() -> Unit)? = null,
 ) {
     val colors = BipeTheme.colors
-    val phase by model.phase.collectAsState()
-    val chats by model.chats.collectAsState()
+    val allPhase by model.phase.collectAsState()
+    val allChats by model.chats.collectAsState()
+    val chats = allChats.filter { it.scope == scope }
+    val phase = model.phase(scope, allPhase, allChats)
     val handleState by handle.state.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
-        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
+            Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(R.string.bipe_app_chat_list_title),
+                    stringResource(if (scope == ChatScope.CONVERSAS) R.string.bipe_app_chat_list_title else R.string.bipe_tab_groups),
                     style = MaterialTheme.typography.headlineMedium,
                     color = colors.inkPrimary,
-                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 )
                 if (onOpenSettings != null) {
                     IconButton(onClick = onOpenSettings) {
@@ -145,14 +159,33 @@ fun ChatListScreen(
                         )
                     }
                 }
+                IconButton(onClick = onOpenSearch) {
+                    Icon(
+                        painterResource(PhosphorIcon.MAGNIFYING_GLASS.drawable),
+                        contentDescription = stringResource(R.string.bipe_app_tab_search),
+                        tint = colors.inkPrimary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
             }
-            if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
+            if (scope == ChatScope.CONVERSAS && handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)
                 }
-                ChatListModel.Phase.EMPTY -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.bipe_app_chat_list_empty), color = colors.inkSecondary)
+                ChatListModel.Phase.EMPTY -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                    if (scope == ChatScope.CONVERSAS) {
+                        Text(stringResource(R.string.bipe_app_chat_list_empty), color = colors.inkSecondary)
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(stringResource(R.string.bipe_groups_empty_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
+                            Text(
+                                stringResource(R.string.bipe_groups_empty_body),
+                                color = colors.inkSecondary,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
                 }
                 ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(chats, key = { it.roomId }) { chat ->
@@ -168,7 +201,7 @@ fun ChatListScreen(
 }
 
 @Composable
-private fun ChatRow(chat: ChatSummary, media: MediaLoader, onClick: () -> Unit) {
+fun ChatRow(chat: ChatSummary, media: MediaLoader, onClick: () -> Unit) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
     Row(

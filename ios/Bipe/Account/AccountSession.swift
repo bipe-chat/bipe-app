@@ -49,7 +49,7 @@ final class AccountSession {
     func signOut() async {
         try? await client.logout()
         await syncService.stop()
-        SessionStore.delete()
+        SessionStore.delete(userId: userId)
         BipeCredentialStore().deletePassword(for: userId)
         Self.deleteStore(userId: userId)
     }
