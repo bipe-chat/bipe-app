@@ -16,11 +16,41 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json
     case chatTimeline = "chat-timeline"
 
+    /// Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json
+    case deviceVerification = "device-verification"
+
+    /// Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json
+    case encryptionStatus = "encryption-status"
+
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
+    /// Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json
+    case messageUndecryptable = "message-undecryptable"
+
     /// Welcome (flow signup). Spec: bipe-shared/product/screens/onboarding-welcome.json
     case onboardingWelcome = "onboarding-welcome"
+
+    /// Account moving to a new device (flow recovery). Spec: bipe-shared/product/screens/recovery-alert.json
+    case recoveryAlert = "recovery-alert"
+
+    /// Recovery by e-mail (flow recovery). Spec: bipe-shared/product/screens/recovery-email.json
+    case recoveryEmail = "recovery-email"
+
+    /// Enter recovery key (flow encryption). Spec: bipe-shared/product/screens/recovery-key-enter.json
+    case recoveryKeyEnter = "recovery-key-enter"
+
+    /// Save a recovery key (flow encryption). Spec: bipe-shared/product/screens/recovery-key-save.json
+    case recoveryKeySave = "recovery-key-save"
+
+    /// Enter PIN to get back in (flow recovery). Spec: bipe-shared/product/screens/recovery-pin.json
+    case recoveryPin = "recovery-pin"
+
+    /// Get back into your account (flow recovery). Spec: bipe-shared/product/screens/recovery-start.json
+    case recoveryStart = "recovery-start"
+
+    /// Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json
+    case recoveryWaiting = "recovery-waiting"
 
     /// Creating the account (flow signup). Spec: bipe-shared/product/screens/signup-create.json
     case signupCreate = "signup-create"
@@ -42,4 +72,7 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json
     case signupWaitlist = "signup-waitlist"
+
+    /// Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json
+    case termsReaccept = "terms-reaccept"
 }
