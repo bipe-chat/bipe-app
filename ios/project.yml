@@ -3,8 +3,8 @@
 # Copyright 2026 Bipe contributors
 
 # XcodeGen spec of the iOS app (bipe-chat/bipe#549). Run `xcodegen generate` in ios/.
-# IDs: ADR 0061. The bundle ID and the app group are the same as the fork's, so the
-# switch is a store update (ADR 0145).
+# IDs: ADR 0147. Tester builds use their own IDs (chat.bipe.app.next, group.chat.bipe.next),
+# so they sit next to the fork on one phone. At the switch the app takes the fork's IDs (ADR 0061).
 # The matrix-rust-components-swift version must equal ../sdk-version (tools/sdk-version.mjs).
 name: Bipe
 
@@ -46,10 +46,10 @@ targets:
     entitlements:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:
-        com.apple.security.application-groups: [group.chat.bipe.dev]
+        com.apple.security.application-groups: [group.chat.bipe.next]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.dev
+        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next
     dependencies:
       - package: MatrixRustSDK
         product: MatrixRustSDK
@@ -77,10 +77,10 @@ targets:
     entitlements:
       path: SupportFiles/BipeNotificationService/BipeNotificationService.entitlements
       properties:
-        com.apple.security.application-groups: [group.chat.bipe.dev]
+        com.apple.security.application-groups: [group.chat.bipe.next]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.dev.nse
+        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next.nse
 
   # Empty share extension. Sharing into a chat comes later.
   BipeShare:
@@ -105,7 +105,7 @@ targets:
     entitlements:
       path: SupportFiles/BipeShare/BipeShare.entitlements
       properties:
-        com.apple.security.application-groups: [group.chat.bipe.dev]
+        com.apple.security.application-groups: [group.chat.bipe.next]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.dev.share
+        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next.share

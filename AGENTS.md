@@ -82,7 +82,7 @@ The workflow `.github/workflows/licence.yml` runs these jobs on every PR. All of
 - iOS uses XcodeGen (`ios/project.yml`). Android uses a Gradle version catalog. Do not hand-edit project files.
 - `.github/workflows/ios.yml` (macOS runner, Xcode 26) runs `xcodegen generate` and builds Debug and Release for `generic/platform=iOS` with `CODE_SIGNING_ALLOWED=NO`. The build uses the pins in `ios/Package.resolved` and fails when SwiftPM resolves other pins. `Bipe.xcodeproj` and `ios/SupportFiles/` (Info.plist and entitlements) are XcodeGen output and are not committed.
 - `.github/workflows/android.yml` (Linux runner, JDK 17) runs `./gradlew assembleDebug assembleRelease` in `android/` and uploads the debug APK as the artifact `bipe-debug-apk`.
-- IDs (ADR 0061): iOS bundle `chat.bipe.app.dev`, extensions `chat.bipe.app.dev.nse` and `chat.bipe.app.dev.share`, app group `group.chat.bipe.dev`. Android application ID `chat.bipe.app`, debug suffix `.debug`.
+- IDs ([ADR 0147](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0147-own-client-tester-builds.md)): tester builds sit next to the fork on one phone. iOS bundle `chat.bipe.app.next`, extensions `chat.bipe.app.next.nse` and `chat.bipe.app.next.share`, app group `group.chat.bipe.next`. Android application ID `chat.bipe.app.next`, debug suffix `.debug`. At the switch the apps take the fork's IDs (ADR 0061).
 
 ## Pull requests
 
