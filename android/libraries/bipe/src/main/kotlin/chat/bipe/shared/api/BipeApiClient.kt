@@ -100,6 +100,46 @@ class BipeApiClient(baseUrl: String) {
         )
     }
 
+    // Recovery (ADR 0057, ADR 0059)
+
+    /** `POST /v1/me/device-first`. A beta account gets a hidden password and a recovery token, once. */
+    suspend fun moveToDeviceFirst(accessToken: String): BipeCredentials =
+        send("POST", listOf("v1", "me", "device-first"), accessToken = accessToken, response = BipeCredentials.serializer())
+
+    /** `POST /v1/recovery/token`. No auth. The synced token, then the PIN. New credentials, once. */
+    suspend fun recoverWithToken(token: String, pin: String): BipeCredentials = send(
+        "POST",
+        listOf("v1", "recovery", "token"),
+        body = encode(BipeTokenRecoveryRequest.serializer(), BipeTokenRecoveryRequest(token, pin)),
+        response = BipeCredentials.serializer(),
+    )
+
+    /** `POST /v1/recovery/email`. No auth. 202 for every well-formed address. */
+    suspend fun requestRecoveryEmail(email: String) {
+        send<Unit>(
+            "POST",
+            listOf("v1", "recovery", "email"),
+            body = encode(BipeRecoveryEmailRequest.serializer(), BipeRecoveryEmailRequest(email)),
+            response = null,
+        )
+    }
+
+    /** `POST /v1/recovery/email/confirm`. No auth. The link token and exactly one of [pin] (access) or [newPin] (PIN reset). */
+    suspend fun confirmRecoveryEmail(linkToken: String, pin: String?, newPin: String?): BipeRecoveryStarted = send(
+        "POST",
+        listOf("v1", "recovery", "email", "confirm"),
+        body = encode(BipeEmailConfirmRequest.serializer(), BipeEmailConfirmRequest(linkToken, pin, newPin)),
+        response = BipeRecoveryStarted.serializer(),
+    )
+
+    /** `POST /v1/recovery/{id}/claim`. No auth. Polls a recovery; the credentials come once when the delay has ended. */
+    suspend fun claimRecovery(id: String, claimSecret: String): BipeRecoveryClaim = send(
+        "POST",
+        listOf("v1", "recovery", id, "claim"),
+        body = encode(BipeClaimRequest.serializer(), BipeClaimRequest(claimSecret)),
+        response = BipeRecoveryClaim.serializer(),
+    )
+
     internal fun <T> encode(serializer: KSerializer<T>, value: T): String = json.encodeToString(serializer, value)
 
     /** Sends the request and decodes a 2xx answer with [response] (`null`: the body is not read). */

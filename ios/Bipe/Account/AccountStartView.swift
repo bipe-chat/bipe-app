@@ -29,9 +29,17 @@ struct AccountStartView: View {
             case .opening:
                 StartMessage(icon: .chatCircle, title: BipeStrings.appName, message: BipeStrings.appStartLoading, showsProgress: true)
             case .noAccount:
-                // Spec account-start: noAccount shows onboarding-welcome.
-                SignupFlowView(api: model.api) { session, outcome in
-                    model.didSignUp(session, outcome: outcome)
+                if model.showsRecovery {
+                    RecoveryFlowView(api: model.api,
+                                     link: $model.recoveryLink,
+                                     close: { model.showsRecovery = false },
+                                     onSignedIn: model.didRecover)
+                } else {
+                    // Spec account-start: noAccount shows onboarding-welcome.
+                    SignupFlowView(api: model.api,
+                                   onSignedUp: { session, outcome in model.didSignUp(session, outcome: outcome) },
+                                   onHaveAccount: { model.showsRecovery = true },
+                                   onRecoveryLink: model.openLink)
                 }
             case .failed:
                 StartMessage(icon: .warningCircle, title: BipeStrings.appName, message: BipeStrings.appStartError) {
@@ -41,6 +49,7 @@ struct AccountStartView: View {
         }
         .accessibilityIdentifier(BipeScreen.accountStart.rawValue)
         .tint(BipeColor.accentFill)
+        .onOpenURL { model.openLink($0) }
         .task { await model.start() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {

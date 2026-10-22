@@ -9,9 +9,14 @@ import SwiftUI
 /// The sign-up flow from onboarding-welcome to signup-create. account-start shows it when its phase is noAccount.
 struct SignupFlowView: View {
     @StateObject private var model: SignupFlowModel
+    private let onRecoveryLink: (URL) -> Void
 
-    init(api: BipeAPIClient, onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void) {
-        _model = StateObject(wrappedValue: SignupFlowModel(api: api, onSignedUp: onSignedUp))
+    init(api: BipeAPIClient,
+         onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void,
+         onHaveAccount: @escaping () -> Void = {},
+         onRecoveryLink: @escaping (URL) -> Void = { _ in }) {
+        _model = StateObject(wrappedValue: SignupFlowModel(api: api, onSignedUp: onSignedUp, onHaveAccount: onHaveAccount))
+        self.onRecoveryLink = onRecoveryLink
     }
 
     var body: some View {
@@ -36,7 +41,12 @@ struct SignupFlowView: View {
             SignupWaitlistView(model: model)
         }
         .onOpenURL { url in
-            Task { await model.openInviteLink(url) }
+            // A recovery link goes to account-start (recovery-email, action openLink).
+            if BipeRecoveryLink.token(from: url) != nil {
+                onRecoveryLink(url)
+            } else {
+                Task { await model.openInviteLink(url) }
+            }
         }
     }
 }
@@ -178,9 +188,8 @@ struct OnboardingWelcomeView: View {
                     pasteRow
                 }
                 ForEach(start.text, id: \.titleKey) { button in
-                    // haveAccount: recovery-start comes with bipe-chat/bipe#556.
-                    TextButton(title: button.title) { }
-                        .disabled(true)
+                    // haveAccount: recovery-start (bipe-chat/bipe#556).
+                    TextButton(title: button.title) { model.onHaveAccount() }
                 }
             }
         }
