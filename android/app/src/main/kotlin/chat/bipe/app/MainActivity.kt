@@ -4,75 +4,59 @@
 
 package chat.bipe.app
 
+import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
-import chat.bipe.phosphor.PhosphorIcon
-import chat.bipe.shared.R
-import org.matrix.rustcomponents.sdk.sdkGitSha
+import chat.bipe.app.account.AccountStartModel
+import chat.bipe.app.account.AccountStartScreen
 
 class MainActivity : ComponentActivity() {
+    private val accountStart: AccountStartModel
+        get() = (application as BipeApplication).accountStart
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val sdkVersion = sdkGitSha()
+        readDevAccount(intent)
+        accountStart.start()
         setContent {
             BipeTheme {
-                ShellScreen(sdkVersion)
+                AccountStartScreen(accountStart)
             }
         }
     }
-}
 
-/**
- * The shell screen (bipe-chat/bipe#549): the app name from bipe-shared strings and
- * the matrix-rust-sdk version that the SDK reports at run time, in Bipe's colour tokens with a Phosphor icon.
- * The SDK writes no logs here and nothing is sent off the phone.
- */
-@Composable
-fun ShellScreen(sdkVersion: String) {
-    val colors = BipeTheme.colors
-    Surface(modifier = Modifier.fillMaxSize(), color = colors.surfaceBase) {
-        Column(
-            modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Icon(
-                painter = painterResource(PhosphorIcon.CHAT_CIRCLE.drawable),
-                contentDescription = null,
-                tint = colors.accentInk,
-                modifier = Modifier.size(56.dp),
-            )
-            Text(
-                stringResource(R.string.bipe_app_name),
-                style = MaterialTheme.typography.headlineLarge,
-                color = colors.inkPrimary,
-            )
-            Text(
-                stringResource(R.string.bipe_app_sdk_version, sdkVersion),
-                style = MaterialTheme.typography.bodySmall,
-                fontFamily = FontFamily.Monospace,
-                color = colors.inkSecondary,
-            )
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        readDevAccount(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        accountStart.resume()
+    }
+
+    /**
+     * Debug builds only: a dev test account from the launch intent (ADR 0147, bipe-chat/bipe#552), for example
+     * `adb shell am start -n chat.bipe.app.next.debug/chat.bipe.app.MainActivity --es bipe.dev.user @name:bipe.net.br --es bipe.dev.password ...`.
+     * The app keeps only the SDK session, never the password. The extras are removed after reading.
+     */
+    private fun readDevAccount(intent: Intent?) {
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0 || intent == null) return
+        val user = intent.getStringExtra(EXTRA_DEV_USER)
+        val password = intent.getStringExtra(EXTRA_DEV_PASSWORD)
+        intent.removeExtra(EXTRA_DEV_USER)
+        intent.removeExtra(EXTRA_DEV_PASSWORD)
+        if (!user.isNullOrBlank() && !password.isNullOrEmpty()) {
+            accountStart.useDevAccount(AccountStartModel.DevAccount(user, password))
         }
+    }
+
+    private companion object {
+        const val EXTRA_DEV_USER = "bipe.dev.user"
+        const val EXTRA_DEV_PASSWORD = "bipe.dev.password"
     }
 }

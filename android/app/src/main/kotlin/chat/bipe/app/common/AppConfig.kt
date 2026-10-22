@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+// Copyright 2026 Bipe contributors
+
+package chat.bipe.app.common
+
+/** Build configuration of the tester app (ADR 0147). The user never picks a server (spec account-start). */
+object AppConfig {
+    /** Bipe's homeserver (bipe/docs/server-migration.md). */
+    const val HOMESERVER = "https://matrix.bipe.net.br"
+
+    /** The device name the homeserver shows in the session list. */
+    const val DEVICE_NAME = "Bipe"
+}
