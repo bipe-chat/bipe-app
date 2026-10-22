@@ -152,11 +152,20 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
      * current; with none left the phone goes back to onboarding.
      */
     fun signOut() {
-        val current = session ?: return
+        session?.let { removeAccount(it, alreadyLoggedOut = false) }
+    }
+
+    /** Settings has already confirmed the remote logout. Finish local cleanup once, for this account only. */
+    fun completeSignOut(userId: String) {
+        _sessions.value.firstOrNull { it.userId == userId }?.let { removeAccount(it, alreadyLoggedOut = true) }
+    }
+
+    private fun removeAccount(current: AccountSession, alreadyLoggedOut: Boolean) {
         scope.launch {
-            current.signOut(context, sessionStore, vault)
+            current.signOut(context, sessionStore, vault, alreadyLoggedOut)
             accountList.remove(current.userId)
             _sessions.value = _sessions.value.filter { it.userId != current.userId }
+            if (_userId.value != current.userId) return@launch
             _signupOutcome.value = null
             val next = _sessions.value.firstOrNull()
             if (next != null) {

@@ -67,7 +67,6 @@ private struct SignedInView: View {
     let initialRoomId: String?
     let onSignOut: () -> Void
     @StateObject private var terms: TermsReacceptModel
-    @State private var showsSettings = false
     @Environment(\.scenePhase) private var scenePhase
 
     init(session: AccountSession, tabs: AppTabsModel, api: BipeAPIClient, initialRoomId: String?, onSignOut: @escaping () -> Void) {
@@ -80,17 +79,17 @@ private struct SignedInView: View {
     }
 
     var body: some View {
-        AppTabsView(model: tabs, session: session, api: api, initialRoomId: initialRoomId) { showsSettings = true }
-            .sheet(isPresented: $showsSettings) {
-                SettingsHomeView(session: session, api: api, onSignedOut: onSignOut)
-            }
+        AppTabsView(model: tabs, session: session, api: api, initialRoomId: initialRoomId)
             .fullScreenCover(isPresented: Binding(get: { terms.phase != .hidden }, set: { _ in })) {
                 TermsReacceptView(model: terms, onSignOut: onSignOut)
             }
             .task { await terms.check() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
-                    Task { await terms.check() }
+                    Task {
+                        await terms.check()
+                        await tabs.refreshProfiles()
+                    }
                 }
             }
     }

@@ -30,6 +30,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import chat.bipe.phosphor.PhosphorIcon
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,7 +47,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -62,11 +63,12 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.app.handle.HandlePromptCard
-import chat.bipe.app.settings.SettingsHost
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.tabs.AppTabsScreen
+import chat.bipe.app.tabs.AccountSummary
+import chat.bipe.app.signup.SignupFlowModel
+import chat.bipe.app.signup.SignupFlowScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
-import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeScreen
@@ -88,20 +90,29 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val model = remember(session) { tabs.chatList(session) }
-    val media = remember(session) { MediaLoader(session.client) }
+    val media = remember(session) { tabs.media(session) }
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
-    var showsSettings by rememberSaveable { mutableStateOf(false) }
+    var showsNewAccount by rememberSaveable { mutableStateOf(false) }
     val termsPhase by terms.phase.collectAsState()
     LaunchedEffect(handle) { handle.load() }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
-    LaunchedEffect(foregroundCount) { terms.check() }
+    LaunchedEffect(foregroundCount) { terms.check(); tabs.refreshProfiles() }
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
-        showsSettings -> SettingsHost(session, api, onClose = { showsSettings = false }, onSignedOut = onSignOut)
+        showsNewAccount -> {
+            BackHandler { showsNewAccount = false }
+            val signup = remember(session) {
+                SignupFlowModel(context, api, tabs.start.vault, tabs.start.sessionStore, scope) { created, outcome ->
+                    showsNewAccount = false
+                    tabs.start.didSignUp(created, outcome)
+                }
+            }
+            SignupFlowScreen(signup, onCancel = { showsNewAccount = false })
+        }
         showsHandlePick -> {
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
@@ -117,7 +128,7 @@ fun HomeScreen(
             handle = handle,
             onOpenHandlePick = { showsHandlePick = true },
             onOpenChat = { openRoomId = it },
-            onOpenSettings = { showsSettings = true },
+            onNewAccount = { if (tabs.state.value.canAddAccount) showsNewAccount = true },
         )
     }
 }
@@ -132,8 +143,8 @@ fun ChatListScreen(
     onOpenSearch: () -> Unit,
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
-    /** The temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main. */
-    onOpenSettings: (() -> Unit)? = null,
+    account: AccountSummary? = null,
+    onOpenVoce: () -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val allPhase by model.phase.collectAsState()
@@ -150,15 +161,6 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 )
-                if (onOpenSettings != null) {
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            painterResource(PhosphorIcon.GEAR.drawable),
-                            contentDescription = stringResource(R.string.bipe_settings_section),
-                            tint = colors.glyphPrimary,
-                        )
-                    }
-                }
                 IconButton(onClick = onOpenSearch) {
                     Icon(
                         painterResource(PhosphorIcon.MAGNIFYING_GLASS.drawable),
@@ -166,6 +168,12 @@ fun ChatListScreen(
                         tint = colors.inkPrimary,
                         modifier = Modifier.size(24.dp),
                     )
+                }
+                if (account != null) {
+                    val label = stringResource(R.string.bipe_app_account_current_a11y, account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) })
+                    IconButton(onClick = onOpenVoce, modifier = Modifier.semantics { contentDescription = label }) {
+                        Avatar(account.displayName, account.avatarUrl, media, size = 32.dp, userId = account.userId, isCompany = account.isCompany)
+                    }
                 }
             }
             if (scope == ChatScope.CONVERSAS && handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
@@ -208,7 +216,7 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Avatar(chat.name, chat.avatarUrl, media)
+        Avatar(chat.name, chat.avatarUrl, media, userId = chat.peerUserId)
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

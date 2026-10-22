@@ -62,8 +62,8 @@ final class AccountSession {
     }
 
     /// Signs out on the server and removes this account's session, store and hidden password from this phone.
-    func signOut() async {
-        try? await client.logout()
+    func signOut(alreadyLoggedOut: Bool = false) async {
+        if !alreadyLoggedOut { try? await client.logout() }
         await syncService.stop()
         SessionStore.delete(userId: userId)
         BipeCredentialStore().deletePassword(for: userId)

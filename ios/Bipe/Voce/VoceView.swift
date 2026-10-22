@@ -9,6 +9,15 @@ import SwiftUI
 struct VoceView: View {
     @ObservedObject var model: AppTabsModel
     let chatList: ChatListModel
+    let onNewAccount: () -> Void
+    @StateObject private var settings: SettingsModel
+
+    init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
+        self.model = model
+        self.chatList = chatList
+        self.onNewAccount = onNewAccount
+        _settings = StateObject(wrappedValue: SettingsModel(session: chatList.session, api: api))
+    }
 
     var body: some View {
         NavigationStack {
@@ -17,13 +26,29 @@ struct VoceView: View {
                     VoceHeader(account: account, media: chatList.media)
                         .listRowBackground(BipeColor.surfaceBase)
                 }
+                if model.accounts.count > 1 {
+                    Section(BipeStrings.appAccountSwitcherTitle) {
+                        AccountRows(model: model, fallbackMedia: chatList.media)
+                    }
+                }
+                if model.canAddAccount {
+                    Section {
+                        Button(BipeStrings.appAccountNew, action: onNewAccount)
+                            .listRowBackground(BipeColor.surfaceRaised)
+                    }
+                }
+                SettingsRootSection(model: settings)
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.tabYou)
+            .settingsDestinations(model: settings) {
+                Task { await model.start.signOut(userId: chatList.session.userId, alreadyLoggedOut: true) }
+            }
         }
         .accessibilityIdentifier(BipeScreen.voce.rawValue)
+        .task { await model.refreshProfiles() }
     }
 }
 
@@ -33,7 +58,8 @@ private struct VoceHeader: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 88)
+            AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 88,
+                       userId: account.userId, isCompany: account.isCompany)
             Text(account.displayName)
                 .font(.title2.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
@@ -41,6 +67,9 @@ private struct VoceHeader: View {
                 Text(verbatim: "@\(handle)")
                     .font(.subheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
+                if let url = URL(string: "https://bipe.chat/@\(handle)") {
+                    ShareLink(item: url) { Text(BipeStrings.profileShare) }
+                }
             }
         }
         .frame(maxWidth: .infinity)

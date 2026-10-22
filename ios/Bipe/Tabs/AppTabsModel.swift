@@ -14,6 +14,7 @@ struct AccountSummary: Identifiable, Equatable {
     var avatarUrl: String?
     var isCurrent: Bool
     var hasUnread: Bool
+    var isCompany = false
 
     var id: String { userId }
 }
@@ -36,13 +37,22 @@ final class AppTabsModel: ObservableObject {
     @Published private(set) var conversasUnread = 0
     @Published private(set) var gruposAttention = 0
     @Published private(set) var otherAccountUnread = false
+    @Published var showsAccountSwitcher = false
+    @Published private(set) var canAddAccount = true
 
     let start: AccountStartModel
     private var chatLists: [String: ChatListModel] = [:]
     private var latestChats: [String: [ChatSummary]] = [:]
     private var sessionIds: [String] = []
     private var currentId: String?
-    private var profiles: [String: (displayName: String, avatarUrl: String?)] = [:]
+    private struct Profile {
+        var displayName: String
+        var avatarUrl: String?
+        var handle: String?
+        var isCompany: Bool
+        var maxAccounts: Int
+    }
+    private var profiles: [String: Profile] = [:]
     private var cancellables: Set<AnyCancellable> = []
     private var listCancellables: [String: AnyCancellable] = [:]
 
@@ -87,16 +97,24 @@ final class AppTabsModel: ObservableObject {
         switchAccount(to: accounts[(index + 1) % accounts.count].userId)
     }
 
-    /// Action longPressVoce: opens account-switcher. Until the menu is built (bipe-chat/bipe#577, second step) it opens Você.
+    /// Action longPressVoce: opens the account menu without changing the visible tab.
     func longPressVoce() {
-        selectTab(.voce)
+        showsAccountSwitcher = true
     }
 
     /// Action switchAccount: that account's chats show in the tabs, and the choice is saved for the next start.
     func switchAccount(to userId: String) {
-        guard userId != currentId else { return }
+        showsAccountSwitcher = false
+        guard userId != currentId, accounts.contains(where: { $0.userId == userId }) else { return }
         start.switchAccount(to: userId)
         BipeHaptic.tick.play()
+    }
+
+    func media(for userId: String) -> MediaLoader? { chatLists[userId]?.media }
+
+    /// Refresh photos, handles and the live personal-account limit after profile changes or returning to the app.
+    func refreshProfiles() async {
+        for session in start.sessions { await loadProfile(of: session) }
     }
 
     private func sessionsChanged(_ sessions: [AccountSession], current: String?) {
@@ -117,7 +135,18 @@ final class AppTabsModel: ObservableObject {
     private func loadProfile(of session: AccountSession) async {
         let displayName = (try? await session.client.displayName()) ?? ""
         let avatarUrl = try? await session.client.avatarUrl()
-        profiles[session.userId] = (displayName, avatarUrl)
+        let api = start.api
+        let mine = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeMyHandle in
+            try await api.myHandle(accessToken: token)
+        }
+        let status = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeAccountStatus in
+            try await api.account(accessToken: token)
+        }
+        guard sessionIds.contains(session.userId), let media = chatLists[session.userId]?.media else { return }
+        let company = await media.isCompany(userId: session.userId)
+        guard sessionIds.contains(session.userId) else { return }
+        profiles[session.userId] = Profile(displayName: displayName, avatarUrl: avatarUrl, handle: mine?.handle,
+                                          isCompany: company, maxAccounts: max(1, status?.maxAccounts ?? BipeRegistries.maxPersonalAccounts))
         refresh()
     }
 
@@ -125,15 +154,18 @@ final class AppTabsModel: ObservableObject {
         accounts = sessionIds.map { userId in
             let profile = profiles[userId]
             return AccountSummary(userId: userId,
-                                  displayName: profile?.displayName ?? "",
-                                  handle: nil,
+                                  displayName: profile?.displayName.isEmpty == false ? profile!.displayName : BipeStrings.tabYou,
+                                  handle: profile?.handle,
                                   avatarUrl: profile?.avatarUrl,
                                   isCurrent: userId == currentId,
-                                  hasUnread: latestChats[userId]?.contains { $0.unreadCount > 0 } ?? false)
+                                  hasUnread: latestChats[userId]?.contains { $0.unreadCount > 0 } ?? false,
+                                  isCompany: profile?.isCompany ?? false)
         }
         let chats = currentId.flatMap { latestChats[$0] } ?? []
         conversasUnread = chats.filter { $0.scope == .conversas && $0.unreadCount > 0 }.count
         gruposAttention = chats.filter { $0.scope == .grupos }.reduce(0) { $0 + $1.mentionCount }
         otherAccountUnread = accounts.contains { !$0.isCurrent && $0.hasUnread }
+        let limit = currentId.flatMap { profiles[$0]?.maxAccounts } ?? BipeRegistries.maxPersonalAccounts
+        canAddAccount = accounts.filter { !$0.isCompany }.count < limit
     }
 }

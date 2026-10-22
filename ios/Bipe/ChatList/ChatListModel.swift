@@ -18,6 +18,8 @@ struct ChatSummary: Identifiable, Equatable {
     var memberCount: Int
     /// Unread mentions and replies, for the Grupos badge (spec app-tabs gruposAttention).
     var mentionCount: Int
+    /// The other member of a DM, for the avatar account-type lookup. Groups keep their room avatar.
+    var peerUserId: String? = nil
 
     var id: String { roomId }
 
@@ -129,11 +131,12 @@ final class ChatListModel: ObservableObject {
 
     private func refreshSummaries() {
         let rooms = rooms
+        let userId = session.userId
         summaryTask?.cancel()
         summaryTask = Task { [weak self] in
             var summaries: [ChatSummary] = []
             for room in rooms {
-                if let summary = await Self.summary(of: room) {
+                if let summary = await Self.summary(of: room, ownUserId: userId) {
                     summaries.append(summary)
                 }
             }
@@ -143,7 +146,7 @@ final class ChatListModel: ObservableObject {
         }
     }
 
-    private static func summary(of room: Room) async -> ChatSummary? {
+    private static func summary(of room: Room, ownUserId: String) async -> ChatSummary? {
         guard let info = try? await room.roomInfo() else { return nil }
         var lastMessage: String?
         var lastActivity: Date?
@@ -164,6 +167,7 @@ final class ChatListModel: ObservableObject {
                            unreadCount: Int(info.numUnreadMessages),
                            isDirect: info.isDirect,
                            memberCount: Int(info.activeMembersCount),
-                           mentionCount: Int(info.numUnreadMentions))
+                           mentionCount: Int(info.numUnreadMentions),
+                           peerUserId: info.isDirect ? info.heroes.first(where: { $0.userId != ownUserId })?.userId : nil)
     }
 }

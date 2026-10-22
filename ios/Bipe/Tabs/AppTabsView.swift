@@ -12,28 +12,31 @@ struct AppTabsView: View {
     let session: AccountSession
     let api: BipeAPIClient
     let initialRoomId: String?
-    /// The entry to settings-root until Você holds it (bipe-chat/bipe#577, second step).
-    let onOpenSettings: () -> Void
+    @State private var showsNewAccount = false
+    @State private var pendingNewAccount = false
 
     var body: some View {
         let chatList = model.chatList(for: session)
+        let account = model.accounts.first(where: \.isCurrent)
         TabView(selection: Binding(get: { model.selectedTab }, set: { model.selectTab($0) })) {
             Tab(value: AppTabsModel.Tab.conversas) {
-                ChatListView(model: chatList, scope: .conversas, api: api, initialRoomId: initialRoomId, onOpenSettings: onOpenSettings)
+                ChatListView(model: chatList, scope: .conversas, api: api, initialRoomId: initialRoomId,
+                             account: account, onOpenVoce: { model.selectTab(.voce) })
             } label: {
                 Label(BipeStrings.tabChats, systemImage: "bubble.left.and.bubble.right")
             }
             .badge(model.conversasUnread)
 
             Tab(value: AppTabsModel.Tab.grupos) {
-                ChatListView(model: chatList, scope: .grupos, api: api)
+                ChatListView(model: chatList, scope: .grupos, api: api, account: account,
+                             onOpenVoce: { model.selectTab(.voce) })
             } label: {
                 Label(BipeStrings.tabGroups, systemImage: "person.3")
             }
             .badge(model.gruposAttention)
 
             Tab(value: AppTabsModel.Tab.voce) {
-                VoceView(model: model, chatList: chatList)
+                VoceView(model: model, chatList: chatList, api: api, onNewAccount: { showsNewAccount = true })
             } label: {
                 Label(BipeStrings.tabYou, systemImage: "person.crop.circle")
             }
@@ -50,6 +53,23 @@ struct AppTabsView: View {
                                    onDoubleTap: { model.doubleTapVoce() },
                                    onLongPress: { model.longPressVoce() }))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
+        .sheet(isPresented: $model.showsAccountSwitcher, onDismiss: {
+            if pendingNewAccount {
+                pendingNewAccount = false
+                showsNewAccount = model.canAddAccount
+            }
+        }) {
+            AccountSwitcherView(model: model, fallbackMedia: chatList.media) {
+                pendingNewAccount = true
+                model.showsAccountSwitcher = false
+            }
+        }
+        .sheet(isPresented: $showsNewAccount) {
+            SignupFlowView(api: api, onCancel: { showsNewAccount = false }) { session, outcome in
+                showsNewAccount = false
+                model.start.didSignUp(session, outcome: outcome)
+            }
+        }
     }
 }
 

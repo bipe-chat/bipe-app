@@ -36,10 +36,11 @@ fun AppTabsScreen(
     handle: HandlePickModel,
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
-    /** The entry to settings-root until Você holds it (bipe-chat/bipe#577, second step). */
-    onOpenSettings: () -> Unit,
+    onNewAccount: () -> Unit,
 ) {
     val state by tabs.state.collectAsState()
+    val account = state.accounts.firstOrNull { it.isCurrent }
+    val session = chatList.session
     val view = LocalView.current
     // Search goes back to the tab it was opened from.
     var searchFrom by rememberSaveable { mutableStateOf(AppTabsModel.Tab.CONVERSAS) }
@@ -51,10 +52,12 @@ fun AppTabsScreen(
         Box(modifier = Modifier.weight(1f)) {
             when (state.selectedTab) {
                 AppTabsModel.Tab.CONVERSAS ->
-                    ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat, onOpenSettings)
+                    ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
+                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) })
                 AppTabsModel.Tab.GRUPOS ->
-                    ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat, onOpenSettings)
-                AppTabsModel.Tab.VOCE -> VoceScreen(state.accounts.firstOrNull { it.isCurrent }, media)
+                    ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
+                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) })
+                AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }
                     ChatSearchScreen(chatList, media, onOpenChat)
@@ -71,4 +74,5 @@ fun AppTabsScreen(
             },
         )
     }
+    if (state.showsAccountSwitcher) AccountSwitcher(tabs, media, onNewAccount)
 }

@@ -93,7 +93,13 @@ sealed interface SettingsRoute {
  * [SettingsRootSection] in its own list.
  */
 @Composable
-fun SettingsHost(session: AccountSession, api: BipeApiClient, onClose: () -> Unit, onSignedOut: () -> Unit) {
+fun SettingsHost(
+    session: AccountSession,
+    api: BipeApiClient,
+    onClose: () -> Unit,
+    onSignedOut: () -> Unit,
+    rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit) -> Unit)? = null,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val model = remember(session) { SettingsModel(context.applicationContext, session, api, scope) }
@@ -101,14 +107,16 @@ fun SettingsHost(session: AccountSession, api: BipeApiClient, onClose: () -> Uni
     val pop: () -> Unit = { if (stack.isEmpty()) onClose() else stack.removeAt(stack.lastIndex) }
     BackHandler(onBack = pop)
     LaunchedEffect(model) { model.load() }
+    val openGroup: (BipeSettingsGroup) -> Unit = { group ->
+        if (group == BipeSettingsGroup.NOTIFICATIONS) openNotificationSettings(context)
+        else stack.add(SettingsRoute.Group(group))
+    }
     when (val route = stack.lastOrNull()) {
-        null -> SettingsPage(stringResource(R.string.bipe_settings_section), BipeScreen.SETTINGS_ROOT.id, onBack = onClose) {
-            SettingsRootSection(model) { group ->
-                if (group == BipeSettingsGroup.NOTIFICATIONS) {
-                    // Until the notifications settings screen of bipe-chat/bipe#565: the system page of the app.
-                    openNotificationSettings(context)
-                } else {
-                    stack.add(SettingsRoute.Group(group))
+        null -> {
+            if (rootContent != null) rootContent(model, openGroup)
+            else {
+                SettingsPage(stringResource(R.string.bipe_settings_section), BipeScreen.SETTINGS_ROOT.id, onBack = onClose) {
+                    SettingsRootSection(model, openGroup)
                 }
             }
         }

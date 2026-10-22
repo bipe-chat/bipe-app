@@ -129,11 +129,13 @@ final class AccountStartModel: ObservableObject {
 
     /// The sign-out of terms-reaccept: the current account leaves this phone. Another account on the phone becomes
     /// current; with none left the phone goes back to onboarding.
-    func signOut() async {
-        guard let session else { return }
-        await session.signOut()
+    func signOut(userId targetId: String? = nil, alreadyLoggedOut: Bool = false) async {
+        let id = targetId ?? userId
+        guard let session = sessions.first(where: { $0.userId == id }) else { return }
+        await session.signOut(alreadyLoggedOut: alreadyLoggedOut)
         AccountList.remove(session.userId)
         sessions.removeAll { $0.userId == session.userId }
+        guard userId == session.userId else { return }
         signupOutcome = nil
         if let next = sessions.first {
             switchAccount(to: next.userId)

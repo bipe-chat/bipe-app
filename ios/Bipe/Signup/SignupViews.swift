@@ -9,15 +9,22 @@ import SwiftUI
 /// The sign-up flow from onboarding-welcome to signup-create. account-start shows it when its phase is noAccount.
 struct SignupFlowView: View {
     @StateObject private var model: SignupFlowModel
+    private let onCancel: (() -> Void)?
 
-    init(api: BipeAPIClient, onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void) {
+    init(api: BipeAPIClient, onCancel: (() -> Void)? = nil, onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void) {
         _model = StateObject(wrappedValue: SignupFlowModel(api: api, onSignedUp: onSignedUp))
+        self.onCancel = onCancel
     }
 
     var body: some View {
         NavigationStack(path: $model.path) {
             OnboardingWelcomeView(model: model)
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
+                .toolbar {
+                    if let onCancel {
+                        ToolbarItem(placement: .cancellationAction) { Button(BipeStrings.appCancel, action: onCancel) }
+                    }
+                }
                 .navigationDestination(for: SignupFlowModel.Route.self) { route in
                     Group {
                         switch route {
@@ -32,6 +39,7 @@ struct SignupFlowView: View {
                 }
         }
         .tint(BipeColor.accentFill)
+        .interactiveDismissDisabled(model.path.contains(.create))
         .sheet(isPresented: $model.showsWaitlist) {
             SignupWaitlistView(model: model)
         }

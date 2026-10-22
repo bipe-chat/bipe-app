@@ -13,12 +13,13 @@ struct ChatListView: View {
     @State private var path: [String]
     @State private var showsHandlePick = false
     private let scope: ChatScope
-    private let onOpenSettings: (() -> Void)?
+    private let account: AccountSummary?
+    private let onOpenVoce: () -> Void
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
-    /// onOpenSettings: the entry to settings-root until Você holds it (bipe-chat/bipe#577, second step).
-    init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil, onOpenSettings: (() -> Void)? = nil) {
-        self.onOpenSettings = onOpenSettings
+    init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil, account: AccountSummary? = nil, onOpenVoce: @escaping () -> Void = {}) {
+        self.account = account
+        self.onOpenVoce = onOpenVoce
         _model = ObservedObject(wrappedValue: model)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
         _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
@@ -35,15 +36,13 @@ struct ChatListView: View {
                 }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            onOpenSettings?()
-                        } label: {
-                            PhosphorIcon.gear.image
-                                .resizable()
-                                .frame(width: 22, height: 22)
+                        if let account {
+                            Button(action: onOpenVoce) {
+                                AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: model.media,
+                                           size: 32, userId: account.userId, isCompany: account.isCompany)
+                            }
+                            .accessibilityLabel(BipeStrings.appAccountCurrentA11y(account.displayName))
                         }
-                        .accessibilityLabel(BipeStrings.settingsSection)
-                        .opacity(onOpenSettings == nil ? 0 : 1)
                     }
                 }
         }
@@ -60,7 +59,7 @@ struct ChatListView: View {
 
     @ViewBuilder
     private var handlePrompt: some View {
-        if handle.showsPrompt {
+        if scope == .conversas && handle.showsPrompt {
             HandlePromptCard(model: handle) { showsHandlePick = true }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -136,7 +135,7 @@ struct ChatRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media)
+            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, userId: chat.peerUserId)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(chat.name)

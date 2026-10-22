@@ -38,6 +38,8 @@ data class ChatSummary(
     val memberCount: Int,
     /** Unread mentions and replies, for the Grupos badge (spec app-tabs gruposAttention). */
     val mentionCount: Int,
+    /** The other member of a DM, for the avatar account-type lookup. */
+    val peerUserId: String? = null,
 ) {
     /** The scope that lists this chat: conversas holds rooms with two members, grupos rooms with more (ADR 0053). */
     val scope: ChatScope
@@ -176,6 +178,7 @@ class ChatListModel(
             isDirect = info.isDirect,
             memberCount = info.activeMembersCount.toInt(),
             mentionCount = info.numUnreadMentions.toInt(),
+            peerUserId = if (info.isDirect) info.heroes.firstOrNull { it.userId != session.userId }?.userId else null,
         )
     }
 

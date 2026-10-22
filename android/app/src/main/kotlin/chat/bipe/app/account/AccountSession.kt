@@ -21,8 +21,8 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
     fun accessToken(): String? = runCatching { client.session().accessToken }.getOrNull()
 
     /** Signs out on the server and removes this account's session, store and hidden password from this phone. */
-    suspend fun signOut(context: Context, sessionStore: SessionStore, vault: BipeAccountVault) {
-        runCatching { client.logout() }
+    suspend fun signOut(context: Context, sessionStore: SessionStore, vault: BipeAccountVault, alreadyLoggedOut: Boolean = false) {
+        if (!alreadyLoggedOut) runCatching { client.logout() }
         syncService.stop()
         sessionStore.delete(userId)
         // The recovery token stays, so recovery-start finds it (spec sign-out). Only the hidden password goes.
