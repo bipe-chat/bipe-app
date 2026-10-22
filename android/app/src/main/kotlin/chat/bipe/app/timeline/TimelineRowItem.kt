@@ -72,6 +72,7 @@ import chat.bipe.app.polls.PollCard
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.ScamWarningKind
 import chat.bipe.shared.generated.BipeScreen
 import androidx.compose.ui.platform.testTag
 import chat.bipe.shared.generated.BipeHaptic
@@ -290,6 +291,7 @@ private fun MessageBubbleRow(
                     ReplyQuote(reply, Modifier.clickable { model.openOriginal(reply.eventId) })
                 }
                 content()
+                details.scamWarning?.let { ScamWarningCard(it) }
                 MessageFooter(message, details, onFailedTap = onLongPress, modifier = Modifier.align(Alignment.End))
             }
         }
@@ -306,6 +308,28 @@ private fun MessageBubbleRow(
         val receipt = details.receipt
         if (receipt != null && !isDm && receipt.readers.isNotEmpty()) {
             ReaderAvatars(receipt.readers, media, onClick = { model.openReaders(row.id) })
+        }
+    }
+}
+
+/** Spec scam-warning: a calm caution card. Title then the kind text, one element for screen readers. */
+@Composable
+private fun ScamWarningCard(kind: ScamWarningKind) {
+    val colors = BipeTheme.colors
+    val shape = RoundedCornerShape(10.dp)
+    Row(
+        modifier = Modifier
+            .background(colors.trustCautionWash, shape)
+            .border(1.dp, colors.trustCautionLine, shape)
+            .padding(8.dp)
+            .semantics(mergeDescendants = true) {}
+            .testTag(BipeScreen.SCAM_WARNING.id),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustCautionInk, modifier = Modifier.size(16.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.bipe_scam_warning_title), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.trustCautionInk)
+            Text(stringResource(kind.messageRes), style = MaterialTheme.typography.labelMedium, color = colors.inkPrimary)
         }
     }
 }
