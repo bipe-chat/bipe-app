@@ -22,11 +22,41 @@ enum class BipeScreen(val id: String) {
     /** Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json */
     CHAT_TIMELINE("chat-timeline"),
 
+    /** Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json */
+    DEVICE_VERIFICATION("device-verification"),
+
+    /** Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
+    ENCRYPTION_STATUS("encryption-status"),
+
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
+    /** Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json */
+    MESSAGE_UNDECRYPTABLE("message-undecryptable"),
+
     /** Welcome (flow signup). Spec: bipe-shared/product/screens/onboarding-welcome.json */
     ONBOARDING_WELCOME("onboarding-welcome"),
+
+    /** Account moving to a new device (flow recovery). Spec: bipe-shared/product/screens/recovery-alert.json */
+    RECOVERY_ALERT("recovery-alert"),
+
+    /** Recovery by e-mail (flow recovery). Spec: bipe-shared/product/screens/recovery-email.json */
+    RECOVERY_EMAIL("recovery-email"),
+
+    /** Enter recovery key (flow encryption). Spec: bipe-shared/product/screens/recovery-key-enter.json */
+    RECOVERY_KEY_ENTER("recovery-key-enter"),
+
+    /** Save a recovery key (flow encryption). Spec: bipe-shared/product/screens/recovery-key-save.json */
+    RECOVERY_KEY_SAVE("recovery-key-save"),
+
+    /** Enter PIN to get back in (flow recovery). Spec: bipe-shared/product/screens/recovery-pin.json */
+    RECOVERY_PIN("recovery-pin"),
+
+    /** Get back into your account (flow recovery). Spec: bipe-shared/product/screens/recovery-start.json */
+    RECOVERY_START("recovery-start"),
+
+    /** Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json */
+    RECOVERY_WAITING("recovery-waiting"),
 
     /** Creating the account (flow signup). Spec: bipe-shared/product/screens/signup-create.json */
     SIGNUP_CREATE("signup-create"),
@@ -48,4 +78,7 @@ enum class BipeScreen(val id: String) {
 
     /** Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json */
     SIGNUP_WAITLIST("signup-waitlist"),
+
+    /** Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json */
+    TERMS_REACCEPT("terms-reaccept"),
 }
