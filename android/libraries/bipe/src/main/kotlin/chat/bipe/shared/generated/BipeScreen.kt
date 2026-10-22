@@ -37,6 +37,9 @@ enum class BipeScreen(val id: String) {
     /** Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
     ENCRYPTION_STATUS("encryption-status"),
 
+    /** Handle change line (flow chat). Spec: bipe-shared/product/screens/handle-change-line.json */
+    HANDLE_CHANGE_LINE("handle-change-line"),
+
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
@@ -51,6 +54,24 @@ enum class BipeScreen(val id: String) {
 
     /** Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json */
     LINKED_DEVICES("linked-devices"),
+
+    /** Message actions (flow chat). Spec: bipe-shared/product/screens/message-actions.json */
+    MESSAGE_ACTIONS("message-actions"),
+
+    /** Delete a message (flow chat). Spec: bipe-shared/product/screens/message-delete.json */
+    MESSAGE_DELETE("message-delete"),
+
+    /** Edit a message (flow chat). Spec: bipe-shared/product/screens/message-edit.json */
+    MESSAGE_EDIT("message-edit"),
+
+    /** Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json */
+    MESSAGE_REACTIONS("message-reactions"),
+
+    /** Reply to a message (flow chat). Spec: bipe-shared/product/screens/message-reply.json */
+    MESSAGE_REPLY("message-reply"),
+
+    /** Report a message (flow chat). Spec: bipe-shared/product/screens/message-report.json */
+    MESSAGE_REPORT("message-report"),
 
     /** Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json */
     MESSAGE_UNDECRYPTABLE("message-undecryptable"),
@@ -79,6 +100,9 @@ enum class BipeScreen(val id: String) {
     /** Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json */
     PUSH_REGISTRATION("push-registration"),
 
+    /** Read receipts (flow chat). Spec: bipe-shared/product/screens/read-receipts.json */
+    READ_RECEIPTS("read-receipts"),
+
     /** Account moving to a new device (flow recovery). Spec: bipe-shared/product/screens/recovery-alert.json */
     RECOVERY_ALERT("recovery-alert"),
 
@@ -99,6 +123,9 @@ enum class BipeScreen(val id: String) {
 
     /** Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json */
     RECOVERY_WAITING("recovery-waiting"),
+
+    /** Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json */
+    SCAM_WARNING("scam-warning"),
 
     /** Settings group (flow settings). Spec: bipe-shared/product/screens/settings-group.json */
     SETTINGS_GROUP("settings-group"),
@@ -135,4 +162,10 @@ enum class BipeScreen(val id: String) {
 
     /** Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json */
     TERMS_REACCEPT("terms-reaccept"),
+
+    /** Timeline rows (flow chat). Spec: bipe-shared/product/screens/timeline-rows.json */
+    TIMELINE_ROWS("timeline-rows"),
+
+    /** Typing indicator (flow chat). Spec: bipe-shared/product/screens/typing-indicator.json */
+    TYPING_INDICATOR("typing-indicator"),
 }
