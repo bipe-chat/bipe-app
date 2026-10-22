@@ -44,6 +44,7 @@ dependencies {
     // BadgeVerifier: Ed25519 signatures of Bipe badges.
     implementation(libs.tink.android)
     implementation(libs.timber)
+    implementation(libs.kotlinx.coroutines.android)
     // BipeColors (generated from bipe-shared design/tokens.json) exposes Compose types.
     api(platform(libs.androidx.compose.bom))
     api(libs.androidx.compose.runtime)

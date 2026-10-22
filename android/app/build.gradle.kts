@@ -43,6 +43,13 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // pt-BR is the default language (res/values), en the second one (res/values-en).
+    // Keep only these two in the APK, so dependency strings in other languages never show.
+    // The per-app language setting reads res/xml/locales_config.xml.
+    androidResources {
+        localeFilters += listOf("pt-rBR", "en")
+    }
 }
 
 kotlin {
@@ -54,6 +61,9 @@ dependencies {
     implementation(project(":libraries:phosphor"))
     implementation(libs.matrix.rust.sdk)
     implementation(libs.kotlinx.coroutines.android)
+    // AccountStartModel builds the BipeApiClient (Retrofit over OkHttp, kotlinx JSON).
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))

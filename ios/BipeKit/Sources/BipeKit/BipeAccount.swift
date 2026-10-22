@@ -2,6 +2,8 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+// Moved from BipeKit (bipe-ios Components/BipeKit/Sources/BipeKit/BipeAccount.swift).
+
 import Foundation
 
 // Device-first accounts (ADR 0057, ADR 0059). Contract: bipe-shared/api/openapi.yaml.

@@ -2,6 +2,8 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+// Moved from BipeKit (bipe-ios Components/BipeKit/Sources/BipeKit/BipeInviteLink.swift).
+
 import Foundation
 
 /// Invite links: `https://bipe.chat/convite/XXXX-XXXX-XXXX`. The web page there explains how to install;
