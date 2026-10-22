@@ -62,6 +62,7 @@ The workflow `.github/workflows/licence.yml` runs these jobs on every PR. All of
 
 - `deny-list`: `node tools/deny-list.mjs`. Fails when `ios/project.yml`, `ios/**/Package.swift`, `ios/**/Package.resolved`, an Android Gradle file or `android/gradle/libs.versions.toml` names an Element package (`element-x-ios`, `element-x-android`, `compound-ios`, `compound-android`, `compound-design-tokens`, `matrix-rich-text-editor`, `element-call`, `element-hq/`, `io.element`).
 - `licences`: `node tools/licences.mjs`. Reads every `ios/**/Package.resolved` pin and the `[libraries]` of `android/gradle/libs.versions.toml`. Each dependency must be in `tools/licences.json` (SPDX licence, source URL, date checked) with Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC or MPL-2.0. To add a dependency, add its row to `tools/licences.json` in the same PR. An entry with `"unverified": true` prints a warning, not a failure.
+- Open source licences screen: `node tools/oss-licences.mjs` writes `ios/Bipe/Resources/OpenSourceLicences.json` and `android/app/src/main/assets/open_source_licences.json` from `tools/licences.json` and `tools/licence-texts/<SPDX>.txt`. After a change to `tools/licences.json`, run it in the same PR; `tool-tests` fails when the files are stale. A new SPDX id needs its standard text in `tools/licence-texts/`.
 - `headers`: `node tools/headers.mjs`. Every `.swift` and `.kt` file outside folders named `Generated` or `generated` starts with the header above. A `Package.swift` starts with its `// swift-tools-version` line, and the header follows on line 2.
 - `strings`: `node tools/strings.mjs`. Fails on a string literal passed to SwiftUI `Text`, `Button`, `Label`, `.navigationTitle` or Compose `Text`, `text =`. UI text comes from the generated bipe-shared strings. The check is a line-based regex; its limits are in the file.
 - `similarity`: CI only. Runs JPlag 6.3.0 (SHA-256 pinned in the workflow, Java 25) with the language modules `swift` and `kotlin`. It compares each file in `ios/` outside `Generated` folders with each Swift file of `element-hq/element-x-ios`, and each file in `android/` outside `generated` folders with each Kotlin file of `element-hq/element-x-android`, at their latest release tag. A self-test first proves that a copied file fails. Do not run the scan locally: it clones Element code. On a pull request it scans only the platforms whose non-generated source the PR changes, and runs the iOS and Android scans at the same time; a push to `main` scans both. `provenance` is its own workflow, so editing a PR body reruns only that check.
@@ -113,3 +114,12 @@ adb install -r Bipe-Next-<n>.apk
 - Screen specs live in bipe-shared `product/screens`. The code follows the spec. If the code must differ from the spec, change the spec first.
 - The app's default language is pt-BR; English is the second language. All UI text comes from bipe-shared strings.
 - Generated files come from bipe-shared `tools/gen.mjs`. Never hand-edit a generated file. Change the source in bipe-shared and run the generator again.
+
+## No questions to MZ
+
+MZ works with many agents at once. A question in an agent session blocks that agent until MZ opens it, and MZ does not watch every session.
+
+- Never use the question tool and never wait for an answer in your session.
+- For a reversible choice (names, layout, defaults, scope inside the issue, library choice within the licence allow-list), pick the safe default, write `Default chosen: <what>, because <why>. MZ can overrule.` in the PR body, and keep going.
+- Only a choice that is hard to undo, outward-facing, costs money or needs an account or secret that only MZ has goes to MZ: write one comment on bipe-chat/bipe#538 that starts with `MZ decision:`, names the issue, gives the options and your default, then continue with other work. The controller session asks MZ and answers on that comment.
+- A tool or permission prompt that blocks you is reported the same way, then you continue with work that does not need it.

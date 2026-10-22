@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Phosphor
 import SwiftUI
 
 /// Spec chat-list.
@@ -11,9 +12,12 @@ struct ChatListView: View {
     @StateObject private var handle: HandlePickModel
     @State private var path: [String]
     @State private var showsHandlePick = false
+    private let onOpenSettings: (() -> Void)?
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
-    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil) {
+    /// onOpenSettings: the temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main.
+    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil, onOpenSettings: (() -> Void)? = nil) {
+        self.onOpenSettings = onOpenSettings
         _model = StateObject(wrappedValue: ChatListModel(session: session))
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: session))
         _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
@@ -26,6 +30,19 @@ struct ChatListView: View {
                 .navigationTitle(BipeStrings.appChatListTitle)
                 .navigationDestination(for: String.self) { roomId in
                     ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
+                }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            onOpenSettings?()
+                        } label: {
+                            PhosphorIcon.gear.image
+                                .resizable()
+                                .frame(width: 22, height: 22)
+                        }
+                        .accessibilityLabel(BipeStrings.settingsSection)
+                        .opacity(onOpenSettings == nil ? 0 : 1)
+                    }
                 }
         }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)

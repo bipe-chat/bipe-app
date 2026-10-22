@@ -106,34 +106,10 @@
       "checked": "2026-10-22",
       "note": "Vendored by tools/phosphor.mjs into ios/Phosphor and android/libraries/phosphor, with its LICENSE file. Version in tools/phosphor.json."
     },
-    "org.jetbrains.kotlinx:kotlinx-serialization-json": {
-      "ecosystem": "gradle",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/Kotlin/kotlinx.serialization/blob/master/LICENSE.txt",
-      "checked": "2026-10-22"
-    },
     "org.jetbrains.kotlinx:kotlinx-coroutines-core": {
       "ecosystem": "gradle",
       "licence": "Apache-2.0",
       "source": "https://github.com/Kotlin/kotlinx.coroutines/blob/master/LICENSE.txt",
-      "checked": "2026-10-22"
-    },
-    "com.squareup.okhttp3:okhttp": {
-      "ecosystem": "gradle",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/square/okhttp/blob/master/LICENSE.txt",
-      "checked": "2026-10-22"
-    },
-    "com.squareup.retrofit2:retrofit": {
-      "ecosystem": "gradle",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/square/retrofit/blob/trunk/LICENSE.txt",
-      "checked": "2026-10-22"
-    },
-    "com.squareup.retrofit2:converter-kotlinx-serialization": {
-      "ecosystem": "gradle",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/square/retrofit/blob/trunk/LICENSE.txt",
       "checked": "2026-10-22"
     },
     "com.google.crypto.tink:tink-android": {
@@ -142,17 +118,13 @@
       "source": "https://github.com/tink-crypto/tink-java/blob/main/LICENSE",
       "checked": "2026-10-22"
     },
-    "com.jakewharton.timber:timber": {
-      "ecosystem": "gradle",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/JakeWharton/timber/blob/trunk/LICENSE.txt",
-      "checked": "2026-10-22"
-    },
     "com.google.truth:truth": {
       "ecosystem": "gradle",
       "licence": "Apache-2.0",
       "source": "https://github.com/google/truth/blob/master/LICENSE",
-      "checked": "2026-10-22"
+      "checked": "2026-10-22",
+      "scope": "test",
+      "note": "Test only. Not in the APK."
     },
     "junit:junit": {
       "ecosystem": "gradle",
@@ -161,6 +133,12 @@
       "checked": "2026-10-22",
       "scope": "test",
       "note": "Test only (ADR 0148). Not in the APK."
+    },
+    "androidx.browser:browser": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
     }
   }
 }

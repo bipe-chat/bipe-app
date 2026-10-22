@@ -4,8 +4,6 @@
 
 package chat.bipe.shared
 
-import chat.bipe.shared.api.BipeApiClient
-import chat.bipe.shared.generated.BipeRegistries
 import java.net.URI
 import java.util.Locale
 
@@ -50,29 +48,6 @@ object BipeProfileLink {
 }
 
 /**
- * Invite links: `https://bipe.chat/convite/XXXX-XXXX-XXXX`. The web page there explains how to install;
- * the app opens it as an app link and pre-fills the sign-up code.
- */
-object BipeInviteLink {
-    /** Rule: bipe-shared/registries/invite-codes.json (generated). Cases: test-vectors/invite-codes.json. */
-    private val pattern = Regex(BipeRegistries.INVITE_CODE_PATTERN)
-
-    /** The invite code in a link, normalised, or `null` when the URL is not an invite link. */
-    fun code(url: String): String? {
-        val components = BipeProfileLink.bipePathComponents(url) ?: return null
-        if (components.size != 2 || components[0] != "convite") return null
-        return normalizedCode(components[1])
-    }
-
-    /** `XXXX-XXXX-XXXX` from anything a user typed or pasted: a code, an invite link or a whole message. `null` when it holds no code. */
-    fun normalizedCode(raw: String): String? {
-        val text = raw.take(BipeRegistries.INVITE_CODE_MAX_INPUT_LENGTH).uppercase(Locale.ROOT)
-        val match = pattern.find(text) ?: return null
-        return match.groupValues.drop(1).joinToString("-")
-    }
-}
-
-/**
  * Recovery links from the Bipe API e-mail (ADR 0057): `https://bipe.chat/recuperar/#<token>`. The token is in the fragment,
  * so it stays out of server logs. The app opens the link as an app link on the new phone.
  */
@@ -86,20 +61,6 @@ object BipeRecoveryLink {
         val fragment = runCatchingExceptions { URI(url).fragment }.getOrNull() ?: return null
         return fragment.takeIf { tokenPattern.matches(it) }
     }
-}
-
-/**
- * The Termos de uso and the Política de privacidade on the public site (ADR 0113). Paths: bipe-shared/registries/legal.json (generated).
- * English pages for an English device, else Portuguese: the same rule as the `lang` the API gets.
- */
-object BipeLegalLinks {
-    fun termsUrl(): String = url(if (isEnglish()) BipeRegistries.EN_TERMS_PATH else BipeRegistries.TERMS_PATH)
-
-    fun privacyUrl(): String = url(if (isEnglish()) BipeRegistries.EN_PRIVACY_PATH else BipeRegistries.PRIVACY_PATH)
-
-    private fun isEnglish() = BipeApiClient.emailLanguage() == "en"
-
-    private fun url(path: String) = "https://${BipeProfileLink.HOST}$path"
 }
 
 /** A normalised invite code. Prints redacted, because routes and actions get logged. */

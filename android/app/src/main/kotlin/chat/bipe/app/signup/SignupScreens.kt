@@ -62,6 +62,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.AppConfig
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeLegalLinks
 import chat.bipe.shared.R
@@ -313,7 +314,7 @@ fun TermsRow(accepted: Boolean, onToggle: () -> Unit) {
     val text = remember(sentence, colors) {
         buildAnnotatedString {
             append(sentence)
-            listOf(terms to BipeLegalLinks.termsUrl(), privacy to BipeLegalLinks.privacyUrl())
+            listOf(terms to BipeLegalLinks.termsUrl(AppConfig.PUBLIC_SITE), privacy to BipeLegalLinks.privacyUrl(AppConfig.PUBLIC_SITE))
                 .forEach { (label, url) ->
                     val start = sentence.indexOf(label)
                     if (start >= 0) {

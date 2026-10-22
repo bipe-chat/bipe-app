@@ -25,7 +25,11 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
         runCatching { client.logout() }
         syncService.stop()
         sessionStore.delete()
-        vault.update { data -> data.copy(accounts = data.accounts - userId) }
+        // The recovery token stays, so recovery-start finds it (spec sign-out). Only the hidden password goes.
+        vault.update { data ->
+            val kept = data.accounts[userId]?.copy(password = null)?.takeIf { it.token != null }
+            data.copy(accounts = if (kept != null) data.accounts + (userId to kept) else data.accounts - userId)
+        }
         deleteStore(context, userId)
     }
 

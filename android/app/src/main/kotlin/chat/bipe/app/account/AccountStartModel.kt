@@ -11,9 +11,6 @@ import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
-import chat.bipe.app.signup.signedInCredentials
-import kotlinx.serialization.json.Json
-import okhttp3.OkHttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +29,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         override fun toString() = "DevAccount($userId)"
     }
 
-    val api = BipeApiClient.create(OkHttpClient(), Json { ignoreUnknownKeys = true; explicitNulls = false }, AppConfig.API_BASE_URL)
+    val api = BipeApiClient(AppConfig.API_BASE_URL)
     val vault = BipeAccountVault(context)
     val sessionStore = SessionStore(context)
 
@@ -150,7 +147,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             }
             return null
         }
-        val credentials = response.signedInCredentials ?: return null
+        val credentials = response.credentials ?: return null
         vault.store(credentials.userId, credentials.password, credentials.recoveryToken)
         _userId.value = credentials.userId
         val session = AccountSession.signIn(context, credentials.userId, credentials.password, sessionStore)
