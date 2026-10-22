@@ -13,6 +13,9 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -82,6 +85,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         scope.launch {
             try {
                 open()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _phase.value = Phase.FAILED
             } finally {
@@ -179,8 +184,9 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     }
 
     private suspend fun open() {
-        val saved = sessionStore.loadAll()
-        val passwords = vault.read().accounts.filterValues { it.password != null }.mapValues { it.value.password!! }
+        val (saved, passwords) = AccountStep.run("read saved accounts") {
+            sessionStore.loadAll() to vault.read().accounts.filterValues { it.password != null }.mapValues { it.value.password!! }
+        }
         Log.i(AccountStep.TAG, "start: ${saved.size} saved sessions, ${passwords.size} device credentials")
         val found = passwords.keys.toList() + saved.keys.sorted().filterNot(passwords::containsKey)
         val accounts = accountList.merge(found)
@@ -189,6 +195,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         val rest = accountList.preferred(accounts).toMutableList()
         var current: AccountSession? = null
         while (current == null && rest.isNotEmpty()) {
+            coroutineContext.ensureActive()
             val userId = rest.removeAt(0)
             current = open(userId, saved[userId], passwords[userId])
         }
@@ -226,6 +233,12 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         if (saved != null) {
             try {
                 return AccountSession.restore(context, saved, sessionStore)
+            } catch (e: AccountStep.TimedOut) {
+                // The SDK may still hold the store: retain the session and do not start another login over it.
+                Log.w(AccountStep.TAG, "restore timed out; saved session retained")
+                return null
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: AccountStep.NoStore) {
                 // A saved session from an earlier install: drop it and sign in again.
                 Log.i(AccountStep.TAG, "saved session without its store, dropped")
@@ -240,6 +253,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         }
         return try {
             AccountSession.signIn(context, userId, password, sessionStore)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(AccountStep.TAG, "sign-in failed: ${e.javaClass.simpleName}")
             null
@@ -248,19 +263,19 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     /** A sign-up whose answer never reached this phone (ADR 0094). `null` when there is nothing to finish. */
     private suspend fun resumePendingSignup(): AccountSession? {
-        val pending = vault.read().pendingSignup ?: return null
+        val pending = AccountStep.run("read pending signup") { vault.read().pendingSignup } ?: return null
         val response = try {
-            api.resumeSignup(pending.key)
+            AccountStep.run("resume signup") { api.resumeSignup(pending.key) }
         } catch (error: BipeApiException) {
             if ((error as? BipeApiException.Server)?.code == BipeApiErrorCode.NOT_FOUND) {
-                vault.update { it.copy(pendingSignup = null) }
+                AccountStep.run("remove pending signup") { vault.update { it.copy(pendingSignup = null) } }
             }
             return null
         }
         val credentials = response.credentials ?: return null
-        vault.store(credentials.userId, credentials.password, credentials.recoveryToken)
+        AccountStep.run("save signup credential") { vault.store(credentials.userId, credentials.password, credentials.recoveryToken) }
         val session = AccountSession.signIn(context, credentials.userId, credentials.password, sessionStore)
-        vault.update { it.copy(pendingSignup = null) }
+        AccountStep.run("remove pending signup") { vault.update { it.copy(pendingSignup = null) } }
         accountList.merge(listOf(session.userId))
         return session
     }

@@ -6,7 +6,7 @@ package chat.bipe.app.account
 
 import android.util.Log
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.withTimeout
+import chat.bipe.shared.account.BipeDeadline
 
 /**
  * One step of opening an account (spec account-start): a time limit, so a step that never returns becomes a failure, and
@@ -28,7 +28,7 @@ object AccountStep {
     suspend fun <T> run(name: String, operation: suspend () -> T): T {
         Log.i(TAG, "$name: start")
         return try {
-            withTimeout(LIMIT_MS) { operation() }.also { Log.i(TAG, "$name: done") }
+            BipeDeadline.run(LIMIT_MS, operation).also { Log.i(TAG, "$name: done") }
         } catch (e: TimeoutCancellationException) {
             Log.w(TAG, "$name: timed out")
             // Not a CancellationException: the caller treats it as a failed step, not as its own cancellation.

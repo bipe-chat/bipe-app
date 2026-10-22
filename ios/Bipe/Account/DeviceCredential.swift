@@ -6,7 +6,7 @@ import BipeKit
 import Foundation
 
 /// Device-account discovery uses BipeCredentialStore's own-first reads and sign-out exclusions (ADR 0147).
-struct DeviceCredential: CustomStringConvertible {
+struct DeviceCredential: Sendable, CustomStringConvertible {
     let userId: String
     let password: String
     let created: Date

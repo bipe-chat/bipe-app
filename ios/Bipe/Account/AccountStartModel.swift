@@ -12,6 +12,11 @@ struct SignupOutcome: Equatable {
     var inviterHandle: String?
 }
 
+private struct AccountStartupSnapshot: Sendable {
+    let saved: [String: Session]
+    let credentials: [DeviceCredential]
+}
+
 /// Spec account-start (bipe-shared product/screens/account-start.json).
 ///
 /// Opens every account on this phone (ADR 0086): one SDK client and session store per Matrix ID. The current account
@@ -25,7 +30,9 @@ final class AccountStartModel: ObservableObject {
         case ready
     }
 
-    @Published private(set) var phase: Phase = .opening
+    @Published private(set) var phase: Phase = .opening {
+        didSet { AccountStep.log.notice("phase: \(String(describing: self.phase), privacy: .public)") }
+    }
     @Published private(set) var userId: String?
     /// Set right after a sign-up: the app shows signup-done before chat-list.
     @Published var signupOutcome: SignupOutcome?
@@ -48,8 +55,17 @@ final class AccountStartModel: ObservableObject {
         defer { starting = false }
         phase = .opening
 
-        let saved = SessionStore.loadAll()
-        let credentials = DeviceCredential.all()
+        let snapshot: AccountStartupSnapshot
+        do {
+            snapshot = try await AccountStep.run("read saved accounts") {
+                AccountStartupSnapshot(saved: SessionStore.loadAll(), credentials: DeviceCredential.all())
+            }
+        } catch {
+            if !Task.isCancelled { phase = .failed }
+            return
+        }
+        let saved = snapshot.saved
+        let credentials = snapshot.credentials
         AccountStep.log.info("start: \(saved.count) saved sessions, \(credentials.count) device credentials")
         let found = credentials.map(\.userId) + saved.keys.sorted().filter { id in !credentials.contains { $0.userId == id } }
         let accounts = AccountList.merge(found: found)
@@ -58,6 +74,7 @@ final class AccountStartModel: ObservableObject {
         var current: AccountSession?
         var rest = AccountList.preferred(in: accounts)
         while current == nil, !rest.isEmpty {
+            guard !Task.isCancelled else { return }
             let userId = rest.removeFirst()
             current = await open(userId, saved: saved[userId], credential: credentials.first { $0.userId == userId })
         }
@@ -71,7 +88,7 @@ final class AccountStartModel: ObservableObject {
             return
         }
         if !accounts.isEmpty {
-            phase = .failed
+            if !Task.isCancelled { phase = .failed }
             return
         }
         do {
@@ -81,7 +98,7 @@ final class AccountStartModel: ObservableObject {
                 phase = .noAccount
             }
         } catch {
-            phase = .failed
+            if !Task.isCancelled { phase = .failed }
         }
     }
 
@@ -166,12 +183,18 @@ final class AccountStartModel: ObservableObject {
         if let saved {
             do {
                 return try await AccountSession.restore(saved)
+            } catch AccountStep.Failure.timedOut(_) {
+                // A timed-out restore may still hold its SDK store. Do not delete that store and sign in over it.
+                log.notice("restore timed out; saved session retained")
+                return nil
+            } catch is CancellationError {
+                return nil
             } catch AccountStep.Failure.noStore {
                 // A saved session from an earlier install: drop it and sign in again.
                 log.notice("saved session without its store, dropped")
                 SessionStore.delete(userId: userId)
             } catch {
-                log.error("restore failed: \(String(describing: error), privacy: .public)")
+                log.error("restore failed")
             }
         }
         guard let credential else {
@@ -181,27 +204,33 @@ final class AccountStartModel: ObservableObject {
         do {
             return try await AccountSession.signIn(userId: credential.userId, password: credential.password)
         } catch {
-            log.error("sign-in failed: \(String(describing: error), privacy: .public)")
+            log.error("sign-in failed")
             return nil
         }
     }
 
     /// A sign-up whose answer never reached this phone (ADR 0094). `nil` when there is nothing to finish.
     private func resumePendingSignup() async throws -> AccountSession? {
-        let store = BipeCredentialStore()
-        guard let pending = store.pendingSignup() else { return nil }
+        guard let pending = try await AccountStep.run("read pending signup", {
+            BipeCredentialStore().pendingSignup()
+        }) else { return nil }
         let response: BipeSignupResponse
+        let api = api
         do {
-            response = try await api.resumeSignup(signupKey: pending.key)
+            response = try await AccountStep.run("resume signup") {
+                try await api.resumeSignup(signupKey: pending.key)
+            }
         } catch {
             if case .server(.notFound, _, _) = error {
-                store.deletePendingSignup()
+                try await AccountStep.run("remove pending signup") { BipeCredentialStore().deletePendingSignup() }
             }
+            if error is CancellationError || error is AccountStep.Failure { throw error }
             return nil
         }
-        guard let credentials = response.credentials, store.save(credentials) else { return nil }
+        guard let credentials = response.credentials else { return nil }
+        guard try await AccountStep.run("save signup credential", { BipeCredentialStore().save(credentials) }) else { return nil }
         let session = try await AccountSession.signIn(userId: credentials.userId, password: credentials.password)
-        store.deletePendingSignup()
+        try await AccountStep.run("remove pending signup") { BipeCredentialStore().deletePendingSignup() }
         _ = AccountList.merge(found: [session.userId])
         return session
     }
