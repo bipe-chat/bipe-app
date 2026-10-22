@@ -37,6 +37,7 @@ fun AppTabsScreen(
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
     onNewAccount: () -> Unit,
+    banner: @Composable () -> Unit = {},
 ) {
     val state by tabs.state.collectAsState()
     val account = state.accounts.firstOrNull { it.isCurrent }
@@ -53,10 +54,10 @@ fun AppTabsScreen(
             when (state.selectedTab) {
                 AppTabsModel.Tab.CONVERSAS ->
                     ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) })
+                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) })
+                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner)
                 AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }

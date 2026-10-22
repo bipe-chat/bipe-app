@@ -10,6 +10,7 @@ import SwiftUI
 struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
     @StateObject private var handle: HandlePickModel
+    @StateObject private var encryption: EncryptionStatusModel
     @State private var path: [String]
     @State private var showsHandlePick = false
     private let scope: ChatScope
@@ -22,13 +23,17 @@ struct ChatListView: View {
         self.onOpenVoce = onOpenVoce
         _model = ObservedObject(wrappedValue: model)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
+        _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
         _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
         self.scope = scope
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            content
+            VStack(spacing: 0) {
+                if encryption.showsBanner { HistoryBanner(model: encryption) }
+                content
+            }
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
                 .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
                 .navigationDestination(for: String.self) { roomId in
@@ -46,6 +51,11 @@ struct ChatListView: View {
                     }
                 }
         }
+        .environment(\.openHistoryHelp, encryption.openSheet)
+        .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
+            EncryptionSheet(route: route, model: encryption, session: model.session)
+        }
+        .task { await encryption.observe() }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
         .task {
             if scope == .conversas {

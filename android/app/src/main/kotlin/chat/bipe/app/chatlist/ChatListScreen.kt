@@ -35,6 +35,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import chat.bipe.app.encryption.EncryptionStatusModel
+import chat.bipe.app.encryption.EncryptionSheet
+import chat.bipe.app.encryption.HistoryBanner
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -93,6 +97,11 @@ fun HomeScreen(
     val media = remember(session) { tabs.media(session) }
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
+    val encryption = remember(session) { EncryptionStatusModel(session, scope, context.applicationContext) }
+    DisposableEffect(encryption) {
+        encryption.observe()
+        onDispose { encryption.close() }
+    }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
@@ -119,7 +128,7 @@ fun HomeScreen(
         }
         roomId != null -> {
             BackHandler { openRoomId = null }
-            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
+            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onHistoryHelp = encryption::openSheet)
         }
         else -> AppTabsScreen(
             tabs = tabs,
@@ -129,8 +138,10 @@ fun HomeScreen(
             onOpenHandlePick = { showsHandlePick = true },
             onOpenChat = { openRoomId = it },
             onNewAccount = { if (tabs.state.value.canAddAccount) showsNewAccount = true },
+            banner = { HistoryBanner(encryption) },
         )
     }
+    EncryptionSheet(encryption)
 }
 
 /** Spec chat-list, one scope: Conversas or Grupos (ADR 0053). Search is an action in the top bar (spec app-tabs). */
@@ -145,6 +156,7 @@ fun ChatListScreen(
     onOpenChat: (String) -> Unit,
     account: AccountSummary? = null,
     onOpenVoce: () -> Unit = {},
+    banner: @Composable () -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val allPhase by model.phase.collectAsState()
@@ -177,6 +189,7 @@ fun ChatListScreen(
                 }
             }
             if (scope == ChatScope.CONVERSAS && handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
+            banner()
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)
