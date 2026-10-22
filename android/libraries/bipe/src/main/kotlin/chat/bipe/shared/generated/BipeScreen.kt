@@ -25,6 +25,12 @@ enum class BipeScreen(val id: String) {
     /** Tab bar (flow home). Spec: bipe-shared/product/screens/app-tabs.json */
     APP_TABS("app-tabs"),
 
+    /** Block or unblock a person (flow people). Spec: bipe-shared/product/screens/block-person.json */
+    BLOCK_PERSON("block-person"),
+
+    /** Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json */
+    BLOCKED_LIST("blocked-list"),
+
     /** Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json */
     CHAT_LIST_FILTERS("chat-list-filters"),
 
@@ -45,6 +51,12 @@ enum class BipeScreen(val id: String) {
 
     /** Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json */
     CHAT_TIMELINE("chat-timeline"),
+
+    /** Business seal (flow people). Spec: bipe-shared/product/screens/company-seal.json */
+    COMPANY_SEAL("company-seal"),
+
+    /** Contacts and invites (flow people). Spec: bipe-shared/product/screens/contacts.json */
+    CONTACTS("contacts"),
 
     /** Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json */
     DATA_EXPORT("data-export"),
@@ -139,6 +151,9 @@ enum class BipeScreen(val id: String) {
     /** Open source licences (flow settings). Spec: bipe-shared/product/screens/open-source-licences.json */
     OPEN_SOURCE_LICENCES("open-source-licences"),
 
+    /** A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json */
+    PERSON_PROFILE("person-profile"),
+
     /** Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json */
     PIN_CHANGE("pin-change"),
 
@@ -150,6 +165,18 @@ enum class BipeScreen(val id: String) {
 
     /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
     PROBLEM_REPORT("problem-report"),
+
+    /** Your name and photo (flow profile). Spec: bipe-shared/product/screens/profile-edit.json */
+    PROFILE_EDIT("profile-edit"),
+
+    /** Open a profile link (flow people). Spec: bipe-shared/product/screens/profile-link-open.json */
+    PROFILE_LINK_OPEN("profile-link-open"),
+
+    /** Your link and QR code (flow profile). Spec: bipe-shared/product/screens/profile-link.json */
+    PROFILE_LINK("profile-link"),
+
+    /** Public profile (flow profile). Spec: bipe-shared/product/screens/public-profile-edit.json */
+    PUBLIC_PROFILE_EDIT("public-profile-edit"),
 
     /** Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json */
     PUSH_REGISTRATION("push-registration"),
@@ -180,6 +207,9 @@ enum class BipeScreen(val id: String) {
 
     /** Remote critical banner (flow home). Spec: bipe-shared/product/screens/remote-banner.json */
     REMOTE_BANNER("remote-banner"),
+
+    /** Report a chat (flow people). Spec: bipe-shared/product/screens/report-chat.json */
+    REPORT_CHAT("report-chat"),
 
     /** Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json */
     SCAM_WARNING("scam-warning"),
@@ -237,4 +267,7 @@ enum class BipeScreen(val id: String) {
 
     /** Voice message (flow chat). Spec: bipe-shared/product/screens/voice-message.json */
     VOICE_MESSAGE("voice-message"),
+
+    /** Who can message me (flow settings). Spec: bipe-shared/product/screens/who-can-message.json */
+    WHO_CAN_MESSAGE("who-can-message"),
 }
