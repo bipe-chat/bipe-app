@@ -17,11 +17,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -39,17 +42,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.notifications.NotificationSettingsScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
+import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
@@ -62,33 +69,63 @@ fun HomeScreen(session: AccountSession) {
     val model = remember(session) { ChatListModel(session, scope, undecryptable) }
     val media = remember(session) { MediaLoader(session.client) }
     var openRoomId by rememberSaveable { mutableStateOf<String?>(null) }
+    var showsNotificationSettings by rememberSaveable { mutableStateOf(false) }
+    val app = LocalContext.current.applicationContext as BipeApplication
     DisposableEffect(model) {
         model.start()
         onDispose { model.close() }
+    }
+    // Spec notification-service, action open.
+    val roomToOpen by app.roomToOpen.collectAsState()
+    LaunchedEffect(roomToOpen) {
+        roomToOpen?.let {
+            showsNotificationSettings = false
+            openRoomId = it
+            app.roomToOpen.value = null
+        }
+    }
+    // An open chat has no notifications, and its pushes show none.
+    DisposableEffect(openRoomId) {
+        app.notifications.visibleRoomId = openRoomId
+        openRoomId?.let { app.notifications.clear(it) }
+        onDispose { app.notifications.visibleRoomId = null }
     }
     val roomId = openRoomId
     if (roomId != null) {
         BackHandler { openRoomId = null }
         ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
+    } else if (showsNotificationSettings) {
+        // Until settings-root lands (bipe-chat/bipe#571), notification-settings opens from the chat list.
+        BackHandler { showsNotificationSettings = false }
+        NotificationSettingsScreen(session, onBack = { showsNotificationSettings = false })
     } else {
-        ChatListScreen(model, media, onOpenChat = { openRoomId = it })
+        ChatListScreen(model, media, onOpenChat = { openRoomId = it }, onOpenNotificationSettings = { showsNotificationSettings = true })
     }
 }
 
 /** Spec chat-list. */
 @Composable
-fun ChatListScreen(model: ChatListModel, media: MediaLoader, onOpenChat: (String) -> Unit) {
+fun ChatListScreen(model: ChatListModel, media: MediaLoader, onOpenChat: (String) -> Unit, onOpenNotificationSettings: () -> Unit) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
     val chats by model.chats.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            Text(
-                stringResource(R.string.bipe_app_chat_list_title),
-                style = MaterialTheme.typography.headlineMedium,
-                color = colors.inkPrimary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.bipe_app_chat_list_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = colors.inkPrimary,
+                    modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+                IconButton(onClick = onOpenNotificationSettings) {
+                    Icon(
+                        painterResource(PhosphorIcon.BELL.drawable),
+                        contentDescription = stringResource(R.string.bipe_settings_notifications),
+                        tint = colors.glyphPrimary,
+                    )
+                }
+            }
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)
@@ -146,6 +183,15 @@ private fun ChatRow(chat: ChatSummary, media: MediaLoader, onClick: () -> Unit) 
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                // Spec chat-notifications: a muted chat keeps its badge, without sound or notification.
+                if (chat.isMuted) {
+                    Icon(
+                        painterResource(PhosphorIcon.BELL_SLASH.drawable),
+                        contentDescription = stringResource(R.string.bipe_app_notification_mode_off),
+                        tint = colors.glyphSecondary,
+                        modifier = Modifier.padding(start = 8.dp).size(16.dp),
+                    )
+                }
                 if (chat.unreadCount > 0) {
                     val count = NumberFormat.getIntegerInstance().format(chat.unreadCount)
                     val label = stringResource(R.string.bipe_app_chat_list_unread, count)
