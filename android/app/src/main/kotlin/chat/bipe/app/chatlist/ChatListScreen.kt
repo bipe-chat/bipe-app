@@ -46,6 +46,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.account.TermsReacceptModel
+import chat.bipe.app.account.TermsReacceptScreen
+import chat.bipe.app.handle.HandlePickModel
+import chat.bipe.app.handle.HandlePickScreen
+import chat.bipe.app.handle.HandlePromptCard
+import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
@@ -54,33 +60,57 @@ import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
 
-/** The signed-in app: chat-list, and chat-timeline on top of it when a chat is open. */
+/**
+ * The signed-in app: chat-list, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, and
+ * terms-reaccept over everything when the legal version changed.
+ */
 @Composable
-fun HomeScreen(session: AccountSession) {
+fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: String?, foregroundCount: Int, onSignOut: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable)
     val model = remember(session) { ChatListModel(session, scope, undecryptable) }
     val media = remember(session) { MediaLoader(session.client) }
-    var openRoomId by rememberSaveable { mutableStateOf<String?>(null) }
+    val handle = remember(session) { HandlePickModel(context, api, session, scope) }
+    val terms = remember(session) { TermsReacceptModel(api, session, scope) }
+    var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
+    var showsHandlePick by rememberSaveable { mutableStateOf(false) }
+    val termsPhase by terms.phase.collectAsState()
     DisposableEffect(model) {
         model.start()
+        handle.load()
         onDispose { model.close() }
     }
+    // terms-reaccept, action check: after sign-in and on every return to the foreground.
+    LaunchedEffect(foregroundCount) { terms.check() }
     val roomId = openRoomId
-    if (roomId != null) {
-        BackHandler { openRoomId = null }
-        ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
-    } else {
-        ChatListScreen(model, media, onOpenChat = { openRoomId = it })
+    when {
+        termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
+        showsHandlePick -> {
+            BackHandler { showsHandlePick = false }
+            HandlePickScreen(handle, onClose = { showsHandlePick = false })
+        }
+        roomId != null -> {
+            BackHandler { openRoomId = null }
+            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
+        }
+        else -> ChatListScreen(model, media, handle, onOpenHandlePick = { showsHandlePick = true }, onOpenChat = { openRoomId = it })
     }
 }
 
 /** Spec chat-list. */
 @Composable
-fun ChatListScreen(model: ChatListModel, media: MediaLoader, onOpenChat: (String) -> Unit) {
+fun ChatListScreen(
+    model: ChatListModel,
+    media: MediaLoader,
+    handle: HandlePickModel,
+    onOpenHandlePick: () -> Unit,
+    onOpenChat: (String) -> Unit,
+) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
     val chats by model.chats.collectAsState()
+    val handleState by handle.state.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             Text(
@@ -89,6 +119,7 @@ fun ChatListScreen(model: ChatListModel, media: MediaLoader, onOpenChat: (String
                 color = colors.inkPrimary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
+            if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)
