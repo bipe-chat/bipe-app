@@ -5,6 +5,10 @@
 package chat.bipe.app.timeline
 
 import chat.bipe.app.common.displayName
+import chat.bipe.shared.BipeHandleChangePlacement
+import chat.bipe.shared.api.BipeHandleChange
+import java.time.Instant
+import org.matrix.rustcomponents.sdk.MembershipChange
 import chat.bipe.app.polls.PollData
 import chat.bipe.shared.ScamDetector
 import chat.bipe.shared.ScamWarningKind
@@ -33,8 +37,13 @@ data class TimelineRow(
     val details: MessageDetails? = null,
     /** kind dateSeparator only: a time on that day, in ms. */
     val day: Long? = null,
-) {
-    enum class Kind { MESSAGE, UNDECRYPTABLE, DELETED, POLL, DATE_SEPARATOR, READ_MARKER, NOT_ENCRYPTED, CHAT_START }
+    /** kind handleChange only (spec handle-change-line, ADR 0066). */
+    val handleChange: HandleChangeLine? = null,
+)
+
+/** Type HandleChangeLine of spec handle-change-line. */
+data class HandleChangeLine(val change: BipeHandleChange, val name: String) {
+    enum class Kind { MESSAGE, UNDECRYPTABLE, DELETED, POLL, DATE_SEPARATOR, READ_MARKER, HANDLE_CHANGE, NOT_ENCRYPTED, CHAT_START }
 }
 
 /** Type MessageDetails of spec timeline-rows. */
@@ -103,6 +112,10 @@ data class RoomFacts(
     val members: Map<String, MemberInfo> = emptyMap(),
     /** Event IDs whose reply details this screen asked for once (spec message-reply loadReply). */
     val replyLoadsTried: Set<String> = emptySet(),
+    /** Members of the room now, by user ID (spec handle-change-line: no line for anyone else). */
+    val roomMembers: Set<String> = emptySet(),
+    /** Cached handle changes of the room members (BipeHandleChangeStore), oldest first. */
+    val handleChanges: List<BipeHandleChange> = emptyList(),
 )
 
 /** Strings the builder puts into rows. */
@@ -204,11 +217,37 @@ object TimelineRowBuilder {
             }
         }
 
+        placeHandleChanges(rows, items, facts, ::name)
+
         if (!facts.isEncrypted) {
             val at = if (rows.firstOrNull()?.kind == TimelineRow.Kind.CHAT_START) 1 else 0
             rows.add(at, TimelineRow("bipe-not-encrypted", TimelineRow.Kind.NOT_ENCRYPTED))
         }
         return BuiltRows(dropEmptyDays(rows), hitStart, unknown)
+    }
+
+    /**
+     * Spec handle-change-line: local lines before the first row newer than the change, inside the loaded range.
+     * The timeline is live, so a change newer than the last row shows at the end.
+     */
+    private fun placeHandleChanges(rows: MutableList<TimelineRow>, items: List<TimelineItem>, facts: RoomFacts, name: (String) -> String) {
+        if (facts.handleChanges.isEmpty()) return
+        // Join times seen in the loaded items: a change before the person joined gets no line.
+        val joinedAt = mutableMapOf<String, Instant>()
+        for (item in items) {
+            val event = item.asEvent() ?: continue
+            val membership = event.content as? TimelineItemContent.RoomMembership ?: continue
+            if (membership.change == MembershipChange.JOINED || membership.change == MembershipChange.INVITATION_ACCEPTED) {
+                joinedAt[membership.userId] = Instant.ofEpochMilli(event.timestamp.toLong())
+            }
+        }
+        val anchors = rows.map { row -> row.message?.sentAt?.let { Instant.ofEpochMilli(it) } }
+        val placements = BipeHandleChangePlacement.placements(facts.handleChanges, anchors, facts.roomMembers, joinedAt, includesEnd = true)
+        // Back to front, so earlier indices stay valid; changes at one index keep their time order.
+        for ((index, change) in placements.asReversed()) {
+            if (change.old == null && change.new == null) continue
+            rows.add(index, TimelineRow(change.lineId, TimelineRow.Kind.HANDLE_CHANGE, handleChange = HandleChangeLine(change, name(change.userId))))
+        }
     }
 
     /** A date separator whose day has no row left (only hidden events) goes away. */

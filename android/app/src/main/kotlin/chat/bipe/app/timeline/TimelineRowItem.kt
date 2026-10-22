@@ -67,6 +67,8 @@ import chat.bipe.app.polls.PollCard
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.line
+import androidx.compose.ui.platform.LocalContext
 import chat.bipe.shared.ScamWarningKind
 import chat.bipe.shared.generated.BipeScreen
 import androidx.compose.ui.platform.testTag
@@ -124,6 +126,10 @@ fun TimelineRowItem(
             Box(Modifier.weight(1f).height(1.dp).background(colors.accentFill))
             Text(stringResource(R.string.bipe_app_timeline_new_messages), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = colors.accentInk)
             Box(Modifier.weight(1f).height(1.dp).background(colors.accentFill))
+        }
+        TimelineRow.Kind.HANDLE_CHANGE -> row.handleChange?.let { line ->
+            val context = LocalContext.current
+            line.change.line(context, line.name)?.let { SystemLine(it, Modifier.testTag(BipeScreen.HANDLE_CHANGE_LINE.id)) }
         }
         TimelineRow.Kind.NOT_ENCRYPTED -> SystemLine(stringResource(R.string.bipe_app_timeline_not_encrypted))
         TimelineRow.Kind.CHAT_START -> SystemLine(stringResource(R.string.bipe_app_timeline_start))
