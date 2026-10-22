@@ -16,12 +16,23 @@ struct AccountStartView: View {
             switch model.phase {
             case .ready:
                 if let session = model.session {
-                    ChatListView(session: session)
+                    if let outcome = model.signupOutcome {
+                        SignupDoneView(session: session, outcome: outcome) { roomId in
+                            model.finishSignup(openRoomId: roomId)
+                        }
+                    } else {
+                        SignedInView(session: session, api: model.api, initialRoomId: model.initialRoomId) {
+                            Task { await model.signOut() }
+                        }
+                    }
                 }
             case .opening:
                 StartMessage(icon: .chatCircle, title: BipeStrings.appName, message: BipeStrings.appStartLoading, showsProgress: true)
             case .noAccount:
-                StartMessage(icon: .userCircle, title: BipeStrings.appStartNoAccountTitle, message: BipeStrings.appStartNoAccountBody)
+                // Spec account-start: noAccount shows onboarding-welcome.
+                SignupFlowView(api: model.api) { session, outcome in
+                    model.didSignUp(session, outcome: outcome)
+                }
             case .failed:
                 StartMessage(icon: .warningCircle, title: BipeStrings.appName, message: BipeStrings.appStartError) {
                     Task { await model.retry() }
@@ -36,6 +47,37 @@ struct AccountStartView: View {
                 Task { await model.resume() }
             }
         }
+    }
+}
+
+/// The signed-in app: chat-list, with terms-reaccept over it when the legal version changed.
+private struct SignedInView: View {
+    let session: AccountSession
+    let api: BipeAPIClient
+    let initialRoomId: String?
+    let onSignOut: () -> Void
+    @StateObject private var terms: TermsReacceptModel
+    @Environment(\.scenePhase) private var scenePhase
+
+    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String?, onSignOut: @escaping () -> Void) {
+        self.session = session
+        self.api = api
+        self.initialRoomId = initialRoomId
+        self.onSignOut = onSignOut
+        _terms = StateObject(wrappedValue: TermsReacceptModel(api: api, session: session))
+    }
+
+    var body: some View {
+        ChatListView(session: session, api: api, initialRoomId: initialRoomId)
+            .fullScreenCover(isPresented: Binding(get: { terms.phase != .hidden }, set: { _ in })) {
+                TermsReacceptView(model: terms, onSignOut: onSignOut)
+            }
+            .task { await terms.check() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    Task { await terms.check() }
+                }
+            }
     }
 }
 

@@ -21,6 +21,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        readInviteLink(intent)
         readDevAccount(intent)
         readOpenChat(intent)
         accountStart.start()
@@ -33,6 +34,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        readInviteLink(intent)
         readDevAccount(intent)
         readOpenChat(intent)
     }
@@ -47,6 +49,11 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         accountStart.resume()
+    }
+
+    /** A bipe.chat/convite/<code> link (onboarding-welcome, action openInviteLink). */
+    private fun readInviteLink(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_VIEW) intent.data?.let { accountStart.pendingInviteLink = it }
     }
 
     /**

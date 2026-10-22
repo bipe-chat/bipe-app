@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 
@@ -23,6 +24,42 @@ final class AccountSession {
     enum Process: String {
         case app
         case notificationService
+    }
+
+    /// Signs in with the hidden password (MAS compatibility login, m.login.password), saves the session and starts the sync.
+    static func signIn(userId: String, password: String) async throws -> AccountSession {
+        deleteStore(userId: userId)
+        let client = try await makeClient(userId: userId)
+        try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName, deviceId: nil)
+        SessionStore.save(try client.session())
+        return try await start(client)
+    }
+
+    /// Restores a saved session and starts the sync.
+    static func restore(_ saved: Session) async throws -> AccountSession {
+        let client = try await makeClient(userId: saved.userId)
+        try await client.restoreSession(session: saved)
+        return try await start(client)
+    }
+
+    private static func start(_ client: Client) async throws -> AccountSession {
+        let syncService = try await client.syncService().finish()
+        await syncService.start()
+        return AccountSession(client: client, syncService: syncService, userId: try client.userId())
+    }
+
+    /// The access token for bipe-api calls (spec handle-pick notes). Read each time: the SDK may refresh it.
+    func accessToken() -> String? {
+        try? client.session().accessToken
+    }
+
+    /// Signs out on the server and removes this account's session, store and hidden password from this phone.
+    func signOut() async {
+        try? await client.logout()
+        await syncService.stop()
+        SessionStore.delete()
+        BipeCredentialStore().deletePassword(for: userId)
+        Self.deleteStore(userId: userId)
     }
 
     /// Builds a client whose store lives in the app group, one folder per account

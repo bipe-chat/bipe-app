@@ -9,6 +9,12 @@ object AppConfig {
     /** Bipe's homeserver (bipe/docs/server-migration.md). */
     const val HOMESERVER = "https://matrix.bipe.net.br"
 
+    /** The Bipe API (bipe-api, bipe/docs/server-migration.md). Contract: bipe-shared/api/openapi.yaml. */
+    const val API_BASE_URL = "https://api.bipe.net.br"
+
+    /** The public site with the legal pages (PUBLIC_SITE_URL, registries/legal.json). */
+    const val PUBLIC_SITE = "https://bipe.chat"
+
     /** The device name the homeserver shows in the session list. */
     const val DEVICE_NAME = "Bipe"
 
