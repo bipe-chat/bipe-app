@@ -115,6 +115,15 @@ enum class BipeScreen(val id: String) {
     /** Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json */
     MESSAGE_UNDECRYPTABLE("message-undecryptable"),
 
+    /** Notification on the phone (flow notifications). Spec: bipe-shared/product/screens/notification-service.json */
+    NOTIFICATION_SERVICE("notification-service"),
+
+    /** Notification settings (flow settings). Spec: bipe-shared/product/screens/notification-settings.json */
+    NOTIFICATION_SETTINGS("notification-settings"),
+
+    /** Notifications prompt (flow notifications). Spec: bipe-shared/product/screens/notifications-prompt.json */
+    NOTIFICATIONS_PROMPT("notifications-prompt"),
+
     /** Welcome (flow signup). Spec: bipe-shared/product/screens/onboarding-welcome.json */
     ONBOARDING_WELCOME("onboarding-welcome"),
 
@@ -147,6 +156,9 @@ enum class BipeScreen(val id: String) {
 
     /** Public profile (flow profile). Spec: bipe-shared/product/screens/public-profile-edit.json */
     PUBLIC_PROFILE_EDIT("public-profile-edit"),
+
+    /** Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json */
+    PUSH_REGISTRATION("push-registration"),
 
     /** Read receipts (flow chat). Spec: bipe-shared/product/screens/read-receipts.json */
     READ_RECEIPTS("read-receipts"),
