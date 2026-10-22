@@ -55,7 +55,6 @@ import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.BipeProfileProblem
 import chat.bipe.shared.BipeProfileRules
-import chat.bipe.shared.BipeStrings
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
@@ -176,7 +175,7 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit) {
         val label = stringResource(if (isCompany) R.string.bipe_company_name else R.string.bipe_profile_display_name)
         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Text(
-            problem?.localizedMessage(BipeStrings.from(context)) ?: stringResource(R.string.bipe_profile_display_name_footer),
+            problem?.localizedMessage(context) ?: stringResource(R.string.bipe_profile_display_name_footer),
             style = MaterialTheme.typography.bodySmall,
             color = if (problem != null) colors.trustDangerInk else colors.inkSecondary,
         )
@@ -244,8 +243,8 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
     fun message(failure: Throwable): String {
         val server = failure as? BipeApiException.Server
         val problem = server?.takeIf { it.code == BipeApiErrorCode.PROFILE_INVALID }?.reason?.let(BipeProfileProblem::fromId)
-        return problem?.localizedMessage(BipeStrings.from(context))
-            ?: (failure as? BipeApiException)?.localizedMessage(BipeStrings.from(context))
+        return problem?.localizedMessage(context)
+            ?: (failure as? BipeApiException)?.localizedMessage(context)
             ?: context.getString(R.string.bipe_error_network)
     }
 
@@ -334,7 +333,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
             modifier = Modifier.fillMaxWidth(),
         )
         when {
-            problem != null -> Text(problem.localizedMessage(BipeStrings.from(context)), color = colors.trustDangerInk)
+            problem != null -> Text(problem.localizedMessage(context), color = colors.trustDangerInk)
             error != null -> Text(error.orEmpty(), color = colors.trustDangerInk)
             saved -> Text(stringResource(R.string.bipe_public_profile_saved), color = colors.statusSuccess)
         }

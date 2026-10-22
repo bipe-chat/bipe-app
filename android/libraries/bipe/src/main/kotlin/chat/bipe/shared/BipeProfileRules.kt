@@ -4,6 +4,7 @@
 
 package chat.bipe.shared
 
+import android.content.Context
 import androidx.annotation.StringRes
 import chat.bipe.shared.generated.BipeRegistries
 
@@ -41,7 +42,7 @@ enum class BipeProfileProblem(val id: String) {
             else -> emptyArray()
         }
 
-    fun localizedMessage(stringProvider: BipeStrings): String = stringProvider.getString(messageRes, *messageArgs)
+    fun localizedMessage(context: Context): String = context.getString(messageRes, *messageArgs)
 
     companion object {
         fun fromId(id: String): BipeProfileProblem? = entries.firstOrNull { it.id == id }

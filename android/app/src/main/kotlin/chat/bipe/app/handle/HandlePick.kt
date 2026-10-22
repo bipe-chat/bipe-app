@@ -47,7 +47,6 @@ import chat.bipe.shared.BipeHandle
 import chat.bipe.shared.BipeHandleAvailabilityChecker
 import chat.bipe.shared.BipeHandleProblem
 import chat.bipe.shared.BipeHandleStatus
-import chat.bipe.shared.BipeStrings
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiErrorCode
@@ -204,11 +203,11 @@ class HandlePickModel(
             Status.EMPTY, Status.UNCHANGED, Status.UNKNOWN -> context.getString(R.string.bipe_handle_screen_footer)
             Status.CHECKING -> context.getString(R.string.bipe_handle_checking)
             Status.AVAILABLE -> context.getString(R.string.bipe_handle_available)
-            Status.TOO_SHORT -> BipeHandleProblem.TOO_SHORT.localizedMessage(BipeStrings.from(context))
-            Status.TOO_LONG -> BipeHandleProblem.TOO_LONG.localizedMessage(BipeStrings.from(context))
-            Status.INVALID_CHARACTERS -> BipeHandleProblem.INVALID_CHARACTERS.localizedMessage(BipeStrings.from(context))
-            Status.RESERVED -> BipeHandleProblem.RESERVED.localizedMessage(BipeStrings.from(context))
-            Status.TAKEN -> BipeHandleProblem.TAKEN.localizedMessage(BipeStrings.from(context))
+            Status.TOO_SHORT -> BipeHandleProblem.TOO_SHORT.localizedMessage(context)
+            Status.TOO_LONG -> BipeHandleProblem.TOO_LONG.localizedMessage(context)
+            Status.INVALID_CHARACTERS -> BipeHandleProblem.INVALID_CHARACTERS.localizedMessage(context)
+            Status.RESERVED -> BipeHandleProblem.RESERVED.localizedMessage(context)
+            Status.TAKEN -> BipeHandleProblem.TAKEN.localizedMessage(context)
         }
     }
 
