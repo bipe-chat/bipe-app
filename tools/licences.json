@@ -81,6 +81,12 @@
       "source": "https://github.com/Kotlin/kotlinx.coroutines/blob/master/LICENSE.txt",
       "checked": "2026-10-22"
     },
+    "com.google.zxing:core": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/zxing/zxing/blob/master/LICENSE",
+      "checked": "2026-10-22"
+    },
     "org.jetbrains.kotlinx:kotlinx-serialization-json": {
       "ecosystem": "gradle",
       "licence": "Apache-2.0",

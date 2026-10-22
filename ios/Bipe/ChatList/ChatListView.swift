@@ -11,8 +11,10 @@ struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
     @StateObject private var handle: HandlePickModel
     @StateObject private var encryption: EncryptionStatusModel
-    @State private var path: [String]
+    @StateObject private var people: PeopleService
+    @State private var path: NavigationPath
     @State private var showsHandlePick = false
+    @State private var openingLink: String?
     private let scope: ChatScope
     private let account: AccountSummary?
     private let onOpenVoce: () -> Void
@@ -27,7 +29,8 @@ struct ChatListView: View {
         _model = ObservedObject(wrappedValue: model)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
-        _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
+        _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
+        _people = StateObject(wrappedValue: PeopleService(session: model.session, api: api, media: model.media))
         self.scope = scope
     }
 
@@ -43,9 +46,21 @@ struct ChatListView: View {
             .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
             .navigationDestination(for: String.self) { roomId in
-                ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
+                ChatTimelineView(session: model.session, media: model.media, roomId: roomId) {
+                    Task {
+                        if let userId = await people.dmPartner(roomId: roomId) {
+                            path.append(PeopleRoute.person(userId: userId, fromDm: true))
+                        }
+                    }
+                }
+            }
+            .navigationDestination(for: PeopleRoute.self) { route in
+                peopleScreen(route)
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    peopleMenu
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     CreateGroupButton { creatingGroup = true }
                 }
@@ -67,6 +82,7 @@ struct ChatListView: View {
         }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
         .task { await encryption.observe() }
+        .onAppear { people.start() }
         .task {
             if scope == .conversas {
                 await handle.load()
@@ -74,6 +90,60 @@ struct ChatListView: View {
         }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
+        }
+        .sheet(item: Binding(get: { openingLink.map(HandleLink.init) }, set: { openingLink = $0?.handle })) { link in
+            ProfileLinkOpenView(people: people, handle: link.handle,
+                                openPerson: { path.append(PeopleRoute.person(userId: $0, fromDm: false)) },
+                                openOwnLink: { path.append(PeopleRoute.profileLink) })
+        }
+        .onOpenURL { url in
+            switch PeopleLink(url: url) {
+            case .handle(let handle): openingLink = handle
+            case .userId(let userId): path.append(PeopleRoute.person(userId: userId, fromDm: false))
+            case nil: break
+            }
+        }
+    }
+
+    /// The people and profile screens (bipe-chat/bipe#568). Until the Você tab and Privacidade exist
+    /// (lanes D and E), this menu is their way in.
+    private var peopleMenu: some View {
+        Menu {
+            Button { path.append(PeopleRoute.profileEdit) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsProfileNamePhoto) }
+            Button { path.append(PeopleRoute.publicProfile) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsPublicProfile) }
+            Button { path.append(PeopleRoute.profileLink) } label: { IconLabel(icon: .qrCode, text: BipeStrings.appProfileLink) }
+            Button { path.append(PeopleRoute.contacts) } label: { IconLabel(icon: .addressBook, text: BipeStrings.contactsTitle) }
+            Button { path.append(PeopleRoute.whoCanMessage) } label: { IconLabel(icon: .chatText, text: BipeStrings.messagingTitle) }
+            Button { path.append(PeopleRoute.blockedList) } label: { IconLabel(icon: .prohibit, text: BipeStrings.privacyBlocked) }
+        } label: {
+            PhosphorIcon.userCircle.image
+                .resizable()
+                .frame(width: 26, height: 26)
+                .foregroundStyle(BipeColor.accentInk)
+                .accessibilityLabel(BipeStrings.settingsPublicProfile)
+        }
+    }
+
+    @ViewBuilder
+    private func peopleScreen(_ route: PeopleRoute) -> some View {
+        switch route {
+        case .person(let userId, let fromDm):
+            PersonProfileView(people: people, userId: userId, fromDm: fromDm,
+                              routes: PersonProfileRoutes(openChat: { openChat($0) }))
+        case .profileEdit:
+            ProfileEditView(people: people)
+        case .publicProfile:
+            PublicProfileEditView(people: people,
+                                  pickHandle: { showsHandlePick = true },
+                                  openLink: { path.append(PeopleRoute.profileLink) })
+        case .profileLink:
+            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
+        case .contacts:
+            ContactsView(people: people, openChat: { openChat($0) }, invite: nil)
+        case .whoCanMessage:
+            WhoCanMessageView(people: people)
+        case .blockedList:
+            BlockedListView(people: people) { path.append(PeopleRoute.person(userId: $0, fromDm: false)) }
         }
     }
 

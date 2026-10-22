@@ -7,6 +7,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Spec contacts: the numbers leave the phone only for the lookup, and the server keeps none (ADR 0015). -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- App lock, the owner checks of settings (spec app-lock, pin-change, data-export) and device approval (device-verification). -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
@@ -32,6 +34,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/convite/" />
+            </intent-filter>
+            <!-- Profile links bipe.chat/@handle (spec profile-link-open). The site serves the association file. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="bipe.chat" />
+                <data android:host="www.bipe.chat" />
+                <data android:pathPattern="/@.*" />
             </intent-filter>
         </activity>
         <!-- Shares the data export file (spec data-export). -->

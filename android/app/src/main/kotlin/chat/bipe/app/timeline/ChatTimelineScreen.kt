@@ -79,6 +79,7 @@ fun ChatTimelineScreen(
     onOpenGroupDetails: (() -> Unit)? = null,
     onHistoryHelp: () -> Unit = {},
     onDmDeleted: () -> Unit = onBack,
+    onOpenInfo: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -151,7 +152,7 @@ fun ChatTimelineScreen(
                     color = colors.inkPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).then(if (isDm && onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier),
                 )
                 if (isGroup && onOpenGroupDetails != null) {
                     IconButton(onClick = onOpenGroupDetails) {

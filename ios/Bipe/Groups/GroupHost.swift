@@ -12,7 +12,7 @@ import SwiftUI
 private struct GroupHostModifier: ViewModifier {
     let session: AccountSession
     let media: MediaLoader
-    @Binding var path: [String]
+    @Binding var path: NavigationPath
     @Binding var creatingGroup: Bool
     @Binding var deletingDm: String?
     @State private var toast: String?
@@ -21,7 +21,7 @@ private struct GroupHostModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .environment(\.closeChat, { path.removeAll() })
+            .environment(\.closeChat, { path = NavigationPath() })
             .sheet(isPresented: $creatingGroup) {
                 GroupCreateView(session: session, media: media) { roomId, allInvited in
                     path.append(roomId)
@@ -49,7 +49,7 @@ private struct DmSheetId: Identifiable {
 }
 
 extension View {
-    func groupHost(session: AccountSession, media: MediaLoader, path: Binding<[String]>, creatingGroup: Binding<Bool>,
+    func groupHost(session: AccountSession, media: MediaLoader, path: Binding<NavigationPath>, creatingGroup: Binding<Bool>,
                    deletingDm: Binding<String?>) -> some View {
         modifier(GroupHostModifier(session: session, media: media, path: path, creatingGroup: creatingGroup, deletingDm: deletingDm))
     }

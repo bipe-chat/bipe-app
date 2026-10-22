@@ -2951,4 +2951,64 @@ public enum BipeStrings {
     public static func appNotificationModeDefault(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_app_notification_mode_default", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var appProfileNameReserved: String { NSLocalizedString("bipe_app_profile_name_reserved", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPersonMessage: String { NSLocalizedString("bipe_app_person_message", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPersonNewGroup: String { NSLocalizedString("bipe_app_person_new_group", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPersonBlocked: String { NSLocalizedString("bipe_app_person_blocked", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPersonNotFound: String { NSLocalizedString("bipe_app_person_not_found", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appBlockTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_block_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appBlockConfirm: String { NSLocalizedString("bipe_app_block_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appBlockError: String { NSLocalizedString("bipe_app_block_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appUnblockTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_unblock_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appUnblockBody: String { NSLocalizedString("bipe_app_unblock_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUnblockConfirm: String { NSLocalizedString("bipe_app_unblock_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUnblockError: String { NSLocalizedString("bipe_app_unblock_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appBlockedBar(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_blocked_bar", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appReportGroup: String { NSLocalizedString("bipe_app_report_group", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportGroupFooter: String { NSLocalizedString("bipe_app_report_group_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportReason: String { NSLocalizedString("bipe_app_report_reason", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportReasonPlaceholder: String { NSLocalizedString("bipe_app_report_reason_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportAlsoBlock: String { NSLocalizedString("bipe_app_report_also_block", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportAlsoDelete: String { NSLocalizedString("bipe_app_report_also_delete", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportAlsoLeave: String { NSLocalizedString("bipe_app_report_also_leave", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportSendAction: String { NSLocalizedString("bipe_app_report_send_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportChatError: String { NSLocalizedString("bipe_app_report_chat_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupReported: String { NSLocalizedString("bipe_app_group_reported", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appProfileLink: String { NSLocalizedString("bipe_app_profile_link", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appProfileLinkOpening: String { NSLocalizedString("bipe_app_profile_link_opening", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appContactsLoading: String { NSLocalizedString("bipe_app_contacts_loading", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSealTitle: String { NSLocalizedString("bipe_app_seal_title", tableName: "Bipe", bundle: .module, comment: "") }
 }
