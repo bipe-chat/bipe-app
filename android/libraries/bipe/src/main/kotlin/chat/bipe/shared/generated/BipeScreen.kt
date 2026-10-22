@@ -34,6 +34,9 @@ enum class BipeScreen(val id: String) {
     /** Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
     ENCRYPTION_STATUS("encryption-status"),
 
+    /** Handle change line (flow chat). Spec: bipe-shared/product/screens/handle-change-line.json */
+    HANDLE_CHANGE_LINE("handle-change-line"),
+
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
@@ -84,6 +87,9 @@ enum class BipeScreen(val id: String) {
 
     /** Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json */
     RECOVERY_WAITING("recovery-waiting"),
+
+    /** Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json */
+    SCAM_WARNING("scam-warning"),
 
     /** Settings group (flow settings). Spec: bipe-shared/product/screens/settings-group.json */
     SETTINGS_GROUP("settings-group"),

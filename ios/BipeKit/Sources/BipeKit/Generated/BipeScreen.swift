@@ -28,6 +28,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json
     case encryptionStatus = "encryption-status"
 
+    /// Handle change line (flow chat). Spec: bipe-shared/product/screens/handle-change-line.json
+    case handleChangeLine = "handle-change-line"
+
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
@@ -78,6 +81,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json
     case recoveryWaiting = "recovery-waiting"
+
+    /// Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json
+    case scamWarning = "scam-warning"
 
     /// Settings group (flow settings). Spec: bipe-shared/product/screens/settings-group.json
     case settingsGroup = "settings-group"
