@@ -61,7 +61,8 @@ struct AccountRows: View {
                         Circle().fill(BipeColor.accentFill).frame(width: 8, height: 8).accessibilityHidden(true)
                     }
                     if account.isCurrent {
-                        PhosphorIcon.check.image.foregroundStyle(BipeColor.accentInk).accessibilityHidden(true)
+                        PhosphorIcon.check.image.resizable().frame(width: 24, height: 24)
+                            .foregroundStyle(BipeColor.accentInk).accessibilityHidden(true)
                     }
                 }
                 .padding(.vertical, 4)

@@ -133,6 +133,7 @@ final class AppTabsModel: ObservableObject {
     }
 
     private func loadProfile(of session: AccountSession) async {
+        await chatLists[session.userId]?.refreshNotes()
         let displayName = (try? await session.client.displayName()) ?? ""
         let avatarUrl = try? await session.client.avatarUrl()
         let api = start.api

@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Phosphor
 import SwiftUI
 
 /// Spec voce (ADR 0112): who you are first. The header shows photo and name, never the Matrix ID.
@@ -11,6 +12,10 @@ struct VoceView: View {
     let chatList: ChatListModel
     let onNewAccount: () -> Void
     @StateObject private var settings: SettingsModel
+    @State private var path = NavigationPath()
+    @State private var openingNotes = false
+    @State private var notesFailed = false
+    private enum Destination: Hashable { case notes(String) }
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
@@ -20,7 +25,7 @@ struct VoceView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 if let account = model.accounts.first(where: \.isCurrent) {
                     VoceHeader(account: account, media: chatList.media)
@@ -37,6 +42,20 @@ struct VoceView: View {
                             .listRowBackground(BipeColor.surfaceRaised)
                     }
                 }
+                Section {
+                    Button(action: openNotes) {
+                        HStack(spacing: 12) {
+                            PhosphorIcon.notepad.image.resizable().frame(width: 24, height: 24)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(BipeStrings.selfChatTitle).foregroundStyle(BipeColor.inkPrimary)
+                                Text(BipeStrings.selfChatSubtitle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                            }
+                            if openingNotes { Spacer(); ProgressView() }
+                        }
+                    }
+                    .disabled(openingNotes)
+                    .listRowBackground(BipeColor.surfaceRaised)
+                }
                 SettingsRootSection(model: settings)
             }
             .listStyle(.insetGrouped)
@@ -46,9 +65,29 @@ struct VoceView: View {
             .settingsDestinations(model: settings) {
                 Task { await model.start.signOut(userId: chatList.session.userId, alreadyLoggedOut: true) }
             }
+            .navigationDestination(for: Destination.self) { destination in
+                switch destination {
+                case .notes(let roomId):
+                    ChatTimelineView(session: chatList.session, media: chatList.media, roomId: roomId)
+                }
+            }
         }
         .accessibilityIdentifier(BipeScreen.voce.rawValue)
         .task { await model.refreshProfiles() }
+        .alert(BipeStrings.selfChatError, isPresented: $notesFailed) {
+            Button(BipeStrings.appRetry, action: openNotes)
+            Button(BipeStrings.appCancel, role: .cancel) {}
+        }
+    }
+
+    private func openNotes() {
+        guard !openingNotes else { return }
+        openingNotes = true
+        Task {
+            defer { openingNotes = false }
+            do { path.append(Destination.notes(try await chatList.openNotes())) }
+            catch { if !Task.isCancelled { notesFailed = true } }
+        }
     }
 }
 
@@ -74,6 +113,5 @@ private struct VoceHeader: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .accessibilityElement(children: .combine)
     }
 }

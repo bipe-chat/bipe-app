@@ -29,6 +29,7 @@ data class SignupOutcome(val inviterUserId: String?, val inviterHandle: String?)
  * the one used last, else the oldest on the phone.
  */
 class AccountStartModel(private val context: Context, private val scope: CoroutineScope) {
+    val appContext: Context get() = context.applicationContext
     enum class Phase { OPENING, NO_ACCOUNT, FAILED, READY }
 
     /** A dev test account given to a debug build (ADR 0147: Android cannot read the fork's credential). */

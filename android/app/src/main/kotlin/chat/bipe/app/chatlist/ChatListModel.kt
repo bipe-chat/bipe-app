@@ -24,6 +24,7 @@ import org.matrix.rustcomponents.sdk.RoomListEntriesWithDynamicAdaptersResult
 import org.matrix.rustcomponents.sdk.RoomListLoadingState
 import org.matrix.rustcomponents.sdk.RoomListLoadingStateListener
 import org.matrix.rustcomponents.sdk.TaskHandle
+import chat.bipe.app.voce.NotesRoom
 
 /** Type ChatSummary of spec chat-list. */
 data class ChatSummary(
@@ -54,6 +55,7 @@ class ChatListModel(
     val session: AccountSession,
     private val scope: CoroutineScope,
     private val undecryptableText: String,
+    val notes: NotesRoom,
 ) {
     enum class Phase { LOADING, EMPTY, LOADED }
 
@@ -74,6 +76,7 @@ class ChatListModel(
         if (started) return
         started = true
         scope.launch {
+            refreshNotes()
             val roomList = runCatching { session.syncService.roomListService().allRooms() }.getOrNull() ?: return@launch
             val loading = Channel<RoomListLoadingState>(Channel.UNLIMITED)
             runCatching {
@@ -125,6 +128,13 @@ class ChatListModel(
         entries?.controller()?.addOnePage()
     }
 
+    suspend fun refreshNotes() {
+        runCatching { notes.refresh() }
+        refreshSummaries()
+    }
+
+    suspend fun openNotes(title: String): String = try { notes.open(title) } finally { refreshSummaries() }
+
     fun close() {
         handles.forEach { it.cancel() }
         summaryJob?.cancel()
@@ -138,7 +148,7 @@ class ChatListModel(
     private fun updatePhase() {
         _phase.value = when {
             _chats.value.isNotEmpty() -> Phase.LOADED
-            listLoaded && rooms.isEmpty() -> Phase.EMPTY
+            listLoaded -> Phase.EMPTY
             else -> Phase.LOADING
         }
     }
@@ -147,7 +157,7 @@ class ChatListModel(
         val snapshot = rooms.toList()
         summaryJob?.cancel()
         summaryJob = scope.launch {
-            _chats.value = snapshot.mapNotNull { summary(it) }
+            _chats.value = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
             updatePhase()
         }
     }

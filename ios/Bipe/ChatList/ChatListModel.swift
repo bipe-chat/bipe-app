@@ -51,6 +51,7 @@ final class ChatListModel: ObservableObject {
 
     let session: AccountSession
     let media: MediaLoader
+    let notes: NotesRoom
     private var rooms: [Room] = []
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult?
@@ -61,6 +62,7 @@ final class ChatListModel: ObservableObject {
     init(session: AccountSession) {
         self.session = session
         media = MediaLoader(client: session.client)
+        notes = NotesRoom(session: session)
     }
 
     /// The chats of one scope, in room list order.
@@ -83,6 +85,7 @@ final class ChatListModel: ObservableObject {
     func start() async {
         guard !started else { return }
         started = true
+        await refreshNotes()
         guard let roomList = try? await session.syncService.roomListService().allRooms() else { return }
 
         let loading = RoomListLoadingStream()
@@ -114,6 +117,16 @@ final class ChatListModel: ObservableObject {
         entries?.controller().addOnePage()
     }
 
+    func refreshNotes() async {
+        try? await notes.refresh()
+        refreshSummaries()
+    }
+
+    func openNotes() async throws -> String {
+        defer { refreshSummaries() }
+        return try await notes.open()
+    }
+
     private func onLoadingState(_ state: RoomListLoadingState) {
         if case .loaded = state {
             listLoaded = true
@@ -125,7 +138,7 @@ final class ChatListModel: ObservableObject {
         if !chats.isEmpty {
             phase = .loaded
         } else {
-            phase = listLoaded && rooms.isEmpty ? .empty : .loading
+            phase = listLoaded ? .empty : .loading
         }
     }
 
@@ -136,7 +149,7 @@ final class ChatListModel: ObservableObject {
         summaryTask = Task { [weak self] in
             var summaries: [ChatSummary] = []
             for room in rooms {
-                if let summary = await Self.summary(of: room, ownUserId: userId) {
+                if room.id() != self?.notes.roomId, let summary = await Self.summary(of: room, ownUserId: userId) {
                     summaries.append(summary)
                 }
             }

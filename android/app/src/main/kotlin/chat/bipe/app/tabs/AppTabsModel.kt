@@ -10,6 +10,7 @@ import chat.bipe.app.chatlist.ChatListModel
 import chat.bipe.app.chatlist.ChatScope
 import chat.bipe.app.chatlist.ChatSummary
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.voce.NotesRoom
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.coroutines.CoroutineScope
@@ -76,7 +77,7 @@ class AppTabsModel(
     /** The chat list of an account, started on first use. */
     fun chatList(session: AccountSession): ChatListModel {
         chatLists[session.userId]?.let { return it }
-        val model = ChatListModel(session, scope, undecryptableText)
+        val model = ChatListModel(session, scope, undecryptableText, NotesRoom(start.appContext, session))
         chatLists[session.userId] = model
         media(session)
         model.start()
@@ -143,6 +144,7 @@ class AppTabsModel(
     }
 
     private suspend fun loadProfile(session: AccountSession) {
+        chatLists[session.userId]?.refreshNotes()
         val displayName = runCatching { session.client.displayName() }.getOrNull().orEmpty()
         val avatarUrl = runCatching { session.client.avatarUrl() }.getOrNull()
         val mine = runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { start.api.myHandle(it) } }.getOrNull()
