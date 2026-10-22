@@ -10,6 +10,7 @@ import SwiftUI
 struct ChatListView: View {
     @StateObject private var model: ChatListModel
     @StateObject private var handle: HandlePickModel
+    @StateObject private var encryption: EncryptionStatusModel
     @State private var path: [String]
     @State private var showsHandlePick = false
     private let onOpenSettings: (() -> Void)?
@@ -20,32 +21,44 @@ struct ChatListView: View {
         self.onOpenSettings = onOpenSettings
         _model = StateObject(wrappedValue: ChatListModel(session: session))
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: session))
+        _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: session))
         _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            content
-                .background(BipeColor.surfaceBase.ignoresSafeArea())
-                .navigationTitle(BipeStrings.appChatListTitle)
-                .navigationDestination(for: String.self) { roomId in
-                    ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
+            VStack(spacing: 0) {
+                // Spec encryption-status: the banner above the chat list.
+                if encryption.showsBanner {
+                    HistoryBanner(model: encryption)
                 }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            onOpenSettings?()
-                        } label: {
-                            PhosphorIcon.gear.image
-                                .resizable()
-                                .frame(width: 22, height: 22)
-                        }
-                        .accessibilityLabel(BipeStrings.settingsSection)
-                        .opacity(onOpenSettings == nil ? 0 : 1)
+                content
+            }
+            .background(BipeColor.surfaceBase.ignoresSafeArea())
+            .navigationTitle(BipeStrings.appChatListTitle)
+            .navigationDestination(for: String.self) { roomId in
+                ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        onOpenSettings?()
+                    } label: {
+                        PhosphorIcon.gear.image
+                            .resizable()
+                            .frame(width: 22, height: 22)
                     }
+                    .accessibilityLabel(BipeStrings.settingsSection)
+                    .opacity(onOpenSettings == nil ? 0 : 1)
                 }
+            }
+        }
+        .environment(\.openHistoryHelp, encryption.openSheet)
+        .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
+            EncryptionSheet(route: route, model: encryption, session: model.session)
         }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
+        .task { await encryption.observe() }
         .task { await model.start() }
         .task { await handle.load() }
         .sheet(isPresented: $showsHandlePick) {
