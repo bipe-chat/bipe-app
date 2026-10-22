@@ -25,6 +25,15 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
+    /// Link a computer: approve on the MAS page (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json
+    case linkComputerApprove = "link-computer-approve"
+
+    /// Link a computer: scan the code (flow devices). Spec: bipe-shared/product/screens/link-computer-scan.json
+    case linkComputerScan = "link-computer-scan"
+
+    /// Link a computer: full-access warning (flow devices). Spec: bipe-shared/product/screens/link-computer-warning.json
+    case linkComputerWarning = "link-computer-warning"
+
     /// Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json
     case messageUndecryptable = "message-undecryptable"
 

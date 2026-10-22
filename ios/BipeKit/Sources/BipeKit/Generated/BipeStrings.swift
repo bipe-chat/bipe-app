@@ -1848,6 +1848,32 @@ public enum BipeStrings {
 
     public static var linkComputerDone: String { NSLocalizedString("bipe_link_computer_done", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appLinkComputerScanTitle: String { NSLocalizedString("bipe_app_link_computer_scan_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerScanBody: String { NSLocalizedString("bipe_app_link_computer_scan_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerConnecting: String { NSLocalizedString("bipe_app_link_computer_connecting", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerCheckCodeTitle: String { NSLocalizedString("bipe_app_link_computer_check_code_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerCheckCodeBody: String { NSLocalizedString("bipe_app_link_computer_check_code_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerNotBipeCode: String { NSLocalizedString("bipe_app_link_computer_not_bipe_code", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerExpired: String { NSLocalizedString("bipe_app_link_computer_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerInsecure: String { NSLocalizedString("bipe_app_link_computer_insecure", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerNeedsRecoveryKey: String { NSLocalizedString("bipe_app_link_computer_needs_recovery_key", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerStopped: String { NSLocalizedString("bipe_app_link_computer_stopped", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerScanAgain: String { NSLocalizedString("bipe_app_link_computer_scan_again", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerFinishing: String { NSLocalizedString("bipe_app_link_computer_finishing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appClose: String { NSLocalizedString("bipe_app_close", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var accountSignOut: String { NSLocalizedString("bipe_account_sign_out", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var privacyWhoCanTalk: String { NSLocalizedString("bipe_privacy_who_can_talk", tableName: "Bipe", bundle: .module, comment: "") }

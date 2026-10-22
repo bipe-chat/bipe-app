@@ -31,6 +31,15 @@ enum class BipeScreen(val id: String) {
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
+    /** Link a computer: approve on the MAS page (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json */
+    LINK_COMPUTER_APPROVE("link-computer-approve"),
+
+    /** Link a computer: scan the code (flow devices). Spec: bipe-shared/product/screens/link-computer-scan.json */
+    LINK_COMPUTER_SCAN("link-computer-scan"),
+
+    /** Link a computer: full-access warning (flow devices). Spec: bipe-shared/product/screens/link-computer-warning.json */
+    LINK_COMPUTER_WARNING("link-computer-warning"),
+
     /** Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json */
     MESSAGE_UNDECRYPTABLE("message-undecryptable"),
 
