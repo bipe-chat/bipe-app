@@ -85,7 +85,6 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val inviterHint by model.inviterHint.collectAsState()
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
-    val context = LocalContext.current
     val voicePlayer = remember(roomId) { VoicePlayer(context.applicationContext, media, scope) }
     val voiceState by voicePlayer.state.collectAsState()
     DisposableEffect(voicePlayer) { onDispose { voicePlayer.stop() } }
