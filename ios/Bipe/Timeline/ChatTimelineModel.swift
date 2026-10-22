@@ -10,6 +10,7 @@ struct TimelineMessage: Identifiable, Equatable {
     enum Kind: Equatable {
         case text
         case undecryptable
+        case poll
         case unsupported
     }
 
@@ -36,6 +37,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var sentAt: Date
     var sendState: SendState
     var cause: UndecryptableCause?
+    /// Kind poll: the data of spec poll-detail.
+    var poll: PollData?
 }
 
 /// Spec chat-timeline (bipe-shared product/screens/chat-timeline.json).
@@ -51,7 +54,7 @@ final class ChatTimelineModel: ObservableObject {
 
     let roomId: String
     private let session: AccountSession
-    private var timeline: Timeline?
+    private(set) var timeline: Timeline?
     private var items: [TimelineItem] = []
     private var handle: TaskHandle?
     private var started = false
@@ -124,17 +127,18 @@ final class ChatTimelineModel: ObservableObject {
             if case .some(.timelineStart) = item.asVirtual() {
                 hitStart = true
             }
-            return item.asEvent().map { Self.message(id: item.uniqueId().id, event: $0) }
+            return item.asEvent().map { Self.message(id: item.uniqueId().id, event: $0, ownUserId: session.userId) }
         }
         if hitStart {
             reachedStart = true
         }
     }
 
-    private static func message(id: String, event: EventTimelineItem) -> TimelineMessage {
+    private static func message(id: String, event: EventTimelineItem, ownUserId: String) -> TimelineMessage {
         var kind = TimelineMessage.Kind.unsupported
         var body: String?
         var cause: TimelineMessage.UndecryptableCause?
+        var poll: PollData?
         if case .msgLike(let content) = event.content {
             switch content.kind {
             case .message(let message):
@@ -145,6 +149,18 @@ final class ChatTimelineModel: ObservableObject {
             case .unableToDecrypt(let encrypted):
                 kind = .undecryptable
                 cause = undecryptableCause(encrypted)
+            case .poll(let question, let pollKind, _, let answers, let votes, let endTime, _):
+                if case .eventId(let eventId) = event.eventOrTransactionId {
+                    kind = .poll
+                    poll = PollData(eventId: eventId,
+                                    question: question,
+                                    kind: pollKind,
+                                    answers: answers,
+                                    votes: votes,
+                                    endTime: endTime,
+                                    isOwnPoll: event.isOwn,
+                                    ownUserId: ownUserId)
+                }
             default:
                 break
             }
@@ -162,7 +178,8 @@ final class ChatTimelineModel: ObservableObject {
                                isOwn: event.isOwn,
                                sentAt: Date(milliseconds: event.timestamp),
                                sendState: event.isOwn ? sendState : .sent,
-                               cause: cause)
+                               cause: cause,
+                               poll: poll)
     }
 
     /// Cause map of spec message-undecryptable (notes).

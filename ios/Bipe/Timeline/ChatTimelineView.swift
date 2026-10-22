@@ -11,6 +11,8 @@ import SwiftUI
 struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     @State private var isGroup = false
+    @State private var creatingPoll = false
+    @State private var openPollId: String?
     private let media: MediaLoader
     private let session: AccountSession
     private let roomId: String
@@ -25,7 +27,7 @@ struct ChatTimelineView: View {
     var body: some View {
         VStack(spacing: 0) {
             messageList
-            Composer(model: model)
+            Composer(model: model) { creatingPoll = true }
         }
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(model.roomName)
@@ -41,6 +43,12 @@ struct ChatTimelineView: View {
                     .accessibilityLabel(BipeStrings.appGroupDetailsTitle)
                 }
             }
+        }
+        .sheet(isPresented: $creatingPoll) {
+            PollCreateView(timeline: model)
+        }
+        .sheet(item: Binding(get: { openPollId.map(PollSheetId.init) }, set: { openPollId = $0?.id })) { poll in
+            PollDetailView(timeline: model, session: session, eventId: poll.id)
         }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
@@ -58,7 +66,7 @@ struct ChatTimelineView: View {
                 LazyVStack(spacing: 6) {
                     historyHeader
                     ForEach(model.messages) { message in
-                        MessageRow(message: message) {
+                        MessageRow(message: message, openPoll: { openPollId = $0 }) {
                             Task { await model.retrySend(id: message.id) }
                         }
                         .id(message.id)
@@ -97,8 +105,13 @@ struct ChatTimelineView: View {
     }
 }
 
+private struct PollSheetId: Identifiable {
+    let id: String
+}
+
 private struct MessageRow: View {
     let message: TimelineMessage
+    let openPoll: (String) -> Void
     let retry: () -> Void
 
     var body: some View {
@@ -132,6 +145,22 @@ private struct MessageRow: View {
                         .font(.subheadline.italic())
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
+            }
+        case .poll:
+            if let poll = message.poll {
+                Button {
+                    openPoll(poll.eventId)
+                } label: {
+                    bubble {
+                        if !message.isOwn {
+                            Text(message.senderName)
+                                .font(.caption.bold())
+                                .foregroundStyle(BipeColor.accentInk)
+                        }
+                        PollCard(poll: poll)
+                    }
+                }
+                .buttonStyle(.plain)
             }
         case .unsupported:
             // The slice shows text only (spec chat-timeline notes). bipe-shared has no string for other events yet.
@@ -191,9 +220,19 @@ private struct MessageRow: View {
 
 private struct Composer: View {
     @ObservedObject var model: ChatTimelineModel
+    /// Opens poll-create (the attach menu comes with the composer spec, bipe-chat/bipe#563).
+    let createPoll: () -> Void
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
+            Button(action: createPoll) {
+                PhosphorIcon.chartBar.image
+                    .resizable()
+                    .frame(width: 22, height: 22)
+                    .padding(9)
+                    .foregroundStyle(BipeColor.glyphPrimary)
+            }
+            .accessibilityLabel(BipeStrings.appPollCreateTitle)
             TextField(BipeStrings.appTimelineComposerPlaceholder,
                       text: Binding(get: { model.draft }, set: { model.editDraft($0) }),
                       axis: .vertical)
