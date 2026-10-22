@@ -88,6 +88,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json
     case linkedDevices = "linked-devices"
 
+    /// Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json
+    case mediaViewer = "media-viewer"
+
     /// Message actions (flow chat). Spec: bipe-shared/product/screens/message-actions.json
     case messageActions = "message-actions"
 
@@ -205,9 +208,18 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json
     case termsReaccept = "terms-reaccept"
 
+    /// Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json
+    case timelineMedia = "timeline-media"
+
     /// Timeline rows (flow chat). Spec: bipe-shared/product/screens/timeline-rows.json
     case timelineRows = "timeline-rows"
 
     /// Typing indicator (flow chat). Spec: bipe-shared/product/screens/typing-indicator.json
     case typingIndicator = "typing-indicator"
+
+    /// Upload preview (flow chat). Spec: bipe-shared/product/screens/upload-preview.json
+    case uploadPreview = "upload-preview"
+
+    /// Voice message (flow chat). Spec: bipe-shared/product/screens/voice-message.json
+    case voiceMessage = "voice-message"
 }
