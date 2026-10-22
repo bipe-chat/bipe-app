@@ -81,6 +81,8 @@ import chat.bipe.app.groups.CreateGroupButton
 import chat.bipe.app.groups.DmSwipeRow
 import chat.bipe.app.groups.GroupHost
 import chat.bipe.app.groups.withoutClearedDms
+import chat.bipe.app.recovery.RecoveryAlertModel
+import chat.bipe.app.recovery.RecoveryAlertScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -109,6 +111,8 @@ fun HomeScreen(
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     val encryption = remember(session) { EncryptionStatusModel(session, scope, context.applicationContext) }
+    val recoveryAlert = remember(session) { RecoveryAlertModel(context.applicationContext, api, session, scope) }
+    val alertNotice by recoveryAlert.notice.collectAsState()
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
@@ -140,16 +144,19 @@ fun HomeScreen(
         },
         pickHandle = { showsHandlePick = true },
     )
+    // recovery-alert, action check: on launch and on every return to the foreground.
+    LaunchedEffect(foregroundCount) { recoveryAlert.check() }
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
+        alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
         showsNewAccount -> {
             BackHandler { showsNewAccount = false }
             val signup = remember(session) {
-                SignupFlowModel(context, api, tabs.start.vault, tabs.start.sessionStore, scope) { created, outcome ->
+                SignupFlowModel(context, api, tabs.start.vault, tabs.start.sessionStore, scope, onSignedUp = { created, outcome ->
                     showsNewAccount = false
                     tabs.start.didSignUp(created, outcome)
-                }
+                })
             }
             SignupFlowScreen(signup, onCancel = { showsNewAccount = false })
         }

@@ -52,13 +52,13 @@ class MainActivity : ComponentActivity() {
         AppLockModel.get(this).onBackground()
     }
 
-    /** A bipe.chat/convite/<code> link (onboarding-welcome, action openInviteLink). */
+    /** A bipe.chat/convite/<code> link (onboarding-welcome) or a bipe.chat/recuperar/#<token> link (recovery-email). */
     private fun readInviteLink(intent: Intent?) {
         if (intent?.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
         // A profile link waits in PeopleLinks until the home screen shows (spec profile-link-open).
         if (PeopleLinks.offer(uri)) return
-        accountStart.pendingInviteLink = uri
+        accountStart.openLink(uri)
     }
 
     /**

@@ -38,9 +38,17 @@ struct AccountStartView: View {
             case .opening:
                 StartMessage(icon: .chatCircle, title: BipeStrings.appName, message: BipeStrings.appStartLoading, showsProgress: true)
             case .noAccount:
-                // Spec account-start: noAccount shows onboarding-welcome.
-                SignupFlowView(api: model.api) { session, outcome in
-                    model.didSignUp(session, outcome: outcome)
+                if model.showsRecovery {
+                    RecoveryFlowView(api: model.api,
+                                     link: $model.recoveryLink,
+                                     close: { model.showsRecovery = false },
+                                     onSignedIn: model.didRecover)
+                } else {
+                    // Spec account-start: noAccount shows onboarding-welcome.
+                    SignupFlowView(api: model.api,
+                                   onSignedUp: { session, outcome in model.didSignUp(session, outcome: outcome) },
+                                   onHaveAccount: { model.showsRecovery = true },
+                                   onRecoveryLink: model.openLink)
                 }
             case .failed:
                 StartMessage(icon: .warningCircle, title: BipeStrings.appName, message: BipeStrings.appStartError) {
@@ -50,6 +58,7 @@ struct AccountStartView: View {
         }
         .accessibilityIdentifier(BipeScreen.accountStart.rawValue)
         .tint(BipeColor.accentFill)
+        .onOpenURL { model.openLink($0) }
         .task { await model.start() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -59,7 +68,8 @@ struct AccountStartView: View {
     }
 }
 
-/// The signed-in app: app-tabs, with terms-reaccept over it when the legal version changed.
+/// The signed-in app: app-tabs, with terms-reaccept over it when the legal version changed, and recovery-alert
+/// while someone gets back into this account elsewhere.
 private struct SignedInView: View {
     let session: AccountSession
     let tabs: AppTabsModel
@@ -67,6 +77,7 @@ private struct SignedInView: View {
     let initialRoomId: String?
     let onSignOut: () -> Void
     @StateObject private var terms: TermsReacceptModel
+    @StateObject private var recoveryAlert: RecoveryAlertModel
     @Environment(\.scenePhase) private var scenePhase
 
     init(session: AccountSession, tabs: AppTabsModel, api: BipeAPIClient, initialRoomId: String?, onSignOut: @escaping () -> Void) {
@@ -76,20 +87,26 @@ private struct SignedInView: View {
         self.initialRoomId = initialRoomId
         self.onSignOut = onSignOut
         _terms = StateObject(wrappedValue: TermsReacceptModel(api: api, session: session))
+        _recoveryAlert = StateObject(wrappedValue: RecoveryAlertModel(api: api, session: session))
     }
 
     var body: some View {
         AppTabsView(model: tabs, session: session, api: api, initialRoomId: initialRoomId)
+            .fullScreenCover(isPresented: Binding(get: { recoveryAlert.notice != nil }, set: { _ in })) {
+                RecoveryAlertView(model: recoveryAlert)
+            }
             .fullScreenCover(isPresented: Binding(get: { terms.phase != .hidden }, set: { _ in })) {
                 TermsReacceptView(model: terms, onSignOut: onSignOut)
             }
             .task { await terms.check() }
+            .task { await recoveryAlert.check() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     Task {
                         await terms.check()
                         await tabs.refreshProfiles()
                     }
+                    Task { await recoveryAlert.check() }
                 }
             }
     }
