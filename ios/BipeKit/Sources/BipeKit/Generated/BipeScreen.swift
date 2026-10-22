@@ -70,6 +70,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json
     case pinChange = "pin-change"
 
+    /// Create a poll (flow chat). Spec: bipe-shared/product/screens/poll-create.json
+    case pollCreate = "poll-create"
+
     /// Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json
     case problemReport = "problem-report"
 

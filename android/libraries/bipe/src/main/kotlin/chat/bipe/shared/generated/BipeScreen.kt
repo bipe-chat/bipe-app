@@ -76,6 +76,9 @@ enum class BipeScreen(val id: String) {
     /** Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json */
     PIN_CHANGE("pin-change"),
 
+    /** Create a poll (flow chat). Spec: bipe-shared/product/screens/poll-create.json */
+    POLL_CREATE("poll-create"),
+
     /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
     PROBLEM_REPORT("problem-report"),
 
