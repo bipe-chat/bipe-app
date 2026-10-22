@@ -7,6 +7,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Voice messages (spec voice-recording). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Media viewer save on Android 8 and 9 (spec media-viewer). Android 10 and later need no permission. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"

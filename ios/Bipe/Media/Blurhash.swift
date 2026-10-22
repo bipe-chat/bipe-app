@@ -70,6 +70,70 @@ enum Blurhash {
         return pixels
     }
 
+    /// Encodes an image as a blurhash with 4 by 3 components, for the info of an upload.
+    static func encode(_ image: CGImage, componentsX: Int = 4, componentsY: Int = 3) -> String? {
+        let width = 32, height = 32
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        guard let context = CGContext(data: &pixels,
+                                      width: width,
+                                      height: height,
+                                      bitsPerComponent: 8,
+                                      bytesPerRow: width * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        var factors: [(Double, Double, Double)] = []
+        for j in 0..<componentsY {
+            for i in 0..<componentsX {
+                let normalisation = (i == 0 && j == 0) ? 1.0 : 2.0
+                var r = 0.0, g = 0.0, b = 0.0
+                for y in 0..<height {
+                    for x in 0..<width {
+                        let basis = normalisation * cos(Double.pi * Double(i * x) / Double(width)) * cos(Double.pi * Double(j * y) / Double(height))
+                        let offset = (y * width + x) * 4
+                        r += basis * linear(Int(pixels[offset]))
+                        g += basis * linear(Int(pixels[offset + 1]))
+                        b += basis * linear(Int(pixels[offset + 2]))
+                    }
+                }
+                let scale = 1.0 / Double(width * height)
+                factors.append((r * scale, g * scale, b * scale))
+            }
+        }
+        let dc = factors[0]
+        let ac = factors.dropFirst()
+        var hash = base83(componentsX - 1 + (componentsY - 1) * 9, length: 1)
+        let maximum: Double
+        if ac.isEmpty {
+            maximum = 1
+            hash += base83(0, length: 1)
+        } else {
+            let actual = ac.map { max(abs($0.0), abs($0.1), abs($0.2)) }.max() ?? 0
+            let quantised = Int(max(0, min(82, (actual * 166 - 0.5).rounded(.down))))
+            maximum = Double(quantised + 1) / 166
+            hash += base83(quantised, length: 1)
+        }
+        hash += base83(Int(srgb(dc.0)) << 16 | Int(srgb(dc.1)) << 8 | Int(srgb(dc.2)), length: 4)
+        for factor in ac {
+            func quantise(_ value: Double) -> Int {
+                let unit = value / maximum
+                let root = (unit < 0 ? -1 : 1) * pow(abs(unit), 0.5)
+                return Int(max(0, min(18, (root * 9 + 9.5).rounded(.down))))
+            }
+            hash += base83(quantise(factor.0) * 19 * 19 + quantise(factor.1) * 19 + quantise(factor.2), length: 2)
+        }
+        return hash
+    }
+
+    private static func base83(_ value: Int, length: Int) -> String {
+        var result = ""
+        for index in 1...length {
+            let digit = (value / Int(pow(83.0, Double(length - index)))) % 83
+            result.append(Self.digits[digit])
+        }
+        return result
+    }
+
     private static func value<S: Sequence>(_ chars: S) -> Int? where S.Element == Character {
         var result = 0
         for char in chars {

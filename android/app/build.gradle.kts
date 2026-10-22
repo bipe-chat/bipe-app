@@ -60,4 +60,8 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
+    // Video resize before upload (spec upload-preview, quality standard).
+    implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.effect)
+    implementation(libs.androidx.media3.transformer)
 }

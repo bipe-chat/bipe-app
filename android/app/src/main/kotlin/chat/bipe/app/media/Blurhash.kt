@@ -7,6 +7,9 @@ package chat.bipe.app.media
 import android.graphics.Bitmap
 import android.util.LruCache
 import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.floor
+import kotlin.math.sqrt
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -67,6 +70,69 @@ object Blurhash {
             }
         }
         return pixels
+    }
+
+    /** Encodes a bitmap as a blurhash with 4 by 3 components, for the info of an upload. */
+    fun encode(bitmap: Bitmap, componentsX: Int = 4, componentsY: Int = 3): String {
+        val width = 32
+        val height = 32
+        val small = Bitmap.createScaledBitmap(bitmap, width, height, true)
+        val pixels = IntArray(width * height)
+        small.getPixels(pixels, 0, width, 0, 0, width, height)
+        val factors = Array(componentsX * componentsY) { DoubleArray(3) }
+        for (j in 0 until componentsY) {
+            for (i in 0 until componentsX) {
+                val normalisation = if (i == 0 && j == 0) 1.0 else 2.0
+                var r = 0.0
+                var g = 0.0
+                var b = 0.0
+                for (y in 0 until height) {
+                    for (x in 0 until width) {
+                        val basis = normalisation * cos(PI * i * x / width) * cos(PI * j * y / height)
+                        val pixel = pixels[y * width + x]
+                        r += basis * linear((pixel shr 16) and 255)
+                        g += basis * linear((pixel shr 8) and 255)
+                        b += basis * linear(pixel and 255)
+                    }
+                }
+                val scale = 1.0 / (width * height)
+                factors[i + j * componentsX] = doubleArrayOf(r * scale, g * scale, b * scale)
+            }
+        }
+        val hash = StringBuilder()
+        hash.append(base83(componentsX - 1 + (componentsY - 1) * 9, 1))
+        val ac = factors.drop(1)
+        val maximum: Double
+        if (ac.isEmpty()) {
+            maximum = 1.0
+            hash.append(base83(0, 1))
+        } else {
+            val actual = ac.maxOf { f -> maxOf(abs(f[0]), abs(f[1]), abs(f[2])) }
+            val quantised = floor(actual * 166 - 0.5).toInt().coerceIn(0, 82)
+            maximum = (quantised + 1) / 166.0
+            hash.append(base83(quantised, 1))
+        }
+        val dc = factors[0]
+        hash.append(base83((srgb(dc[0]) shl 16) or (srgb(dc[1]) shl 8) or srgb(dc[2]), 4))
+        fun quantise(value: Double): Int {
+            val unit = value / maximum
+            val root = (if (unit < 0) -1.0 else 1.0) * sqrt(abs(unit))
+            return floor(root * 9 + 9.5).toInt().coerceIn(0, 18)
+        }
+        for (f in ac) {
+            hash.append(base83(quantise(f[0]) * 19 * 19 + quantise(f[1]) * 19 + quantise(f[2]), 2))
+        }
+        return hash.toString()
+    }
+
+    private fun base83(value: Int, length: Int): String {
+        val result = StringBuilder()
+        for (index in 1..length) {
+            var divisor = 1
+            repeat(length - index) { divisor *= 83 }
+            result.append(DIGITS[(value / divisor) % 83])
+        }
+        return result.toString()
     }
 
     private fun value(hash: String, start: Int, end: Int): Int? {

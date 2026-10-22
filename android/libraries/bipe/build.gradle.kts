@@ -31,6 +31,8 @@ kotlin {
 dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.serialization.core)
+    // Voice transcript session (voice/BipeVoiceTranscriber.kt).
+    implementation(libs.kotlinx.coroutines.android)
     // BipeColors (generated from bipe-shared design/tokens.json) exposes Compose types.
     api(platform(libs.androidx.compose.bom))
     api(libs.androidx.compose.runtime)

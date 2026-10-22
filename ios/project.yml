@@ -59,6 +59,10 @@ targets:
         UIBackgroundModes: [audio]
         # Media viewer save (spec media-viewer). The system shows this text with the add-only photo permission.
         NSPhotoLibraryAddUsageDescription: O Bipe salva na sua galeria as fotos e os vídeos que você escolher salvar.
+        # Composer (specs attachment-picker, voice-recording). The transcript is made on this iPhone only (ADR 0023).
+        NSCameraUsageDescription: O Bipe usa a câmera quando você tira uma foto ou grava um vídeo para enviar numa conversa.
+        NSMicrophoneUsageDescription: O Bipe usa o microfone quando você grava uma mensagem de voz ou um vídeo.
+        NSSpeechRecognitionUsageDescription: O Bipe transcreve suas mensagens de voz neste iPhone, sem enviar o áudio para nenhum servidor.
     entitlements:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:

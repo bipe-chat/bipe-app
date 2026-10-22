@@ -94,6 +94,24 @@
       "source": "https://github.com/phosphor-icons/core/blob/main/LICENSE",
       "checked": "2026-10-22",
       "note": "Vendored by tools/phosphor.mjs into ios/Phosphor and android/libraries/phosphor, with its LICENSE file. Version in tools/phosphor.json."
+    },
+    "androidx.media3:media3-common": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/androidx/media/blob/release/LICENSE",
+      "checked": "2026-10-22"
+    },
+    "androidx.media3:media3-effect": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/androidx/media/blob/release/LICENSE",
+      "checked": "2026-10-22"
+    },
+    "androidx.media3:media3-transformer": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/androidx/media/blob/release/LICENSE",
+      "checked": "2026-10-22"
     }
   }
 }
