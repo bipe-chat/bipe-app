@@ -58,6 +58,8 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIRequiresFullScreen: true
         # App lock, the owner checks of settings (spec app-lock, pin-change, data-export) and device approval (device-verification).
+        # Link a computer (spec link-computer-scan): the camera reads the QR code of chat.bipe.net.br.
+        NSCameraUsageDescription: O Bipe usa a câmera para ler o código QR que aparece no computador.
         NSFaceIDUsageDescription: O Bipe usa o Face ID para abrir o app e para confirmar que é você.
         # The shell encrypts nothing itself. Revisit before end-to-end encryption ships.
         ITSAppUsesNonExemptEncryption: false
