@@ -50,6 +50,11 @@ targets:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:
         com.apple.security.application-groups: [group.chat.bipe.next]
+        # The app's own group first, then the fork's group (ADR 0147): the app reads the device
+        # account that the fork stored (BipeKit BipeCredentialStore) and never writes there.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)chat.bipe.app.next
+          - 992N457T8D.chat.bipe.app.dev
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next
