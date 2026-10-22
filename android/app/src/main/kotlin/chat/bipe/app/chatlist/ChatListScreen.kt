@@ -23,6 +23,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import chat.bipe.app.settings.SettingsHost
+import chat.bipe.phosphor.PhosphorIcon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,6 +66,9 @@ import chat.bipe.app.people.PeopleNavigation
 import chat.bipe.app.people.PeopleRoute
 import chat.bipe.app.people.PeopleScreen
 import chat.bipe.app.people.PeopleService
+import chat.bipe.app.encryption.EncryptionSheet
+import chat.bipe.app.encryption.EncryptionStatusModel
+import chat.bipe.app.encryption.HistoryBanner
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -80,13 +88,19 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val media = remember(session) { MediaLoader(session.client) }
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
+    val encryption = remember(session) { EncryptionStatusModel(session, scope, context.applicationContext) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
+    var showsSettings by rememberSaveable { mutableStateOf(false) }
     val termsPhase by terms.phase.collectAsState()
     DisposableEffect(model) {
         model.start()
         handle.load()
         onDispose { model.close() }
+    }
+    DisposableEffect(encryption) {
+        encryption.observe()
+        onDispose { encryption.close() }
     }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check() }
@@ -113,6 +127,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
+        showsSettings -> SettingsHost(session, api, onClose = { showsSettings = false }, onSignedOut = onSignOut)
         showsHandlePick -> {
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
@@ -123,7 +138,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
         }
         roomId != null -> {
             BackHandler { openRoomId = null }
-            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onOpenInfo = {
+            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onHistoryHelp = encryption::openSheet, onOpenInfo = {
                 scope.launch {
                     people.dmPartner(roomId)?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
                 }
@@ -135,9 +150,12 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             handle,
             onOpenHandlePick = { showsHandlePick = true },
             onOpenChat = { openRoomId = it },
+            onOpenSettings = { showsSettings = true },
+            banner = { HistoryBanner(encryption) },
             onOpenPeople = navigation.push,
         )
     }
+    EncryptionSheet(encryption)
 }
 
 /** Spec chat-list. */
@@ -148,6 +166,9 @@ fun ChatListScreen(
     handle: HandlePickModel,
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
+    /** The temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main. */
+    onOpenSettings: (() -> Unit)? = null,
+    banner: @Composable () -> Unit = {},
     onOpenPeople: (PeopleRoute) -> Unit,
 ) {
     val colors = BipeTheme.colors
@@ -164,8 +185,19 @@ fun ChatListScreen(
                     modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
                 )
                 PeopleMenu(onOpenPeople)
+                if (onOpenSettings != null) {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            painterResource(PhosphorIcon.GEAR.drawable),
+                            contentDescription = stringResource(R.string.bipe_settings_section),
+                            tint = colors.glyphPrimary,
+                        )
+                    }
+                }
             }
             if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
+            // Spec encryption-status: the banner above the chat list.
+            banner()
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)

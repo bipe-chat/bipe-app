@@ -45,6 +45,7 @@ import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.NameNormalizer
 import chat.bipe.shared.R
+import chat.bipe.shared.api.publicProfile
 import chat.bipe.shared.company.BipeCompanySealState
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.CoroutineScope

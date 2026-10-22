@@ -49,11 +49,12 @@ import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import android.content.Context
 import chat.bipe.shared.api.BipeBadgeGoneReason
-import chat.bipe.shared.api.BipeMessagingSetting
-import chat.bipe.shared.api.BipeWhoCanMessage
 import chat.bipe.shared.company.BipeCnpj
 import chat.bipe.shared.company.BipeCompanySealState
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.settings.BipeWhoCanMessage
+import chat.bipe.shared.settings.setWhoCanMessage
+import chat.bipe.shared.settings.whoCanMessage
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -280,7 +281,7 @@ fun WhoCanMessageScreen(people: PeopleService, onBack: () -> Unit) {
     var saving by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        runCatching { people.withToken { people.api.messaging(it) }.whoCanMessage }
+        runCatching { people.withToken { people.api.whoCanMessage(it) } }
             .onSuccess { current = it; failed = false }
             .onFailure { failed = true }
     }
@@ -295,7 +296,7 @@ fun WhoCanMessageScreen(people: PeopleService, onBack: () -> Unit) {
                         current = value
                         saving = true
                         scope.launch {
-                            runCatching { people.withToken { people.api.setMessaging(BipeMessagingSetting(value), it) }.whoCanMessage }
+                            runCatching { people.withToken { people.api.setWhoCanMessage(value, it) } }
                                 .onSuccess { current = it; failed = false }
                                 .onFailure { current = old; failed = true }
                             saving = false

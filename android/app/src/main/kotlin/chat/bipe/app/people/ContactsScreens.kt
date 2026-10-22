@@ -48,6 +48,9 @@ import chat.bipe.shared.BipePhoneNumber
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
+import chat.bipe.shared.api.handle
+import chat.bipe.shared.api.inviteConnections
+import chat.bipe.shared.api.lookupContacts
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

@@ -9,6 +9,7 @@ import chat.bipe.app.common.MediaLoader
 import android.content.Context
 import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.isCompany
 import chat.bipe.shared.company.BipeCompanySeals
 import chat.bipe.shared.company.BipeCompanySealsSeen
 import chat.bipe.shared.generated.BipeRegistries
@@ -156,7 +157,7 @@ class PeopleService(
 
     /** GET /v1/accounts/{userId}/type, cached: a company's avatar is a rounded square (ADR 0132). A failure is a person. */
     suspend fun isCompany(userId: String): Boolean =
-        companies[userId] ?: (runCatching { api.accountType(userId) }.getOrNull() == "company").also { companies[userId] = it }
+        companies[userId] ?: api.isCompany(userId).also { companies[userId] = it }
 
     /** The person's identity is verified by the user (an in-person QR or emoji check). */
     suspend fun isConfirmedInPerson(userId: String): Boolean =

@@ -14,6 +14,7 @@ import org.matrix.rustcomponents.sdk.ClientBuilder
 import org.matrix.rustcomponents.sdk.Session
 import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
 import org.matrix.rustcomponents.sdk.SyncService
+import uniffi.matrix_sdk.BackupDownloadStrategy
 
 /** A signed-in account: the SDK client and its sync service. */
 class AccountSession(val client: Client, val syncService: SyncService, val userId: String) {
@@ -25,7 +26,11 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
         runCatching { client.logout() }
         syncService.stop()
         sessionStore.delete()
-        vault.update { data -> data.copy(accounts = data.accounts - userId) }
+        // The recovery token stays, so recovery-start finds it (spec sign-out). Only the hidden password goes.
+        vault.update { data ->
+            val kept = data.accounts[userId]?.copy(password = null)?.takeIf { it.token != null }
+            data.copy(accounts = if (kept != null) data.accounts + (userId to kept) else data.accounts - userId)
+        }
         deleteStore(context, userId)
     }
 
@@ -63,6 +68,11 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 .sessionPaths(data.path, cache.path)
                 .slidingSyncVersionBuilder(SlidingSyncVersionBuilder.DISCOVER_NATIVE)
                 .setSessionDelegate(sessionStore.delegate())
+                // Spec encryption-status: a new account gets cross-signing and key backup with no screen.
+                .autoEnableCrossSigning(true)
+                .autoEnableBackups(true)
+                // Old messages decrypt from the key backup once this phone has the backup key (recovery-key-enter).
+                .backupDownloadStrategy(BackupDownloadStrategy.AFTER_DECRYPTION_FAILURE)
                 .build()
         }
 

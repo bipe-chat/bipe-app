@@ -2,97 +2,40 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+// Settings logic of specs settings-root, settings-group, sign-out and data-export (bipe-shared product/screens),
+// written from the specs and api/openapi.yaml.
+
 import Foundation
 
-// Settings by the user's question (ADR 0112). The order, keys and gates come from the generated
-// `BipeSettingsGroup` (bipe-shared/registries/settings.json). This file holds the iOS rules around it.
+/// Row gates of registries/settings.json (spec settings-group notes): absent → shown; ios or android → that platform
+/// only; flag:<name> → shown when that build flag is on; planned:<issue> and any unknown gate → hidden (fail closed).
+public enum BipeSettingsGate {
+    public static func isShown(_ gate: String?, platform: String, flags: Set<String> = []) -> Bool {
+        guard let gate else { return true }
+        if gate == "ios" || gate == "android" {
+            return gate == platform
+        }
+        if gate.hasPrefix("flag:") {
+            return flags.contains(String(gate.dropFirst("flag:".count)))
+        }
+        return false
+    }
+}
 
 public extension BipeSettingsRow {
-    /// Evaluates `gate` for iOS. `flag` answers `flag:<name>` gates. An unknown gate hides the row.
-    func isShownOnIOS(flag: (String) -> Bool) -> Bool {
-        guard let gate else { return true }
-        switch gate {
-        case "ios": return true
-        case "android": return false
-        default:
-            // "planned:<issue>": hidden until the issue ships.
-            return gate.hasPrefix("flag:") && flag(String(gate.dropFirst("flag:".count)))
-        }
+    func isShownOnIOS(flags: Set<String> = []) -> Bool {
+        BipeSettingsGate.isShown(gate, platform: "ios", flags: flags)
     }
 }
 
-public extension BipeSettingsSection {
-    /// The rows of this section that iOS shows.
-    func rowsShownOnIOS(flag: (String) -> Bool) -> [BipeSettingsRow] {
-        rows.filter { $0.isShownOnIOS(flag: flag) }
-    }
-}
+/// Contract `MessagingSetting.who_can_message`.
+public enum BipeWhoCanMessage: String, Codable, Sendable, CaseIterable {
+    case everyone
+    case verified
+    case contacts
 
-public extension BipeSettingsGroup {
-    /// The language of the url rows: "pt" or "en". Same rule as the emails: pt-BR unless the phone is in English.
-    static var urlLanguage: String {
-        BipeAPIClient.emailLanguage
-    }
-}
-
-// MARK: - Sua conta: ways back
-
-/// The ways back to the account that this device can see (ADR 0112, bipe/docs/security.md).
-/// There is no API for it: the app counts what it already reads.
-public struct BipeWaysBack: Sendable, Equatable {
-    /// A confirmed recovery email (`GET /v1/me/account`).
-    public var email: Bool
-    /// A linked Apple or Google account (ADR 0096). No iOS screen yet.
-    public var linkedAccount: Bool
-    /// A recovery key is set up (Matrix recovery state).
-    public var recoveryKey: Bool
-    /// The recovery token synced to this Apple account (iCloud Keychain).
-    public var syncedToken: Bool
-    
-    public init(email: Bool, linkedAccount: Bool, recoveryKey: Bool, syncedToken: Bool) {
-        self.email = email
-        self.linkedAccount = linkedAccount
-        self.recoveryKey = recoveryKey
-        self.syncedToken = syncedToken
-    }
-    
-    public var count: Int {
-        [email, linkedAccount, recoveryKey, syncedToken].filter(\.self).count
-    }
-    
-    /// One or none: the only warning in Settings.
-    public var needsWarning: Bool {
-        count <= 1
-    }
-    
-    /// The subtitle of the "Sua conta" row.
-    public var summary: String {
-        switch count {
-        case 0: BipeStrings.settingsAccountPathsNone
-        case 1: BipeStrings.accountPathsWarning
-        default: BipeStrings.settingsAccountPaths(String(count))
-        }
-    }
-    
-    /// The status card: the count line, then the warning when there is one.
-    public var cardTitle: String {
-        count == 0 ? BipeStrings.settingsAccountPathsNone : BipeStrings.settingsAccountPaths(String(count))
-    }
-    
-    public var cardWarning: String? {
-        switch count {
-        case 0: BipeStrings.fallbackReminder
-        case 1: BipeStrings.accountPathsWarning
-        default: nil
-        }
-    }
-}
-
-// MARK: - Privacidade
-
-public extension BipeWhoCanMessage {
-    /// The subtitle of the "Privacidade" row.
-    var settingsSummary: String {
+    /// The privacy row subtitle of settings-root.
+    public var settingsSummary: String {
         switch self {
         case .everyone: BipeStrings.settingsPrivacySummaryEveryone
         case .verified: BipeStrings.settingsPrivacySummaryVerified
@@ -101,41 +44,188 @@ public extension BipeWhoCanMessage {
     }
 }
 
-/// The answer of `GET /v1/me/export`.
-public struct BipeDataExport: Sendable {
-    public let data: Data
-    /// A plain file name, safe for a temporary file.
-    public let filename: String
-    
-    public init(data: Data, filename: String) {
-        self.data = data
-        self.filename = filename
-    }
-    
-    /// The name from `content-disposition: attachment; filename="bipe-dados-YYYY-MM-DD.json"`.
-    /// Anything else, or a name with other characters, gives `bipe-dados-<today>.json`.
-    static func filename(contentDisposition: String?, now: Date = .now) -> String {
-        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
-        if let contentDisposition,
-           let range = contentDisposition.range(of: "filename=") {
-            let name = contentDisposition[range.upperBound...]
-                .split(separator: ";", maxSplits: 1).first
-                .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "\" ")) } ?? ""
-            if !name.isEmpty, !name.hasPrefix("."), name.hasSuffix(".json"),
-               name.unicodeScalars.allSatisfy(allowed.contains) {
-                return name
-            }
+/// One way back into the account after the phone is lost (spec sign-out, type WayBack).
+public enum BipeWayBack: String, Sendable, CaseIterable {
+    case email
+    case linkedAccount
+    case recoveryKey
+    case syncedToken
+
+    public var title: String {
+        switch self {
+        case .email: BipeStrings.emailTitle
+        case .linkedAccount: BipeStrings.linkedAccountsTitle
+        case .recoveryKey: BipeStrings.accountRecoveryKey
+        case .syncedToken: BipeStrings.appSignOutSyncedToken
         }
-        let day = now.formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())
-        return "bipe-dados-\(day).json"
     }
 }
 
-// MARK: - Perfil de confiança
+/// The ways back of the account (spec settings-root notes): a confirmed recovery email, a linked Apple or Google
+/// account (ADR 0096), a recovery key, and the recovery token synced to this phone's platform account.
+public struct BipeWaysBack: Sendable, Equatable {
+    public let ways: [BipeWayBack]
 
-public extension BipeTrustProfile {
-    /// Every step that is live today is done. The card collapses to one row.
-    var liveStepsDone: Bool {
-        steps.allSatisfy { $0.status != .todo }
+    public init(hasEmail: Bool, hasLinkedAccount: Bool, hasRecoveryKey: Bool, hasSyncedToken: Bool) {
+        var ways: [BipeWayBack] = []
+        if hasEmail { ways.append(.email) }
+        if hasLinkedAccount { ways.append(.linkedAccount) }
+        if hasRecoveryKey { ways.append(.recoveryKey) }
+        if hasSyncedToken { ways.append(.syncedToken) }
+        self.ways = ways
+    }
+
+    public var count: Int { ways.count }
+
+    /// One way back or none: the only warning mark in Settings (ADR 0112).
+    public var needsWarning: Bool { count <= 1 }
+
+    /// The account row subtitle of settings-root.
+    public var summary: String {
+        switch count {
+        case 0: BipeStrings.settingsAccountPathsNone
+        case 1: BipeStrings.accountPathsWarning
+        default: BipeStrings.settingsAccountPaths(count.formatted())
+        }
+    }
+
+    /// The status card text of settings-group account. `nil` with two ways back or more.
+    public var warning: String? {
+        switch count {
+        case 0: BipeStrings.fallbackReminder
+        case 1: BipeStrings.accountPathsWarning
+        default: nil
+        }
+    }
+}
+
+/// The file of GET /v1/me/export (spec data-export).
+public enum BipeDataExport {
+    /// The file name from content-disposition when it is a plain bipe-dados-*.json name, else bipe-dados-<today>.json.
+    public static func filename(contentDisposition: String?, today: Date = .now) -> String {
+        if let contentDisposition,
+           let match = contentDisposition.firstMatch(of: #/filename="?([^";]+)"?/#) {
+            let name = String(match.1)
+            if name.wholeMatch(of: #/bipe-dados-[A-Za-z0-9_-]+\.json/#) != nil {
+                return name
+            }
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let parts = calendar.dateComponents([.year, .month, .day], from: today)
+        return String(format: "bipe-dados-%04d-%02d-%02d.json", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+    }
+}
+
+// MARK: - API
+
+public extension BipeAPIClient {
+    /// `GET /v1/me/messaging`.
+    func whoCanMessage(accessToken: String) async throws(BipeAPIError) -> BipeWhoCanMessage {
+        let setting: MessagingSetting = try await send(method: "GET", path: ["v1", "me", "messaging"], body: Empty?.none, accessToken: accessToken)
+        return setting.whoCanMessage
+    }
+
+    /// `PUT /v1/me/messaging`. The server enforces it (ADR 0034).
+    func setWhoCanMessage(_ value: BipeWhoCanMessage, accessToken: String) async throws(BipeAPIError) -> BipeWhoCanMessage {
+        let setting: MessagingSetting = try await send(method: "PUT", path: ["v1", "me", "messaging"], body: MessagingSetting(whoCanMessage: value), accessToken: accessToken)
+        return setting.whoCanMessage
+    }
+
+    /// `GET /v1/me/export`. The body as it is, with the file name to save it under.
+    func exportMyData(accessToken: String) async throws(BipeAPIError) -> (data: Data, filename: String) {
+        let (data, response) = try await perform(method: "GET", path: ["v1", "me", "export"], rawBody: nil, accessToken: accessToken)
+        let disposition = response.value(forHTTPHeaderField: "Content-Disposition")
+        return (data, BipeDataExport.filename(contentDisposition: disposition))
+    }
+
+    /// `POST /v1/me/support`. The room ID of the caller's support room (ADR 0114).
+    func supportRoomID(accessToken: String) async throws(BipeAPIError) -> String {
+        let room: SupportRoom = try await send(method: "POST", path: ["v1", "me", "support"], body: Empty?.none, accessToken: accessToken)
+        return room.roomId
+    }
+}
+
+private struct MessagingSetting: Codable {
+    let whoCanMessage: BipeWhoCanMessage
+}
+
+private struct SupportRoom: Decodable {
+    let roomId: String
+}
+
+// MARK: - Problem reports
+
+/// A problem report that the user starts (spec problem-report, ADR 0114). The field names are the API contract
+/// (api/openapi.yaml /v1/bug-reports/submit).
+public struct BipeProblemReport: Sendable, CustomStringConvertible {
+    public struct File: Sendable {
+        public let name: String
+        public let contentType: String
+        public let data: Data
+
+        public init(name: String, contentType: String, data: Data) {
+            self.name = name
+            self.contentType = contentType
+            self.data = data
+        }
+    }
+
+    public let text: String
+    public let app: String
+    public let version: String
+    public let build: String
+    public let os: String
+    /// Screenshots, at most 10.
+    public let screenshots: [File]
+    /// The compressed app logs, only when the user turned them on.
+    public let logs: [File]
+
+    public init(text: String, app: String, version: String, build: String, os: String, screenshots: [File], logs: [File]) {
+        self.text = text
+        self.app = app
+        self.version = version
+        self.build = build
+        self.os = os
+        self.screenshots = screenshots
+        self.logs = logs
+    }
+
+    /// Never prints the text.
+    public var description: String { "BipeProblemReport(\(screenshots.count) screenshots, \(logs.count) logs)" }
+
+    /// The multipart body and its content type.
+    func multipart(boundary: String) -> Data {
+        var body = Data()
+        func append(_ string: String) { body.append(Data(string.utf8)) }
+        func field(_ name: String, _ value: String) {
+            append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n")
+        }
+        func file(_ name: String, _ file: File) {
+            append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"; filename=\"\(file.name)\"\r\n")
+            append("Content-Type: \(file.contentType)\r\n\r\n")
+            body.append(file.data)
+            append("\r\n")
+        }
+        field("text", text)
+        field("app", app)
+        field("user_agent", "iOS")
+        field("version", version)
+        field("build", build)
+        field("os", os)
+        screenshots.prefix(10).forEach { file("file", $0) }
+        logs.prefix(20).forEach { file("compressed-log", $0) }
+        append("--\(boundary)--\r\n")
+        return body
+    }
+}
+
+public extension BipeAPIClient {
+    /// `POST /v1/bug-reports/submit`. Signed-in users only (ADR 0114).
+    func submitProblemReport(_ report: BipeProblemReport, accessToken: String) async throws(BipeAPIError) {
+        let boundary = "bipe-\(UUID().uuidString)"
+        _ = try await perform(method: "POST", path: ["v1", "bug-reports", "submit"],
+                              rawBody: (data: report.multipart(boundary: boundary), contentType: "multipart/form-data; boundary=\(boundary)"),
+                              accessToken: accessToken)
     }
 }

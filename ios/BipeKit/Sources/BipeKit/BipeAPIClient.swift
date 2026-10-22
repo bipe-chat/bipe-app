@@ -56,14 +56,6 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "terms"], body: TermsAcceptance(termsVersion: version), accessToken: accessToken)
     }
     
-    // MARK: - Support DM (ADR 0114)
-    
-    /// `POST /v1/me/support`. The caller's room with the support account. The server invites the caller; the app joins.
-    public func supportRoomID(accessToken: String) async throws(BipeAPIError) -> String {
-        let response: SupportRoomResponse = try await send(method: "POST", path: ["v1", "me", "support"], body: Empty?.none, accessToken: accessToken)
-        return response.roomId
-    }
-    
     // MARK: - Device-first accounts (ADR 0057, ADR 0059)
     
     /// `GET /v1/me/account`. PIN state, recovery email and the recoveries of the last 7 days.
@@ -326,35 +318,6 @@ public struct BipeAPIClient: Sendable {
         }
     }
     
-    // MARK: - Data export (LGPD art. 18, ADR 0112, bipe#364)
-    
-    /// `GET /v1/me/export`. The server data of the caller as one JSON file. Messages stay on the device and are not in it.
-    /// `rate_limited` (429) when asked too often.
-    public func exportMyData(accessToken: String) async throws(BipeAPIError) -> BipeDataExport {
-        let (data, response) = try await perform(method: "GET", path: ["v1", "me", "export"], rawBody: nil, accessToken: accessToken)
-        let filename = BipeDataExport.filename(contentDisposition: response.value(forHTTPHeaderField: "Content-Disposition"))
-        return BipeDataExport(data: data, filename: filename)
-    }
-    
-    // MARK: - Web sign-in (ADR 0118)
-    
-    /// `GET /v1/web-link/place`. The approximate place of the browser IP that the MAS consent page shows.
-    /// Every field is optional; all are `nil` when the server does not know the place.
-    public func webLinkPlace(ip: String, accessToken: String) async throws(BipeAPIError) -> BipeWebLinkPlace {
-        try await send(method: "GET", path: ["v1", "web-link", "place"], query: [URLQueryItem(name: "ip", value: ip)],
-                       rawBody: nil, accessToken: accessToken)
-    }
-    
-    /// `POST /v1/web-link/finish`. Ends the MAS browser sessions that the private web view made since `since`.
-    @discardableResult
-    public func finishWebLink(since: Date, accessToken: String) async throws(BipeAPIError) -> Int {
-        struct Body: Encodable { let since: String }
-        struct Response: Decodable { let finished: Int }
-        let body = Body(since: since.formatted(Date.ISO8601FormatStyle()))
-        let response: Response = try await send(method: "POST", path: ["v1", "web-link", "finish"], body: body, accessToken: accessToken)
-        return response.finished
-    }
-    
     // MARK: - Auth
     
     /// Runs `request` with the token from `accessToken`. On HTTP 401 it reads the token again and retries once,
@@ -378,10 +341,6 @@ public struct BipeAPIClient: Sendable {
     
     /// Stands in for an empty 204 body.
     struct NoContent: Decodable { }
-    
-    private struct SupportRoomResponse: Decodable {
-        let roomId: String
-    }
     
     private struct AttestChallengeResponse: Decodable {
         let challenge: String
@@ -506,7 +465,7 @@ public struct BipeAPIClient: Sendable {
     }
     
     /// Sends the request and returns the body of a 2xx answer. Other answers throw the contract's error.
-    private func perform(method: String,
+    func perform(method: String,
                          path: [String],
                          query: [URLQueryItem] = [],
                          rawBody: (data: Data, contentType: String)?,
@@ -525,7 +484,7 @@ public struct BipeAPIClient: Sendable {
     }
     
     /// Sends the request and returns the answer with any status code.
-    func exchange(method: String,
+    private func exchange(method: String,
                           path: [String],
                           query: [URLQueryItem] = [],
                           rawBody: (data: Data, contentType: String)?,
@@ -579,13 +538,13 @@ public struct BipeAPIClient: Sendable {
         }
     }
     
-    static let encoder: JSONEncoder = {
+    private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         return encoder
     }()
     
-    static let decoder: JSONDecoder = {
+    private static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         decoder.dateDecodingStrategy = .custom { decoder in
@@ -817,32 +776,6 @@ public struct BipeHandleAvailability: Decodable, Sendable {
 public struct BipeHandleRecord: Decodable, Sendable {
     public let handle: String
     public let userId: String
-}
-
-/// Contract: `MessagingSetting.who_can_message`.
-public enum BipeWhoCanMessage: String, Codable, Sendable, CaseIterable {
-    case everyone, verified, contacts
-    
-    public init(from decoder: Decoder) throws {
-        // An unknown value from a newer server must not fail the response.
-        self = try Self(rawValue: decoder.singleValueContainer().decode(String.self)) ?? .everyone
-    }
-    
-    public var title: String {
-        switch self {
-        case .everyone: BipeStrings.messagingEveryone
-        case .verified: BipeStrings.messagingVerified
-        case .contacts: BipeStrings.messagingContacts
-        }
-    }
-    
-    public var body: String {
-        switch self {
-        case .everyone: BipeStrings.messagingEveryoneBody
-        case .verified: BipeStrings.messagingVerifiedBody
-        case .contacts: BipeStrings.messagingContactsBody
-        }
-    }
 }
 
 public struct BipeMyHandle: Decodable, Sendable {

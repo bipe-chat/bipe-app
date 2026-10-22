@@ -61,6 +61,10 @@ import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeMyProfile
 import chat.bipe.shared.api.BipeProfileUpdate
+import chat.bipe.shared.api.deleteMyProfilePhoto
+import chat.bipe.shared.api.myProfile
+import chat.bipe.shared.api.setMyProfile
+import chat.bipe.shared.api.setMyProfilePhoto
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import com.google.zxing.BarcodeFormat

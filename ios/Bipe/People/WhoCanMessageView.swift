@@ -78,7 +78,7 @@ struct WhoCanMessageView: View {
     private func appear() async {
         do {
             current = try await people.withToken { (token: String) async throws(BipeAPIError) -> BipeWhoCanMessage in
-                try await people.api.messagingSetting(accessToken: token)
+                try await people.api.whoCanMessage(accessToken: token)
             }
             failed = false
         } catch {
@@ -95,7 +95,7 @@ struct WhoCanMessageView: View {
         defer { saving = false }
         do {
             current = try await people.withToken { (token: String) async throws(BipeAPIError) -> BipeWhoCanMessage in
-                try await people.api.setMessagingSetting(value, accessToken: token)
+                try await people.api.setWhoCanMessage(value, accessToken: token)
             }
             failed = false
         } catch {

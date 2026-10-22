@@ -13,6 +13,7 @@ import chat.bipe.shared.BadgeVerifier
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeBadgeGoneReason
 import chat.bipe.shared.api.BipeBadgeLookup
+import chat.bipe.shared.api.badge
 import chat.bipe.shared.runCatchingExceptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import kotlin.time.Duration.Companion.minutes
 
 /** The company seal of one user (ADR 0042, bipe#252). The iOS store has the same states. */
@@ -42,7 +42,7 @@ sealed interface BipeCompanySealState {
 /**
  * Company seals for one user session.
  *
- * Reads are synchronous like [chat.bipe.shared.BipePublicProfiles]: [seal] returns the cached state,
+ * Reads are synchronous like [chat.bipe.shared.BipeHandleResolver]: [seal] returns the cached state,
  * fetches `GET /v1/badges/{userId}` when the entry is stale, and [states] emits when the answer arrives.
  * The store fails closed: an error never keeps a seal.
  */
@@ -86,8 +86,7 @@ class BipeCompanySeals(
         }
         scope.launch {
             try {
-                val entry = runCatchingExceptions { load(userId) }.getOrElse { error ->
-                    Timber.w(error, "Bipe company seal lookup failed for %s", userId)
+                val entry = runCatchingExceptions { load(userId) }.getOrElse {
                     // Fail closed: drop a seal, keep a notice, and retry soon.
                     val old = entries.value[userId]?.state
                     val kept = if (old is BipeCompanySealState.Revoked || old is BipeCompanySealState.Suspended) old else BipeCompanySealState.None
@@ -105,7 +104,7 @@ class BipeCompanySeals(
         val lookup = apiClient.badge(userId)
         val now = clock()
         val state = when (lookup) {
-            BipeBadgeLookup.None -> {
+            BipeBadgeLookup.NoBadge -> {
                 seen.remove(userId)
                 BipeCompanySealState.None
             }

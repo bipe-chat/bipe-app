@@ -59,6 +59,8 @@ targets:
         UIRequiresFullScreen: true
         # Spec contacts (ADR 0015): bipe_contacts_intro in pt-BR, the development language.
         NSContactsUsageDescription: Veja quem dos seus contatos já está no Bipe. O servidor só compara os números e não guarda nenhum.
+        # App lock, the owner checks of settings (spec app-lock, pin-change, data-export) and device approval (device-verification).
+        NSFaceIDUsageDescription: O Bipe usa o Face ID para abrir o app e para confirmar que é você.
         # The shell encrypts nothing itself. Revisit before end-to-end encryption ships.
         ITSAppUsesNonExemptEncryption: false
     entitlements:

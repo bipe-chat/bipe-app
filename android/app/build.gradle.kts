@@ -61,13 +61,13 @@ dependencies {
     implementation(project(":libraries:phosphor"))
     implementation(libs.matrix.rust.sdk)
     implementation(libs.kotlinx.coroutines.android)
-    // AccountStartModel builds the BipeApiClient (Retrofit over OkHttp, kotlinx JSON).
-    implementation(libs.okhttp)
+    // The people screens read and write account data JSON (dm-delete write of report-chat).
     implementation(libs.kotlinx.serialization.json)
     // QR codes of profile links (spec profile-link), drawn on the device.
     implementation(libs.zxing.core)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.browser)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)

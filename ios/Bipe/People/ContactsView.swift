@@ -110,7 +110,7 @@ final class ContactsModel: ObservableObject {
             return
         }
         let invited = (try? await people.withToken { (token: String) async throws(BipeAPIError) -> Set<String> in
-            try await people.api.inviteConnections(accessToken: token)
+            Set(try await people.api.inviteConnections(accessToken: token))
         }) ?? []
         var list: [ContactMatch] = []
         for (userId, name) in found {

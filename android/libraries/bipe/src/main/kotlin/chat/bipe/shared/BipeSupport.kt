@@ -33,5 +33,3 @@ inline fun <T> runCatchingExceptions(block: () -> T): Result<T> = try {
     Result.failure(error)
 }
 
-/** The URL with one `/` at the end, as Retrofit wants for a base URL. */
-fun String.ensureTrailingSlash(): String = if (endsWith("/")) this else "$this/"

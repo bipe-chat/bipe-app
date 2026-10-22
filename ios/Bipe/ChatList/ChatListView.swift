@@ -10,44 +10,71 @@ import SwiftUI
 struct ChatListView: View {
     @StateObject private var model: ChatListModel
     @StateObject private var handle: HandlePickModel
+    @StateObject private var encryption: EncryptionStatusModel
     @StateObject private var people: PeopleService
     @State private var path: NavigationPath
     @State private var showsHandlePick = false
     @State private var openingLink: String?
+    private let onOpenSettings: (() -> Void)?
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
-    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil) {
+    /// onOpenSettings: the temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main.
+    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil, onOpenSettings: (() -> Void)? = nil) {
+        self.onOpenSettings = onOpenSettings
         let model = ChatListModel(session: session)
         _model = StateObject(wrappedValue: model)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: session))
+        _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: session))
         _people = StateObject(wrappedValue: PeopleService(session: session, api: api, media: model.media))
         _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            content
-                .background(BipeColor.surfaceBase.ignoresSafeArea())
-                .navigationTitle(BipeStrings.appChatListTitle)
-                .navigationDestination(for: String.self) { roomId in
-                    ChatTimelineView(session: model.session, media: model.media, roomId: roomId) {
-                        Task {
-                            if let userId = await people.dmPartner(roomId: roomId) {
-                                path.append(PeopleRoute.person(userId: userId, fromDm: true))
-                            }
+            VStack(spacing: 0) {
+                // Spec encryption-status: the banner above the chat list.
+                if encryption.showsBanner {
+                    HistoryBanner(model: encryption)
+                }
+                content
+            }
+            .background(BipeColor.surfaceBase.ignoresSafeArea())
+            .navigationTitle(BipeStrings.appChatListTitle)
+            .navigationDestination(for: String.self) { roomId in
+                ChatTimelineView(session: model.session, media: model.media, roomId: roomId) {
+                    Task {
+                        if let userId = await people.dmPartner(roomId: roomId) {
+                            path.append(PeopleRoute.person(userId: userId, fromDm: true))
                         }
                     }
                 }
-                .navigationDestination(for: PeopleRoute.self) { route in
-                    peopleScreen(route)
+            }
+            .navigationDestination(for: PeopleRoute.self) { route in
+                peopleScreen(route)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    peopleMenu
                 }
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        peopleMenu
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        onOpenSettings?()
+                    } label: {
+                        PhosphorIcon.gear.image
+                            .resizable()
+                            .frame(width: 22, height: 22)
                     }
+                    .accessibilityLabel(BipeStrings.settingsSection)
+                    .opacity(onOpenSettings == nil ? 0 : 1)
                 }
+            }
+        }
+        .environment(\.openHistoryHelp, encryption.openSheet)
+        .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
+            EncryptionSheet(route: route, model: encryption, session: model.session)
         }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
+        .task { await encryption.observe() }
         .task { await model.start() }
         .task { await handle.load() }
         .onAppear { people.start() }
