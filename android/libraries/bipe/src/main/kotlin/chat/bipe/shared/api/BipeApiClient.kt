@@ -106,6 +106,11 @@ class BipeApiClient(baseUrl: String) {
     suspend fun moveToDeviceFirst(accessToken: String): BipeCredentials =
         send("POST", listOf("v1", "me", "device-first"), accessToken = accessToken, response = BipeCredentials.serializer())
 
+    /** `POST /v1/me/recoveries/{id}/cancel`. An old device cancels a waiting recovery. */
+    suspend fun cancelRecovery(id: String, accessToken: String) {
+        send<Unit>("POST", listOf("v1", "me", "recoveries", id, "cancel"), accessToken = accessToken, response = null)
+    }
+
     /** `POST /v1/recovery/token`. No auth. The synced token, then the PIN. New credentials, once. */
     suspend fun recoverWithToken(token: String, pin: String): BipeCredentials = send(
         "POST",

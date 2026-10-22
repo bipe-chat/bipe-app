@@ -59,13 +59,15 @@ struct AccountStartView: View {
     }
 }
 
-/// The signed-in app: chat-list, with terms-reaccept over it when the legal version changed.
+/// The signed-in app: chat-list, with terms-reaccept over it when the legal version changed, and recovery-alert
+/// while someone gets back into this account elsewhere.
 private struct SignedInView: View {
     let session: AccountSession
     let api: BipeAPIClient
     let initialRoomId: String?
     let onSignOut: () -> Void
     @StateObject private var terms: TermsReacceptModel
+    @StateObject private var recoveryAlert: RecoveryAlertModel
     @State private var showsSettings = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -75,6 +77,7 @@ private struct SignedInView: View {
         self.initialRoomId = initialRoomId
         self.onSignOut = onSignOut
         _terms = StateObject(wrappedValue: TermsReacceptModel(api: api, session: session))
+        _recoveryAlert = StateObject(wrappedValue: RecoveryAlertModel(api: api, session: session))
     }
 
     var body: some View {
@@ -82,13 +85,18 @@ private struct SignedInView: View {
             .sheet(isPresented: $showsSettings) {
                 SettingsHomeView(session: session, api: api, onSignedOut: onSignOut)
             }
+            .fullScreenCover(isPresented: Binding(get: { recoveryAlert.notice != nil }, set: { _ in })) {
+                RecoveryAlertView(model: recoveryAlert)
+            }
             .fullScreenCover(isPresented: Binding(get: { terms.phase != .hidden }, set: { _ in })) {
                 TermsReacceptView(model: terms, onSignOut: onSignOut)
             }
             .task { await terms.check() }
+            .task { await recoveryAlert.check() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     Task { await terms.check() }
+                    Task { await recoveryAlert.check() }
                 }
             }
     }

@@ -85,9 +85,8 @@ final class RecoveryFlowModel: ObservableObject {
     @Published private(set) var waitingPhase: WaitingPhase = .waiting
 
     let api: BipeAPIClient
+    /// Reads the app's own group and the fork's group; writes only the app's own group (ADR 0147).
     private let store = BipeCredentialStore()
-    /// The fork's tester build keeps its items in its own keychain group (ADR 0147). The app only reads there.
-    private let forkStore = BipeCredentialStore(accessGroup: AppConfig.forkKeychainGroup)
     private let onSignedIn: (AccountSession) -> Void
     private var token: BipeCredentialStore.Item?
     private var linkToken: String?
@@ -112,7 +111,7 @@ final class RecoveryFlowModel: ObservableObject {
     /// Action appear: reads the synced store for a recovery token and sets the rows.
     func appear() {
         let signedIn = Set([SessionStore.load()?.userId].compactMap { $0 })
-        token = store.recoveryToken(excluding: signedIn) ?? forkStore.recoveryToken(excluding: signedIn)
+        token = store.recoveryToken(excluding: signedIn)
         hasSyncedToken = token != nil
         rows = BipeOnboardingRecoveryRow.allCases.filter { row in
             row.gate == nil && (!row.needsSyncedToken || hasSyncedToken)

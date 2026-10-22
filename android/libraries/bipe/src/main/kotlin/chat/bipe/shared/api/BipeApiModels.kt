@@ -109,6 +109,8 @@ data class BipeAccountStatus(
     @SerialName("user_id") val userId: String,
     /** The last legal version the account accepted (ADR 0113). */
     @SerialName("terms_version") val termsVersion: String? = null,
+    /** Recoveries that run or ended in the last 7 days (recovery-alert). */
+    @SerialName("recoveries") val recoveries: List<BipeRecovery> = emptyList(),
 )
 
 @Serializable
@@ -202,6 +204,25 @@ enum class BipeRecoveryState {
     @SerialName("cancelled") CANCELLED,
     @SerialName("expired") EXPIRED,
 }
+
+@Serializable
+enum class BipeRecoveryMethod {
+    @SerialName("token") TOKEN,
+    @SerialName("email") EMAIL,
+    @SerialName("guardian") GUARDIAN,
+    @SerialName("cpf") CPF,
+}
+
+/** `Recovery`, as GET /v1/me/account lists it for the old devices. */
+@Serializable
+data class BipeRecovery(
+    @SerialName("id") val id: String,
+    @SerialName("method") val method: BipeRecoveryMethod,
+    @SerialName("purpose") val purpose: BipeRecoveryPurpose,
+    @SerialName("state") val state: BipeRecoveryState,
+    @Serializable(with = InstantSerializer::class) @SerialName("created_at") val createdAt: Instant,
+    @Serializable(with = InstantSerializer::class) @SerialName("ready_at") val readyAt: Instant? = null,
+)
 
 /** `RecoveryStarted`. The new device keeps it, on this device only, until the claim ends. */
 @Serializable
