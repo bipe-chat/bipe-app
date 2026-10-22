@@ -16,6 +16,8 @@ struct TimelineRow: Identifiable, Equatable {
         case poll
         case dateSeparator
         case readMarker
+        /// A local handle-change line (spec handle-change-line, ADR 0066).
+        case handleChange
         case notEncrypted
         case chatStart
     }
@@ -28,6 +30,15 @@ struct TimelineRow: Identifiable, Equatable {
     var details: MessageDetails?
     /// kind dateSeparator only: a time on that day.
     var day: Date?
+    /// kind handleChange only.
+    var handleChange: HandleChangeLine?
+}
+
+/// Type HandleChangeLine of spec handle-change-line.
+struct HandleChangeLine: Equatable {
+    var change: BipeHandleChange
+    /// The person's current display name in this room.
+    var name: String
 }
 
 /// Type MessageDetails of spec timeline-rows.
@@ -119,6 +130,10 @@ struct RoomFacts {
     var members: [String: (name: String, avatarUrl: String?)]
     /// Event IDs whose reply details this screen asked for once (spec message-reply loadReply).
     var replyLoadsTried: Set<String>
+    /// Members of the room now, by user ID (spec handle-change-line: no line for anyone else).
+    var roomMembers: Set<String> = []
+    /// Cached handle changes of the room members (BipeHandleChangeStore), oldest first.
+    var handleChanges: [BipeHandleChange] = []
 }
 
 /// Builds the rows of spec timeline-rows from the SDK timeline items, oldest first.
@@ -274,11 +289,41 @@ enum TimelineRowBuilder {
             }
         }
 
+        rows = placeHandleChanges(rows, items: items, facts: facts, name: name)
+
         if !facts.isEncrypted {
             let at = rows.first?.kind == .chatStart ? 1 : 0
             rows.insert(TimelineRow(id: "bipe-not-encrypted", kind: .notEncrypted), at: at)
         }
         return (dropEmptyDays(rows), hitStart, unknown)
+    }
+
+    /// Spec handle-change-line: local lines before the first row newer than the change, inside the loaded range.
+    /// The timeline is live, so a change newer than the last row shows at the end.
+    private static func placeHandleChanges(_ rows: [TimelineRow], items: [TimelineItem], facts: RoomFacts,
+                                           name: (String) -> String) -> [TimelineRow] {
+        guard !facts.handleChanges.isEmpty else { return rows }
+        // Join times seen in the loaded items: a change before the person joined gets no line.
+        var joinedAt: [String: Date] = [:]
+        for item in items {
+            guard let event = item.asEvent(), case .roomMembership(let userId, _, let change, _) = event.content else { continue }
+            if change == .joined || change == .invitationAccepted {
+                joinedAt[userId] = Date(milliseconds: event.timestamp)
+            }
+        }
+        let anchors = rows.map { BipeHandleChangePlacement.Anchor(timestamp: $0.message?.sentAt) }
+        let placements = BipeHandleChangePlacement.placements(of: facts.handleChanges, in: anchors,
+                                                              members: facts.roomMembers, joinedAt: joinedAt, includesEnd: true)
+        var result = rows
+        // Back to front, so earlier indices stay valid; changes at one index keep their time order.
+        for placement in placements.reversed() {
+            let change = placement.change
+            guard change.line(name: name(change.userId)) != nil else { continue }
+            result.insert(TimelineRow(id: change.lineID, kind: .handleChange,
+                                      handleChange: HandleChangeLine(change: change, name: name(change.userId))),
+                          at: placement.index)
+        }
+        return result
     }
 
     /// A date separator whose day has no row left (only hidden events) goes away.

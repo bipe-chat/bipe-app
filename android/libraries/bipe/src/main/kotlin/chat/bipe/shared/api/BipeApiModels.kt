@@ -94,6 +94,32 @@ data class BipeHandleAvailability(
         get() = reason?.let { BipeHandleProblem.fromId(it) ?: BipeHandleProblem.TAKEN }
 }
 
+/** Contract `HandleChange` (ADR 0066). A first set has no `old`, a removal has no `new`. */
+@Serializable
+data class BipeHandleChange(
+    @SerialName("user_id") val userId: String,
+    @SerialName("old") val old: String? = null,
+    @SerialName("new") val new: String? = null,
+    @Serializable(with = InstantSerializer::class) @SerialName("at") val at: Instant,
+) {
+    /** A stable ID for the local timeline row. */
+    val lineId: String get() = "bipe-handle-change-$userId-${at.toEpochMilli()}"
+
+    companion object {
+        /** The most Matrix IDs per `POST /v1/handle-changes` call. */
+        const val BATCH_SIZE = 100
+    }
+}
+
+@Serializable
+internal data class BipeHandleChangesRequest(
+    @SerialName("user_ids") val userIds: List<String>,
+    @SerialName("since") val since: String? = null,
+)
+
+@Serializable
+internal data class BipeHandleChangesResponse(@SerialName("changes") val changes: List<BipeHandleChange>)
+
 /** `MyHandle`. */
 @Serializable
 data class BipeMyHandle(
@@ -109,6 +135,7 @@ data class BipeAccountStatus(
     @SerialName("user_id") val userId: String,
     /** The last legal version the account accepted (ADR 0113). */
     @SerialName("terms_version") val termsVersion: String? = null,
+    @SerialName("max_accounts") val maxAccounts: Int? = null,
     /** Recoveries that run or ended in the last 7 days (recovery-alert). */
     @SerialName("recoveries") val recoveries: List<BipeRecovery> = emptyList(),
 )

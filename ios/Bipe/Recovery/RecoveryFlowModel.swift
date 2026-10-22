@@ -110,7 +110,8 @@ final class RecoveryFlowModel: ObservableObject {
 
     /// Action appear: reads the synced store for a recovery token and sets the rows.
     func appear() {
-        let signedIn = Set([SessionStore.load()?.userId].compactMap { $0 })
+        // Every account signed in on this phone (ADR 0086): adding an account never recovers one already here.
+        let signedIn = Set(SessionStore.loadAll().keys)
         token = store.recoveryToken(excluding: signedIn)
         hasSyncedToken = token != nil
         rows = BipeOnboardingRecoveryRow.allCases.filter { row in

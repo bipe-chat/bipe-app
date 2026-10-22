@@ -18,9 +18,10 @@ android {
         applicationId = "chat.bipe.app.next"
         minSdk = 26
         targetSdk = 36
-        // CI passes the tester build number (bipe-shared product/version.json build plus the run number).
+        // CI passes the tester version (ADR 0088): the version name of bipe-shared product/version.json and
+        // its build plus the run number. Other builds keep these placeholders.
         versionCode = (findProperty("bipeBuildNumber") as String?)?.toInt() ?: 1
-        versionName = "0.1.0"
+        versionName = (findProperty("bipeVersionName") as String?) ?: "0.1.0"
     }
 
     buildTypes {
@@ -72,4 +73,10 @@ dependencies {
     implementation(libs.androidx.media3.common)
     implementation(libs.androidx.media3.effect)
     implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.compose.material.icons.extended)
+    // Link a computer (spec link-computer-scan): the camera and the QR decoder.
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.zxing.core)
 }

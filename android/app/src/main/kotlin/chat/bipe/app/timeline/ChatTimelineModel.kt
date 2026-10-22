@@ -22,6 +22,9 @@ import chat.bipe.app.media.MediaMessage
 import chat.bipe.app.media.VoiceMessage
 import chat.bipe.app.polls.PollData
 import chat.bipe.shared.R
+import chat.bipe.app.groups.GroupPeople
+import chat.bipe.shared.BipeHandleChangeStore
+import org.matrix.rustcomponents.sdk.MembershipState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -152,6 +155,8 @@ class ChatTimelineModel(
     private val strings: RowStrings,
     /** Spec typing-indicator sharesTyping: the presence setting (bipe_privacy_presence). */
     private val sharesTyping: () -> Boolean,
+    /** Spec handle-change-line: the account's handle-change cache. */
+    private val handleChanges: BipeHandleChangeStore? = null,
 ) {
     private val _roomName = MutableStateFlow("")
     val roomName: StateFlow<String> = _roomName.asStateFlow()
@@ -221,6 +226,7 @@ class ChatTimelineModel(
             // Action appear of spec composer: a saved newMessage draft fills the field.
             if (_draft.value.isEmpty()) room.newMessageDraft()?.let { _draft.value = it }
             if (!facts.isDm) launch { mentionDirectory.load(room, session.userId) }
+            loadHandleChanges(room)
             val typing = Channel<List<String>>(Channel.CONFLATED)
             typingHandle = room.subscribeToTypingNotifications(object : TypingNotificationsListener {
                 override fun call(typingUserIds: List<String>) {
@@ -744,6 +750,30 @@ class ChatTimelineModel(
     // Rows
 
     private fun item(rowId: String): TimelineItem? = items.firstOrNull { it.uniqueId().id == rowId }
+
+    // handle-change-line
+
+    /**
+     * Spec handle-change-line: the cached changes of the room's members now, then a fetch of new ones.
+     * A failed fetch keeps the cache and tries again on the next open.
+     */
+    private suspend fun loadHandleChanges(room: Room) {
+        val store = handleChanges ?: return
+        val members = GroupPeople.members(room, cachedOnly = true) ?: return
+        val joined = members.filter { it.membership is MembershipState.Join }
+        val names = joined.filter { it.userId !in facts.members }.associate { member ->
+            member.userId to MemberInfo(member.displayName?.takeIf { it.isNotEmpty() } ?: member.userId, member.avatarUrl)
+        }
+        val roomMembers = joined.map { it.userId }.toSet()
+        facts = facts.copy(roomMembers = roomMembers, members = facts.members + names, handleChanges = store.changes(roomMembers))
+        scope.launch {
+            store.changes.collect {
+                facts = facts.copy(handleChanges = store.changes(facts.roomMembers))
+                rebuild()
+            }
+        }
+        scope.launch { store.refresh(roomMembers) }
+    }
 
     private fun rebuild() {
         val built = TimelineRowBuilder.rows(items, facts, strings)

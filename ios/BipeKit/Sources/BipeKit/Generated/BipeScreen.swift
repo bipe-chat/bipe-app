@@ -10,8 +10,14 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json
     case accountStart = "account-start"
 
+    /// Account switcher (flow home). Spec: bipe-shared/product/screens/account-switcher.json
+    case accountSwitcher = "account-switcher"
+
     /// App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json
     case appLock = "app-lock"
+
+    /// Tab bar (flow home). Spec: bipe-shared/product/screens/app-tabs.json
+    case appTabs = "app-tabs"
 
     /// Attach (flow chat). Spec: bipe-shared/product/screens/attachment-picker.json
     case attachmentPicker = "attachment-picker"
@@ -237,6 +243,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Upload preview (flow chat). Spec: bipe-shared/product/screens/upload-preview.json
     case uploadPreview = "upload-preview"
+
+    /// Você (flow voce). Spec: bipe-shared/product/screens/voce.json
+    case voce = "voce"
 
     /// Voice message (flow chat). Spec: bipe-shared/product/screens/voice-message.json
     case voiceMessage = "voice-message"

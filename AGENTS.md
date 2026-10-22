@@ -52,7 +52,7 @@ Other source files carry the same three lines in their own comment syntax.
 
 - Allowed dependency licences: Apache-2.0, MIT, BSD, ISC, MPL-2.0. Any other licence needs an ADR.
 - No analytics SDKs. No crash reporters that send data out of Brazil.
-- Icons are Phosphor (MIT) on both platforms. Do not use SF Symbols. `tools/phosphor.json` lists the icons; `node tools/phosphor.mjs <unpacked @phosphor-icons/core package>` writes them into `ios/Phosphor` (Swift package, `PhosphorIcon`) and `android/libraries/phosphor` (module, `PhosphorIcon`) with Phosphor's LICENSE. Do not hand-edit the output.
+- Icons are Phosphor (MIT) on both platforms. Do not use SF Symbols. One exception ([ADR 0149](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0149-native-tab-bar-icons.md)): the tab bar uses native icons, SF Symbols in the standard SwiftUI tab bar on iOS and Material icons (`material-icons-extended`) in the standard Material 3 navigation bar on Android, with no custom size or style. `tools/phosphor.json` lists the icons; `node tools/phosphor.mjs <unpacked @phosphor-icons/core package>` writes them into `ios/Phosphor` (Swift package, `PhosphorIcon`) and `android/libraries/phosphor` (module, `PhosphorIcon`) with Phosphor's LICENSE. Do not hand-edit the output.
 - Colours come from `BipeColor` (iOS) and `BipeTheme.colors` (Android), generated from bipe-shared `design/tokens.json`. Do not write colour literals in UI code.
 - CI runs the dependency deny-list, a licence check of every dependency, the strings check and the similarity scan (see "Checks").
 
@@ -89,7 +89,7 @@ The workflow `.github/workflows/licence.yml` runs these jobs on every PR. All of
 
 ## Tester builds
 
-Every push to main runs `.github/workflows/testflight.yml` (also on demand: `gh workflow run testflight.yml --repo bipe-chat/bipe-app --ref main`). The build number is bipe-shared `product/version.json` build plus the run number, on both platforms.
+Every push to main runs `.github/workflows/testflight.yml` (also on demand: `gh workflow run testflight.yml --repo bipe-chat/bipe-app --ref main`). The version name is bipe-shared `product/version.json` version and the build number is its build plus the run number, on both platforms (ADR 0088). Other builds keep the placeholder version `0.1.0`.
 
 - iOS: the build goes to TestFlight (app "Bipe Next", internal testing group). The run also keeps an ad hoc IPA for the devices registered in team `992N457T8D` as the artifact `bipe-next-ipa`. `tools/asc.mjs` does the App Store Connect API steps. Signing is automatic through the API key (variables `ASC_KEY_ID`, `ASC_ISSUER_ID`, secret `ASC_KEY_P8`).
 - Android: the run keeps a debug-signed APK of `chat.bipe.app.next` as the artifact `bipe-next-apk`.

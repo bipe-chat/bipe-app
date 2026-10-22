@@ -79,6 +79,15 @@ class BipeApiClient(baseUrl: String) {
         response = BipeMyHandle.serializer(),
     )
 
+    /** `POST /v1/handle-changes` (ADR 0066). At most [BipeHandleChange.BATCH_SIZE] IDs. Oldest first. */
+    suspend fun handleChanges(userIds: List<String>, since: java.time.Instant?, accessToken: String): List<BipeHandleChange> = send(
+        "POST",
+        listOf("v1", "handle-changes"),
+        body = encode(BipeHandleChangesRequest.serializer(), BipeHandleChangesRequest(userIds, since?.toString())),
+        accessToken = accessToken,
+        response = BipeHandleChangesResponse.serializer(),
+    ).changes
+
     /** `DELETE /v1/me/handle` (ADR 0066). The cooldown stays. */
     suspend fun removeMyHandle(accessToken: String): BipeMyHandle =
         send("DELETE", listOf("v1", "me", "handle"), accessToken = accessToken, response = BipeMyHandle.serializer())
@@ -154,9 +163,13 @@ class BipeApiClient(baseUrl: String) {
         body: String? = null,
         accessToken: String? = null,
         response: KSerializer<T>?,
+        query: List<Pair<String, String>> = emptyList(),
     ): T = withContext(Dispatchers.IO) {
         // Each segment is percent-encoded, so a handle or a code cannot add path segments.
-        val url = URL(root + path.joinToString(separator = "/", prefix = "/") { URLEncoder.encode(it, "UTF-8").replace("+", "%20") })
+        val encodedQuery = query.joinToString(separator = "&", prefix = if (query.isEmpty()) "" else "?") { (name, value) ->
+            URLEncoder.encode(name, "UTF-8") + "=" + URLEncoder.encode(value, "UTF-8")
+        }
+        val url = URL(root + path.joinToString(separator = "/", prefix = "/") { URLEncoder.encode(it, "UTF-8").replace("+", "%20") } + encodedQuery)
         val connection = try {
             url.openConnection() as HttpURLConnection
         } catch (error: IOException) {

@@ -13,12 +13,14 @@ options:
   # development region (DEVELOPMENT_LANGUAGE, knownRegions) to en, and iOS falls back to it
   # when no preferred language of the phone matches a localization.
   developmentLanguage: pt-BR
+  # iOS 18: the SwiftUI Tab API with the search tab role (spec app-tabs, ADR 0053).
   deploymentTarget:
     iOS: "18.0"
   createIntermediateGroups: true
 
 settings:
   base:
+    # Placeholders. The tester build sets both from bipe-shared product/version.json (testflight.yml, ADR 0088).
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
@@ -61,6 +63,8 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIRequiresFullScreen: true
         # App lock, the owner checks of settings (spec app-lock, pin-change, data-export) and device approval (device-verification).
+        # Link a computer (spec link-computer-scan): the camera reads the QR code of chat.bipe.net.br.
+        NSCameraUsageDescription: O Bipe usa a câmera para ler o código QR que aparece no computador.
         NSFaceIDUsageDescription: O Bipe usa o Face ID para abrir o app e para confirmar que é você.
         # The shell encrypts nothing itself. Revisit before end-to-end encryption ships.
         ITSAppUsesNonExemptEncryption: false
@@ -76,6 +80,9 @@ targets:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:
         com.apple.security.application-groups: [group.chat.bipe.next]
+        # Pushes through Bipe's Sygnal (spec push-registration). Export for TestFlight and ad hoc
+        # signs with the production environment.
+        aps-environment: development
         # The app's own group first, then the fork's group (ADR 0147): the app reads the device
         # account that the fork stored (BipeKit BipeCredentialStore) and never writes there.
         keychain-access-groups:
@@ -99,12 +106,19 @@ targets:
       - target: BipeShare
     scheme: {}
 
-  # Empty notification service extension. Decryption of pushes on the device comes later.
+  # Notification service extension (spec notification-service): fetches and decrypts the event of a
+  # content-free push. It opens the account from the store in the app group, so it compiles the app's
+  # session files too; keep those free of app-only types.
   BipeNotificationService:
     type: app-extension
     platform: iOS
     sources:
       - path: NotificationService
+      - path: Bipe/Common/AppConfig.swift
+      - path: Bipe/Account/AccountSession.swift
+      - path: Bipe/Account/AccountStep.swift
+      - path: Bipe/Account/SessionStore.swift
+      - path: Bipe/Notifications/NotificationKeys.swift
     info:
       path: SupportFiles/BipeNotificationService/Info.plist
       properties:
@@ -120,9 +134,17 @@ targets:
       path: SupportFiles/BipeNotificationService/BipeNotificationService.entitlements
       properties:
         com.apple.security.application-groups: [group.chat.bipe.next]
+        # The app's keychain group first, so the extension reads the session the app saved (SessionStore).
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)chat.bipe.app.next
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next.nse
+    dependencies:
+      - package: MatrixRustSDK
+        product: MatrixRustSDK
+      - package: BipeKit
+        product: BipeKit
 
   # Empty share extension. Sharing into a chat comes later.
   BipeShare:

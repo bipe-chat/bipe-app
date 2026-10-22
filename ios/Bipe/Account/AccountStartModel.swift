@@ -12,7 +12,15 @@ struct SignupOutcome: Equatable {
     var inviterHandle: String?
 }
 
+private struct AccountStartupSnapshot: Sendable {
+    let saved: [String: Session]
+    let credentials: [DeviceCredential]
+}
+
 /// Spec account-start (bipe-shared product/screens/account-start.json).
+///
+/// Opens every account on this phone (ADR 0086): one SDK client and session store per Matrix ID. The current account
+/// is the one used last, else the oldest on the phone.
 @MainActor
 final class AccountStartModel: ObservableObject {
     enum Phase: Equatable {
@@ -22,10 +30,20 @@ final class AccountStartModel: ObservableObject {
         case ready
     }
 
-    @Published private(set) var phase: Phase = .opening
+    @Published private(set) var phase: Phase = .opening {
+        didSet { AccountStep.log.notice("phase: \(String(describing: self.phase), privacy: .public)") }
+    }
     @Published private(set) var userId: String?
     /// Set right after a sign-up: the app shows signup-done before chat-list.
     @Published var signupOutcome: SignupOutcome?
+    /// The open accounts, oldest first.
+    @Published private(set) var sessions: [AccountSession] = []
+
+    /// The current account.
+    var session: AccountSession? {
+        sessions.first { $0.userId == userId }
+    }
+
     /// noAccount shows recovery-start instead of onboarding-welcome: after "Já tenho conta", or while a kept
     /// recovery waits (spec recovery-waiting notes).
     @Published var showsRecovery = BipeCredentialStore().pendingRecovery() != nil
@@ -38,31 +56,71 @@ final class AccountStartModel: ObservableObject {
         recoveryLink = url
         showsRecovery = true
     }
-    private(set) var session: AccountSession?
+    /// Spec push-registration: keep this phone's pusher on the current account; notification actions use it too.
+    private func attachServices(_ session: AccountSession) {
+        guard attachedUserId != session.userId else { return }
+        attachedUserId = session.userId
+        SessionStore.pushUserId = session.userId
+        PushRegistration.shared.attach(session)
+        NotificationActions.shared.attach(session)
+    }
+    private var attachedUserId: String?
 
     let api = BipeAPIClient(baseURL: AppConfig.apiBaseURL)
+    private var starting = false
 
-    /// Action start: restore the saved session; else finish a pending sign-up (POST /v1/signup/resume, ADR 0094);
-    /// else sign in with the device credential; else noAccount. Recovery is bipe-chat/bipe#556.
+    /// Action start: open every account on this phone, from its saved session or else its device credential; with no
+    /// account, finish a pending sign-up (POST /v1/signup/resume, ADR 0094); else noAccount. Recovery is bipe-chat/bipe#556.
     func start() async {
-        guard session == nil else { return }
+        guard sessions.isEmpty, !starting else { return }
+        starting = true
+        defer { starting = false }
         phase = .opening
+
+        let snapshot: AccountStartupSnapshot
         do {
-            if let saved = SessionStore.load() {
-                userId = saved.userId
-                session = try await AccountSession.restore(saved)
-            } else if let resumed = try await resumePendingSignup() {
-                session = resumed
-            } else if let credential = DeviceCredential.newest() {
-                userId = credential.userId
-                session = try await AccountSession.signIn(userId: credential.userId, password: credential.password)
+            snapshot = try await AccountStep.run("read saved accounts") {
+                AccountStartupSnapshot(saved: SessionStore.loadAll(), credentials: DeviceCredential.all())
+            }
+        } catch {
+            if !Task.isCancelled { phase = .failed }
+            return
+        }
+        let saved = snapshot.saved
+        let credentials = snapshot.credentials
+        AccountStep.log.info("start: \(saved.count) saved sessions, \(credentials.count) device credentials")
+        let found = credentials.map(\.userId) + saved.keys.sorted().filter { id in !credentials.contains { $0.userId == id } }
+        let accounts = AccountList.merge(found: found)
+
+        // The current account first, so the app shows it as soon as it runs; the others open after it.
+        var current: AccountSession?
+        var rest = AccountList.preferred(in: accounts)
+        while current == nil, !rest.isEmpty {
+            guard !Task.isCancelled else { return }
+            let userId = rest.removeFirst()
+            current = await open(userId, saved: saved[userId], credential: credentials.first { $0.userId == userId })
+        }
+        if let current {
+            show(current)
+            for userId in rest {
+                if let session = await open(userId, saved: saved[userId], credential: credentials.first { $0.userId == userId }) {
+                    add(session)
+                }
+            }
+            return
+        }
+        if !accounts.isEmpty {
+            if !Task.isCancelled { phase = .failed }
+            return
+        }
+        do {
+            if let resumed = try await resumePendingSignup() {
+                show(resumed)
             } else {
                 phase = .noAccount
-                return
             }
-            phase = .ready
         } catch {
-            phase = .failed
+            if !Task.isCancelled { phase = .failed }
         }
     }
 
@@ -74,28 +132,39 @@ final class AccountStartModel: ObservableObject {
 
     /// Starts the sync again when the app comes back to the foreground.
     func resume() async {
-        await session?.syncService.start()
+        for session in sessions {
+            await session.syncService.start()
+        }
+        await PushRegistration.shared.appBecameActive()
+    }
+
+    /// app-tabs switchAccount: makes that account current and saves the choice for the next start.
+    func switchAccount(to userId: String) {
+        guard let session = sessions.first(where: { $0.userId == userId }) else { return }
+        self.userId = userId
+        AccountList.current = userId
+        attachServices(session)
     }
 
     /// signup-create made the account and signed in.
     func didSignUp(_ session: AccountSession, outcome: SignupOutcome) {
-        self.session = session
-        userId = session.userId
         if let inviterUserId = outcome.inviterUserId {
             // The chat with the inviter shows the hint until this account sends them a first message (ADR 0034).
             BipeInviteStore(userID: session.userId)
                 .setInviterGreeting(BipeInviterGreeting(userID: inviterUserId, handle: outcome.inviterHandle))
         }
+        _ = AccountList.merge(found: [session.userId])
         signupOutcome = outcome
-        phase = .ready
+        show(session)
+        AccountList.current = session.userId
     }
 
     /// A recovery path signed in (recovery-pin, recovery-waiting or the beta sign-in): chat-list, then encryption-status.
     func didRecover(_ session: AccountSession) {
-        self.session = session
-        userId = session.userId
+        _ = AccountList.merge(found: [session.userId])
         showsRecovery = false
-        phase = .ready
+        show(session)
+        AccountList.current = session.userId
     }
 
     /// signup-done finished: chat-list shows, with the inviter's chat open when there is one.
@@ -107,33 +176,101 @@ final class AccountStartModel: ObservableObject {
     /// The chat that chat-list opens first, once.
     @Published var initialRoomId: String?
 
-    /// The sign-out of terms-reaccept: the phone goes back to onboarding.
-    func signOut() async {
-        guard let session else { return }
-        await session.signOut()
-        self.session = nil
-        userId = nil
+    /// The sign-out of terms-reaccept: the current account leaves this phone. Another account on the phone becomes
+    /// current; with none left the phone goes back to onboarding.
+    func signOut(userId targetId: String? = nil, alreadyLoggedOut: Bool = false) async {
+        let id = targetId ?? userId
+        guard let session = sessions.first(where: { $0.userId == id }) else { return }
+        if attachedUserId == session.userId {
+            // Spec push-registration, action signOut: the pusher goes before the session ends.
+            await PushRegistration.shared.signOut()
+            attachedUserId = nil
+            SessionStore.pushUserId = nil
+        }
+        await session.signOut(alreadyLoggedOut: alreadyLoggedOut)
+        AccountList.remove(session.userId)
+        sessions.removeAll { $0.userId == session.userId }
+        guard userId == session.userId else { return }
         signupOutcome = nil
-        phase = .noAccount
+        if let next = sessions.first {
+            switchAccount(to: next.userId)
+        } else {
+            userId = nil
+            phase = .noAccount
+        }
+    }
+
+    /// Shows the account without saving it as the choice: an account that failed to open now stays the choice.
+    private func show(_ session: AccountSession) {
+        add(session)
+        userId = session.userId
+        attachServices(session)
+        phase = .ready
+    }
+
+    private func add(_ session: AccountSession) {
+        guard !sessions.contains(where: { $0.userId == session.userId }) else { return }
+        let order = AccountList.order
+        sessions.append(session)
+        sessions.sort { (order.firstIndex(of: $0.userId) ?? .max) < (order.firstIndex(of: $1.userId) ?? .max) }
+    }
+
+    /// Restores the account's saved session; when there is none, or it no longer works, signs in with the device
+    /// credential. `nil` when neither works now.
+    private func open(_ userId: String, saved: Session?, credential: DeviceCredential?) async -> AccountSession? {
+        let log = AccountStep.log
+        if let saved {
+            do {
+                return try await AccountSession.restore(saved)
+            } catch AccountStep.Failure.timedOut(_) {
+                // A timed-out restore may still hold its SDK store. Do not delete that store and sign in over it.
+                log.notice("restore timed out; saved session retained")
+                return nil
+            } catch is CancellationError {
+                return nil
+            } catch AccountStep.Failure.noStore {
+                // A saved session from an earlier install: drop it and sign in again.
+                log.notice("saved session without its store, dropped")
+                SessionStore.delete(userId: userId)
+            } catch {
+                log.error("restore failed")
+            }
+        }
+        guard let credential else {
+            log.notice("no device credential for this account")
+            return nil
+        }
+        do {
+            return try await AccountSession.signIn(userId: credential.userId, password: credential.password)
+        } catch {
+            log.error("sign-in failed")
+            return nil
+        }
     }
 
     /// A sign-up whose answer never reached this phone (ADR 0094). `nil` when there is nothing to finish.
     private func resumePendingSignup() async throws -> AccountSession? {
-        let store = BipeCredentialStore()
-        guard let pending = store.pendingSignup() else { return nil }
+        guard let pending = try await AccountStep.run("read pending signup", {
+            BipeCredentialStore().pendingSignup()
+        }) else { return nil }
         let response: BipeSignupResponse
+        let api = api
         do {
-            response = try await api.resumeSignup(signupKey: pending.key)
-        } catch {
-            if case .server(.notFound, _, _) = error {
-                store.deletePendingSignup()
+            response = try await AccountStep.run("resume signup") {
+                try await api.resumeSignup(signupKey: pending.key)
             }
+        } catch {
+            if let apiError = error as? BipeAPIError, case .server(.notFound, _, _) = apiError {
+                try await AccountStep.run("remove pending signup") { BipeCredentialStore().deletePendingSignup() }
+            }
+            if error is CancellationError || error is AccountStep.Failure { throw error }
             return nil
         }
-        guard let credentials = response.credentials, store.save(credentials) else { return nil }
-        userId = credentials.userId
+        guard let credentials = response.credentials else { return nil }
+        guard try await AccountStep.run("save signup credential", { BipeCredentialStore().save(credentials) }) else { return nil }
         let session = try await AccountSession.signIn(userId: credentials.userId, password: credentials.password)
-        store.deletePendingSignup()
+        try await AccountStep.run("remove pending signup") { BipeCredentialStore().deletePendingSignup() }
+        _ = AccountList.merge(found: [session.userId])
         return session
     }
 }

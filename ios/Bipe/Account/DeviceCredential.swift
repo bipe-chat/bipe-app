@@ -2,22 +2,21 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-import Foundation
 import BipeKit
+import Foundation
 
-/// The hidden MAS password of the device account (ADR 0057), read from the keychain.
-///
-/// The item layout is the one of BipeKit `BipeCredentialStore`: generic password, service
-/// `chat.bipe.account.password`, `kSecAttrAccount` = Matrix ID (ADR 0086). This type only reads.
-/// It never logs or shows the password.
-struct DeviceCredential: CustomStringConvertible {
+/// Device-account discovery uses BipeCredentialStore's own-first reads and sign-out exclusions (ADR 0147).
+struct DeviceCredential: Sendable, CustomStringConvertible {
     let userId: String
     let password: String
+    let created: Date
 
     var description: String { "DeviceCredential(\(userId))" }
 
-    /// Own-group records win over legacy records for the same account (ADR 0147).
-    static func newest() -> DeviceCredential? {
-        BipeCredentialStore().password().map { DeviceCredential(userId: $0.userID, password: $0.secret) }
+    /// Oldest account first, with the own credential winning over a legacy duplicate (spec account-start).
+    static func all() -> [DeviceCredential] {
+        BipeCredentialStore().passwordsWithCreationDates()
+            .map { DeviceCredential(userId: $0.item.userID, password: $0.item.secret, created: $0.created) }
+            .sorted { $0.created < $1.created }
     }
 }

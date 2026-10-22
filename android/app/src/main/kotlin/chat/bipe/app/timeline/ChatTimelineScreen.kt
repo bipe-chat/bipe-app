@@ -81,6 +81,8 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.composer.MentionSuggestion
+import chat.bipe.app.notifications.NotificationsPrompt
+import chat.bipe.shared.bipeHaptic
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.groups.DmDeleteSheet
 import chat.bipe.app.media.MediaViewer
@@ -95,7 +97,6 @@ import chat.bipe.app.polls.PollDetailScreen
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
-import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
 import java.io.File
@@ -122,7 +123,11 @@ fun ChatTimelineScreen(
         label = { context.getString(it) },
     )
     val model = remember(roomId) {
-        ChatTimelineModel(session, roomId, scope, InviterGreetings(context, session.userId), strings, sharesTyping = { sharesTyping(context) })
+        ChatTimelineModel(
+            session, roomId, scope, InviterGreetings(context, session.userId), strings,
+            sharesTyping = { sharesTyping(context) },
+            handleChanges = HandleChangeStores.store(context, session),
+        )
     }
     DisposableEffect(model) {
         model.start()
@@ -155,6 +160,7 @@ fun ChatTimelineScreen(
     var attaching by remember { mutableStateOf(false) }
     var upload by remember { mutableStateOf<PickedUpload?>(null) }
     var showsStickers by remember { mutableStateOf(false) }
+    NotificationsPrompt(session, roomId, messages)
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).

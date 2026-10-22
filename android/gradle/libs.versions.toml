@@ -20,6 +20,10 @@ media3 = "1.8.0"
 tink = "1.18.0"
 junit = "4.13.2"
 truth = "1.4.4"
+# The last release of the Material icons; the tab bar uses them (ADR 0149).
+compose-material-icons = "1.7.8"
+camerax = "1.4.2"
+zxing = "3.5.3"
 
 [libraries]
 matrix-rust-sdk = { module = "org.matrix.rustcomponents:sdk-android", version.ref = "matrix-rust-sdk" }
@@ -44,6 +48,12 @@ androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-media3-common = { module = "androidx.media3:media3-common", version.ref = "media3" }
 androidx-media3-effect = { module = "androidx.media3:media3-effect", version.ref = "media3" }
 androidx-media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "compose-material-icons" }
+
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camerax" }
+androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
+androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

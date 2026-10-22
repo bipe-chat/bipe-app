@@ -157,8 +157,9 @@ class RecoveryFlowModel(
      * on this phone only until Block Store is in the app (BipeAccountVault), so the row shows after a sign-out.
      */
     suspend fun appear() {
-        val signedIn = sessionStore.load()?.userId
-        token = vault.read().accounts.entries.lastOrNull { it.key != signedIn && it.value.token != null }?.let { it.key to it.value.token!! }
+        // Every account signed in on this phone (ADR 0086): adding an account never recovers one already here.
+        val signedIn = sessionStore.loadAll().keys
+        token = vault.read().accounts.entries.lastOrNull { it.key !in signedIn && it.value.token != null }?.let { it.key to it.value.token!! }
         _hasSyncedToken.value = token != null
         _rows.value = BipeOnboardingRecoveryRow.entries.filter { row -> row.gate == null && (!row.needsSyncedToken || token != null) }
     }
