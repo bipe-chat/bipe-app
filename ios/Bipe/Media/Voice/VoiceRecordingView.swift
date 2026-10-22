@@ -9,6 +9,8 @@ import SwiftUI
 /// Spec voice-recording: replaces the composer field while the person records and checks the voice message.
 struct VoiceRecordingView: View {
     @ObservedObject var model: VoiceRecordingModel
+    /// Back to the text field after delete or send.
+    var close: () -> Void = {}
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -27,6 +29,10 @@ struct VoiceRecordingView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .accessibilityIdentifier(BipeScreen.voiceRecording.rawValue)
+        .task { await model.start() }
+        .onChange(of: model.isClosed) { _, closed in
+            if closed { close() }
+        }
     }
 
     private var durationLabel: String {

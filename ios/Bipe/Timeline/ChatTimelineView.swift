@@ -20,6 +20,10 @@ struct ChatTimelineView: View {
     @State private var openPollId: String?
     @StateObject private var voicePlayer = VoicePlayer()
     @State private var viewerRowId: String?
+    // composer
+    @State private var attaching = false
+    @State private var upload: PickedUpload?
+    @State private var showsStickers = false
     private let media: MediaLoader
     private let session: AccountSession
     private let roomId: String
@@ -40,7 +44,22 @@ struct ChatTimelineView: View {
                 }
             }
             TypingLine(names: model.typingNames)
-            ComposerBar(model: model) { creatingPoll = true }
+            ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
+        }
+        .attachmentPicker(isPresented: $attaching,
+                          onPicked: { urls in upload = PickedUpload(urls: urls, replyToEventId: model.takeReplyEventId()) },
+                          onStickers: { showsStickers = true },
+                          onPoll: model.canPoll ? { creatingPoll = true } : nil)
+        .fullScreenCover(item: $upload) { upload in
+            if let timeline = model.timeline {
+                UploadPreviewView(model: UploadPreviewModel(urls: upload.urls, client: model.client, timeline: timeline,
+                                                            replyToEventId: upload.replyToEventId),
+                                  close: { self.upload = nil })
+            }
+        }
+        .sheet(isPresented: $showsStickers) {
+            StickerPickerView(model: StickerPickerModel(client: model.client, roomId: roomId), loader: media,
+                              close: { showsStickers = false })
         }
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .overlay(alignment: .bottom) { noticeView }
@@ -98,6 +117,7 @@ struct ChatTimelineView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await model.markAsRead() } }
+            if phase == .background { model.leave() }
         }
         .sheet(isPresented: presence(\.actionsRowId)) {
             if let row = model.row(model.actionsRowId) {
@@ -270,50 +290,94 @@ private struct TypingDots: View {
     }
 }
 
-/// The composer with the reply bar (message-reply) and the edit bar (message-edit).
 private struct PollSheetId: Identifiable {
     let id: String
 }
 
+/// Picked files for upload-preview, with the reply target taken when they were picked.
+private struct PickedUpload: Identifiable {
+    let id = UUID()
+    let urls: [URL]
+    let replyToEventId: String?
+}
+
+/// Spec composer: Markdown text, @ mentions in groups, the draft, and the entries to attachments,
+/// stickers and voice. The reply bar (message-reply) and the edit bar (message-edit) sit above it.
 private struct ComposerBar: View {
     @ObservedObject var model: ChatTimelineModel
-    /// Opens poll-create (the attach menu comes with the composer spec, bipe-chat/bipe#563).
-    let createPoll: () -> Void
+    let media: MediaLoader
+    let openAttachments: () -> Void
+    let openStickers: () -> Void
     @FocusState private var focused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
-            if let reply = model.replyingTo {
-                bar(icon: .arrowBendUpLeft,
-                    title: BipeStrings.appMessageReplyingTo(reply.senderName ?? ""),
-                    preview: reply.preview,
-                    onClose: model.cancelReply)
-            } else if let editing = model.editing {
-                bar(icon: .pencilSimple,
-                    title: BipeStrings.appMessageEditing,
-                    preview: editing.originalText,
-                    onClose: model.cancelEdit)
+            if !model.canPost {
+                Text(BipeStrings.dmNoPermissionToPost)
+                    .font(.footnote)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(16)
+            } else if let recording = model.recording {
+                VoiceRecordingView(model: recording) { model.recording = nil }
+            } else {
+                composer
             }
-            HStack(alignment: .bottom, spacing: 8) {
-                if model.editing == nil {
-                    Button(action: createPoll) {
-                        PhosphorIcon.chartBar.image
-                            .resizable()
-                            .frame(width: 22, height: 22)
-                            .padding(9)
-                            .foregroundStyle(BipeColor.glyphPrimary)
-                    }
-                    .accessibilityLabel(BipeStrings.appPollCreateTitle)
-                }
+        }
+        .background(BipeColor.surfaceRaised.ignoresSafeArea(edges: .bottom))
+        .accessibilityIdentifier(BipeScreen.composer.rawValue)
+        .onChange(of: model.replyingToRowId) { _, rowId in
+            if rowId != nil { focused = true }
+        }
+        .onChange(of: model.editing) { _, editing in
+            if editing != nil { focused = true }
+        }
+    }
+
+    @ViewBuilder
+    private var composer: some View {
+        if !model.suggestions.isEmpty {
+            suggestionList
+        }
+        if let reply = model.replyingTo {
+            bar(icon: .arrowBendUpLeft,
+                title: BipeStrings.appMessageReplyingTo(reply.senderName ?? ""),
+                preview: reply.preview,
+                onClose: model.cancelReply)
+        } else if let editing = model.editing {
+            bar(icon: .pencilSimple,
+                title: BipeStrings.appMessageEditing,
+                preview: editing.originalText,
+                onClose: model.cancelEdit)
+        }
+        HStack(alignment: .bottom, spacing: 8) {
+            if model.editing == nil {
+                iconButton(.paperclip, label: BipeStrings.appComposerAttach, action: openAttachments)
+            }
+            HStack(alignment: .bottom, spacing: 4) {
                 TextField(BipeStrings.appTimelineComposerPlaceholder,
                           text: Binding(get: { model.draft }, set: { model.editDraft($0) }),
                           axis: .vertical)
                     .focused($focused)
                     .lineLimit(1...5)
-                    .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 20).fill(BipeColor.surfaceSunken))
                     .foregroundStyle(BipeColor.inkPrimary)
+                if model.editing == nil {
+                    Button(action: openStickers) {
+                        PhosphorIcon.sticker.image
+                            .resizable()
+                            .frame(width: 20, height: 20)
+                            .foregroundStyle(BipeColor.glyphSecondary)
+                            .padding(.vertical, 8)
+                    }
+                    .accessibilityLabel(BipeStrings.actionStickers)
+                }
+            }
+            .padding(.horizontal, 12)
+            .background(RoundedRectangle(cornerRadius: 20).fill(BipeColor.surfaceSunken))
+            // The send button and the record button share one place (spec composer notes).
+            if model.canSend || model.editing != nil {
                 Button {
                     Task { await model.send() }
                 } label: {
@@ -326,17 +390,67 @@ private struct ComposerBar: View {
                 }
                 .disabled(!model.canSend)
                 .accessibilityLabel(model.editing == nil ? BipeStrings.appTimelineSend : BipeStrings.appMessageSaveEdit)
+            } else {
+                Button {
+                    focused = false
+                    model.startRecording()
+                } label: {
+                    PhosphorIcon.microphone.image
+                        .resizable()
+                        .frame(width: 22, height: 22)
+                        .padding(9)
+                        .foregroundStyle(BipeColor.inkOnAccent)
+                        .background(Circle().fill(BipeColor.accentFill))
+                }
+                .accessibilityLabel(BipeStrings.appComposerRecord)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
         }
-        .background(BipeColor.surfaceRaised.ignoresSafeArea(edges: .bottom))
-        .onChange(of: model.replyingToRowId) { _, rowId in
-            if rowId != nil { focused = true }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    /// The @ suggestions of a group (spec composer, ADR 0141).
+    private var suggestionList: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(model.suggestions) { suggestion in
+                    Button {
+                        model.pickSuggestion(suggestion)
+                    } label: {
+                        HStack(spacing: 10) {
+                            AvatarView(name: suggestion.name, mxcUrl: suggestion.avatarUrl, loader: media, size: 32)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(suggestion.name)
+                                    .foregroundStyle(BipeColor.inkPrimary)
+                                if let handle = suggestion.handle {
+                                    Text(handle)
+                                        .font(.caption)
+                                        .foregroundStyle(BipeColor.inkSecondary)
+                                }
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
-        .onChange(of: model.editing) { _, editing in
-            if editing != nil { focused = true }
+        .frame(maxHeight: 200)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func iconButton(_ icon: PhosphorIcon, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            icon.image
+                .resizable()
+                .frame(width: 22, height: 22)
+                .padding(9)
+                .foregroundStyle(BipeColor.glyphPrimary)
         }
+        .accessibilityLabel(label)
     }
 
     private func bar(icon: PhosphorIcon, title: String, preview: String?, onClose: @escaping () -> Void) -> some View {

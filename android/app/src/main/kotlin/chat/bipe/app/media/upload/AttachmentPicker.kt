@@ -63,6 +63,8 @@ import java.io.File
 fun AttachmentPicker(
     onPicked: (List<Pair<File, String?>>) -> Unit,
     onStickers: () -> Unit,
+    /** Action poll: opens poll-create. null hides the row (canPoll false). */
+    onPoll: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -102,7 +104,7 @@ fun AttachmentPicker(
                 color = colors.inkPrimary,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
-            // Order of rows: photos and videos, camera, file, sticker (spec attachment-picker notes).
+            // Order of rows: photos and videos, camera, file, sticker, poll (spec attachment-picker notes).
             PickerRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_app_attach_photos)) {
                 photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
             }
@@ -128,6 +130,12 @@ fun AttachmentPicker(
             PickerRow(PhosphorIcon.STICKER, stringResource(R.string.bipe_action_stickers)) {
                 onDismiss()
                 onStickers()
+            }
+            if (onPoll != null) {
+                PickerRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_app_attach_poll)) {
+                    onDismiss()
+                    onPoll()
+                }
             }
         }
     }

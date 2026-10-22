@@ -18,6 +18,8 @@ struct AttachmentPicker: ViewModifier {
     let onPicked: ([URL]) -> Void
     /// Action sticker: opens sticker-picker.
     let onStickers: () -> Void
+    /// Action poll: opens poll-create. nil hides the row (canPoll false).
+    let onPoll: (() -> Void)?
 
     /// permissionProblem of spec attachment-picker.
     enum PermissionProblem {
@@ -36,7 +38,7 @@ struct AttachmentPicker: ViewModifier {
         content
             .sheet(isPresented: $isPresented) {
                 sheet
-                    .presentationDetents([.height(320)])
+                    .presentationDetents([.height(380)])
                     .presentationDragIndicator(.visible)
             }
             .photosPicker(isPresented: $showsPhotos,
@@ -98,6 +100,12 @@ struct AttachmentPicker: ViewModifier {
             row(.sticker, BipeStrings.actionStickers) {
                 isPresented = false
                 onStickers()
+            }
+            if let onPoll {
+                row(.chartBar, BipeStrings.appAttachPoll) {
+                    isPresented = false
+                    onPoll()
+                }
             }
             Spacer(minLength: 0)
         }
@@ -224,7 +232,8 @@ private struct CameraPicker: UIViewControllerRepresentable {
 }
 
 extension View {
-    func attachmentPicker(isPresented: Binding<Bool>, onPicked: @escaping ([URL]) -> Void, onStickers: @escaping () -> Void) -> some View {
-        modifier(AttachmentPicker(isPresented: isPresented, onPicked: onPicked, onStickers: onStickers))
+    func attachmentPicker(isPresented: Binding<Bool>, onPicked: @escaping ([URL]) -> Void, onStickers: @escaping () -> Void,
+                          onPoll: (() -> Void)?) -> some View {
+        modifier(AttachmentPicker(isPresented: isPresented, onPicked: onPicked, onStickers: onStickers, onPoll: onPoll))
     }
 }

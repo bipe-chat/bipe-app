@@ -1289,7 +1289,7 @@
 "bipe_app_media_file" = "Arquivo";
 "bipe_app_media_sticker" = "Sticker";
 "bipe_app_media_voice" = "Mensagem de voz";
-"bipe_app_voice_play" = "Tocar";
+"bipe_app_voice_play" = "Ouvir";
 "bipe_app_voice_pause" = "Pausar";
 "bipe_app_media_share" = "Compartilhar";
 "bipe_app_media_save" = "Salvar no celular";

@@ -4,15 +4,27 @@
 
 package chat.bipe.app.timeline
 
+import android.content.Context
+import android.os.Build
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.displayName
 import chat.bipe.app.common.toVectorDiff
+import chat.bipe.app.composer.ComposerMarkdown
+import chat.bipe.app.composer.ComposerMention
+import chat.bipe.app.composer.MentionDirectory
+import chat.bipe.app.composer.MentionSuggestion
+import chat.bipe.app.composer.keepDraft
+import chat.bipe.app.composer.newMessageDraft
+import chat.bipe.app.media.voice.VoiceRecordingModel
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.app.media.VoiceMessage
 import chat.bipe.app.polls.PollData
+import chat.bipe.shared.R
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -23,6 +35,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.DateDividerMode
 import org.matrix.rustcomponents.sdk.EditedContent
+import org.matrix.rustcomponents.sdk.MessageLikeEventType
 import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Room
@@ -113,6 +126,20 @@ data class TimelineInteractions(
     val notice: TimelineNotice? = null,
 )
 
+/** State of spec composer that the timeline does not hold already (text is the draft). */
+data class ComposerState(
+    /** The pills in the draft, in order. */
+    val mentions: List<ComposerMention> = emptyList(),
+    /** @ suggestions in a group; empty hides the list. */
+    val suggestions: List<MentionSuggestion> = emptyList(),
+    /** false: the composer is off, with the reason bar instead. */
+    val canPost: Boolean = true,
+    /** The poll row of attachment-picker. */
+    val canPoll: Boolean = true,
+    /** mode recording: voice-recording replaces the field. */
+    val recording: VoiceRecordingModel? = null,
+)
+
 /**
  * Specs chat-timeline, timeline-rows, message-actions, message-reply, message-reactions, message-edit,
  * message-delete, message-report, read-receipts and typing-indicator (bipe-shared product/screens).
@@ -128,6 +155,10 @@ class ChatTimelineModel(
 ) {
     private val _roomName = MutableStateFlow("")
     val roomName: StateFlow<String> = _roomName.asStateFlow()
+    private val _composer = MutableStateFlow(ComposerState())
+    val composer: StateFlow<ComposerState> = _composer.asStateFlow()
+    private val mentionDirectory = MentionDirectory()
+    private var draftSave: Job? = null
     private val _rows = MutableStateFlow<List<TimelineRow>>(emptyList())
     val rows: StateFlow<List<TimelineRow>> = _rows.asStateFlow()
     /** The messages of the rows, oldest first (polls read their data here). */
@@ -187,6 +218,9 @@ class ChatTimelineModel(
             val timeline = runCatching { room.timelineWithConfiguration(configuration) }.getOrNull() ?: return@launch
             this@ChatTimelineModel.timeline = timeline
             loadRoomFacts(room)
+            // Action appear of spec composer: a saved newMessage draft fills the field.
+            if (_draft.value.isEmpty()) room.newMessageDraft()?.let { _draft.value = it }
+            if (!facts.isDm) launch { mentionDirectory.load(room, session.userId) }
             val typing = Channel<List<String>>(Channel.CONFLATED)
             typingHandle = room.subscribeToTypingNotifications(object : TypingNotificationsListener {
                 override fun call(typingUserIds: List<String>) {
@@ -211,6 +245,7 @@ class ChatTimelineModel(
     /** Called when the screen goes away: typing off (spec typing-indicator draftChanged). */
     fun close() {
         sendTyping(false)
+        leave()
         handle?.cancel()
         typingHandle?.cancel()
     }
@@ -224,6 +259,12 @@ class ChatTimelineModel(
         }
         runCatching { room.getPowerLevels() }.getOrNull()?.let { powerLevels ->
             facts = facts.copy(canRedactOwn = powerLevels.canOwnUserRedactOwn(), canRedactOther = powerLevels.canOwnUserRedactOther())
+            _composer.update {
+                it.copy(
+                    canPost = powerLevels.canOwnUserSendMessage(MessageLikeEventType.RoomMessage),
+                    canPoll = powerLevels.canOwnUserSendMessage(MessageLikeEventType.PollStart),
+                )
+            }
         }
         _isDm.value = facts.isDm
         _isPrivateRoom.value = runCatching { room.isPublic() }.getOrNull() != true
@@ -263,6 +304,20 @@ class ChatTimelineModel(
     fun editDraft(text: String) {
         _draft.value = text
         if (_ui.value.editing != null) return
+        // Action leave of spec composer, also for the app going to the background: the draft is kept 1 s after the last change.
+        draftSave?.cancel()
+        draftSave = scope.launch {
+            delay(DRAFT_SAVE_DELAY_MS)
+            room?.keepDraft(text)
+        }
+        // Spec composer editText: pills that left the text go; an @word in a group filters the members.
+        val query = if (facts.isDm) null else ComposerMarkdown.mentionQuery(text)
+        _composer.update {
+            it.copy(
+                mentions = ComposerMarkdown.mentions(it.mentions, text),
+                suggestions = query?.let { q -> mentionDirectory.suggestions(q, strings.label(R.string.bipe_app_composer_mention_everyone)) } ?: emptyList(),
+            )
+        }
         if (text.isBlank()) {
             sendTyping(false)
         } else if (typingSentAt.let { it == null || System.currentTimeMillis() - it >= TYPING_INTERVAL_MS }) {
@@ -279,16 +334,61 @@ class ChatTimelineModel(
         val text = _draft.value.trim()
         val timeline = timeline ?: return
         if (text.isEmpty()) return
+        // Spec composer send: Markdown with the pills as matrix.to links, then the mentions.
+        val mentions = _composer.value.mentions
+        draftSave?.cancel()
         _draft.value = ""
+        _composer.update { it.copy(mentions = emptyList(), suggestions = emptyList()) }
         sendTyping(false)
         val replyingTo = _ui.value.replyingTo
         _ui.update { it.copy(replyingTo = null, replyingToRowId = null) }
+        val room = room
         scope.launch {
+            room?.let { runCatching { it.clearComposerDraft(null) } }
             runCatching {
-                val content = messageEventContentNew(MessageType.Text(TextMessageContent(text, null)))
+                val content = ComposerMarkdown.content(text, mentions)
                 if (replyingTo != null) timeline.sendReply(content, replyingTo.eventId) else timeline.send(content)
             }
         }
+    }
+
+    /** Action leave of spec composer: keeps the draft on this device, or clears it. */
+    fun leave() {
+        val room = room ?: return
+        if (_ui.value.editing != null) return
+        val text = _draft.value
+        // Runs also when the screen scope is gone (the chat closed).
+        CoroutineScope(Dispatchers.IO + NonCancellable).launch { room.keepDraft(text) }
+    }
+
+    /** Action pickSuggestion of spec composer: the @word becomes a pill. */
+    fun pickSuggestion(suggestion: MentionSuggestion) {
+        val (text, mention) = ComposerMarkdown.insert(suggestion, _draft.value, strings.label(R.string.bipe_app_composer_mention_everyone))
+        _draft.value = text
+        _composer.update { it.copy(mentions = it.mentions + mention, suggestions = emptyList()) }
+    }
+
+    /** The client, for upload-preview and sticker-picker. */
+    val client get() = session.client
+
+    /** The reply target for a media, voice or sticker send; the reply bar closes. */
+    fun takeReplyEventId(): String? {
+        val eventId = _ui.value.replyingTo?.eventId
+        _ui.update { it.copy(replyingTo = null, replyingToRowId = null) }
+        return eventId
+    }
+
+    /** Action startRecording of spec composer. */
+    fun startRecording(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        val timeline = timeline ?: return
+        if (_composer.value.recording != null) return
+        _composer.update { it.copy(recording = VoiceRecordingModel(context, timeline, takeReplyEventId(), scope)) }
+    }
+
+    /** Back to the text field after the recording was sent or deleted. */
+    fun endRecording() {
+        _composer.update { it.copy(recording = null) }
     }
 
     /** The action of the inviter hint (spec signup-done notes): sends [greeting] (bipe_inviter_greeting). */
@@ -694,5 +794,6 @@ class ChatTimelineModel(
         const val ORIGINAL_SEARCH_PAGES = 5
         /** Spec typing-indicator: typing on at most once every 4 seconds. */
         const val TYPING_INTERVAL_MS = 4000L
+        const val DRAFT_SAVE_DELAY_MS = 1000L
     }
 }

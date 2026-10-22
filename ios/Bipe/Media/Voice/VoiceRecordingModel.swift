@@ -63,6 +63,7 @@ final class VoiceRecordingModel: NSObject, ObservableObject {
 
     /// Action start: asks for the microphone the first time, then records Opus, mono.
     func start() async {
+        guard recorder == nil, !isClosed else { return }
         let granted = await AVAudioApplication.requestRecordPermission()
         guard granted else {
             microphoneDenied = true

@@ -41,6 +41,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.runtime.LaunchedEffect
 import chat.bipe.app.media.MediaFormat
 import chat.bipe.app.media.Waveform
 import chat.bipe.phosphor.PhosphorIcon
@@ -48,9 +51,13 @@ import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 
 /** Spec voice-recording: replaces the composer field while the person records and checks the voice message. */
+@RequiresApi(Build.VERSION_CODES.Q)
 @Composable
-fun VoiceRecordingBar(model: VoiceRecordingModel) {
+fun VoiceRecordingBar(model: VoiceRecordingModel, onClose: () -> Unit) {
     val colors = BipeTheme.colors
+    val isClosed by model.isClosed.collectAsState()
+    LaunchedEffect(model) { model.start() }
+    LaunchedEffect(isClosed) { if (isClosed) onClose() }
     val phase by model.phase.collectAsState()
     val duration by model.duration.collectAsState()
     val waveform by model.waveform.collectAsState()

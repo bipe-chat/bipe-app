@@ -90,6 +90,7 @@ class VoiceRecordingModel(
     /** Action start: the composer asked for the microphone; records Opus, mono, 48 kHz. */
     @SuppressLint("MissingPermission")
     fun start() {
+        if (record != null || _isClosed.value) return
         val minBuffer = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val started = runCatching {
             val audio = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(minBuffer, FRAME * 4 * 2))
