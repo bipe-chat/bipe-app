@@ -9,7 +9,7 @@ import UIKit
 
 /// Loads avatar thumbnails through the SDK media API and keeps them in memory.
 final class MediaLoader {
-    private let client: Client
+    let client: Client
     private let cache = NSCache<NSString, UIImage>()
 
     init(client: Client) {

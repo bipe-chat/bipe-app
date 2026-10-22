@@ -12,7 +12,14 @@ extension TimelineItemContent {
         guard case .msgLike(let content) = self else { return nil }
         switch content.kind {
         case .message(let message):
-            return message.body
+            // Media previews use the kind labels (spec timeline-media notes, voice-message notes).
+            switch MediaContent(message.msgType) {
+            case .media(let media): return media.kindLabel
+            case .voice(let voice): return voice.isVoice ? BipeStrings.appMediaVoice : voice.filename
+            case nil: return message.body
+            }
+        case .sticker:
+            return BipeStrings.appMediaSticker
         case .unableToDecrypt:
             return BipeStrings.appTimelineUndecryptable
         default:

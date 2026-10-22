@@ -9,12 +9,25 @@ import SwiftUI
 /// Phosphor icons (MIT) that the app uses. Add an icon in tools/phosphor.json, then run tools/phosphor.mjs.
 public enum PhosphorIcon: String, CaseIterable, Sendable {
     case arrowClockwise = "arrow-clockwise"
+    case camera = "camera"
     case caretLeft = "caret-left"
     case chatCircle = "chat-circle"
+    case downloadSimple = "download-simple"
+    case file = "file"
+    case image = "image"
     case lockSimple = "lock-simple"
+    case microphone = "microphone"
     case paperPlaneRight = "paper-plane-right"
+    case paperclip = "paperclip"
+    case pause = "pause"
+    case play = "play"
+    case shareNetwork = "share-network"
+    case sticker = "sticker"
+    case stop = "stop"
+    case trash = "trash"
     case userCircle = "user-circle"
     case warningCircle = "warning-circle"
+    case x = "x"
 
     /// The icon as a template image. Set its colour with foregroundStyle.
     public var image: Image {

@@ -9,6 +9,8 @@ import SwiftUI
 /// Spec chat-timeline.
 struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
+    @StateObject private var voicePlayer = VoicePlayer()
+    @State private var viewerRowId: String?
     private let media: MediaLoader
 
     init(session: AccountSession, media: MediaLoader, roomId: String) {
@@ -26,6 +28,12 @@ struct ChatTimelineView: View {
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
+        .onDisappear { voicePlayer.stop() }
+        .fullScreenCover(isPresented: Binding(get: { viewerRowId != nil }, set: { if !$0 { viewerRowId = nil } })) {
+            if let viewerRowId {
+                MediaViewer(model: model, loader: media, close: { self.viewerRowId = nil }, rowId: viewerRowId)
+            }
+        }
     }
 
     private var messageList: some View {
@@ -34,10 +42,8 @@ struct ChatTimelineView: View {
                 LazyVStack(spacing: 6) {
                     historyHeader
                     ForEach(model.messages) { message in
-                        MessageRow(message: message) {
-                            Task { await model.retrySend(id: message.id) }
-                        }
-                        .id(message.id)
+                        row(message)
+                            .id(message.id)
                     }
                 }
                 .padding(.horizontal, 12)
@@ -49,6 +55,25 @@ struct ChatTimelineView: View {
                     withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
                 }
             }
+        }
+    }
+
+    /// Media and voice rows live in Media/ (specs timeline-media, voice-message).
+    @ViewBuilder
+    private func row(_ message: TimelineMessage) -> some View {
+        let retry = { Task { await model.retrySend(id: message.id) } }
+        if let item = message.media {
+            TimelineMediaRow(message: message,
+                             media: item,
+                             loader: media,
+                             isPrivateRoom: model.isPrivateRoom,
+                             openViewer: { viewerRowId = message.id },
+                             cancelUpload: { Task { await model.cancelUpload(id: message.id) } },
+                             retrySend: { _ = retry() })
+        } else if let voice = message.voice {
+            VoiceMessageRow(message: message, voice: voice, loader: media, player: voicePlayer, retrySend: { _ = retry() })
+        } else {
+            MessageRow(message: message) { _ = retry() }
         }
     }
 
@@ -109,6 +134,9 @@ private struct MessageRow: View {
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }
+        case .media, .voice:
+            // ChatTimelineView.row shows these with TimelineMediaRow and VoiceMessageRow.
+            EmptyView()
         case .unsupported:
             // The slice shows text only (spec chat-timeline notes). bipe-shared has no string for other events yet.
             EmptyView()

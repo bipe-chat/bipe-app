@@ -52,6 +52,10 @@ targets:
         UIRequiresFullScreen: true
         # The shell encrypts nothing itself. Revisit before end-to-end encryption ships.
         ITSAppUsesNonExemptEncryption: false
+        # Voice messages play on with the screen locked (spec voice-message notes).
+        UIBackgroundModes: [audio]
+        # Media viewer save (spec media-viewer). The system shows this text with the add-only photo permission.
+        NSPhotoLibraryAddUsageDescription: O Bipe salva na sua galeria as fotos e os vídeos que você escolher salvar.
     entitlements:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:

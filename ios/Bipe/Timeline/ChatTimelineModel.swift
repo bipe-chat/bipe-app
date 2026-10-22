@@ -9,6 +9,10 @@ import MatrixRustSDK
 struct TimelineMessage: Identifiable, Equatable {
     enum Kind: Equatable {
         case text
+        /// Image, video, file or sticker (spec timeline-media).
+        case media
+        /// Voice message or audio file (spec voice-message).
+        case voice
         case undecryptable
         case unsupported
     }
@@ -36,6 +40,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var sentAt: Date
     var sendState: SendState
     var cause: UndecryptableCause?
+    var media: MediaMessage?
+    var voice: VoiceMessage?
 }
 
 /// Spec chat-timeline (bipe-shared product/screens/chat-timeline.json).
@@ -47,6 +53,8 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var messages: [TimelineMessage] = []
     @Published private(set) var isLoadingHistory = false
     @Published private(set) var reachedStart = false
+    /// A DM or a group that needs an invite, for the show-media setting (spec timeline-media).
+    @Published private(set) var isPrivateRoom = true
     @Published var draft = ""
 
     let roomId: String
@@ -75,6 +83,7 @@ final class ChatTimelineModel: ObservableObject {
         guard let room = try? session.client.getRoom(roomId: roomId),
               let timeline = try? await room.timeline() else { return }
         roomName = room.displayName() ?? roomId
+        isPrivateRoom = room.isPublic() != true
         self.timeline = timeline
         let stream = TimelineDiffStream()
         handle = await timeline.addListener(listener: stream)
@@ -118,6 +127,13 @@ final class ChatTimelineModel: ObservableObject {
         try? await handle.tryResend()
     }
 
+    /// Action cancelUpload of spec timeline-media: cancels the send of own media and removes the row.
+    func cancelUpload(id: String) async {
+        guard let item = items.first(where: { $0.uniqueId().id == id }),
+              let handle = item.asEvent()?.lazyProvider.getSendHandle() else { return }
+        _ = try? await handle.abort()
+    }
+
     private func rebuild() {
         var hitStart = false
         messages = items.compactMap { item in
@@ -135,7 +151,20 @@ final class ChatTimelineModel: ObservableObject {
         var kind = TimelineMessage.Kind.unsupported
         var body: String?
         var cause: TimelineMessage.UndecryptableCause?
+        var media: MediaMessage?
+        var voice: VoiceMessage?
         if case .msgLike(let content) = event.content {
+            switch MediaContent(content.kind) {
+            case .media(var value):
+                kind = .media
+                value.uploadProgress = event.isOwn ? MediaFormat.uploadPercent(event.localSendState) : nil
+                media = value
+            case .voice(let value):
+                kind = .voice
+                voice = value
+            case nil:
+                break
+            }
             switch content.kind {
             case .message(let message):
                 if case .text = message.msgType {
@@ -162,7 +191,9 @@ final class ChatTimelineModel: ObservableObject {
                                isOwn: event.isOwn,
                                sentAt: Date(milliseconds: event.timestamp),
                                sendState: event.isOwn ? sendState : .sent,
-                               cause: cause)
+                               cause: cause,
+                               media: media,
+                               voice: voice)
     }
 
     /// Cause map of spec message-undecryptable (notes).
