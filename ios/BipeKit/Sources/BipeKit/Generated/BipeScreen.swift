@@ -13,11 +13,26 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json
     case appLock = "app-lock"
 
+    /// Block or unblock a person (flow people). Spec: bipe-shared/product/screens/block-person.json
+    case blockPerson = "block-person"
+
+    /// Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json
+    case blockedList = "blocked-list"
+
     /// Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json
     case chatList = "chat-list"
 
+    /// Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json
+    case chatNotifications = "chat-notifications"
+
     /// Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json
     case chatTimeline = "chat-timeline"
+
+    /// Business seal (flow people). Spec: bipe-shared/product/screens/company-seal.json
+    case companySeal = "company-seal"
+
+    /// Contacts and invites (flow people). Spec: bipe-shared/product/screens/contacts.json
+    case contacts = "contacts"
 
     /// Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json
     case dataExport = "data-export"
@@ -25,11 +40,38 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json
     case deviceVerification = "device-verification"
 
+    /// Delete a DM (Apagar conversa) (flow chat). Spec: bipe-shared/product/screens/dm-delete.json
+    case dmDelete = "dm-delete"
+
     /// Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json
     case encryptionStatus = "encryption-status"
 
+    /// Create a group (flow groups). Spec: bipe-shared/product/screens/group-create.json
+    case groupCreate = "group-create"
+
+    /// Group info (flow groups). Spec: bipe-shared/product/screens/group-details.json
+    case groupDetails = "group-details"
+
+    /// Add people to a group (flow groups). Spec: bipe-shared/product/screens/group-invite-members.json
+    case groupInviteMembers = "group-invite-members"
+
+    /// Leave a group (flow groups). Spec: bipe-shared/product/screens/group-leave.json
+    case groupLeave = "group-leave"
+
+    /// People in a group (flow groups). Spec: bipe-shared/product/screens/group-members.json
+    case groupMembers = "group-members"
+
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
+
+    /// Create an invite with a first message (flow invites). Spec: bipe-shared/product/screens/invite-note.json
+    case inviteNote = "invite-note"
+
+    /// Invite as a QR code (flow invites). Spec: bipe-shared/product/screens/invite-qr.json
+    case inviteQr = "invite-qr"
+
+    /// Invite people to Bipe (flow invites). Spec: bipe-shared/product/screens/invites.json
+    case invites = "invites"
 
     /// Link a computer: approve on the MAS page (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json
     case linkComputerApprove = "link-computer-approve"
@@ -52,11 +94,32 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Open source licences (flow settings). Spec: bipe-shared/product/screens/open-source-licences.json
     case openSourceLicences = "open-source-licences"
 
+    /// A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json
+    case personProfile = "person-profile"
+
     /// Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json
     case pinChange = "pin-change"
 
+    /// Create a poll (flow chat). Spec: bipe-shared/product/screens/poll-create.json
+    case pollCreate = "poll-create"
+
+    /// Poll (flow chat). Spec: bipe-shared/product/screens/poll-detail.json
+    case pollDetail = "poll-detail"
+
     /// Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json
     case problemReport = "problem-report"
+
+    /// Your name and photo (flow profile). Spec: bipe-shared/product/screens/profile-edit.json
+    case profileEdit = "profile-edit"
+
+    /// Open a profile link (flow people). Spec: bipe-shared/product/screens/profile-link-open.json
+    case profileLinkOpen = "profile-link-open"
+
+    /// Your link and QR code (flow profile). Spec: bipe-shared/product/screens/profile-link.json
+    case profileLink = "profile-link"
+
+    /// Public profile (flow profile). Spec: bipe-shared/product/screens/public-profile-edit.json
+    case publicProfileEdit = "public-profile-edit"
 
     /// Account moving to a new device (flow recovery). Spec: bipe-shared/product/screens/recovery-alert.json
     case recoveryAlert = "recovery-alert"
@@ -78,6 +141,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json
     case recoveryWaiting = "recovery-waiting"
+
+    /// Report a chat (flow people). Spec: bipe-shared/product/screens/report-chat.json
+    case reportChat = "report-chat"
 
     /// Settings group (flow settings). Spec: bipe-shared/product/screens/settings-group.json
     case settingsGroup = "settings-group"
@@ -114,4 +180,7 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json
     case termsReaccept = "terms-reaccept"
+
+    /// Who can message me (flow settings). Spec: bipe-shared/product/screens/who-can-message.json
+    case whoCanMessage = "who-can-message"
 }

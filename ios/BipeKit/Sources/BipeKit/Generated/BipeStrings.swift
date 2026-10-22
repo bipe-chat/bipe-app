@@ -2681,4 +2681,224 @@ public enum BipeStrings {
     }
 
     public static var appUtdHelp: String { NSLocalizedString("bipe_app_utd_help", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupCreateTitle: String { NSLocalizedString("bipe_app_group_create_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupName: String { NSLocalizedString("bipe_app_group_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupPhotoChoose: String { NSLocalizedString("bipe_app_group_photo_choose", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupPhotoRemove: String { NSLocalizedString("bipe_app_group_photo_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupAddPeople: String { NSLocalizedString("bipe_app_group_add_people", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appGroupCreatePeople(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_group_create_people", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appGroupCreateQuietFooter: String { NSLocalizedString("bipe_app_group_create_quiet_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupCreating: String { NSLocalizedString("bipe_app_group_creating", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupCreateError: String { NSLocalizedString("bipe_app_group_create_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupCreateInvitesFailed: String { NSLocalizedString("bipe_app_group_create_invites_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPeopleSearch: String { NSLocalizedString("bipe_app_people_search", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPeopleContacts: String { NSLocalizedString("bipe_app_people_contacts", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupInviteAction: String { NSLocalizedString("bipe_app_group_invite_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appGroupInviteRefused(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_group_invite_refused", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appGroupInviteError(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_group_invite_error", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appGroupDetailsTitle: String { NSLocalizedString("bipe_app_group_details_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appGroupDetailsPeople(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_group_details_people", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appGroupDescription: String { NSLocalizedString("bipe_app_group_description", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupDescriptionPlaceholder: String { NSLocalizedString("bipe_app_group_description_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appEdit: String { NSLocalizedString("bipe_app_edit", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSave: String { NSLocalizedString("bipe_app_save", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSaveError: String { NSLocalizedString("bipe_app_save_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupLeaveAction: String { NSLocalizedString("bipe_app_group_leave_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMembersTitle: String { NSLocalizedString("bipe_app_group_members_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMembersJoined: String { NSLocalizedString("bipe_app_group_members_joined", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMembersInvited: String { NSLocalizedString("bipe_app_group_members_invited", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupAdmin: String { NSLocalizedString("bipe_app_group_admin", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appYou: String { NSLocalizedString("bipe_app_you", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMemberProfile: String { NSLocalizedString("bipe_app_group_member_profile", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMemberMakeAdmin: String { NSLocalizedString("bipe_app_group_member_make_admin", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMemberRemoveAdmin: String { NSLocalizedString("bipe_app_group_member_remove_admin", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMemberRemove: String { NSLocalizedString("bipe_app_group_member_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appGroupMemberRemoveBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_group_member_remove_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appGroupMemberBan: String { NSLocalizedString("bipe_app_group_member_ban", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appGroupMemberBanBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_group_member_ban_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appGroupMemberCancelInvite: String { NSLocalizedString("bipe_app_group_member_cancel_invite", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMemberError: String { NSLocalizedString("bipe_app_group_member_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotifyQuiet: String { NSLocalizedString("bipe_app_notify_quiet", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotifyQuietFooter: String { NSLocalizedString("bipe_app_notify_quiet_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotifyAll: String { NSLocalizedString("bipe_app_notify_all", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotifyMute: String { NSLocalizedString("bipe_app_notify_mute", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotifyMentionsLegacy: String { NSLocalizedString("bipe_app_notify_mentions_legacy", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotifyError: String { NSLocalizedString("bipe_app_notify_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollCreateTitle: String { NSLocalizedString("bipe_app_poll_create_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollQuestion: String { NSLocalizedString("bipe_app_poll_question", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollQuestionPlaceholder: String { NSLocalizedString("bipe_app_poll_question_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appPollOption(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_poll_option", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appPollAddOption: String { NSLocalizedString("bipe_app_poll_add_option", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollRemoveOption: String { NSLocalizedString("bipe_app_poll_remove_option", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollHideResults: String { NSLocalizedString("bipe_app_poll_hide_results", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollHideResultsFooter: String { NSLocalizedString("bipe_app_poll_hide_results_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollSendError: String { NSLocalizedString("bipe_app_poll_send_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollTitle: String { NSLocalizedString("bipe_app_poll_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appPollVotes(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_poll_votes", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appPollResultsHidden: String { NSLocalizedString("bipe_app_poll_results_hidden", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollYourVote: String { NSLocalizedString("bipe_app_poll_your_vote", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollMostVotes: String { NSLocalizedString("bipe_app_poll_most_votes", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollEnd: String { NSLocalizedString("bipe_app_poll_end", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollEndConfirm: String { NSLocalizedString("bipe_app_poll_end_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollEnded: String { NSLocalizedString("bipe_app_poll_ended", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollEndedText: String { NSLocalizedString("bipe_app_poll_ended_text", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPollVoteError: String { NSLocalizedString("bipe_app_poll_vote_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupLeaveTitle: String { NSLocalizedString("bipe_app_group_leave_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupLeaveBody: String { NSLocalizedString("bipe_app_group_leave_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupLeaveAlone: String { NSLocalizedString("bipe_app_group_leave_alone", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupLeaveLastAdmin: String { NSLocalizedString("bipe_app_group_leave_last_admin", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupLeaveChooseAdmin: String { NSLocalizedString("bipe_app_group_leave_choose_admin", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupLeaveConfirm: String { NSLocalizedString("bipe_app_group_leave_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupLeaving: String { NSLocalizedString("bipe_app_group_leaving", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupLeaveError: String { NSLocalizedString("bipe_app_group_leave_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appDmDeleting: String { NSLocalizedString("bipe_app_dm_deleting", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appInviteCreating: String { NSLocalizedString("bipe_app_invite_creating", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appProfileNameReserved: String { NSLocalizedString("bipe_app_profile_name_reserved", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPersonMessage: String { NSLocalizedString("bipe_app_person_message", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPersonNewGroup: String { NSLocalizedString("bipe_app_person_new_group", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPersonBlocked: String { NSLocalizedString("bipe_app_person_blocked", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appPersonNotFound: String { NSLocalizedString("bipe_app_person_not_found", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appBlockTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_block_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appBlockConfirm: String { NSLocalizedString("bipe_app_block_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appBlockError: String { NSLocalizedString("bipe_app_block_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appUnblockTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_unblock_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appUnblockBody: String { NSLocalizedString("bipe_app_unblock_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUnblockConfirm: String { NSLocalizedString("bipe_app_unblock_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUnblockError: String { NSLocalizedString("bipe_app_unblock_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appBlockedBar(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_blocked_bar", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appReportGroup: String { NSLocalizedString("bipe_app_report_group", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportGroupFooter: String { NSLocalizedString("bipe_app_report_group_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportReason: String { NSLocalizedString("bipe_app_report_reason", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportReasonPlaceholder: String { NSLocalizedString("bipe_app_report_reason_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportAlsoBlock: String { NSLocalizedString("bipe_app_report_also_block", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportAlsoDelete: String { NSLocalizedString("bipe_app_report_also_delete", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportAlsoLeave: String { NSLocalizedString("bipe_app_report_also_leave", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportSendAction: String { NSLocalizedString("bipe_app_report_send_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReportChatError: String { NSLocalizedString("bipe_app_report_chat_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupReported: String { NSLocalizedString("bipe_app_group_reported", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appProfileLink: String { NSLocalizedString("bipe_app_profile_link", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appProfileLinkOpening: String { NSLocalizedString("bipe_app_profile_link_opening", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appContactsLoading: String { NSLocalizedString("bipe_app_contacts_loading", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSealTitle: String { NSLocalizedString("bipe_app_seal_title", tableName: "Bipe", bundle: .module, comment: "") }
 }
