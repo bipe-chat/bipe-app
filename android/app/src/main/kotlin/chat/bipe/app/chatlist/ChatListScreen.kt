@@ -116,7 +116,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
-        else -> GroupHost(session, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
+        else -> GroupHost(session, api, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
             if (roomId != null) {
                 BackHandler { openRoomId = null }
                 ChatTimelineScreen(
@@ -138,6 +138,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
                     banner = { HistoryBanner(encryption) },
                     onCreateGroup = groups.createGroup,
                     onDeleteDm = groups.deleteDm,
+                    onInvite = groups.openInvites,
                 )
             }
         }
@@ -158,6 +159,7 @@ fun ChatListScreen(
     banner: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
+    onInvite: () -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
@@ -173,7 +175,7 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
                 )
-                CreateGroupButton(onCreateGroup)
+                CreateGroupButton(onCreateGroup, onInvite)
                 if (onOpenSettings != null) {
                     IconButton(onClick = onOpenSettings) {
                         Icon(

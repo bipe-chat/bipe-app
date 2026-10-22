@@ -31,6 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -47,6 +49,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.invites.InvitesScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -65,7 +68,13 @@ fun GroupInviteMembersScreen(
 ) {
     val scope = rememberCoroutineScope()
     val model = remember(mode) { GroupInviteMembersModel(session, mode, scope) }
+    val api = LocalBipeApi.current
+    var showingInvites by remember { mutableStateOf(false) }
     LaunchedEffect(model) { model.appear() }
+    if (showingInvites && api != null) {
+        InvitesScreen(session, api, media, onClose = { showingInvites = false }, onOpenChat = {})
+        return
+    }
     BackHandler(onBack = onBack)
     val colors = BipeTheme.colors
     val query by model.query.collectAsState()
@@ -117,6 +126,10 @@ fun GroupInviteMembersScreen(
                     PickRow(pick, media) { model.toggle(pick.person.userId) }
                 }
                 item(key = "footer") { GroupFooter(stringResource(R.string.bipe_start_chat_search_by_handle)) }
+                // Action inviteSomeoneNew: a personal Bipe invite for a person who is not on Bipe yet.
+                if (api != null) {
+                    item(key = "invite") { GroupRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_contacts_invite)) { showingInvites = true } }
+                }
             }
         }
     }
