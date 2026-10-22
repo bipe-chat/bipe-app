@@ -38,7 +38,15 @@ final class AccountStartModel: ObservableObject {
         recoveryLink = url
         showsRecovery = true
     }
-    private(set) var session: AccountSession?
+    private(set) var session: AccountSession? {
+        didSet {
+            // Spec push-registration: keep this phone's pusher current; notification actions use the account.
+            if let session, session !== oldValue {
+                PushRegistration.shared.attach(session)
+                NotificationActions.shared.attach(session)
+            }
+        }
+    }
 
     let api = BipeAPIClient(baseURL: AppConfig.apiBaseURL)
 
@@ -75,6 +83,7 @@ final class AccountStartModel: ObservableObject {
     /// Starts the sync again when the app comes back to the foreground.
     func resume() async {
         await session?.syncService.start()
+        await PushRegistration.shared.appBecameActive()
     }
 
     /// signup-create made the account and signed in.
@@ -110,6 +119,8 @@ final class AccountStartModel: ObservableObject {
     /// The sign-out of terms-reaccept: the phone goes back to onboarding.
     func signOut() async {
         guard let session else { return }
+        // Spec push-registration, action signOut: the pusher goes before the session ends.
+        await PushRegistration.shared.signOut()
         await session.signOut()
         self.session = nil
         userId = nil

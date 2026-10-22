@@ -3,12 +3,14 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Combine
 import Phosphor
 import SwiftUI
 
 /// Spec chat-list.
 struct ChatListView: View {
     @StateObject private var model: ChatListModel
+    @ObservedObject private var notifications = NotificationActions.shared
     @StateObject private var handle: HandlePickModel
     @StateObject private var encryption: EncryptionStatusModel
     @State private var path: [String]
@@ -70,6 +72,11 @@ struct ChatListView: View {
         .task { await handle.load() }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
+        }
+        // Spec notification-service, action open.
+        .onReceive(notifications.$roomToOpen.compactMap { $0 }) { roomId in
+            notifications.roomToOpen = nil
+            path = [roomId]
         }
     }
 
@@ -161,6 +168,14 @@ private struct ChatRow: View {
                         .foregroundStyle(BipeColor.inkSecondary)
                         .lineLimit(2)
                     Spacer(minLength: 8)
+                    // Spec chat-notifications: a muted chat keeps its badge, without sound or notification.
+                    if chat.isMuted {
+                        PhosphorIcon.bellSlash.image
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                            .foregroundStyle(BipeColor.inkSecondary)
+                            .accessibilityLabel(BipeStrings.appNotificationModeOff)
+                    }
                     if chat.unreadCount > 0 {
                         let count = chat.unreadCount.formatted()
                         Text(count)

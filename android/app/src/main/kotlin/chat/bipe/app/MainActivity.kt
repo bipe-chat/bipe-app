@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import chat.bipe.app.account.AccountStartModel
 import chat.bipe.app.account.AccountStartScreen
+import chat.bipe.app.notifications.PhoneNotifications
 import chat.bipe.app.settings.AppLockGate
 import chat.bipe.app.settings.AppLockModel
 
@@ -24,6 +25,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         readInviteLink(intent)
         readDevAccount(intent)
+        readOpenChat(intent)
         accountStart.start()
         setContent {
             BipeTheme {
@@ -38,6 +40,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         readInviteLink(intent)
         readDevAccount(intent)
+        readOpenChat(intent)
+    }
+
+    /** Spec notification-service, action open: a tap on a notification opens its chat. */
+    private fun readOpenChat(intent: Intent?) {
+        if (intent?.action != PhoneNotifications.ACTION_OPEN_CHAT) return
+        val roomId = intent.getStringExtra(PhoneNotifications.EXTRA_ROOM_ID) ?: return
+        (application as BipeApplication).roomToOpen.value = roomId
     }
 
     override fun onResume() {

@@ -68,6 +68,9 @@ targets:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:
         com.apple.security.application-groups: [group.chat.bipe.next]
+        # Pushes through Bipe's Sygnal (spec push-registration). Export for TestFlight and ad hoc
+        # signs with the production environment.
+        aps-environment: development
         # The app's own group first, then the fork's group (ADR 0147): the app reads the device
         # account that the fork stored (BipeKit BipeCredentialStore) and never writes there.
         keychain-access-groups:
@@ -91,12 +94,18 @@ targets:
       - target: BipeShare
     scheme: {}
 
-  # Empty notification service extension. Decryption of pushes on the device comes later.
+  # Notification service extension (spec notification-service): fetches and decrypts the event of a
+  # content-free push. It opens the account from the store in the app group, so it compiles the app's
+  # session files too; keep those free of app-only types.
   BipeNotificationService:
     type: app-extension
     platform: iOS
     sources:
       - path: NotificationService
+      - path: Bipe/Common/AppConfig.swift
+      - path: Bipe/Account/AccountSession.swift
+      - path: Bipe/Account/SessionStore.swift
+      - path: Bipe/Notifications/NotificationKeys.swift
     info:
       path: SupportFiles/BipeNotificationService/Info.plist
       properties:
@@ -112,9 +121,17 @@ targets:
       path: SupportFiles/BipeNotificationService/BipeNotificationService.entitlements
       properties:
         com.apple.security.application-groups: [group.chat.bipe.next]
+        # The app's keychain group first, so the extension reads the session the app saved (SessionStore).
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)chat.bipe.app.next
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next.nse
+    dependencies:
+      - package: MatrixRustSDK
+        product: MatrixRustSDK
+      - package: BipeKit
+        product: BipeKit
 
   # Empty share extension. Sharing into a chat comes later.
   BipeShare:

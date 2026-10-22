@@ -68,6 +68,7 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.groups.DmDeleteSheet
@@ -127,6 +128,8 @@ fun ChatTimelineScreen(
     val draft by model.draft.collectAsState()
     val ui by model.ui.collectAsState()
     val inviterHint by model.inviterHint.collectAsState()
+    val sentMessages by model.messages.collectAsState()
+    NotificationsPrompt(session, roomId, sentMessages)
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).

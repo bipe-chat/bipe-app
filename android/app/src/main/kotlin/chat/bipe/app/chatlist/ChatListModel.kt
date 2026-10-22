@@ -23,6 +23,7 @@ import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
 import org.matrix.rustcomponents.sdk.RoomListEntriesWithDynamicAdaptersResult
 import org.matrix.rustcomponents.sdk.RoomListLoadingState
 import org.matrix.rustcomponents.sdk.RoomListLoadingStateListener
+import org.matrix.rustcomponents.sdk.RoomNotificationMode
 import org.matrix.rustcomponents.sdk.TaskHandle
 
 /** Type ChatSummary of spec chat-list. */
@@ -36,6 +37,7 @@ data class ChatSummary(
     val isDirect: Boolean,
     /** RoomInfo.isDm, the one DM test (ADR 0141). */
     val isDm: Boolean = false,
+    val isMuted: Boolean = false,
 )
 
 /** Spec chat-list (bipe-shared product/screens/chat-list.json). */
@@ -158,6 +160,7 @@ class ChatListModel(
             unreadCount = info.numUnreadMessages.toInt(),
             isDirect = info.isDirect,
             isDm = info.isDm,
+            isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
         )
     }
 
