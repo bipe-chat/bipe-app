@@ -15,10 +15,27 @@ androidx-annotation = "1.9.1"
 androidx-core = "1.16.0"
 androidx-activity = "1.10.1"
 compose-bom = "2025.08.00"
+kotlinx-coroutines = "1.10.2"
+okhttp = "4.12.0"
+retrofit = "3.0.0"
+tink = "1.18.0"
+timber = "5.0.1"
+junit = "4.13.2"
+truth = "1.4.4"
 
 [libraries]
 matrix-rust-sdk = { module = "org.matrix.rustcomponents:sdk-android", version.ref = "matrix-rust-sdk" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit-converter-kotlinx-serialization = { module = "com.squareup.retrofit2:converter-kotlinx-serialization", version.ref = "retrofit" }
+tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tink" }
+timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
+# Test only (ADR 0148): JUnit is EPL-1.0 and must stay on testImplementation lines.
+junit = { module = "junit:junit", version.ref = "junit" }
+truth = { module = "com.google.truth:truth", version.ref = "truth" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "androidx-annotation" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
