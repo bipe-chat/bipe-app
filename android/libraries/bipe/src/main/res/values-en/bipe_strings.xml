@@ -1284,4 +1284,14 @@
     <string name="bipe_app_notification_mode_mentions">Only when someone mentions you</string>
     <string name="bipe_app_notification_mode_off">Mute</string>
     <string name="bipe_app_notification_mode_default">Same as in settings (%1$s)</string>
+    <string name="bipe_app_requests_empty">No chat requests. When someone you don\'t know writes to you, the request shows here.</string>
+    <string name="bipe_app_request_accept">Accept</string>
+    <string name="bipe_app_request_decline">Decline</string>
+    <string name="bipe_app_request_decline_block">Decline and block</string>
+    <string name="bipe_app_chat_list_filter_unread">Unread</string>
+    <string name="bipe_app_groups_empty">No groups yet. When someone adds you to a group, it shows here.</string>
+    <string name="bipe_app_chat_list_no_unread">No unread messages.</string>
+    <string name="bipe_app_search_placeholder">Search chats and groups</string>
+    <string name="bipe_app_search_no_results">Nothing found for %1$s.</string>
+    <string name="bipe_app_search_find_handle">Look up this @</string>
 </resources>
