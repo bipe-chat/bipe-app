@@ -62,6 +62,9 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeHaptic
+import chat.bipe.shared.bipeHaptic
+import androidx.compose.ui.platform.LocalView
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
 
@@ -78,6 +81,10 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val media = remember(session) { MediaLoader(session.client) }
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
+    val requests = remember(session) { ChatRequestsModel(context.applicationContext, session, scope) }
+    val search = remember(session) { ChatSearchModel(session, model, scope) }
+    val banner = remember(session) { RemoteBannerModel(context.applicationContext, api, scope) }
+    var showsRequests by rememberSaveable { mutableStateOf(false) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsSettings by rememberSaveable { mutableStateOf(false) }
@@ -85,10 +92,17 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     DisposableEffect(model) {
         model.start()
         handle.load()
-        onDispose { model.close() }
+        requests.start()
+        onDispose {
+            model.close()
+            requests.close()
+            search.dispose()
+        }
     }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check() }
+    // remote-banner, action refresh: when the list appears and on every return to the foreground.
+    LaunchedEffect(foregroundCount) { banner.refresh() }
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
@@ -101,6 +115,19 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             BackHandler { openRoomId = null }
             ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
         }
+        showsRequests -> ChatRequestsScreen(
+            requests,
+            media,
+            onBack = { showsRequests = false },
+            onOpenChat = {
+                showsRequests = false
+                openRoomId = it
+            },
+            onOpenWhoCanMessage = {
+                showsRequests = false
+                showsSettings = true
+            },
+        )
         else -> ChatListScreen(
             model,
             media,
@@ -108,6 +135,10 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             onOpenHandlePick = { showsHandlePick = true },
             onOpenChat = { openRoomId = it },
             onOpenSettings = { showsSettings = true },
+            requests = requests,
+            search = search,
+            banner = banner,
+            onOpenRequests = { showsRequests = true },
         )
     }
 }
@@ -122,11 +153,24 @@ fun ChatListScreen(
     onOpenChat: (String) -> Unit,
     /** The temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main. */
     onOpenSettings: (() -> Unit)? = null,
+    requests: ChatRequestsModel? = null,
+    search: ChatSearchModel? = null,
+    banner: RemoteBannerModel? = null,
+    onOpenRequests: () -> Unit = {},
 ) {
     val colors = BipeTheme.colors
+    val context = LocalContext.current
     val phase by model.phase.collectAsState()
     val chats by model.chats.collectAsState()
+    val unreadOnly by model.unreadOnly.collectAsState()
     val handleState by handle.state.collectAsState()
+    val requestList = requests?.requests?.collectAsState()?.value.orEmpty()
+    val groupInvites = requests?.groupInvites?.collectAsState()?.value.orEmpty()
+    val pending = requests?.pending?.collectAsState()?.value.orEmpty()
+    val requestsError = requests?.error?.collectAsState()?.value == true
+    val query = search?.state?.collectAsState()?.value?.query.orEmpty()
+    val rowCount = requestList.count { it.roomId !in pending }
+    val invites = groupInvites.filter { it.roomId !in pending }
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -146,19 +190,37 @@ fun ChatListScreen(
                     }
                 }
             }
-            if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
-            when (phase) {
-                ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = colors.accentFill)
+            banner?.let { RemoteBannerCard(it, context) }
+            search?.let { ChatSearchField(it) }
+            if (search != null && query.isNotEmpty()) {
+                ChatSearchResults(search, media) { roomId ->
+                    search.close()
+                    onOpenChat(roomId)
                 }
-                ChatListModel.Phase.EMPTY -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.bipe_app_chat_list_empty), color = colors.inkSecondary)
-                }
-                ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(chats, key = { it.roomId }) { chat ->
-                        ChatRow(chat, media) { onOpenChat(chat.roomId) }
-                        if (chat.roomId == chats.lastOrNull()?.roomId) {
-                            LaunchedEffect(chats.size) { model.loadMore() }
+            } else {
+                if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
+                UnreadChip(unreadOnly, model::toggleUnread)
+                when (phase) {
+                    ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = colors.accentFill)
+                    }
+                    ChatListModel.Phase.EMPTY, ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        // The requests row and the group invites (specs chat-requests and chat-list-filters).
+                        if (rowCount > 0) item(key = "requests") { ChatRequestsRow(rowCount, onOpenRequests) }
+                        if (requests != null) {
+                            items(invites, key = { "invite-${it.roomId}" }) { invite ->
+                                GroupInviteRow(requests, invite, media, onOpenChat)
+                            }
+                        }
+                        if (requestsError) item(key = "requests-error") {
+                            Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk, modifier = Modifier.padding(16.dp))
+                        }
+                        if (phase == ChatListModel.Phase.EMPTY) item(key = "empty") { EmptyState(unreadOnly, model::toggleUnread) }
+                        items(chats, key = { it.roomId }) { chat ->
+                            ChatRow(chat, media) { onOpenChat(chat.roomId) }
+                            if (chat.roomId == chats.lastOrNull()?.roomId) {
+                                LaunchedEffect(chats.size) { model.loadMore() }
+                            }
                         }
                     }
                 }
@@ -230,3 +292,47 @@ private fun timeLabel(context: android.content.Context, time: Long): String =
     } else {
         DateUtils.formatDateTime(context, time, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH or DateUtils.FORMAT_NO_YEAR)
     }
+
+/** The only filter chip: Unread (spec chat-list-filters). */
+@Composable
+private fun UnreadChip(isOn: Boolean, onToggle: () -> Unit) {
+    val colors = BipeTheme.colors
+    val view = LocalView.current
+    Text(
+        stringResource(R.string.bipe_app_chat_list_filter_unread),
+        style = MaterialTheme.typography.labelLarge,
+        color = if (isOn) colors.inkOnAccent else colors.inkPrimary,
+        modifier = Modifier
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .background(if (isOn) colors.accentFill else colors.surfaceRaised, CircleShape)
+            .clickable {
+                onToggle()
+                view.bipeHaptic(BipeHaptic.Tick)
+            }
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+    )
+}
+
+/** The empty messages of chat-list-filters: noUnread turns the filter off on a tap; noChats offers start chat. */
+@Composable
+private fun EmptyState(unreadOnly: Boolean, onTurnOffUnread: () -> Unit) {
+    val colors = BipeTheme.colors
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (unreadOnly) {
+            Text(
+                stringResource(R.string.bipe_app_chat_list_no_unread),
+                color = colors.inkSecondary,
+                modifier = Modifier.clickable(onClick = onTurnOffUnread),
+            )
+        } else {
+            Text(stringResource(R.string.bipe_chats_empty_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
+            Text(stringResource(R.string.bipe_chats_empty_body), color = colors.inkSecondary)
+            // Action startChat: the start-chat screen comes with people and profiles (bipe-chat/bipe#568).
+            Text(stringResource(R.string.bipe_action_start_chat), color = colors.inkDisabled)
+        }
+    }
+}

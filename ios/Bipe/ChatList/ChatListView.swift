@@ -10,6 +10,10 @@ import SwiftUI
 struct ChatListView: View {
     @StateObject private var model: ChatListModel
     @StateObject private var handle: HandlePickModel
+    @StateObject private var requests: ChatRequestsModel
+    @StateObject private var search: ChatSearchModel
+    @StateObject private var banner: RemoteBannerModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var path: [String]
     @State private var showsHandlePick = false
     private let onOpenSettings: (() -> Void)?
@@ -20,6 +24,9 @@ struct ChatListView: View {
         self.onOpenSettings = onOpenSettings
         _model = StateObject(wrappedValue: ChatListModel(session: session))
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: session))
+        _requests = StateObject(wrappedValue: ChatRequestsModel(session: session))
+        _search = StateObject(wrappedValue: ChatSearchModel(session: session))
+        _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
         _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
     }
 
@@ -48,6 +55,12 @@ struct ChatListView: View {
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
         .task { await model.start() }
         .task { await handle.load() }
+        .task { await requests.start() }
+        // remote-banner, action refresh: when the list appears and when the app comes to the foreground.
+        .task { await banner.refresh() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await banner.refresh() } }
+        }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
         }
@@ -64,8 +77,65 @@ struct ChatListView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
+            RemoteBannerView(model: banner)
+                .padding(.horizontal, 16)
+                .padding(.vertical, banner.state == .hidden ? 0 : 8)
             handlePrompt
-            list
+            if search.query.isEmpty {
+                filterBar
+                list
+            } else {
+                ChatSearchResults(search: search, media: model.media) { roomId in
+                    search.close()
+                    openChat(roomId)
+                }
+            }
+        }
+        // chat-search: the top of the list until the search tab of the tab bar (ADR 0053) is on main.
+        .searchable(text: Binding(get: { search.query }, set: { search.edit($0) }), prompt: Text(BipeStrings.appSearchPlaceholder))
+    }
+
+    /// The only filter chip: Unread (spec chat-list-filters).
+    private var filterBar: some View {
+        HStack {
+            Button {
+                model.toggleUnread()
+                BipeHaptics.play(.tick)
+            } label: {
+                Text(BipeStrings.appChatListFilterUnread)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(model.unreadOnly ? BipeColor.inkOnAccent : BipeColor.inkPrimary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(model.unreadOnly ? BipeColor.accentFill : BipeColor.surfaceRaised))
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+    }
+
+    /// The requests row and the group invites above the chats (specs chat-requests and chat-list-filters).
+    @ViewBuilder
+    private var topRows: some View {
+        if requests.rowCount > 0 {
+            // Action openBox.
+            NavigationLink {
+                ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat, onOpenWhoCanMessage: { onOpenSettings?() })
+            } label: {
+                ChatRequestsRow(count: requests.rowCount)
+            }
+            .listRowBackground(BipeColor.surfaceBase)
+        }
+        ForEach(requests.visibleGroupInvites) { invite in
+            GroupInviteRow(model: requests, invite: invite, media: model.media, onOpenChat: openChat)
+                .listRowBackground(BipeColor.surfaceBase)
+        }
+        if requests.error {
+            Text(BipeStrings.errorGeneric)
+                .foregroundStyle(BipeColor.trustDangerInk)
+                .listRowBackground(BipeColor.surfaceBase)
         }
     }
 
@@ -76,11 +146,17 @@ struct ChatListView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .empty:
-            Text(BipeStrings.appChatListEmpty)
-                .foregroundStyle(BipeColor.inkSecondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            List {
+                topRows
+                emptyState
+                    .listRowBackground(BipeColor.surfaceBase)
+                    .listRowSeparator(.hidden)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         case .loaded:
             List {
+                topRows
                 ForEach(model.chats) { chat in
                     Button {
                         openChat(chat.roomId)
@@ -98,6 +174,34 @@ struct ChatListView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
         }
+    }
+
+    /// The empty messages of chat-list-filters: noUnread turns the filter off on a tap; noChats offers start chat.
+    @ViewBuilder
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            if model.unreadOnly {
+                Button {
+                    model.toggleUnread()
+                } label: {
+                    Text(BipeStrings.appChatListNoUnread)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text(BipeStrings.chatsEmptyTitle)
+                    .font(.headline)
+                    .foregroundStyle(BipeColor.inkPrimary)
+                Text(BipeStrings.chatsEmptyBody)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                // Action startChat: the start-chat screen comes with people and profiles (bipe-chat/bipe#568).
+                Text(BipeStrings.actionStartChat)
+                    .foregroundStyle(BipeColor.inkDisabled)
+            }
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
     }
 
     /// Action openChat.

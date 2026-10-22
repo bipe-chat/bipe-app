@@ -1,0 +1,421 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+// Copyright 2026 Bipe contributors
+
+package chat.bipe.app.chatlist
+
+import android.content.Context
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import chat.bipe.app.BipeTheme
+import chat.bipe.app.account.AccountSession
+import chat.bipe.app.common.Avatar
+import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.settings.SettingsKeys
+import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeScreen
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import org.matrix.rustcomponents.sdk.LatestEventValue
+import org.matrix.rustcomponents.sdk.Room
+import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
+import org.matrix.rustcomponents.sdk.RoomListFilterCategory
+
+/** Type ChatRequestSummary of spec chat-requests, also used for the group invites of chat-list-filters. */
+data class ChatRequestSummary(
+    val roomId: String,
+    val inviterId: String,
+    /** The inviter's name for a request, the group name for a group invite. */
+    val name: String,
+    val inviterName: String?,
+    val avatarUrl: String?,
+    val trust: Trust,
+    val invitedAt: Long?,
+) {
+    enum class Trust { VERIFIED, UNVERIFIED, EXTERNAL }
+}
+
+/** Specs chat-requests and chat-request, and the group invites of chat-list-filters. */
+class ChatRequestsModel(private val context: Context, val session: AccountSession, private val scope: CoroutineScope) {
+    private val _requests = MutableStateFlow<List<ChatRequestSummary>>(emptyList())
+    private val _groupInvites = MutableStateFlow<List<ChatRequestSummary>>(emptyList())
+    private val _pending = MutableStateFlow<Set<String>>(emptySet())
+    private val _error = MutableStateFlow(false)
+
+    /** Requests: DM invites, newest first. They never show in chat-list. */
+    val requests: StateFlow<List<ChatRequestSummary>> = _requests.asStateFlow()
+
+    /** Group invites, newest first, for the top of the groups list. */
+    val groupInvites: StateFlow<List<ChatRequestSummary>> = _groupInvites.asStateFlow()
+
+    /** Rows that left the box at once while their action runs (offline-first). */
+    val pending: StateFlow<Set<String>> = _pending.asStateFlow()
+    val error: StateFlow<Boolean> = _error.asStateFlow()
+
+    private val dmInvites = FilteredRoomList(scope) { rooms -> _requests.value = summaries(rooms) }
+    private val groupInviteList = FilteredRoomList(scope) { rooms -> _groupInvites.value = summaries(rooms) }
+    private var started = false
+
+    /** The privacy switch bipe_privacy_requests_hide_photos (settings-group, kept on the phone). */
+    val hidePhotos: Boolean
+        get() = context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE).getBoolean(SettingsKeys.HIDE_REQUEST_PHOTOS, true)
+
+    fun start() {
+        if (started) return
+        started = true
+        scope.launch {
+            // A request is an invite with Category People; a group invite is an invite with Category Group.
+            dmInvites.start(session, inviteFilter(RoomListFilterCategory.PEOPLE))
+            groupInviteList.start(session, inviteFilter(RoomListFilterCategory.GROUP))
+        }
+    }
+
+    fun close() {
+        dmInvites.close()
+        groupInviteList.close()
+    }
+
+    private fun inviteFilter(category: RoomListFilterCategory) = RoomListEntriesDynamicFilterKind.All(
+        listOf(
+            RoomListEntriesDynamicFilterKind.Invite,
+            RoomListEntriesDynamicFilterKind.NonSpace,
+            RoomListEntriesDynamicFilterKind.DeduplicateVersions,
+            RoomListEntriesDynamicFilterKind.Category(category),
+        ),
+    )
+
+    private suspend fun summaries(rooms: List<Room>): List<ChatRequestSummary> =
+        rooms.mapNotNull { summary(it) }.sortedByDescending { it.invitedAt ?: 0 }
+
+    private suspend fun summary(room: Room): ChatRequestSummary? {
+        val info = runCatching { room.roomInfo() }.getOrNull() ?: return null
+        val inviter = info.inviter
+        // A request from a blocked person never shows (Matrix ignore list).
+        if (inviter?.isIgnored == true) return null
+        val invitedAt = (room.latestEvent() as? LatestEventValue.RemoteInvite)?.timestamp?.toLong()
+        val inviterId = inviter?.userId.orEmpty()
+        val inviterName = inviter?.displayName ?: inviterId.ifEmpty { null }
+        return ChatRequestSummary(
+            roomId = info.id,
+            inviterId = inviterId,
+            name = if (info.isDirect) inviterName ?: info.displayName ?: info.id else info.displayName ?: info.id,
+            inviterName = inviterName,
+            avatarUrl = if (info.isDirect) inviter?.avatarUrl else info.avatarUrl,
+            // The verified seal needs the badge check (GET /v1/badges), which comes with the trust work of people and
+            // profiles (bipe-chat/bipe#568). Until then: external for another server, else unverified.
+            trust = if (inviterId.isEmpty() || server(inviterId) == server(session.userId)) {
+                ChatRequestSummary.Trust.UNVERIFIED
+            } else {
+                ChatRequestSummary.Trust.EXTERNAL
+            },
+            invitedAt = invitedAt,
+        )
+    }
+
+    private fun server(userId: String) = userId.substringAfter(':', "")
+
+    /** Action accept: joins the room. Returns the room ID to open in chat-timeline, or null after a failure. */
+    suspend fun accept(roomId: String): String? = if (run(roomId) { it.join() }) roomId else null
+
+    /** Action decline: a plain leave, so the inviter can ask again later. */
+    suspend fun decline(roomId: String) = run(roomId) { it.leave() }
+
+    /** Action declineAndBlock: leave, then add the inviter to the ignore list. */
+    suspend fun declineAndBlock(request: ChatRequestSummary) = run(request.roomId) {
+        it.leave()
+        if (request.inviterId.isNotEmpty()) session.client.ignoreUser(request.inviterId)
+    }
+
+    /** Action report: Room.reportRoom with no reason text, then leave. */
+    suspend fun report(roomId: String) = run(roomId) {
+        it.reportRoom("")
+        it.leave()
+    }
+
+    /** Offline-first: the row leaves at once; a failure brings it back with bipe_error_generic. */
+    private suspend fun run(roomId: String, action: suspend (Room) -> Unit): Boolean {
+        _pending.update { it + roomId }
+        _error.value = false
+        return try {
+            val room = session.client.getRoom(roomId) ?: throw IllegalStateException("no room")
+            action(room)
+            true
+        } catch (failure: Exception) {
+            _pending.update { it - roomId }
+            _error.value = true
+            false
+        }
+    }
+}
+
+/** The requests row at the top of Conversas (spec chat-requests, rowCount). Hidden at 0. */
+@Composable
+fun ChatRequestsRow(count: Int, onClick: () -> Unit) {
+    val colors = BipeTheme.colors
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(PhosphorIcon.USER_CIRCLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(40.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.bipe_requests_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
+            Text(stringResource(R.string.bipe_requests_row_body), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
+        }
+        Text(
+            count.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = colors.inkOnAccent,
+            modifier = Modifier.background(colors.accentFill, CircleShape).padding(horizontal = 7.dp, vertical = 2.dp),
+        )
+    }
+}
+
+/** The trust line of a request: verified seal, unverified or external. */
+@Composable
+fun TrustLine(trust: ChatRequestSummary.Trust) {
+    val colors = BipeTheme.colors
+    val (text, color) = when (trust) {
+        ChatRequestSummary.Trust.VERIFIED -> R.string.bipe_badge_verified to colors.trustVerifiedInk
+        ChatRequestSummary.Trust.UNVERIFIED -> R.string.bipe_banner_unverified_title to colors.trustCautionInk
+        ChatRequestSummary.Trust.EXTERNAL -> R.string.bipe_banner_external to colors.trustNeutralInk
+    }
+    Text(stringResource(text), style = MaterialTheme.typography.bodyMedium, color = color)
+}
+
+/** Spec chat-requests: the box of chat requests. */
+@Composable
+fun ChatRequestsScreen(
+    model: ChatRequestsModel,
+    media: MediaLoader,
+    onBack: () -> Unit,
+    onOpenChat: (String) -> Unit,
+    onOpenWhoCanMessage: () -> Unit,
+) {
+    val colors = BipeTheme.colors
+    val requests by model.requests.collectAsState()
+    val pending by model.pending.collectAsState()
+    var open by remember { mutableStateOf<ChatRequestSummary?>(null) }
+    val visible = requests.filter { it.roomId !in pending }
+    val current = open
+    if (current != null) {
+        ChatRequestScreen(model, current, media, onBack = { open = null }, onOpenChat = onOpenChat)
+        return
+    }
+    BackHandler(onBack = onBack)
+    Surface(Modifier.fillMaxSize().testTag(BipeScreen.CHAT_REQUESTS.id), color = colors.surfaceBase) {
+        Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+            Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
+                }
+                Text(stringResource(R.string.bipe_requests_title), style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary)
+            }
+            LazyColumn(Modifier.fillMaxSize()) {
+                if (visible.isEmpty()) {
+                    item(key = "empty") {
+                        Text(stringResource(R.string.bipe_app_requests_empty), color = colors.inkSecondary, modifier = Modifier.padding(16.dp))
+                    }
+                } else {
+                    items(visible, key = { it.roomId }) { request ->
+                        // Action openRequest.
+                        Row(
+                            Modifier.fillMaxWidth().clickable { open = request }.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            // hidePhotos: the initials avatar, never the photo, until accepted.
+                            Avatar(request.name, if (model.hidePhotos) null else request.avatarUrl, media)
+                            Column {
+                                Text(request.name, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1)
+                                TrustLine(request.trust)
+                            }
+                        }
+                    }
+                }
+                item(key = "who-can-message") {
+                    // Action openWhoCanMessage.
+                    TextButton(onClick = onOpenWhoCanMessage, modifier = Modifier.padding(8.dp)) {
+                        Text(stringResource(R.string.bipe_messaging_title))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Spec chat-request: who wants to talk, with their trust facts, before the person answers. */
+@Composable
+fun ChatRequestScreen(
+    model: ChatRequestsModel,
+    request: ChatRequestSummary,
+    media: MediaLoader,
+    onBack: () -> Unit,
+    onOpenChat: (String) -> Unit,
+) {
+    val colors = BipeTheme.colors
+    val scope = rememberCoroutineScope()
+    val error by model.error.collectAsState()
+    var isWorking by remember { mutableStateOf(false) }
+    var confirmBlock by remember { mutableStateOf(false) }
+    var reported by remember { mutableStateOf(false) }
+    BackHandler(onBack = onBack)
+    fun act(block: suspend () -> Unit) {
+        isWorking = true
+        scope.launch {
+            block()
+            isWorking = false
+        }
+    }
+    Surface(Modifier.fillMaxSize().testTag(BipeScreen.CHAT_REQUEST.id), color = colors.surfaceBase) {
+        Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+            IconButton(onClick = onBack) {
+                Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
+            }
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Avatar(request.name, if (model.hidePhotos) null else request.avatarUrl, media, size = 72.dp)
+                Text(request.name, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary, textAlign = TextAlign.Center)
+                TrustBlock(request)
+                if (error) Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
+                if (reported) Text(stringResource(R.string.bipe_dm_reported_and_left), color = colors.inkSecondary, textAlign = TextAlign.Center)
+                val enabled = !isWorking && !reported
+                // Action accept.
+                Button(onClick = { act { model.accept(request.roomId)?.let(onOpenChat) } }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.bipe_app_request_accept))
+                }
+                // Action decline.
+                OutlinedButton(onClick = { act { if (model.decline(request.roomId)) onBack() } }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.bipe_app_request_decline))
+                }
+                // Action askDeclineAndBlock.
+                TextButton(onClick = { confirmBlock = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.bipe_app_request_decline_block), color = colors.trustDangerInk)
+                }
+                Text(stringResource(R.string.bipe_dm_decline_block_description), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)
+                // Action report.
+                TextButton(onClick = { act { reported = model.report(request.roomId) } }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.bipe_dm_report), color = colors.trustDangerInk)
+                }
+                Text(stringResource(R.string.bipe_dm_decline_report_description), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)
+            }
+        }
+    }
+    if (confirmBlock) {
+        AlertDialog(
+            onDismissRequest = { confirmBlock = false },
+            title = { Text(stringResource(R.string.bipe_app_request_decline_block)) },
+            text = { Text(stringResource(R.string.bipe_dm_decline_block_alert, request.name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmBlock = false
+                    act { if (model.declineAndBlock(request)) onBack() }
+                }) { Text(stringResource(R.string.bipe_app_request_decline_block), color = colors.trustDangerInk) }
+            },
+            dismissButton = { TextButton(onClick = { confirmBlock = false }) { Text(stringResource(R.string.bipe_app_cancel)) } },
+        )
+    }
+}
+
+@Composable
+private fun TrustBlock(request: ChatRequestSummary) {
+    val colors = BipeTheme.colors
+    val verified = request.trust == ChatRequestSummary.Trust.VERIFIED
+    Column(
+        Modifier.fillMaxWidth()
+            .background(if (verified) colors.trustVerifiedWash else colors.trustCautionWash, RoundedCornerShape(12.dp))
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        when (request.trust) {
+            ChatRequestSummary.Trust.VERIFIED ->
+                Text(stringResource(R.string.bipe_badge_verified_name, request.name), color = colors.trustVerifiedInk, textAlign = TextAlign.Center)
+            ChatRequestSummary.Trust.UNVERIFIED -> {
+                Text(stringResource(R.string.bipe_banner_unverified_title), style = MaterialTheme.typography.titleSmall, color = colors.trustCautionInk)
+                Text(stringResource(R.string.bipe_request_unverified_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
+            }
+            ChatRequestSummary.Trust.EXTERNAL ->
+                Text(stringResource(R.string.bipe_banner_external), color = colors.trustNeutralInk, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+/** A group invite row at the top of the groups list (spec chat-list-filters). */
+@Composable
+fun GroupInviteRow(model: ChatRequestsModel, invite: ChatRequestSummary, media: MediaLoader, onOpenChat: (String) -> Unit) {
+    val colors = BipeTheme.colors
+    val scope = rememberCoroutineScope()
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Avatar(invite.name, invite.avatarUrl, media)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(invite.name, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1)
+            invite.inviterName?.let {
+                Text(stringResource(R.string.bipe_group_notification_room_invite_body_with_sender, it), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Action acceptInvite.
+                Button(onClick = { scope.launch { model.accept(invite.roomId)?.let(onOpenChat) } }) {
+                    Text(stringResource(R.string.bipe_app_request_accept))
+                }
+                // Action declineInvite.
+                OutlinedButton(onClick = { scope.launch { model.decline(invite.roomId) } }) {
+                    Text(stringResource(R.string.bipe_app_request_decline))
+                }
+            }
+        }
+    }
+}

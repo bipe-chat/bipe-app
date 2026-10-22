@@ -48,6 +48,10 @@ class ChatListModel(
     val phase: StateFlow<Phase> = _phase.asStateFlow()
     private val _chats = MutableStateFlow<List<ChatSummary>>(emptyList())
     val chats: StateFlow<List<ChatSummary>> = _chats.asStateFlow()
+    private val _unreadOnly = MutableStateFlow(false)
+
+    /** The Unread filter (spec chat-list-filters, unreadOnly). */
+    val unreadOnly: StateFlow<Boolean> = _unreadOnly.asStateFlow()
 
     private val rooms = mutableListOf<Room>()
     private var listLoaded = false
@@ -82,11 +86,7 @@ class ChatListModel(
                     }
                 },
             )
-            result.controller().setFilter(
-                RoomListEntriesDynamicFilterKind.All(
-                    listOf(RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace),
-                ),
-            )
+            result.controller().setFilter(filter())
             handles += result.entriesStream()
             entries = result
             launch {
@@ -97,6 +97,22 @@ class ChatListModel(
                 refreshSummaries()
             }
         }
+    }
+
+    /** Requests (invites) never show here; the Unread filter adds unread messages or marked unread. */
+    private fun filter(): RoomListEntriesDynamicFilterKind = RoomListEntriesDynamicFilterKind.All(
+        buildList {
+            add(RoomListEntriesDynamicFilterKind.Joined)
+            add(RoomListEntriesDynamicFilterKind.NonSpace)
+            add(RoomListEntriesDynamicFilterKind.DeduplicateVersions)
+            if (_unreadOnly.value) add(RoomListEntriesDynamicFilterKind.Unread)
+        },
+    )
+
+    /** Action toggleUnread of chat-list-filters. */
+    fun toggleUnread() {
+        _unreadOnly.value = !_unreadOnly.value
+        entries?.controller()?.setFilter(filter())
     }
 
     /** Action loadMore: the next page, when the list scrolls near its end. */
@@ -131,7 +147,7 @@ class ChatListModel(
         }
     }
 
-    private suspend fun summary(room: Room): ChatSummary? {
+    suspend fun summary(room: Room): ChatSummary? {
         val info = runCatching { room.roomInfo() }.getOrNull() ?: return null
         var lastMessage: String? = null
         var lastActivity: Long? = null

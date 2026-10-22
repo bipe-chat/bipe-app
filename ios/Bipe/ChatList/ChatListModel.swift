@@ -31,6 +31,8 @@ final class ChatListModel: ObservableObject {
 
     @Published private(set) var phase: Phase = .loading
     @Published private(set) var chats: [ChatSummary] = []
+    /// The Unread filter (spec chat-list-filters, unreadOnly).
+    @Published private(set) var unreadOnly = false
 
     let session: AccountSession
     let media: MediaLoader
@@ -64,7 +66,7 @@ final class ChatListModel: ObservableObject {
         }
         let entriesStream = RoomListEntriesStream()
         let result = roomList.entriesWithDynamicAdapters(pageSize: Self.pageSize, listener: entriesStream)
-        _ = result.controller().setFilter(kind: .all(filters: [.joined, .nonSpace]))
+        _ = result.controller().setFilter(kind: filter)
         handles.append(result.entriesStream())
         entries = result
 
@@ -79,6 +81,19 @@ final class ChatListModel: ObservableObject {
             }
             refreshSummaries()
         }
+    }
+
+    /// Requests (invites) never show here; the Unread filter adds unread messages or marked unread.
+    private var filter: RoomListEntriesDynamicFilterKind {
+        var filters: [RoomListEntriesDynamicFilterKind] = [.joined, .nonSpace, .deduplicateVersions]
+        if unreadOnly { filters.append(.unread) }
+        return .all(filters: filters)
+    }
+
+    /// Action toggleUnread of chat-list-filters.
+    func toggleUnread() {
+        unreadOnly.toggle()
+        _ = entries?.controller().setFilter(kind: filter)
     }
 
     /// Action loadMore: the next page, when the list scrolls near its end.
@@ -117,7 +132,7 @@ final class ChatListModel: ObservableObject {
         }
     }
 
-    private static func summary(of room: Room) async -> ChatSummary? {
+    static func summary(of room: Room) async -> ChatSummary? {
         guard let info = try? await room.roomInfo() else { return nil }
         var lastMessage: String?
         var lastActivity: Date?
