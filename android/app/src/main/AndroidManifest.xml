@@ -15,7 +15,9 @@
     <application
         android:name=".BipeApplication"
         android:allowBackup="false"
-        android:label="@string/bipe_app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_launcher_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity

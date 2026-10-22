@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: AGPL-3.0-only
+  Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+  Copyright 2026 Bipe contributors
+-->
+<resources>
+    <!-- Background of the Bipe app icon (bipe-web public/brand/app-icon.svg). -->
+    <color name="ic_launcher_background">#80307B</color>
+</resources>
