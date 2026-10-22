@@ -1171,4 +1171,13 @@
     <string name="bipe_app_utd_not_shared">The sender\'s device didn\'t share this message with this phone.</string>
     <string name="bipe_app_utd_unapproved_device">This message came from a device that %1$s hasn\'t approved.</string>
     <string name="bipe_app_utd_help">How to see it</string>
+    <string name="bipe_app_notification_new_message">New message</string>
+    <string name="bipe_app_notification_chat_request">%1$s wants to chat with you</string>
+    <string name="bipe_app_notification_reply">Reply</string>
+    <string name="bipe_app_notification_mark_read">Mark as read</string>
+    <string name="bipe_app_notification_channel_messages">Messages</string>
+    <string name="bipe_app_notification_mode_all">All messages</string>
+    <string name="bipe_app_notification_mode_mentions">Only when someone mentions you</string>
+    <string name="bipe_app_notification_mode_off">Mute</string>
+    <string name="bipe_app_notification_mode_default">Same as in settings (%1$s)</string>
 </resources>

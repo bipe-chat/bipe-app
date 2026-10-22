@@ -2681,4 +2681,26 @@ public enum BipeStrings {
     }
 
     public static var appUtdHelp: String { NSLocalizedString("bipe_app_utd_help", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationNewMessage: String { NSLocalizedString("bipe_app_notification_new_message", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appNotificationChatRequest(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_notification_chat_request", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appNotificationReply: String { NSLocalizedString("bipe_app_notification_reply", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationMarkRead: String { NSLocalizedString("bipe_app_notification_mark_read", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationChannelMessages: String { NSLocalizedString("bipe_app_notification_channel_messages", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationModeAll: String { NSLocalizedString("bipe_app_notification_mode_all", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationModeMentions: String { NSLocalizedString("bipe_app_notification_mode_mentions", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationModeOff: String { NSLocalizedString("bipe_app_notification_mode_off", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appNotificationModeDefault(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_notification_mode_default", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }

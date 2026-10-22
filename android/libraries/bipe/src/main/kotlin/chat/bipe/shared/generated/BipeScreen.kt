@@ -22,6 +22,9 @@ enum class BipeScreen(val id: String) {
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 
+    /** Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json */
+    CHAT_NOTIFICATIONS("chat-notifications"),
+
     /** Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json */
     CHAT_TIMELINE("chat-timeline"),
 
@@ -52,6 +55,15 @@ enum class BipeScreen(val id: String) {
     /** Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json */
     MESSAGE_UNDECRYPTABLE("message-undecryptable"),
 
+    /** Notification on the phone (flow notifications). Spec: bipe-shared/product/screens/notification-service.json */
+    NOTIFICATION_SERVICE("notification-service"),
+
+    /** Notification settings (flow settings). Spec: bipe-shared/product/screens/notification-settings.json */
+    NOTIFICATION_SETTINGS("notification-settings"),
+
+    /** Notifications prompt (flow notifications). Spec: bipe-shared/product/screens/notifications-prompt.json */
+    NOTIFICATIONS_PROMPT("notifications-prompt"),
+
     /** Welcome (flow signup). Spec: bipe-shared/product/screens/onboarding-welcome.json */
     ONBOARDING_WELCOME("onboarding-welcome"),
 
@@ -63,6 +75,9 @@ enum class BipeScreen(val id: String) {
 
     /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
     PROBLEM_REPORT("problem-report"),
+
+    /** Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json */
+    PUSH_REGISTRATION("push-registration"),
 
     /** Account moving to a new device (flow recovery). Spec: bipe-shared/product/screens/recovery-alert.json */
     RECOVERY_ALERT("recovery-alert"),
