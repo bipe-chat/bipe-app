@@ -9,6 +9,12 @@ enum AppConfig {
     /// Bipe's homeserver (bipe/docs/server-migration.md).
     static let homeserver = "https://matrix.bipe.net.br"
 
+    /// The Bipe API (bipe-api, bipe/docs/server-migration.md). Contract: bipe-shared/api/openapi.yaml.
+    static let apiBaseURL = URL(string: "https://api.bipe.net.br")!
+
+    /// The public site with the legal pages (PUBLIC_SITE_URL, registries/legal.json).
+    static let publicSite = URL(string: "https://bipe.chat")!
+
     /// The app group of the tester app. The SDK store and caches live there.
     static let appGroup = "group.chat.bipe.next"
 
