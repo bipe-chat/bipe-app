@@ -15,6 +15,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      device_only:
+        description: Build an ad hoc iOS IPA for USB installation without TestFlight distribution
+        type: boolean
+        default: false
+        required: false
 
 permissions:
   contents: read
@@ -51,6 +57,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - uses: actions/checkout@v4
+        if: inputs.device_only
+        with:
+          repository: bipe-chat/bipe-shared
+          path: bipe-shared
+      - name: Device-build policy checks
+        if: inputs.device_only
+        run: |
+          for check in deny-list licences headers strings sdk-version; do node "tools/${check}.mjs"; done
+          node --test tools/*.test.mjs
+      - name: Device-build BipeKit tests
+        if: inputs.device_only
+        working-directory: ios/BipeKit
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+        run: swift test
       - name: Write the API key
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -60,6 +82,7 @@ jobs:
           printf '%s\n' "$ASC_KEY_P8" > "$key"
           echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
       - name: Register the bundle IDs, check the app record
+        if: ${{ !inputs.device_only }}
         id: asc
         run: node tools/asc.mjs prepare
       - name: Install XcodeGen
@@ -160,6 +183,7 @@ jobs:
         run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8
 
   android:
+    if: ${{ !inputs.device_only }}
     needs: build-number
     runs-on: ubuntu-latest
     timeout-minutes: 60
