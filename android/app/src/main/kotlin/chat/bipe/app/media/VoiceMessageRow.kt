@@ -53,7 +53,10 @@ import chat.bipe.shared.generated.BipeScreen
 private const val FOLD_LENGTH = 140
 private const val BAR_COUNT = 36
 
-/** Spec voice-message: play and pause, the waveform with progress, the duration and the sender's transcript. */
+/**
+ * Spec voice-message: play and pause, the waveform with progress, the duration and the sender's transcript.
+ * The bubble, sender, footer and reactions come from the message row of spec timeline-rows.
+ */
 @Composable
 fun VoiceMessageRow(
     message: TimelineMessage,
@@ -61,113 +64,85 @@ fun VoiceMessageRow(
     state: VoicePlayer.State,
     onTogglePlay: () -> Unit,
     onSeek: (Float) -> Unit,
-    onRetrySend: () -> Unit,
 ) {
     val colors = BipeTheme.colors
     val playback = state.playback(message.id)
     var transcriptExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
-    Row(
-        modifier = Modifier.fillMaxWidth().testTag(BipeScreen.VOICE_MESSAGE.id),
-        horizontalArrangement = if (message.isOwn) Arrangement.End else Arrangement.Start,
+    Column(
+        modifier = Modifier.widthIn(max = 256.dp).testTag(BipeScreen.VOICE_MESSAGE.id),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .background(if (message.isOwn) colors.bubbleOwn else colors.bubbleOther, RoundedCornerShape(16.dp))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (!message.isOwn) {
-                Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
+        if (!voice.isVoice) {
+            Text(
+                voice.filename,
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.inkPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.MiddleEllipsis,
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val playLabel = stringResource(
+                if (playback == VoicePlayer.Playback.PLAYING) R.string.bipe_app_voice_pause else R.string.bipe_app_voice_play,
+            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(colors.accentFill, CircleShape)
+                    .clickable(onClick = onTogglePlay)
+                    .semantics { contentDescription = playLabel },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (playback == VoicePlayer.Playback.LOADING) {
+                    CircularProgressIndicator(color = colors.inkOnAccent, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                } else {
+                    Icon(
+                        painterResource(if (playback == VoicePlayer.Playback.PLAYING) PhosphorIcon.PAUSE.drawable else PhosphorIcon.PLAY.drawable),
+                        contentDescription = null,
+                        tint = colors.inkOnAccent,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
-            if (!voice.isVoice) {
+            val voiceLabel = stringResource(R.string.bipe_app_media_voice)
+            Waveform(
+                bars = voice.waveform,
+                progress = state.progress(message.id),
+                onSeek = onSeek,
+                modifier = Modifier.weight(1f).height(32.dp).semantics { contentDescription = voiceLabel },
+            )
+            Text(voice.durationLabel, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
+        }
+        if (playback == VoicePlayer.Playback.FAILED) {
+            Text(stringResource(R.string.bipe_app_media_failed), style = MaterialTheme.typography.labelSmall, color = colors.trustDangerInk)
+        }
+        voice.transcript?.let { transcript ->
+            // The transcript block of ADR 0023: the title, then the text in 3 lines; show more or less over 140 characters.
+            val folds = transcript.length > FOLD_LENGTH
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    voice.filename,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.inkPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.MiddleEllipsis,
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                val playLabel = stringResource(
-                    if (playback == VoicePlayer.Playback.PLAYING) R.string.bipe_app_voice_pause else R.string.bipe_app_voice_play,
-                )
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(colors.accentFill, CircleShape)
-                        .clickable(onClick = onTogglePlay)
-                        .semantics { contentDescription = playLabel },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (playback == VoicePlayer.Playback.LOADING) {
-                        CircularProgressIndicator(color = colors.inkOnAccent, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                    } else {
-                        Icon(
-                            painterResource(if (playback == VoicePlayer.Playback.PLAYING) PhosphorIcon.PAUSE.drawable else PhosphorIcon.PLAY.drawable),
-                            contentDescription = null,
-                            tint = colors.inkOnAccent,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-                val voiceLabel = stringResource(R.string.bipe_app_media_voice)
-                Waveform(
-                    bars = voice.waveform,
-                    progress = state.progress(message.id),
-                    onSeek = onSeek,
-                    modifier = Modifier.weight(1f).height(32.dp).semantics { contentDescription = voiceLabel },
-                )
-                Text(voice.durationLabel, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
-            }
-            if (playback == VoicePlayer.Playback.FAILED) {
-                Text(stringResource(R.string.bipe_app_media_failed), style = MaterialTheme.typography.labelSmall, color = colors.trustDangerInk)
-            }
-            voice.transcript?.let { transcript ->
-                // The transcript block of ADR 0023: the title, then the text in 3 lines; show more or less over 140 characters.
-                val folds = transcript.length > FOLD_LENGTH
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        stringResource(R.string.bipe_voice_transcript_title),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.inkSecondary,
-                    )
-                    Text(
-                        transcript,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.inkPrimary,
-                        maxLines = if (folds && !transcriptExpanded) 3 else Int.MAX_VALUE,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (folds) {
-                        // Action toggleTranscript.
-                        Text(
-                            stringResource(if (transcriptExpanded) R.string.bipe_action_show_less else R.string.bipe_action_show_more),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = colors.accentInk,
-                            modifier = Modifier.clickable { transcriptExpanded = !transcriptExpanded },
-                        )
-                    }
-                }
-            }
-            when (message.sendState) {
-                TimelineMessage.SendState.FAILED -> Row(
-                    modifier = Modifier.clickable(onClick = onRetrySend),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustDangerInk, modifier = Modifier.size(14.dp))
-                    Text(stringResource(R.string.bipe_app_upload_failed), style = MaterialTheme.typography.labelSmall, color = colors.trustDangerInk)
-                }
-                TimelineMessage.SendState.SENDING -> Text(
-                    stringResource(R.string.bipe_app_timeline_sending),
-                    style = MaterialTheme.typography.labelSmall,
+                    stringResource(R.string.bipe_voice_transcript_title),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = colors.inkSecondary,
                 )
-                TimelineMessage.SendState.SENT -> Unit
+                Text(
+                    transcript,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.inkPrimary,
+                    maxLines = if (folds && !transcriptExpanded) 3 else Int.MAX_VALUE,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (folds) {
+                    // Action toggleTranscript.
+                    Text(
+                        stringResource(if (transcriptExpanded) R.string.bipe_action_show_less else R.string.bipe_action_show_more),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.accentInk,
+                        modifier = Modifier.clickable { transcriptExpanded = !transcriptExpanded },
+                    )
+                }
             }
         }
     }

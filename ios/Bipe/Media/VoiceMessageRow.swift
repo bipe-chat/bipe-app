@@ -7,12 +7,12 @@ import Phosphor
 import SwiftUI
 
 /// Spec voice-message: play and pause, the waveform with progress, the duration and the sender's transcript.
+/// The bubble, sender, footer and reactions come from the message row of spec timeline-rows.
 struct VoiceMessageRow: View {
     let message: TimelineMessage
     let voice: VoiceMessage
     let loader: MediaLoader
     @ObservedObject var player: VoicePlayer
-    let retrySend: () -> Void
 
     @State private var transcriptExpanded = false
 
@@ -20,55 +20,25 @@ struct VoiceMessageRow: View {
     private static let foldLength = 140
 
     var body: some View {
-        HStack {
-            if message.isOwn { Spacer(minLength: 48) }
-            VStack(alignment: .leading, spacing: 6) {
-                if !message.isOwn {
-                    Text(message.senderName)
-                        .font(.caption.bold())
-                        .foregroundStyle(BipeColor.accentInk)
-                }
-                if !voice.isVoice {
-                    Text(voice.filename)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(BipeColor.inkPrimary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                playerLine
-                if playback == .failed {
-                    Text(BipeStrings.appMediaFailed)
-                        .font(.caption)
-                        .foregroundStyle(BipeColor.trustDangerInk)
-                }
-                if let transcript = voice.transcript {
-                    transcriptBlock(transcript)
-                }
-                if message.sendState == .failed {
-                    Button(action: retrySend) {
-                        HStack(spacing: 4) {
-                            PhosphorIcon.warningCircle.image
-                                .resizable()
-                                .frame(width: 14, height: 14)
-                                .accessibilityHidden(true)
-                            Text(BipeStrings.appUploadFailed)
-                                .font(.caption)
-                        }
-                        .foregroundStyle(BipeColor.trustDangerInk)
-                    }
-                    .buttonStyle(.plain)
-                } else if message.sendState == .sending {
-                    Text(BipeStrings.appTimelineSending)
-                        .font(.caption)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                }
+        VStack(alignment: .leading, spacing: 6) {
+            if !voice.isVoice {
+                Text(voice.filename)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(BipeColor.inkPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .frame(maxWidth: 280, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 16).fill(message.isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther))
-            if !message.isOwn { Spacer(minLength: 48) }
+            playerLine
+            if playback == .failed {
+                Text(BipeStrings.appMediaFailed)
+                    .font(.caption)
+                    .foregroundStyle(BipeColor.trustDangerInk)
+            }
+            if let transcript = voice.transcript {
+                transcriptBlock(transcript)
+            }
         }
+        .frame(maxWidth: 256, alignment: .leading)
         .accessibilityIdentifier(BipeScreen.voiceMessage.rawValue)
     }
 

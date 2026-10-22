@@ -51,9 +51,9 @@ class MainActivity : ComponentActivity() {
         AppLockModel.get(this).onBackground()
     }
 
-    /** A bipe.chat/convite/<code> link (onboarding-welcome, action openInviteLink). */
+    /** A bipe.chat/convite/<code> link (onboarding-welcome) or a bipe.chat/recuperar/#<token> link (recovery-email). */
     private fun readInviteLink(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_VIEW) intent.data?.let { accountStart.pendingInviteLink = it }
+        if (intent?.action == Intent.ACTION_VIEW) intent.data?.let(accountStart::openLink)
     }
 
     /**

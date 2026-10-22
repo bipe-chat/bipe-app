@@ -37,6 +37,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/convite/" />
             </intent-filter>
+            <!-- Recovery links from the recovery e-mail (recovery-email, action openLink). Not verified, like the invite links. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/recuperar" />
+            </intent-filter>
         </activity>
         <!-- Shares the data export file (spec data-export). -->
         <provider
