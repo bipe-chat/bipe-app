@@ -34,6 +34,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.chatlist.HomeScreen
+import chat.bipe.app.recovery.RecoveryFlowModel
+import chat.bipe.app.recovery.RecoveryFlowScreen
 import chat.bipe.app.signup.SignupDoneScreen
 import chat.bipe.app.signup.SignupFlowModel
 import chat.bipe.app.signup.SignupFlowScreen
@@ -63,12 +65,37 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
         }
         return
     }
+    val showsRecovery by model.showsRecovery.collectAsState()
+    if (phase == AccountStartModel.Phase.NO_ACCOUNT && showsRecovery) {
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val recovery = remember(model) {
+            RecoveryFlowModel(context, model.api, model.vault, model.sessionStore, scope, onSignedIn = model::didRecover)
+        }
+        val link by model.recoveryLink.collectAsState()
+        LaunchedEffect(link) {
+            link?.let {
+                recovery.openLink(it)
+                model.consumeRecoveryLink()
+            }
+        }
+        RecoveryFlowScreen(recovery, onClose = { model.showRecovery(false) })
+        return
+    }
     if (phase == AccountStartModel.Phase.NO_ACCOUNT) {
         // Spec account-start: noAccount shows onboarding-welcome.
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val signup = remember(model) {
-            SignupFlowModel(context, model.api, model.vault, model.sessionStore, scope, onSignedUp = model::didSignUp)
+            SignupFlowModel(
+                context,
+                model.api,
+                model.vault,
+                model.sessionStore,
+                scope,
+                onSignedUp = model::didSignUp,
+                onHaveAccount = { model.showRecovery(true) },
+            )
         }
         LaunchedEffect(signup) { model.pendingInviteLink?.let(signup::openInviteLink) }
         SignupFlowScreen(signup)

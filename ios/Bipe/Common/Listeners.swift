@@ -47,6 +47,19 @@ final class TimelineDiffStream: TimelineListener {
     }
 }
 
+final class TypingStream: TypingNotificationsListener {
+    let updates: AsyncStream<[String]>
+    private let continuation: AsyncStream<[String]>.Continuation
+
+    init() {
+        (updates, continuation) = AsyncStream.makeStream()
+    }
+
+    func call(typingUserIds: [String]) {
+        continuation.yield(typingUserIds)
+    }
+}
+
 /// The operations of an SDK vector diff. Room list entries and timeline items use the same shape.
 enum VectorDiff<Element> {
     case append([Element])

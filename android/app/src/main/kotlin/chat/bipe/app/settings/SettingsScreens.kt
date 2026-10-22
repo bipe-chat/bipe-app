@@ -58,6 +58,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.encryption.RecoveryKeySaveScreen
 import chat.bipe.app.account.AccountSession
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -86,6 +87,7 @@ sealed interface SettingsRoute {
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
+    data object RecoveryKey : SettingsRoute
 }
 
 /**
@@ -126,6 +128,7 @@ fun SettingsHost(
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
+        SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, onClose = pop)
         SettingsRoute.ShowMediaChoice -> ChoiceListScreen(
             title = stringResource(R.string.bipe_chats_show_media),
             options = ShowMedia.entries.map { it.id to stringResource(it.title) },
@@ -236,6 +239,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
+            BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)
             BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
             // The screens of the other rows come with their own specs (see settings-group notes).
