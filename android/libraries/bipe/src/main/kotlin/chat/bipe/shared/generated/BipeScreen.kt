@@ -16,8 +16,14 @@ enum class BipeScreen(val id: String) {
     /** Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json */
     ACCOUNT_START("account-start"),
 
+    /** Account switcher (flow home). Spec: bipe-shared/product/screens/account-switcher.json */
+    ACCOUNT_SWITCHER("account-switcher"),
+
     /** App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json */
     APP_LOCK("app-lock"),
+
+    /** Tab bar (flow home). Spec: bipe-shared/product/screens/app-tabs.json */
+    APP_TABS("app-tabs"),
 
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
@@ -120,4 +126,7 @@ enum class BipeScreen(val id: String) {
 
     /** Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json */
     TERMS_REACCEPT("terms-reaccept"),
+
+    /** Você (flow voce). Spec: bipe-shared/product/screens/voce.json */
+    VOCE("voce"),
 }
