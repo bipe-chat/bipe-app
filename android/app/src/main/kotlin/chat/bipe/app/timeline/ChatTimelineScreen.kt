@@ -35,11 +35,15 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -52,6 +56,10 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.media.MediaViewer
+import chat.bipe.app.media.TimelineMediaRow
+import chat.bipe.app.media.VoiceMessageRow
+import chat.bipe.app.media.VoicePlayer
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -71,7 +79,13 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val isLoadingHistory by model.isLoadingHistory.collectAsState()
     val reachedStart by model.reachedStart.collectAsState()
     val draft by model.draft.collectAsState()
+    val isPrivateRoom by model.isPrivateRoom.collectAsState()
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val voicePlayer = remember(roomId) { VoicePlayer(context.applicationContext, media, scope) }
+    val voiceState by voicePlayer.state.collectAsState()
+    DisposableEffect(voicePlayer) { onDispose { voicePlayer.stop() } }
+    var viewerRowId by rememberSaveable { mutableStateOf<String?>(null) }
 
     // The list is reversed: index 0 is the newest message, so the view opens at the bottom.
     val newestFirst = remember(messages) { messages.asReversed() }
@@ -106,7 +120,29 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(newestFirst, key = { it.id }) { message ->
-                    MessageRow(message, onRetry = { model.retrySend(message.id) })
+                    // Media and voice rows live in media/ (specs timeline-media, voice-message).
+                    val item = message.media
+                    val voice = message.voice
+                    when {
+                        item != null -> TimelineMediaRow(
+                            message = message,
+                            media = item,
+                            loader = media,
+                            isPrivateRoom = isPrivateRoom,
+                            onOpenViewer = { viewerRowId = message.id },
+                            onCancelUpload = { model.cancelUpload(message.id) },
+                            onRetrySend = { model.retrySend(message.id) },
+                        )
+                        voice != null -> VoiceMessageRow(
+                            message = message,
+                            voice = voice,
+                            state = voiceState,
+                            onTogglePlay = { voicePlayer.togglePlay(message.id, voice) },
+                            onSeek = { voicePlayer.seek(message.id, it) },
+                            onRetrySend = { model.retrySend(message.id) },
+                        )
+                        else -> MessageRow(message, onRetry = { model.retrySend(message.id) })
+                    }
                 }
                 item(key = "history") {
                     // Composed while the top of the list is on screen, again after each page (action loadHistory).
@@ -131,6 +167,15 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
             }
             Composer(draft, canSend = draft.isNotBlank(), onEdit = model::editDraft, onSend = model::send)
         }
+    }
+    viewerRowId?.let { rowId ->
+        MediaViewer(
+            messages = messages,
+            startRowId = rowId,
+            loader = media,
+            onLoadHistory = model::loadHistory,
+            onClose = { viewerRowId = null },
+        )
     }
 }
 
@@ -169,6 +214,8 @@ private fun MessageRow(message: TimelineMessage, onRetry: () -> Unit) {
                 Text(undecryptableText(message), style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = colors.inkSecondary)
             }
         }
+        // ChatTimelineScreen shows these with TimelineMediaRow and VoiceMessageRow.
+        TimelineMessage.Kind.MEDIA, TimelineMessage.Kind.VOICE -> Unit
         // The slice shows text only (spec chat-timeline notes). bipe-shared has no string for other events yet.
         TimelineMessage.Kind.UNSUPPORTED -> Unit
     }

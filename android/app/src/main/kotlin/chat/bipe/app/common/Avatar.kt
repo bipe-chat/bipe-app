@@ -35,7 +35,7 @@ import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.MediaSource
 
 /** Loads avatar thumbnails through the SDK media API and keeps them in memory. */
-class MediaLoader(private val client: Client) {
+class MediaLoader(val client: Client) {
     private val cache = LruCache<String, ImageBitmap>(100)
 
     suspend fun thumbnail(mxcUrl: String, size: Int): ImageBitmap? {

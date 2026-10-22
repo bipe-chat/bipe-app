@@ -59,7 +59,8 @@ import java.text.NumberFormat
 fun HomeScreen(session: AccountSession) {
     val scope = rememberCoroutineScope()
     val undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable)
-    val model = remember(session) { ChatListModel(session, scope, undecryptable) }
+    val resources = LocalContext.current.resources
+    val model = remember(session) { ChatListModel(session, scope, undecryptable, resources::getString) }
     val media = remember(session) { MediaLoader(session.client) }
     var openRoomId by rememberSaveable { mutableStateOf<String?>(null) }
     DisposableEffect(model) {

@@ -8,6 +8,10 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.displayName
 import chat.bipe.app.common.toVectorDiff
+import chat.bipe.app.media.MediaContent
+import chat.bipe.app.media.MediaFormat
+import chat.bipe.app.media.MediaMessage
+import chat.bipe.app.media.VoiceMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,8 +44,11 @@ data class TimelineMessage(
     val sentAt: Long,
     val sendState: SendState,
     val cause: UndecryptableCause?,
+    val media: MediaMessage? = null,
+    val voice: VoiceMessage? = null,
 ) {
-    enum class Kind { TEXT, UNDECRYPTABLE, UNSUPPORTED }
+    /** MEDIA: image, video, file or sticker (spec timeline-media). VOICE: voice message or audio file (spec voice-message). */
+    enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, UNSUPPORTED }
 
     enum class SendState { SENT, SENDING, FAILED }
 
@@ -63,6 +70,9 @@ class ChatTimelineModel(
     val isLoadingHistory: StateFlow<Boolean> = _isLoadingHistory.asStateFlow()
     private val _reachedStart = MutableStateFlow(false)
     val reachedStart: StateFlow<Boolean> = _reachedStart.asStateFlow()
+    private val _isPrivateRoom = MutableStateFlow(true)
+    /** A DM or a group that needs an invite, for the show-media setting (spec timeline-media). */
+    val isPrivateRoom: StateFlow<Boolean> = _isPrivateRoom.asStateFlow()
     private val _draft = MutableStateFlow("")
     val draft: StateFlow<String> = _draft.asStateFlow()
 
@@ -78,6 +88,7 @@ class ChatTimelineModel(
             val room = runCatching { session.client.getRoom(roomId) }.getOrNull() ?: return@launch
             val timeline = runCatching { room.timeline() }.getOrNull() ?: return@launch
             _roomName.value = room.displayName() ?: roomId
+            _isPrivateRoom.value = room.isPublic() != true
             this@ChatTimelineModel.timeline = timeline
             val diffs = Channel<List<TimelineDiff>>(Channel.UNLIMITED)
             handle = timeline.addListener(object : TimelineListener {
@@ -140,6 +151,13 @@ class ChatTimelineModel(
         scope.launch { runCatching { sendHandle.tryResend() } }
     }
 
+    /** Action cancelUpload of spec timeline-media: cancels the send of own media and removes the row. */
+    fun cancelUpload(id: String) {
+        val item = items.firstOrNull { it.uniqueId().id == id } ?: return
+        val sendHandle = item.asEvent()?.lazyProvider?.getSendHandle() ?: return
+        scope.launch { runCatching { sendHandle.abort() } }
+    }
+
     private fun rebuild() {
         if (items.any { it.asVirtual() is VirtualTimelineItem.TimelineStart }) _reachedStart.value = true
         _messages.value = items.mapNotNull { item -> item.asEvent()?.let { message(item.uniqueId().id, it) } }
@@ -149,7 +167,20 @@ class ChatTimelineModel(
         var kind = TimelineMessage.Kind.UNSUPPORTED
         var body: String? = null
         var cause: TimelineMessage.UndecryptableCause? = null
+        var media: MediaMessage? = null
+        var voice: VoiceMessage? = null
         val content = (event.content as? TimelineItemContent.MsgLike)?.content
+        when (val found = content?.kind?.let { MediaContent.of(it) }) {
+            is MediaContent.Media -> {
+                kind = TimelineMessage.Kind.MEDIA
+                media = found.media.copy(uploadProgress = if (event.isOwn) MediaFormat.uploadPercent(event.localSendState) else null)
+            }
+            is MediaContent.Voice -> {
+                kind = TimelineMessage.Kind.VOICE
+                voice = found.voice
+            }
+            null -> Unit
+        }
         when (val msgKind = content?.kind) {
             is MsgLikeKind.Message -> if (msgKind.content.msgType is MessageType.Text) {
                 kind = TimelineMessage.Kind.TEXT
@@ -175,6 +206,8 @@ class ChatTimelineModel(
             sentAt = event.timestamp.toLong(),
             sendState = if (event.isOwn) sendState else TimelineMessage.SendState.SENT,
             cause = cause,
+            media = media,
+            voice = voice,
         )
     }
 
