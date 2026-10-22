@@ -14,12 +14,16 @@
 // Bipe files are "new" submissions and Element files are "old" submissions:
 // JPlag does not compare Element files with each other.
 // A pair fails when its average similarity (JPlag's default metric) is above
-// THRESHOLD, or its maximum similarity is above MAX_THRESHOLD (most of one file
-// is inside the other: a partial copy). A pair whose average or maximum
-// similarity is above WARN_THRESHOLD
-// prints a warning to review: maximum similarity is high when a small file is
-// mostly contained in a large one, and small Compose or SwiftUI files reach an
-// average of about 0.55 from boilerplate alone (see AGENTS.md, "Checks").
+// THRESHOLD and the two files share at least MIN_MATCHED_TOKENS tokens in
+// matches. A small file of plain SwiftUI or Compose setup reaches 0.5 against
+// many unrelated files with a few dozen shared tokens; a copy shares more.
+// A pair above THRESHOLD under that minimum, or whose maximum similarity is
+// above THRESHOLD, prints a warning: maximum similarity is high when a small
+// file is mostly contained in a large one.
+//
+// Matched tokens: JPlag's average similarity is 2 * matched / (tokens of the
+// first file + tokens of the second file), so matched = average * (sum) / 2.
+// The token counts come from submissionFileIndex.json in the JPlag report.
 
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -27,9 +31,8 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { walk, isMain, REPO_ROOT } from './lib.mjs';
 
-export const THRESHOLD = 0.65;
-export const MAX_THRESHOLD = 0.9;
-export const WARN_THRESHOLD = 0.5;
+export const THRESHOLD = 0.5;
+export const MIN_MATCHED_TOKENS = 100;
 
 export const LANGS = {
   swift: { jplag: 'swift', ext: '.swift' },
@@ -82,9 +85,29 @@ function flatKey(submissionName) {
   return m ? m[1] : null;
 }
 
+// The shared tokens of a pair. Unknown when a token count is missing.
+export function matchedTokens(avg, tokensA, tokensB) {
+  if (!Number.isFinite(tokensA) || !Number.isFinite(tokensB)) return Infinity;
+  return Math.round((avg * (tokensA + tokensB)) / 2);
+}
+
+// Token count per flat submission name, from JPlag's submissionFileIndex.json:
+// { fileIndexes: { "<dir>_<flat>": { "<path>": { tokenCount } } } }.
+export function tokenCounts(index) {
+  const out = new Map();
+  for (const [submission, files] of Object.entries(index.fileIndexes ?? {})) {
+    const key = flatKey(submission.replace(/^[^_]*_(?=[ot]\d{5}_)/, ''));
+    if (!key) continue;
+    out.set(key, Object.values(files).reduce((sum, f) => sum + (f.tokenCount ?? 0), 0));
+  }
+  return out;
+}
+
 // rows: parsed results.csv (header first). ours/theirs: maps from flatNames.
+// tokens: map from flat name to token count (a missing count counts as a
+// copy, so the pair fails).
 // Returns { failures, warnings, notCompared } with original file paths.
-export function evaluate(rows, ours, theirs, threshold = THRESHOLD) {
+export function evaluate(rows, ours, theirs, threshold = THRESHOLD, tokens = new Map(), minTokens = MIN_MATCHED_TOKENS) {
   const [header, ...data] = rows;
   const col = (name) => header.indexOf(name);
   const [c1, c2, cAvg, cMax] = ['submissionName1', 'submissionName2', 'averageSimilarity', 'maxSimilarity'].map(col);
@@ -103,9 +126,10 @@ export function evaluate(rows, ours, theirs, threshold = THRESHOLD) {
     else continue;
     const avg = Number(r[cAvg]);
     const max = Number(r[cMax]);
-    const pair = { ours: ours.get(mine), theirs: theirs.get(other), avg, max };
-    if (avg > threshold || max > MAX_THRESHOLD) failures.push(pair);
-    else if (avg > WARN_THRESHOLD || max > WARN_THRESHOLD) warnings.push(pair);
+    const matched = matchedTokens(avg, tokens.get(mine), tokens.get(other));
+    const pair = { ours: ours.get(mine), theirs: theirs.get(other), avg, max, matched };
+    if (avg > threshold && matched >= minTokens) failures.push(pair);
+    else if (avg > threshold || max > threshold) warnings.push(pair);
   }
   const byAvg = (x, y) => y.avg - x.avg || y.max - x.max;
   const notCompared = [...ours.keys()].filter((k) => !compared.has(k)).map((k) => ours.get(k));
@@ -117,7 +141,7 @@ function stage(map, srcRoot, dir) {
   for (const [flat, file] of map) copyFileSync(join(srcRoot, file), join(dir, flat));
 }
 
-// Runs JPlag and returns the parsed results.csv.
+// Runs JPlag and returns the parsed results.csv and the token count per file.
 export function runJplag({ jar, lang, ours, theirs, oursRoot, theirsRoot, work }) {
   const oursDir = join(work, 'ours');
   const theirsDir = join(work, 'theirs');
@@ -135,7 +159,11 @@ export function runJplag({ jar, lang, ours, theirs, oursRoot, theirsRoot, work }
   }
   const csv = join(result, 'results.csv');
   if (!existsSync(csv)) throw new Error(`JPlag wrote no ${csv}`);
-  return parseCsv(readFileSync(csv, 'utf8'));
+  // The report archive holds the token count of each file.
+  const index = join(work, 'index');
+  execFileSync('unzip', ['-o', '-q', `${result}.jplag`, 'submissionFileIndex.json', '-d', index], { stdio: 'inherit' });
+  const tokens = tokenCounts(JSON.parse(readFileSync(join(index, 'submissionFileIndex.json'), 'utf8')));
+  return { rows: parseCsv(readFileSync(csv, 'utf8')), tokens };
 }
 
 function report(result, label, threshold) {
@@ -144,12 +172,12 @@ function report(result, label, threshold) {
   }
   for (const p of result.warnings) {
     console.log(
-      `::warning title=similarity::${p.ours} ~ ${label}:${p.theirs} average similarity ${p.avg.toFixed(2)}, max ${p.max.toFixed(2)}. Review it.`,
+      `::warning title=similarity::${p.ours} ~ ${label}:${p.theirs} average similarity ${p.avg.toFixed(2)}, max ${p.max.toFixed(2)}, ${p.matched} matched tokens. Review it.`,
     );
   }
   for (const p of result.failures) {
     console.log(
-      `::error title=similarity::${p.ours} ~ ${label}:${p.theirs} average similarity ${p.avg.toFixed(2)} (fails above ${threshold}), max ${p.max.toFixed(2)} (fails above ${MAX_THRESHOLD})`,
+      `::error title=similarity::${p.ours} ~ ${label}:${p.theirs} average similarity ${p.avg.toFixed(2)} > ${threshold} with ${p.matched} matched tokens (max ${p.max.toFixed(2)})`,
     );
   }
 }
@@ -192,22 +220,23 @@ async function scan(opts) {
   const ours = flatNames(oursFiles, 'o');
   const theirs = flatNames(theirsFiles, 't');
   console.log(`similarity: ${oursFiles.length} Bipe file(s) against ${theirsFiles.length} file(s) of ${opts.repo}@${tag}`);
-  const rows = runJplag({ jar: opts.jar, lang, ours, theirs, oursRoot: REPO_ROOT, theirsRoot: clone, work: join(work, 'jplag') });
-  const result = evaluate(rows, ours, theirs, threshold);
+  const { rows, tokens } = runJplag({ jar: opts.jar, lang, ours, theirs, oursRoot: REPO_ROOT, theirsRoot: clone, work: join(work, 'jplag') });
+  const result = evaluate(rows, ours, theirs, threshold, tokens);
   report(result, `${opts.repo}@${tag}`, threshold);
-  console.log(`similarity: ${result.failures.length} pair(s) above ${threshold}`);
+  console.log(`similarity: ${result.failures.length} pair(s) above ${threshold} with ${MIN_MATCHED_TOKENS} or more matched tokens`);
   return result.failures.length ? 1 : 0;
 }
 
-// Proves the JPlag call and the CSV parsing work: a copied file must fail and
-// an unrelated file must pass. Uses Bipe-written samples only.
+// Proves the JPlag call, the CSV parsing and the token counts work: a copied
+// file (more than MIN_MATCHED_TOKENS tokens) must fail and an unrelated file
+// must pass. Uses Bipe-written samples only.
 const SAMPLES = {
   swift: [
-    `struct Counter {\n  var values: [Int] = []\n  mutating func add(_ v: Int) {\n    if v > 10 {\n      values.append(v * 2)\n    } else {\n      values.append(v)\n    }\n  }\n  func total() -> Int {\n    var sum = 0\n    for v in values {\n      sum += v\n    }\n    return sum\n  }\n  func largest() -> Int? {\n    var best: Int? = nil\n    for v in values {\n      if best == nil || v > best! {\n        best = v\n      }\n    }\n    return best\n  }\n}\n`,
+    `struct Counter {\n  var values: [Int] = []\n  mutating func add(_ v: Int) {\n    if v > 10 {\n      values.append(v * 2)\n    } else {\n      values.append(v)\n    }\n  }\n  func total() -> Int {\n    var sum = 0\n    for v in values {\n      sum += v\n    }\n    return sum\n  }\n  func largest() -> Int? {\n    var best: Int? = nil\n    for v in values {\n      if best == nil || v > best! {\n        best = v\n      }\n    }\n    return best\n  }\n  func smallest() -> Int? {\n    var best: Int? = nil\n    for v in values {\n      if best == nil || v < best! {\n        best = v\n      }\n    }\n    return best\n  }\n  func average() -> Double {\n    if values.isEmpty {\n      return 0\n    }\n    return Double(total()) / Double(values.count)\n  }\n  mutating func removeAbove(_ limit: Int) {\n    var kept: [Int] = []\n    for v in values {\n      if v <= limit {\n        kept.append(v)\n      }\n    }\n    values = kept\n  }\n  func count(of target: Int) -> Int {\n    var n = 0\n    for v in values {\n      if v == target {\n        n += 1\n      }\n    }\n    return n\n  }\n  func describe() -> String {\n    var parts: [String] = []\n    for v in values {\n      parts.append(String(v))\n    }\n    return parts.joined(separator: ",")\n  }\n  func doubled() -> [Int] {\n    var out: [Int] = []\n    for v in values {\n      out.append(v * 2)\n    }\n    return out\n  }\n}\n`,
     `enum Shape {\n  case circle(Double)\n  case square(Double)\n}\nfunc area(_ s: Shape) -> Double {\n  switch s {\n  case .circle(let r):\n    return 3.14159 * r * r\n  case .square(let a):\n    return a * a\n  }\n}\nfunc describe(_ list: [Shape]) -> String {\n  let parts = list.map { String(area($0)) }\n  return parts.joined(separator: ";")\n}\nclass Store {\n  private var items: [String: Double] = [:]\n  func put(_ k: String, _ v: Double) { items[k] = v }\n  func get(_ k: String) -> Double { items[k] ?? 0 }\n}\n`,
   ],
   kotlin: [
-    `class Counter {\n  private val values = mutableListOf<Int>()\n  fun add(v: Int) {\n    if (v > 10) {\n      values.add(v * 2)\n    } else {\n      values.add(v)\n    }\n  }\n  fun total(): Int {\n    var sum = 0\n    for (v in values) {\n      sum += v\n    }\n    return sum\n  }\n  fun largest(): Int? {\n    var best: Int? = null\n    for (v in values) {\n      if (best == null || v > best) {\n        best = v\n      }\n    }\n    return best\n  }\n}\n`,
+    `class Counter {\n  private val values = mutableListOf<Int>()\n  fun add(v: Int) {\n    if (v > 10) {\n      values.add(v * 2)\n    } else {\n      values.add(v)\n    }\n  }\n  fun total(): Int {\n    var sum = 0\n    for (v in values) {\n      sum += v\n    }\n    return sum\n  }\n  fun largest(): Int? {\n    var best: Int? = null\n    for (v in values) {\n      if (best == null || v > best) {\n        best = v\n      }\n    }\n    return best\n  }\n  fun smallest(): Int? {\n    var best: Int? = null\n    for (v in values) {\n      if (best == null || v < best) {\n        best = v\n      }\n    }\n    return best\n  }\n  fun average(): Double {\n    if (values.isEmpty()) {\n      return 0.0\n    }\n    return total().toDouble() / values.size\n  }\n  fun removeAbove(limit: Int) {\n    val kept = mutableListOf<Int>()\n    for (v in values) {\n      if (v <= limit) {\n        kept.add(v)\n      }\n    }\n    values.clear()\n    values.addAll(kept)\n  }\n  fun count(target: Int): Int {\n    var n = 0\n    for (v in values) {\n      if (v == target) {\n        n += 1\n      }\n    }\n    return n\n  }\n  fun describe(): String {\n    val parts = mutableListOf<String>()\n    for (v in values) {\n      parts.add(v.toString())\n    }\n    return parts.joinToString(",")\n  }\n}\n`,
     `sealed class Shape {\n  data class Circle(val r: Double) : Shape()\n  data class Square(val a: Double) : Shape()\n}\nfun area(s: Shape): Double = when (s) {\n  is Shape.Circle -> 3.14159 * s.r * s.r\n  is Shape.Square -> s.a * s.a\n}\nfun describe(list: List<Shape>): String {\n  return list.map { area(it).toString() }.joinToString(";")\n}\nclass Store {\n  private val items = mutableMapOf<String, Double>()\n  fun put(k: String, v: Double) { items[k] = v }\n  fun get(k: String): Double = items[k] ?: 0.0\n}\n`,
   ],
 };
@@ -223,8 +252,8 @@ function selfTest(opts) {
     writeFileSync(join(src, `Unrelated${ext}`), SAMPLES[lang][1]);
     const ours = flatNames([`Copied${ext}`], 'o');
     const theirs = flatNames([`Copied${ext}`, `Unrelated${ext}`], 't');
-    const rows = runJplag({ jar: opts.jar, lang, ours, theirs, oursRoot: src, theirsRoot: src, work: join(work, 'jplag') });
-    const result = evaluate(rows, ours, theirs);
+    const { rows, tokens } = runJplag({ jar: opts.jar, lang, ours, theirs, oursRoot: src, theirsRoot: src, work: join(work, 'jplag') });
+    const result = evaluate(rows, ours, theirs, THRESHOLD, tokens);
     const ok =
       result.failures.length === 1 && result.failures[0].theirs === `Copied${ext}` && result.notCompared.length === 0;
     console.log(`similarity self-test ${lang}: ${ok ? 'OK' : 'FAIL'} ${JSON.stringify(result)}`);

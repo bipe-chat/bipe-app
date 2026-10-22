@@ -15,7 +15,7 @@ import { checkLicences, catalogLibraries, swiftPins, loadTable } from './licence
 import { checkHeaders, HEADER } from './headers.mjs';
 import { checkStrings, findLiterals, isUserText } from './strings.mjs';
 import { provenanceLine } from './provenance.mjs';
-import { evaluate, flatNames, parseCsv } from './similarity.mjs';
+import { evaluate, flatNames, matchedTokens, parseCsv, tokenCounts } from './similarity.mjs';
 import { checkSdkVersion, projectPin, resolvedPin, catalogPin } from './sdk-version.mjs';
 
 function tree(files) {
@@ -183,20 +183,31 @@ test('similarity fails a pair above the threshold and warns on max', () => {
     ours,
     theirs,
   );
-  assert.deepEqual(r.failures, [{ ours: 'ios/Bipe/A.swift', theirs: 'ElementX/Sources/X.swift', avg: 0.75, max: 0.9 }]);
+  // No token counts: a pair above the threshold fails.
+  assert.deepEqual(r.failures, [{ ours: 'ios/Bipe/A.swift', theirs: 'ElementX/Sources/X.swift', avg: 0.75, max: 0.9, matched: Infinity }]);
   assert.equal(r.warnings.length, 1);
   assert.deepEqual(r.notCompared, []);
 });
 
-test('similarity warns, but does not fail, between the warning level and the threshold', () => {
-  const r = evaluate(csv(['ours/o00001_A.swift,theirs/t00001_X.swift,0.55,0.6', 'ours/o00002_B.swift,theirs/t00001_X.swift,0.66,0.7']), ours, theirs);
-  assert.deepEqual(r.failures.map((p) => p.ours), ['ios/Bipe/B.swift']);
-  assert.deepEqual(r.warnings.map((p) => p.ours), ['ios/Bipe/A.swift']);
+test('similarity warns, but does not fail, a pair above the threshold with few matched tokens', () => {
+  const rows = csv(['ours/o00001_A.swift,theirs/t00001_X.swift,0.55,0.7', 'ours/o00002_B.swift,theirs/t00001_X.swift,0.6,0.8']);
+  const tokens = new Map([['o00001_A.swift', 49], ['o00002_B.swift', 300], ['t00001_X.swift', 120]]);
+  const r = evaluate(rows, ours, theirs, undefined, tokens);
+  // A: 0.55 * (49 + 120) / 2 = 46 matched tokens. B: 0.6 * (300 + 120) / 2 = 126.
+  assert.deepEqual(r.failures.map((p) => [p.ours, p.matched]), [['ios/Bipe/B.swift', 126]]);
+  assert.deepEqual(r.warnings.map((p) => [p.ours, p.matched]), [['ios/Bipe/A.swift', 46]]);
 });
 
-test('similarity fails a partial copy on its maximum similarity', () => {
-  const r = evaluate(csv(['ours/o00001_A.swift,theirs/t00001_X.swift,0.6,1.0']), ours, theirs);
-  assert.deepEqual(r.failures.map((p) => p.ours), ['ios/Bipe/A.swift']);
+test('similarity reads token counts from the JPlag file index', () => {
+  const index = {
+    fileIndexes: {
+      'ours_o00001_A.swift': { 'ours_o00001_A.swift/ours_o00001_A.swift': { tokenCount: 40 } },
+      't00002_X.swift': { 'x/a': { tokenCount: 10 }, 'x/b': { tokenCount: 5 } },
+    },
+  };
+  assert.deepEqual([...tokenCounts(index)], [['o00001_A.swift', 40], ['t00002_X.swift', 15]]);
+  assert.equal(matchedTokens(1, 100, 100), 100);
+  assert.equal(matchedTokens(0.9, undefined, 100), Infinity);
 });
 
 test('similarity rejects an unknown CSV header', () => {
