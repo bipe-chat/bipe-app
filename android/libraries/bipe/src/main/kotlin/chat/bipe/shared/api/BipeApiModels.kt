@@ -109,6 +109,7 @@ data class BipeAccountStatus(
     @SerialName("user_id") val userId: String,
     /** The last legal version the account accepted (ADR 0113). */
     @SerialName("terms_version") val termsVersion: String? = null,
+    @SerialName("max_accounts") val maxAccounts: Int? = null,
     /** Recoveries that run or ended in the last 7 days (recovery-alert). */
     @SerialName("recoveries") val recoveries: List<BipeRecovery> = emptyList(),
 )

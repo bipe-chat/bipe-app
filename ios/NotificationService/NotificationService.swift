@@ -148,7 +148,7 @@ private actor NotificationClients {
 
     func client() async throws -> NotificationClient {
         if let notificationClient { return notificationClient }
-        guard let session = SessionStore.load() else {
+        guard let session = SessionStore.loadForPush() else {
             throw ClientError.Generic(msg: "no saved session", details: nil)
         }
         let client = try await AccountSession.makeClient(userId: session.userId, process: .notificationService)

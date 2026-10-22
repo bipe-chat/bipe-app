@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             BipeTheme {
                 AppLockGate {
-                    AccountStartScreen(accountStart)
+                    AccountStartScreen(accountStart, (application as BipeApplication).appTabs)
                 }
             }
         }
