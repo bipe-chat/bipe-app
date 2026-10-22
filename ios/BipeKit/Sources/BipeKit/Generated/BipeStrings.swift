@@ -2682,6 +2682,84 @@ public enum BipeStrings {
 
     public static var appUtdHelp: String { NSLocalizedString("bipe_app_utd_help", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appYou: String { NSLocalizedString("bipe_app_you", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appTimelineToday: String { NSLocalizedString("bipe_app_timeline_today", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appTimelineYesterday: String { NSLocalizedString("bipe_app_timeline_yesterday", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appTimelineNewMessages: String { NSLocalizedString("bipe_app_timeline_new_messages", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appTimelineNotEncrypted: String { NSLocalizedString("bipe_app_timeline_not_encrypted", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageDeleted: String { NSLocalizedString("bipe_app_message_deleted", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageDeletedOwn: String { NSLocalizedString("bipe_app_message_deleted_own", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageEdited: String { NSLocalizedString("bipe_app_message_edited", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageEditing: String { NSLocalizedString("bipe_app_message_editing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageSaveEdit: String { NSLocalizedString("bipe_app_message_save_edit", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageEditFailed: String { NSLocalizedString("bipe_app_message_edit_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appMessageReplyingTo(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_message_replying_to", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appMessageReplyLoading: String { NSLocalizedString("bipe_app_message_reply_loading", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageReplyUnavailable: String { NSLocalizedString("bipe_app_message_reply_unavailable", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageActionReply: String { NSLocalizedString("bipe_app_message_action_reply", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageActionEdit: String { NSLocalizedString("bipe_app_message_action_edit", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageActionDelete: String { NSLocalizedString("bipe_app_message_action_delete", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageActionReport: String { NSLocalizedString("bipe_app_message_action_report", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageActionMoreReactions: String { NSLocalizedString("bipe_app_message_action_more_reactions", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageDeleteTitle: String { NSLocalizedString("bipe_app_message_delete_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageDeleteBody: String { NSLocalizedString("bipe_app_message_delete_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageDeleteFailed: String { NSLocalizedString("bipe_app_message_delete_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageReported: String { NSLocalizedString("bipe_app_message_reported", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReactionsTitle: String { NSLocalizedString("bipe_app_reactions_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appReactionLabel(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_reaction_label", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var appReactionFailed: String { NSLocalizedString("bipe_app_reaction_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReceiptSent: String { NSLocalizedString("bipe_app_receipt_sent", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReceiptRead: String { NSLocalizedString("bipe_app_receipt_read", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appReceiptReadByTitle: String { NSLocalizedString("bipe_app_receipt_read_by_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appReceiptReadBy(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_receipt_read_by", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appTypingOne(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_typing_one", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appTypingTwo(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_typing_two", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func appTypingMany(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_typing_many", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var appComposerAttach: String { NSLocalizedString("bipe_app_composer_attach", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appComposerRecord: String { NSLocalizedString("bipe_app_composer_record", tableName: "Bipe", bundle: .module, comment: "") }
