@@ -26,7 +26,7 @@ struct DeadlineTests {
         do {
             _ = try await BipeDeadline.run(seconds: 0.1) {
                 // Models an FFI call that blocks a thread and ignores task cancellation.
-                release.wait()
+                Self.simulateBlockingFFI(release)
                 return 42
             }
             Issue.record("Blocking work prevented the timeout")
@@ -34,6 +34,9 @@ struct DeadlineTests {
         // A late result from the first operation cannot complete a later operation.
         #expect(try await BipeDeadline.run(seconds: 2) { 7 } == 7)
     }
+
+    // A synchronous FFI boundary is allowed to block its worker thread. The caller must still time out.
+    private static func simulateBlockingFFI(_ release: DispatchSemaphore) { release.wait() }
 
     @Test
     func cancellationReturnsBeforeUncooperativeWorkFinishes() async throws {
