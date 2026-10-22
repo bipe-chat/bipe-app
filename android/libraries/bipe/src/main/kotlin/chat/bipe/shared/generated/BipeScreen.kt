@@ -79,6 +79,9 @@ enum class BipeScreen(val id: String) {
     /** Create a poll (flow chat). Spec: bipe-shared/product/screens/poll-create.json */
     POLL_CREATE("poll-create"),
 
+    /** Poll (flow chat). Spec: bipe-shared/product/screens/poll-detail.json */
+    POLL_DETAIL("poll-detail"),
+
     /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
     PROBLEM_REPORT("problem-report"),
 

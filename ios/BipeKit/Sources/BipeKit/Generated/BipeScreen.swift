@@ -73,6 +73,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Create a poll (flow chat). Spec: bipe-shared/product/screens/poll-create.json
     case pollCreate = "poll-create"
 
+    /// Poll (flow chat). Spec: bipe-shared/product/screens/poll-detail.json
+    case pollDetail = "poll-detail"
+
     /// Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json
     case problemReport = "problem-report"
 
