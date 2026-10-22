@@ -25,7 +25,9 @@ class DeadlineTest {
             BipeDeadline.run(2_000) { throw expected }
             fail("The operation's error was lost")
         } catch (error: IllegalStateException) {
-            assertThat(error).isSameInstanceAs(expected)
+            // With assertions on (unit tests), coroutine stack-trace recovery may rethrow a copy with the original as cause.
+            assertThat(error.message).isEqualTo(expected.message)
+            if (error !== expected) assertThat(error.cause).isSameInstanceAs(expected)
         }
     }
 
