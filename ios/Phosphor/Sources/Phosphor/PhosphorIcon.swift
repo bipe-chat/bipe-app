@@ -9,6 +9,7 @@ import SwiftUI
 /// Phosphor icons (MIT) that the app uses. Add an icon in tools/phosphor.json, then run tools/phosphor.mjs.
 public enum PhosphorIcon: String, CaseIterable, Sendable {
     case addressBook = "address-book"
+    case arrowBendUpLeft = "arrow-bend-up-left"
     case arrowClockwise = "arrow-clockwise"
     case backspace = "backspace"
     case bell = "bell"
@@ -20,6 +21,8 @@ public enum PhosphorIcon: String, CaseIterable, Sendable {
     case chatText = "chat-text"
     case check = "check"
     case checkCircle = "check-circle"
+    case checks = "checks"
+    case clock = "clock"
     case copy = "copy"
     case desktop = "desktop"
     case devices = "devices"
@@ -33,6 +36,7 @@ public enum PhosphorIcon: String, CaseIterable, Sendable {
     case link = "link"
     case lockSimple = "lock-simple"
     case paperPlaneRight = "paper-plane-right"
+    case pencilSimple = "pencil-simple"
     case plus = "plus"
     case prohibit = "prohibit"
     case qrCode = "qr-code"
@@ -40,6 +44,7 @@ public enum PhosphorIcon: String, CaseIterable, Sendable {
     case sealWarning = "seal-warning"
     case shareNetwork = "share-network"
     case signOut = "sign-out"
+    case smiley = "smiley"
     case trash = "trash"
     case userCircle = "user-circle"
     case userPlus = "user-plus"

@@ -20,6 +20,7 @@ struct SettingsGroupView: View {
     @StateObject private var export: DataExportModel
     @State private var page: WebPage?
     @State private var showsSignOut = false
+    @State private var showsRecoveryKey = false
     @State private var showsLockSetup = false
     @State private var pinCheck: PinCheckRequest?
     @State private var notice: String?
@@ -72,6 +73,10 @@ struct SettingsGroupView: View {
             AppLockPinCheckView(title: request.title, onPass: request.onPass)
         }
         .dataExport(export)
+        .sheet(isPresented: $showsRecoveryKey, onDismiss: { Task { await model.load() } }) {
+            // Spec recovery-key-save, from the recovery key row.
+            RecoveryKeySaveView(session: model.session) { showsRecoveryKey = false }
+        }
         .sheet(isPresented: $showsSignOut) {
             SignOutView(model: model, onSignedOut: onSignedOut)
                 .presentationDetents([.medium, .large])
@@ -239,6 +244,8 @@ struct SettingsGroupView: View {
         switch row {
         case .accountSignOut:
             showsSignOut = true
+        case .accountRecoveryKey:
+            showsRecoveryKey = true
         case .privacyExport:
             Task { await export.start() }
         case .chatsLanguage:

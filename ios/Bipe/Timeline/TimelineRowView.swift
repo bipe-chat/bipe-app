@@ -1,0 +1,504 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+// Copyright 2026 Bipe contributors
+
+import BipeKit
+import Phosphor
+import SwiftUI
+
+/// One row of spec timeline-rows.
+struct TimelineRowView: View {
+    let row: TimelineRow
+    let isDm: Bool
+    let isHighlighted: Bool
+    @ObservedObject var model: ChatTimelineModel
+    let media: MediaLoader
+    var openPoll: (String) -> Void = { _ in }
+
+    var body: some View {
+        switch row.kind {
+        case .message:
+            if let message = row.message, let details = row.details {
+                MessageBubbleRow(row: row, message: message, details: details, isDm: isDm,
+                                 isHighlighted: isHighlighted, model: model, media: media)
+            }
+        case .undecryptable:
+            if let message = row.message {
+                UndecryptableRow(message: message)
+                    .contentShape(Rectangle())
+                    .onLongPressGesture(minimumDuration: 0.4) { model.openActions(rowId: row.id) }
+            }
+        case .deleted:
+            if let message = row.message {
+                DeletedRow(message: message)
+            }
+        case .poll:
+            if let message = row.message, let poll = message.poll {
+                Button {
+                    openPoll(poll.eventId)
+                } label: {
+                    Bubble(isOwn: message.isOwn) {
+                        if !message.isOwn && !isDm {
+                            Text(message.senderName)
+                                .font(.caption.bold())
+                                .foregroundStyle(BipeColor.accentInk)
+                        }
+                        PollCard(poll: poll)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        case .dateSeparator:
+            if let day = row.day {
+                SystemLine(text: daySeparatorText(day))
+                    .accessibilityAddTraits(.isHeader)
+            }
+        case .readMarker:
+            HStack(spacing: 8) {
+                Rectangle().fill(BipeColor.accentFill).frame(height: 1)
+                Text(BipeStrings.appTimelineNewMessages)
+                    .font(.caption.bold())
+                    .foregroundStyle(BipeColor.accentInk)
+                Rectangle().fill(BipeColor.accentFill).frame(height: 1)
+            }
+            .padding(.vertical, 6)
+        case .notEncrypted:
+            SystemLine(text: BipeStrings.appTimelineNotEncrypted)
+        case .chatStart:
+            SystemLine(text: BipeStrings.appTimelineStart)
+        }
+    }
+}
+
+/// Spec timeline-rows notes: today, yesterday, else the system date in the app language, with the year only when it is not this year.
+func daySeparatorText(_ day: Date) -> String {
+    let calendar = Calendar.current
+    if calendar.isDateInToday(day) { return BipeStrings.appTimelineToday }
+    if calendar.isDateInYesterday(day) { return BipeStrings.appTimelineYesterday }
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "pt-BR")
+    let sameYear = calendar.component(.year, from: day) == calendar.component(.year, from: Date())
+    formatter.setLocalizedDateFormatFromTemplate(sameYear ? "EEEEdMMMM" : "dMMMMyyyy")
+    return formatter.string(from: day)
+}
+
+/// A quiet centred line: date separators, the chat start and the not-encrypted notice.
+private struct SystemLine: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(BipeColor.inkSecondary)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(BipeColor.surfaceSunken))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+    }
+}
+
+/// The bubble shape and alignment of a message row.
+private struct Bubble<Content: View>: View {
+    let isOwn: Bool
+    var isHighlighted = false
+    /// The last view (the footer of a message) sits at the trailing edge.
+    var trailingLast = false
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        HStack {
+            if isOwn { Spacer(minLength: 48) }
+            BubbleStack(spacing: 4, trailingLast: trailingLast) {
+                content()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 16).fill(isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(BipeColor.accentFill, lineWidth: isHighlighted ? 2 : 0))
+            if !isOwn { Spacer(minLength: 48) }
+        }
+    }
+}
+
+/// kind message: sender, reply quote, text, time, edited label, receipt, reactions. Long press opens
+/// message-actions; a swipe right starts a reply.
+private struct MessageBubbleRow: View {
+    let row: TimelineRow
+    let message: TimelineMessage
+    let details: MessageDetails
+    let isDm: Bool
+    let isHighlighted: Bool
+    @ObservedObject var model: ChatTimelineModel
+    let media: MediaLoader
+
+    @State private var swipe: CGFloat = 0
+    private let swipeThreshold: CGFloat = 60
+
+    var body: some View {
+        VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 4) {
+            ZStack(alignment: .leading) {
+                PhosphorIcon.arrowBendUpLeft.image
+                    .resizable()
+                    .frame(width: 20, height: 20)
+                    .foregroundStyle(BipeColor.glyphSecondary)
+                    .opacity(Double(min(1, swipe / swipeThreshold)))
+                    .accessibilityHidden(true)
+                Bubble(isOwn: message.isOwn, isHighlighted: isHighlighted, trailingLast: true) {
+                    if !message.isOwn && !isDm {
+                        Text(message.senderName)
+                            .font(.caption.bold())
+                            .foregroundStyle(BipeColor.accentInk)
+                    }
+                    if let reply = details.reply {
+                        ReplyQuote(reply: reply)
+                            .onTapGesture { Task { await model.openOriginal(eventId: reply.eventId) } }
+                            .task { await model.loadReply(rowId: row.id) }
+                    }
+                    Text(message.body ?? "")
+                        .foregroundStyle(BipeColor.inkPrimary)
+                    if let warning = details.scamWarning {
+                        ScamWarningCard(kind: warning)
+                    }
+                    footer
+                }
+                .offset(x: swipe)
+            }
+            .contentShape(Rectangle())
+            .onLongPressGesture(minimumDuration: 0.4) { model.openActions(rowId: row.id) }
+            .simultaneousGesture(swipeGesture)
+            .accessibilityElement(children: .combine)
+            .accessibilityAction(named: BipeStrings.appMessageActionReply) { model.startReply(rowId: row.id) }
+            .accessibilityAction { model.openActions(rowId: row.id) }
+            if !details.reactions.isEmpty {
+                ReactionPills(reactions: details.reactions,
+                              onToggle: { key in Task { await model.toggleReaction(rowId: row.id, key: key) } },
+                              onLongPress: { key in model.openSenders(rowId: row.id, key: key) })
+            }
+            if let receipt = details.receipt, !isDm, !receipt.readers.isEmpty {
+                ReaderAvatars(readers: receipt.readers, media: media)
+                    .onTapGesture { model.openReaders(rowId: row.id) }
+            }
+        }
+    }
+
+    private var swipeGesture: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onChanged { value in
+                guard details.canReply, value.translation.width > 0,
+                      abs(value.translation.width) > abs(value.translation.height) else { return }
+                let next = min(value.translation.width, swipeThreshold * 1.4)
+                if (swipe < swipeThreshold) != (next < swipeThreshold) {
+                    BipeHaptics.play(next >= swipeThreshold ? .threshold : .release)
+                }
+                swipe = next
+            }
+            .onEnded { _ in
+                if swipe >= swipeThreshold { model.startReply(rowId: row.id) }
+                withAnimation(.spring(duration: 0.25)) { swipe = 0 }
+            }
+    }
+
+    /// Time, edited label (message-edit) and the tick of an own message (read-receipts).
+    private var footer: some View {
+        HStack(spacing: 4) {
+            Text(message.sentAt.formatted(date: .omitted, time: .shortened))
+            if details.isEdited {
+                Text(BipeStrings.appMessageEdited)
+            }
+            if let receipt = details.receipt {
+                ReceiptTick(receipt: receipt) { model.openActions(rowId: row.id) }
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(BipeColor.inkSecondary)
+    }
+}
+
+/// Spec scam-warning: a calm caution card. Title then the kind text, one element for screen readers.
+private struct ScamWarningCard: View {
+    let kind: ScamWarningKind
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            PhosphorIcon.warningCircle.image
+                .resizable()
+                .frame(width: 16, height: 16)
+                .foregroundStyle(BipeColor.trustCautionInk)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(BipeStrings.scamWarningTitle)
+                    .font(.caption.bold())
+                    .foregroundStyle(BipeColor.trustCautionInk)
+                Text(kind.message)
+                    .font(.caption)
+                    .foregroundStyle(BipeColor.inkPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 10).fill(BipeColor.trustCautionWash))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(BipeColor.trustCautionLine, lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(BipeScreen.scamWarning.rawValue)
+    }
+}
+
+/// Spec read-receipts: the tick of an own message.
+private struct ReceiptTick: View {
+    let receipt: MessageReceipt
+    let onFailedTap: () -> Void
+
+    var body: some View {
+        switch receipt.tick {
+        case .sending:
+            icon(.clock)
+            Text(BipeStrings.appTimelineSending)
+        case .sent:
+            icon(.check)
+                .accessibilityLabel(BipeStrings.appReceiptSent)
+            if receipt.showsLabel { Text(BipeStrings.appReceiptSent).accessibilityHidden(true) }
+        case .read:
+            icon(.checks)
+                .foregroundStyle(BipeColor.accentInk)
+                .accessibilityLabel(BipeStrings.appReceiptRead)
+            if receipt.showsLabel { Text(BipeStrings.appReceiptRead).accessibilityHidden(true) }
+        case .failed:
+            Button(action: onFailedTap) {
+                HStack(spacing: 4) {
+                    icon(.warningCircle)
+                    Text(BipeStrings.appTimelineFailed)
+                }
+                .foregroundStyle(BipeColor.trustDangerInk)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func icon(_ icon: PhosphorIcon) -> some View {
+        icon.image
+            .resizable()
+            .frame(width: 14, height: 14)
+    }
+}
+
+/// Spec read-receipts, group: at most 3 avatars and a count.
+private struct ReaderAvatars: View {
+    let readers: [ReceiptReader]
+    let media: MediaLoader
+
+    var body: some View {
+        HStack(spacing: -4) {
+            ForEach(readers.prefix(3)) { reader in
+                AvatarView(name: reader.name, mxcUrl: reader.avatarUrl, loader: media, size: 16)
+                    .overlay(Circle().stroke(BipeColor.surfaceBase, lineWidth: 1))
+            }
+            if readers.count > 3 {
+                Text("+\(readers.count - 3)")
+                    .font(.caption2)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                    .padding(.leading, 6)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(BipeStrings.appReceiptReadBy(readers.count.formatted()))
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Spec message-reply: the quote of the original inside the reply.
+struct ReplyQuote: View {
+    let reply: MessageReply
+
+    var body: some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(BipeColor.accentFill)
+                .frame(width: 3)
+            VStack(alignment: .leading, spacing: 2) {
+                switch reply.state {
+                case .loading:
+                    Text(BipeStrings.appMessageReplyLoading)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                case .unavailable:
+                    Text(BipeStrings.appMessageReplyUnavailable)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                case .ready:
+                    Text(reply.senderName ?? "")
+                        .bold()
+                        .foregroundStyle(BipeColor.accentInk)
+                    Text(reply.preview ?? "")
+                        .foregroundStyle(BipeColor.inkSecondary)
+                        .lineLimit(1)
+                }
+            }
+            .font(.caption)
+        }
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 8).fill(BipeColor.surfaceSunken.opacity(0.6)))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Spec message-reactions: the pills under a message.
+private struct ReactionPills: View {
+    let reactions: [MessageReaction]
+    let onToggle: (String) -> Void
+    let onLongPress: (String) -> Void
+
+    var body: some View {
+        FlowRow(spacing: 4) {
+            ForEach(reactions) { reaction in
+                HStack(spacing: 4) {
+                    Text(reactionKeyText(reaction.key))
+                    Text(reaction.count.formatted())
+                        .font(.caption)
+                        .foregroundStyle(reaction.includesOwn ? BipeColor.accentInk : BipeColor.inkSecondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(reaction.includesOwn ? BipeColor.accentWash : BipeColor.surfaceSunken))
+                .overlay(Capsule().stroke(reaction.includesOwn ? BipeColor.accentFill : BipeColor.lineSubtle, lineWidth: 1))
+                .opacity(reaction.isSending ? 0.6 : 1)
+                .onTapGesture { onToggle(reaction.key) }
+                .onLongPressGesture(minimumDuration: 0.4) { onLongPress(reaction.key) }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(BipeStrings.appReactionLabel(reaction.key, reaction.count.formatted()))
+                .accessibilityAddTraits(reaction.includesOwn ? [.isButton, .isSelected] : .isButton)
+                .accessibilityAction(named: BipeStrings.appReactionsTitle) { onLongPress(reaction.key) }
+            }
+        }
+    }
+}
+
+/// Spec message-reactions notes: keys longer than one grapheme show in full up to 16 characters, then cut.
+func reactionKeyText(_ key: String) -> String {
+    key.count > 16 ? String(key.prefix(16)) + "…" : key
+}
+
+/// The column of a bubble: as wide as its widest view, views at the leading edge, the last one at the trailing edge when asked.
+private struct BubbleStack: Layout {
+    var spacing: CGFloat
+    var trailingLast: Bool
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = subviews.map { $0.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) }
+        let width = sizes.map(\.width).max() ?? 0
+        let height = sizes.map(\.height).reduce(0, +) + spacing * CGFloat(max(0, sizes.count - 1))
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for (index, subview) in subviews.enumerated() {
+            let size = subview.sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
+            let isTrailing = trailingLast && index == subviews.count - 1
+            subview.place(at: CGPoint(x: isTrailing ? bounds.maxX - size.width : bounds.minX, y: y),
+                          proposal: ProposedViewSize(size))
+            y += size.height + spacing
+        }
+    }
+}
+
+/// A row that wraps its items onto new lines.
+private struct FlowRow: Layout {
+    var spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0, maxX: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                x = 0
+                y += lineHeight + spacing
+                lineHeight = 0
+            }
+            x += size.width + spacing
+            maxX = max(maxX, x - spacing)
+            lineHeight = max(lineHeight, size.height)
+        }
+        return CGSize(width: maxX, height: y + lineHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, lineHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += lineHeight + spacing
+                lineHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+    }
+}
+
+/// Spec message-undecryptable: a quiet line in the sender's bubble position.
+private struct UndecryptableRow: View {
+    let message: TimelineMessage
+    @Environment(\.openHistoryHelp) private var openHistoryHelp
+
+    var body: some View {
+        Bubble(isOwn: message.isOwn) {
+            if !message.isOwn {
+                Text(message.senderName)
+                    .font(.caption.bold())
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+            HStack(alignment: .top, spacing: 6) {
+                PhosphorIcon.lockSimple.image
+                    .resizable()
+                    .frame(width: 14, height: 14)
+                    .foregroundStyle(BipeColor.glyphSecondary)
+                    .accessibilityHidden(true)
+                Text(text)
+                    .font(.subheadline.italic())
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+            // Action openHelp: only historyNotOnThisPhone has a way to help.
+            if message.cause == .historyNotOnThisPhone {
+                Button(action: openHistoryHelp) {
+                    Text(BipeStrings.appUtdHelp)
+                        .font(.subheadline)
+                        .foregroundStyle(BipeColor.accentInk)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .accessibilityIdentifier(BipeScreen.messageUndecryptable.rawValue)
+    }
+
+    private var text: String {
+        switch message.cause {
+        case .beforeJoined: BipeStrings.appUtdBeforeJoined
+        case .historyNotOnThisPhone: BipeStrings.appUtdHistory
+        case .notSharedWithThisPhone: BipeStrings.appUtdNotShared
+        case .unapprovedSenderDevice: BipeStrings.appUtdUnapprovedDevice(message.senderName)
+        case .waiting, .none: BipeStrings.appTimelineUndecryptable
+        }
+    }
+}
+
+/// Spec timeline-rows kind deleted: no reactions, quote, receipt or actions.
+private struct DeletedRow: View {
+    let message: TimelineMessage
+
+    var body: some View {
+        Bubble(isOwn: message.isOwn) {
+            HStack(spacing: 6) {
+                PhosphorIcon.trash.image
+                    .resizable()
+                    .frame(width: 14, height: 14)
+                    .foregroundStyle(BipeColor.glyphSecondary)
+                    .accessibilityHidden(true)
+                Text(message.isOwn ? BipeStrings.appMessageDeletedOwn : BipeStrings.appMessageDeleted)
+                    .font(.subheadline.italic())
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+        }
+    }
+}
