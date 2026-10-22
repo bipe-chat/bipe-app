@@ -125,7 +125,6 @@ fun HomeScreen(
     val roomToOpen by app.roomToOpen.collectAsState()
     LaunchedEffect(roomToOpen) {
         roomToOpen?.let {
-            showsSettings = false
             showsHandlePick = false
             openRoomId = it
             app.roomToOpen.value = null
