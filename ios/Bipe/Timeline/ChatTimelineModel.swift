@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Combine
 import Foundation
 import MatrixRustSDK
 import UIKit
@@ -152,6 +153,7 @@ final class ChatTimelineModel: ObservableObject {
     private var keptDraft = ""
     private var typingSentAt: Date?
     private var typingUserIds: [String] = []
+    private var handleChangesTask: Task<Void, Never>?
     private var lastReadEventId: String?
     private var noticeTask: Task<Void, Never>?
 
@@ -165,6 +167,7 @@ final class ChatTimelineModel: ObservableObject {
     deinit {
         handle?.cancel()
         typingHandle?.cancel()
+        handleChangesTask?.cancel()
     }
 
     /// Spec typing-indicator sharesTyping: the presence setting (bipe_privacy_presence). On unless turned off.
@@ -210,6 +213,7 @@ final class ChatTimelineModel: ObservableObject {
             inviterHint = greeting
         }
         await loadRoomFacts(room)
+        await loadHandleChanges(room)
         let typing = TypingStream()
         typingHandle = room.subscribeToTypingNotifications(listener: typing)
         Task { [weak self] in
@@ -583,6 +587,30 @@ final class ChatTimelineModel: ObservableObject {
 
     private func item(_ rowId: String) -> TimelineItem? {
         items.first { $0.uniqueId().id == rowId }
+    }
+
+    // MARK: handle-change-line
+
+    /// Spec handle-change-line: the cached changes of the room's members now, then a fetch of new ones.
+    /// A failed fetch keeps the cache and tries again on the next open.
+    private func loadHandleChanges(_ room: Room) async {
+        let store = HandleChangeStores.store(for: session)
+        guard let members = await GroupPeople.members(of: room, cachedOnly: true) else { return }
+        let joined = members.filter { $0.membership == .join }
+        facts.roomMembers = Set(joined.map(\.userId))
+        for member in joined where facts.members[member.userId] == nil {
+            facts.members[member.userId] = (member.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? member.userId, member.avatarUrl)
+        }
+        facts.handleChanges = store.changes(for: facts.roomMembers)
+        handleChangesTask = Task { [weak self] in
+            for await _ in store.changesPublisher.values {
+                guard let self else { return }
+                self.facts.handleChanges = store.changes(for: self.facts.roomMembers)
+                self.rebuild()
+            }
+        }
+        let userIds = facts.roomMembers
+        Task { await store.refresh(userIDs: userIds) }
     }
 
     private func rebuild() {
