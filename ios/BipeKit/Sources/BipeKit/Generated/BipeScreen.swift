@@ -40,6 +40,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Add people to a group (flow groups). Spec: bipe-shared/product/screens/group-invite-members.json
     case groupInviteMembers = "group-invite-members"
 
+    /// Leave a group (flow groups). Spec: bipe-shared/product/screens/group-leave.json
+    case groupLeave = "group-leave"
+
     /// People in a group (flow groups). Spec: bipe-shared/product/screens/group-members.json
     case groupMembers = "group-members"
 
