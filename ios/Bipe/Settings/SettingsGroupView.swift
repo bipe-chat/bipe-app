@@ -16,6 +16,7 @@ struct SettingsGroupView: View {
 
     @AppStorage(SettingsKeys.hideRequestPhotos) private var hideRequestPhotos = true
     @AppStorage(SettingsKeys.sharePresence) private var sharePresence = true
+    @AppStorage(SettingsKeys.showMedia) private var showMedia = ShowMedia.always.rawValue
     @StateObject private var export: DataExportModel
     @State private var page: WebPage?
     @State private var showsSignOut = false
@@ -168,6 +169,14 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title)
             }
+        case .chatsShowMedia:
+            NavigationLink {
+                ChoiceListView(title: row.title,
+                               options: ShowMedia.allCases.map { (id: $0.rawValue, title: $0.title) },
+                               selection: $showMedia)
+            } label: {
+                SettingsRowLabel(title: row.title, value: ShowMedia(rawValue: showMedia)?.title)
+            }
         case .helpLicenses:
             NavigationLink {
                 OpenSourceLicencesView()
@@ -279,10 +288,64 @@ struct SettingsGroupView: View {
     }
 }
 
-/// Keys of the switches that live on this phone.
+/// Keys of the settings that live on this phone.
 enum SettingsKeys {
     static let hideRequestPhotos = "bipe.settings.hideRequestPhotos"
     static let sharePresence = "bipe.settings.sharePresence"
+    static let showMedia = "bipe.settings.showMedia"
+}
+
+/// The chats.showMedia choice: when chats load photos and videos by themselves.
+enum ShowMedia: String, CaseIterable {
+    case always
+    case `private`
+    case never
+
+    var title: String {
+        switch self {
+        case .always: BipeStrings.chatsShowMediaAlways
+        case .private: BipeStrings.chatsShowMediaPrivate
+        case .never: BipeStrings.chatsShowMediaNever
+        }
+    }
+}
+
+/// A picker of one choice that lives on this phone.
+struct ChoiceListView: View {
+    let title: String
+    let options: [(id: String, title: String)]
+    @Binding var selection: String
+
+    var body: some View {
+        List {
+            ForEach(options, id: \.id) { option in
+                Button {
+                    selection = option.id
+                    BipeHaptics.play(.tick)
+                } label: {
+                    HStack {
+                        Text(option.title)
+                            .foregroundStyle(BipeColor.inkPrimary)
+                        Spacer()
+                        if selection == option.id {
+                            PhosphorIcon.check.image
+                                .resizable()
+                                .frame(width: 18, height: 18)
+                                .foregroundStyle(BipeColor.accentInk)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(BipeColor.surfaceRaised)
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(BipeColor.surfaceBase.ignoresSafeArea())
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
 }
 
 /// The app version and the app language.

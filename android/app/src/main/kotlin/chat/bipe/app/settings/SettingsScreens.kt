@@ -85,6 +85,7 @@ sealed interface SettingsRoute {
     data object LinkedDevices : SettingsRoute
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
+    data object ShowMediaChoice : SettingsRoute
 }
 
 /**
@@ -117,6 +118,13 @@ fun SettingsHost(session: AccountSession, api: BipeApiClient, onClose: () -> Uni
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
+        SettingsRoute.ShowMediaChoice -> ChoiceListScreen(
+            title = stringResource(R.string.bipe_chats_show_media),
+            options = ShowMedia.entries.map { it.id to stringResource(it.title) },
+            key = SettingsKeys.SHOW_MEDIA,
+            default = ShowMedia.ALWAYS.id,
+            onBack = pop,
+        )
         SettingsRoute.ProblemReport -> ProblemReportScreen(
             model,
             onBack = pop,
@@ -220,6 +228,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
+            BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
             // The screens of the other rows come with their own specs (see settings-group notes).
             else -> Unit
@@ -323,17 +332,59 @@ private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSett
         if (state.hasRecoveryKey) R.string.bipe_account_recovery_key_saved else R.string.bipe_account_recovery_key_missing,
     )
     BipeSettingsRow.ACCOUNT_THIS_DEVICE -> deviceModel()
+    BipeSettingsRow.CHATS_SHOW_MEDIA -> {
+        val id = context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE).getString(SettingsKeys.SHOW_MEDIA, null)
+        context.getString((ShowMedia.entries.firstOrNull { it.id == id } ?: ShowMedia.ALWAYS).title)
+    }
     else -> null
 }
 
 private fun deviceModel(): String =
     if (Build.MODEL.startsWith(Build.MANUFACTURER, ignoreCase = true)) Build.MODEL else "${Build.MANUFACTURER} ${Build.MODEL}"
 
-/** Keys of the switches that live on this phone. */
+/** Keys of the settings that live on this phone. */
 object SettingsKeys {
     const val FILE = "bipe_settings"
     const val HIDE_REQUEST_PHOTOS = "hide_request_photos"
     const val SHARE_PRESENCE = "share_presence"
+    const val SHOW_MEDIA = "show_media"
+}
+
+/** The chats.showMedia choice: when chats load photos and videos by themselves. */
+enum class ShowMedia(val id: String, val title: Int) {
+    ALWAYS("always", R.string.bipe_chats_show_media_always),
+    PRIVATE("private", R.string.bipe_chats_show_media_private),
+    NEVER("never", R.string.bipe_chats_show_media_never),
+}
+
+/** A picker of one choice that lives on this phone. */
+@Composable
+fun ChoiceListScreen(title: String, options: List<Pair<String, String>>, key: String, default: String, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val view = LocalView.current
+    val prefs = remember { context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE) }
+    var selection by remember { mutableStateOf(prefs.getString(key, null) ?: default) }
+    SettingsPage(title, BipeScreen.SETTINGS_GROUP.id, onBack) {
+        items(options, key = { it.first }) { (id, label) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    SettingsRowItem(title = label, onClick = {
+                        selection = id
+                        prefs.edit().putString(key, id).apply()
+                        view.bipeHaptic(BipeHaptic.Tick)
+                    })
+                }
+                if (selection == id) {
+                    Icon(
+                        painterResource(PhosphorIcon.CHECK.drawable),
+                        contentDescription = null,
+                        tint = BipeTheme.colors.accentInk,
+                        modifier = Modifier.padding(end = 16.dp).size(18.dp),
+                    )
+                }
+            }
+        }
+    }
 }
 
 /** "pt" or "en", for the url rows of registries/settings.json. */
