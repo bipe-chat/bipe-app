@@ -139,6 +139,30 @@
       "licence": "Apache-2.0",
       "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
       "checked": "2026-10-22"
+    },
+    "androidx.camera:camera-camera2": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "androidx.camera:camera-lifecycle": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "androidx.camera:camera-view": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "com.google.zxing:core": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/zxing/zxing/blob/master/LICENSE",
+      "checked": "2026-10-22"
     }
   }
 }

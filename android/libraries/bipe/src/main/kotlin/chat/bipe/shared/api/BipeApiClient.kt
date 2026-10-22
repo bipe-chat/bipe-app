@@ -109,9 +109,13 @@ class BipeApiClient(baseUrl: String) {
         body: String? = null,
         accessToken: String? = null,
         response: KSerializer<T>?,
+        query: List<Pair<String, String>> = emptyList(),
     ): T = withContext(Dispatchers.IO) {
         // Each segment is percent-encoded, so a handle or a code cannot add path segments.
-        val url = URL(root + path.joinToString(separator = "/", prefix = "/") { URLEncoder.encode(it, "UTF-8").replace("+", "%20") })
+        val encodedQuery = query.joinToString(separator = "&", prefix = if (query.isEmpty()) "" else "?") { (name, value) ->
+            URLEncoder.encode(name, "UTF-8") + "=" + URLEncoder.encode(value, "UTF-8")
+        }
+        val url = URL(root + path.joinToString(separator = "/", prefix = "/") { URLEncoder.encode(it, "UTF-8").replace("+", "%20") } + encodedQuery)
         val connection = try {
             url.openConnection() as HttpURLConnection
         } catch (error: IOException) {
