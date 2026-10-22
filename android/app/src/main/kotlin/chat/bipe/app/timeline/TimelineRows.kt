@@ -39,12 +39,12 @@ data class TimelineRow(
     val day: Long? = null,
     /** kind handleChange only (spec handle-change-line, ADR 0066). */
     val handleChange: HandleChangeLine? = null,
-)
-
-/** Type HandleChangeLine of spec handle-change-line. */
-data class HandleChangeLine(val change: BipeHandleChange, val name: String) {
+) {
     enum class Kind { MESSAGE, UNDECRYPTABLE, DELETED, POLL, DATE_SEPARATOR, READ_MARKER, HANDLE_CHANGE, NOT_ENCRYPTED, CHAT_START }
 }
+
+/** Type HandleChangeLine of spec handle-change-line. */
+data class HandleChangeLine(val change: BipeHandleChange, val name: String)
 
 /** Type MessageDetails of spec timeline-rows. */
 data class MessageDetails(
