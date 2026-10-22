@@ -14,6 +14,13 @@ struct Person: Identifiable, Equatable, Hashable {
     var avatarUrl: String?
     var handle: String?
 
+    init(userId: String, displayName: String?, avatarUrl: String? = nil, handle: String? = nil) {
+        self.userId = userId
+        self.displayName = displayName.flatMap { $0.isEmpty ? nil : $0 } ?? Self.localpart(of: userId)
+        self.avatarUrl = avatarUrl
+        self.handle = handle
+    }
+
     var id: String { userId }
 
     /// The localpart of a Matrix ID, the last fallback of a name (blocked-list notes).
