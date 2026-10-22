@@ -67,6 +67,8 @@ import chat.bipe.app.groups.CreateGroupButton
 import chat.bipe.app.groups.DmSwipeRow
 import chat.bipe.app.groups.GroupHost
 import chat.bipe.app.groups.withoutClearedDms
+import chat.bipe.app.recovery.RecoveryAlertModel
+import chat.bipe.app.recovery.RecoveryAlertScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -86,6 +88,8 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     val encryption = remember(session) { EncryptionStatusModel(session, scope, context.applicationContext) }
+    val recoveryAlert = remember(session) { RecoveryAlertModel(context.applicationContext, api, session, scope) }
+    val alertNotice by recoveryAlert.notice.collectAsState()
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsSettings by rememberSaveable { mutableStateOf(false) }
@@ -101,9 +105,12 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check() }
+    // recovery-alert, action check: on launch and on every return to the foreground.
+    LaunchedEffect(foregroundCount) { recoveryAlert.check() }
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
+        alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
         showsSettings -> SettingsHost(session, api, onClose = { showsSettings = false }, onSignedOut = onSignOut)
         showsHandlePick -> {
             BackHandler { showsHandlePick = false }

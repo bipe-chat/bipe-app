@@ -26,6 +26,18 @@ final class AccountStartModel: ObservableObject {
     @Published private(set) var userId: String?
     /// Set right after a sign-up: the app shows signup-done before chat-list.
     @Published var signupOutcome: SignupOutcome?
+    /// noAccount shows recovery-start instead of onboarding-welcome: after "Já tenho conta", or while a kept
+    /// recovery waits (spec recovery-waiting notes).
+    @Published var showsRecovery = BipeCredentialStore().pendingRecovery() != nil
+    /// A bipe.chat/recuperar link the app was opened with (recovery-email, action openLink).
+    @Published var recoveryLink: URL?
+
+    /// Routes a recovery link to the recovery flow. A signed-in phone ignores it: noAccount alone shows the flow.
+    func openLink(_ url: URL) {
+        guard BipeRecoveryLink.token(from: url) != nil else { return }
+        recoveryLink = url
+        showsRecovery = true
+    }
     private(set) var session: AccountSession?
 
     let api = BipeAPIClient(baseURL: AppConfig.apiBaseURL)
@@ -75,6 +87,14 @@ final class AccountStartModel: ObservableObject {
                 .setInviterGreeting(BipeInviterGreeting(userID: inviterUserId, handle: outcome.inviterHandle))
         }
         signupOutcome = outcome
+        phase = .ready
+    }
+
+    /// A recovery path signed in (recovery-pin, recovery-waiting or the beta sign-in): chat-list, then encryption-status.
+    func didRecover(_ session: AccountSession) {
+        self.session = session
+        userId = session.userId
+        showsRecovery = false
         phase = .ready
     }
 

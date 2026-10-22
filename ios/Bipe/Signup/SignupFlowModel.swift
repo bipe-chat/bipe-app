@@ -167,10 +167,13 @@ final class SignupFlowModel: ObservableObject {
     private let api: BipeAPIClient
     private let credentialStore = BipeCredentialStore()
     private let onSignedUp: (AccountSession, SignupOutcome) -> Void
+    /// Action haveAccount of onboarding-welcome: account-start opens recovery-start.
+    let onHaveAccount: () -> Void
 
-    init(api: BipeAPIClient, onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void) {
+    init(api: BipeAPIClient, onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void, onHaveAccount: @escaping () -> Void = {}) {
         self.api = api
         self.onSignedUp = onSignedUp
+        self.onHaveAccount = onHaveAccount
     }
 
     // MARK: - onboarding-welcome actions

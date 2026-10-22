@@ -51,6 +51,43 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     /** A bipe.chat/convite link the app was opened with, for onboarding-welcome (action openInviteLink). */
     var pendingInviteLink: android.net.Uri? = null
+
+    /**
+     * noAccount shows recovery-start instead of onboarding-welcome: after "Já tenho conta", for a recovery link, or while
+     * a kept recovery waits (spec recovery-waiting notes).
+     */
+    private val _showsRecovery = MutableStateFlow(false)
+    val showsRecovery: StateFlow<Boolean> = _showsRecovery.asStateFlow()
+
+    /** A bipe.chat/recuperar link (recovery-email, action openLink). */
+    private val _recoveryLink = MutableStateFlow<android.net.Uri?>(null)
+    val recoveryLink: StateFlow<android.net.Uri?> = _recoveryLink.asStateFlow()
+
+    fun showRecovery(show: Boolean) {
+        _showsRecovery.value = show
+    }
+
+    /** Routes a link the app was opened with: recovery links to the recovery flow, the rest to onboarding-welcome. */
+    fun openLink(uri: android.net.Uri) {
+        if (chat.bipe.app.recovery.BipeRecoveryLink.token(uri) != null) {
+            _recoveryLink.value = uri
+            _showsRecovery.value = true
+        } else {
+            pendingInviteLink = uri
+        }
+    }
+
+    fun consumeRecoveryLink() {
+        _recoveryLink.value = null
+    }
+
+    /** A recovery path signed in (recovery-pin, recovery-waiting or the beta sign-in): chat-list, then encryption-status. */
+    fun didRecover(session: AccountSession) {
+        this.session = session
+        _userId.value = session.userId
+        _showsRecovery.value = false
+        _phase.value = Phase.READY
+    }
     private var devAccount: DevAccount? = null
     private var running = false
 
@@ -130,7 +167,10 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
                 _userId.value = saved.userId
                 AccountSession.restore(context, saved, sessionStore)
             }
-            else -> resumePendingSignup() ?: signInWithDeviceCredential() ?: return Phase.NO_ACCOUNT
+            else -> resumePendingSignup() ?: signInWithDeviceCredential() ?: run {
+                if (vault.read().pendingRecovery != null) _showsRecovery.value = true
+                return Phase.NO_ACCOUNT
+            }
         }
         session = newSession
         return Phase.READY

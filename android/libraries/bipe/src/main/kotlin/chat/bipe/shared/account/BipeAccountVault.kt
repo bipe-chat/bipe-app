@@ -9,6 +9,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import chat.bipe.shared.api.BipeRecoveryStarted
 import java.io.File
 import java.security.KeyStore
 import java.security.SecureRandom
@@ -60,6 +61,8 @@ data class BipeVaultData(
     @SerialName("pending_signup") val pendingSignup: BipePendingSignup? = null,
     /** New account to its inviter's Matrix ID, until signup-done opens the chat (ADR 0034). */
     @SerialName("pending_inviters") val pendingInviters: Map<String, String> = emptyMap(),
+    /** A slow recovery that waits for its claim (spec recovery-waiting). On this device only, until the claim ends. */
+    @SerialName("pending_recovery") val pendingRecovery: BipeRecoveryStarted? = null,
 ) {
     override fun toString(): String = "BipeVaultData"
 }
@@ -86,6 +89,16 @@ class BipeAccountVault(context: Context) {
     suspend fun store(userId: String, password: String, token: String) = update { data ->
         data.copy(accounts = data.accounts - userId + (userId to BipeVaultAccount(password, token)))
     }
+
+    /** After the API rejected the token (`recovery_invalid`): recovery-start shows without the token row. */
+    suspend fun deleteToken(userId: String) = update { data ->
+        val account = data.accounts[userId] ?: return@update data
+        data.copy(accounts = data.accounts + (userId to account.copy(token = null)))
+    }
+
+    suspend fun savePendingRecovery(recovery: BipeRecoveryStarted) = update { it.copy(pendingRecovery = recovery) }
+
+    suspend fun deletePendingRecovery() = update { it.copy(pendingRecovery = null) }
 
     /** The pending sign-up, or a new one with a fresh key. The new one is stored before the first request goes out. */
     suspend fun pendingSignup(pin: String): BipePendingSignup {
