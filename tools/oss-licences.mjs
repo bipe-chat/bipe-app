@@ -40,7 +40,8 @@ export function licenceList(platform, root = REPO_ROOT) {
     return id;
   };
   const dependencies = Object.entries(packages)
-    .filter(([, p]) => ECOSYSTEMS[platform].includes(p.ecosystem))
+    // A test-only dependency ("scope": "test", ADR 0148) is not in the app.
+    .filter(([, p]) => ECOSYSTEMS[platform].includes(p.ecosystem) && p.scope !== 'test')
     .sort(([a], [b]) => a.toLowerCase().localeCompare(b.toLowerCase()))
     .map(([name, p]) => {
       const vendored = VENDORED_LICENCE[name]?.[platform];

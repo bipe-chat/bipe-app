@@ -11,7 +11,6 @@ struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     private let media: MediaLoader
     private let session: AccountSession
-    @State private var showsNotifications = false
 
     init(session: AccountSession, media: MediaLoader, roomId: String) {
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
@@ -38,20 +37,6 @@ struct ChatTimelineView: View {
         .onAppear { NotificationActions.shared.chatOpened(model.roomId) }
         .onDisappear { NotificationActions.shared.chatOpened(nil) }
         .notificationsPrompt(session: session, roomId: model.roomId, messages: model.messages)
-        // Until the chat details screens land, chat-notifications opens from here.
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showsNotifications = true
-                } label: {
-                    PhosphorIcon.bell.image.resizable().frame(width: 22, height: 22)
-                }
-                .accessibilityLabel(BipeStrings.settingsNotifications)
-            }
-        }
-        .navigationDestination(isPresented: $showsNotifications) {
-            ChatNotificationsView(session: session, roomId: model.roomId)
-        }
     }
 
     private var messageList: some View {

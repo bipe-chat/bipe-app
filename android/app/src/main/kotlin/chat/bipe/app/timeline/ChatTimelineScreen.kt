@@ -4,7 +4,6 @@
 
 package chat.bipe.app.timeline
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,9 +35,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -58,7 +54,6 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.MediaLoader
-import chat.bipe.app.notifications.ChatNotificationsScreen
 import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -70,7 +65,6 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val model = remember(roomId) { ChatTimelineModel(session, roomId, scope, InviterGreetings(context, session.userId)) }
-    var showsNotifications by rememberSaveable(roomId) { mutableStateOf(false) }
     DisposableEffect(model) {
         model.start()
         onDispose { model.close() }
@@ -84,12 +78,6 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val inviterHint by model.inviterHint.collectAsState()
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
-    if (showsNotifications) {
-        // Until the chat details screens land, chat-notifications opens from the timeline header.
-        BackHandler { showsNotifications = false }
-        ChatNotificationsScreen(session, roomId, onBack = { showsNotifications = false })
-        return
-    }
     NotificationsPrompt(session, roomId, messages)
 
     // The list is reversed: index 0 is the newest message, so the view opens at the bottom.
@@ -115,15 +103,7 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     color = colors.inkPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = { showsNotifications = true }) {
-                    Icon(
-                        painterResource(PhosphorIcon.BELL.drawable),
-                        contentDescription = stringResource(R.string.bipe_settings_notifications),
-                        tint = colors.glyphPrimary,
-                    )
-                }
             }
             LazyColumn(
                 state = listState,
