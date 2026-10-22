@@ -5,6 +5,7 @@
 package chat.bipe.app.account
 
 import android.content.Context
+import android.util.Log
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.shared.account.BipeAccountVault
@@ -170,6 +171,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     private suspend fun open() {
         val saved = sessionStore.loadAll()
         val passwords = vault.read().accounts.filterValues { it.password != null }.mapValues { it.value.password!! }
+        Log.i(AccountStep.TAG, "start: ${saved.size} saved sessions, ${passwords.size} device credentials")
         val found = passwords.keys.toList() + saved.keys.sorted().filterNot(passwords::containsKey)
         val accounts = accountList.merge(found)
 
@@ -212,10 +214,26 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
      */
     private suspend fun open(userId: String, saved: Session?, password: String?): AccountSession? {
         if (saved != null) {
-            runCatching { AccountSession.restore(context, saved, sessionStore) }.getOrNull()?.let { return it }
+            try {
+                return AccountSession.restore(context, saved, sessionStore)
+            } catch (e: AccountStep.NoStore) {
+                // A saved session from an earlier install: drop it and sign in again.
+                Log.i(AccountStep.TAG, "saved session without its store, dropped")
+                sessionStore.delete(userId)
+            } catch (e: Exception) {
+                Log.w(AccountStep.TAG, "restore failed: ${e.javaClass.simpleName}")
+            }
         }
-        if (password == null) return null
-        return runCatching { AccountSession.signIn(context, userId, password, sessionStore) }.getOrNull()
+        if (password == null) {
+            Log.i(AccountStep.TAG, "no device credential for this account")
+            return null
+        }
+        return try {
+            AccountSession.signIn(context, userId, password, sessionStore)
+        } catch (e: Exception) {
+            Log.w(AccountStep.TAG, "sign-in failed: ${e.javaClass.simpleName}")
+            null
+        }
     }
 
     /** A sign-up whose answer never reached this phone (ADR 0094). `null` when there is nothing to finish. */

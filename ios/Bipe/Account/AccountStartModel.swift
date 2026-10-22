@@ -50,6 +50,7 @@ final class AccountStartModel: ObservableObject {
 
         let saved = SessionStore.loadAll()
         let credentials = DeviceCredential.all()
+        AccountStep.log.info("start: \(saved.count) saved sessions, \(credentials.count) device credentials")
         let found = credentials.map(\.userId) + saved.keys.sorted().filter { id in !credentials.contains { $0.userId == id } }
         let accounts = AccountList.merge(found: found)
 
@@ -159,11 +160,28 @@ final class AccountStartModel: ObservableObject {
     /// Restores the account's saved session; when there is none, or it no longer works, signs in with the device
     /// credential. `nil` when neither works now.
     private func open(_ userId: String, saved: Session?, credential: DeviceCredential?) async -> AccountSession? {
-        if let saved, let session = try? await AccountSession.restore(saved) {
-            return session
+        let log = AccountStep.log
+        if let saved {
+            do {
+                return try await AccountSession.restore(saved)
+            } catch AccountStep.Failure.noStore {
+                // A saved session from an earlier install: drop it and sign in again.
+                log.notice("saved session without its store, dropped")
+                SessionStore.delete(userId: userId)
+            } catch {
+                log.error("restore failed: \(String(describing: error), privacy: .public)")
+            }
         }
-        guard let credential else { return nil }
-        return try? await AccountSession.signIn(userId: credential.userId, password: credential.password)
+        guard let credential else {
+            log.notice("no device credential for this account")
+            return nil
+        }
+        do {
+            return try await AccountSession.signIn(userId: credential.userId, password: credential.password)
+        } catch {
+            log.error("sign-in failed: \(String(describing: error), privacy: .public)")
+            return nil
+        }
     }
 
     /// A sign-up whose answer never reached this phone (ADR 0094). `nil` when there is nothing to finish.
