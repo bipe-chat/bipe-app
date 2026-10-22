@@ -1093,3 +1093,5 @@
 "bipe_app_timeline_start" = "This is the start of the chat.";
 "bipe_app_name" = "Bipe";
 "bipe_app_sdk_version" = "matrix-rust-sdk %1$@";
+"bipe_app_signup_creating" = "Creating your account…";
+"bipe_app_invite_checking" = "Checking the invite…";
