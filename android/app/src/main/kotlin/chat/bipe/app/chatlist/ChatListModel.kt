@@ -41,6 +41,8 @@ data class ChatSummary(
     val mentionCount: Int,
     /** The other member of a DM, for the avatar account-type lookup. */
     val peerUserId: String? = null,
+    /** RoomInfo.isDm, the one DM test (ADR 0141). */
+    val isDm: Boolean = false,
 ) {
     /** The scope that lists this chat: conversas holds rooms with two members, grupos rooms with more (ADR 0053). */
     val scope: ChatScope
@@ -189,6 +191,7 @@ class ChatListModel(
             memberCount = info.activeMembersCount.toInt(),
             mentionCount = info.numUnreadMentions.toInt(),
             peerUserId = if (info.isDirect) info.heroes.firstOrNull { it.userId != session.userId }?.userId else null,
+            isDm = info.isDm,
         )
     }
 

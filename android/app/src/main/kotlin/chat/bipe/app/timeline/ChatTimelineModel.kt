@@ -9,6 +9,7 @@ import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.displayName
 import chat.bipe.app.common.toVectorDiff
+import chat.bipe.app.polls.PollData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.EncryptedMessage
+import org.matrix.rustcomponents.sdk.EventOrTransactionId
 import org.matrix.rustcomponents.sdk.EventSendState
 import org.matrix.rustcomponents.sdk.EventTimelineItem
 import org.matrix.rustcomponents.sdk.MessageType
@@ -42,8 +44,10 @@ data class TimelineMessage(
     val sentAt: Long,
     val sendState: SendState,
     val cause: UndecryptableCause?,
+    /** Kind POLL: the data of spec poll-detail. */
+    val poll: PollData? = null,
 ) {
-    enum class Kind { TEXT, UNDECRYPTABLE, UNSUPPORTED }
+    enum class Kind { TEXT, UNDECRYPTABLE, POLL, UNSUPPORTED }
 
     enum class SendState { SENT, SENDING, FAILED }
 
@@ -72,7 +76,8 @@ class ChatTimelineModel(
     private val _draft = MutableStateFlow("")
     val draft: StateFlow<String> = _draft.asStateFlow()
 
-    private var timeline: Timeline? = null
+    var timeline: Timeline? = null
+        private set
     private val items = mutableListOf<TimelineItem>()
     private var handle: TaskHandle? = null
     private var started = false
@@ -173,6 +178,7 @@ class ChatTimelineModel(
         var kind = TimelineMessage.Kind.UNSUPPORTED
         var body: String? = null
         var cause: TimelineMessage.UndecryptableCause? = null
+        var poll: PollData? = null
         val content = (event.content as? TimelineItemContent.MsgLike)?.content
         when (val msgKind = content?.kind) {
             is MsgLikeKind.Message -> if (msgKind.content.msgType is MessageType.Text) {
@@ -182,6 +188,10 @@ class ChatTimelineModel(
             is MsgLikeKind.UnableToDecrypt -> {
                 kind = TimelineMessage.Kind.UNDECRYPTABLE
                 cause = undecryptableCause(msgKind.msg)
+            }
+            is MsgLikeKind.Poll -> (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.let { id ->
+                kind = TimelineMessage.Kind.POLL
+                poll = PollData.of(id.eventId, msgKind, isOwnPoll = event.isOwn, ownUserId = session.userId)
             }
             else -> Unit
         }
@@ -200,6 +210,7 @@ class ChatTimelineModel(
             sentAt = event.timestamp.toLong(),
             sendState = if (event.isOwn) sendState else TimelineMessage.SendState.SENT,
             cause = cause,
+            poll = poll,
         )
     }
 

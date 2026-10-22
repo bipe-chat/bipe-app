@@ -39,6 +39,8 @@ fun AppTabsScreen(
     onNewAccount: () -> Unit,
     /** Spec encryption-status: the banner above Conversas. */
     banner: @Composable () -> Unit = {},
+    onCreateGroup: () -> Unit = {},
+    onDeleteDm: (String) -> Unit = {},
 ) {
     val state by tabs.state.collectAsState()
     val account = state.accounts.firstOrNull { it.isCurrent }
@@ -55,10 +57,12 @@ fun AppTabsScreen(
             when (state.selectedTab) {
                 AppTabsModel.Tab.CONVERSAS ->
                     ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner)
+                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner,
+                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) })
+                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) },
+                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm)
                 AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }

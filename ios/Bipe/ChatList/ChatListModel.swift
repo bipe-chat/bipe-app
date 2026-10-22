@@ -20,6 +20,8 @@ struct ChatSummary: Identifiable, Equatable {
     var mentionCount: Int
     /// The other member of a DM, for the avatar account-type lookup. Groups keep their room avatar.
     var peerUserId: String? = nil
+    /// RoomInfo.isDm, the one DM test (ADR 0141).
+    var isDm = false
 
     var id: String { roomId }
 
@@ -181,6 +183,7 @@ final class ChatListModel: ObservableObject {
                            isDirect: info.isDirect,
                            memberCount: Int(info.activeMembersCount),
                            mentionCount: Int(info.numUnreadMentions),
-                           peerUserId: info.isDirect ? info.heroes.first(where: { $0.userId != ownUserId })?.userId : nil)
+                           peerUserId: info.isDirect ? info.heroes.first(where: { $0.userId != ownUserId })?.userId : nil,
+                           isDm: info.isDm)
     }
 }

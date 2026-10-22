@@ -71,6 +71,10 @@ import chat.bipe.app.signup.SignupFlowScreen
 import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.tabs.AppTabsScreen
+import chat.bipe.app.groups.CreateGroupButton
+import chat.bipe.app.groups.DmSwipeRow
+import chat.bipe.app.groups.GroupHost
+import chat.bipe.app.groups.withoutClearedDms
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -126,20 +130,29 @@ fun HomeScreen(
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
-        roomId != null -> {
-            BackHandler { openRoomId = null }
-            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onHistoryHelp = encryption::openSheet)
+        else -> GroupHost(session, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
+            if (roomId != null) {
+                BackHandler { openRoomId = null }
+                ChatTimelineScreen(
+                    session,
+                    media,
+                    roomId,
+                    onBack = { openRoomId = null },
+                    onHistoryHelp = encryption::openSheet,
+                    onOpenGroupDetails = groups.openGroupDetails,
+                )
+            } else {
+                AppTabsScreen(
+                    tabs = tabs, chatList = model, media = media, handle = handle,
+                    onOpenHandlePick = { showsHandlePick = true },
+                    onOpenChat = { openRoomId = it },
+                    onNewAccount = { if (tabs.state.value.canAddAccount) showsNewAccount = true },
+                    banner = { HistoryBanner(encryption) },
+                    onCreateGroup = groups.createGroup,
+                    onDeleteDm = groups.deleteDm,
+                )
+            }
         }
-        else -> AppTabsScreen(
-            tabs = tabs,
-            chatList = model,
-            media = media,
-            handle = handle,
-            onOpenHandlePick = { showsHandlePick = true },
-            onOpenChat = { openRoomId = it },
-            onNewAccount = { if (tabs.state.value.canAddAccount) showsNewAccount = true },
-            banner = { HistoryBanner(encryption) },
-        )
     }
     EncryptionSheet(encryption)
 }
@@ -158,12 +171,15 @@ fun ChatListScreen(
     onOpenVoce: () -> Unit = {},
     /** Spec encryption-status: the banner above the chat list. */
     banner: @Composable () -> Unit = {},
+    onCreateGroup: () -> Unit = {},
+    onDeleteDm: (String) -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val allPhase by model.phase.collectAsState()
     val allChats by model.chats.collectAsState()
-    val chats = allChats.filter { it.scope == scope }
-    val phase = model.phase(scope, allPhase, allChats)
+    val visibleChats = withoutClearedDms(allChats, { it.roomId }, { it.lastActivity })
+    val chats = visibleChats.filter { it.scope == scope }
+    val phase = model.phase(scope, allPhase, visibleChats)
     val handleState by handle.state.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
@@ -174,6 +190,7 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 )
+                CreateGroupButton(onCreateGroup)
                 IconButton(onClick = onOpenSearch) {
                     Icon(
                         painterResource(PhosphorIcon.MAGNIFYING_GLASS.drawable),
@@ -212,7 +229,7 @@ fun ChatListScreen(
                 }
                 ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(chats, key = { it.roomId }) { chat ->
-                        ChatRow(chat, media) { onOpenChat(chat.roomId) }
+                        DmSwipeRow(chat.isDm, onDelete = { onDeleteDm(chat.roomId) }) { ChatRow(chat, media) { onOpenChat(chat.roomId) } }
                         if (chat.roomId == chats.lastOrNull()?.roomId) {
                             LaunchedEffect(chats.size) { model.loadMore() }
                         }

@@ -16,6 +16,9 @@ struct ChatListView: View {
     private let scope: ChatScope
     private let account: AccountSummary?
     private let onOpenVoce: () -> Void
+    @State private var creatingGroup = false
+    @State private var deletingDm: String?
+    @ObservedObject private var cleared = ClearedChatsStore.shared
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
     init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil, account: AccountSummary? = nil, onOpenVoce: @escaping () -> Void = {}) {
@@ -44,6 +47,9 @@ struct ChatListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    CreateGroupButton { creatingGroup = true }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     if let account {
                         Button(action: onOpenVoce) {
                             AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: model.media,
@@ -54,6 +60,7 @@ struct ChatListView: View {
                 }
             }
         }
+        .groupHost(session: model.session, media: model.media, path: $path, creatingGroup: $creatingGroup, deletingDm: $deletingDm)
         .environment(\.openHistoryHelp, encryption.openSheet)
         .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
             EncryptionSheet(route: route, model: encryption, session: model.session)
@@ -98,13 +105,20 @@ struct ChatListView: View {
         case .loaded:
             let chats = model.chats(in: scope)
             List {
-                ForEach(chats) { chat in
+                ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button {
                         openChat(chat.roomId)
                     } label: {
                         ChatRow(chat: chat, media: model.media)
                     }
                     .listRowBackground(BipeColor.surfaceBase)
+                    .swipeActions(edge: .trailing) {
+                        if chat.isDm {
+                            Button(BipeStrings.dmDeleteAction, role: .destructive) {
+                                deletingDm = chat.roomId
+                            }
+                        }
+                    }
                     .onAppear {
                         if chat.id == chats.last?.id {
                             model.loadMore()

@@ -221,7 +221,7 @@ final class AccountStartModel: ObservableObject {
                 try await api.resumeSignup(signupKey: pending.key)
             }
         } catch {
-            if case .server(.notFound, _, _) = error {
+            if let apiError = error as? BipeAPIError, case .server(.notFound, _, _) = apiError {
                 try await AccountStep.run("remove pending signup") { BipeCredentialStore().deletePendingSignup() }
             }
             if error is CancellationError || error is AccountStep.Failure { throw error }
