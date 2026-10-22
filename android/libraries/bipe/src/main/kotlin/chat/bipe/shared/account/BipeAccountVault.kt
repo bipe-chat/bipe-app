@@ -53,6 +53,17 @@ data class BipeVaultAccount(
     override fun toString(): String = "BipeVaultAccount"
 }
 
+/** A recovery by e-mail that waits for its delay on this phone (ADR 0057). The claim secret proves this phone. */
+@Serializable
+data class BipePendingClaim(
+    @SerialName("recovery_id") val recoveryId: String,
+    @SerialName("claim_secret") val claimSecret: String,
+    @SerialName("purpose") val purposeId: String,
+    @SerialName("ready_at") val readyAtMillis: Long,
+) {
+    override fun toString(): String = "BipePendingClaim($recoveryId)"
+}
+
 @Serializable
 data class BipeVaultData(
     /** Matrix ID to its secrets (ADR 0086). The last entry is the newest. */
@@ -60,6 +71,7 @@ data class BipeVaultData(
     @SerialName("pending_signup") val pendingSignup: BipePendingSignup? = null,
     /** New account to its inviter's Matrix ID, until signup-done opens the chat (ADR 0034). */
     @SerialName("pending_inviters") val pendingInviters: Map<String, String> = emptyMap(),
+    @SerialName("claim") val claim: BipePendingClaim? = null,
 ) {
     override fun toString(): String = "BipeVaultData"
 }

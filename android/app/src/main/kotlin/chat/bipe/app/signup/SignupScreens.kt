@@ -69,19 +69,23 @@ import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeOnboarding
 import chat.bipe.shared.generated.BipeOnboardingStart
 import chat.bipe.shared.generated.BipeOnboardingStep
+import chat.bipe.shared.generated.BipeOnboardingTarget
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 
-/** The sign-up flow from onboarding-welcome to signup-create. account-start shows it when its phase is noAccount. */
+/**
+ * The sign-up flow from onboarding-welcome to signup-create. account-start shows it when its phase is noAccount.
+ * [onHaveAccount] opens recovery-start ("Já tenho conta").
+ */
 @Composable
-fun SignupFlowScreen(model: SignupFlowModel) {
+fun SignupFlowScreen(model: SignupFlowModel, onHaveAccount: () -> Unit) {
     val path by model.path.collectAsState()
     val showsWaitlist by model.showsWaitlist.collectAsState()
     BackHandler(enabled = path.isNotEmpty()) { model.back() }
     Surface(modifier = Modifier.fillMaxSize(), color = BipeTheme.colors.surfaceBase) {
         Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             when (path.lastOrNull()) {
-                null -> OnboardingWelcomeScreen(model)
+                null -> OnboardingWelcomeScreen(model, onHaveAccount)
                 SignupFlowModel.Route.INVITE_CODE -> SignupInviteCodeScreen(model)
                 SignupFlowModel.Route.NAME -> SignupNameScreen(model)
                 SignupFlowModel.Route.PIN -> SignupPinScreen(model, confirm = false)
@@ -100,7 +104,7 @@ fun SignupFlowScreen(model: SignupFlowModel) {
 
 /** A sign-up step: title, optional body and content. */
 @Composable
-private fun StepLayout(screen: BipeScreen, title: String, message: String? = null, content: @Composable ColumnScope.() -> Unit) {
+internal fun StepLayout(screen: BipeScreen, title: String, message: String? = null, content: @Composable ColumnScope.() -> Unit) {
     val colors = BipeTheme.colors
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).testTag(screen.id),
@@ -114,7 +118,7 @@ private fun StepLayout(screen: BipeScreen, title: String, message: String? = nul
 
 /** The one filled button of a step. */
 @Composable
-private fun PrimaryButton(title: String, enabled: Boolean = true, busy: Boolean = false, onClick: () -> Unit) {
+internal fun PrimaryButton(title: String, enabled: Boolean = true, busy: Boolean = false, onClick: () -> Unit) {
     val colors = BipeTheme.colors
     Box(
         modifier = Modifier
@@ -134,7 +138,7 @@ private fun PrimaryButton(title: String, enabled: Boolean = true, busy: Boolean 
 
 /** A text button under the filled button. */
 @Composable
-private fun TextButtonRow(title: String, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun TextButtonRow(title: String, enabled: Boolean = true, onClick: () -> Unit) {
     Text(
         title,
         style = MaterialTheme.typography.titleSmall,
@@ -145,12 +149,12 @@ private fun TextButtonRow(title: String, enabled: Boolean = true, onClick: () ->
 }
 
 @Composable
-private fun FieldFooter(text: String, isError: Boolean = false) {
+internal fun FieldFooter(text: String, isError: Boolean = false) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = if (isError) BipeTheme.colors.trustDangerInk else BipeTheme.colors.inkSecondary)
 }
 
 @Composable
-private fun BipeField(
+internal fun BipeField(
     label: String,
     value: String,
     onChange: (String) -> Unit,
@@ -179,7 +183,7 @@ private fun BipeField(
 // onboarding-welcome
 
 @Composable
-private fun OnboardingWelcomeScreen(model: SignupFlowModel) {
+private fun OnboardingWelcomeScreen(model: SignupFlowModel, onHaveAccount: () -> Unit) {
     val colors = BipeTheme.colors
     val variant by model.variant.collectAsState()
     val invite by model.invite.collectAsState()
@@ -222,8 +226,12 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel) {
                     FieldFooter(stringResource(R.string.bipe_onboarding_paste_invite_none), isError = true)
                 }
             }
-            // haveAccount: recovery-start comes with bipe-chat/bipe#556.
-            start.text.forEach { TextButtonRow(stringResource(it.title), enabled = false) {} }
+            start.text.forEach { button ->
+                TextButtonRow(stringResource(button.title)) {
+                    // Action haveAccount: recovery-start.
+                    if (button.target == BipeOnboardingTarget.RECOVERY) onHaveAccount()
+                }
+            }
         }
     }
 }

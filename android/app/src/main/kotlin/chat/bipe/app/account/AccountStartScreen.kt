@@ -21,6 +21,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
@@ -33,6 +36,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.chatlist.HomeScreen
+import chat.bipe.app.recovery.RecoveryFlowModel
+import chat.bipe.app.recovery.RecoveryFlowScreen
+import chat.bipe.app.recovery.RecoveryWaitingModel
+import chat.bipe.app.recovery.RecoveryWaitingScreen
 import chat.bipe.app.signup.SignupDoneScreen
 import chat.bipe.app.signup.SignupFlowModel
 import chat.bipe.app.signup.SignupFlowScreen
@@ -63,8 +70,46 @@ fun AccountStartScreen(model: AccountStartModel) {
         val signup = remember(model) {
             SignupFlowModel(context, model.api, model.vault, model.sessionStore, scope, onSignedUp = model::didSignUp)
         }
+        val recovery = remember(model) {
+            RecoveryFlowModel(
+                context,
+                model.api,
+                model.vault,
+                model.sessionStore,
+                scope,
+                onSignedIn = model::didRecover,
+                onWaiting = model::didStartRecovery,
+            )
+        }
+        val hasPendingRecovery by model.hasPendingRecovery.collectAsState()
+        val recoveryLink by model.pendingRecoveryLink.collectAsState()
+        var showsRecovery by rememberSaveable { mutableStateOf(false) }
         LaunchedEffect(signup) { model.pendingInviteLink?.let(signup::openInviteLink) }
-        SignupFlowScreen(signup)
+        LaunchedEffect(recoveryLink) {
+            val link = recoveryLink ?: return@LaunchedEffect
+            model.pendingRecoveryLink.value = null
+            recovery.openLink(link)
+            showsRecovery = true
+        }
+        when {
+            // Spec account-start: a kept recovery opens recovery-waiting instead of noAccount.
+            hasPendingRecovery -> {
+                val waiting = remember(model) {
+                    RecoveryWaitingModel(
+                        context,
+                        model.api,
+                        model.vault,
+                        model.sessionStore,
+                        scope,
+                        onSignedIn = model::didRecover,
+                        onStartOver = model::startRecoveryOver,
+                    )
+                }
+                RecoveryWaitingScreen(waiting, foregroundCount)
+            }
+            showsRecovery -> RecoveryFlowScreen(recovery, onClose = { showsRecovery = false })
+            else -> SignupFlowScreen(signup, onHaveAccount = { showsRecovery = true })
+        }
         return
     }
     Surface(

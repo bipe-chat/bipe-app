@@ -109,7 +109,84 @@ data class BipeAccountStatus(
     @SerialName("user_id") val userId: String,
     /** The last legal version the account accepted (ADR 0113). */
     @SerialName("terms_version") val termsVersion: String? = null,
+    /** Waiting recoveries and ones that ended in the last 7 days. Newest first. */
+    @SerialName("recoveries") val recoveries: List<BipeRecovery> = emptyList(),
 )
+
+enum class BipeRecoveryMethod(val id: String) { TOKEN("token"), EMAIL("email"), GUARDIAN("guardian"), CPF("cpf") }
+
+enum class BipeRecoveryPurpose(val id: String) { ACCESS("access"), PIN_RESET("pin_reset") }
+
+enum class BipeRecoveryState(val id: String) { WAITING("waiting"), COMPLETED("completed"), CANCELLED("cancelled"), EXPIRED("expired") }
+
+/** `Recovery`. A value this app does not know reads as `null`. */
+@Serializable
+data class BipeRecovery(
+    @SerialName("id") val id: String,
+    @SerialName("method") val methodId: String,
+    @SerialName("purpose") val purposeId: String,
+    @SerialName("state") val stateId: String,
+    @Serializable(with = InstantSerializer::class) @SerialName("created_at") val createdAt: Instant,
+    @Serializable(with = InstantSerializer::class) @SerialName("ready_at") val readyAt: Instant? = null,
+    @Serializable(with = InstantSerializer::class) @SerialName("ended_at") val endedAt: Instant? = null,
+) {
+    val method: BipeRecoveryMethod? get() = BipeRecoveryMethod.entries.firstOrNull { it.id == methodId }
+    val purpose: BipeRecoveryPurpose? get() = BipeRecoveryPurpose.entries.firstOrNull { it.id == purposeId }
+    val state: BipeRecoveryState? get() = BipeRecoveryState.entries.firstOrNull { it.id == stateId }
+}
+
+/** `RecoveryStarted`. The claim secret comes once; this phone keeps it until the claim ends. */
+@Serializable
+data class BipeRecoveryStarted(
+    @SerialName("recovery_id") val recoveryId: String,
+    @SerialName("claim_secret") val claimSecret: String,
+    @SerialName("purpose") val purposeId: String,
+    @Serializable(with = InstantSerializer::class) @SerialName("ready_at") val readyAt: Instant,
+) {
+    override fun toString(): String = "BipeRecoveryStarted($recoveryId)"
+}
+
+/** `RecoveryClaim`. The credentials are there only when this call completed an access recovery. */
+@Serializable
+data class BipeRecoveryClaim(
+    @SerialName("state") val stateId: String,
+    @SerialName("purpose") val purposeId: String,
+    @Serializable(with = InstantSerializer::class) @SerialName("ready_at") val readyAt: Instant? = null,
+    @SerialName("user_id") val userId: String? = null,
+    @SerialName("password") val password: String? = null,
+    @SerialName("recovery_token") val recoveryToken: String? = null,
+) {
+    val state: BipeRecoveryState? get() = BipeRecoveryState.entries.firstOrNull { it.id == stateId }
+
+    val credentials: BipeCredentials?
+        get() = if (userId != null && password != null && recoveryToken != null) BipeCredentials(userId, password, recoveryToken) else null
+
+    override fun toString(): String = "BipeRecoveryClaim($stateId)"
+}
+
+@Serializable
+internal data class BipeTokenRecoveryRequest(@SerialName("recovery_token") val recoveryToken: String, @SerialName("pin") val pin: String) {
+    override fun toString(): String = "BipeTokenRecoveryRequest"
+}
+
+@Serializable
+internal data class BipeRecoveryEmailRequest(@SerialName("email") val email: String) {
+    override fun toString(): String = "BipeRecoveryEmailRequest"
+}
+
+@Serializable
+internal data class BipeEmailConfirmRequest(
+    @SerialName("token") val token: String,
+    @SerialName("pin") val pin: String? = null,
+    @SerialName("new_pin") val newPin: String? = null,
+) {
+    override fun toString(): String = "BipeEmailConfirmRequest"
+}
+
+@Serializable
+internal data class BipeClaimRequest(@SerialName("claim_secret") val claimSecret: String) {
+    override fun toString(): String = "BipeClaimRequest"
+}
 
 @Serializable
 internal data class BipeWaitlistRequest(

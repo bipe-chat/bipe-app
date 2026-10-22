@@ -55,14 +55,24 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.encryption.DeviceVerificationModel
+import chat.bipe.app.encryption.DeviceVerificationScreen
+import chat.bipe.app.encryption.EncryptionModel
+import chat.bipe.app.encryption.HistoryBanner
+import chat.bipe.app.encryption.HistorySheet
+import chat.bipe.app.encryption.RecoveryKeyEnterScreen
+import chat.bipe.app.encryption.RecoveryKeyPromptCard
+import chat.bipe.app.encryption.RecoveryKeySaveScreen
+import chat.bipe.app.recovery.RecoveryAlertModel
+import chat.bipe.app.recovery.RecoveryAlertScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
 
 /**
- * The signed-in app: chat-list, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, and
- * terms-reaccept over everything when the legal version changed.
+ * The signed-in app: chat-list, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, the
+ * encryption screens, and over everything device-verification, recovery-alert and terms-reaccept.
  */
 @Composable
 fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: String?, foregroundCount: Int, onSignOut: () -> Unit) {
@@ -75,26 +85,58 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
+    val alert = remember(session) { RecoveryAlertModel(context.applicationContext, api, session, scope) }
+    val encryption = remember(session) { EncryptionModel(context.applicationContext, session, scope) }
+    val verification = remember(session) { DeviceVerificationModel(context.applicationContext, session, scope) }
     val termsPhase by terms.phase.collectAsState()
+    val alertPhase by alert.phase.collectAsState()
+    val verificationPhase by verification.phase.collectAsState()
+    val sheetOpen by encryption.sheetOpen.collectAsState()
+    val showsKeyEnter by encryption.showsKeyEnter.collectAsState()
+    val showsKeySave by encryption.showsKeySave.collectAsState()
+    val showsVerification by encryption.showsVerification.collectAsState()
     DisposableEffect(model) {
         model.start()
         handle.load()
-        onDispose { model.close() }
+        encryption.observe()
+        verification.start()
+        onDispose {
+            model.close()
+            encryption.close()
+        }
     }
-    // terms-reaccept, action check: after sign-in and on every return to the foreground.
-    LaunchedEffect(foregroundCount) { terms.check() }
+    // terms-reaccept and recovery-alert, action check: after sign-in and on every return to the foreground.
+    LaunchedEffect(foregroundCount) {
+        terms.check()
+        alert.check()
+    }
+    LaunchedEffect(showsVerification) {
+        if (showsVerification) {
+            encryption.showsVerification.value = false
+            verification.request()
+        }
+    }
+    if (sheetOpen) HistorySheet(encryption)
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
+        alertPhase != RecoveryAlertModel.Phase.HIDDEN -> RecoveryAlertScreen(alert)
+        verificationPhase != DeviceVerificationModel.Phase.IDLE -> DeviceVerificationScreen(verification)
+        showsKeySave -> RecoveryKeySaveScreen(encryption.encryption, onClose = { encryption.showsKeySave.value = false })
+        showsKeyEnter -> RecoveryKeyEnterScreen(
+            encryption.encryption,
+            onClose = { encryption.showsKeyEnter.value = false },
+            onNoKey = encryption::openSheet,
+        )
         showsHandlePick -> {
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
         roomId != null -> {
             BackHandler { openRoomId = null }
-            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
+            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onOpenHistoryHelp = encryption::openSheet)
         }
-        else -> ChatListScreen(model, media, handle, onOpenHandlePick = { showsHandlePick = true }, onOpenChat = { openRoomId = it })
+        else -> ChatListScreen(model, media, handle, encryption, onOpenHandlePick = { showsHandlePick = true }, onOpenChat = { openRoomId = it })
     }
 }
 
@@ -104,6 +146,7 @@ fun ChatListScreen(
     model: ChatListModel,
     media: MediaLoader,
     handle: HandlePickModel,
+    encryption: EncryptionModel,
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
 ) {
@@ -111,6 +154,11 @@ fun ChatListScreen(
     val phase by model.phase.collectAsState()
     val chats by model.chats.collectAsState()
     val handleState by handle.state.collectAsState()
+    val verification by encryption.verificationState.collectAsState()
+    val recovery by encryption.recoveryState.collectAsState()
+    val otherDevices by encryption.hasOtherDevices.collectAsState()
+    val bannerDismissed by encryption.bannerDismissed.collectAsState()
+    val keyPromptDismissed by encryption.keyPromptDismissed.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             Text(
@@ -119,6 +167,11 @@ fun ChatListScreen(
                 color = colors.inkPrimary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
+            if (encryption.showsBanner(verification, recovery, otherDevices, bannerDismissed)) {
+                HistoryBanner(encryption)
+            } else if (encryption.showsKeyPrompt(verification, recovery, keyPromptDismissed)) {
+                RecoveryKeyPromptCard(encryption)
+            }
             if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

@@ -51,13 +51,19 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     /** A bipe.chat/convite link the app was opened with, for onboarding-welcome (action openInviteLink). */
     var pendingInviteLink: android.net.Uri? = null
+    /** A bipe.chat/recuperar link from the recovery e-mail (recovery-email, action openLink). */
+    val pendingRecoveryLink = MutableStateFlow<android.net.Uri?>(null)
+
+    /** A recovery started on this phone waits for its delay (spec recovery-waiting). */
+    private val _hasPendingRecovery = MutableStateFlow(false)
+    val hasPendingRecovery: StateFlow<Boolean> = _hasPendingRecovery.asStateFlow()
     private var devAccount: DevAccount? = null
     private var running = false
 
     /**
      * Action start: restore the saved session; else finish a pending sign-up (POST /v1/signup/resume, ADR 0094); else sign
      * in with the device credential (the hidden password this phone keeps, or a dev test account in a debug build);
-     * else noAccount. Recovery is bipe-chat/bipe#556.
+     * else noAccount (or recovery-waiting while a recovery started on this phone waits).
      */
     fun start() {
         if (session != null || running) return
@@ -105,6 +111,24 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         _phase.value = Phase.READY
     }
 
+    /** recovery-pin or recovery-waiting brought the account to this phone. */
+    fun didRecover(session: AccountSession) {
+        this.session = session
+        _userId.value = session.userId
+        _hasPendingRecovery.value = false
+        _phase.value = Phase.READY
+    }
+
+    /** recovery-pin started a slow recovery: recovery-waiting shows. */
+    fun didStartRecovery() {
+        _hasPendingRecovery.value = true
+    }
+
+    /** recovery-waiting, action startOver: back to onboarding. */
+    fun startRecoveryOver() {
+        _hasPendingRecovery.value = false
+    }
+
     /** signup-done finished: chat-list shows, with the inviter's chat open when there is one. */
     fun finishSignup(openRoomId: String?) {
         initialRoomId = openRoomId
@@ -124,6 +148,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     }
 
     private suspend fun open(): Phase {
+        _hasPendingRecovery.value = vault.read().claim != null
         val saved = sessionStore.load()
         val newSession = when {
             saved != null -> {

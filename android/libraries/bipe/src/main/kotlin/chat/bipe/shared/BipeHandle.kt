@@ -137,3 +137,17 @@ object BipeLegalLinks {
 
     private val isEnglish: Boolean get() = BipeApiClient.emailLanguage() == "en"
 }
+
+/** Recovery links in the e-mail: `https://bipe.chat/recuperar/#<token>`. The token sits in the fragment, out of server logs. */
+object BipeRecoveryLink {
+    private val hosts = setOf("bipe.chat", "www.bipe.chat", "proseio.com.br", "www.proseio.com.br")
+    private val allowed = Regex("^[A-Za-z0-9_-]{1,128}$")
+
+    /** The link token, or `null` when the link is not a recovery link. */
+    fun token(url: android.net.Uri): String? {
+        if (url.scheme != "https" || url.host?.lowercase() !in hosts) return null
+        if (url.pathSegments != listOf("recuperar")) return null
+        val token = url.fragment?.trim() ?: return null
+        return token.takeIf { allowed.matches(it) }
+    }
+}

@@ -100,6 +100,46 @@ class BipeApiClient(baseUrl: String) {
         )
     }
 
+    // Device-first accounts and recovery (ADR 0057, ADR 0059)
+
+    /** `POST /v1/recovery/token`. No auth. The synced token, then the PIN. New credentials come once. */
+    suspend fun recoverWithToken(recoveryToken: String, pin: String): BipeCredentials = send(
+        "POST",
+        listOf("v1", "recovery", "token"),
+        body = encode(BipeTokenRecoveryRequest.serializer(), BipeTokenRecoveryRequest(recoveryToken, pin)),
+        response = BipeCredentials.serializer(),
+    )
+
+    /** `POST /v1/recovery/email`. No auth. 202 also for an unknown address. */
+    suspend fun requestEmailRecovery(email: String) {
+        send<Unit>("POST", listOf("v1", "recovery", "email"), body = encode(BipeRecoveryEmailRequest.serializer(), BipeRecoveryEmailRequest(email)), response = null)
+    }
+
+    /** `POST /v1/recovery/email/confirm`. No auth. The link token and exactly one of [pin] (access) or [newPin] (PIN reset). */
+    suspend fun confirmEmailRecovery(linkToken: String, pin: String?, newPin: String?): BipeRecoveryStarted = send(
+        "POST",
+        listOf("v1", "recovery", "email", "confirm"),
+        body = encode(BipeEmailConfirmRequest.serializer(), BipeEmailConfirmRequest(linkToken, pin, newPin)),
+        response = BipeRecoveryStarted.serializer(),
+    )
+
+    /** `POST /v1/recovery/{recoveryId}/claim`. No auth; the claim secret proves the phone. */
+    suspend fun claimRecovery(recoveryId: String, claimSecret: String): BipeRecoveryClaim = send(
+        "POST",
+        listOf("v1", "recovery", recoveryId, "claim"),
+        body = encode(BipeClaimRequest.serializer(), BipeClaimRequest(claimSecret)),
+        response = BipeRecoveryClaim.serializer(),
+    )
+
+    /** `POST /v1/me/recoveries/{recoveryId}/cancel`. An old device cancels a waiting recovery. */
+    suspend fun cancelRecovery(recoveryId: String, accessToken: String) {
+        send<Unit>("POST", listOf("v1", "me", "recoveries", recoveryId, "cancel"), accessToken = accessToken, response = null)
+    }
+
+    /** `POST /v1/me/device-first`. Moves a beta account to a hidden password. Needs a PIN first. */
+    suspend fun moveToDeviceFirst(accessToken: String): BipeCredentials =
+        send("POST", listOf("v1", "me", "device-first"), accessToken = accessToken, response = BipeCredentials.serializer())
+
     private fun <T> encode(serializer: KSerializer<T>, value: T): String = json.encodeToString(serializer, value)
 
     /** Sends the request and decodes a 2xx answer with [response] (`null`: the body is not read). */

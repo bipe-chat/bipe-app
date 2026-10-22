@@ -7,6 +7,7 @@ package chat.bipe.app.account
 import android.content.Context
 import android.util.Base64
 import chat.bipe.app.common.AppConfig
+import chat.bipe.app.common.SignInTimes
 import chat.bipe.shared.account.BipeAccountVault
 import java.io.File
 import org.matrix.rustcomponents.sdk.Client
@@ -24,9 +25,10 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
     suspend fun signOut(context: Context, sessionStore: SessionStore, vault: BipeAccountVault) {
         runCatching { client.logout() }
         syncService.stop()
+        val storeKey = sessionStore.storeKey() ?: userId
         sessionStore.delete()
         vault.update { data -> data.copy(accounts = data.accounts - userId) }
-        deleteStore(context, userId)
+        deleteStore(context, storeKey)
     }
 
     companion object {
@@ -35,13 +37,13 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
             deleteStore(context, userId)
             val client = makeClient(context, userId, sessionStore)
             client.login(userId, password, AppConfig.DEVICE_NAME, null)
-            sessionStore.save(client.session())
-            return start(client)
+            sessionStore.save(client.session(), storeKey = userId)
+            return start(client).also { SignInTimes(context).record(it.userId) }
         }
 
         /** Restores a saved session and starts the sync. */
         suspend fun restore(context: Context, saved: Session, sessionStore: SessionStore): AccountSession {
-            val client = makeClient(context, saved.userId, sessionStore)
+            val client = makeClient(context, sessionStore.storeKey() ?: saved.userId, sessionStore)
             client.restoreSession(saved)
             return start(client)
         }
@@ -63,6 +65,9 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 .sessionPaths(data.path, cache.path)
                 .slidingSyncVersionBuilder(SlidingSyncVersionBuilder.DISCOVER_NATIVE)
                 .setSessionDelegate(sessionStore.delegate())
+                // Spec encryption-status: a new account gets cross-signing and key backup with no screen.
+                .autoEnableCrossSigning(true)
+                .autoEnableBackups(true)
                 .build()
         }
 

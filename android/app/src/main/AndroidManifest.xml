@@ -7,6 +7,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The owner check before approving a device, cancelling a recovery or replacing the recovery key. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <application
         android:name=".BipeApplication"
@@ -30,6 +32,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/convite/" />
+            </intent-filter>
+            <!-- The link of the recovery e-mail (recovery-email, action openLink). The token sits in the fragment. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="bipe.chat" android:path="/recuperar" />
+                <data android:scheme="https" android:host="bipe.chat" android:path="/recuperar/" />
             </intent-filter>
         </activity>
     </application>

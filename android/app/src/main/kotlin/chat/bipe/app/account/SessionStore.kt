@@ -27,12 +27,8 @@ class SessionStore(context: Context) {
     private val file = File(context.noBackupFilesDir, "session.bin")
 
     fun load(): Session? {
-        if (!file.exists()) return null
+        val json = stored() ?: return null
         return runCatching {
-            val bytes = file.readBytes()
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes, 0, IV_SIZE))
-            val json = JSONObject(String(cipher.doFinal(bytes, IV_SIZE, bytes.size - IV_SIZE), Charsets.UTF_8))
             Session(
                 accessToken = json.getString("accessToken"),
                 refreshToken = json.optStringOrNull("refreshToken"),
@@ -45,7 +41,22 @@ class SessionStore(context: Context) {
         }.getOrNull()
     }
 
-    fun save(session: Session) {
+    /** The folder of the SDK store: the user ID, except for a beta sign-in with an e-mail (recovery-start). */
+    fun storeKey(): String? = stored()?.let { it.optStringOrNull("storeKey") ?: it.optStringOrNull("userId") }
+
+    private fun stored(): JSONObject? {
+        if (!file.exists()) return null
+        return runCatching {
+            val bytes = file.readBytes()
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes, 0, IV_SIZE))
+            JSONObject(String(cipher.doFinal(bytes, IV_SIZE, bytes.size - IV_SIZE), Charsets.UTF_8))
+        }.getOrNull()
+    }
+
+    /** [storeKey] `null` keeps the folder of the session saved before (a token refresh). */
+    fun save(session: Session, storeKey: String? = null) {
+        val key = storeKey ?: storeKey() ?: session.userId
         val json = JSONObject()
             .put("accessToken", session.accessToken)
             .put("refreshToken", session.refreshToken ?: JSONObject.NULL)
@@ -54,6 +65,7 @@ class SessionStore(context: Context) {
             .put("homeserverUrl", session.homeserverUrl)
             .put("oauthData", session.oauthData ?: JSONObject.NULL)
             .put("nativeSlidingSync", session.slidingSyncVersion == SlidingSyncVersion.NATIVE)
+            .put("storeKey", key)
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val sealed = cipher.iv + cipher.doFinal(json.toString().toByteArray(Charsets.UTF_8))
@@ -71,7 +83,7 @@ class SessionStore(context: Context) {
         override fun retrieveSessionFromKeychain(userId: String): Session =
             load()?.takeIf { it.userId == userId } ?: throw ClientException.Generic("no saved session", null)
 
-        override fun saveSessionInKeychain(session: Session) = save(session)
+        override fun saveSessionInKeychain(session: Session) = save(session, null)
     }
 
     private fun key(): SecretKey {

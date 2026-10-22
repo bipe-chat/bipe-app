@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import chat.bipe.app.account.AccountStartModel
 import chat.bipe.app.account.AccountStartScreen
+import chat.bipe.shared.BipeRecoveryLink
 
 class MainActivity : ComponentActivity() {
     private val accountStart: AccountStartModel
@@ -41,9 +42,18 @@ class MainActivity : ComponentActivity() {
         accountStart.resume()
     }
 
-    /** A bipe.chat/convite/<code> link (onboarding-welcome, action openInviteLink). */
+    /**
+     * A bipe.chat/convite/<code> link (onboarding-welcome, action openInviteLink) or a bipe.chat/recuperar link from the
+     * recovery e-mail (recovery-email, action openLink).
+     */
     private fun readInviteLink(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_VIEW) intent.data?.let { accountStart.pendingInviteLink = it }
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val link = intent.data ?: return
+        if (BipeRecoveryLink.token(link) != null) {
+            accountStart.pendingRecoveryLink.value = link
+        } else {
+            accountStart.pendingInviteLink = link
+        }
     }
 
     /**
