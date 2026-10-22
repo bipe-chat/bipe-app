@@ -58,7 +58,7 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIRequiresFullScreen: true
-        # App lock and the owner checks of settings (spec app-lock, pin-change, data-export).
+        # App lock, the owner checks of settings (spec app-lock, pin-change, data-export) and device approval (device-verification).
         NSFaceIDUsageDescription: O Bipe usa o Face ID para abrir o app e para confirmar que é você.
         # The shell encrypts nothing itself. Revisit before end-to-end encryption ships.
         ITSAppUsesNonExemptEncryption: false

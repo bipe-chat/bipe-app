@@ -60,7 +60,7 @@ import chat.bipe.shared.generated.BipeScreen
 
 /** Spec chat-timeline. */
 @Composable
-fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: String, onBack: () -> Unit) {
+fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: String, onBack: () -> Unit, onHistoryHelp: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val model = remember(roomId) { ChatTimelineModel(session, roomId, scope, InviterGreetings(context, session.userId)) }
@@ -111,7 +111,7 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(newestFirst, key = { it.id }) { message ->
-                    MessageRow(message, onRetry = { model.retrySend(message.id) })
+                    MessageRow(message, onRetry = { model.retrySend(message.id) }, onHistoryHelp = onHistoryHelp)
                 }
                 item(key = "history") {
                     // Composed while the top of the list is on screen, again after each page (action loadHistory).
@@ -141,7 +141,7 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
 }
 
 @Composable
-private fun MessageRow(message: TimelineMessage, onRetry: () -> Unit) {
+private fun MessageRow(message: TimelineMessage, onRetry: () -> Unit, onHistoryHelp: () -> Unit) {
     val colors = BipeTheme.colors
     when (message.kind) {
         TimelineMessage.Kind.TEXT -> Bubble(message.isOwn) {
@@ -166,13 +166,22 @@ private fun MessageRow(message: TimelineMessage, onRetry: () -> Unit) {
                 }
             }
         }
-        TimelineMessage.Kind.UNDECRYPTABLE -> Bubble(message.isOwn) {
+        TimelineMessage.Kind.UNDECRYPTABLE -> Bubble(message.isOwn, Modifier.testTag(BipeScreen.MESSAGE_UNDECRYPTABLE.id)) {
             if (!message.isOwn) {
                 Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(painterResource(PhosphorIcon.LOCK_SIMPLE.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(14.dp).padding(top = 2.dp))
                 Text(undecryptableText(message), style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = colors.inkSecondary)
+            }
+            // Action openHelp: only historyNotOnThisPhone has a way to help.
+            if (message.cause == TimelineMessage.UndecryptableCause.HISTORY_NOT_ON_THIS_PHONE) {
+                Text(
+                    stringResource(R.string.bipe_app_utd_help),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.accentInk,
+                    modifier = Modifier.clickable(onClick = onHistoryHelp),
+                )
             }
         }
         // The slice shows text only (spec chat-timeline notes). bipe-shared has no string for other events yet.
@@ -191,9 +200,9 @@ private fun undecryptableText(message: TimelineMessage): String = when (message.
 }
 
 @Composable
-private fun Bubble(isOwn: Boolean, content: @Composable () -> Unit) {
+private fun Bubble(isOwn: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val colors = BipeTheme.colors
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = if (isOwn) Arrangement.End else Arrangement.Start) {
+    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = if (isOwn) Arrangement.End else Arrangement.Start) {
         Column(
             modifier = Modifier
                 .widthIn(max = 300.dp)

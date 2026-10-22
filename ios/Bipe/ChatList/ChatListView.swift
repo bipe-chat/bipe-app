@@ -10,6 +10,7 @@ import SwiftUI
 struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
     @StateObject private var handle: HandlePickModel
+    @StateObject private var encryption: EncryptionStatusModel
     @State private var path: [String]
     @State private var showsHandlePick = false
     private let scope: ChatScope
@@ -22,31 +23,43 @@ struct ChatListView: View {
         self.onOpenVoce = onOpenVoce
         _model = ObservedObject(wrappedValue: model)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
+        _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
         _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
         self.scope = scope
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            content
-                .background(BipeColor.surfaceBase.ignoresSafeArea())
-                .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
-                .navigationDestination(for: String.self) { roomId in
-                    ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
+            VStack(spacing: 0) {
+                // Spec encryption-status: the banner above the chat list.
+                if scope == .conversas && encryption.showsBanner {
+                    HistoryBanner(model: encryption)
                 }
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        if let account {
-                            Button(action: onOpenVoce) {
-                                AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: model.media,
-                                           size: 32, userId: account.userId, isCompany: account.isCompany)
-                            }
-                            .accessibilityLabel(BipeStrings.appAccountCurrentA11y(account.displayName))
+                content
+            }
+            .background(BipeColor.surfaceBase.ignoresSafeArea())
+            .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
+            .navigationDestination(for: String.self) { roomId in
+                ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if let account {
+                        Button(action: onOpenVoce) {
+                            AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: model.media,
+                                       size: 32, userId: account.userId, isCompany: account.isCompany)
                         }
+                        .accessibilityLabel(BipeStrings.appAccountCurrentA11y(account.displayName))
                     }
                 }
+            }
+        }
+        .environment(\.openHistoryHelp, encryption.openSheet)
+        .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
+            EncryptionSheet(route: route, model: encryption, session: model.session)
         }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
+        .task { await encryption.observe() }
         .task {
             if scope == .conversas {
                 await handle.load()

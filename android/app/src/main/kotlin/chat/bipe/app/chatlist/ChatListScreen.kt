@@ -30,11 +30,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import chat.bipe.phosphor.PhosphorIcon
-import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -47,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -60,15 +60,19 @@ import chat.bipe.app.account.TermsReacceptModel
 import chat.bipe.app.account.TermsReacceptScreen
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.encryption.EncryptionSheet
+import chat.bipe.app.encryption.EncryptionStatusModel
+import chat.bipe.app.encryption.HistoryBanner
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.app.handle.HandlePromptCard
-import chat.bipe.app.tabs.AppTabsModel
-import chat.bipe.app.tabs.AppTabsScreen
-import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.signup.SignupFlowModel
 import chat.bipe.app.signup.SignupFlowScreen
+import chat.bipe.app.tabs.AccountSummary
+import chat.bipe.app.tabs.AppTabsModel
+import chat.bipe.app.tabs.AppTabsScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
+import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeScreen
@@ -93,11 +97,16 @@ fun HomeScreen(
     val media = remember(session) { tabs.media(session) }
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
+    val encryption = remember(session) { EncryptionStatusModel(session, scope, context.applicationContext) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
     val termsPhase by terms.phase.collectAsState()
     LaunchedEffect(handle) { handle.load() }
+    DisposableEffect(encryption) {
+        encryption.observe()
+        onDispose { encryption.close() }
+    }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check(); tabs.refreshProfiles() }
     val roomId = openRoomId
@@ -119,7 +128,7 @@ fun HomeScreen(
         }
         roomId != null -> {
             BackHandler { openRoomId = null }
-            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
+            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onHistoryHelp = encryption::openSheet)
         }
         else -> AppTabsScreen(
             tabs = tabs,
@@ -129,8 +138,10 @@ fun HomeScreen(
             onOpenHandlePick = { showsHandlePick = true },
             onOpenChat = { openRoomId = it },
             onNewAccount = { if (tabs.state.value.canAddAccount) showsNewAccount = true },
+            banner = { HistoryBanner(encryption) },
         )
     }
+    EncryptionSheet(encryption)
 }
 
 /** Spec chat-list, one scope: Conversas or Grupos (ADR 0053). Search is an action in the top bar (spec app-tabs). */
@@ -145,6 +156,8 @@ fun ChatListScreen(
     onOpenChat: (String) -> Unit,
     account: AccountSummary? = null,
     onOpenVoce: () -> Unit = {},
+    /** Spec encryption-status: the banner above the chat list. */
+    banner: @Composable () -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val allPhase by model.phase.collectAsState()
@@ -177,6 +190,8 @@ fun ChatListScreen(
                 }
             }
             if (scope == ChatScope.CONVERSAS && handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
+            // Spec encryption-status: the banner above the chat list.
+            if (scope == ChatScope.CONVERSAS) banner()
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)

@@ -81,6 +81,7 @@ struct ChatTimelineView: View {
 private struct MessageRow: View {
     let message: TimelineMessage
     let retry: () -> Void
+    @Environment(\.openHistoryHelp) private var openHistoryHelp
 
     var body: some View {
         switch message.kind {
@@ -113,7 +114,17 @@ private struct MessageRow: View {
                         .font(.subheadline.italic())
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
+                // Action openHelp: only historyNotOnThisPhone has a way to help.
+                if message.cause == .historyNotOnThisPhone {
+                    Button(action: openHistoryHelp) {
+                        Text(BipeStrings.appUtdHelp)
+                            .font(.subheadline)
+                            .foregroundStyle(BipeColor.accentInk)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .accessibilityIdentifier(BipeScreen.messageUndecryptable.rawValue)
         case .unsupported:
             // The slice shows text only (spec chat-timeline notes). bipe-shared has no string for other events yet.
             EmptyView()
