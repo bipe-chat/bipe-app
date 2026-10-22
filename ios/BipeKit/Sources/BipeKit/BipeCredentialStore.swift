@@ -27,13 +27,17 @@ public nonisolated struct BipeCredentialStore: Sendable {
         }
     }
     
-    private let accessGroup: String?
+    private let ownedAccessGroup: String?
+    private let legacyReadGroups: [String]
+    private let keychain: any CredentialKeychain
     
     private enum Service: String {
         case password = "chat.bipe.account.password"
         case recoveryToken = "chat.bipe.account.recovery-token"
         case pendingRecovery = "chat.bipe.account.pending-recovery"
         case pendingSignup = "chat.bipe.account.pending-signup"
+        case passwordExcluded = "chat.bipe.account.password.excluded"
+        case tokenExcluded = "chat.bipe.account.recovery-token.excluded"
     }
     
     /// A sign-up whose credentials are not stored yet (ADR 0094). The key makes a retry return the same account.
@@ -48,9 +52,18 @@ public nonisolated struct BipeCredentialStore: Sendable {
         }
     }
     
-    /// `accessGroup`: the app's keychain access group. `nil` uses the first group in the entitlements.
+    /// Mutations require the app's explicit own group (ADR 0147). The build expands AppIdentifierPrefix in Info.plist.
+    /// A missing or unresolved group disables mutations; it must never become an unscoped query.
     public init(accessGroup: String? = nil) {
-        self.accessGroup = accessGroup
+        self.init(ownedAccessGroup: accessGroup ?? (Bundle.main.object(forInfoDictionaryKey: "BipeOwnedKeychainGroup") as? String),
+                  legacyReadGroups: Bundle.main.object(forInfoDictionaryKey: "BipeLegacyKeychainReadGroups") as? [String] ?? [],
+                  keychain: SystemCredentialKeychain())
+    }
+
+    init(ownedAccessGroup: String?, legacyReadGroups: [String], keychain: any CredentialKeychain) {
+        self.ownedAccessGroup = ownedAccessGroup.flatMap { !$0.isEmpty && !$0.contains("$(") ? $0 : nil }
+        self.legacyReadGroups = legacyReadGroups.filter { !$0.isEmpty && !$0.contains("$(") && $0 != ownedAccessGroup }
+        self.keychain = keychain
     }
     
     // MARK: - Credentials
@@ -59,9 +72,9 @@ public nonisolated struct BipeCredentialStore: Sendable {
     /// `false` when the password cannot be read back: keep any pending sign-up, it is the only other copy.
     @discardableResult
     public func save(_ credentials: BipeCredentials) -> Bool {
-        write(.password, account: credentials.userId, value: Data(credentials.password.utf8), synchronizable: false)
+        let saved = write(.password, account: credentials.userId, value: Data(credentials.password.utf8), synchronizable: false)
         saveRecoveryToken(credentials.recoveryToken, for: credentials.userId)
-        return password(for: credentials.userId) == Item(userID: credentials.userId, secret: credentials.password)
+        return saved && password(for: credentials.userId) == Item(userID: credentials.userId, secret: credentials.password)
     }
     
     public func saveRecoveryToken(_ token: String, for userID: String) {
@@ -93,16 +106,20 @@ public nonisolated struct BipeCredentialStore: Sendable {
     
     /// After an explicit sign-out: the next sign-in of this account on this device needs the token and the PIN.
     public func deletePassword(for userID: String) {
+        guard excludeLegacy(.password, account: userID) else { return }
         delete(.password, account: userID)
     }
     
     /// When the account that signs out is not known: no account on this device signs in silently again.
     public func deleteAllPasswords() {
+        let accounts = records(.password).map(\.account)
+        guard accounts.allSatisfy({ excludeLegacy(.password, account: $0) }) else { return }
         delete(.password)
     }
     
     /// After the API rejected the token (`recovery_invalid`).
     public func deleteRecoveryToken(for userID: String) {
+        guard excludeLegacy(.recoveryToken, account: userID) else { return }
         delete(.recoveryToken, account: userID)
     }
     
@@ -179,72 +196,107 @@ public nonisolated struct BipeCredentialStore: Sendable {
         String(data: stored.data, encoding: .utf8).map { Item(userID: stored.account, secret: $0) }
     }
     
-    private func baseQuery(_ service: Service, account: String? = nil) -> [String: Any] {
+    private func baseQuery(_ service: Service, group: String, account: String? = nil) -> [String: Any] {
         var query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrService as String: service.rawValue,
-                                    // Finds synced and local items alike.
+                                    kSecAttrAccessGroup as String: group,
                                     kSecAttrSynchronizable as String: kSecAttrSynchronizableAny]
-        if let account {
-            query[kSecAttrAccount as String] = account
-        }
-        if let accessGroup {
-            query[kSecAttrAccessGroup as String] = accessGroup
-        }
+        if let account { query[kSecAttrAccount as String] = account }
         return query
     }
-    
-    /// One item per service and account: a new value replaces only the same account's item.
-    private func write(_ service: Service, account: String, value: Data, synchronizable: Bool) {
-        delete(service, account: account)
-        var item = baseQuery(service, account: account)
-        item[kSecValueData as String] = value
-        item[kSecAttrSynchronizable as String] = synchronizable ? kCFBooleanTrue : kCFBooleanFalse
-        // A synchronizable item cannot use a ThisDeviceOnly class.
-        item[kSecAttrAccessible as String] = synchronizable ? kSecAttrAccessibleAfterFirstUnlock : kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        let status = SecItemAdd(item as CFDictionary, nil)
+
+    /// Update in place: a failed add/update never deletes the previous value or any legacy item.
+    @discardableResult
+    private func write(_ service: Service, account: String, value: Data, synchronizable: Bool) -> Bool {
+        guard let ownedAccessGroup else { return false }
+        let query = baseQuery(service, group: ownedAccessGroup, account: account)
+        let attributes: [String: Any] = [
+            kSecValueData as String: value,
+            kSecAttrSynchronizable as String: synchronizable,
+            kSecAttrAccessible as String: synchronizable ? kSecAttrAccessibleAfterFirstUnlock : kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        var status = keychain.update(query, attributes: attributes)
+        if status == errSecItemNotFound {
+            var item = query
+            item.merge(attributes) { _, new in new }
+            status = keychain.add(item)
+            // Another writer may have added the same own-group item between the update and add.
+            if status == errSecDuplicateItem { status = keychain.update(query, attributes: attributes) }
+        }
         if status != errSecSuccess {
             NSLog("Bipe keychain write failed for \(service.rawValue): \(status)")
         }
-    }
-    
-    /// Every item of the service, newest first.
-    private func readAll(_ service: Service) -> [(account: String, data: Data)] {
-        var query = baseQuery(service)
-        query[kSecReturnData as String] = true
-        query[kSecReturnAttributes as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitAll
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let items = result as? [[String: Any]] else { return [] }
-        return items
-            .sorted { ($0[kSecAttrModificationDate as String] as? Date ?? .distantPast) > ($1[kSecAttrModificationDate as String] as? Date ?? .distantPast) }
-            .compactMap { item in
-                guard let account = item[kSecAttrAccount as String] as? String,
-                      let data = item[kSecValueData as String] as? Data else { return nil }
-                return (account, data)
-            }
-    }
-    
-    /// The item of `account`, or the newest item of the service when `account` is `nil`.
-    private func read(_ service: Service, account: String? = nil) -> (account: String, data: Data)? {
-        var query = baseQuery(service, account: account)
-        query[kSecReturnData as String] = true
-        query[kSecReturnAttributes as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitAll
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let items = result as? [[String: Any]] else { return nil }
-        let newest = items.max { lhs, rhs in
-            (lhs[kSecAttrModificationDate as String] as? Date ?? .distantPast) < (rhs[kSecAttrModificationDate as String] as? Date ?? .distantPast)
+        if status == errSecSuccess, let exclusion = exclusionService(service), !records(exclusion, account: account).isEmpty {
+            delete(exclusion, account: account)
         }
-        guard let newest,
-              let account = newest[kSecAttrAccount as String] as? String,
-              let data = newest[kSecValueData as String] as? Data else { return nil }
-        return (account, data)
+        return status == errSecSuccess
     }
-    
-    /// Deletes the item of `account`, or every item of the service when `account` is `nil`.
+
+    private func exclusionService(_ service: Service) -> Service? {
+        switch service {
+        case .password: .passwordExcluded
+        case .recoveryToken: .tokenExcluded
+        default: nil
+        }
+    }
+
+    /// A local own-group marker prevents legacy fallback from silently undoing sign-out or token rejection.
+    private func excludeLegacy(_ service: Service, account: String) -> Bool {
+        guard let exclusion = exclusionService(service) else { return false }
+        return write(exclusion, account: account, value: Data(), synchronizable: false)
+    }
+
+    private struct Stored {
+        let account: String
+        let data: Data
+        let created: Date
+        let modified: Date
+    }
+
+    /// Read own items first, then the configured legacy groups. Dedupe by account before sorting by date.
+    /// Pending operations belong to this app alone; only passwords and recovery tokens have legacy fallback.
+    private func records(_ service: Service, account: String? = nil) -> [Stored] {
+        var groups = ownedAccessGroup.map { [$0] } ?? []
+        if service == .password || service == .recoveryToken { groups += legacyReadGroups }
+        let excluded = exclusionService(service).map { Set(records($0).map(\.account)) } ?? []
+        var selected: [String: Stored] = [:]
+        for group in groups {
+            var query = baseQuery(service, group: group, account: account)
+            query[kSecReturnData as String] = true
+            query[kSecReturnAttributes as String] = true
+            query[kSecMatchLimit as String] = kSecMatchLimitAll
+            let (status, result) = keychain.copyMatching(query)
+            if status != errSecSuccess, status != errSecItemNotFound, group == ownedAccessGroup { return [] }
+            guard status == errSecSuccess, let items = result as? [[String: Any]] else { continue }
+            for item in items {
+                guard let id = item[kSecAttrAccount as String] as? String,
+                      let data = item[kSecValueData as String] as? Data, selected[id] == nil, !excluded.contains(id) else { continue }
+                selected[id] = Stored(account: id, data: data,
+                                      created: item[kSecAttrCreationDate as String] as? Date ?? .distantFuture,
+                                      modified: item[kSecAttrModificationDate as String] as? Date ?? .distantPast)
+            }
+        }
+        return selected.values.sorted { $0.modified > $1.modified }
+    }
+
+    /// Discovery keeps the creation date for the oldest-account default, while preferring the own-group value.
+    public func passwordsWithCreationDates() -> [(item: Item, created: Date)] {
+        records(.password).compactMap { record in
+            Self.item((record.account, record.data)).map { ($0, record.created) }
+        }
+    }
+
+    private func readAll(_ service: Service) -> [(account: String, data: Data)] {
+        records(service).map { ($0.account, $0.data) }
+    }
+
+    private func read(_ service: Service, account: String? = nil) -> (account: String, data: Data)? {
+        records(service, account: account).first.map { ($0.account, $0.data) }
+    }
+
+    /// Every mutation query, including all-account deletes, names only the own group.
     private func delete(_ service: Service, account: String? = nil) {
-        SecItemDelete(baseQuery(service, account: account) as CFDictionary)
+        guard let ownedAccessGroup else { return }
+        _ = keychain.delete(baseQuery(service, group: ownedAccessGroup, account: account))
     }
 }

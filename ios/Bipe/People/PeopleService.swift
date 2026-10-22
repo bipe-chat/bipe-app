@@ -196,33 +196,10 @@ final class PeopleService: ObservableObject {
 }
 
 extension PeopleService {
-    /// The dm-delete write (bipe-chat/bipe#464, registries/cleared-chats.json): merges this room's marker, the
-    /// origin_server_ts of its latest remote event, into the account data chat.bipe.cleared_chats. Keeps every other
-    /// entry; the marker never moves back. The room is not left, so the other person's next message brings it back.
+    /// The dm-delete write for report-chat's "delete the chat too": lane G's DmDeleteModel (spec dm-delete).
+    /// The room is not left, so the other person's next message brings it back.
     func clearDm(_ roomId: String) async throws {
-        guard let room = try session.client.getRoom(roomId: roomId) else { throw PeopleError.notFound }
-        let latest: UInt64
-        switch await room.latestEvent() {
-        case .remote(let timestamp, _, _, _, _): latest = UInt64(timestamp)
-        case .remoteInvite(let timestamp, _, _), .local(let timestamp, _, _, _, _): latest = UInt64(timestamp)
-        case .none: latest = UInt64(Date().timeIntervalSince1970 * 1000)
-        }
-        let eventType = BipeRegistries.clearedChatsEventType
-        var content: [String: Any] = [:]
-        if let raw = try await session.client.accountData(eventType: eventType),
-           let object = try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any] {
-            content = object
-        }
-        var rooms = content["rooms"] as? [String: Any] ?? [:]
-        var marker = latest
-        if let entry = rooms[roomId] as? [String: Any], let number = entry["ts"] as? NSNumber,
-           CFGetTypeID(number) != CFBooleanGetTypeID(), number.int64Value >= 0, UInt64(number.int64Value) > latest {
-            marker = UInt64(number.int64Value)
-        }
-        rooms[roomId] = ["ts": marker]
-        content["rooms"] = rooms
-        let data = try JSONSerialization.data(withJSONObject: content)
-        try await session.client.setAccountData(eventType: eventType, content: String(decoding: data, as: UTF8.self))
+        guard await DmDeleteModel(session: session, roomId: roomId).delete() else { throw PeopleError.notFound }
     }
 }
 

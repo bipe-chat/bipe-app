@@ -16,6 +16,9 @@ struct ChatListView: View {
     @State private var showsHandlePick = false
     @State private var openingLink: String?
     private let onOpenSettings: (() -> Void)?
+    @State private var creatingGroup = false
+    @State private var deletingDm: String?
+    @ObservedObject private var cleared = ClearedChatsStore.shared
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
     /// onOpenSettings: the temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main.
@@ -57,6 +60,9 @@ struct ChatListView: View {
                     peopleMenu
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    CreateGroupButton { creatingGroup = true }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         onOpenSettings?()
                     } label: {
@@ -69,6 +75,7 @@ struct ChatListView: View {
                 }
             }
         }
+        .groupHost(session: model.session, media: model.media, path: $path, creatingGroup: $creatingGroup, deletingDm: $deletingDm)
         .environment(\.openHistoryHelp, encryption.openSheet)
         .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
             EncryptionSheet(route: route, model: encryption, session: model.session)
@@ -165,13 +172,21 @@ struct ChatListView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .loaded:
             List {
-                ForEach(model.chats) { chat in
+                // Spec dm-delete: a cleared DM stays hidden until a message after its marker.
+                ForEach(model.chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button {
                         openChat(chat.roomId)
                     } label: {
                         ChatRow(chat: chat, media: model.media)
                     }
                     .listRowBackground(BipeColor.surfaceBase)
+                    .swipeActions(edge: .trailing) {
+                        if chat.isDm {
+                            Button(BipeStrings.dmDeleteAction, role: .destructive) {
+                                deletingDm = chat.roomId
+                            }
+                        }
+                    }
                     .onAppear {
                         if chat.id == model.chats.last?.id {
                             model.loadMore()
@@ -189,6 +204,7 @@ struct ChatListView: View {
         path.append(roomId)
     }
 }
+
 
 private struct ChatRow: View {
     let chat: ChatSummary

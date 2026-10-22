@@ -2,5 +2,5 @@
   "$comment": "Phosphor icons (MIT, ADR 0145) that the apps use. After a change, run node tools/phosphor.mjs <unpacked @phosphor-icons/core package>.",
   "version": "2.1.1",
   "weight": "regular",
-  "icons": ["address-book", "arrow-clockwise", "backspace", "bell", "camera", "caret-left", "caret-right", "chat-circle", "chat-text", "check", "check-circle", "copy", "desktop", "devices", "fingerprint", "flag", "gear", "handshake", "image", "key", "link", "lock-simple", "paper-plane-right", "plus", "prohibit", "qr-code", "seal-check", "seal-warning", "share-network", "trash", "user-circle", "user-plus", "users-three", "warning", "warning-circle", "x"]
+  "icons": ["address-book", "arrow-clockwise", "backspace", "bell", "camera", "caret-left", "caret-right", "chart-bar", "chat-circle", "chat-text", "check", "check-circle", "copy", "desktop", "devices", "fingerprint", "flag", "gear", "handshake", "image", "info", "key", "link", "lock-simple", "paper-plane-right", "plus", "prohibit", "qr-code", "seal-check", "seal-warning", "share-network", "sign-out", "trash", "user-circle", "user-plus", "users-three", "warning", "warning-circle", "x"]
 }

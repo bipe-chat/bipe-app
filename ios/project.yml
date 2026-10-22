@@ -54,6 +54,9 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: pt-BR
         CFBundleLocalizations: [pt-BR, en]
+        # Credential mutations always name this expanded own group; the fork group is read-only (ADR 0147).
+        BipeOwnedKeychainGroup: $(AppIdentifierPrefix)chat.bipe.app.next
+        BipeLegacyKeychainReadGroups: [992N457T8D.chat.bipe.app.dev]
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIRequiresFullScreen: true

@@ -6,30 +6,22 @@ package chat.bipe.app.people
 
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.groups.DmDeleteModel
 import android.content.Context
 import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.isCompany
 import chat.bipe.shared.company.BipeCompanySeals
 import chat.bipe.shared.company.BipeCompanySealsSeen
-import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.longOrNull
-import kotlinx.serialization.json.put
 import org.matrix.rustcomponents.sdk.ClientException
 import org.matrix.rustcomponents.sdk.CreateRoomParameters
 import org.matrix.rustcomponents.sdk.ErrorKind
 import org.matrix.rustcomponents.sdk.IgnoredUsersListener
-import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.PowerLevels
 import org.matrix.rustcomponents.sdk.RoomPreset
 import org.matrix.rustcomponents.sdk.RoomVisibility
@@ -210,27 +202,11 @@ class PeopleService(
     }
 
     /**
-     * The dm-delete write (bipe-chat/bipe#464, registries/cleared-chats.json): merges this room's marker, the
-     * origin_server_ts of its latest event, into chat.bipe.cleared_chats. Keeps every other entry; the marker never moves back.
+     * The dm-delete write for report-chat's "delete the chat too": lane G's DmDeleteModel (spec dm-delete). The room is not
+     * left, so the other person's next message brings it back.
      */
-    suspend fun clearDm(roomId: String) {
-        val room = session.client.getRoom(roomId) ?: throw PeopleException(PeopleException.Kind.NOT_FOUND)
-        val latest = when (val event = room.latestEvent()) {
-            is LatestEventValue.Remote -> event.timestamp.toLong()
-            is LatestEventValue.RemoteInvite -> event.timestamp.toLong()
-            is LatestEventValue.Local -> event.timestamp.toLong()
-            LatestEventValue.None -> System.currentTimeMillis()
-        }
-        val eventType = BipeRegistries.CLEARED_CHATS_EVENT_TYPE
-        val content = session.client.accountData(eventType)
-            ?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() }
-            ?: JsonObject(emptyMap())
-        val rooms = (content["rooms"] as? JsonObject) ?: JsonObject(emptyMap())
-        val old = ((rooms[roomId] as? JsonObject)?.get("ts") as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull?.takeIf { it >= 0 }
-        val marker = if (old != null && old > latest) old else latest
-        val newRooms = JsonObject(rooms + (roomId to buildJsonObject { put("ts", marker) }))
-        val newContent = JsonObject(content + ("rooms" to newRooms))
-        session.client.setAccountData(eventType, newContent.toString())
+    fun clearDm(roomId: String) {
+        DmDeleteModel(session, roomId, scope).delete(onDeleted = {})
     }
 
     companion object {
