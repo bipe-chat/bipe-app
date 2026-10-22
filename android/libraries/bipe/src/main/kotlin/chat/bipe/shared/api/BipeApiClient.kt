@@ -46,7 +46,7 @@ class BipeApiClient(baseUrl: String) {
 
     /** `POST /v1/waitlist`. No auth. 202 for every well-formed address, so it never tells whether the address is known. */
     suspend fun joinWaitlist(email: String, lang: String) {
-        send(
+        send<Unit>(
             "POST",
             listOf("v1", "waitlist"),
             body = encode(BipeWaitlistRequest.serializer(), BipeWaitlistRequest(email, platform = "android", lang = lang, source = "app")),
@@ -91,7 +91,7 @@ class BipeApiClient(baseUrl: String) {
 
     /** `POST /v1/me/terms`. Records that the person ticked the box for [termsVersion] (ADR 0113). */
     suspend fun acceptTerms(termsVersion: String, accessToken: String) {
-        send(
+        send<Unit>(
             "POST",
             listOf("v1", "me", "terms"),
             body = encode(BipeTermsRequest.serializer(), BipeTermsRequest(termsVersion)),
