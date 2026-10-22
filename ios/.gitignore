@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# XcodeGen writes these from project.yml. Do not commit them.
+Bipe.xcodeproj/
+SupportFiles/
+DerivedData/
+.build/
+.swiftpm/

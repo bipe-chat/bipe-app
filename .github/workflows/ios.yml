@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# iOS build (bipe-chat/bipe#549). XcodeGen makes the project from ios/project.yml.
+# The build uses the package pins in ios/Package.resolved and fails when SwiftPM
+# resolves other pins. No code signing: CI only proves that the app builds.
+name: ios
+
+on:
+  pull_request:
+    paths:
+      - "ios/**"
+      - "sdk-version"
+      - ".github/workflows/ios.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - "sdk-version"
+      - ".github/workflows/ios.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ios (${{ matrix.configuration }})
+    runs-on: macos-26
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Use the committed package pins
+        run: |
+          dir=ios/Bipe.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
+          mkdir -p "$dir"
+          cp ios/Package.resolved "$dir/Package.resolved"
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project ios/Bipe.xcodeproj \
+            -scheme Bipe \
+            -configuration "${{ matrix.configuration }}" \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath ios/DerivedData \
+            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error:|warning: .*Bipe|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/xcodebuild.log"
+      - name: Resolved pins equal ios/Package.resolved
+        run: |
+          pins='[.pins[] | {identity, version: .state.version, revision: .state.revision}] | sort_by(.identity)'
+          diff <(jq -S "$pins" ios/Package.resolved) \
+               <(jq -S "$pins" ios/Bipe.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved)
+      - name: Upload the build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-${{ matrix.configuration }}.log
+          path: ${{ runner.temp }}/xcodebuild.log

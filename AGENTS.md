@@ -61,11 +61,12 @@ The workflow `.github/workflows/licence.yml` runs these jobs on every PR. All of
 
 - `deny-list`: `node tools/deny-list.mjs`. Fails when `ios/project.yml`, `ios/**/Package.swift`, `ios/**/Package.resolved`, an Android Gradle file or `android/gradle/libs.versions.toml` names an Element package (`element-x-ios`, `element-x-android`, `compound-ios`, `compound-android`, `compound-design-tokens`, `matrix-rich-text-editor`, `element-call`, `element-hq/`, `io.element`).
 - `licences`: `node tools/licences.mjs`. Reads every `ios/**/Package.resolved` pin and the `[libraries]` of `android/gradle/libs.versions.toml`. Each dependency must be in `tools/licences.json` (SPDX licence, source URL, date checked) with Apache-2.0, MIT, BSD-2-Clause, BSD-3-Clause, ISC or MPL-2.0. To add a dependency, add its row to `tools/licences.json` in the same PR. An entry with `"unverified": true` prints a warning, not a failure.
-- `headers`: `node tools/headers.mjs`. Every `.swift` and `.kt` file outside folders named `Generated` or `generated` starts with the header above.
+- `headers`: `node tools/headers.mjs`. Every `.swift` and `.kt` file outside folders named `Generated` or `generated` starts with the header above. A `Package.swift` starts with its `// swift-tools-version` line, and the header follows on line 2.
 - `strings`: `node tools/strings.mjs`. Fails on a string literal passed to SwiftUI `Text`, `Button`, `Label`, `.navigationTitle` or Compose `Text`, `text =`. UI text comes from the generated bipe-shared strings. The check is a line-based regex; its limits are in the file.
 - `similarity`: CI only. Runs JPlag 6.3.0 (SHA-256 pinned in the workflow, Java 25) with the language modules `swift` and `kotlin`. It compares each file in `ios/` outside `Generated` folders with each Swift file of `element-hq/element-x-ios`, and each file in `android/` outside `generated` folders with each Kotlin file of `element-hq/element-x-android`, at their latest release tag. A self-test first proves that a copied file fails. Do not run the scan locally: it clones Element code.
   - **Threshold: 0.5 (50 %) average similarity.** JPlag's own default threshold is 0.0 (it keeps every pair), so it cannot be a gate. 0.5 means half of the two files' tokens are in shared matches: well above the overlap that SwiftUI and Compose boilerplate cause, and low enough to catch a copied file with renamed symbols. A pair with maximum similarity above 0.5 (a small file mostly inside a large one) prints a warning to review, not a failure. Change the value in `tools/similarity.mjs` and here together, with the reason.
   - A file that JPlag cannot parse (its Swift grammar is Swift 5.4, beta) is listed as a warning, not compared.
+- `sdk-version`: `node tools/sdk-version.mjs`. The file `sdk-version` at the repo root holds the matrix-rust-sdk release for both platforms. Fails when the `exactVersion` in `ios/project.yml`, the pin in `ios/Package.resolved` or `matrix-rust-sdk` in `android/gradle/libs.versions.toml` differs from it. To update the SDK, change all four in one PR.
 - `provenance`: `PR_BODY="..." node tools/provenance.mjs`. Fails unless the PR body has a line that starts with `Provenance:`.
 
 ## Commits
@@ -79,6 +80,9 @@ The workflow `.github/workflows/licence.yml` runs these jobs on every PR. All of
 - CI runs iOS on a macOS runner and Android on a Linux runner.
 - A red PR is fixed by a new push, not by a local build.
 - iOS uses XcodeGen (`ios/project.yml`). Android uses a Gradle version catalog. Do not hand-edit project files.
+- `.github/workflows/ios.yml` (macOS runner, Xcode 26) runs `xcodegen generate` and builds Debug and Release for `generic/platform=iOS` with `CODE_SIGNING_ALLOWED=NO`. The build uses the pins in `ios/Package.resolved` and fails when SwiftPM resolves other pins. `Bipe.xcodeproj` and `ios/SupportFiles/` (Info.plist and entitlements) are XcodeGen output and are not committed.
+- `.github/workflows/android.yml` (Linux runner, JDK 17) runs `./gradlew assembleDebug assembleRelease` in `android/` and uploads the debug APK as the artifact `bipe-debug-apk`.
+- IDs (ADR 0061): iOS bundle `chat.bipe.app.dev`, extensions `chat.bipe.app.dev.nse` and `chat.bipe.app.dev.share`, app group `group.chat.bipe.dev`. Android application ID `chat.bipe.app`, debug suffix `.debug`.
 
 ## Pull requests
 
