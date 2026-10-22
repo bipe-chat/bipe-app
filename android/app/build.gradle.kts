@@ -43,6 +43,13 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // pt-BR is the default language (res/values), en the second one (res/values-en).
+    // Keep only these two in the APK, so dependency strings in other languages never show.
+    // The per-app language setting reads res/xml/locales_config.xml.
+    androidResources {
+        localeFilters += listOf("pt-rBR", "en")
+    }
 }
 
 kotlin {
