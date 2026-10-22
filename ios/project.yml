@@ -68,6 +68,8 @@ targets:
         keychain-access-groups:
           - $(AppIdentifierPrefix)chat.bipe.app.next
           - 992N457T8D.chat.bipe.app.dev
+        # App Attest at sign-up (spec signup-create, ADR 0022). Automatic signing adds the capability.
+        com.apple.developer.devicecheck.appattest-environment: production
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next

@@ -19,7 +19,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -29,6 +33,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.chatlist.HomeScreen
+import chat.bipe.app.signup.SignupDoneScreen
+import chat.bipe.app.signup.SignupFlowModel
+import chat.bipe.app.signup.SignupFlowScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -37,9 +44,27 @@ import chat.bipe.shared.generated.BipeScreen
 @Composable
 fun AccountStartScreen(model: AccountStartModel) {
     val phase by model.phase.collectAsState()
+    val outcome by model.signupOutcome.collectAsState()
+    val foregroundCount by model.foregroundCount.collectAsState()
     val session = model.session
     if (phase == AccountStartModel.Phase.READY && session != null) {
-        HomeScreen(session)
+        val signedUp = outcome
+        if (signedUp != null) {
+            SignupDoneScreen(session, signedUp, onContinue = model::finishSignup)
+        } else {
+            HomeScreen(session, model.api, model.initialRoomId, foregroundCount, onSignOut = model::signOut)
+        }
+        return
+    }
+    if (phase == AccountStartModel.Phase.NO_ACCOUNT) {
+        // Spec account-start: noAccount shows onboarding-welcome.
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val signup = remember(model) {
+            SignupFlowModel(context, model.api, model.vault, model.sessionStore, scope, onSignedUp = model::didSignUp)
+        }
+        LaunchedEffect(signup) { model.pendingInviteLink?.let(signup::openInviteLink) }
+        SignupFlowScreen(signup)
         return
     }
     Surface(
@@ -47,11 +72,6 @@ fun AccountStartScreen(model: AccountStartModel) {
         color = BipeTheme.colors.surfaceBase,
     ) {
         when (phase) {
-            AccountStartModel.Phase.NO_ACCOUNT -> StartMessage(
-                icon = PhosphorIcon.USER_CIRCLE,
-                title = stringResource(R.string.bipe_app_start_no_account_title),
-                message = stringResource(R.string.bipe_app_start_no_account_body),
-            )
             AccountStartModel.Phase.FAILED -> StartMessage(
                 icon = PhosphorIcon.WARNING_CIRCLE,
                 title = stringResource(R.string.bipe_app_name),

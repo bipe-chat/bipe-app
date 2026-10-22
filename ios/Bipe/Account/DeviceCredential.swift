@@ -18,9 +18,9 @@ struct DeviceCredential: CustomStringConvertible {
 
     private static let service = "chat.bipe.account.password"
 
-    /// The newest password: first the fork's group (ADR 0147), then the app's own default group.
+    /// The newest password: first the app's own group (an account made in this app), then the fork's group (ADR 0147).
     static func newest() -> DeviceCredential? {
-        read(accessGroup: AppConfig.forkKeychainGroup) ?? read(accessGroup: nil)
+        read(accessGroup: nil) ?? read(accessGroup: AppConfig.forkKeychainGroup)
     }
 
     private static func read(accessGroup: String?) -> DeviceCredential? {
