@@ -15,6 +15,7 @@ struct TimelineMessage: Identifiable, Equatable {
         /// Voice message or audio file (spec voice-message).
         case voice
         case undecryptable
+        case poll
         case unsupported
     }
 
@@ -44,6 +45,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var cause: UndecryptableCause?
     var media: MediaMessage?
     var voice: VoiceMessage?
+    /// Kind poll: the data of spec poll-detail.
+    var poll: PollData?
 }
 
 /// Spec chat-timeline (bipe-shared product/screens/chat-timeline.json).
@@ -63,7 +66,7 @@ final class ChatTimelineModel: ObservableObject {
 
     let roomId: String
     private let session: AccountSession
-    private var timeline: Timeline?
+    private(set) var timeline: Timeline?
     private var items: [TimelineItem] = []
     private var handle: TaskHandle?
     private var started = false
@@ -156,7 +159,7 @@ final class ChatTimelineModel: ObservableObject {
             if case .some(.timelineStart) = item.asVirtual() {
                 hitStart = true
             }
-            return item.asEvent().map { Self.message(id: item.uniqueId().id, event: $0) }
+            return item.asEvent().map { Self.message(id: item.uniqueId().id, event: $0, ownUserId: session.userId) }
         }
         if hitStart {
             reachedStart = true
@@ -172,12 +175,13 @@ final class ChatTimelineModel: ObservableObject {
         }
     }
 
-    private static func message(id: String, event: EventTimelineItem) -> TimelineMessage {
+    private static func message(id: String, event: EventTimelineItem, ownUserId: String) -> TimelineMessage {
         var kind = TimelineMessage.Kind.unsupported
         var body: String?
         var cause: TimelineMessage.UndecryptableCause?
         var media: MediaMessage?
         var voice: VoiceMessage?
+        var poll: PollData?
         if case .msgLike(let content) = event.content {
             switch MediaContent(content.kind) {
             case .media(var value):
@@ -199,6 +203,18 @@ final class ChatTimelineModel: ObservableObject {
             case .unableToDecrypt(let encrypted):
                 kind = .undecryptable
                 cause = undecryptableCause(encrypted)
+            case .poll(let question, let pollKind, _, let answers, let votes, let endTime, _):
+                if case .eventId(let eventId) = event.eventOrTransactionId {
+                    kind = .poll
+                    poll = PollData(eventId: eventId,
+                                    question: question,
+                                    kind: pollKind,
+                                    answers: answers,
+                                    votes: votes,
+                                    endTime: endTime,
+                                    isOwnPoll: event.isOwn,
+                                    ownUserId: ownUserId)
+                }
             default:
                 break
             }
@@ -219,7 +235,8 @@ final class ChatTimelineModel: ObservableObject {
                                sendState: event.isOwn ? sendState : .sent,
                                cause: cause,
                                media: media,
-                               voice: voice)
+                               voice: voice,
+                               poll: poll)
     }
 
     /// Cause map of spec message-undecryptable (notes).

@@ -24,6 +24,11 @@ android {
     }
 }
 
+// SharedVectorTest reads bipe-shared/test-vectors. CI checks bipe-shared out and sets BIPE_SHARED.
+tasks.withType<Test>().configureEach {
+    System.getenv("BIPE_SHARED")?.let { environment("BIPE_SHARED", it) }
+}
+
 kotlin {
     jvmToolchain(17)
 }
@@ -34,9 +39,15 @@ dependencies {
     // Sticker packs (stickers/StickerPacks.kt).
     implementation(libs.kotlinx.serialization.json)
     // Voice transcript session (voice/BipeVoiceTranscriber.kt).
+    implementation(libs.kotlinx.coroutines.core)
+    // BadgeVerifier: Ed25519 signatures of Bipe badges.
+    implementation(libs.tink.android)
     implementation(libs.kotlinx.coroutines.android)
     // BipeColors (generated from bipe-shared design/tokens.json) exposes Compose types.
     api(platform(libs.androidx.compose.bom))
     api(libs.androidx.compose.runtime)
     api(libs.androidx.compose.ui.graphics)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.truth)
 }

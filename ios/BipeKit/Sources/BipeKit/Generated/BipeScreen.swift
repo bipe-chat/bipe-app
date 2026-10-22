@@ -109,6 +109,15 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json
     case messageUndecryptable = "message-undecryptable"
 
+    /// Notification on the phone (flow notifications). Spec: bipe-shared/product/screens/notification-service.json
+    case notificationService = "notification-service"
+
+    /// Notification settings (flow settings). Spec: bipe-shared/product/screens/notification-settings.json
+    case notificationSettings = "notification-settings"
+
+    /// Notifications prompt (flow notifications). Spec: bipe-shared/product/screens/notifications-prompt.json
+    case notificationsPrompt = "notifications-prompt"
+
     /// Welcome (flow signup). Spec: bipe-shared/product/screens/onboarding-welcome.json
     case onboardingWelcome = "onboarding-welcome"
 
@@ -126,6 +135,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json
     case problemReport = "problem-report"
+
+    /// Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json
+    case pushRegistration = "push-registration"
 
     /// Read receipts (flow chat). Spec: bipe-shared/product/screens/read-receipts.json
     case readReceipts = "read-receipts"

@@ -7,6 +7,11 @@
     "ISC",
     "MPL-2.0"
   ],
+  "testOnly": [
+    "EPL-1.0",
+    "EPL-2.0"
+  ],
+  "testOnlyNote": "ADR 0148 (bipe-chat/bipe): a dependency with \"scope\": \"test\" may have a testOnly licence and may only be on testImplementation lines.",
   "packages": {
     "matrix-rust-components-swift": {
       "ecosystem": "swiftpm",
@@ -101,6 +106,7 @@
       "checked": "2026-10-22",
       "note": "Vendored by tools/phosphor.mjs into ios/Phosphor and android/libraries/phosphor, with its LICENSE file. Version in tools/phosphor.json."
     },
+<<<<<<< HEAD
     "androidx.media3:media3-common": {
       "ecosystem": "gradle",
       "licence": "Apache-2.0",
@@ -118,6 +124,35 @@
       "licence": "Apache-2.0",
       "source": "https://github.com/androidx/media/blob/release/LICENSE",
       "checked": "2026-10-22"
+=======
+    "org.jetbrains.kotlinx:kotlinx-coroutines-core": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/Kotlin/kotlinx.coroutines/blob/master/LICENSE.txt",
+      "checked": "2026-10-22"
+    },
+    "com.google.crypto.tink:tink-android": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/tink-crypto/tink-java/blob/main/LICENSE",
+      "checked": "2026-10-22"
+    },
+    "com.google.truth:truth": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/google/truth/blob/master/LICENSE",
+      "checked": "2026-10-22",
+      "scope": "test",
+      "note": "Test only. Not in the APK."
+    },
+    "junit:junit": {
+      "ecosystem": "gradle",
+      "licence": "EPL-1.0",
+      "source": "https://github.com/junit-team/junit4/blob/main/LICENSE-junit.txt",
+      "checked": "2026-10-22",
+      "scope": "test",
+      "note": "Test only (ADR 0148). Not in the APK."
+>>>>>>> claude/friendly-galileo-w1rnw9
     },
     "androidx.browser:browser": {
       "ecosystem": "gradle",

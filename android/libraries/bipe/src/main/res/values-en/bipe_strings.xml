@@ -1275,6 +1275,15 @@
     <string name="bipe_app_group_leave_error">Couldn\'t leave the group. Try again.</string>
     <string name="bipe_app_dm_deleting">Deleting the chat…</string>
     <string name="bipe_app_invite_creating">Creating the invite…</string>
+    <string name="bipe_app_notification_new_message">New message</string>
+    <string name="bipe_app_notification_chat_request">%1$s wants to chat with you</string>
+    <string name="bipe_app_notification_reply">Reply</string>
+    <string name="bipe_app_notification_mark_read">Mark as read</string>
+    <string name="bipe_app_notification_channel_messages">Messages</string>
+    <string name="bipe_app_notification_mode_all">All messages</string>
+    <string name="bipe_app_notification_mode_mentions">Only when someone mentions you</string>
+    <string name="bipe_app_notification_mode_off">Mute</string>
+    <string name="bipe_app_notification_mode_default">Same as in settings (%1$s)</string>
     <string name="bipe_app_media_tap_to_show">Tap to show</string>
     <string name="bipe_app_media_failed">Couldn\'t load. Tap to try again.</string>
     <string name="bipe_app_media_image">Photo</string>

@@ -13,6 +13,7 @@ import chat.bipe.app.media.MediaContent
 import chat.bipe.app.media.MediaFormat
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.app.media.VoiceMessage
+import chat.bipe.app.polls.PollData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.EncryptedMessage
+import org.matrix.rustcomponents.sdk.EventOrTransactionId
 import org.matrix.rustcomponents.sdk.EventSendState
 import org.matrix.rustcomponents.sdk.EventTimelineItem
 import org.matrix.rustcomponents.sdk.MessageType
@@ -48,9 +50,11 @@ data class TimelineMessage(
     val cause: UndecryptableCause?,
     val media: MediaMessage? = null,
     val voice: VoiceMessage? = null,
+    /** Kind POLL: the data of spec poll-detail. */
+    val poll: PollData? = null,
 ) {
     /** MEDIA: image, video, file or sticker (spec timeline-media). VOICE: voice message or audio file (spec voice-message). */
-    enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, UNSUPPORTED }
+    enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, POLL, UNSUPPORTED }
 
     enum class SendState { SENT, SENDING, FAILED }
 
@@ -82,7 +86,8 @@ class ChatTimelineModel(
     private val _draft = MutableStateFlow("")
     val draft: StateFlow<String> = _draft.asStateFlow()
 
-    private var timeline: Timeline? = null
+    var timeline: Timeline? = null
+        private set
     private val items = mutableListOf<TimelineItem>()
     private var handle: TaskHandle? = null
     private var started = false
@@ -193,6 +198,7 @@ class ChatTimelineModel(
         var cause: TimelineMessage.UndecryptableCause? = null
         var media: MediaMessage? = null
         var voice: VoiceMessage? = null
+        var poll: PollData? = null
         val content = (event.content as? TimelineItemContent.MsgLike)?.content
         when (val found = content?.kind?.let { MediaContent.of(it) }) {
             is MediaContent.Media -> {
@@ -214,6 +220,10 @@ class ChatTimelineModel(
                 kind = TimelineMessage.Kind.UNDECRYPTABLE
                 cause = undecryptableCause(msgKind.msg)
             }
+            is MsgLikeKind.Poll -> (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.let { id ->
+                kind = TimelineMessage.Kind.POLL
+                poll = PollData.of(id.eventId, msgKind, isOwnPoll = event.isOwn, ownUserId = session.userId)
+            }
             else -> Unit
         }
         val sendState = when (event.localSendState) {
@@ -233,6 +243,7 @@ class ChatTimelineModel(
             cause = cause,
             media = media,
             voice = voice,
+            poll = poll,
         )
     }
 

@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import MatrixRustSDK
 import Phosphor
 import SwiftUI
 
@@ -11,11 +12,22 @@ struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     @StateObject private var voicePlayer = VoicePlayer()
     @State private var viewerRowId: String?
+    @State private var isGroup = false
+    @State private var isDm = false
+    @State private var deletingDm = false
+    @ObservedObject private var cleared = ClearedChatsStore.shared
+    @Environment(\.closeChat) private var closeChat
+    @State private var creatingPoll = false
+    @State private var openPollId: String?
     private let media: MediaLoader
+    private let session: AccountSession
+    private let roomId: String
 
     init(session: AccountSession, media: MediaLoader, roomId: String) {
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
         self.media = media
+        self.session = session
+        self.roomId = roomId
     }
 
     var body: some View {
@@ -26,13 +38,53 @@ struct ChatTimelineView: View {
                     Task { await model.sendGreeting() }
                 }
             }
-            Composer(model: model)
+            Composer(model: model) { creatingPoll = true }
         }
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(model.roomName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if isGroup {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink {
+                        GroupDetailsView(session: session, media: media, roomId: roomId)
+                    } label: {
+                        PhosphorIcon.info.image.resizable().frame(width: 22, height: 22)
+                    }
+                    .accessibilityLabel(BipeStrings.appGroupDetailsTitle)
+                }
+            }
+            if isDm {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button(BipeStrings.dmDeleteAction, role: .destructive) {
+                            deletingDm = true
+                        }
+                    } label: {
+                        PhosphorIcon.info.image.resizable().frame(width: 22, height: 22)
+                    }
+                    .accessibilityLabel(BipeStrings.dmDetailsTitle)
+                }
+            }
+        }
+        .sheet(isPresented: $deletingDm) {
+            DmDeleteView(session: session, roomId: roomId) { closeChat() }
+        }
+        .sheet(isPresented: $creatingPoll) {
+            PollCreateView(timeline: model)
+        }
+        .sheet(item: Binding(get: { openPollId.map(PollSheetId.init) }, set: { openPollId = $0?.id })) { poll in
+            PollDetailView(timeline: model, session: session, eventId: poll.id)
+        }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
+        .task {
+            // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).
+            if let info = try? await session.client.getRoom(roomId: roomId)?.roomInfo() {
+                isGroup = !info.isDm && !info.isSpace
+                isDm = info.isDm
+            }
+        }
         .onDisappear { voicePlayer.stop() }
         .fullScreenCover(isPresented: Binding(get: { viewerRowId != nil }, set: { if !$0 { viewerRowId = nil } })) {
             if let viewerRowId {
@@ -46,7 +98,8 @@ struct ChatTimelineView: View {
             ScrollView {
                 LazyVStack(spacing: 6) {
                     historyHeader
-                    ForEach(model.messages) { message in
+                    // Spec dm-delete: events at or below the marker of a cleared DM are gone.
+                    ForEach(model.messages.filter { cleared.keeps(roomId: roomId, sentAt: $0.sentAt) }) { message in
                         row(message)
                             .id(message.id)
                     }
@@ -78,7 +131,7 @@ struct ChatTimelineView: View {
         } else if let voice = message.voice {
             VoiceMessageRow(message: message, voice: voice, loader: media, player: voicePlayer, retrySend: { _ = retry() })
         } else {
-            MessageRow(message: message) { _ = retry() }
+            MessageRow(message: message, openPoll: { openPollId = $0 }) { _ = retry() }
         }
     }
 
@@ -103,9 +156,15 @@ struct ChatTimelineView: View {
     }
 }
 
+private struct PollSheetId: Identifiable {
+    let id: String
+}
+
 private struct MessageRow: View {
     let message: TimelineMessage
+    let openPoll: (String) -> Void
     let retry: () -> Void
+    @Environment(\.openHistoryHelp) private var openHistoryHelp
 
     var body: some View {
         switch message.kind {
@@ -138,6 +197,32 @@ private struct MessageRow: View {
                         .font(.subheadline.italic())
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
+                // Action openHelp: only historyNotOnThisPhone has a way to help.
+                if message.cause == .historyNotOnThisPhone {
+                    Button(action: openHistoryHelp) {
+                        Text(BipeStrings.appUtdHelp)
+                            .font(.subheadline)
+                            .foregroundStyle(BipeColor.accentInk)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .accessibilityIdentifier(BipeScreen.messageUndecryptable.rawValue)
+        case .poll:
+            if let poll = message.poll {
+                Button {
+                    openPoll(poll.eventId)
+                } label: {
+                    bubble {
+                        if !message.isOwn {
+                            Text(message.senderName)
+                                .font(.caption.bold())
+                                .foregroundStyle(BipeColor.accentInk)
+                        }
+                        PollCard(poll: poll)
+                    }
+                }
+                .buttonStyle(.plain)
             }
         case .media, .voice:
             // ChatTimelineView.row shows these with TimelineMediaRow and VoiceMessageRow.
@@ -233,9 +318,19 @@ private struct InviterHintRow: View {
 
 private struct Composer: View {
     @ObservedObject var model: ChatTimelineModel
+    /// Opens poll-create (the attach menu comes with the composer spec, bipe-chat/bipe#563).
+    let createPoll: () -> Void
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
+            Button(action: createPoll) {
+                PhosphorIcon.chartBar.image
+                    .resizable()
+                    .frame(width: 22, height: 22)
+                    .padding(9)
+                    .foregroundStyle(BipeColor.glyphPrimary)
+            }
+            .accessibilityLabel(BipeStrings.appPollCreateTitle)
             TextField(BipeStrings.appTimelineComposerPlaceholder,
                       text: Binding(get: { model.draft }, set: { model.editDraft($0) }),
                       axis: .vertical)

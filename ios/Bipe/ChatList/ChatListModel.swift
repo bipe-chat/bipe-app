@@ -14,6 +14,8 @@ struct ChatSummary: Identifiable, Equatable {
     var lastActivity: Date?
     var unreadCount: Int
     var isDirect: Bool
+    /// RoomInfo.isDm, the one DM test (ADR 0141).
+    var isDm = false
 
     var id: String { roomId }
 }
@@ -136,6 +138,7 @@ final class ChatListModel: ObservableObject {
                            lastMessage: lastMessage,
                            lastActivity: lastActivity,
                            unreadCount: Int(info.numUnreadMessages),
-                           isDirect: info.isDirect)
+                           isDirect: info.isDirect,
+                           isDm: info.isDm)
     }
 }
