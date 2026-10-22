@@ -42,12 +42,10 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.phosphor.PhosphorIcon
-import chat.bipe.shared.BipeCompanySealState
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.NameNormalizer
 import chat.bipe.shared.R
-import chat.bipe.shared.api.BipeAccountKind
-import chat.bipe.shared.api.publicProfile
+import chat.bipe.shared.company.BipeCompanySealState
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -82,7 +80,8 @@ class PersonProfileModel(
         val person: Person,
         val isCompany: Boolean = false,
         val marks: List<TrustMark> = emptyList(),
-        val seal: BipeCompanySealState = BipeCompanySealState.NoSeal,
+        val seal: BipeCompanySealState = BipeCompanySealState.None,
+        val confirmedInPerson: Boolean = false,
         val reservedNameWarning: Boolean = false,
         val bio: String? = null,
         val dmRoomId: String? = null,
@@ -103,27 +102,33 @@ class PersonProfileModel(
                 return@launch
             }
             _state.value = _state.value.copy(phase = Phase.LOADED, person = person)
-            val isCompany = people.accountType(userId) == BipeAccountKind.COMPANY
-            val marks = mutableListOf<TrustMark>()
-            var seal: BipeCompanySealState = BipeCompanySealState.NoSeal
-            if (isCompany) {
-                seal = people.sealState(userId)
-                when (seal) {
-                    is BipeCompanySealState.Verified -> marks += TrustMark(TrustMark.Kind.COMPANY, context.getString(R.string.bipe_badge_company))
-                    is BipeCompanySealState.Revoked -> marks += TrustMark(TrustMark.Kind.COMPANY_REVOKED, seal.notice(context).orEmpty())
-                    BipeCompanySealState.Suspended -> marks += TrustMark(TrustMark.Kind.COMPANY_SUSPENDED, seal.notice(context).orEmpty())
-                    BipeCompanySealState.NoSeal -> Unit
-                }
-            }
-            if (people.isConfirmedInPerson(userId)) {
-                marks += TrustMark(TrustMark.Kind.CONFIRMED_IN_PERSON, context.getString(R.string.bipe_badge_verified_contact))
-            }
-            // A company whose verified seal names it does not get the warning.
-            val reserved = NameNormalizer.reservedCategory(person.displayName) != null && seal !is BipeCompanySealState.Verified
-            _state.value = _state.value.copy(isCompany = isCompany, marks = marks, seal = seal, reservedNameWarning = reserved)
+            val isCompany = people.isCompany(userId)
+            val confirmed = people.isConfirmedInPerson(userId)
+            _state.value = _state.value.copy(isCompany = isCompany, confirmedInPerson = confirmed)
+            applySeal(people.seals.seal(userId))
+            // The seal store answers later and emits; it fails closed.
+            scope.launch { people.seals.states.collect { applySeal(people.seals.seal(userId)) } }
             val bio = person.handle?.let { handle -> runCatching { people.api.publicProfile(handle) }.getOrNull()?.bio?.trim() }
             _state.value = _state.value.copy(bio = bio?.takeIf { it.isNotEmpty() })
         }
+    }
+
+    /** marks and reservedNameWarning of the spec, from the seal store. verifiedName and nameSuspended have no signer yet. */
+    private fun applySeal(seal: BipeCompanySealState) {
+        val current = _state.value
+        val marks = mutableListOf<TrustMark>()
+        when (seal) {
+            is BipeCompanySealState.Verified -> marks += TrustMark(TrustMark.Kind.COMPANY, context.getString(R.string.bipe_badge_company))
+            is BipeCompanySealState.Revoked -> marks += TrustMark(TrustMark.Kind.COMPANY_REVOKED, seal.notice(context).orEmpty())
+            BipeCompanySealState.Suspended -> marks += TrustMark(TrustMark.Kind.COMPANY_SUSPENDED, seal.notice(context).orEmpty())
+            BipeCompanySealState.None -> Unit
+        }
+        if (current.confirmedInPerson) {
+            marks += TrustMark(TrustMark.Kind.CONFIRMED_IN_PERSON, context.getString(R.string.bipe_badge_verified_contact))
+        }
+        // A company whose verified seal names it does not get the warning.
+        val reserved = NameNormalizer.reservedCategory(current.person.displayName) != null && seal !is BipeCompanySealState.Verified
+        _state.value = current.copy(seal = seal, marks = marks, reservedNameWarning = reserved)
     }
 
     /** Action message: the DM, created when missing. */
@@ -146,7 +151,7 @@ class PersonProfileModel(
     /** Action share: only when the person has an @. */
     fun shareIntent(): Intent? = _state.value.person.handle?.let { handle ->
         Intent.createChooser(
-            Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, BipeProfileLink.url(handle)),
+            Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, BipeProfileLink.url(handle) ?: return null),
             null,
         )
     }

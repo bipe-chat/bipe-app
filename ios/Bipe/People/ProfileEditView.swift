@@ -32,7 +32,7 @@ struct ProfileEditView: View {
 
     /// nameProblem of the spec: empty, tooLong or reserved, else none.
     private var nameProblem: BipeProfileProblem? {
-        BipePublicProfileRules.nameProblem(name)
+        BipePublicProfileRules.profileProblem(name: name, bio: "")
     }
 
     private var hasChanges: Bool {
@@ -128,13 +128,13 @@ struct ProfileEditView: View {
             }
         }
         avatarUrl = (try? await client.avatarUrl()) ?? avatarUrl
-        isCompany = await people.accountType(people.session.userId) == .company
+        isCompany = (try? await people.api.accountType(userID: people.session.userId)) == .company
     }
 
     /// Action choosePhoto: the picked photo, cropped square and re-encoded as JPEG.
     private func load(_ item: PhotosPickerItem?) async {
         guard let item, let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
-        guard let jpeg = BipeProfilePhoto.jpegData(from: image, maxPixels: 1024, maxBytes: 2_000_000) else { return }
+        guard let jpeg = BipeProfilePhoto.jpegData(from: image.centreSquare()) else { return }
         newPhoto = jpeg
         removesPhoto = false
     }

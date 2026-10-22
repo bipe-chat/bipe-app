@@ -34,6 +34,9 @@ final class ContactsModel: ObservableObject {
         case failed(rateLimited: Bool)
     }
 
+    /// Most numbers per POST /v1/contacts/lookup.
+    static let lookupChunk = 500
+
     let people: PeopleService
     @Published private(set) var permission: Permission = .notAsked
     @Published private(set) var matches: [ContactMatch] = []
@@ -89,13 +92,13 @@ final class ContactsModel: ObservableObject {
         var found: [String: String] = [:]
         let phones = Array(names.keys)
         do throws(BipeAPIError) {
-            for start in stride(from: 0, to: phones.count, by: BipeAPIClient.contactLookupChunk) {
-                let chunk = Array(phones[start..<min(start + BipeAPIClient.contactLookupChunk, phones.count)])
-                let result = try await people.withToken { (token: String) async throws(BipeAPIError) -> [String: String] in
+            for start in stride(from: 0, to: phones.count, by: Self.lookupChunk) {
+                let chunk = Array(phones[start..<min(start + Self.lookupChunk, phones.count)])
+                let result = try await people.withToken { (token: String) async throws(BipeAPIError) -> [BipeContactMatch] in
                     try await people.api.lookupContacts(phones: chunk, accessToken: token)
                 }
-                for (phone, userId) in result where userId != people.session.userId && found[userId] == nil {
-                    found[userId] = names[phone]
+                for match in result where match.userId != people.session.userId && found[match.userId] == nil {
+                    found[match.userId] = names[match.phone]
                 }
             }
         } catch {

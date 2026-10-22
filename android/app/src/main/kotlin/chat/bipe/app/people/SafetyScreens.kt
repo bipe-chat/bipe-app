@@ -46,19 +46,30 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.phosphor.PhosphorIcon
-import chat.bipe.shared.BipeCnpj
-import chat.bipe.shared.BipeCompanySealState
-import chat.bipe.shared.BipeCompanySeals
 import chat.bipe.shared.R
+import android.content.Context
+import chat.bipe.shared.api.BipeBadgeGoneReason
+import chat.bipe.shared.api.BipeMessagingSetting
 import chat.bipe.shared.api.BipeWhoCanMessage
-import chat.bipe.shared.api.messagingSetting
-import chat.bipe.shared.api.setMessagingSetting
+import chat.bipe.shared.company.BipeCnpj
+import chat.bipe.shared.company.BipeCompanySealState
 import chat.bipe.shared.generated.BipeScreen
+import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 import kotlinx.coroutines.launch
+
+/** The notice for a seal that is no longer valid, else `null` (spec company-seal). */
+fun BipeCompanySealState.notice(context: Context): String? = when (this) {
+    is BipeCompanySealState.Revoked -> when (reason) {
+        BipeBadgeGoneReason.NOT_ACTIVE, BipeBadgeGoneReason.NOT_FOUND -> context.getString(R.string.bipe_badge_company_revoked_not_active)
+        else -> context.getString(R.string.bipe_badge_company_revoked)
+    }
+    BipeCompanySealState.Suspended -> context.getString(R.string.bipe_badge_company_suspended)
+    is BipeCompanySealState.Verified, BipeCompanySealState.None -> null
+}
 
 /** Spec company-seal: the facts behind a company's seal, and what the seal does not promise (ADR 0042). */
 @Composable
@@ -84,12 +95,12 @@ fun CompanySealDialog(state: BipeCompanySealState, onClose: () -> Unit) {
                         payload.legalName?.let { Fact(stringResource(R.string.bipe_badge_company_legal_name), it) }
                         payload.tradeName?.let { Fact(stringResource(R.string.bipe_badge_company_trade_name), it) }
                         payload.cnpj?.let { Fact(stringResource(R.string.bipe_badge_company_cnpj), BipeCnpj.formatted(it)) }
-                        BipeCompanySeals.checkedDate(payload)?.let {
+                        payload.checkedMonth?.let(BipeCnpj::checkedDate)?.let {
                             Fact(stringResource(R.string.bipe_badge_company_checked), it.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault())))
                         }
                         Fact(
                             stringResource(R.string.bipe_badge_company_valid_until),
-                            payload.exp.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)),
+                            Instant.ofEpochSecond(payload.exp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)),
                         )
                         Text(stringResource(R.string.bipe_badge_company_body), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                     }
@@ -269,7 +280,7 @@ fun WhoCanMessageScreen(people: PeopleService, onBack: () -> Unit) {
     var saving by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        runCatching { people.withToken { people.api.messagingSetting(it) } }
+        runCatching { people.withToken { people.api.messaging(it) }.whoCanMessage }
             .onSuccess { current = it; failed = false }
             .onFailure { failed = true }
     }
@@ -284,7 +295,7 @@ fun WhoCanMessageScreen(people: PeopleService, onBack: () -> Unit) {
                         current = value
                         saving = true
                         scope.launch {
-                            runCatching { people.withToken { people.api.setMessagingSetting(value, it) } }
+                            runCatching { people.withToken { people.api.setMessaging(BipeMessagingSetting(value), it) }.whoCanMessage }
                                 .onSuccess { current = it; failed = false }
                                 .onFailure { current = old; failed = true }
                             saving = false

@@ -2,9 +2,6 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// Moved from BipeKit (bipe-ios Components/BipeKit/Sources/BipeKit/BipeAPIClient.swift), trimmed to the
-// endpoints of sign-up, invites, handles, terms and device-first accounts.
-
 import Foundation
 
 /// Client for the Bipe API. Contract: bipe-shared/api/openapi.yaml.
@@ -29,6 +26,12 @@ public struct BipeAPIClient: Sendable {
         try await send(method: "GET", path: ["v1", "signup", "config"], body: Empty?.none)
     }
     
+    /// `GET /v1/banner`. No auth. The remote critical banner (ADR 0117), or `nil`.
+    public func remoteBanner() async throws(BipeAPIError) -> BipeRemoteBanner? {
+        let response: BipeRemoteBannerResponse = try await send(method: "GET", path: ["v1", "banner"], body: Empty?.none)
+        return response.banner
+    }
+    
     /// `POST /v1/signup/resume`. No auth. The answer of an earlier sign-up with this key (ADR 0094); `not_found` when none.
     public func resumeSignup(signupKey: String) async throws(BipeAPIError) -> BipeSignupResponse {
         try await send(method: "POST", path: ["v1", "signup", "resume"], body: SignupResumeRequest(signupKey: signupKey))
@@ -51,6 +54,14 @@ public struct BipeAPIClient: Sendable {
     /// `POST /v1/me/terms`. Records that the person ticked the box for this version. `version` must be ``BipeRegistries/legalVersion``.
     public func acceptTerms(version: String, accessToken: String) async throws(BipeAPIError) {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "terms"], body: TermsAcceptance(termsVersion: version), accessToken: accessToken)
+    }
+    
+    // MARK: - Support DM (ADR 0114)
+    
+    /// `POST /v1/me/support`. The caller's room with the support account. The server invites the caller; the app joins.
+    public func supportRoomID(accessToken: String) async throws(BipeAPIError) -> String {
+        let response: SupportRoomResponse = try await send(method: "POST", path: ["v1", "me", "support"], body: Empty?.none, accessToken: accessToken)
+        return response.roomId
     }
     
     // MARK: - Device-first accounts (ADR 0057, ADR 0059)
@@ -119,6 +130,15 @@ public struct BipeAPIClient: Sendable {
         Locale.preferredLanguages.first?.hasPrefix("en") == true ? "en" : "pt"
     }
     
+    // MARK: - Handle changes (ADR 0066)
+    
+    /// `POST /v1/handle-changes`. At most ``BipeHandleChange/batchSize`` IDs. Oldest first.
+    public func handleChanges(userIDs: [String], since: Date?, accessToken: String) async throws(BipeAPIError) -> [BipeHandleChange] {
+        let response: HandleChangesResponse = try await send(method: "POST", path: ["v1", "handle-changes"],
+                                                             body: HandleChangesRequest(userIds: userIDs, since: since.map(Self.formatDate)),
+                                                             accessToken: accessToken)
+        return response.changes
+    }
     
     /// `DELETE /v1/me/handle`. Removes the caller's handle.
     public func removeMyHandle(accessToken: String) async throws(BipeAPIError) -> BipeMyHandle {
@@ -130,6 +150,64 @@ public struct BipeAPIClient: Sendable {
     /// `GET /v1/invites/{code}`. No auth. Validity and the inviter's handle.
     public func invitePreview(code: String) async throws(BipeAPIError) -> BipeInvitePreview {
         try await send(method: "GET", path: ["v1", "invites", code], body: Empty?.none)
+    }
+    
+    /// `GET /v1/me/invites`.
+    public func myInvites(accessToken: String) async throws(BipeAPIError) -> BipeMyInvites {
+        try await send(method: "GET", path: ["v1", "me", "invites"], body: Empty?.none, accessToken: accessToken)
+    }
+    
+    /// `POST /v1/me/invites`. The code is returned once.
+    public func createInvite(accessToken: String) async throws(BipeAPIError) -> BipeCreatedInvite {
+        try await send(method: "POST", path: ["v1", "me", "invites"], body: Empty?.none, accessToken: accessToken)
+    }
+    
+    // MARK: - Phone-number discovery
+    
+    /// `POST /v1/contacts/lookup`. At most 500 numbers, already normalised with ``BipePhoneNumber``.
+    public func lookupContacts(phones: [String], accessToken: String) async throws(BipeAPIError) -> [BipeContactMatch] {
+        let response: LookupResponse = try await send(method: "POST", path: ["v1", "contacts", "lookup"], body: LookupRequest(phones: phones), accessToken: accessToken)
+        return response.matches
+    }
+    
+    /// `GET /v1/me/phone`. Status only, never the number.
+    public func myPhone(accessToken: String) async throws(BipeAPIError) -> BipeMyPhone {
+        try await send(method: "GET", path: ["v1", "me", "phone"], body: Empty?.none, accessToken: accessToken)
+    }
+    
+    /// `PUT /v1/me/discovery`.
+    public func setDiscoverableByPhone(_ value: Bool, accessToken: String) async throws(BipeAPIError) {
+        let _: DiscoverySettings = try await send(method: "PUT", path: ["v1", "me", "discovery"], body: DiscoverySettings(byPhone: value), accessToken: accessToken)
+    }
+    
+    /// `GET /v1/me/invite-connections`. The caller's invite pairs (ADR 0034).
+    public func inviteConnections(accessToken: String) async throws(BipeAPIError) -> [String] {
+        let response: InviteConnectionsResponse = try await send(method: "GET", path: ["v1", "me", "invite-connections"], body: Empty?.none, accessToken: accessToken)
+        return response.userIds
+    }
+    
+    /// `DELETE /v1/me/invites/{inviteId}`. Revokes a pending invite.
+    public func revokeInvite(id: String, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "DELETE", path: ["v1", "me", "invites", id], body: Empty?.none, accessToken: accessToken)
+    }
+    
+    /// `PUT /v1/me/invites/{inviteId}`. Names an invite of the caller; an empty name removes it.
+    public func nameInvite(id: String, name: String, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "PUT", path: ["v1", "me", "invites", id], body: InviteName(name: name), accessToken: accessToken)
+    }
+    
+    // MARK: - Messaging
+    
+    /// `GET /v1/me/messaging`. Who can message the caller.
+    public func messagingSetting(accessToken: String) async throws(BipeAPIError) -> BipeWhoCanMessage {
+        let response: MessagingSetting = try await send(method: "GET", path: ["v1", "me", "messaging"], body: Empty?.none, accessToken: accessToken)
+        return response.whoCanMessage
+    }
+    
+    /// `PUT /v1/me/messaging`. The server enforces it on invites.
+    public func setMessagingSetting(_ value: BipeWhoCanMessage, accessToken: String) async throws(BipeAPIError) -> BipeWhoCanMessage {
+        let response: MessagingSetting = try await send(method: "PUT", path: ["v1", "me", "messaging"], body: MessagingSetting(whoCanMessage: value), accessToken: accessToken)
+        return response.whoCanMessage
     }
     
     // MARK: - Handles
@@ -163,6 +241,120 @@ public struct BipeAPIClient: Sendable {
         try await send(method: "PUT", path: ["v1", "me", "handle"], body: SetHandleRequest(handle: handle), accessToken: accessToken)
     }
     
+    // MARK: - Public profiles
+    
+    /// `GET /v1/profiles/{handle}`. No auth. 404 for "no such handle" and for "profile off".
+    public func publicProfile(handle: String) async throws(BipeAPIError) -> BipePublicProfile {
+        try await send(method: "GET", path: ["v1", "profiles", handle], body: Empty?.none)
+    }
+    
+    /// `GET /v1/me/profile`. A user who never saved one gets `enabled` false and an empty name.
+    public func myProfile(accessToken: String) async throws(BipeAPIError) -> BipeMyProfile {
+        try await send(method: "GET", path: ["v1", "me", "profile"], body: Empty?.none, accessToken: accessToken)
+    }
+    
+    /// `PUT /v1/me/profile`. Turning it on needs a handle.
+    public func setMyProfile(_ update: BipeProfileUpdate, accessToken: String) async throws(BipeAPIError) -> BipeMyProfile {
+        try await send(method: "PUT", path: ["v1", "me", "profile"], body: update, accessToken: accessToken)
+    }
+    
+    /// `PUT /v1/me/profile/photo`. `jpeg` must already fit the limits: see ``BipeProfilePhoto``.
+    public func setMyProfilePhoto(jpeg: Data, accessToken: String) async throws(BipeAPIError) -> BipeMyProfile {
+        try await send(method: "PUT", path: ["v1", "me", "profile", "photo"], rawBody: (data: jpeg, contentType: "image/jpeg"), accessToken: accessToken)
+    }
+    
+    /// `DELETE /v1/me/profile/photo`.
+    public func deleteMyProfilePhoto(accessToken: String) async throws(BipeAPIError) -> BipeMyProfile {
+        try await send(method: "DELETE", path: ["v1", "me", "profile", "photo"], body: Empty?.none, accessToken: accessToken)
+    }
+    
+    // MARK: - gov.br verification (bipe#544)
+    
+    /// `POST /v1/verifications/govbr`. A challenge PDF bound to this device, valid 30 minutes.
+    public func startGovbrVerification(accessToken: String) async throws(BipeAPIError) -> BipeGovbrChallenge {
+        try await send(method: "POST", path: ["v1", "verifications", "govbr"], body: Empty?.none, accessToken: accessToken)
+    }
+    
+    /// `PUT /v1/verifications/govbr/{id}/document`. The signed PDF. A rejection is a 200 with a reason, not an error.
+    public func sendGovbrDocument(verificationID: String, pdf: Data, accessToken: String) async throws(BipeAPIError) -> BipeVerificationStatus {
+        try await send(method: "PUT",
+                       path: ["v1", "verifications", "govbr", verificationID, "document"],
+                       rawBody: (data: pdf, contentType: "application/pdf"),
+                       accessToken: accessToken)
+    }
+    
+    // MARK: - Badges (ADR 0123, bipe#252)
+    
+    /// `GET /v1/badges/{userId}`. No auth. The envelope is not verified here: see ``BadgeVerifier``.
+    public func badge(userID: String) async throws(BipeAPIError) -> BipeBadgeLookup {
+        let (data, response) = try await exchange(method: "GET", path: ["v1", "badges", userID], rawBody: nil, accessToken: nil)
+        switch response.statusCode {
+        case 200:
+            return .envelope(data)
+        case 404:
+            return .none
+        case 410:
+            let gone = try? Self.decoder.decode(BipeBadgeGone.self, from: data)
+            return .gone(gone?.reason ?? .revoked)
+        default:
+            throw .unexpectedResponse(statusCode: response.statusCode)
+        }
+    }
+    
+    /// `GET /v1/accounts/{userId}/type`. No auth. `nil` for an account without a Bipe sign-up, or a type this build does not know.
+    public func accountType(userID: String) async throws(BipeAPIError) -> BipeAccountType? {
+        let (data, response) = try await exchange(method: "GET", path: ["v1", "accounts", userID, "type"], rawBody: nil, accessToken: nil)
+        switch response.statusCode {
+        case 200:
+            guard let decoded = try? Self.decoder.decode(AccountTypeResponse.self, from: data) else {
+                throw .unexpectedResponse(statusCode: response.statusCode)
+            }
+            return BipeAccountType(rawValue: decoded.accountType)
+        case 404:
+            return nil
+        default:
+            throw .unexpectedResponse(statusCode: response.statusCode)
+        }
+    }
+    
+    /// `GET /v1/me/business` (ADR 0042). `nil` when the account has no CNPJ claim (404).
+    public func myBusiness(accessToken: String) async throws(BipeAPIError) -> BipeBusinessClaim? {
+        do {
+            return try await send(method: "GET", path: ["v1", "me", "business"], body: Empty?.none, accessToken: accessToken)
+        } catch .server(.notFound, _, _) {
+            return nil
+        }
+    }
+    
+    // MARK: - Data export (LGPD art. 18, ADR 0112, bipe#364)
+    
+    /// `GET /v1/me/export`. The server data of the caller as one JSON file. Messages stay on the device and are not in it.
+    /// `rate_limited` (429) when asked too often.
+    public func exportMyData(accessToken: String) async throws(BipeAPIError) -> BipeDataExport {
+        let (data, response) = try await perform(method: "GET", path: ["v1", "me", "export"], rawBody: nil, accessToken: accessToken)
+        let filename = BipeDataExport.filename(contentDisposition: response.value(forHTTPHeaderField: "Content-Disposition"))
+        return BipeDataExport(data: data, filename: filename)
+    }
+    
+    // MARK: - Web sign-in (ADR 0118)
+    
+    /// `GET /v1/web-link/place`. The approximate place of the browser IP that the MAS consent page shows.
+    /// Every field is optional; all are `nil` when the server does not know the place.
+    public func webLinkPlace(ip: String, accessToken: String) async throws(BipeAPIError) -> BipeWebLinkPlace {
+        try await send(method: "GET", path: ["v1", "web-link", "place"], query: [URLQueryItem(name: "ip", value: ip)],
+                       rawBody: nil, accessToken: accessToken)
+    }
+    
+    /// `POST /v1/web-link/finish`. Ends the MAS browser sessions that the private web view made since `since`.
+    @discardableResult
+    public func finishWebLink(since: Date, accessToken: String) async throws(BipeAPIError) -> Int {
+        struct Body: Encodable { let since: String }
+        struct Response: Decodable { let finished: Int }
+        let body = Body(since: since.formatted(Date.ISO8601FormatStyle()))
+        let response: Response = try await send(method: "POST", path: ["v1", "web-link", "finish"], body: body, accessToken: accessToken)
+        return response.finished
+    }
+    
     // MARK: - Auth
     
     /// Runs `request` with the token from `accessToken`. On HTTP 401 it reads the token again and retries once,
@@ -187,12 +379,44 @@ public struct BipeAPIClient: Sendable {
     /// Stands in for an empty 204 body.
     struct NoContent: Decodable { }
     
+    private struct SupportRoomResponse: Decodable {
+        let roomId: String
+    }
+    
     private struct AttestChallengeResponse: Decodable {
         let challenge: String
     }
     
     private struct ResolveRequest: Encodable {
         let userIds: [String]
+    }
+    
+    private struct LookupRequest: Encodable {
+        let phones: [String]
+    }
+    
+    private struct LookupResponse: Decodable {
+        let matches: [BipeContactMatch]
+    }
+    
+    private struct DiscoverySettings: Codable {
+        let byPhone: Bool
+    }
+    
+    private struct InviteConnectionsResponse: Decodable {
+        let userIds: [String]
+    }
+    
+    private struct AccountTypeResponse: Decodable {
+        let accountType: String
+    }
+    
+    private struct InviteName: Encodable {
+        let name: String
+    }
+    
+    private struct MessagingSetting: Codable {
+        let whoCanMessage: BipeWhoCanMessage
     }
     
     private struct ResolveResponse: Decodable {
@@ -244,6 +468,15 @@ public struct BipeAPIClient: Sendable {
     
     private struct ClaimRequest: Encodable {
         let claimSecret: String
+    }
+    
+    private struct HandleChangesRequest: Encodable {
+        let userIds: [String]
+        let since: String?
+    }
+    
+    private struct HandleChangesResponse: Decodable {
+        let changes: [BipeHandleChange]
     }
     
     private static func formatDate(_ date: Date) -> String {
@@ -369,6 +602,7 @@ public struct BipeAPIClient: Sendable {
         return decoder
     }()
 }
+
 // MARK: - Models
 
 /// Contract: `account_type` (ADR 0087). A company account needs an attestation and does not count in the cap (ADR 0086).
@@ -483,10 +717,83 @@ public struct BipeSignupResponse: Decodable, Sendable, CustomStringConvertible {
     }
 }
 
+public struct BipeContactMatch: Decodable, Sendable, Hashable {
+    /// E.164, as normalised by the server.
+    public let phone: String
+    public let userId: String
+}
+
+public struct BipeMyPhone: Decodable, Sendable {
+    public let linked: Bool
+    public let discoverableByPhone: Bool
+    public let linkedAt: Date?
+    /// After this date the number stops being discoverable until confirmed again.
+    public let confirmBy: Date?
+}
+
 public struct BipeInvitePreview: Decodable, Sendable {
     public let valid: Bool
     /// Without @. Only for a valid personal invite whose inviter has a handle.
     public let inviterHandle: String?
+}
+
+public enum BipeInviteStatus: String, Decodable, Sendable {
+    case pending, used, expired, revoked
+}
+
+public struct BipeInvite: Decodable, Sendable, Identifiable, Equatable {
+    public let id: String
+    public let status: BipeInviteStatus
+    public let createdAt: Date
+    public let expiresAt: Date
+    /// Only when `status` is `used`.
+    public let joinedUserId: String?
+    /// The name the person gave the invite. Only they see it.
+    public let name: String?
+    
+    private enum CodingKeys: String, CodingKey {
+        case id, status, createdAt, expiresAt, joinedUserId, name
+    }
+    
+    public init(id: String, status: BipeInviteStatus, createdAt: Date, expiresAt: Date, joinedUserId: String?, name: String? = nil) {
+        self.id = id
+        self.status = status
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+        self.joinedUserId = joinedUserId
+        self.name = name
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        // An unknown status from a newer server must not fail the whole list.
+        status = try BipeInviteStatus(rawValue: container.decode(String.self, forKey: .status)) ?? .expired
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        expiresAt = try container.decode(Date.self, forKey: .expiresAt)
+        joinedUserId = try container.decodeIfPresent(String.self, forKey: .joinedUserId)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+    }
+}
+
+public struct BipeMyInvites: Decodable, Sendable {
+    public let quota: Int
+    public let available: Int
+    /// Only when `available` is 0: when the next slot comes back.
+    public let nextAvailableAt: Date?
+    public let invites: [BipeInvite]
+}
+
+public struct BipeCreatedInvite: Decodable, Sendable, CustomStringConvertible {
+    public let id: String
+    public let code: String
+    public let url: URL
+    public let expiresAt: Date
+    
+    /// Never prints the code.
+    public var description: String {
+        "BipeCreatedInvite(\(id))"
+    }
 }
 
 public struct BipeHandleAvailability: Decodable, Sendable {
@@ -512,11 +819,126 @@ public struct BipeHandleRecord: Decodable, Sendable {
     public let userId: String
 }
 
+/// Contract: `MessagingSetting.who_can_message`.
+public enum BipeWhoCanMessage: String, Codable, Sendable, CaseIterable {
+    case everyone, verified, contacts
+    
+    public init(from decoder: Decoder) throws {
+        // An unknown value from a newer server must not fail the response.
+        self = try Self(rawValue: decoder.singleValueContainer().decode(String.self)) ?? .everyone
+    }
+    
+    public var title: String {
+        switch self {
+        case .everyone: BipeStrings.messagingEveryone
+        case .verified: BipeStrings.messagingVerified
+        case .contacts: BipeStrings.messagingContacts
+        }
+    }
+    
+    public var body: String {
+        switch self {
+        case .everyone: BipeStrings.messagingEveryoneBody
+        case .verified: BipeStrings.messagingVerifiedBody
+        case .contacts: BipeStrings.messagingContactsBody
+        }
+    }
+}
+
 public struct BipeMyHandle: Decodable, Sendable {
     public let userId: String
     public let handle: String?
     /// `nil` when a change is allowed now.
     public let changeableAt: Date?
+}
+
+/// Contract: `BusinessClaim` (ADR 0042). Only the parts the trust card reads.
+public struct BipeBusinessClaim: Decodable, Sendable, Equatable {
+    public enum Status: String, Decodable, Sendable {
+        case registryPending = "registry_pending"
+        case awaitingProof = "awaiting_proof"
+        case verified
+        case rejected
+        case revoked
+    }
+    
+    public struct Domain: Decodable, Sendable, Equatable {
+        public let domain: String
+        public let verifiedAt: Date?
+        
+        public init(domain: String, verifiedAt: Date?) {
+            self.domain = domain
+            self.verifiedAt = verifiedAt
+        }
+    }
+    
+    public let status: Status
+    public let domains: [Domain]
+    
+    public init(status: Status, domains: [Domain] = []) {
+        self.status = status
+        self.domains = domains
+    }
+}
+
+/// Contract: `PublicProfile`. What anyone with the exact handle sees.
+public struct BipePublicProfile: Decodable, Sendable, Equatable {
+    public let handle: String
+    public let name: String
+    /// Plain text. Absent when empty.
+    public let bio: String?
+    /// Absent without a photo. The URL changes when the photo changes.
+    public let photoUrl: URL?
+    /// Set by the server only. The apps do not show a profile badge yet.
+    public let badge: BadgeEnvelope?
+}
+
+/// Contract: `MyProfile`. The caller's own profile, published or not.
+public struct BipeMyProfile: Decodable, Sendable, Equatable {
+    public let enabled: Bool
+    public let name: String
+    public let bio: String
+    public let hasPhoto: Bool
+    /// Absent when the caller has no handle.
+    public let handle: String?
+    /// Absent without a photo.
+    public let photoUrl: URL?
+}
+
+/// Contract: `ProfileUpdate`.
+public struct BipeProfileUpdate: Encodable, Sendable, Equatable {
+    public let enabled: Bool
+    public let name: String
+    public let bio: String
+    
+    public init(enabled: Bool, name: String, bio: String) {
+        self.enabled = enabled
+        self.name = name
+        self.bio = bio
+    }
+}
+
+/// The answer of `GET /v1/badges/{userId}`.
+public enum BipeBadgeLookup: Sendable, Equatable {
+    /// The envelope JSON, not yet verified.
+    case envelope(Data)
+    /// No badge.
+    case none
+    /// The account had a badge and its claim ended. Show no seal.
+    case gone(BipeBadgeGoneReason)
+}
+
+public enum BipeBadgeGoneReason: String, Decodable, Sendable {
+    case revoked
+    /// A registry scan found the CNPJ no longer active.
+    case notActive = "not_active"
+    /// A registry scan no longer found the CNPJ.
+    case notFound = "not_found"
+    case staff
+}
+
+struct BipeBadgeGone: Decodable {
+    let reason: BipeBadgeGoneReason
 }
 
 // MARK: - Errors
@@ -590,7 +1012,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .handleTaken: BipeHandleProblem.taken.localizedMessage
             case .handleInvalid: (reason.flatMap(BipeHandleProblem.init(rawValue:)) ?? .invalidCharacters).localizedMessage
             case .handleCooldown: BipeStrings.errorHandleCooldown
-            case .profileInvalid: BipeStrings.errorGeneric
+            case .profileInvalid: (reason.flatMap(BipeProfileProblem.init(rawValue:))?.localizedMessage) ?? BipeStrings.errorGeneric
             case .photoInvalid: BipeStrings.publicProfilePhotoInvalid
             case .rateLimited: BipeStrings.errorRateLimited
             case .unauthorized: BipeStrings.errorUnauthorized

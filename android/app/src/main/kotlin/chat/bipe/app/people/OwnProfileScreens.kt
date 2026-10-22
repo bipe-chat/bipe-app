@@ -54,16 +54,13 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.BipeProfileProblem
-import chat.bipe.shared.BipePublicProfileRules
+import chat.bipe.shared.BipeProfileRules
+import chat.bipe.shared.BipeStrings
 import chat.bipe.shared.R
-import chat.bipe.shared.api.BipeAccountKind
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeMyProfile
-import chat.bipe.shared.api.myProfile
-import chat.bipe.shared.api.removeMyProfilePhoto
-import chat.bipe.shared.api.saveMyProfile
-import chat.bipe.shared.api.setMyProfilePhoto
+import chat.bipe.shared.api.BipeProfileUpdate
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import com.google.zxing.BarcodeFormat
@@ -151,9 +148,9 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit) {
             if (name.isEmpty()) name = it
         }
         runCatching { client.avatarUrl() }.getOrNull()?.let { avatarUrl = it }
-        isCompany = people.accountType(people.session.userId) == BipeAccountKind.COMPANY
+        isCompany = people.isCompany(people.session.userId)
     }
-    val problem = BipePublicProfileRules.nameProblem(name)
+    val problem = BipeProfileRules.problem(name, "")
     val changed = name.trim() != originalName || newPhoto != null || removesPhoto
 
     PeopleScaffold(stringResource(R.string.bipe_settings_profile_name_photo), BipeScreen.PROFILE_EDIT.id, onBack = { if (!saving) onBack() }) {
@@ -175,7 +172,7 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit) {
         val label = stringResource(if (isCompany) R.string.bipe_company_name else R.string.bipe_profile_display_name)
         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Text(
-            problem?.localizedMessage(context) ?: stringResource(R.string.bipe_profile_display_name_footer),
+            problem?.localizedMessage(BipeStrings.from(context)) ?: stringResource(R.string.bipe_profile_display_name_footer),
             style = MaterialTheme.typography.bodySmall,
             color = if (problem != null) colors.trustDangerInk else colors.inkSecondary,
         )
@@ -243,8 +240,8 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
     fun message(failure: Throwable): String {
         val server = failure as? BipeApiException.Server
         val problem = server?.takeIf { it.code == BipeApiErrorCode.PROFILE_INVALID }?.reason?.let(BipeProfileProblem::fromId)
-        return problem?.localizedMessage(context)
-            ?: (failure as? BipeApiException)?.localizedMessage(context)
+        return problem?.localizedMessage(BipeStrings.from(context))
+            ?: (failure as? BipeApiException)?.localizedMessage(BipeStrings.from(context))
             ?: context.getString(R.string.bipe_error_network)
     }
 
@@ -280,7 +277,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
         remotePhoto = if (url == null) null else withContext(Dispatchers.IO) { runCatching { URL(url).readBytes() }.getOrNull() }
     }
 
-    val problem = BipePublicProfileRules.profileProblem(name, bio)
+    val problem = BipeProfileRules.problem(name, bio)
     PeopleScaffold(stringResource(R.string.bipe_settings_public_profile), BipeScreen.PUBLIC_PROFILE_EDIT.id, onBack) {
         if (loading) {
             Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = colors.accentFill) }
@@ -306,7 +303,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
                         } else {
                             // Action removePhoto: DELETE /v1/me/profile/photo.
                             scope.launch {
-                                runCatching { people.withToken { people.api.removeMyProfilePhoto(it) } }
+                                runCatching { people.withToken { people.api.deleteMyProfilePhoto(it) } }
                                     .onSuccess { photoUrl = it.photoUrl }
                                     .onFailure { error = message(it) }
                             }
@@ -333,7 +330,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
             modifier = Modifier.fillMaxWidth(),
         )
         when {
-            problem != null -> Text(problem.localizedMessage(context), color = colors.trustDangerInk)
+            problem != null -> Text(problem.localizedMessage(BipeStrings.from(context)), color = colors.trustDangerInk)
             error != null -> Text(error.orEmpty(), color = colors.trustDangerInk)
             saved -> Text(stringResource(R.string.bipe_public_profile_saved), color = colors.statusSuccess)
         }
@@ -347,7 +344,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
                 val isOn = enabled && handle != null
                 scope.launch {
                     runCatching {
-                        var profile = people.withToken { people.api.saveMyProfile(isOn, name.trim(), bio.trim(), it) }
+                        var profile = people.withToken { people.api.setMyProfile(BipeProfileUpdate(isOn, name.trim(), bio.trim()), it) }
                         newPhoto?.let { jpeg -> profile = people.withToken { people.api.setMyProfilePhoto(jpeg, it) } }
                         profile
                     }.onSuccess {

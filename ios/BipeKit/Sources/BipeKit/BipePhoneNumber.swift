@@ -2,20 +2,18 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// Written from the reference `normalizePhone()` in bipe-shared tools/lib/registries.mjs (rule: registries/phone-numbers.json).
-// Cases: test-vectors/phone-numbers.json. The number is for discovery only, never identity (ADR 0015).
-
 import Foundation
 
+/// Phone numbers for contact discovery: Brazilian mobiles in any local format, other countries only when written with `+` or `00`. Rule: bipe-shared/registries/phone-numbers.json (generated);
+/// cases: test-vectors/phone-numbers.json. Same result as the API's `normalizePhone`.
 public nonisolated enum BipePhoneNumber {
-    /// E.164 from an address-book entry, or `nil`: Brazilian mobiles in any local format,
-    /// other countries only when written with "+" or "00".
+    /// E.164 (`+5511987654321`) from an address-book entry, or `nil`.
     public static func normalize(_ text: String) -> String? {
         let head = String(text.prefix(BipeRegistries.phoneMaxInputLength))
             .replacingOccurrences(of: "(0)", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        var plus = head.filter { $0.isASCIIDigit || $0 == "+" }.hasPrefix("+")
-        var digits = head.filter(\.isASCIIDigit)
+        var plus = head.filter { $0.isASCII && ($0.isNumber || $0 == "+") }.hasPrefix("+")
+        var digits = head.filter { $0.isASCII && $0.isNumber }
         if !plus, digits.hasPrefix("00") {
             plus = true
             digits.removeFirst(2)
@@ -23,12 +21,10 @@ public nonisolated enum BipePhoneNumber {
         let countryCode = BipeRegistries.phoneCountryCode
         let national = BipeRegistries.phoneMobileLength + 2
         if plus {
-            if !digits.hasPrefix(countryCode) {
+            guard digits.hasPrefix(countryCode) else {
                 // Another country: E.164 as written, length checked only.
-                let ok = digits.count >= BipeRegistries.phoneInternationalMinDigits
-                    && digits.count <= BipeRegistries.phoneInternationalMaxDigits
-                    && !digits.hasPrefix("0")
-                return ok ? "+\(digits)" : nil
+                let valid = (BipeRegistries.phoneInternationalMinDigits...BipeRegistries.phoneInternationalMaxDigits).contains(digits.count) && !digits.hasPrefix("0")
+                return valid ? "+\(digits)" : nil
             }
             digits.removeFirst(countryCode.count)
         } else if digits.count == national + 3, digits.hasPrefix("0") {
@@ -43,11 +39,5 @@ public nonisolated enum BipePhoneNumber {
         let subscriber = String(digits.dropFirst(2))
         guard BipeRegistries.phoneAreaCodes.contains(area), subscriber.hasPrefix(BipeRegistries.phoneMobilePrefix) else { return nil }
         return "+\(countryCode)\(area)\(subscriber)"
-    }
-}
-
-private extension Character {
-    var isASCIIDigit: Bool {
-        ("0"..."9").contains(self)
     }
 }

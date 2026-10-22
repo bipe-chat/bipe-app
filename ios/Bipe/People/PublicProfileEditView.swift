@@ -171,7 +171,7 @@ struct PublicProfileEditView: View {
                    let source = try? MediaSource.fromUrl(url: mxc),
                    let data = try? await people.session.client.getMediaContent(mediaSource: source),
                    let image = UIImage(data: data) {
-                    newPhoto = BipeProfilePhoto.jpegData(from: image)
+                    newPhoto = BipeProfilePhoto.jpegData(from: image.centreSquare())
                 }
             }
             phase = .editing
@@ -186,13 +186,13 @@ struct PublicProfileEditView: View {
         handle = profile.handle
         name = profile.name
         bio = profile.bio
-        photoUrl = profile.photoUrl.flatMap(URL.init(string:))
+        photoUrl = profile.photoUrl
     }
 
     /// Action choosePhoto.
     private func load(_ item: PhotosPickerItem?) async {
         guard let item, let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
-        guard let jpeg = BipeProfilePhoto.jpegData(from: image) else {
+        guard let jpeg = BipeProfilePhoto.jpegData(from: image.centreSquare()) else {
             error = BipeStrings.publicProfilePhotoInvalid
             return
         }
@@ -208,9 +208,9 @@ struct PublicProfileEditView: View {
         }
         do throws(BipeAPIError) {
             let profile = try await people.withToken { (token: String) async throws(BipeAPIError) -> BipeMyProfile in
-                try await people.api.removeMyProfilePhoto(accessToken: token)
+                try await people.api.deleteMyProfilePhoto(accessToken: token)
             }
-            photoUrl = profile.photoUrl.flatMap(URL.init(string:))
+            photoUrl = profile.photoUrl
         } catch {
             self.error = error.localizedMessage
         }
@@ -226,7 +226,7 @@ struct PublicProfileEditView: View {
         let isOn = enabled && handle != nil
         do throws(BipeAPIError) {
             var profile = try await people.withToken { (token: String) async throws(BipeAPIError) -> BipeMyProfile in
-                try await people.api.saveMyProfile(enabled: isOn, name: trimmedName, bio: trimmedBio, accessToken: token)
+                try await people.api.setMyProfile(BipeProfileUpdate(enabled: isOn, name: trimmedName, bio: trimmedBio), accessToken: token)
             }
             if let jpeg = newPhoto {
                 profile = try await people.withToken { (token: String) async throws(BipeAPIError) -> BipeMyProfile in

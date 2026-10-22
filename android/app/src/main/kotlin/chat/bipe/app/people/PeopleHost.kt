@@ -37,8 +37,8 @@ object PeopleLinks {
 
     /** Takes [uri] when it is a profile link (bipe.chat/@handle or a matrix.to user link). */
     fun offer(uri: Uri): Boolean {
-        val route = BipeProfileLink.handle(uri)?.let { PeopleRoute.ProfileLinkOpen(it) }
-            ?: BipeProfileLink.matrixUserId(uri)?.let { PeopleRoute.PersonProfile(it, fromDm = false) }
+        val route = BipeProfileLink.handle(uri.toString())?.let { PeopleRoute.ProfileLinkOpen(it) }
+            ?: BipeProfileLink.matrixUserId(uri.toString())?.let { PeopleRoute.PersonProfile(it, fromDm = false) }
             ?: return false
         _pending.value = route
         return true

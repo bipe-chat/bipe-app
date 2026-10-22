@@ -6,14 +6,11 @@ package chat.bipe.app.people
 
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
-import chat.bipe.shared.BipeCompanySealState
-import chat.bipe.shared.BipeCompanySeals
-import chat.bipe.shared.api.BipeAccountKind
+import android.content.Context
+import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.api.BipeApiClient
-import chat.bipe.shared.api.BipeBadgeLookup
-import chat.bipe.shared.api.accountType
-import chat.bipe.shared.api.badge
-import chat.bipe.shared.api.resolveHandles
+import chat.bipe.shared.company.BipeCompanySeals
+import chat.bipe.shared.company.BipeCompanySealsSeen
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,14 +69,36 @@ class PeopleException(val kind: Kind) : Exception(kind.name) {
  * People and profiles for one account (bipe-chat/bipe#568): profiles with their @, the block list, company accounts and
  * seals, and the DM with a person. Screens share one instance per account.
  */
-class PeopleService(val session: AccountSession, val api: BipeApiClient, val media: MediaLoader, private val scope: CoroutineScope) {
+class PeopleService(
+    context: Context,
+    val session: AccountSession,
+    val api: BipeApiClient,
+    val media: MediaLoader,
+    private val scope: CoroutineScope,
+) {
+    private val serverName = session.userId.substringAfter(':', "")
+
+    /** The @ of Matrix IDs (libraries/bipe, cached; [BipeHandleResolver.handles] emits on change). */
+    val handles = BipeHandleResolver(api, serverName, scope, accessToken = { session.accessToken() })
+
+    /** Company seals, verified on the device against the account's master key (UserIdentity.masterKey). Fail closed. */
+    val seals = BipeCompanySeals(
+        apiClient = api,
+        serverName = serverName,
+        scope = scope,
+        masterKey = { userId -> session.client.encryption().userIdentity(userId, true)?.masterKey() },
+        seen = BipeCompanySealsSeen(
+            lazy { context.applicationContext.getSharedPreferences("bipe_company_seals", Context.MODE_PRIVATE) },
+            session.userId,
+        ),
+    )
+
     private val _ignoredUsers = MutableStateFlow<Set<String>?>(null)
 
     /** Client.ignoredUsers, kept current by Client.subscribeToIgnoredUsers. `null` until the first list arrives. */
     val ignoredUsers: StateFlow<Set<String>?> = _ignoredUsers.asStateFlow()
 
-    private val handleCache = mutableMapOf<String, String?>()
-    private val accountTypes = mutableMapOf<String, BipeAccountKind>()
+    private val companies = mutableMapOf<String, Boolean>()
     private var ignoredHandle: TaskHandle? = null
 
     /** Starts the ignored-users subscription once. */
@@ -118,48 +137,26 @@ class PeopleService(val session: AccountSession, val api: BipeApiClient, val med
     /** Calls bipe-api with the account's token, retrying once on 401. */
     suspend fun <T> withToken(request: suspend (String) -> T): T = BipeApiClient.withTokenRetry({ session.accessToken() }, request)
 
-    /** The @ of Matrix IDs, from POST /v1/handles/resolve, cached. IDs without a handle are absent. */
-    suspend fun handles(userIds: List<String>): Map<String, String> {
-        val missing = userIds.filter { it !in handleCache }.distinct()
-        if (missing.isNotEmpty()) {
-            runCatching { withToken { api.resolveHandles(missing, it) } }.getOrNull()?.let { resolved ->
-                missing.forEach { handleCache[it] = resolved[it] }
-            }
-        }
-        return userIds.mapNotNull { id -> handleCache[id]?.let { id to it } }.toMap()
-    }
-
     /** A person: name and photo from Client.getProfile, the @ from bipe-api. [contactName] wins as the name. */
     suspend fun person(userId: String, contactName: String? = null): Person {
         val profile = runCatching { session.client.getProfile(userId) }.getOrNull()
-        val handle = handles(listOf(userId))[userId]
+        val handle = handles.resolve(userId)
         if (profile == null && handle == null && contactName == null) throw PeopleException(PeopleException.Kind.NOT_FOUND)
         return Person(userId, displayName(contactName, profile?.displayName, handle, userId), profile?.avatarUrl, handle)
     }
 
     /** Several people. A profile that does not load still gives a row (the @ or the localpart). */
     suspend fun people(userIds: List<String>): List<Person> {
-        val resolved = handles(userIds)
         return userIds.map { userId ->
             val profile = runCatching { session.client.getProfile(userId) }.getOrNull()
-            Person(userId, displayName(null, profile?.displayName, resolved[userId], userId), profile?.avatarUrl, resolved[userId])
+            val handle = handles.resolve(userId)
+            Person(userId, displayName(null, profile?.displayName, handle, userId), profile?.avatarUrl, handle)
         }
     }
 
-    /** GET /v1/accounts/{userId}/type, cached. A failure is a person (fail closed, ADR 0132). */
-    suspend fun accountType(userId: String): BipeAccountKind =
-        accountTypes[userId] ?: api.accountType(userId).also { accountTypes[userId] = it }
-
-    /** The seal of a company account, verified on the device against the account's master key. Any failure is no seal. */
-    suspend fun sealState(userId: String): BipeCompanySealState {
-        val lookup = runCatching { api.badge(userId) }.getOrNull() ?: return BipeCompanySealState.NoSeal
-        val masterKey = if (lookup is BipeBadgeLookup.Envelope) {
-            runCatching { session.client.encryption().userIdentity(userId, true)?.masterKey() }.getOrNull()
-        } else {
-            null
-        }
-        return BipeCompanySeals.state(lookup, userId, masterKey)
-    }
+    /** GET /v1/accounts/{userId}/type, cached: a company's avatar is a rounded square (ADR 0132). A failure is a person. */
+    suspend fun isCompany(userId: String): Boolean =
+        companies[userId] ?: (runCatching { api.accountType(userId) }.getOrNull() == "company").also { companies[userId] = it }
 
     /** The person's identity is verified by the user (an in-person QR or emoji check). */
     suspend fun isConfirmedInPerson(userId: String): Boolean =

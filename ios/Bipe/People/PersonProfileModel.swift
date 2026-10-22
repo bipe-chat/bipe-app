@@ -46,10 +46,8 @@ final class PersonProfileModel: ObservableObject {
 
     @Published private(set) var phase: Phase = .loading
     @Published private(set) var person: Person
-    @Published private(set) var isCompany = false
-    @Published private(set) var marks: [TrustMark] = []
-    @Published private(set) var seal: BipeCompanySealState = .noSeal
-    @Published private(set) var reservedNameWarning = false
+    /// UserIdentity.isVerified: confirmed in person.
+    @Published private(set) var confirmedInPerson = false
     @Published private(set) var bio: String?
     @Published private(set) var dmRoomId: String?
     /// A one-line notice after an action (invite sent, refused, already a member).
@@ -79,24 +77,7 @@ final class PersonProfileModel: ObservableObject {
         }
         phase = .loaded
 
-        isCompany = await people.accountType(userId) == .company
-        var newMarks: [TrustMark] = []
-        if isCompany {
-            seal = await people.sealState(userId)
-            switch seal {
-            case .verified: newMarks.append(TrustMark(kind: .company, text: BipeStrings.badgeCompany))
-            case .revoked: newMarks.append(TrustMark(kind: .companyRevoked, text: seal.notice ?? BipeStrings.badgeCompanyRevoked))
-            case .suspended: newMarks.append(TrustMark(kind: .companySuspended, text: BipeStrings.badgeCompanySuspended))
-            case .noSeal: break
-            }
-        }
-        if await people.isConfirmedInPerson(userId) {
-            newMarks.append(TrustMark(kind: .confirmedInPerson, text: BipeStrings.badgeVerifiedContact))
-        }
-        marks = newMarks
-        // A company whose verified seal names it does not get the warning.
-        reservedNameWarning = NameNormalizer.reservedCategory(person.displayName) != nil && !seal.isVerified
-
+        confirmedInPerson = await people.isConfirmedInPerson(userId)
         if let handle = person.handle, let profile = try? await people.api.publicProfile(handle: handle) {
             let text = profile.bio?.trimmingCharacters(in: .whitespacesAndNewlines)
             bio = text?.isEmpty == false ? text : nil
@@ -115,6 +96,36 @@ final class PersonProfileModel: ObservableObject {
             notice = BipeStrings.errorGeneric
         }
         return nil
+    }
+
+    /// isCompany of the spec: GET /v1/accounts/{userId}/type through the seal store (ADR 0132).
+    var isCompany: Bool {
+        people.seals.isCompany(userId)
+    }
+
+    /// The seal state from the seal store, verified on the device. Fail closed.
+    var seal: BipeCompanySealState {
+        people.seals.state(for: userId)
+    }
+
+    /// marks of the spec: only marks that verify on this device. verifiedName and nameSuspended have no signer yet.
+    var marks: [TrustMark] {
+        var marks: [TrustMark] = []
+        switch seal {
+        case .verified: marks.append(TrustMark(kind: .company, text: BipeStrings.badgeCompany))
+        case .revoked: marks.append(TrustMark(kind: .companyRevoked, text: seal.notice ?? BipeStrings.badgeCompanyRevoked))
+        case .suspended: marks.append(TrustMark(kind: .companySuspended, text: BipeStrings.badgeCompanySuspended))
+        case .none: break
+        }
+        if confirmedInPerson {
+            marks.append(TrustMark(kind: .confirmedInPerson, text: BipeStrings.badgeVerifiedContact))
+        }
+        return marks
+    }
+
+    /// reservedNameWarning of the spec. A company whose verified seal names it does not get the warning.
+    var reservedNameWarning: Bool {
+        NameNormalizer.reservedCategory(for: person.displayName) != nil && !seal.isVerified
     }
 
     /// The profile link (action share), only when the person has an @.

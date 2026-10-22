@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 // Moved from BipeKit (bipe-ios Components/BipeKit/Sources/BipeKit/BipeProfileLink.swift): the link part only.
+// The QR code views stay for the screen issue.
 
 import Foundation
 
@@ -44,5 +45,17 @@ public nonisolated enum BipeProfileLink {
         let path = fragment.split(separator: "?", maxSplits: 1).first.map(String.init) ?? fragment
         let userID = path.hasPrefix("/") ? String(path.dropFirst()) : path
         return userID.hasPrefix("@") && !userID.contains("/") ? userID : nil
+    }
+}
+
+public extension BipeHandleResolver {
+    /// The profile link for a user with a known handle.
+    func profileLink(for userID: String) -> URL? {
+        handle(for: userID).flatMap(BipeProfileLink.url(handle:))
+    }
+    
+    /// Swaps a matrix.to user permalink for the Bipe profile link when the handle is known.
+    func shareURL(for permalink: URL) -> URL {
+        BipeProfileLink.matrixUserID(fromPermalink: permalink).flatMap(profileLink(for:)) ?? permalink
     }
 }

@@ -90,7 +90,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check() }
-    val people = remember(session) { PeopleService(session, api, media, scope) }
+    val people = remember(session) { PeopleService(context, session, api, media, scope) }
     var peopleStack by remember { mutableStateOf(listOf<PeopleRoute>()) }
     DisposableEffect(people) {
         people.start()

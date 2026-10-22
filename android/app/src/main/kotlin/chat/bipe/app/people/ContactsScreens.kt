@@ -48,10 +48,6 @@ import chat.bipe.shared.BipePhoneNumber
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
-import chat.bipe.shared.api.CONTACT_LOOKUP_CHUNK
-import chat.bipe.shared.api.handle
-import chat.bipe.shared.api.inviteConnections
-import chat.bipe.shared.api.lookupContacts
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -108,9 +104,10 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
             val phones = names.keys.toList()
             val found = linkedMapOf<String, String>()
             val result = runCatching {
-                phones.chunked(CONTACT_LOOKUP_CHUNK).forEach { chunk ->
-                    people.withToken { people.api.lookupContacts(chunk, it) }.forEach { (phone, userId) ->
-                        if (userId != people.session.userId && userId !in found) found[userId] = names[phone].orEmpty()
+                // At most 500 numbers per POST /v1/contacts/lookup.
+                phones.chunked(500).forEach { chunk ->
+                    people.withToken { people.api.lookupContacts(chunk, it) }.forEach { match ->
+                        if (match.userId != people.session.userId && match.userId !in found) found[match.userId] = names[match.phone].orEmpty()
                     }
                 }
             }
@@ -120,7 +117,7 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                 checking = false
                 return@launch
             }
-            val invited = runCatching { people.withToken { people.api.inviteConnections(it) } }.getOrDefault(emptySet())
+            val invited = runCatching { people.withToken { people.api.inviteConnections(it) }.toSet() }.getOrDefault(emptySet())
             matches = found.map { (userId, name) ->
                 val person = runCatching { people.person(userId, contactName = name) }.getOrElse { Person(userId, name) }
                 ContactMatch(person, userId in invited)

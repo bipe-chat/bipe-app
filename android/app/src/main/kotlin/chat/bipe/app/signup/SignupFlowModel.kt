@@ -12,6 +12,7 @@ import chat.bipe.app.account.SessionStore
 import chat.bipe.app.account.SignupOutcome
 import chat.bipe.shared.BipeInviteLink
 import chat.bipe.shared.BipeSignupRules
+import chat.bipe.shared.BipeStrings
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.account.BipePin
@@ -169,7 +170,7 @@ class SignupFlowModel(
 
     /** Action openInviteLink: a bipe.chat/convite/<code> link the app was opened with. */
     fun openInviteLink(url: Uri) {
-        val found = BipeInviteLink.code(url) ?: return
+        val found = BipeInviteLink.code(url.toString()) ?: return
         scope.launch { preview(found) }
     }
 
@@ -320,7 +321,7 @@ class SignupFlowModel(
 
     /** Actions typeDigit and deleteDigit: the text of the digit field, digits only (paste is allowed). */
     fun editPin(text: String) {
-        val digits = BipePin.sanitize(text)
+        val digits = BipePin.sanitizeInput(text)
         if (digits.length != pin.value.length) pinProblem.value = PinProblem.NONE
         pin.value = digits
         if (digits.length != BipeRegistries.PIN_LENGTH) return
@@ -426,7 +427,7 @@ class SignupFlowModel(
                 fail(error)
                 return@launch
             }
-            val credentials = response.credentials ?: return@launch fail(BipeApiException.UnexpectedResponse(201))
+            val credentials = response.signedInCredentials ?: return@launch fail(BipeApiException.UnexpectedResponse(201))
             vault.store(credentials.userId, credentials.password, credentials.recoveryToken)
             vault.update { it.copy(pendingSignup = null) }
             storedCredentials = credentials
@@ -475,7 +476,7 @@ class SignupFlowModel(
         CreateError.RateLimited -> context.getString(R.string.bipe_error_rate_limited)
         CreateError.InviteInvalid -> context.getString(R.string.bipe_error_invite_invalid)
         CreateError.TermsRequired -> context.getString(R.string.bipe_signup_terms_required)
-        is CreateError.PinWeak -> error.problem.localizedMessage(context)
+        is CreateError.PinWeak -> error.problem.localizedMessage(BipeStrings.from(context))
         CreateError.EmailTaken -> context.getString(R.string.bipe_error_email_taken)
         CreateError.AttestationInvalid -> context.getString(R.string.bipe_error_attestation_invalid)
         CreateError.SignInFailed -> context.getString(R.string.bipe_signup_signin_failed)
@@ -536,3 +537,11 @@ class SignupFlowModel(
     private val BipeApiException.isRateLimited: Boolean
         get() = this is BipeApiException.Server && code == BipeApiErrorCode.RATE_LIMITED
 }
+
+/** The credentials of a completed sign-up: the API sends the password and the recovery token once. */
+internal val BipeSignupResponse.signedInCredentials: BipeCredentials?
+    get() {
+        val password = password ?: return null
+        val recoveryToken = recoveryToken ?: return null
+        return BipeCredentials(userId, password, recoveryToken)
+    }

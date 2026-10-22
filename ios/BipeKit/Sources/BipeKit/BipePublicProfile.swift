@@ -2,13 +2,9 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// Written from the reference `profileProblem()` in bipe-shared tools/lib/registries.mjs and registries/profiles.json
-// (ADR 0041). The server checks the same rules and is the authority.
+import SwiftUI
 
-import Foundation
-import UIKit
-
-/// Same ids as `profileProblem()` and the API's `ProfileProblem`.
+/// Same ids as `profileProblem()` in bipe-shared/tools/lib/registries.mjs and the API's `ProfileProblem`.
 public enum BipeProfileProblem: String, Sendable, Equatable {
     case nameEmpty = "name_empty"
     case nameTooLong = "name_too_long"
@@ -17,12 +13,19 @@ public enum BipeProfileProblem: String, Sendable, Equatable {
     case bioTooManyLines = "bio_too_many_lines"
     /// Server only: turning the profile on needs a handle.
     case noHandle = "no_handle"
-
+    
+    public var isNameProblem: Bool {
+        switch self {
+        case .nameEmpty, .nameTooLong, .nameReserved: true
+        case .bioTooLong, .bioTooManyLines, .noHandle: false
+        }
+    }
+    
     public var localizedMessage: String {
         switch self {
         case .nameEmpty: BipeStrings.publicProfileNameEmpty
         case .nameTooLong: BipeStrings.publicProfileNameTooLong(String(BipeRegistries.profileNameMaxLength))
-        case .nameReserved: BipeStrings.appProfileNameReserved
+        case .nameReserved: BipeStrings.warningReservedName
         case .bioTooLong: BipeStrings.publicProfileBioTooLong(String(BipeRegistries.profileBioMaxLength))
         case .bioTooManyLines: BipeStrings.publicProfileBioTooManyLines(String(BipeRegistries.profileBioMaxLines))
         case .noHandle: BipeStrings.publicProfileNeedsHandle
@@ -30,64 +33,111 @@ public enum BipeProfileProblem: String, Sendable, Equatable {
     }
 }
 
+/// Client-side profile checks for early feedback (ADR 0041). The server is the authority.
 public nonisolated enum BipePublicProfileRules {
-    /// `nil` when the name and bio pass. Lengths count code points, like the API.
+    /// Port of `profileProblem()`. Lengths count Unicode scalars, like JS `[...s].length`.
     public static func profileProblem(name: String, bio: String) -> BipeProfileProblem? {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
+        let trimmedName = trim(name)
+        if trimmedName.unicodeScalars.isEmpty {
             return .nameEmpty
         }
-        if trimmed.unicodeScalars.count > BipeRegistries.profileNameMaxLength {
+        if trimmedName.unicodeScalars.count > BipeRegistries.profileNameMaxLength {
             return .nameTooLong
         }
-        if NameNormalizer.reservedCategory(trimmed) != nil {
+        if NameNormalizer.reservedCategory(for: trimmedName) != nil {
             return .nameReserved
         }
-        let trimmedBio = bio.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedBio = trim(bio)
         if trimmedBio.unicodeScalars.count > BipeRegistries.profileBioMaxLength {
             return .bioTooLong
         }
-        if trimmedBio.split(separator: "\n", omittingEmptySubsequences: false).count > BipeRegistries.profileBioMaxLines {
+        // JS `split("\n")`: count scalars, because Swift treats "\r\n" as one Character.
+        if trimmedBio.unicodeScalars.count(where: { $0 == "\n" }) + 1 > BipeRegistries.profileBioMaxLines {
             return .bioTooManyLines
         }
         return nil
     }
-
-    /// The name rules alone (the Matrix display name of profile-edit has no bio).
-    public static func nameProblem(_ name: String) -> BipeProfileProblem? {
-        profileProblem(name: name, bio: "")
+    
+    /// JS `String.prototype.trim()`.
+    public static func trim(_ input: String) -> String {
+        let scalars = input.unicodeScalars
+        guard let start = scalars.firstIndex(where: { !NameNormalizer.isJavaScriptWhitespace($0) }),
+              let end = scalars.lastIndex(where: { !NameNormalizer.isJavaScriptWhitespace($0) }) else {
+            return ""
+        }
+        return String(scalars[start...end])
     }
 }
 
-/// Square JPEG for profile photos: at most `profilePhotoMaxPixels` on each side and `profilePhotoMaxBytes`.
-public enum BipeProfilePhoto {
-    /// Crops the centre square, scales it down and re-encodes it as JPEG with no metadata.
-    /// `nil` when the image cannot be encoded within the limits.
-    public static func jpegData(from image: UIImage, maxPixels: Int = BipeRegistries.profilePhotoMaxPixels,
-                                maxBytes: Int = BipeRegistries.profilePhotoMaxBytes) -> Data? {
-        guard let square = squareImage(image, side: maxPixels) else { return nil }
-        for quality in [0.85, 0.75, 0.6, 0.45, 0.3] {
-            if let data = square.jpegData(compressionQuality: quality), data.count <= maxBytes {
+/// The bio from another user's public profile. Shows nothing when the user has none.
+public struct BipePublicProfileBioView: View {
+    private let userID: String
+    @Environment(\.bipeHandleResolver) private var handleResolver
+    @State private var bio: String?
+    
+    public init(userID: String) {
+        self.userID = userID
+    }
+    
+    public var body: some View {
+        // A stack, not a bare `if`: `.task` must run while the bio is still nil.
+        VStack(spacing: 0) {
+            if let bio {
+                Text(bio)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+        }
+        .task(id: userID) {
+            bio = await handleResolver?.publicProfile(for: userID)?.bio
+        }
+    }
+}
+
+// MARK: - Photo
+
+#if canImport(UIKit)
+
+/// Re-encodes a picked image for `PUT /v1/me/profile/photo`: sRGB JPEG, at most
+/// `profilePhotoMaxPixels` on each side and `profilePhotoMaxBytes`. Drawing again drops all metadata.
+public nonisolated enum BipeProfilePhoto {
+    private static let qualities: [CGFloat] = [0.85, 0.75, 0.65, 0.55, 0.45, 0.35, 0.25]
+    
+    /// `nil` when the data is not an image or does not fit even at the lowest quality.
+    public static func jpegData(from imageData: Data) -> Data? {
+        guard let image = UIImage(data: imageData) else { return nil }
+        return jpegData(from: image)
+    }
+    
+    public static func jpegData(from image: UIImage) -> Data? {
+        let pixelWidth = image.size.width * image.scale
+        let pixelHeight = image.size.height * image.scale
+        guard pixelWidth > 0, pixelHeight > 0 else { return nil }
+        
+        let ratio = min(1, CGFloat(BipeRegistries.profilePhotoMaxPixels) / max(pixelWidth, pixelHeight))
+        let size = CGSize(width: max(1, (pixelWidth * ratio).rounded(.down)),
+                          height: max(1, (pixelHeight * ratio).rounded(.down)))
+        
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        format.preferredRange = .standard
+        let rendered = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            // JPEG has no alpha: paint transparent areas white, not black.
+            UIColor.white.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+        
+        for quality in qualities {
+            if let data = rendered.jpegData(compressionQuality: quality), data.count <= BipeRegistries.profilePhotoMaxBytes {
                 return data
             }
         }
         return nil
     }
-
-    /// The centre square of `image`, at most `side` pixels, drawn upright at scale 1.
-    public static func squareImage(_ image: UIImage, side: Int) -> UIImage? {
-        let size = image.size
-        let length = min(size.width, size.height)
-        guard length > 0 else { return nil }
-        let target = min(CGFloat(side), length * image.scale)
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: target, height: target), format: format)
-        let factor = target / length
-        return renderer.image { _ in
-            let origin = CGPoint(x: -(size.width - length) / 2 * factor, y: -(size.height - length) / 2 * factor)
-            image.draw(in: CGRect(origin: origin, size: CGSize(width: size.width * factor, height: size.height * factor)))
-        }
-    }
 }
+#endif

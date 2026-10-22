@@ -3,55 +3,164 @@
 // Copyright 2026 Bipe contributors
 
 import Foundation
+import Observation
+import SwiftUI
 
-/// The @ of Matrix IDs, from `POST /v1/handles/resolve`, cached per user ID for the life of the process.
-/// People never see the Matrix ID (ADR 0013): a screen shows the @ when there is one.
-@MainActor
+/// Maps Matrix IDs to handles and back, through the Bipe API. One instance per user session.
+///
+/// Reads are synchronous and observable: a view that calls `handle(for:)` gets `nil` at first,
+/// the resolver batches the lookup through `POST /v1/handles/resolve`, and the view updates when the handle arrives.
+@MainActor @Observable
 public final class BipeHandleResolver {
-    private let api: BipeAPIClient
-    private let accessToken: @MainActor () -> String?
-    /// User ID to handle; a cached `nil` means the user has no handle.
-    private var cache: [String: String?] = [:]
-
-    public init(api: BipeAPIClient, accessToken: @escaping @MainActor () -> String?) {
-        self.api = api
+    private struct Entry {
+        let handle: String?
+        let expiry: Date
+    }
+    
+    /// Only Matrix IDs on this server have handles.
+    public let serverName: String
+    
+    private var entries: [String: Entry] = [:]
+    
+    @ObservationIgnored private let apiClient: BipeAPIClient
+    @ObservationIgnored private let accessToken: @MainActor () -> String?
+    @ObservationIgnored private var queued: Set<String> = []
+    @ObservationIgnored private var inFlight: Set<String> = []
+    @ObservationIgnored private var waiters: [String: [CheckedContinuation<String?, Never>]] = [:]
+    @ObservationIgnored private var flushTask: Task<Void, Never>?
+    
+    private static let foundTTL: TimeInterval = 10 * 60
+    private static let missingTTL: TimeInterval = 2 * 60
+    private static let batchSize = 100
+    private static let coalesceDelay: Duration = .milliseconds(80)
+    
+    /// `accessToken` is read before every request, because Matrix access tokens are short-lived.
+    public init(apiClient: BipeAPIClient, serverName: String, accessToken: @escaping @MainActor () -> String?) {
+        self.apiClient = apiClient
+        self.serverName = serverName
         self.accessToken = accessToken
     }
-
-    /// The cached handle, without a request.
-    public func cachedHandle(for userID: String) -> String?? {
-        cache[userID]
+    
+    // MARK: - Matrix ID to handle
+    
+    /// `true` for a user ID on the Bipe server, e.g. `@k7q2m9x4tp:bipe.net.br`.
+    public func isBipeUserID(_ userID: String) -> Bool {
+        userID.hasPrefix("@") && userID.hasSuffix(":\(serverName)")
     }
-
-    /// The handles of `userIDs`. IDs without a handle are absent. A failed request leaves them out and uncached.
-    public func handles(for userIDs: [String]) async -> [String: String] {
-        let missing = Array(Set(userIDs.filter { cache[$0] == nil }))
-        if !missing.isEmpty {
-            let api = api
-            let resolved = try? await BipeAPIClient.withTokenRetry(accessToken: accessToken) { (token: String) async throws(BipeAPIError) -> [String: String] in
-                try await api.resolveHandles(userIDs: missing, accessToken: token)
+    
+    /// The cached handle (without "@"). Queues a lookup when the cache has no fresh value.
+    public func handle(for userID: String) -> String? {
+        guard isBipeUserID(userID) else { return nil }
+        let entry = entries[userID]
+        if (entry?.expiry ?? .distantPast) < .now {
+            enqueue(userID)
+        }
+        return entry?.handle
+    }
+    
+    /// "@handle" for a Bipe user ID with a known handle, otherwise `text` unchanged.
+    /// Safe to call with any text, e.g. a title that falls back to the Matrix ID.
+    public func displayText(for text: String) -> String {
+        handle(for: text).map { "@\($0)" } ?? text
+    }
+    
+    /// Waits for the handle. `nil` when the user has none or the lookup failed.
+    public func resolve(_ userID: String) async -> String? {
+        guard isBipeUserID(userID) else { return nil }
+        if let entry = entries[userID], entry.expiry >= .now {
+            return entry.handle
+        }
+        return await withCheckedContinuation { continuation in
+            waiters[userID, default: []].append(continuation)
+            enqueue(userID)
+        }
+    }
+    
+    /// Stores a handle the app already knows, e.g. after the user changes their own.
+    public func store(handle: String?, for userID: String) {
+        entries[userID] = Entry(handle: handle, expiry: .now.addingTimeInterval(handle == nil ? Self.missingTTL : Self.foundTTL))
+    }
+    
+    /// The published profile (ADR 0041). `nil` without a handle, with the profile off, or when the lookup failed.
+    public func publicProfile(for userID: String) async -> BipePublicProfile? {
+        guard let handle = await resolve(userID) else { return nil }
+        return try? await apiClient.publicProfile(handle: handle)
+    }
+    
+    // MARK: - Handle to Matrix ID
+    
+    /// Exact lookup through `GET /v1/handles/{handle}`. Returns `nil` when nobody holds the handle.
+    public func userID(forHandle input: String) async throws(BipeAPIError) -> String? {
+        let handle = BipeHandle.sanitize(input).lowercased()
+        guard BipeHandle.localProblem(for: handle) == nil else { return nil }
+        
+        do {
+            let record = try await withTokenRetry { [apiClient] (token: String) async throws(BipeAPIError) -> BipeHandleRecord in
+                try await apiClient.handle(handle, accessToken: token)
             }
-            if let resolved {
-                for userID in missing {
-                    cache[userID] = .some(resolved[userID])
-                }
+            store(handle: record.handle, for: record.userId)
+            return record.userId
+        } catch {
+            if case .server(_, _, let statusCode) = error, statusCode == 404 {
+                return nil
+            }
+            throw error
+        }
+    }
+    
+    // MARK: - Private
+    
+    private func enqueue(_ userID: String) {
+        guard !inFlight.contains(userID) else { return }
+        queued.insert(userID)
+        scheduleFlush()
+    }
+    
+    private func scheduleFlush() {
+        guard flushTask == nil else { return }
+        flushTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.coalesceDelay)
+            await self?.flush()
+        }
+    }
+    
+    private func flush() async {
+        flushTask = nil
+        let batch = Array(queued.prefix(Self.batchSize))
+        queued.subtract(batch)
+        inFlight.formUnion(batch)
+        if !queued.isEmpty {
+            scheduleFlush()
+        }
+        guard !batch.isEmpty else { return }
+        
+        do {
+            let handles = try await withTokenRetry { [apiClient] (token: String) async throws(BipeAPIError) -> [String: String] in
+                try await apiClient.resolveHandles(userIDs: batch, accessToken: token)
+            }
+            for userID in batch {
+                store(handle: handles[userID], for: userID)
+            }
+        } catch {
+            // Keep the old values, with a short expiry so views do not retry on every render while offline.
+            for userID in batch {
+                entries[userID] = Entry(handle: entries[userID]?.handle, expiry: .now.addingTimeInterval(Self.missingTTL))
             }
         }
-        var result: [String: String] = [:]
-        for userID in userIDs {
-            if case .some(.some(let handle)) = cache[userID] {
-                result[userID] = handle
-            }
+        
+        inFlight.subtract(batch)
+        for userID in batch {
+            let handle = entries[userID]?.handle
+            waiters.removeValue(forKey: userID)?.forEach { $0.resume(returning: handle) }
         }
-        return result
     }
+    
+    private func withTokenRetry<T>(_ request: (String) async throws(BipeAPIError) -> T) async throws(BipeAPIError) -> T {
+        try await BipeAPIClient.withTokenRetry(accessToken: accessToken, request)
+    }
+}
 
-    public func handle(for userID: String) async -> String? {
-        await handles(for: [userID])[userID]
-    }
-
-    /// Forgets a user's handle, for example after the user changed their own.
-    public func forget(_ userID: String) {
-        cache[userID] = nil
-    }
+public extension EnvironmentValues {
+    /// The session's handle resolver. `nil` outside a Bipe session: views keep upstream behaviour.
+    @Entry var bipeHandleResolver: BipeHandleResolver?
 }

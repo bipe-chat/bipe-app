@@ -6,6 +6,22 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
+extension BipeCompanySealState {
+    /// The notice for a seal that is no longer valid, else `nil` (spec company-seal).
+    var notice: String? {
+        switch self {
+        case .revoked(.notActive), .revoked(.notFound): BipeStrings.badgeCompanyRevokedNotActive
+        case .revoked: BipeStrings.badgeCompanyRevoked
+        case .suspended: BipeStrings.badgeCompanySuspended
+        case .verified, .none: nil
+        }
+    }
+
+    var isVerified: Bool {
+        if case .verified = self { true } else { false }
+    }
+}
+
 /// Spec company-seal: the facts behind a company's seal, and what the seal does not promise (ADR 0042).
 struct CompanySealSheet: View {
     let userId: String
@@ -29,20 +45,20 @@ struct CompanySealSheet: View {
                 }
                 if case .verified(let payload) = state {
                     Section {
-                        if let legalName = payload.legalName {
-                            fact(BipeStrings.badgeCompanyLegalName, legalName)
-                        }
-                        if let tradeName = payload.tradeName {
-                            fact(BipeStrings.badgeCompanyTradeName, tradeName)
+                        if let company = payload.company {
+                            fact(BipeStrings.badgeCompanyLegalName, company.legalName)
+                            if let tradeName = company.tradeName {
+                                fact(BipeStrings.badgeCompanyTradeName, tradeName)
+                            }
                         }
                         if let cnpj = payload.cnpj {
                             fact(BipeStrings.badgeCompanyCnpj, BipeCNPJ.formatted(cnpj))
                         }
-                        if let checked = BipeCompanySeals.checkedDate(payload) {
-                            fact(BipeStrings.badgeCompanyChecked,
-                                 checked.formatted(Date.FormatStyle(timeZone: TimeZone(identifier: "UTC") ?? .current).month(.wide).year()))
+                        if let month = payload.company?.checkedMonth, let checked = BipeCNPJ.checkedDate(month) {
+                            fact(BipeStrings.badgeCompanyChecked, checked.formatted(.dateTime.month(.wide).year()))
                         }
-                        fact(BipeStrings.badgeCompanyValidUntil, payload.exp.formatted(date: .long, time: .omitted))
+                        fact(BipeStrings.badgeCompanyValidUntil,
+                             Date(timeIntervalSince1970: TimeInterval(payload.exp)).formatted(date: .long, time: .omitted))
                     } footer: {
                         Text(BipeStrings.badgeCompanyBody)
                     }

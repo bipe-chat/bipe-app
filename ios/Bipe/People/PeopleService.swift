@@ -30,13 +30,15 @@ final class PeopleService: ObservableObject {
     let session: AccountSession
     let api: BipeAPIClient
     let media: MediaLoader
+    /// The @ of Matrix IDs (BipeKit, cached and observable).
     let handles: BipeHandleResolver
+    /// Company accounts and their seals, verified on the device (BipeKit, cached and observable).
+    let seals: BipeCompanySeals
 
     /// Client.ignoredUsers, kept current by Client.subscribeToIgnoredUsers.
     @Published private(set) var ignoredUsers: Set<String> = []
     @Published private(set) var ignoredUsersLoaded = false
 
-    private var accountTypes: [String: BipeAccountType] = [:]
     private var ignoredHandle: TaskHandle?
     private var ignoredTask: Task<Void, Never>?
 
@@ -44,7 +46,17 @@ final class PeopleService: ObservableObject {
         self.session = session
         self.api = api
         self.media = media
-        handles = BipeHandleResolver(api: api, accessToken: { session.accessToken() })
+        let serverName = Self.serverName(of: session.userId)
+        handles = BipeHandleResolver(apiClient: api, serverName: serverName, accessToken: { session.accessToken() })
+        // The account's cross-signing master key from the SDK (UserIdentity.masterKey) binds a cnpj badge.
+        seals = BipeCompanySeals(apiClient: api, serverName: serverName, sessionUserID: session.userId) { userId in
+            try await session.client.encryption().userIdentity(userId: userId, fallbackToServer: true)?.masterKey()
+        }
+    }
+
+    /// The server part of a Matrix ID: `bipe.net.br` in `@k7q2m9x4tp:bipe.net.br`.
+    static func serverName(of userId: String) -> String {
+        userId.split(separator: ":", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
     }
 
     deinit {
@@ -96,7 +108,7 @@ final class PeopleService: ObservableObject {
     /// Throws only when neither the profile nor the @ can be read.
     func person(_ userId: String, contactName: String? = nil) async throws -> Person {
         let loadedProfile = try? await session.client.getProfile(userId: userId)
-        let loadedHandle = await handles.handle(for: userId)
+        let loadedHandle = await handles.resolve(userId)
         if loadedProfile == nil, loadedHandle == nil, contactName == nil {
             throw PeopleError.notFound
         }
@@ -109,15 +121,15 @@ final class PeopleService: ObservableObject {
 
     /// Several people at once. A profile that does not load still gives a row (the @ or the localpart).
     func people(_ userIds: [String]) async -> [Person] {
-        let resolved = await handles.handles(for: userIds)
         var result: [Person] = []
         for userId in userIds {
             let profile = try? await session.client.getProfile(userId: userId)
+            let handle = await handles.resolve(userId)
             result.append(Person(userId: userId,
                                  displayName: Self.displayName(contactName: nil, profileName: profile?.displayName,
-                                                               handle: resolved[userId], userId: userId),
+                                                               handle: handle, userId: userId),
                                  avatarUrl: profile?.avatarUrl,
-                                 handle: resolved[userId]))
+                                 handle: handle))
         }
         return result
     }
@@ -134,28 +146,6 @@ final class PeopleService: ObservableObject {
             return "@\(handle)"
         }
         return Person.localpart(of: userId)
-    }
-
-    /// GET /v1/accounts/{userId}/type, cached. A failure is a person (fail closed, ADR 0132).
-    func accountType(_ userId: String) async -> BipeAccountType {
-        if let cached = accountTypes[userId] {
-            return cached
-        }
-        let type = await api.accountType(userID: userId)
-        accountTypes[userId] = type
-        return type
-    }
-
-    /// The seal of a company account: GET /v1/badges/{userId}, verified on the device against the account's
-    /// cross-signing master key (UserIdentity.masterKey). Any failure is no seal.
-    func sealState(_ userId: String) async -> BipeCompanySealState {
-        guard let lookup = try? await api.badge(userID: userId) else { return .noSeal }
-        var masterKey: String?
-        if case .envelope = lookup {
-            let identity = try? await session.client.encryption().userIdentity(userId: userId, fallbackToServer: true)
-            masterKey = identity?.masterKey()
-        }
-        return BipeCompanySeals.state(of: lookup, userID: userId, masterKey: masterKey)
     }
 
     /// The person's identity is verified by the user (an in-person QR or emoji check).
