@@ -159,7 +159,7 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit) {
     PeopleScaffold(stringResource(R.string.bipe_settings_profile_name_photo), BipeScreen.PROFILE_EDIT.id, onBack = { if (!saving) onBack() }) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PhotoPreview(newPhoto, isSquare = isCompany, fallback = {
-                Avatar(name, if (removesPhoto) null else avatarUrl, people.media, size = 96.dp, isSquare = isCompany)
+                Avatar(name, if (removesPhoto) null else avatarUrl, people.media, size = 96.dp, isCompany = isCompany)
             })
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {

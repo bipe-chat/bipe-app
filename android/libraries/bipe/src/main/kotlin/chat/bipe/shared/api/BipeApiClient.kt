@@ -80,6 +80,15 @@ class BipeApiClient(baseUrl: String) {
         response = BipeMyHandle.serializer(),
     )
 
+    /** `POST /v1/handle-changes` (ADR 0066). At most [BipeHandleChange.BATCH_SIZE] IDs. Oldest first. */
+    suspend fun handleChanges(userIds: List<String>, since: java.time.Instant?, accessToken: String): List<BipeHandleChange> = send(
+        "POST",
+        listOf("v1", "handle-changes"),
+        body = encode(BipeHandleChangesRequest.serializer(), BipeHandleChangesRequest(userIds, since?.toString())),
+        accessToken = accessToken,
+        response = BipeHandleChangesResponse.serializer(),
+    ).changes
+
     /** `DELETE /v1/me/handle` (ADR 0066). The cooldown stays. */
     suspend fun removeMyHandle(accessToken: String): BipeMyHandle =
         send("DELETE", listOf("v1", "me", "handle"), accessToken = accessToken, response = BipeMyHandle.serializer())

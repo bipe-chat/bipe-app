@@ -38,6 +38,8 @@ enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     KEY("key", R.drawable.phosphor_key),
     LINK("link", R.drawable.phosphor_link),
     LOCK_SIMPLE("lock-simple", R.drawable.phosphor_lock_simple),
+    MAGNIFYING_GLASS("magnifying-glass", R.drawable.phosphor_magnifying_glass),
+    NOTEPAD("notepad", R.drawable.phosphor_notepad),
     PAPER_PLANE_RIGHT("paper-plane-right", R.drawable.phosphor_paper_plane_right),
     PENCIL_SIMPLE("pencil-simple", R.drawable.phosphor_pencil_simple),
     PLUS("plus", R.drawable.phosphor_plus),

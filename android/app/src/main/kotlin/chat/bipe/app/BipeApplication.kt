@@ -6,16 +6,19 @@ package chat.bipe.app
 
 import android.app.Application
 import chat.bipe.app.account.AccountStartModel
+import chat.bipe.app.tabs.AppTabsModel
+import chat.bipe.shared.R
 import chat.bipe.app.notifications.PhoneNotifications
 import chat.bipe.app.notifications.PushRegistration
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-/** Holds the account for the life of the process, so the session outlives an activity. */
+/** Holds the accounts and the tabs for the life of the process, so the sessions outlive an activity. */
 class BipeApplication : Application() {
     val scope = MainScope()
     val accountStart: AccountStartModel by lazy { AccountStartModel(this, scope) }
+    val appTabs: AppTabsModel by lazy { AppTabsModel(accountStart, scope, getString(R.string.bipe_app_timeline_undecryptable)) }
 
     /** Spec push-registration. */
     val push: PushRegistration by lazy { PushRegistration(this, scope) }

@@ -25,6 +25,7 @@ import org.matrix.rustcomponents.sdk.RoomListLoadingState
 import org.matrix.rustcomponents.sdk.RoomListLoadingStateListener
 import org.matrix.rustcomponents.sdk.RoomNotificationMode
 import org.matrix.rustcomponents.sdk.TaskHandle
+import chat.bipe.app.voce.NotesRoom
 
 /** Type ChatSummary of spec chat-list. */
 data class ChatSummary(
@@ -35,16 +36,30 @@ data class ChatSummary(
     val lastActivity: Long?,
     val unreadCount: Int,
     val isDirect: Boolean,
+    /** Joined and invited members. Not in the spec type: it decides the scope. */
+    val memberCount: Int,
+    /** Unread mentions and replies, for the Grupos badge (spec app-tabs gruposAttention). */
+    val mentionCount: Int,
+    /** The other member of a DM, for the avatar account-type lookup. */
+    val peerUserId: String? = null,
     /** RoomInfo.isDm, the one DM test (ADR 0141). */
     val isDm: Boolean = false,
     val isMuted: Boolean = false,
-)
+) {
+    /** The scope that lists this chat: conversas holds rooms with two members, grupos rooms with more (ADR 0053). */
+    val scope: ChatScope
+        get() = if (memberCount > 2) ChatScope.GRUPOS else ChatScope.CONVERSAS
+}
+
+/** State scope of spec chat-list. */
+enum class ChatScope { CONVERSAS, GRUPOS }
 
 /** Spec chat-list (bipe-shared product/screens/chat-list.json). */
 class ChatListModel(
     val session: AccountSession,
     private val scope: CoroutineScope,
     private val undecryptableText: String,
+    val notes: NotesRoom,
 ) {
     enum class Phase { LOADING, EMPTY, LOADED }
 
@@ -65,6 +80,7 @@ class ChatListModel(
         if (started) return
         started = true
         scope.launch {
+            refreshNotes()
             val roomList = runCatching { session.syncService.roomListService().allRooms() }.getOrNull() ?: return@launch
             val loading = Channel<RoomListLoadingState>(Channel.UNLIMITED)
             runCatching {
@@ -103,10 +119,25 @@ class ChatListModel(
         }
     }
 
+    /** The phase of one scope: empty when the list loaded and the scope has no chat. */
+    fun phase(scope: ChatScope, phase: Phase, chats: List<ChatSummary>): Phase = when {
+        phase == Phase.LOADING -> Phase.LOADING
+        chats.any { it.scope == scope } -> Phase.LOADED
+        listLoaded -> Phase.EMPTY
+        else -> Phase.LOADING
+    }
+
     /** Action loadMore: the next page, when the list scrolls near its end. */
     fun loadMore() {
         entries?.controller()?.addOnePage()
     }
+
+    suspend fun refreshNotes() {
+        runCatching { notes.refresh() }
+        refreshSummaries()
+    }
+
+    suspend fun openNotes(title: String): String = try { notes.open(title) } finally { refreshSummaries() }
 
     fun close() {
         handles.forEach { it.cancel() }
@@ -121,7 +152,7 @@ class ChatListModel(
     private fun updatePhase() {
         _phase.value = when {
             _chats.value.isNotEmpty() -> Phase.LOADED
-            listLoaded && rooms.isEmpty() -> Phase.EMPTY
+            listLoaded -> Phase.EMPTY
             else -> Phase.LOADING
         }
     }
@@ -130,7 +161,7 @@ class ChatListModel(
         val snapshot = rooms.toList()
         summaryJob?.cancel()
         summaryJob = scope.launch {
-            _chats.value = snapshot.mapNotNull { summary(it) }
+            _chats.value = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
             updatePhase()
         }
     }
@@ -159,6 +190,9 @@ class ChatListModel(
             lastActivity = lastActivity,
             unreadCount = info.numUnreadMessages.toInt(),
             isDirect = info.isDirect,
+            memberCount = info.activeMembersCount.toInt(),
+            mentionCount = info.numUnreadMentions.toInt(),
+            peerUserId = if (info.isDirect) info.heroes.firstOrNull { it.userId != session.userId }?.userId else null,
             isDm = info.isDm,
             isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
         )

@@ -97,7 +97,13 @@ sealed interface SettingsRoute {
  * [SettingsRootSection] in its own list.
  */
 @Composable
-fun SettingsHost(session: AccountSession, api: BipeApiClient, onClose: () -> Unit, onSignedOut: () -> Unit) {
+fun SettingsHost(
+    session: AccountSession,
+    api: BipeApiClient,
+    onClose: () -> Unit,
+    onSignedOut: () -> Unit,
+    rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit) -> Unit)? = null,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val model = remember(session) { SettingsModel(context.applicationContext, session, api, scope) }
@@ -105,11 +111,17 @@ fun SettingsHost(session: AccountSession, api: BipeApiClient, onClose: () -> Uni
     val pop: () -> Unit = { if (stack.isEmpty()) onClose() else stack.removeAt(stack.lastIndex) }
     BackHandler(onBack = pop)
     LaunchedEffect(model) { model.load() }
+    // Action openGroup. notifications opens notification-settings (bipe-chat/bipe#566).
+    val openGroup: (BipeSettingsGroup) -> Unit = { group ->
+        stack.add(if (group == BipeSettingsGroup.NOTIFICATIONS) SettingsRoute.Notifications else SettingsRoute.Group(group))
+    }
     when (val route = stack.lastOrNull()) {
-        null -> SettingsPage(stringResource(R.string.bipe_settings_section), BipeScreen.SETTINGS_ROOT.id, onBack = onClose) {
-            SettingsRootSection(model) { group ->
-                // Action openGroup. notifications opens notification-settings (bipe-chat/bipe#566).
-                stack.add(if (group == BipeSettingsGroup.NOTIFICATIONS) SettingsRoute.Notifications else SettingsRoute.Group(group))
+        null -> {
+            if (rootContent != null) rootContent(model, openGroup)
+            else {
+                SettingsPage(stringResource(R.string.bipe_settings_section), BipeScreen.SETTINGS_ROOT.id, onBack = onClose) {
+                    SettingsRootSection(model, openGroup)
+                }
             }
         }
         is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut)

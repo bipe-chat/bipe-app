@@ -109,7 +109,11 @@ fun ChatTimelineScreen(
         undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable),
     )
     val model = remember(roomId) {
-        ChatTimelineModel(session, roomId, scope, InviterGreetings(context, session.userId), strings, sharesTyping = { sharesTyping(context) })
+        ChatTimelineModel(
+            session, roomId, scope, InviterGreetings(context, session.userId), strings,
+            sharesTyping = { sharesTyping(context) },
+            handleChanges = HandleChangeStores.store(context, session),
+        )
     }
     DisposableEffect(model) {
         model.start()

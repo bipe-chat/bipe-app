@@ -103,7 +103,7 @@ struct PersonProfileView: View {
     private var header: some View {
         VStack(spacing: 10) {
             AvatarView(name: model.person.displayName, mxcUrl: model.person.avatarUrl, loader: people.media,
-                       size: 96, isSquare: model.isCompany)
+                       size: 96, isCompany: model.isCompany)
             HStack(spacing: 6) {
                 Text(model.person.displayName)
                     .font(.title2.bold())

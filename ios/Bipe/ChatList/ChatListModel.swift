@@ -14,11 +14,28 @@ struct ChatSummary: Identifiable, Equatable {
     var lastActivity: Date?
     var unreadCount: Int
     var isDirect: Bool
+    /// Joined and invited members. Not in the spec type: it decides the scope.
+    var memberCount: Int
+    /// Unread mentions and replies, for the Grupos badge (spec app-tabs gruposAttention).
+    var mentionCount: Int
+    /// The other member of a DM, for the avatar account-type lookup. Groups keep their room avatar.
+    var peerUserId: String? = nil
     /// RoomInfo.isDm, the one DM test (ADR 0141).
     var isDm = false
     var isMuted = false
 
     var id: String { roomId }
+
+    /// The scope that lists this chat: conversas holds rooms with two members, grupos rooms with more (ADR 0053).
+    var scope: ChatScope {
+        memberCount > 2 ? .grupos : .conversas
+    }
+}
+
+/// State scope of spec chat-list.
+enum ChatScope: String, CaseIterable {
+    case conversas
+    case grupos
 }
 
 /// Spec chat-list (bipe-shared product/screens/chat-list.json).
@@ -37,6 +54,7 @@ final class ChatListModel: ObservableObject {
 
     let session: AccountSession
     let media: MediaLoader
+    let notes: NotesRoom
     private var rooms: [Room] = []
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult?
@@ -47,6 +65,18 @@ final class ChatListModel: ObservableObject {
     init(session: AccountSession) {
         self.session = session
         media = MediaLoader(client: session.client)
+        notes = NotesRoom(session: session)
+    }
+
+    /// The chats of one scope, in room list order.
+    func chats(in scope: ChatScope) -> [ChatSummary] {
+        chats.filter { $0.scope == scope }
+    }
+
+    /// The phase of one scope: empty when the list loaded and the scope has no chat.
+    func phase(in scope: ChatScope) -> Phase {
+        guard phase != .loading else { return .loading }
+        return chats.contains { $0.scope == scope } ? .loaded : (listLoaded ? .empty : .loading)
     }
 
     deinit {
@@ -58,6 +88,7 @@ final class ChatListModel: ObservableObject {
     func start() async {
         guard !started else { return }
         started = true
+        await refreshNotes()
         guard let roomList = try? await session.syncService.roomListService().allRooms() else { return }
 
         let loading = RoomListLoadingStream()
@@ -89,6 +120,16 @@ final class ChatListModel: ObservableObject {
         entries?.controller().addOnePage()
     }
 
+    func refreshNotes() async {
+        try? await notes.refresh()
+        refreshSummaries()
+    }
+
+    func openNotes() async throws -> String {
+        defer { refreshSummaries() }
+        return try await notes.open()
+    }
+
     private func onLoadingState(_ state: RoomListLoadingState) {
         if case .loaded = state {
             listLoaded = true
@@ -100,17 +141,18 @@ final class ChatListModel: ObservableObject {
         if !chats.isEmpty {
             phase = .loaded
         } else {
-            phase = listLoaded && rooms.isEmpty ? .empty : .loading
+            phase = listLoaded ? .empty : .loading
         }
     }
 
     private func refreshSummaries() {
         let rooms = rooms
+        let userId = session.userId
         summaryTask?.cancel()
         summaryTask = Task { [weak self] in
             var summaries: [ChatSummary] = []
             for room in rooms {
-                if let summary = await Self.summary(of: room) {
+                if room.id() != self?.notes.roomId, let summary = await Self.summary(of: room, ownUserId: userId) {
                     summaries.append(summary)
                 }
             }
@@ -120,7 +162,7 @@ final class ChatListModel: ObservableObject {
         }
     }
 
-    private static func summary(of room: Room) async -> ChatSummary? {
+    private static func summary(of room: Room, ownUserId: String) async -> ChatSummary? {
         guard let info = try? await room.roomInfo() else { return nil }
         var lastMessage: String?
         var lastActivity: Date?
@@ -140,6 +182,9 @@ final class ChatListModel: ObservableObject {
                            lastActivity: lastActivity,
                            unreadCount: Int(info.numUnreadMessages),
                            isDirect: info.isDirect,
+                           memberCount: Int(info.activeMembersCount),
+                           mentionCount: Int(info.numUnreadMentions),
+                           peerUserId: info.isDirect ? info.heroes.first(where: { $0.userId != ownUserId })?.userId : nil,
                            isDm: info.isDm,
                            isMuted: info.cachedUserDefinedNotificationMode == .mute)
     }

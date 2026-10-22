@@ -27,25 +27,41 @@ final class AccountSession {
     }
 
     /// Signs in with the hidden password (MAS compatibility login, m.login.password), saves the session and starts the sync.
+    /// Every step has a time limit (AccountStep).
     static func signIn(userId: String, password: String) async throws -> AccountSession {
         deleteStore(userId: userId)
-        let client = try await makeClient(userId: userId)
-        try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName, deviceId: nil)
+        let client = try await AccountStep.run("build client") { try await makeClient(userId: userId) }
+        try await AccountStep.run("login") {
+            try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName, deviceId: nil)
+        }
         SessionStore.save(try client.session())
         return try await start(client)
     }
 
-    /// Restores a saved session and starts the sync.
+    /// Restores a saved session and starts the sync. Every step has a time limit (AccountStep).
     static func restore(_ saved: Session) async throws -> AccountSession {
-        let client = try await makeClient(userId: saved.userId)
-        try await client.restoreSession(session: saved)
+        // The keychain outlives a deleted app, the SDK store does not: a session without its store cannot restore.
+        guard hasStore(userId: saved.userId) else { throw AccountStep.Failure.noStore }
+        let client = try await AccountStep.run("build client") { try await makeClient(userId: saved.userId) }
+        try await AccountStep.run("restore session") { try await client.restoreSession(session: saved) }
         return try await start(client)
     }
 
     private static func start(_ client: Client) async throws -> AccountSession {
-        let syncService = try await client.syncService().finish()
-        await syncService.start()
+        let syncService = try await AccountStep.run("sync service") {
+            let syncService = try await client.syncService().finish()
+            await syncService.start()
+            return syncService
+        }
         return AccountSession(client: client, syncService: syncService, userId: try client.userId())
+    }
+
+    /// true when the account's SDK store folder exists and holds files.
+    static func hasStore(userId: String) -> Bool {
+        let data = storeRoot().appendingPathComponent("Sessions", isDirectory: true)
+            .appendingPathComponent(folderName(userId: userId), isDirectory: true)
+        let contents = (try? FileManager.default.contentsOfDirectory(atPath: data.path)) ?? []
+        return !contents.isEmpty
     }
 
     /// The access token for bipe-api calls (spec handle-pick notes). Read each time: the SDK may refresh it.
@@ -54,10 +70,10 @@ final class AccountSession {
     }
 
     /// Signs out on the server and removes this account's session, store and hidden password from this phone.
-    func signOut() async {
-        try? await client.logout()
+    func signOut(alreadyLoggedOut: Bool = false) async {
+        if !alreadyLoggedOut { try? await client.logout() }
         await syncService.stop()
-        SessionStore.delete()
+        SessionStore.delete(userId: userId)
         BipeCredentialStore().deletePassword(for: userId)
         Self.deleteStore(userId: userId)
     }
@@ -91,13 +107,22 @@ final class AccountSession {
         try? FileManager.default.removeItem(at: paths.cache)
     }
 
-    private static func storePaths(userId: String) throws -> (data: URL, cache: URL) {
+    private static func storeRoot() -> URL {
         let fileManager = FileManager.default
-        let root = fileManager.containerURL(forSecurityApplicationGroupIdentifier: AppConfig.appGroup)
+        return fileManager.containerURL(forSecurityApplicationGroupIdentifier: AppConfig.appGroup)
             ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let folder = Data(userId.utf8).base64EncodedString()
+    }
+
+    private static func folderName(userId: String) -> String {
+        Data(userId.utf8).base64EncodedString()
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "+", with: "-")
+    }
+
+    private static func storePaths(userId: String) throws -> (data: URL, cache: URL) {
+        let fileManager = FileManager.default
+        let root = storeRoot()
+        let folder = folderName(userId: userId)
         let data = root.appendingPathComponent("Sessions", isDirectory: true).appendingPathComponent(folder, isDirectory: true)
         let cache = root.appendingPathComponent("Library/Caches/Sessions", isDirectory: true).appendingPathComponent(folder, isDirectory: true)
         try fileManager.createDirectory(at: data, withIntermediateDirectories: true)

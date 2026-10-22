@@ -62,6 +62,11 @@ struct TimelineRowView: View {
                 Rectangle().fill(BipeColor.accentFill).frame(height: 1)
             }
             .padding(.vertical, 6)
+        case .handleChange:
+            if let line = row.handleChange, let text = line.change.line(name: line.name) {
+                SystemLine(text: text)
+                    .accessibilityIdentifier(BipeScreen.handleChangeLine.rawValue)
+            }
         case .notEncrypted:
             SystemLine(text: BipeStrings.appTimelineNotEncrypted)
         case .chatStart:
