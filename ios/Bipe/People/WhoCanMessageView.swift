@@ -26,7 +26,7 @@ struct WhoCanMessageView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(Self.title(value))
                                     .foregroundStyle(BipeColor.inkPrimary)
-                                Text(Self.body(value))
+                                Text(Self.detail(value))
                                     .font(.footnote)
                                     .foregroundStyle(BipeColor.inkSecondary)
                             }
@@ -66,7 +66,7 @@ struct WhoCanMessageView: View {
         }
     }
 
-    static func body(_ value: BipeWhoCanMessage) -> String {
+    static func detail(_ value: BipeWhoCanMessage) -> String {
         switch value {
         case .everyone: BipeStrings.messagingEveryoneBody
         case .verified: BipeStrings.messagingVerifiedBody

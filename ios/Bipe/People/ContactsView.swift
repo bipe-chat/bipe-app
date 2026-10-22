@@ -122,7 +122,7 @@ final class ContactsModel: ObservableObject {
     /// E.164 to the name saved in the address book. Numbers that do not normalise and duplicates are dropped.
     nonisolated static func readAddressBook() -> [String: String] {
         let store = CNContactStore()
-        let keys = [CNContactFormatter.descriptorForRequiredKeys(for: .fullName), CNContactPhoneNumbersKey as CNKeyDescriptor]
+        let keys: [CNKeyDescriptor] = [CNContactFormatter.descriptorForRequiredKeys(for: .fullName), CNContactPhoneNumbersKey as CNKeyDescriptor]
         let request = CNContactFetchRequest(keysToFetch: keys)
         var names: [String: String] = [:]
         try? store.enumerateContacts(with: request) { contact, _ in

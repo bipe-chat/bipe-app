@@ -166,7 +166,7 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                         TextButton(onClick = ::check) { Text(stringResource(R.string.bipe_app_retry)) }
                     }
                     list.isNullOrEmpty() -> Text(stringResource(R.string.bipe_contacts_none), color = colors.inkSecondary)
-                    else -> list.forEach { match ->
+                    else -> list.orEmpty().forEach { match ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Avatar(match.person.displayName, match.person.avatarUrl, people.media, size = 40.dp)
                             Spacer(Modifier.width(12.dp))

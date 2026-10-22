@@ -196,7 +196,12 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit) {
                             originalName = trimmed
                         }
                         val photo = newPhoto
-                        if (photo != null) client.uploadAvatar("image/jpeg", photo) else if (removesPhoto) client.removeAvatar()
+                        if (photo != null) {
+                            client.uploadAvatar("image/jpeg", photo)
+                        } else if (removesPhoto) {
+                            client.removeAvatar()
+                        }
+                        Unit
                     }
                     saving = false
                     if (result.isSuccess) onBack() else failed = true
@@ -227,7 +232,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
     var savedOnce by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    fun apply(profile: BipeMyProfile) {
+    fun applyProfile(profile: BipeMyProfile) {
         enabled = profile.enabled
         handle = profile.handle
         name = profile.name
@@ -256,7 +261,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
     LaunchedEffect(Unit) {
         runCatching { people.withToken { people.api.myProfile(it) } }
             .onSuccess { profile ->
-                apply(profile)
+                applyProfile(profile)
                 savedOnce = profile.enabled
                 if (profile.name.isEmpty()) {
                     name = runCatching { people.session.client.displayName() }.getOrNull().orEmpty()
@@ -347,7 +352,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
                         profile
                     }.onSuccess {
                         newPhoto = null
-                        apply(it)
+                        applyProfile(it)
                         saved = true
                         savedOnce = true
                     }.onFailure { error = message(it) }
