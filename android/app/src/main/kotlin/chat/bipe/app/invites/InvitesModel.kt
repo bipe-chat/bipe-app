@@ -20,10 +20,13 @@ import chat.bipe.shared.api.nameInvite
 import chat.bipe.shared.api.revokeInvite
 import chat.bipe.shared.api.inviteConnections
 import chat.bipe.shared.invites.BipeInviteMemory
+import chat.bipe.shared.invites.deliverInviteNote
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,6 +56,7 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
     private val memory = BipeInviteMemory(context, session.userId)
     private val prefs = context.getSharedPreferences("bipe_native_invite_joins", Context.MODE_PRIVATE)
     private var busy = false
+    private var creating = false
     private var delivering = false
     private var job: Job? = null
 
@@ -67,7 +71,10 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
         }
     }
     fun close() { job?.cancel(); job = null }
-    fun beginCreate() { _state.value = _state.value.copy(created = null, error = null) }
+    fun beginCreate() {
+        if (creating) return
+        _state.value = _state.value.copy(created = null, error = null)
+    }
 
     suspend fun refresh() {
         if (busy) return
@@ -99,6 +106,9 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
 
     /** Retries keep the result of POST, then repeat only local persistence and the idempotent naming request. */
     suspend fun create(name: String, note: String) {
+        if (creating) return
+        currentCoroutineContext().ensureActive()
+        creating = true
         _state.value = _state.value.copy(error = null)
         try {
             val created = _state.value.created ?: withToken { api.createInvite(it) }.also {
@@ -109,6 +119,7 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
             refresh()
         } catch (error: CancellationException) { throw error }
         catch (error: Exception) { failure(error) }
+        finally { creating = false }
     }
 
     suspend fun setName(id: String, name: String) {
@@ -136,9 +147,11 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
                 val info = room.roomInfo()
                 if (info.membership != Membership.JOINED || !info.isDm || !room.isEncrypted()) continue
                 val timeline = room.timeline()
-                val note = memory.takeNote(invite.id) ?: continue
-                try { timeline.send(messageEventContentNew(MessageType.Text(TextMessageContent(note, null)))) }
-                catch (error: Exception) { memory.restoreNote(invite.id, note); if (error is CancellationException) throw error }
+                deliverInviteNote(
+                    claim = { memory.takeNote(invite.id) },
+                    restore = { memory.restoreNote(invite.id, it) },
+                    send = { timeline.send(messageEventContentNew(MessageType.Text(TextMessageContent(it, null)))); Unit },
+                )
                 } catch (error: CancellationException) { throw error }
                 catch (_: Exception) { /* A store or room that is not ready keeps its note for the next check. */ }
             }
