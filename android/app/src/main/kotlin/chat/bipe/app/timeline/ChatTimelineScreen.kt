@@ -4,12 +4,21 @@
 
 package chat.bipe.app.timeline
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,39 +27,38 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,20 +68,26 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.MediaLoader
-import chat.bipe.app.media.MediaViewer
-import chat.bipe.app.media.TimelineMediaRow
-import chat.bipe.app.media.VoiceMessageRow
-import chat.bipe.app.media.VoicePlayer
+import chat.bipe.shared.bipeHaptic
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.groups.DmDeleteSheet
-import chat.bipe.app.polls.PollCard
+import chat.bipe.app.media.MediaViewer
+import chat.bipe.app.media.VoicePlayer
 import chat.bipe.app.polls.PollCreateScreen
 import chat.bipe.app.polls.PollDetailScreen
 import chat.bipe.phosphor.PhosphorIcon
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.app.settings.SettingsKeys
 
-/** Spec chat-timeline. */
+/** Spec chat-timeline, with the rows of timeline-rows and the interactions of the message specs. */
 @Composable
 fun ChatTimelineScreen(
     session: AccountSession,
@@ -86,29 +100,48 @@ fun ChatTimelineScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val model = remember(roomId) { ChatTimelineModel(session, roomId, scope, InviterGreetings(context, session.userId)) }
+    val view = LocalView.current
+    val strings = RowStrings(
+        you = stringResource(R.string.bipe_app_you),
+        deleted = stringResource(R.string.bipe_app_message_deleted),
+        deletedOwn = stringResource(R.string.bipe_app_message_deleted_own),
+        undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable),
+        label = { context.getString(it) },
+    )
+    val model = remember(roomId) {
+        ChatTimelineModel(session, roomId, scope, InviterGreetings(context, session.userId), strings, sharesTyping = { sharesTyping(context) })
+    }
     DisposableEffect(model) {
         model.start()
         onDispose { model.close() }
     }
     val colors = BipeTheme.colors
     val roomName by model.roomName.collectAsState()
-    val allMessages by model.messages.collectAsState()
+    val allRows by model.rows.collectAsState()
     val markers by ClearedChatsStore.markers.collectAsState()
     // Spec dm-delete: events at or below the marker of a cleared DM are gone.
-    val messages = remember(allMessages, markers) {
+    val rows = remember(allRows, markers) {
         val marker = markers.marker(roomId)
-        if (marker == null) allMessages else allMessages.filter { it.sentAt > marker }
+        if (marker == null) allRows else allRows.filter { row -> row.message?.let { it.sentAt > marker } ?: true }
     }
     val isLoadingHistory by model.isLoadingHistory.collectAsState()
     val reachedStart by model.reachedStart.collectAsState()
+    val isDm by model.isDm.collectAsState()
     val draft by model.draft.collectAsState()
+    val ui by model.ui.collectAsState()
+    val inviterHint by model.inviterHint.collectAsState()
+    val messages by model.messages.collectAsState()
+    val isPrivateRoom by model.isPrivateRoom.collectAsState()
+    // Spec voice-message: one player per chat; it stops when the chat closes.
+    val voicePlayer = remember(roomId) { VoicePlayer(context.applicationContext, media, scope) }
+    val voiceState by voicePlayer.state.collectAsState()
+    DisposableEffect(voicePlayer) { onDispose { voicePlayer.stop() } }
+    var viewerRowId by rememberSaveable { mutableStateOf<String?>(null) }
+    val greeting = stringResource(R.string.bipe_inviter_greeting)
+    val listState = rememberLazyListState()
     // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).
     val isGroup by produceState(false, roomId) {
         value = runCatching { session.client.getRoom(roomId)?.roomInfo() }.getOrNull()?.let { !it.isDm && !it.isSpace } ?: false
-    }
-    val isDm by produceState(false, roomId) {
-        value = runCatching { session.client.getRoom(roomId)?.roomInfo() }.getOrNull()?.isDm ?: false
     }
     var dmMenu by remember { mutableStateOf(false) }
     var deletingDm by rememberSaveable { mutableStateOf(false) }
@@ -118,14 +151,6 @@ fun ChatTimelineScreen(
             onDmDeleted()
         })
     }
-    val isPrivateRoom by model.isPrivateRoom.collectAsState()
-    val inviterHint by model.inviterHint.collectAsState()
-    val greeting = stringResource(R.string.bipe_inviter_greeting)
-    val listState = rememberLazyListState()
-    val voicePlayer = remember(roomId) { VoicePlayer(context.applicationContext, media, scope) }
-    val voiceState by voicePlayer.state.collectAsState()
-    DisposableEffect(voicePlayer) { onDispose { voicePlayer.stop() } }
-    var viewerRowId by rememberSaveable { mutableStateOf<String?>(null) }
     var creatingPoll by rememberSaveable { mutableStateOf(false) }
     var openPollId by rememberSaveable { mutableStateOf<String?>(null) }
     if (creatingPoll) {
@@ -137,117 +162,190 @@ fun ChatTimelineScreen(
         return
     }
 
-    // The list is reversed: index 0 is the newest message, so the view opens at the bottom.
-    val newestFirst = remember(messages) { messages.asReversed() }
-    LaunchedEffect(messages.lastOrNull()?.id) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(0)
+    // The list is reversed: index 0 is the newest row, so the view opens at the bottom.
+    val newestFirst = remember(rows) { rows.asReversed() }
+    LaunchedEffect(rows.lastOrNull()?.id) {
+        if (rows.isNotEmpty()) listState.animateScrollToItem(0)
+    }
+    // Action markAsRead: while the newest row is on screen.
+    val atNewest by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
+    LaunchedEffect(atNewest, rows.lastOrNull()?.id) {
+        if (atNewest && rows.isNotEmpty()) model.markAsRead()
+    }
+    LaunchedEffect(ui.scrollTarget) {
+        val target = ui.scrollTarget ?: return@LaunchedEffect
+        val index = newestFirst.indexOfFirst { it.id == target }
+        if (index >= 0) listState.animateScrollToItem(index)
+        model.scrolledToTarget()
     }
 
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_TIMELINE.id), color = colors.surfaceBase) {
-        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
-                }
-                Avatar(roomName, null, media, size = 32.dp)
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    roomName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.inkPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (isGroup && onOpenGroupDetails != null) {
-                    IconButton(onClick = onOpenGroupDetails) {
-                        Icon(
-                            painterResource(PhosphorIcon.INFO.drawable),
-                            contentDescription = stringResource(R.string.bipe_app_group_details_title),
-                            tint = colors.glyphPrimary,
-                        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
                     }
-                }
-                if (isDm) {
-                    Box {
-                        IconButton(onClick = { dmMenu = true }) {
+                    Avatar(roomName, null, media, size = 32.dp)
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        roomName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colors.inkPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (isGroup && onOpenGroupDetails != null) {
+                        IconButton(onClick = onOpenGroupDetails) {
                             Icon(
                                 painterResource(PhosphorIcon.INFO.drawable),
-                                contentDescription = stringResource(R.string.bipe_dm_details_title),
+                                contentDescription = stringResource(R.string.bipe_app_group_details_title),
                                 tint = colors.glyphPrimary,
                             )
                         }
-                        DropdownMenu(expanded = dmMenu, onDismissRequest = { dmMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) },
-                                onClick = {
-                                    dmMenu = false
-                                    deletingDm = true
-                                },
-                            )
+                    }
+                    if (isDm) {
+                        Box {
+                            IconButton(onClick = { dmMenu = true }) {
+                                Icon(
+                                    painterResource(PhosphorIcon.INFO.drawable),
+                                    contentDescription = stringResource(R.string.bipe_dm_details_title),
+                                    tint = colors.glyphPrimary,
+                                )
+                            }
+                            DropdownMenu(expanded = dmMenu, onDismissRequest = { dmMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) },
+                                    onClick = {
+                                        dmMenu = false
+                                        deletingDm = true
+                                    },
+                                )
+                            }
                         }
                     }
                 }
-            }
-            LazyColumn(
-                state = listState,
-                reverseLayout = true,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                items(newestFirst, key = { it.id }) { message ->
-                    // Media and voice rows live in media/ (specs timeline-media, voice-message).
-                    val item = message.media
-                    val voice = message.voice
-                    when {
-                        item != null -> TimelineMediaRow(
-                            message = message,
-                            media = item,
-                            loader = media,
+                LazyColumn(
+                    state = listState,
+                    reverseLayout = true,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(newestFirst, key = { it.id }) { row ->
+                        TimelineRowItem(
+                            row = row,
+                            isDm = isDm,
+                            isHighlighted = ui.highlightedRowId == row.id,
+                            model = model,
+                            media = media,
+                            onLongPress = { if (model.openActions(row.id)) view.bipeHaptic(BipeHaptic.Hold) },
+                            onHistoryHelp = onHistoryHelp,
+                            onOpenPoll = { openPollId = it },
                             isPrivateRoom = isPrivateRoom,
-                            onOpenViewer = { viewerRowId = message.id },
-                            onCancelUpload = { model.cancelUpload(message.id) },
-                            onRetrySend = { model.retrySend(message.id) },
+                            voiceState = voiceState,
+                            onTogglePlay = voicePlayer::togglePlay,
+                            onSeek = voicePlayer::seek,
+                            onOpenViewer = { viewerRowId = it },
                         )
-                        voice != null -> VoiceMessageRow(
-                            message = message,
-                            voice = voice,
-                            state = voiceState,
-                            onTogglePlay = { voicePlayer.togglePlay(message.id, voice) },
-                            onSeek = { voicePlayer.seek(message.id, it) },
-                            onRetrySend = { model.retrySend(message.id) },
-                        )
-                        else -> MessageRow(message, onRetry = { model.retrySend(message.id) }, onHistoryHelp = onHistoryHelp, onOpenPoll = { openPollId = it })
+                    }
+                    item(key = "history") {
+                        // Composed while the top of the list is on screen, again after each page (action loadHistory).
+                        LaunchedEffect(rows.size) { model.loadHistory() }
+                        if (isLoadingHistory && !reachedStart) {
+                            Text(
+                                stringResource(R.string.bipe_app_timeline_loading_history),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.inkSecondary,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                textAlign = TextAlign.Center,
+                            )
+                        } else {
+                            Spacer(Modifier.size(1.dp))
+                        }
                     }
                 }
-                item(key = "history") {
-                    // Composed while the top of the list is on screen, again after each page (action loadHistory).
-                    LaunchedEffect(messages.size) { model.loadHistory() }
-                    val text = when {
-                        reachedStart -> stringResource(R.string.bipe_app_timeline_start)
-                        isLoadingHistory -> stringResource(R.string.bipe_app_timeline_loading_history)
-                        else -> null
-                    }
-                    if (text != null) {
-                        Text(
-                            text,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.inkSecondary,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                            textAlign = TextAlign.Center,
-                        )
-                    } else {
-                        Spacer(Modifier.size(1.dp))
-                    }
-                }
+                inviterHint?.let { hint -> InviterHintRow(hint, roomName) { model.sendGreeting(greeting) } }
+                TypingLine(ui.typingNames)
+                ComposerBar(
+                    draft = draft,
+                    canSend = model.canSend,
+                    ui = ui,
+                    onEdit = model::editDraft,
+                    onSend = {
+                        if (ui.editing == null) view.bipeHaptic(BipeHaptic.Tap)
+                        model.send()
+                    },
+                    onCancelReply = model::cancelReply,
+                    onCancelEdit = model::cancelEdit,
+                    onCreatePoll = { creatingPoll = true },
+                )
             }
-            inviterHint?.let { hint -> InviterHintRow(hint, roomName) { model.sendGreeting(greeting) } }
-            Composer(draft, canSend = draft.isNotBlank(), onEdit = model::editDraft, onSend = model::send, onCreatePoll = { creatingPoll = true })
+            ui.notice?.let { notice ->
+                Text(
+                    noticeText(notice),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.inkPrimary,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 110.dp)
+                        .background(colors.surfaceRaised, CircleShape)
+                        .border(1.dp, colors.lineSubtle, CircleShape)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            }
         }
+    }
+
+    model.row(ui.actionsRowId)?.let { row ->
+        MessageActionsSheet(
+            model = model,
+            row = row,
+            onCopy = { text -> copyToClipboard(context, text) },
+            onHaptic = { view.bipeHaptic(it) },
+        )
+    }
+    if (ui.pickerOpenFor != null) {
+        EmojiPickerSheet(
+            onPick = { key ->
+                view.bipeHaptic(BipeHaptic.Tick)
+                model.pickEmoji(key)
+            },
+            onDismiss = model::closePicker,
+        )
+    }
+    ui.reactionSheet?.let { ReactionSendersSheet(it, onDismiss = model::closeSenders) }
+    ui.readersSheet?.let { ReadersSheet(it, media, onDismiss = model::closeReaders) }
+    ui.report?.let { report ->
+        MessageReportSheet(
+            report = report,
+            onReason = model::editReportReason,
+            onAlsoBlock = model::setReportAlsoBlock,
+            onSend = model::sendReport,
+            onCancel = model::cancelReport,
+        )
+    }
+    if (ui.confirmDeleteRowId != null) {
+        AlertDialog(
+            onDismissRequest = model::cancelDelete,
+            title = { Text(stringResource(R.string.bipe_app_message_delete_title)) },
+            text = { Text(stringResource(R.string.bipe_app_message_delete_body)) },
+            confirmButton = {
+                TextButton(onClick = model::confirmDelete) {
+                    Text(stringResource(R.string.bipe_app_message_action_delete), color = colors.trustDangerInk)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = model::cancelDelete) { Text(stringResource(R.string.bipe_app_cancel)) }
+            },
+            containerColor = colors.surfaceRaised,
+            titleContentColor = colors.inkPrimary,
+            textContentColor = colors.inkSecondary,
+        )
     }
     viewerRowId?.let { rowId ->
         MediaViewer(
@@ -260,94 +358,169 @@ fun ChatTimelineScreen(
     }
 }
 
+/** Spec typing-indicator sharesTyping: the presence setting (bipe_privacy_presence). On unless turned off. */
+private fun sharesTyping(context: Context): Boolean =
+    context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE).getBoolean(SettingsKeys.SHARE_PRESENCE, true)
+
+private fun copyToClipboard(context: Context, text: String) {
+    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(null, text))
+}
+
 @Composable
-private fun MessageRow(message: TimelineMessage, onRetry: () -> Unit, onHistoryHelp: () -> Unit, onOpenPoll: (String) -> Unit) {
+private fun noticeText(notice: TimelineNotice): String = when (notice) {
+    TimelineNotice.COPIED -> stringResource(R.string.bipe_app_copied)
+    TimelineNotice.REACTION_FAILED -> stringResource(R.string.bipe_app_reaction_failed)
+    TimelineNotice.EDIT_FAILED -> stringResource(R.string.bipe_app_message_edit_failed)
+    TimelineNotice.DELETE_FAILED -> stringResource(R.string.bipe_app_message_delete_failed)
+    TimelineNotice.REPORTED -> stringResource(R.string.bipe_app_message_reported)
+}
+
+/** Spec typing-indicator: who is typing, above the composer. */
+@Composable
+private fun TypingLine(names: List<String>) {
     val colors = BipeTheme.colors
-    when (message.kind) {
-        TimelineMessage.Kind.TEXT -> Bubble(message.isOwn) {
-            if (!message.isOwn) {
-                Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
-            }
-            Text(message.body.orEmpty(), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
-            when (message.sendState) {
-                TimelineMessage.SendState.SENT -> Unit
-                TimelineMessage.SendState.SENDING -> Text(
-                    stringResource(R.string.bipe_app_timeline_sending),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.inkSecondary,
+    val text = when (names.size) {
+        0 -> return
+        1 -> stringResource(R.string.bipe_app_typing_one, names[0])
+        2 -> stringResource(R.string.bipe_app_typing_two, names[0], names[1])
+        else -> stringResource(R.string.bipe_app_typing_many, names[0])
+    }
+    val view = LocalView.current
+    // Screen readers announce the line once when it appears, not on every change.
+    LaunchedEffect(Unit) { view.announceForAccessibility(text) }
+    val transition = rememberInfiniteTransition(label = "typing")
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            repeat(3) { index ->
+                val alpha by transition.animateFloat(
+                    initialValue = 0.35f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(tween(600, delayMillis = index * 200), RepeatMode.Reverse),
+                    label = "dot$index",
                 )
-                TimelineMessage.SendState.FAILED -> Row(
-                    modifier = Modifier.clickable(onClick = onRetry),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustDangerInk, modifier = Modifier.size(14.dp))
-                    Text(stringResource(R.string.bipe_app_timeline_failed), style = MaterialTheme.typography.labelSmall, color = colors.trustDangerInk)
-                }
+                Box(Modifier.size(5.dp).alpha(alpha).background(colors.glyphSecondary, CircleShape))
             }
         }
-        TimelineMessage.Kind.UNDECRYPTABLE -> Bubble(message.isOwn, Modifier.testTag(BipeScreen.MESSAGE_UNDECRYPTABLE.id)) {
-            if (!message.isOwn) {
-                Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(painterResource(PhosphorIcon.LOCK_SIMPLE.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(14.dp).padding(top = 2.dp))
-                Text(undecryptableText(message), style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = colors.inkSecondary)
-            }
-            // Action openHelp: only historyNotOnThisPhone has a way to help.
-            if (message.cause == TimelineMessage.UndecryptableCause.HISTORY_NOT_ON_THIS_PHONE) {
-                Text(
-                    stringResource(R.string.bipe_app_utd_help),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.accentInk,
-                    modifier = Modifier.clickable(onClick = onHistoryHelp),
-                )
-            }
-        }
-        TimelineMessage.Kind.POLL -> message.poll?.let { poll ->
-            Box(Modifier.clickable { onOpenPoll(poll.eventId) }) {
-                Bubble(message.isOwn) {
-                    if (!message.isOwn) {
-                        Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
-                    }
-                    PollCard(poll)
-                }
-            }
-        }
-        // ChatTimelineScreen shows these with TimelineMediaRow and VoiceMessageRow.
-        TimelineMessage.Kind.MEDIA, TimelineMessage.Kind.VOICE -> Unit
-        // The slice shows text only (spec chat-timeline notes). bipe-shared has no string for other events yet.
-        TimelineMessage.Kind.UNSUPPORTED -> Unit
+        Text(text, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
-/** Spec message-undecryptable: the cause in plain words. */
+/** The composer with the reply bar (message-reply) and the edit bar (message-edit). */
 @Composable
-private fun undecryptableText(message: TimelineMessage): String = when (message.cause) {
-    TimelineMessage.UndecryptableCause.BEFORE_JOINED -> stringResource(R.string.bipe_app_utd_before_joined)
-    TimelineMessage.UndecryptableCause.HISTORY_NOT_ON_THIS_PHONE -> stringResource(R.string.bipe_app_utd_history)
-    TimelineMessage.UndecryptableCause.NOT_SHARED_WITH_THIS_PHONE -> stringResource(R.string.bipe_app_utd_not_shared)
-    TimelineMessage.UndecryptableCause.UNAPPROVED_SENDER_DEVICE -> stringResource(R.string.bipe_app_utd_unapproved_device, message.senderName)
-    TimelineMessage.UndecryptableCause.WAITING, null -> stringResource(R.string.bipe_app_timeline_undecryptable)
-}
-
-@Composable
-private fun Bubble(isOwn: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+private fun ComposerBar(
+    draft: String,
+    canSend: Boolean,
+    ui: TimelineInteractions,
+    onEdit: (String) -> Unit,
+    onSend: () -> Unit,
+    onCancelReply: () -> Unit,
+    onCancelEdit: () -> Unit,
+    onCreatePoll: () -> Unit,
+) {
     val colors = BipeTheme.colors
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = if (isOwn) Arrangement.End else Arrangement.Start) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 300.dp)
-                .background(if (isOwn) colors.bubbleOwn else colors.bubbleOther, RoundedCornerShape(16.dp))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(ui.replyingToRowId, ui.editing) {
+        if (ui.replyingToRowId != null || ui.editing != null) runCatching { focus.requestFocus() }
+    }
+    Column(modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised)) {
+        val reply = ui.replyingTo
+        val editing = ui.editing
+        if (reply != null) {
+            ComposerContextBar(
+                icon = PhosphorIcon.ARROW_BEND_UP_LEFT,
+                title = stringResource(R.string.bipe_app_message_replying_to, reply.senderName.orEmpty()),
+                preview = reply.preview,
+                onClose = onCancelReply,
+            )
+        } else if (editing != null) {
+            ComposerContextBar(
+                icon = PhosphorIcon.PENCIL_SIMPLE,
+                title = stringResource(R.string.bipe_app_message_editing),
+                preview = editing.originalText,
+                onClose = onCancelEdit,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            content()
+            // Opens poll-create (the attach menu comes with the composer spec, bipe-chat/bipe#563).
+            if (editing == null) {
+                IconButton(onClick = onCreatePoll) {
+                    Icon(
+                        painterResource(PhosphorIcon.CHART_BAR.drawable),
+                        contentDescription = stringResource(R.string.bipe_app_poll_create_title),
+                        tint = colors.glyphPrimary,
+                    )
+                }
+            }
+            val placeholder = stringResource(R.string.bipe_app_timeline_composer_placeholder)
+            BasicTextField(
+                value = draft,
+                onValueChange = onEdit,
+                maxLines = 5,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.inkPrimary),
+                cursorBrush = SolidColor(colors.accentFill),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focus)
+                    .background(colors.surfaceSunken, RoundedCornerShape(20.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                decorationBox = { inner ->
+                    Box {
+                        if (draft.isEmpty()) {
+                            Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
+                        }
+                        inner()
+                    }
+                },
+            )
+            IconButton(
+                onClick = onSend,
+                enabled = canSend,
+                modifier = Modifier.background(if (canSend) colors.accentFill else colors.surfaceSunken, CircleShape),
+            ) {
+                Icon(
+                    painterResource(if (editing == null) PhosphorIcon.PAPER_PLANE_RIGHT.drawable else PhosphorIcon.CHECK.drawable),
+                    contentDescription = stringResource(if (editing == null) R.string.bipe_app_timeline_send else R.string.bipe_app_message_save_edit),
+                    tint = if (canSend) colors.inkOnAccent else colors.inkDisabled,
+                )
+            }
         }
     }
 }
 
-/** signup-done notes: until the inviter's note arrives, the chat says the inviter knows, with a one-tap greeting. */
+@Composable
+private fun ComposerContextBar(icon: PhosphorIcon, title: String, preview: String?, onClose: () -> Unit) {
+    val colors = BipeTheme.colors
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(18.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
+            if (preview != null) {
+                Text(preview, style = MaterialTheme.typography.labelMedium, color = colors.inkSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        IconButton(onClick = onClose) {
+            Icon(
+                painterResource(PhosphorIcon.X.drawable),
+                contentDescription = stringResource(R.string.bipe_app_cancel),
+                tint = colors.glyphSecondary,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
 @Composable
 private fun InviterHintRow(hint: InviterGreetings.Greeting, inviterName: String, greet: () -> Unit) {
     val colors = BipeTheme.colors
@@ -368,56 +541,6 @@ private fun InviterHintRow(hint: InviterGreetings.Greeting, inviterName: String,
                 style = MaterialTheme.typography.titleSmall,
                 color = colors.inkOnAccent,
                 modifier = Modifier.background(colors.accentFill, CircleShape).clickable(onClick = greet).padding(horizontal = 12.dp, vertical = 6.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun Composer(draft: String, canSend: Boolean, onEdit: (String) -> Unit, onSend: () -> Unit, onCreatePoll: () -> Unit) {
-    val colors = BipeTheme.colors
-    Row(
-        modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised).padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        // Opens poll-create (the attach menu comes with the composer spec, bipe-chat/bipe#563).
-        IconButton(onClick = onCreatePoll) {
-            Icon(
-                painterResource(PhosphorIcon.CHART_BAR.drawable),
-                contentDescription = stringResource(R.string.bipe_app_poll_create_title),
-                tint = colors.glyphPrimary,
-            )
-        }
-        val placeholder = stringResource(R.string.bipe_app_timeline_composer_placeholder)
-        BasicTextField(
-            value = draft,
-            onValueChange = onEdit,
-            maxLines = 5,
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.inkPrimary),
-            cursorBrush = SolidColor(colors.accentFill),
-            modifier = Modifier
-                .weight(1f)
-                .background(colors.surfaceSunken, RoundedCornerShape(20.dp))
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            decorationBox = { inner ->
-                Box {
-                    if (draft.isEmpty()) {
-                        Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
-                    }
-                    inner()
-                }
-            },
-        )
-        IconButton(
-            onClick = onSend,
-            enabled = canSend,
-            modifier = Modifier.background(if (canSend) colors.accentFill else colors.surfaceSunken, CircleShape),
-        ) {
-            Icon(
-                painterResource(PhosphorIcon.PAPER_PLANE_RIGHT.drawable),
-                contentDescription = stringResource(R.string.bipe_app_timeline_send),
-                tint = if (canSend) colors.inkOnAccent else colors.inkDisabled,
             )
         }
     }

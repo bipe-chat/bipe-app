@@ -1,0 +1,449 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+// Copyright 2026 Bipe contributors
+
+import BipeKit
+import Foundation
+import MatrixRustSDK
+
+/// The way back into an existing account (ADR 0057, ADR 0059): recovery-start, recovery-pin, recovery-email and
+/// recovery-waiting (bipe-shared product/screens). account-start shows it from onboarding-welcome ("Já tenho conta")
+/// and while a kept recovery waits. Every path gives access only: message history needs encryption-status.
+@MainActor
+final class RecoveryFlowModel: ObservableObject {
+    enum Route: Hashable {
+        case pin
+        case email
+        case beta
+        case waiting
+    }
+
+    /// Spec recovery-pin, state factor.
+    enum Factor: Equatable {
+        case token
+        case emailLink
+    }
+
+    /// Spec recovery-pin, state phase. newPin and newPinConfirm are the signup-pin steps of forgotPin.
+    enum PinPhase: Equatable {
+        case editing
+        case checking
+        case wrong
+        case blocked
+        case failed
+        case newPin
+        case newPinConfirm
+    }
+
+    /// Spec recovery-email, state phase.
+    enum EmailPhase: Equatable {
+        case editing
+        case sending
+        case sent
+        case failed
+    }
+
+    /// Spec recovery-waiting, state phase.
+    enum WaitingPhase: Equatable {
+        case waiting
+        case claiming
+        case ready
+        case cancelled
+        case expired
+        case failed
+    }
+
+    @Published var path: [Route] = []
+
+    // recovery-start
+    @Published private(set) var rows: [BipeOnboardingRecoveryRow] = []
+    @Published private(set) var hasSyncedToken = false
+
+    // recovery-pin
+    @Published private(set) var factor: Factor = .token
+    @Published private(set) var pin = ""
+    @Published private(set) var pinPhase: PinPhase = .editing
+    @Published private(set) var triesLeft: Int?
+    @Published private(set) var pinError: String?
+    @Published private(set) var newPinProblem: BipePinProblem?
+    @Published private(set) var newPinMismatch = false
+
+    // recovery-email
+    @Published private(set) var email = ""
+    @Published private(set) var emailPhase: EmailPhase = .editing
+    @Published private(set) var emailInvalid = false
+    @Published private(set) var emailError: String?
+
+    // beta sign-in (recovery-start action chooseBeta)
+    @Published private(set) var betaEmail = ""
+    @Published private(set) var betaPassword = ""
+    @Published private(set) var betaBusy = false
+    @Published private(set) var betaError: String?
+
+    // recovery-waiting
+    @Published private(set) var pending: BipeRecoveryStarted?
+    @Published private(set) var waitingPhase: WaitingPhase = .waiting
+
+    let api: BipeAPIClient
+    /// Reads the app's own group and the fork's group; writes only the app's own group (ADR 0147).
+    private let store = BipeCredentialStore()
+    private let onSignedIn: (AccountSession) -> Void
+    private var token: BipeCredentialStore.Item?
+    private var linkToken: String?
+    private var newPin = ""
+    private var pollTask: Task<Void, Never>?
+
+    init(api: BipeAPIClient, onSignedIn: @escaping (AccountSession) -> Void) {
+        self.api = api
+        self.onSignedIn = onSignedIn
+        pending = store.pendingRecovery()
+        if pending != nil {
+            path = [.waiting]
+        }
+    }
+
+    deinit {
+        pollTask?.cancel()
+    }
+
+    // MARK: - recovery-start
+
+    /// Action appear: reads the synced store for a recovery token and sets the rows.
+    func appear() {
+        let signedIn = Set([SessionStore.load()?.userId].compactMap { $0 })
+        token = store.recoveryToken(excluding: signedIn)
+        hasSyncedToken = token != nil
+        rows = BipeOnboardingRecoveryRow.allCases.filter { row in
+            row.gate == nil && (!row.needsSyncedToken || hasSyncedToken)
+        }
+    }
+
+    /// Actions chooseToken, chooseEmail and chooseBeta. chooseOldPhone stays hidden until bipe-chat/bipe#203.
+    func choose(_ row: BipeOnboardingRecoveryRow) {
+        switch row {
+        case .token:
+            openPin(.token)
+        case .email:
+            emailPhase = .editing
+            emailError = nil
+            path.append(.email)
+        case .beta:
+            betaError = nil
+            path.append(.beta)
+        case .oldPhone:
+            break
+        }
+    }
+
+    // MARK: - recovery-pin
+
+    private func openPin(_ factor: Factor) {
+        self.factor = factor
+        pin = ""
+        pinPhase = .editing
+        triesLeft = nil
+        pinError = nil
+        newPinProblem = nil
+        newPinMismatch = false
+        if path.last != .pin {
+            path.append(.pin)
+        }
+    }
+
+    /// Actions typeDigit and deleteDigit, through the system digit keyboard. At pinLength digits, submits.
+    func editPin(_ text: String) {
+        guard pinPhase != .checking, pinPhase != .blocked else { return }
+        let digits = String(BipePIN.sanitize(text).prefix(BipeRegistries.pinLength))
+        pin = digits
+        if pinPhase == .wrong || pinPhase == .failed {
+            pinPhase = .editing
+            pinError = nil
+        }
+        newPinProblem = nil
+        newPinMismatch = false
+        guard digits.count == BipeRegistries.pinLength else { return }
+        switch pinPhase {
+        case .newPin:
+            if let problem = BipePIN.problem(for: digits) {
+                newPinProblem = problem
+                pin = ""
+            } else {
+                newPin = digits
+                pin = ""
+                pinPhase = .newPinConfirm
+            }
+        case .newPinConfirm:
+            if digits == newPin {
+                Task { await submitNewPin() }
+            } else {
+                newPinMismatch = true
+                newPin = ""
+                pin = ""
+                pinPhase = .newPin
+            }
+        default:
+            Task { await submit() }
+        }
+    }
+
+    /// Action submit.
+    func submit() async {
+        guard pin.count == BipeRegistries.pinLength else { return }
+        pinPhase = .checking
+        do {
+            switch factor {
+            case .token:
+                guard let token else { throw BipeAPIError.server(.recoveryInvalid, reason: nil, statusCode: 403) }
+                let credentials = try await api.recoverWithToken(token.secret, pin: pin)
+                pin = ""
+                try await signIn(credentials)
+            case .emailLink:
+                guard let linkToken else { throw BipeAPIError.server(.recoveryInvalid, reason: nil, statusCode: 403) }
+                let started = try await api.confirmRecoveryEmail(linkToken: linkToken, pin: pin, newPIN: nil)
+                pin = ""
+                startWaiting(started)
+            }
+        } catch let error as BipeAPIError {
+            pin = ""
+            handlePinError(error)
+        } catch {
+            pin = ""
+            pinPhase = .failed
+            pinError = BipeStrings.errorGeneric
+        }
+    }
+
+    /// Action forgotPin: emailLink asks for a new PIN (a pin_reset recovery); token opens recovery-email,
+    /// because the PIN resets only through the recovery e-mail.
+    func forgotPin() {
+        switch factor {
+        case .emailLink:
+            pin = ""
+            newPin = ""
+            pinError = nil
+            pinPhase = .newPin
+        case .token:
+            choose(.email)
+        }
+    }
+
+    private func submitNewPin() async {
+        guard let linkToken else { return }
+        pinPhase = .checking
+        do {
+            let started = try await api.confirmRecoveryEmail(linkToken: linkToken, pin: nil, newPIN: newPin)
+            newPin = ""
+            pin = ""
+            startWaiting(started)
+        } catch let error as BipeAPIError {
+            pin = ""
+            if case .server(.pinWeak, let reason, _) = error {
+                newPinProblem = reason.flatMap(BipePinProblem.init(rawValue:)) ?? .sequence
+                newPin = ""
+                pinPhase = .newPin
+            } else {
+                handlePinError(error)
+            }
+        } catch {
+            pinPhase = .failed
+            pinError = BipeStrings.errorGeneric
+        }
+    }
+
+    private func handlePinError(_ error: BipeAPIError) {
+        switch error {
+        case .server(.pinWrong, _, _):
+            triesLeft = error.pinTriesLeft
+            pinPhase = .wrong
+            pinError = BipeStrings.pinWrong(String(triesLeft ?? 0))
+        case .server(.pinBlocked, _, _):
+            pinPhase = .blocked
+            pinError = nil
+        case .server(.recoveryInvalid, _, _):
+            pinPhase = .failed
+            pinError = BipeStrings.errorRecoveryInvalid
+            // Spec notes: an old or revoked synced token is deleted; recovery-start shows without the token row.
+            if factor == .token, let token {
+                store.deleteRecoveryToken(for: token.userID)
+                self.token = nil
+                appear()
+            }
+        case .server(.rateLimited, _, _):
+            pinPhase = .failed
+            pinError = BipeStrings.errorRateLimited
+        case .network:
+            pinPhase = .failed
+            pinError = BipeStrings.errorNetwork
+        default:
+            pinPhase = .failed
+            pinError = BipeStrings.errorGeneric
+        }
+    }
+
+    /// From a recovery_invalid on the token path: back to recovery-start.
+    func backToStart() {
+        path = []
+        appear()
+    }
+
+    // MARK: - recovery-email
+
+    /// Action editEmail.
+    func editEmail(_ text: String) {
+        email = text
+        emailInvalid = false
+        if emailPhase == .failed {
+            emailPhase = .editing
+            emailError = nil
+        }
+    }
+
+    /// Action send: checks the address locally, then POST /v1/recovery/email.
+    func sendEmail() async {
+        let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Self.isPlausibleEmail(address) else {
+            emailInvalid = true
+            return
+        }
+        emailPhase = .sending
+        do {
+            try await api.requestRecoveryEmail(address)
+            emailPhase = .sent
+        } catch {
+            emailPhase = .failed
+            switch error {
+            case .server(.rateLimited, _, _): emailError = BipeStrings.errorRateLimited
+            case .server(.emailUnavailable, _, _): emailError = BipeStrings.errorEmailUnavailable
+            default: emailError = BipeStrings.errorNetwork
+            }
+        }
+    }
+
+    /// Action openLink: the recovery link from the e-mail, opened on this phone. A link without a token does nothing.
+    func openLink(_ url: URL) {
+        guard let token = BipeRecoveryLink.token(from: url) else { return }
+        linkToken = token
+        if path.last == .pin {
+            path.removeLast()
+        }
+        openPin(.emailLink)
+    }
+
+    private static func isPlausibleEmail(_ address: String) -> Bool {
+        let parts = address.split(separator: "@", omittingEmptySubsequences: false)
+        guard parts.count == 2, !parts[0].isEmpty, parts[1].contains("."), !address.contains(" ") else { return false }
+        return !parts[1].hasPrefix(".") && !parts[1].hasSuffix(".")
+    }
+
+    // MARK: - beta sign-in
+
+    func editBetaEmail(_ text: String) {
+        betaEmail = text
+        betaError = nil
+    }
+
+    func editBetaPassword(_ text: String) {
+        betaPassword = text
+        betaError = nil
+    }
+
+    var canSubmitBeta: Bool {
+        !betaBusy && !betaEmail.trimmingCharacters(in: .whitespaces).isEmpty && !betaPassword.isEmpty
+    }
+
+    /// Action chooseBeta: Client.login with the e-mail as user and the password, then the move to device-first
+    /// (POST /v1/me/device-first). The password is never stored; the move gives the hidden password and the token.
+    func submitBeta() async {
+        guard canSubmitBeta else { return }
+        betaBusy = true
+        defer { betaBusy = false }
+        let user = betaEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            let session = try await AccountSession.signIn(userId: user, password: betaPassword)
+            betaPassword = ""
+            if let accessToken = try? session.client.session().accessToken,
+               let credentials = try? await api.moveToDeviceFirst(accessToken: accessToken) {
+                store.save(credentials)
+            }
+            onSignedIn(session)
+        } catch {
+            betaError = BipeStrings.errorGeneric
+        }
+    }
+
+    // MARK: - recovery-waiting
+
+    private func startWaiting(_ started: BipeRecoveryStarted) {
+        store.savePendingRecovery(started)
+        pending = started
+        waitingPhase = .waiting
+        path = [.waiting]
+        Task { await poll() }
+    }
+
+    /// Action appear: polls the claim on open, on foreground and at readyAt.
+    func waitingAppear() async {
+        await poll()
+    }
+
+    /// Action claim. Before readyAt the server answers waiting; after it, the credentials come once.
+    func poll() async {
+        guard let pending, waitingPhase == .waiting || waitingPhase == .failed else { return }
+        waitingPhase = .claiming
+        do {
+            let claim = try await api.claimRecovery(id: pending.recoveryId, claimSecret: pending.claimSecret)
+            switch claim.state {
+            case .waiting:
+                waitingPhase = .waiting
+                schedulePoll(at: claim.readyAt ?? pending.readyAt)
+            case .completed:
+                if pending.purpose == .access, let credentials = claim.credentials {
+                    try await signIn(credentials)
+                    store.deletePendingRecovery()
+                    waitingPhase = .ready
+                } else {
+                    store.deletePendingRecovery()
+                    waitingPhase = .ready
+                }
+            case .cancelled:
+                waitingPhase = .cancelled
+            case .expired:
+                waitingPhase = .expired
+            }
+        } catch BipeAPIError.server(.recoveryInvalid, _, _) {
+            waitingPhase = .expired
+        } catch {
+            waitingPhase = .failed
+        }
+    }
+
+    /// Action startOver: from cancelled or expired (and after a PIN reset), back to recovery-start.
+    func startOver() {
+        pollTask?.cancel()
+        store.deletePendingRecovery()
+        pending = nil
+        waitingPhase = .waiting
+        path = []
+        appear()
+    }
+
+    private func schedulePoll(at date: Date) {
+        pollTask?.cancel()
+        let delay = max(date.timeIntervalSinceNow, 0) + 2
+        pollTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            await self?.poll()
+        }
+    }
+
+    // MARK: - Sign-in
+
+    /// Stores the password (this device only) and the token (synced), signs in, then opens chat-list.
+    /// encryption-status then shows the ways to get the message history.
+    private func signIn(_ credentials: BipeCredentials) async throws {
+        store.save(credentials)
+        let session = try await AccountSession.signIn(userId: credentials.userId, password: credentials.password)
+        onSignedIn(session)
+    }
+}

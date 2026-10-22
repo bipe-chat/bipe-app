@@ -65,7 +65,10 @@ enum class MediaDisplay { PLACEHOLDER, TAP_TO_SHOW, LOADING, SHOWN, FAILED }
 private val MAX_WIDTH = 260.dp
 private val STICKER_WIDTH = 160.dp
 
-/** Spec timeline-media: an image, video, sticker or file row. */
+/**
+ * Spec timeline-media: the content of an image, video, sticker or file message. The bubble, sender,
+ * reply quote, footer and reactions come from the message row of spec timeline-rows.
+ */
 @Composable
 fun TimelineMediaRow(
     message: TimelineMessage,
@@ -74,7 +77,6 @@ fun TimelineMediaRow(
     isPrivateRoom: Boolean,
     onOpenViewer: () -> Unit,
     onCancelUpload: () -> Unit,
-    onRetrySend: () -> Unit,
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
@@ -127,58 +129,18 @@ fun TimelineMediaRow(
         }
     }
 
-    val isSticker = media.kind == MediaMessage.Kind.STICKER
-    Row(
-        modifier = Modifier.fillMaxWidth().testTag(BipeScreen.TIMELINE_MEDIA.id),
-        horizontalArrangement = if (message.isOwn) Arrangement.End else Arrangement.Start,
+    Column(
+        modifier = Modifier.testTag(BipeScreen.TIMELINE_MEDIA.id),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = MAX_WIDTH + 12.dp)
-                .then(
-                    if (isSticker) {
-                        Modifier
-                    } else {
-                        Modifier
-                            .background(if (message.isOwn) colors.bubbleOwn else colors.bubbleOther, RoundedCornerShape(16.dp))
-                            .padding(6.dp)
-                    },
-                ),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            if (!message.isOwn && !isSticker) {
-                Text(
-                    message.senderName,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.accentInk,
-                    modifier = Modifier.padding(horizontal = 6.dp),
-                )
-            }
-            if (media.kind == MediaMessage.Kind.FILE) {
-                FileCard(media, display, openingFile, if (sending) media.uploadProgress else null, ::tap)
-            } else {
-                Visual(media, display, image, if (sending) media.uploadProgress else null, ::tap)
-            }
-            val caption = media.caption?.takeIf { it.isNotBlank() }
-            if (caption != null && !isSticker) {
-                Text(
-                    caption,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = colors.inkPrimary,
-                    modifier = Modifier.width(MAX_WIDTH).padding(horizontal = 6.dp),
-                )
-            }
-            if (message.sendState == TimelineMessage.SendState.FAILED) {
-                Row(
-                    modifier = Modifier.clickable(onClick = onRetrySend).padding(horizontal = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustDangerInk, modifier = Modifier.size(14.dp))
-                    Text(stringResource(R.string.bipe_app_upload_failed), style = MaterialTheme.typography.labelSmall, color = colors.trustDangerInk)
-                }
-            }
+        if (media.kind == MediaMessage.Kind.FILE) {
+            FileCard(media, display, openingFile, if (sending) media.uploadProgress else null, ::tap)
+        } else {
+            Visual(media, display, image, if (sending) media.uploadProgress else null, ::tap)
+        }
+        val caption = media.caption?.takeIf { it.isNotBlank() }
+        if (caption != null && media.kind != MediaMessage.Kind.STICKER) {
+            Text(caption, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary, modifier = Modifier.width(MAX_WIDTH))
         }
     }
 }

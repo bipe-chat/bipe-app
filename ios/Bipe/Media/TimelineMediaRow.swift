@@ -7,7 +7,8 @@ import Phosphor
 import QuickLook
 import SwiftUI
 
-/// Spec timeline-media: an image, video, sticker or file row.
+/// Spec timeline-media: the content of an image, video, sticker or file message. The bubble, sender,
+/// reply quote, footer and reactions come from the message row of spec timeline-rows.
 struct TimelineMediaRow: View {
     let message: TimelineMessage
     let media: MediaMessage
@@ -16,7 +17,6 @@ struct TimelineMediaRow: View {
     /// Action open for image, video and sticker: media-viewer.
     let openViewer: () -> Void
     let cancelUpload: () -> Void
-    let retrySend: () -> Void
 
     /// Display of spec timeline-media.
     enum Display: Equatable {
@@ -37,30 +37,14 @@ struct TimelineMediaRow: View {
     private static let stickerWidth: CGFloat = 160
 
     var body: some View {
-        HStack {
-            if message.isOwn { Spacer(minLength: 48) }
-            VStack(alignment: .leading, spacing: 4) {
-                if !message.isOwn, media.kind != .sticker {
-                    Text(message.senderName)
-                        .font(.caption.bold())
-                        .foregroundStyle(BipeColor.accentInk)
-                }
-                content
-                if let caption = media.caption?.nilIfBlank, media.kind != .sticker {
-                    Text(caption)
-                        .foregroundStyle(BipeColor.inkPrimary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: Self.maxWidth, alignment: .leading)
-                }
-                sendStateLine
+        VStack(alignment: .leading, spacing: 4) {
+            content
+            if let caption = media.caption?.nilIfBlank, media.kind != .sticker {
+                Text(caption)
+                    .foregroundStyle(BipeColor.inkPrimary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: Self.maxWidth, alignment: .leading)
             }
-            .padding(media.kind == .sticker ? 0 : 6)
-            .background {
-                if media.kind != .sticker {
-                    RoundedRectangle(cornerRadius: 16).fill(message.isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther)
-                }
-            }
-            if !message.isOwn { Spacer(minLength: 48) }
         }
         .accessibilityIdentifier(BipeScreen.timelineMedia.rawValue)
         .quickLookPreview($fileURL)
@@ -228,26 +212,6 @@ struct TimelineMediaRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(media.kindLabel), \(media.filename)")
-    }
-
-    // MARK: Send state
-
-    @ViewBuilder
-    private var sendStateLine: some View {
-        if message.sendState == .failed {
-            Button(action: retrySend) {
-                HStack(spacing: 4) {
-                    PhosphorIcon.warningCircle.image
-                        .resizable()
-                        .frame(width: 14, height: 14)
-                        .accessibilityHidden(true)
-                    Text(BipeStrings.appUploadFailed)
-                        .font(.caption)
-                }
-                .foregroundStyle(BipeColor.trustDangerInk)
-            }
-            .buttonStyle(.plain)
-        }
     }
 
     // MARK: Actions
