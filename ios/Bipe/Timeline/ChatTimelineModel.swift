@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 
@@ -35,6 +36,7 @@ struct TimelineMessage: Identifiable, Equatable {
     var id: String
     var kind: Kind
     var body: String?
+    var senderId: String
     var senderName: String
     var isOwn: Bool
     var sentAt: Date
@@ -56,6 +58,8 @@ final class ChatTimelineModel: ObservableObject {
     /// A DM or a group that needs an invite, for the show-media setting (spec timeline-media).
     @Published private(set) var isPrivateRoom = true
     @Published var draft = ""
+    /// signup-done: the inviter of this account while this chat with them has no first message (ADR 0034).
+    @Published private(set) var inviterHint: BipeInviterGreeting?
 
     let roomId: String
     private let session: AccountSession
@@ -85,6 +89,10 @@ final class ChatTimelineModel: ObservableObject {
         roomName = room.displayName() ?? roomId
         isPrivateRoom = room.isPublic() != true
         self.timeline = timeline
+        if let greeting = BipeInviteStore(userID: session.userId).inviterGreeting(),
+           (try? session.client.getDmRoom(userId: greeting.userID))?.id() == roomId {
+            inviterHint = greeting
+        }
         let stream = TimelineDiffStream()
         handle = await timeline.addListener(listener: stream)
         Task { [weak self] in await self?.loadHistory() }
@@ -120,6 +128,14 @@ final class ChatTimelineModel: ObservableObject {
         _ = try? await timeline.send(msg: content)
     }
 
+    /// The action of the inviter hint (spec signup-done notes): sends bipe_inviter_greeting.
+    func sendGreeting() async {
+        guard let timeline,
+              let content = try? messageEventContentNew(msgtype: .text(content: TextMessageContent(body: BipeStrings.inviterGreeting, formatted: nil)))
+        else { return }
+        _ = try? await timeline.send(msg: content)
+    }
+
     /// Action retrySend: sends a failed own message again.
     func retrySend(id: String) async {
         guard let item = items.first(where: { $0.uniqueId().id == id }),
@@ -144,6 +160,15 @@ final class ChatTimelineModel: ObservableObject {
         }
         if hitStart {
             reachedStart = true
+        }
+        if let hint = inviterHint {
+            if messages.contains(where: { $0.isOwn && $0.kind != .unsupported }) {
+                // The first message to the inviter ends the greeting for this account.
+                BipeInviteStore(userID: session.userId).setInviterGreeting(nil)
+                inviterHint = nil
+            } else if messages.contains(where: { $0.senderId == hint.userID && $0.kind != .unsupported }) {
+                inviterHint = nil
+            }
         }
     }
 
@@ -187,6 +212,7 @@ final class ChatTimelineModel: ObservableObject {
         return TimelineMessage(id: id,
                                kind: kind,
                                body: body,
+                               senderId: event.sender,
                                senderName: event.senderProfile.displayName(or: event.sender),
                                isOwn: event.isOwn,
                                sentAt: Date(milliseconds: event.timestamp),
