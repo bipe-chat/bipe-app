@@ -2681,4 +2681,60 @@ public enum BipeStrings {
     }
 
     public static var appUtdHelp: String { NSLocalizedString("bipe_app_utd_help", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appComposerAttach: String { NSLocalizedString("bipe_app_composer_attach", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appComposerRecord: String { NSLocalizedString("bipe_app_composer_record", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appComposerMentionEveryone: String { NSLocalizedString("bipe_app_composer_mention_everyone", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appChatListDraft(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_chat_list_draft", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appAttachPhotos: String { NSLocalizedString("bipe_app_attach_photos", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appAttachCamera: String { NSLocalizedString("bipe_app_attach_camera", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appAttachFile: String { NSLocalizedString("bipe_app_attach_file", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appAttachPoll: String { NSLocalizedString("bipe_app_attach_poll", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appAttachCaptionPlaceholder: String { NSLocalizedString("bipe_app_attach_caption_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appAttachRemove: String { NSLocalizedString("bipe_app_attach_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appAttachTooLarge(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_attach_too_large", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appAttachFailed: String { NSLocalizedString("bipe_app_attach_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appAttachPhotosPermission: String { NSLocalizedString("bipe_app_attach_photos_permission", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appVoiceRecording: String { NSLocalizedString("bipe_app_voice_recording", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appVoicePause: String { NSLocalizedString("bipe_app_voice_pause", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appVoiceResume: String { NSLocalizedString("bipe_app_voice_resume", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appVoiceStop: String { NSLocalizedString("bipe_app_voice_stop", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appVoicePlay: String { NSLocalizedString("bipe_app_voice_play", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appVoiceDelete: String { NSLocalizedString("bipe_app_voice_delete", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appVoiceDuration(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_voice_duration", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appVoiceTooShort: String { NSLocalizedString("bipe_app_voice_too_short", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appVoiceFailed: String { NSLocalizedString("bipe_app_voice_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appStickerSendFailed: String { NSLocalizedString("bipe_app_sticker_send_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appStickerMaking: String { NSLocalizedString("bipe_app_sticker_making", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appStickerMakeFailed: String { NSLocalizedString("bipe_app_sticker_make_failed", tableName: "Bipe", bundle: .module, comment: "") }
 }

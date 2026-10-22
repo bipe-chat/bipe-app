@@ -19,11 +19,20 @@ enum class BipeScreen(val id: String) {
     /** App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json */
     APP_LOCK("app-lock"),
 
+    /** Attach (flow chat). Spec: bipe-shared/product/screens/attachment-picker.json */
+    ATTACHMENT_PICKER("attachment-picker"),
+
+    /** Send photos, videos or a file (flow chat). Spec: bipe-shared/product/screens/attachment-preview.json */
+    ATTACHMENT_PREVIEW("attachment-preview"),
+
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 
     /** Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json */
     CHAT_TIMELINE("chat-timeline"),
+
+    /** Composer (flow chat). Spec: bipe-shared/product/screens/composer.json */
+    COMPOSER("composer"),
 
     /** Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json */
     DATA_EXPORT("data-export"),
@@ -115,9 +124,21 @@ enum class BipeScreen(val id: String) {
     /** Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json */
     SIGNUP_WAITLIST("signup-waitlist"),
 
+    /** Make a sticker from a photo (flow chat). Spec: bipe-shared/product/screens/sticker-from-photo.json */
+    STICKER_FROM_PHOTO("sticker-from-photo"),
+
+    /** Import stickers (flow chat). Spec: bipe-shared/product/screens/sticker-import.json */
+    STICKER_IMPORT("sticker-import"),
+
+    /** Stickers (flow chat). Spec: bipe-shared/product/screens/sticker-picker.json */
+    STICKER_PICKER("sticker-picker"),
+
     /** Talk to support (flow settings). Spec: bipe-shared/product/screens/support-open.json */
     SUPPORT_OPEN("support-open"),
 
     /** Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json */
     TERMS_REACCEPT("terms-reaccept"),
+
+    /** Record a voice message (flow chat). Spec: bipe-shared/product/screens/voice-recording.json */
+    VOICE_RECORDING("voice-recording"),
 }
