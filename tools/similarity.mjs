@@ -170,7 +170,8 @@ async function scan(opts) {
   const lang = opts.lang;
   if (!LANGS[lang]) throw new Error(`--lang must be one of ${Object.keys(LANGS).join(', ')}`);
   const threshold = opts.threshold ? Number(opts.threshold) : THRESHOLD;
-  const oursFiles = walk(REPO_ROOT, opts.ours).filter((f) => f.endsWith(LANGS[lang].ext));
+  // Generated folders hold bipe-shared output (Bipe code), so they are not compared.
+  const oursFiles = walk(REPO_ROOT, opts.ours, { skipGenerated: true }).filter((f) => f.endsWith(LANGS[lang].ext));
   if (!oursFiles.length) {
     console.log(`::notice title=similarity::${opts.ours}/ holds no ${LANGS[lang].ext} files yet. Nothing to compare.`);
     return 0;
