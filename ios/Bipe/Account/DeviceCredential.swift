@@ -3,7 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import Foundation
-import Security
+import BipeKit
 
 /// The hidden MAS password of the device account (ADR 0057), read from the keychain.
 ///
@@ -16,36 +16,8 @@ struct DeviceCredential: CustomStringConvertible {
 
     var description: String { "DeviceCredential(\(userId))" }
 
-    private static let service = "chat.bipe.account.password"
-
-    /// The newest password: first the app's own group (an account made in this app), then the fork's group (ADR 0147).
+    /// Own-group records win over legacy records for the same account (ADR 0147).
     static func newest() -> DeviceCredential? {
-        read(accessGroup: nil) ?? read(accessGroup: AppConfig.forkKeychainGroup)
-    }
-
-    private static func read(accessGroup: String?) -> DeviceCredential? {
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
-            kSecReturnData as String: true,
-            kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitAll,
-        ]
-        if let accessGroup {
-            query[kSecAttrAccessGroup as String] = accessGroup
-        }
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let items = result as? [[String: Any]] else { return nil }
-        let newest = items.max { lhs, rhs in
-            (lhs[kSecAttrModificationDate as String] as? Date ?? .distantPast)
-                < (rhs[kSecAttrModificationDate as String] as? Date ?? .distantPast)
-        }
-        guard let newest,
-              let userId = newest[kSecAttrAccount as String] as? String,
-              let data = newest[kSecValueData as String] as? Data,
-              let password = String(data: data, encoding: .utf8) else { return nil }
-        return DeviceCredential(userId: userId, password: password)
+        BipeCredentialStore().password().map { DeviceCredential(userId: $0.userID, password: $0.secret) }
     }
 }
