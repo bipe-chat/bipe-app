@@ -49,6 +49,9 @@ enum class BipeScreen(val id: String) {
     /** Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json */
     LINKED_DEVICES("linked-devices"),
 
+    /** Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json */
+    MEDIA_VIEWER("media-viewer"),
+
     /** Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json */
     MESSAGE_UNDECRYPTABLE("message-undecryptable"),
 
@@ -120,4 +123,13 @@ enum class BipeScreen(val id: String) {
 
     /** Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json */
     TERMS_REACCEPT("terms-reaccept"),
+
+    /** Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json */
+    TIMELINE_MEDIA("timeline-media"),
+
+    /** Upload preview (flow chat). Spec: bipe-shared/product/screens/upload-preview.json */
+    UPLOAD_PREVIEW("upload-preview"),
+
+    /** Voice message (flow chat). Spec: bipe-shared/product/screens/voice-message.json */
+    VOICE_MESSAGE("voice-message"),
 }
