@@ -65,6 +65,10 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
+import chat.bipe.app.groups.CreateGroupButton
+import chat.bipe.app.groups.DmSwipeRow
+import chat.bipe.app.groups.GroupHost
+import chat.bipe.app.groups.withoutClearedDms
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -124,19 +128,31 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
-        roomId != null -> {
-            BackHandler { openRoomId = null }
-            ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onHistoryHelp = encryption::openSheet)
+        else -> GroupHost(session, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
+            if (roomId != null) {
+                BackHandler { openRoomId = null }
+                ChatTimelineScreen(
+                    session,
+                    media,
+                    roomId,
+                    onBack = { openRoomId = null },
+                    onHistoryHelp = encryption::openSheet,
+                    onOpenGroupDetails = groups.openGroupDetails,
+                )
+            } else {
+                ChatListScreen(
+                    model,
+                    media,
+                    handle,
+                    onOpenHandlePick = { showsHandlePick = true },
+                    onOpenChat = { openRoomId = it },
+                    onOpenSettings = { showsSettings = true },
+                    banner = { HistoryBanner(encryption) },
+                    onCreateGroup = groups.createGroup,
+                    onDeleteDm = groups.deleteDm,
+                )
+            }
         }
-        else -> ChatListScreen(
-            model,
-            media,
-            handle,
-            onOpenHandlePick = { showsHandlePick = true },
-            onOpenChat = { openRoomId = it },
-            onOpenSettings = { showsSettings = true },
-            banner = { HistoryBanner(encryption) },
-        )
     }
     EncryptionSheet(encryption)
 }
@@ -152,10 +168,13 @@ fun ChatListScreen(
     /** The temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main. */
     onOpenSettings: (() -> Unit)? = null,
     banner: @Composable () -> Unit = {},
+    onCreateGroup: () -> Unit = {},
+    onDeleteDm: (String) -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
-    val chats by model.chats.collectAsState()
+    val allChats by model.chats.collectAsState()
+    val chats = withoutClearedDms(allChats, { it.roomId }, { it.lastActivity })
     val handleState by handle.state.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -166,6 +185,7 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
                 )
+                CreateGroupButton(onCreateGroup)
                 if (onOpenSettings != null) {
                     IconButton(onClick = onOpenSettings) {
                         Icon(
@@ -188,7 +208,7 @@ fun ChatListScreen(
                 }
                 ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(chats, key = { it.roomId }) { chat ->
-                        ChatRow(chat, media) { onOpenChat(chat.roomId) }
+                        DmSwipeRow(chat.isDm, onDelete = { onDeleteDm(chat.roomId) }) { ChatRow(chat, media) { onOpenChat(chat.roomId) } }
                         if (chat.roomId == chats.lastOrNull()?.roomId) {
                             LaunchedEffect(chats.size) { model.loadMore() }
                         }

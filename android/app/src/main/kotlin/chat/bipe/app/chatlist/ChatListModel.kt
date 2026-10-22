@@ -35,6 +35,8 @@ data class ChatSummary(
     val lastActivity: Long?,
     val unreadCount: Int,
     val isDirect: Boolean,
+    /** RoomInfo.isDm, the one DM test (ADR 0141). */
+    val isDm: Boolean = false,
     val isMuted: Boolean = false,
 )
 
@@ -157,6 +159,7 @@ class ChatListModel(
             lastActivity = lastActivity,
             unreadCount = info.numUnreadMessages.toInt(),
             isDirect = info.isDirect,
+            isDm = info.isDm,
             isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
         )
     }
