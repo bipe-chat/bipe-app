@@ -2962,6 +2962,46 @@ public enum BipeStrings {
 
     public static var appSearchFindHandle: String { NSLocalizedString("bipe_app_search_find_handle", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appMediaTapToShow: String { NSLocalizedString("bipe_app_media_tap_to_show", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaFailed: String { NSLocalizedString("bipe_app_media_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaImage: String { NSLocalizedString("bipe_app_media_image", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaVideo: String { NSLocalizedString("bipe_app_media_video", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaFile: String { NSLocalizedString("bipe_app_media_file", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaSticker: String { NSLocalizedString("bipe_app_media_sticker", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaVoice: String { NSLocalizedString("bipe_app_media_voice", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appVoicePlay: String { NSLocalizedString("bipe_app_voice_play", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appVoicePause: String { NSLocalizedString("bipe_app_voice_pause", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaShare: String { NSLocalizedString("bipe_app_media_share", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaSave: String { NSLocalizedString("bipe_app_media_save", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaSaved: String { NSLocalizedString("bipe_app_media_saved", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaSaveFailed: String { NSLocalizedString("bipe_app_media_save_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMediaGalleryPermission: String { NSLocalizedString("bipe_app_media_gallery_permission", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadCaptionPlaceholder: String { NSLocalizedString("bipe_app_upload_caption_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadSend: String { NSLocalizedString("bipe_app_upload_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadPreparing: String { NSLocalizedString("bipe_app_upload_preparing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appUploadTooLarge(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_upload_too_large", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appUploadFailed: String { NSLocalizedString("bipe_app_upload_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appProfileNameReserved: String { NSLocalizedString("bipe_app_profile_name_reserved", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appPersonMessage: String { NSLocalizedString("bipe_app_person_message", tableName: "Bipe", bundle: .module, comment: "") }
