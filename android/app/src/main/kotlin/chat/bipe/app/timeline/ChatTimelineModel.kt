@@ -5,6 +5,7 @@
 package chat.bipe.app.timeline
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.displayName
 import chat.bipe.app.common.toVectorDiff
@@ -39,6 +40,7 @@ data class TimelineMessage(
     val id: String,
     val kind: Kind,
     val body: String?,
+    val senderId: String,
     val senderName: String,
     val isOwn: Boolean,
     val sentAt: Long,
@@ -61,6 +63,7 @@ class ChatTimelineModel(
     private val session: AccountSession,
     val roomId: String,
     private val scope: CoroutineScope,
+    private val greetings: InviterGreetings,
 ) {
     private val _roomName = MutableStateFlow("")
     val roomName: StateFlow<String> = _roomName.asStateFlow()
@@ -73,6 +76,9 @@ class ChatTimelineModel(
     private val _isPrivateRoom = MutableStateFlow(true)
     /** A DM or a group that needs an invite, for the show-media setting (spec timeline-media). */
     val isPrivateRoom: StateFlow<Boolean> = _isPrivateRoom.asStateFlow()
+    /** signup-done: the inviter of this account while this chat with them has no first message (ADR 0034). */
+    private val _inviterHint = MutableStateFlow<InviterGreetings.Greeting?>(null)
+    val inviterHint: StateFlow<InviterGreetings.Greeting?> = _inviterHint.asStateFlow()
     private val _draft = MutableStateFlow("")
     val draft: StateFlow<String> = _draft.asStateFlow()
 
@@ -89,6 +95,9 @@ class ChatTimelineModel(
             val timeline = runCatching { room.timeline() }.getOrNull() ?: return@launch
             _roomName.value = room.displayName() ?: roomId
             _isPrivateRoom.value = room.isPublic() != true
+            greetings.get()?.let { greeting ->
+                if (runCatching { session.client.getDmRoom(greeting.userId) }.getOrNull()?.id() == roomId) _inviterHint.value = greeting
+            }
             this@ChatTimelineModel.timeline = timeline
             val diffs = Channel<List<TimelineDiff>>(Channel.UNLIMITED)
             handle = timeline.addListener(object : TimelineListener {
@@ -144,6 +153,12 @@ class ChatTimelineModel(
         }
     }
 
+    /** The action of the inviter hint (spec signup-done notes): sends [greeting] (bipe_inviter_greeting). */
+    fun sendGreeting(greeting: String) {
+        val timeline = timeline ?: return
+        scope.launch { runCatching { timeline.send(messageEventContentNew(MessageType.Text(TextMessageContent(greeting, null)))) } }
+    }
+
     /** Action retrySend: sends a failed own message again. */
     fun retrySend(id: String) {
         val item = items.firstOrNull { it.uniqueId().id == id } ?: return
@@ -160,7 +175,16 @@ class ChatTimelineModel(
 
     private fun rebuild() {
         if (items.any { it.asVirtual() is VirtualTimelineItem.TimelineStart }) _reachedStart.value = true
-        _messages.value = items.mapNotNull { item -> item.asEvent()?.let { message(item.uniqueId().id, it) } }
+        val messages = items.mapNotNull { item -> item.asEvent()?.let { message(item.uniqueId().id, it) } }
+        _messages.value = messages
+        val hint = _inviterHint.value ?: return
+        if (messages.any { it.isOwn && it.kind != TimelineMessage.Kind.UNSUPPORTED }) {
+            // The first message to the inviter ends the greeting for this account.
+            greetings.clear()
+            _inviterHint.value = null
+        } else if (messages.any { it.senderId == hint.userId && it.kind != TimelineMessage.Kind.UNSUPPORTED }) {
+            _inviterHint.value = null
+        }
     }
 
     private fun message(id: String, event: EventTimelineItem): TimelineMessage {
@@ -201,6 +225,7 @@ class ChatTimelineModel(
             id = id,
             kind = kind,
             body = body,
+            senderId = event.sender,
             senderName = event.senderProfile.displayName(event.sender),
             isOwn = event.isOwn,
             sentAt = event.timestamp.toLong(),

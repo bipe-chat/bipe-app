@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
+import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.media.MediaViewer
 import chat.bipe.app.media.TimelineMediaRow
@@ -68,7 +69,8 @@ import chat.bipe.shared.generated.BipeScreen
 @Composable
 fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: String, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val model = remember(roomId) { ChatTimelineModel(session, roomId, scope) }
+    val context = LocalContext.current
+    val model = remember(roomId) { ChatTimelineModel(session, roomId, scope, InviterGreetings(context, session.userId)) }
     DisposableEffect(model) {
         model.start()
         onDispose { model.close() }
@@ -80,6 +82,8 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val reachedStart by model.reachedStart.collectAsState()
     val draft by model.draft.collectAsState()
     val isPrivateRoom by model.isPrivateRoom.collectAsState()
+    val inviterHint by model.inviterHint.collectAsState()
+    val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     val context = LocalContext.current
     val voicePlayer = remember(roomId) { VoicePlayer(context.applicationContext, media, scope) }
@@ -165,6 +169,7 @@ fun ChatTimelineScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     }
                 }
             }
+            inviterHint?.let { hint -> InviterHintRow(hint, roomName) { model.sendGreeting(greeting) } }
             Composer(draft, canSend = draft.isNotBlank(), onEdit = model::editDraft, onSend = model::send)
         }
     }
@@ -243,6 +248,32 @@ private fun Bubble(isOwn: Boolean, content: @Composable () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             content()
+        }
+    }
+}
+
+/** signup-done notes: until the inviter's note arrives, the chat says the inviter knows, with a one-tap greeting. */
+@Composable
+private fun InviterHintRow(hint: InviterGreetings.Greeting, inviterName: String, greet: () -> Unit) {
+    val colors = BipeTheme.colors
+    Column(
+        modifier = Modifier.fillMaxWidth().background(colors.accentWash).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(R.string.bipe_inviter_knows_you_joined, inviterName), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                hint.handle?.let { stringResource(R.string.bipe_inviter_hint, it) }.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.inkPrimary,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                stringResource(R.string.bipe_inviter_hint_action),
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.inkOnAccent,
+                modifier = Modifier.background(colors.accentFill, CircleShape).clickable(onClick = greet).padding(horizontal = 12.dp, vertical = 6.dp),
+            )
         }
     }
 }
