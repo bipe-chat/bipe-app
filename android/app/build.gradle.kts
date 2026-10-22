@@ -18,7 +18,8 @@ android {
         applicationId = "chat.bipe.app.next"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        // CI passes the tester build number (bipe-shared product/version.json build plus the run number).
+        versionCode = (findProperty("bipeBuildNumber") as String?)?.toInt() ?: 1
         versionName = "0.1.0"
     }
 
@@ -28,6 +29,9 @@ android {
         }
         release {
             isMinifyEnabled = false
+            // Tester APK for side-loading (bipe-chat/bipe#575): debug signing is enough.
+            // Store signing comes at the switch.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

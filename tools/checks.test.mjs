@@ -17,6 +17,8 @@ import { checkStrings, findLiterals, isUserText } from './strings.mjs';
 import { provenanceLine } from './provenance.mjs';
 import { evaluate, flatNames, matchedTokens, parseCsv, tokenCounts } from './similarity.mjs';
 import { checkSdkVersion, projectPin, resolvedPin, catalogPin } from './sdk-version.mjs';
+import { exact, token } from './asc.mjs';
+import { generateKeyPairSync, verify } from 'node:crypto';
 
 function tree(files) {
   const root = mkdtempSync(join(tmpdir(), 'bipe-gates-'));
@@ -249,4 +251,21 @@ test('sdk-version parsers read each pin form', () => {
   assert.equal(projectPin('packages:\n  Other:\n    exactVersion: 1.0\n'), null);
   assert.equal(resolvedPin(SDK_FILES['ios/Package.resolved']), '26.08.11');
   assert.equal(catalogPin('[libraries]\nmatrix-rust-sdk = "1"\n[versions]\nmatrix-rust-sdk = "2" # pin\n'), '2');
+});
+
+test('asc token is an ES256 JWT that the public key verifies', () => {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+  const key = privateKey.export({ type: 'pkcs8', format: 'pem' });
+  const jwt = token({ keyId: 'KEY1', issuerId: 'issuer', key, now: 1000 });
+  const [h, p, s] = jwt.split('.');
+  assert.deepEqual(JSON.parse(Buffer.from(h, 'base64url')), { alg: 'ES256', kid: 'KEY1', typ: 'JWT' });
+  assert.deepEqual(JSON.parse(Buffer.from(p, 'base64url')), { iss: 'issuer', iat: 1000, exp: 2200, aud: 'appstoreconnect-v1' });
+  const ok = verify('sha256', Buffer.from(`${h}.${p}`), { key: publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(s, 'base64url'));
+  assert.ok(ok);
+});
+
+test('asc exact ignores prefix matches', () => {
+  const rows = [{ attributes: { identifier: 'chat.bipe.app.next.nse' } }, { attributes: { identifier: 'chat.bipe.app.next' } }];
+  assert.equal(exact(rows, 'identifier', 'chat.bipe.app.next'), rows[1]);
+  assert.equal(exact(rows, 'identifier', 'chat.bipe.app'), null);
 });
