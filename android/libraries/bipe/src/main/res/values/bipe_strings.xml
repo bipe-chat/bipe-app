@@ -1223,4 +1223,27 @@
     <string name="bipe_app_upload_preparing">Preparando…</string>
     <string name="bipe_app_upload_too_large">Este arquivo é grande demais. O limite é %1$s.</string>
     <string name="bipe_app_upload_failed">Não deu para enviar o arquivo. Toque para tentar de novo.</string>
+    <string name="bipe_app_composer_attach">Anexar</string>
+    <string name="bipe_app_composer_record">Gravar áudio</string>
+    <string name="bipe_app_composer_mention_everyone">Todo mundo do grupo</string>
+    <string name="bipe_app_chat_list_draft">Rascunho: %1$s</string>
+    <string name="bipe_app_attach_photos">Fotos e vídeos</string>
+    <string name="bipe_app_attach_camera">Câmera</string>
+    <string name="bipe_app_attach_file">Arquivo</string>
+    <string name="bipe_app_attach_poll">Enquete</string>
+    <string name="bipe_app_attach_caption_placeholder">Adicionar legenda</string>
+    <string name="bipe_app_attach_remove">Remover</string>
+    <string name="bipe_app_attach_too_large">Este arquivo passa do limite do servidor, que é %1$s.</string>
+    <string name="bipe_app_attach_failed">Não deu para enviar o arquivo. Tente de novo.</string>
+    <string name="bipe_app_attach_photos_permission">Para enviar fotos, permita o acesso às fotos nas configurações do Bipe neste celular.</string>
+    <string name="bipe_app_voice_recording">Gravando</string>
+    <string name="bipe_app_voice_resume">Continuar gravando</string>
+    <string name="bipe_app_voice_stop">Parar</string>
+    <string name="bipe_app_voice_delete">Apagar áudio</string>
+    <string name="bipe_app_voice_duration">Duração: %1$s</string>
+    <string name="bipe_app_voice_too_short">O áudio ficou curto demais. Grave de novo.</string>
+    <string name="bipe_app_voice_failed">Não deu para enviar o áudio. Tente de novo.</string>
+    <string name="bipe_app_sticker_send_failed">Não deu para enviar o sticker. Tente de novo.</string>
+    <string name="bipe_app_sticker_making">Criando o sticker…</string>
+    <string name="bipe_app_sticker_make_failed">Não deu para criar um sticker com essa foto. Tente outra.</string>
 </resources>

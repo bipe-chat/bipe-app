@@ -13,11 +13,20 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json
     case appLock = "app-lock"
 
+    /// Attach (flow chat). Spec: bipe-shared/product/screens/attachment-picker.json
+    case attachmentPicker = "attachment-picker"
+
+    /// Send photos, videos or a file (flow chat). Spec: bipe-shared/product/screens/attachment-preview.json
+    case attachmentPreview = "attachment-preview"
+
     /// Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json
     case chatList = "chat-list"
 
     /// Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json
     case chatTimeline = "chat-timeline"
+
+    /// Composer (flow chat). Spec: bipe-shared/product/screens/composer.json
+    case composer = "composer"
 
     /// Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json
     case dataExport = "data-export"
@@ -139,6 +148,15 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json
     case signupWaitlist = "signup-waitlist"
 
+    /// Make a sticker from a photo (flow chat). Spec: bipe-shared/product/screens/sticker-from-photo.json
+    case stickerFromPhoto = "sticker-from-photo"
+
+    /// Import stickers (flow chat). Spec: bipe-shared/product/screens/sticker-import.json
+    case stickerImport = "sticker-import"
+
+    /// Stickers (flow chat). Spec: bipe-shared/product/screens/sticker-picker.json
+    case stickerPicker = "sticker-picker"
+
     /// Talk to support (flow settings). Spec: bipe-shared/product/screens/support-open.json
     case supportOpen = "support-open"
 
@@ -159,4 +177,7 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Voice message (flow chat). Spec: bipe-shared/product/screens/voice-message.json
     case voiceMessage = "voice-message"
+
+    /// Record a voice message (flow chat). Spec: bipe-shared/product/screens/voice-recording.json
+    case voiceRecording = "voice-recording"
 }
