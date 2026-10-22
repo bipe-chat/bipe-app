@@ -1093,4 +1093,6 @@
     <string name="bipe_app_timeline_undecryptable">This message can\'t be read on this phone yet.</string>
     <string name="bipe_app_timeline_loading_history">Loading earlier messages…</string>
     <string name="bipe_app_timeline_start">This is the start of the chat.</string>
+    <string name="bipe_app_name">Bipe</string>
+    <string name="bipe_app_sdk_version">matrix-rust-sdk %1$s</string>
 </resources>
