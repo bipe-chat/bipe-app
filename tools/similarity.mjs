@@ -14,9 +14,12 @@
 // Bipe files are "new" submissions and Element files are "old" submissions:
 // JPlag does not compare Element files with each other.
 // A pair fails when its average similarity (JPlag's default metric) is above
-// THRESHOLD. A pair whose maximum similarity is above THRESHOLD prints a
-// warning: maximum similarity is high when a small file is mostly contained in
-// a large one.
+// THRESHOLD, or its maximum similarity is above MAX_THRESHOLD (most of one file
+// is inside the other: a partial copy). A pair whose average or maximum
+// similarity is above WARN_THRESHOLD
+// prints a warning to review: maximum similarity is high when a small file is
+// mostly contained in a large one, and small Compose or SwiftUI files reach an
+// average of about 0.55 from boilerplate alone (see AGENTS.md, "Checks").
 
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -24,7 +27,9 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { walk, isMain, REPO_ROOT } from './lib.mjs';
 
-export const THRESHOLD = 0.5;
+export const THRESHOLD = 0.65;
+export const MAX_THRESHOLD = 0.9;
+export const WARN_THRESHOLD = 0.5;
 
 export const LANGS = {
   swift: { jplag: 'swift', ext: '.swift' },
@@ -99,8 +104,8 @@ export function evaluate(rows, ours, theirs, threshold = THRESHOLD) {
     const avg = Number(r[cAvg]);
     const max = Number(r[cMax]);
     const pair = { ours: ours.get(mine), theirs: theirs.get(other), avg, max };
-    if (avg > threshold) failures.push(pair);
-    else if (max > threshold) warnings.push(pair);
+    if (avg > threshold || max > MAX_THRESHOLD) failures.push(pair);
+    else if (avg > WARN_THRESHOLD || max > WARN_THRESHOLD) warnings.push(pair);
   }
   const byAvg = (x, y) => y.avg - x.avg || y.max - x.max;
   const notCompared = [...ours.keys()].filter((k) => !compared.has(k)).map((k) => ours.get(k));
@@ -139,12 +144,12 @@ function report(result, label, threshold) {
   }
   for (const p of result.warnings) {
     console.log(
-      `::warning title=similarity::${p.ours} ~ ${label}:${p.theirs} max similarity ${p.max.toFixed(2)} (average ${p.avg.toFixed(2)}). Review it.`,
+      `::warning title=similarity::${p.ours} ~ ${label}:${p.theirs} average similarity ${p.avg.toFixed(2)}, max ${p.max.toFixed(2)}. Review it.`,
     );
   }
   for (const p of result.failures) {
     console.log(
-      `::error title=similarity::${p.ours} ~ ${label}:${p.theirs} average similarity ${p.avg.toFixed(2)} > ${threshold} (max ${p.max.toFixed(2)})`,
+      `::error title=similarity::${p.ours} ~ ${label}:${p.theirs} average similarity ${p.avg.toFixed(2)} (fails above ${threshold}), max ${p.max.toFixed(2)} (fails above ${MAX_THRESHOLD})`,
     );
   }
 }

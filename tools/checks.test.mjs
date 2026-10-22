@@ -188,6 +188,17 @@ test('similarity fails a pair above the threshold and warns on max', () => {
   assert.deepEqual(r.notCompared, []);
 });
 
+test('similarity warns, but does not fail, between the warning level and the threshold', () => {
+  const r = evaluate(csv(['ours/o00001_A.swift,theirs/t00001_X.swift,0.55,0.6', 'ours/o00002_B.swift,theirs/t00001_X.swift,0.66,0.7']), ours, theirs);
+  assert.deepEqual(r.failures.map((p) => p.ours), ['ios/Bipe/B.swift']);
+  assert.deepEqual(r.warnings.map((p) => p.ours), ['ios/Bipe/A.swift']);
+});
+
+test('similarity fails a partial copy on its maximum similarity', () => {
+  const r = evaluate(csv(['ours/o00001_A.swift,theirs/t00001_X.swift,0.6,1.0']), ours, theirs);
+  assert.deepEqual(r.failures.map((p) => p.ours), ['ios/Bipe/A.swift']);
+});
+
 test('similarity rejects an unknown CSV header', () => {
   assert.throws(() => evaluate([['a', 'b']], ours, theirs));
 });
