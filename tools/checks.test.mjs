@@ -92,6 +92,25 @@ test('licences fail on a missing package and on a disallowed licence', () => {
   assert.ok(errors[1].includes('not in tools/licences.json'));
 });
 
+test('licences allow an EPL test dependency only on testImplementation lines (ADR 0148)', () => {
+  const table = { allowed: ['MIT'], testOnly: ['EPL-1.0'], packages: { 'junit:junit': { licence: 'EPL-1.0', scope: 'test' } } };
+  const catalog = '[libraries]\njunit = { module = "junit:junit", version = "4" }\n';
+  const ok = tree({
+    'android/gradle/libs.versions.toml': catalog,
+    'android/lib/build.gradle.kts': 'dependencies {\n    testImplementation(libs.junit)\n}\n',
+  });
+  assert.deepEqual(checkLicences(ok, table).errors, []);
+  const leak = tree({
+    'android/gradle/libs.versions.toml': catalog,
+    'android/lib/build.gradle.kts': 'dependencies {\n    implementation(libs.junit)\n}\n',
+  });
+  const { errors } = checkLicences(leak, table);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].includes('outside testImplementation'));
+  const noScope = { ...table, packages: { 'junit:junit': { licence: 'EPL-1.0' } } };
+  assert.ok(checkLicences(ok, noScope).errors[0].includes('not allowed'));
+});
+
 test('catalog parser reads the three library forms and skips plugins', () => {
   const libs = catalogLibraries(
     '[libraries]\na = "g.a:x:1"\nb = { module = "g.b:y", version.ref = "v" } # c\nc = { group = "g.c", name = "z", version = "2" }\n[plugins]\nd = { id = "p", version = "1" }\n',
