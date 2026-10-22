@@ -89,7 +89,7 @@ fun TimelineMediaRow(
     // Action appear: loads the thumbnail (or the image) when display may show it.
     LaunchedEffect(media.source, revealed, attempt) {
         if (media.kind == MediaMessage.Kind.FILE) return@LaunchedEffect
-        if (!revealed && !message.isOwn && !ShowMedia.current(context).shows(isPrivateRoom)) {
+        if (!revealed && !message.isOwn && !currentShowMedia(context).shows(isPrivateRoom)) {
             display = MediaDisplay.TAP_TO_SHOW
             return@LaunchedEffect
         }

@@ -13,6 +13,8 @@
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- App lock and the owner checks of settings (spec app-lock, pin-change, data-export). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <application
         android:name=".BipeApplication"
@@ -38,8 +40,19 @@
                 <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/convite/" />
             </intent-filter>
         </activity>
+        <!-- Shares the data export file (spec data-export). -->
         <provider
             android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.export"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/export_paths" />
+        </provider>
+        <!-- Opens and shares decrypted media from the app cache (spec timeline-media, media-viewer). -->
+        <provider
+            android:name=".media.MediaFileProvider"
             android:authorities="${applicationId}.media"
             android:exported="false"
             android:grantUriPermissions="true">
