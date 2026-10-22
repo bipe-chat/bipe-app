@@ -100,10 +100,10 @@ class BipeApiClient(baseUrl: String) {
         )
     }
 
-    private fun <T> encode(serializer: KSerializer<T>, value: T): String = json.encodeToString(serializer, value)
+    internal fun <T> encode(serializer: KSerializer<T>, value: T): String = json.encodeToString(serializer, value)
 
     /** Sends the request and decodes a 2xx answer with [response] (`null`: the body is not read). */
-    private suspend fun <T> send(
+    internal suspend fun <T> send(
         method: String,
         path: List<String>,
         body: String? = null,

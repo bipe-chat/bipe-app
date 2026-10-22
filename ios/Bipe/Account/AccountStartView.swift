@@ -57,6 +57,7 @@ private struct SignedInView: View {
     let initialRoomId: String?
     let onSignOut: () -> Void
     @StateObject private var terms: TermsReacceptModel
+    @State private var showsSettings = false
     @Environment(\.scenePhase) private var scenePhase
 
     init(session: AccountSession, api: BipeAPIClient, initialRoomId: String?, onSignOut: @escaping () -> Void) {
@@ -68,7 +69,10 @@ private struct SignedInView: View {
     }
 
     var body: some View {
-        ChatListView(session: session, api: api, initialRoomId: initialRoomId)
+        ChatListView(session: session, api: api, initialRoomId: initialRoomId) { showsSettings = true }
+            .sheet(isPresented: $showsSettings) {
+                SettingsHomeView(session: session, api: api, onSignedOut: onSignOut)
+            }
             .fullScreenCover(isPresented: Binding(get: { terms.phase != .hidden }, set: { _ in })) {
                 TermsReacceptView(model: terms, onSignOut: onSignOut)
             }
