@@ -13,8 +13,20 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json
     case appLock = "app-lock"
 
+    /// Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json
+    case chatListFilters = "chat-list-filters"
+
     /// Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json
     case chatList = "chat-list"
+
+    /// One chat request (flow home). Spec: bipe-shared/product/screens/chat-request.json
+    case chatRequest = "chat-request"
+
+    /// Chat requests (flow home). Spec: bipe-shared/product/screens/chat-requests.json
+    case chatRequests = "chat-requests"
+
+    /// Search chats (flow home). Spec: bipe-shared/product/screens/chat-search.json
+    case chatSearch = "chat-search"
 
     /// Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json
     case chatTimeline = "chat-timeline"
@@ -78,6 +90,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json
     case recoveryWaiting = "recovery-waiting"
+
+    /// Remote critical banner (flow home). Spec: bipe-shared/product/screens/remote-banner.json
+    case remoteBanner = "remote-banner"
 
     /// Settings group (flow settings). Spec: bipe-shared/product/screens/settings-group.json
     case settingsGroup = "settings-group"

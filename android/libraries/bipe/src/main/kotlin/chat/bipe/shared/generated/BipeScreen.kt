@@ -19,8 +19,20 @@ enum class BipeScreen(val id: String) {
     /** App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json */
     APP_LOCK("app-lock"),
 
+    /** Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json */
+    CHAT_LIST_FILTERS("chat-list-filters"),
+
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
+
+    /** One chat request (flow home). Spec: bipe-shared/product/screens/chat-request.json */
+    CHAT_REQUEST("chat-request"),
+
+    /** Chat requests (flow home). Spec: bipe-shared/product/screens/chat-requests.json */
+    CHAT_REQUESTS("chat-requests"),
+
+    /** Search chats (flow home). Spec: bipe-shared/product/screens/chat-search.json */
+    CHAT_SEARCH("chat-search"),
 
     /** Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json */
     CHAT_TIMELINE("chat-timeline"),
@@ -84,6 +96,9 @@ enum class BipeScreen(val id: String) {
 
     /** Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json */
     RECOVERY_WAITING("recovery-waiting"),
+
+    /** Remote critical banner (flow home). Spec: bipe-shared/product/screens/remote-banner.json */
+    REMOTE_BANNER("remote-banner"),
 
     /** Settings group (flow settings). Spec: bipe-shared/product/screens/settings-group.json */
     SETTINGS_GROUP("settings-group"),
