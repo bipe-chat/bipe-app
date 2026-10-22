@@ -30,7 +30,6 @@ enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     SHARE_NETWORK("share-network", R.drawable.phosphor_share_network),
     USER_CIRCLE("user-circle", R.drawable.phosphor_user_circle),
     USER_PLUS("user-plus", R.drawable.phosphor_user_plus),
-    USERS_THREE("users-three", R.drawable.phosphor_users_three),
     WARNING_CIRCLE("warning-circle", R.drawable.phosphor_warning_circle),
     X("x", R.drawable.phosphor_x),
 }

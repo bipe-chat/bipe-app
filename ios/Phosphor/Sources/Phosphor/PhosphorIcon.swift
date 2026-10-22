@@ -28,7 +28,6 @@ public enum PhosphorIcon: String, CaseIterable, Sendable {
     case shareNetwork = "share-network"
     case userCircle = "user-circle"
     case userPlus = "user-plus"
-    case usersThree = "users-three"
     case warningCircle = "warning-circle"
     case x = "x"
 

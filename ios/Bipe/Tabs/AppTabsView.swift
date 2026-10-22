@@ -3,10 +3,10 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
-import Phosphor
 import SwiftUI
 
 /// Spec app-tabs: Conversas · Grupos · Você, and search in the search tab role (ADR 0053).
+/// The standard tab bar with SF Symbols: the system sets their size, weight and selected state (ADR 0149).
 struct AppTabsView: View {
     @ObservedObject var model: AppTabsModel
     let session: AccountSession
@@ -14,7 +14,6 @@ struct AppTabsView: View {
     let initialRoomId: String?
     /// The entry to settings-root until Você holds it (bipe-chat/bipe#577, second step).
     let onOpenSettings: () -> Void
-    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         let chatList = model.chatList(for: session)
@@ -22,60 +21,35 @@ struct AppTabsView: View {
             Tab(value: AppTabsModel.Tab.conversas) {
                 ChatListView(model: chatList, scope: .conversas, api: api, initialRoomId: initialRoomId, onOpenSettings: onOpenSettings)
             } label: {
-                Label { Text(BipeStrings.tabChats) } icon: { PhosphorIcon.chatCircle.image }
+                Label(BipeStrings.tabChats, systemImage: "bubble.left.and.bubble.right")
             }
             .badge(model.conversasUnread)
 
             Tab(value: AppTabsModel.Tab.grupos) {
                 ChatListView(model: chatList, scope: .grupos, api: api)
             } label: {
-                Label { Text(BipeStrings.tabGroups) } icon: { PhosphorIcon.usersThree.image }
+                Label(BipeStrings.tabGroups, systemImage: "person.3")
             }
             .badge(model.gruposAttention)
 
             Tab(value: AppTabsModel.Tab.voce) {
                 VoceView(model: model, chatList: chatList)
             } label: {
-                Label { Text(BipeStrings.tabYou) } icon: { voceIcon }
+                Label(BipeStrings.tabYou, systemImage: "person.crop.circle")
             }
+            // The other-account dot (ADR 0135), as the system tab badge.
+            .badge(model.otherAccountUnread ? Text("•") : nil)
 
             Tab(value: AppTabsModel.Tab.search, role: .search) {
                 ChatSearchView(model: chatList)
             } label: {
-                Label { Text(BipeStrings.appTabSearch) } icon: { PhosphorIcon.magnifyingGlass.image }
+                Label(BipeStrings.appTabSearch, systemImage: "magnifyingglass")
             }
         }
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
                                    onLongPress: { model.longPressVoce() }))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
-    }
-
-    /// The person icon, with a dot when another account on this phone has unread messages (ADR 0135).
-    private var voceIcon: Image {
-        guard model.otherAccountUnread else { return PhosphorIcon.userCircle.image }
-        return DotIcon.image(PhosphorIcon.userCircle, selected: model.selectedTab == .voce, scale: displayScale)
-    }
-}
-
-/// Renders an icon with the unread dot at its top trailing corner. A tab icon is one image: the dot has to be in it.
-private enum DotIcon {
-    @MainActor
-    static func image(_ icon: PhosphorIcon, selected: Bool, scale: CGFloat) -> Image {
-        let content = icon.image
-            .resizable()
-            .frame(width: 26, height: 26)
-            .foregroundStyle(selected ? BipeColor.accentInk : BipeColor.inkSecondary)
-            .overlay(alignment: .topTrailing) {
-                Circle()
-                    .fill(BipeColor.accentFill)
-                    .frame(width: 9, height: 9)
-            }
-            .frame(width: 28, height: 28)
-        let renderer = ImageRenderer(content: content)
-        renderer.scale = scale
-        guard let image = renderer.uiImage else { return icon.image }
-        return Image(uiImage: image.withRenderingMode(.alwaysOriginal))
     }
 }
 

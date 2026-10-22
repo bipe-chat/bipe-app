@@ -65,8 +65,10 @@ fun AppTabsScreen(
             state = state,
             onSelect = tabs::selectTab,
             onDoubleTapVoce = { if (tabs.doubleTapVoce()) view.bipeHaptic(BipeHaptic.Tick) },
-            // combinedClickable plays the long press haptic itself.
-            onLongPressVoce = tabs::longPressVoce,
+            onLongPressVoce = {
+                view.bipeHaptic(BipeHaptic.Hold)
+                tabs.longPressVoce()
+            },
         )
     }
 }

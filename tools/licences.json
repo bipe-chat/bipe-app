@@ -139,6 +139,12 @@
       "licence": "Apache-2.0",
       "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
       "checked": "2026-10-22"
+    },
+    "androidx.compose.material:material-icons-extended": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-22"
     }
   }
 }
