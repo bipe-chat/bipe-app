@@ -228,8 +228,8 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel) {
                     FieldFooter(stringResource(R.string.bipe_onboarding_paste_invite_none), isError = true)
                 }
             }
-            // haveAccount: recovery-start comes with bipe-chat/bipe#556.
-            start.text.forEach { TextButtonRow(stringResource(it.title), enabled = false) {} }
+            // haveAccount: recovery-start (bipe-chat/bipe#556).
+            start.text.forEach { TextButtonRow(stringResource(it.title), onClick = model.onHaveAccount) }
         }
     }
 }

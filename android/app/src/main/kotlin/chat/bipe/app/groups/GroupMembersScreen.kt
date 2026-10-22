@@ -210,7 +210,7 @@ private fun MemberRow(member: GroupMember, media: MediaLoader, onClick: () -> Un
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Avatar(member.person.displayName, member.person.avatarUrl, media, size = 40.dp)
+        Avatar(member.person.displayName, member.person.avatarUrl, media, size = 40.dp, userId = member.person.userId)
         Spacer(Modifier.width(12.dp))
         Text(
             member.person.displayName,

@@ -107,7 +107,7 @@ struct GroupMembersView: View {
             }
         } label: {
             HStack(spacing: 12) {
-                AvatarView(name: member.person.displayName, mxcUrl: member.person.avatarUrl, loader: media, size: 40)
+                AvatarView(name: member.person.displayName, mxcUrl: member.person.avatarUrl, loader: media, size: 40, userId: member.person.userId)
                 Text(member.person.displayName)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .lineLimit(1)
