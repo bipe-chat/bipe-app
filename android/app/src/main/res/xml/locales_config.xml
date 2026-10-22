@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: AGPL-3.0-only
+  Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+  Copyright 2026 Bipe contributors
+-->
+<!-- Languages of the per-app language setting (Android 13+). pt-BR is the default
+     (res/values), en the second language (res/values-en). Keep in step with
+     androidResources.localeFilters in app/build.gradle.kts. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="pt-BR" />
+    <locale android:name="en" />
+</locale-config>
