@@ -112,6 +112,12 @@
       "licence": "Apache-2.0",
       "source": "https://github.com/androidx/media/blob/release/LICENSE",
       "checked": "2026-10-22"
+    },
+    "org.jetbrains.kotlinx:kotlinx-serialization-json": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/Kotlin/kotlinx.serialization/blob/master/LICENSE.txt",
+      "checked": "2026-10-22"
     }
   }
 }
