@@ -2,5 +2,5 @@
   "$comment": "Phosphor icons (MIT, ADR 0145) that the apps use. After a change, run node tools/phosphor.mjs <unpacked @phosphor-icons/core package>.",
   "version": "2.1.1",
   "weight": "regular",
-  "icons": ["arrow-clockwise", "backspace", "bell", "bell-slash", "caret-left", "caret-right", "chat-circle", "check", "copy", "desktop", "fingerprint", "gear", "image", "lock-simple", "paper-plane-right", "plus", "user-circle", "warning-circle", "x"]
+  "icons": ["arrow-clockwise", "backspace", "bell", "bell-slash", "caret-left", "caret-right", "chat-circle", "check", "check-circle", "copy", "desktop", "devices", "fingerprint", "gear", "image", "key", "lock-simple", "paper-plane-right", "plus", "user-circle", "warning-circle", "x"]
 }

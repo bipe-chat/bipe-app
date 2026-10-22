@@ -72,6 +72,11 @@ final class AccountSession {
             .slidingSyncVersionBuilder(versionBuilder: .discoverNative)
             .setSessionDelegate(sessionDelegate: SessionSaver())
             .crossProcessLockConfig(crossProcessLockConfig: .multiProcess(holderName: process.rawValue))
+            // Spec encryption-status: a new account gets cross-signing and key backup with no screen.
+            .autoEnableCrossSigning(autoEnableCrossSigning: true)
+            .autoEnableBackups(autoEnableBackups: true)
+            // Old messages decrypt from the key backup once this phone has the backup key (recovery-key-enter).
+            .backupDownloadStrategy(backupDownloadStrategy: .afterDecryptionFailure)
         if process == .notificationService {
             builder = builder.systemIsMemoryConstrained()
         }
