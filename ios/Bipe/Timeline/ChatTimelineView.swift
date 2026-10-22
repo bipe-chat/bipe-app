@@ -48,7 +48,7 @@ struct ChatTimelineView: View {
         .navigationTitle(model.roomName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if isDm, let openInfo {
+            if model.isDm, let openInfo {
                 ToolbarItem(placement: .principal) {
                     Button(action: openInfo) {
                         Text(model.roomName).font(.headline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
