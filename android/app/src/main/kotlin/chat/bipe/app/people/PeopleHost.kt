@@ -55,6 +55,7 @@ class PeopleNavigation(
     val openChat: (String) -> Unit,
     /** Opens handle-pick. */
     val pickHandle: () -> Unit,
+    val openInvites: (() -> Unit)? = null,
 )
 
 /** The screen of [route]. */
@@ -93,7 +94,7 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
             },
             onClose = navigation.pop,
         )
-        PeopleRoute.Contacts -> ContactsScreen(people, openChat = navigation.openChat, invite = null, onBack = navigation.pop)
+        PeopleRoute.Contacts -> ContactsScreen(people, openChat = navigation.openChat, invite = navigation.openInvites, onBack = navigation.pop)
         PeopleRoute.WhoCanMessage -> WhoCanMessageScreen(people, onBack = navigation.pop)
         PeopleRoute.BlockedList -> BlockedListScreen(
             people,

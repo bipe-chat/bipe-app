@@ -18,7 +18,7 @@ struct VoceView: View {
     @State private var path = NavigationPath()
     @State private var openingNotes = false
     @State private var notesFailed = false
-    private enum Destination: Hashable { case notes(String) }
+    private enum Destination: Hashable { case notes(String), invites }
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
@@ -64,6 +64,12 @@ struct VoceView: View {
                     .disabled(openingNotes)
                     .listRowBackground(BipeColor.surfaceRaised)
                 }
+                Section {
+                    NavigationLink(value: Destination.invites) {
+                        IconLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
+                    }
+                    .listRowBackground(BipeColor.surfaceRaised)
+                }
                 SettingsRootSection(model: settings)
             }
             .listStyle(.insetGrouped)
@@ -77,6 +83,9 @@ struct VoceView: View {
                 switch destination {
                 case .notes(let roomId):
                     ChatTimelineView(session: chatList.session, media: chatList.media, roomId: roomId)
+                case .invites:
+                    InvitesView(model: model.invites(for: chatList.session), people: people,
+                                openChat: { path.append(Destination.notes($0)) })
                 }
             }
             .navigationDestination(for: PeopleRoute.self) { route in
@@ -105,7 +114,8 @@ struct VoceView: View {
         case .profileQr:
             ProfileLinkView(people: people, pickHandle: { showsHandlePick = true }, initiallyShowsQr: true)
         case .contacts:
-            ContactsView(people: people, openChat: { path.append(Destination.notes($0)) }, invite: nil)
+            ContactsView(people: people, openChat: { path.append(Destination.notes($0)) },
+                         invite: { path.append(Destination.invites) })
         case .blockedList:
             BlockedListView(people: people) { path.append(PeopleRoute.person(userId: $0, fromDm: false)) }
         case .whoCanMessage:

@@ -80,9 +80,9 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
             }
         }
     }
-    SettingsHost(session, api, onClose = { tabs.selectTab(AppTabsModel.Tab.CONVERSAS) }, onSignedOut = { tabs.start.completeSignOut(session.userId) },
+    SettingsHost(session, api, invites = tabs.invites(session), onClose = { tabs.selectTab(AppTabsModel.Tab.CONVERSAS) }, onSignedOut = { tabs.start.completeSignOut(session.userId) },
         onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles,
-        rootContent = { settings, openGroup, openPeople ->
+        rootContent = { settings, openGroup, openPeople, openInvites ->
             Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.VOCE.id), color = BipeTheme.colors.surfaceBase) {
                 LazyColumn(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
                     item { Text(stringResource(R.string.bipe_tab_you), style = MaterialTheme.typography.headlineMedium,
@@ -109,6 +109,12 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                                 Text(stringResource(R.string.bipe_self_chat_subtitle), color = BipeTheme.colors.inkSecondary)
                             }
                             if (openingNotes) CircularProgressIndicator(Modifier.size(24.dp), color = BipeTheme.colors.accentFill)
+                        }
+                    }
+                    item {
+                        TextButton(onClick = openInvites, modifier = Modifier.padding(horizontal = 16.dp)) {
+                            Icon(painterResource(PhosphorIcon.USER_PLUS.drawable), contentDescription = null)
+                            Text(stringResource(R.string.bipe_invites_title))
                         }
                     }
                     SettingsRootSection(settings, openGroup)

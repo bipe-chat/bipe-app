@@ -11,6 +11,7 @@ import chat.bipe.app.chatlist.ChatScope
 import chat.bipe.app.chatlist.ChatSummary
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.voce.NotesRoom
+import chat.bipe.app.invites.InvitesModel
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +60,7 @@ class AppTabsModel(
     val state: StateFlow<State> = _state.asStateFlow()
 
     private val chatLists = mutableMapOf<String, ChatListModel>()
+    private val inviteModels = mutableMapOf<String, InvitesModel>()
     private val listJobs = mutableMapOf<String, Job>()
     private val latestChats = mutableMapOf<String, List<ChatSummary>>()
     private data class Profile(val name: String, val avatar: String?, val handle: String?, val company: Boolean, val limit: Int)
@@ -79,12 +81,14 @@ class AppTabsModel(
         chatLists[session.userId]?.let { return it }
         val model = ChatListModel(session, scope, undecryptableText, NotesRoom(start.appContext, session))
         chatLists[session.userId] = model
+        invites(session)
         media(session)
         model.start()
         listJobs[session.userId] = scope.launch {
             model.chats.collect { chats ->
                 latestChats[session.userId] = chats
                 refresh()
+                scope.launch { inviteModels[session.userId]?.retryNotes() }
             }
         }
         scope.launch { loadProfile(session) }
@@ -119,7 +123,11 @@ class AppTabsModel(
 
     fun media(userId: String): MediaLoader? = mediaLoaders[userId]
 
-    fun refreshProfiles() { start.sessions.value.forEach { session -> scope.launch { loadProfile(session) } } }
+    fun refreshProfiles() { start.sessions.value.forEach { session -> scope.launch { loadProfile(session); invites(session).refresh() } } }
+
+    fun invites(session: AccountSession): InvitesModel = inviteModels.getOrPut(session.userId) {
+        InvitesModel(start.appContext, session, start.api, scope).also { it.start() }
+    }
 
     /** Action switchAccount: that account's chats show in the tabs, and the choice is saved for the next start. */
     fun switchAccount(userId: String): Boolean {
@@ -138,6 +146,7 @@ class AppTabsModel(
             latestChats.remove(gone)
             profiles.remove(gone)
             mediaLoaders.remove(gone)
+            inviteModels.remove(gone)?.close()
         }
         sessions.forEach { chatList(it) }
         refresh()
