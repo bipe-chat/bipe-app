@@ -1294,4 +1294,23 @@
     <string name="bipe_app_search_placeholder">Search chats and groups</string>
     <string name="bipe_app_search_no_results">Nothing found for %1$s.</string>
     <string name="bipe_app_search_find_handle">Look up this @</string>
+    <string name="bipe_app_media_tap_to_show">Tap to show</string>
+    <string name="bipe_app_media_failed">Couldn\'t load. Tap to try again.</string>
+    <string name="bipe_app_media_image">Photo</string>
+    <string name="bipe_app_media_video">Video</string>
+    <string name="bipe_app_media_file">File</string>
+    <string name="bipe_app_media_sticker">Sticker</string>
+    <string name="bipe_app_media_voice">Voice message</string>
+    <string name="bipe_app_voice_play">Play</string>
+    <string name="bipe_app_voice_pause">Pause</string>
+    <string name="bipe_app_media_share">Share</string>
+    <string name="bipe_app_media_save">Save to the phone</string>
+    <string name="bipe_app_media_saved">Saved to the phone.</string>
+    <string name="bipe_app_media_save_failed">Couldn\'t save. Try again.</string>
+    <string name="bipe_app_media_gallery_permission">To save photos and videos, allow Bipe to add to your photos in the phone settings.</string>
+    <string name="bipe_app_upload_caption_placeholder">Add a caption</string>
+    <string name="bipe_app_upload_send">Send</string>
+    <string name="bipe_app_upload_preparing">Preparing…</string>
+    <string name="bipe_app_upload_too_large">This file is too large. The limit is %1$s.</string>
+    <string name="bipe_app_upload_failed">Couldn\'t send the file. Tap to try again.</string>
 </resources>
