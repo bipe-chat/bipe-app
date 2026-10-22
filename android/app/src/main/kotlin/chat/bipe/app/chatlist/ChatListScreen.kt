@@ -26,6 +26,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import chat.bipe.app.settings.SettingsHost
+import chat.bipe.phosphor.PhosphorIcon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,7 +65,6 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
-import chat.bipe.app.notifications.NotificationSettingsScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -82,7 +86,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
-    var showsNotificationSettings by rememberSaveable { mutableStateOf(false) }
+    var showsSettings by rememberSaveable { mutableStateOf(false) }
     val termsPhase by terms.phase.collectAsState()
     val app = context.applicationContext as BipeApplication
     DisposableEffect(model) {
@@ -96,7 +100,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val roomToOpen by app.roomToOpen.collectAsState()
     LaunchedEffect(roomToOpen) {
         roomToOpen?.let {
-            showsNotificationSettings = false
+            showsSettings = false
             showsHandlePick = false
             openRoomId = it
             app.roomToOpen.value = null
@@ -111,6 +115,7 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
+        showsSettings -> SettingsHost(session, api, onClose = { showsSettings = false }, onSignedOut = onSignOut)
         showsHandlePick -> {
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
@@ -119,18 +124,13 @@ fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: Strin
             BackHandler { openRoomId = null }
             ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null })
         }
-        // Until settings-root lands (bipe-chat/bipe#571), notification-settings opens from the chat list.
-        showsNotificationSettings -> {
-            BackHandler { showsNotificationSettings = false }
-            NotificationSettingsScreen(session, onBack = { showsNotificationSettings = false })
-        }
         else -> ChatListScreen(
             model,
             media,
             handle,
             onOpenHandlePick = { showsHandlePick = true },
             onOpenChat = { openRoomId = it },
-            onOpenNotificationSettings = { showsNotificationSettings = true },
+            onOpenSettings = { showsSettings = true },
         )
     }
 }
@@ -143,7 +143,8 @@ fun ChatListScreen(
     handle: HandlePickModel,
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
-    onOpenNotificationSettings: () -> Unit,
+    /** The temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main. */
+    onOpenSettings: (() -> Unit)? = null,
 ) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
@@ -158,12 +159,14 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 12.dp),
                 )
-                IconButton(onClick = onOpenNotificationSettings) {
-                    Icon(
-                        painterResource(PhosphorIcon.BELL.drawable),
-                        contentDescription = stringResource(R.string.bipe_settings_notifications),
-                        tint = colors.glyphPrimary,
-                    )
+                if (onOpenSettings != null) {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            painterResource(PhosphorIcon.GEAR.drawable),
+                            contentDescription = stringResource(R.string.bipe_settings_section),
+                            tint = colors.glyphPrimary,
+                        )
+                    }
                 }
             }
             if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)

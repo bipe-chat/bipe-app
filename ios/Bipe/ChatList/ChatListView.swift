@@ -14,10 +14,12 @@ struct ChatListView: View {
     @StateObject private var handle: HandlePickModel
     @State private var path: [String]
     @State private var showsHandlePick = false
-    @State private var showsNotificationSettings = false
+    private let onOpenSettings: (() -> Void)?
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
-    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil) {
+    /// onOpenSettings: the temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main.
+    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil, onOpenSettings: (() -> Void)? = nil) {
+        self.onOpenSettings = onOpenSettings
         _model = StateObject(wrappedValue: ChatListModel(session: session))
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: session))
         _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
@@ -31,19 +33,18 @@ struct ChatListView: View {
                 .navigationDestination(for: String.self) { roomId in
                     ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
                 }
-                // Until settings-root lands (bipe-chat/bipe#571), notification-settings opens from here.
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
-                            showsNotificationSettings = true
+                            onOpenSettings?()
                         } label: {
-                            PhosphorIcon.bell.image.resizable().frame(width: 22, height: 22)
+                            PhosphorIcon.gear.image
+                                .resizable()
+                                .frame(width: 22, height: 22)
                         }
-                        .accessibilityLabel(BipeStrings.settingsNotifications)
+                        .accessibilityLabel(BipeStrings.settingsSection)
+                        .opacity(onOpenSettings == nil ? 0 : 1)
                     }
-                }
-                .navigationDestination(isPresented: $showsNotificationSettings) {
-                    NotificationSettingsView(session: model.session)
                 }
         }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)

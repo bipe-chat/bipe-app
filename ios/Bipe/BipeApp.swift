@@ -12,6 +12,7 @@ struct BipeApp: App {
     var body: some Scene {
         WindowGroup {
             AccountStartView()
+                .modifier(AppLockGate())
         }
     }
 }
