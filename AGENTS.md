@@ -111,4 +111,5 @@ adb install -r Bipe-Next-<n>.apk
 ## Specs and generated files
 
 - Screen specs live in bipe-shared `product/screens`. The code follows the spec. If the code must differ from the spec, change the spec first.
+- The app's default language is pt-BR; English is the second language. All UI text comes from bipe-shared strings.
 - Generated files come from bipe-shared `tools/gen.mjs`. Never hand-edit a generated file. Change the source in bipe-shared and run the generator again.

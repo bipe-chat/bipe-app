@@ -9,6 +9,10 @@
 name: Bipe
 
 options:
+  # pt-BR is the default language, en the second one. Without this XcodeGen sets the project's
+  # development region (DEVELOPMENT_LANGUAGE, knownRegions) to en, and iOS falls back to it
+  # when no preferred language of the phone matches a localization.
+  developmentLanguage: pt-BR
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -92,6 +96,8 @@ targets:
         CFBundleDisplayName: $(BIPE_DISPLAY_NAME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: pt-BR
+        CFBundleLocalizations: [pt-BR, en]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
@@ -115,6 +121,8 @@ targets:
         CFBundleDisplayName: $(BIPE_DISPLAY_NAME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: pt-BR
+        CFBundleLocalizations: [pt-BR, en]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
