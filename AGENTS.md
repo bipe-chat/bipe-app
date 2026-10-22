@@ -111,4 +111,14 @@ adb install -r Bipe-Next-<n>.apk
 ## Specs and generated files
 
 - Screen specs live in bipe-shared `product/screens`. The code follows the spec. If the code must differ from the spec, change the spec first.
+- The app's default language is pt-BR; English is the second language. All UI text comes from bipe-shared strings.
 - Generated files come from bipe-shared `tools/gen.mjs`. Never hand-edit a generated file. Change the source in bipe-shared and run the generator again.
+
+## No questions to MZ
+
+MZ works with many agents at once. A question in an agent session blocks that agent until MZ opens it, and MZ does not watch every session.
+
+- Never use the question tool and never wait for an answer in your session.
+- For a reversible choice (names, layout, defaults, scope inside the issue, library choice within the licence allow-list), pick the safe default, write `Default chosen: <what>, because <why>. MZ can overrule.` in the PR body, and keep going.
+- Only a choice that is hard to undo, outward-facing, costs money or needs an account or secret that only MZ has goes to MZ: write one comment on bipe-chat/bipe#538 that starts with `MZ decision:`, names the issue, gives the options and your default, then continue with other work. The controller session asks MZ and answers on that comment.
+- A tool or permission prompt that blocks you is reported the same way, then you continue with work that does not need it.

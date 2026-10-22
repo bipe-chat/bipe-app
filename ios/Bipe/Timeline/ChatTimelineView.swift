@@ -31,6 +31,11 @@ struct ChatTimelineView: View {
     var body: some View {
         VStack(spacing: 0) {
             messageList
+            if let hint = model.inviterHint {
+                InviterHintRow(hint: hint, inviterName: model.roomName) {
+                    Task { await model.sendGreeting() }
+                }
+            }
             Composer(model: model) { creatingPoll = true }
         }
         .background(BipeColor.surfaceBase.ignoresSafeArea())
@@ -236,6 +241,39 @@ private struct MessageRow: View {
             .background(RoundedRectangle(cornerRadius: 16).fill(message.isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther))
             if !message.isOwn { Spacer(minLength: 48) }
         }
+    }
+}
+
+/// signup-done notes: until the inviter's note arrives, the chat says the inviter knows, with a one-tap greeting.
+private struct InviterHintRow: View {
+    let hint: BipeInviterGreeting
+    let inviterName: String
+    let greet: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(BipeStrings.inviterKnowsYouJoined(inviterName))
+                .font(.footnote)
+                .foregroundStyle(BipeColor.inkSecondary)
+            HStack {
+                if let handle = hint.handle {
+                    Text(BipeStrings.inviterHint(handle))
+                        .font(.subheadline)
+                        .foregroundStyle(BipeColor.inkPrimary)
+                }
+                Spacer()
+                Button(action: greet) {
+                    Text(BipeStrings.inviterHintAction)
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(BipeColor.inkOnAccent)
+                        .background(Capsule().fill(BipeColor.accentFill))
+                }
+            }
+        }
+        .padding(12)
+        .background(BipeColor.accentWash)
     }
 }
 

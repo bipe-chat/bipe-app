@@ -53,6 +53,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.account.TermsReacceptModel
+import chat.bipe.app.account.TermsReacceptScreen
+import chat.bipe.app.handle.HandlePickModel
+import chat.bipe.app.handle.HandlePickScreen
+import chat.bipe.app.handle.HandlePromptCard
+import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
@@ -66,36 +72,43 @@ import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
-import kotlinx.coroutines.launch
 
-/** The signed-in app: chat-list, and chat-timeline on top of it when a chat is open. */
+/**
+ * The signed-in app: chat-list, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, and
+ * terms-reaccept over everything when the legal version changed.
+ */
 @Composable
-fun HomeScreen(session: AccountSession) {
+fun HomeScreen(session: AccountSession, api: BipeApiClient, initialRoomId: String?, foregroundCount: Int, onSignOut: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable)
     val model = remember(session) { ChatListModel(session, scope, undecryptable) }
     val media = remember(session) { MediaLoader(session.client) }
-    var openRoomId by rememberSaveable { mutableStateOf<String?>(null) }
+    val handle = remember(session) { HandlePickModel(context, api, session, scope) }
+    val terms = remember(session) { TermsReacceptModel(api, session, scope) }
+    var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
+    var showsHandlePick by rememberSaveable { mutableStateOf(false) }
+    val termsPhase by terms.phase.collectAsState()
     var creatingGroup by rememberSaveable { mutableStateOf(false) }
     var groupDetailsOpen by rememberSaveable { mutableStateOf(false) }
-    val context = LocalContext.current
     val invitesFailed = stringResource(R.string.bipe_app_group_create_invites_failed)
     DisposableEffect(model) {
         model.start()
+        handle.load()
         onDispose { model.close() }
     }
     LaunchedEffect(session) { QuietGroups.applyOnce(context, session) }
     // Spec dm-delete notes: the markers are read at start and again when the app comes to the front.
-    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    DisposableEffect(lifecycle, session) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) scope.launch { ClearedChatsStore.refresh(session.client) }
-        }
-        lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer) }
-    }
+    LaunchedEffect(session, foregroundCount) { ClearedChatsStore.refresh(session.client) }
+    // terms-reaccept, action check: after sign-in and on every return to the foreground.
+    LaunchedEffect(foregroundCount) { terms.check() }
     val roomId = openRoomId
     when {
+        termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
+        showsHandlePick -> {
+            BackHandler { showsHandlePick = false }
+            HandlePickScreen(handle, onClose = { showsHandlePick = false })
+        }
         creatingGroup -> GroupCreateScreen(
             session,
             media,
@@ -120,14 +133,28 @@ fun HomeScreen(session: AccountSession) {
             BackHandler { openRoomId = null }
             ChatTimelineScreen(session, media, roomId, onBack = { openRoomId = null }, onOpenGroupDetails = { groupDetailsOpen = true })
         }
-        else -> ChatListScreen(model, media, onOpenChat = { openRoomId = it }, onCreateGroup = { creatingGroup = true })
+        else -> ChatListScreen(
+            model,
+            media,
+            handle,
+            onOpenHandlePick = { showsHandlePick = true },
+            onOpenChat = { openRoomId = it },
+            onCreateGroup = { creatingGroup = true },
+        )
     }
 }
 
 /** Spec chat-list. */
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-fun ChatListScreen(model: ChatListModel, media: MediaLoader, onOpenChat: (String) -> Unit, onCreateGroup: () -> Unit = {}) {
+fun ChatListScreen(
+    model: ChatListModel,
+    media: MediaLoader,
+    handle: HandlePickModel,
+    onOpenHandlePick: () -> Unit,
+    onOpenChat: (String) -> Unit,
+    onCreateGroup: () -> Unit = {},
+) {
     val colors = BipeTheme.colors
     val phase by model.phase.collectAsState()
     val allChats by model.chats.collectAsState()
@@ -140,6 +167,7 @@ fun ChatListScreen(model: ChatListModel, media: MediaLoader, onOpenChat: (String
     deletingDm?.let { dm ->
         DmDeleteSheet(model.session, dm, onDismiss = { deletingDm = null }, onDeleted = { deletingDm = null })
     }
+    val handleState by handle.state.collectAsState()
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.CHAT_LIST.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -157,6 +185,7 @@ fun ChatListScreen(model: ChatListModel, media: MediaLoader, onOpenChat: (String
                     )
                 }
             }
+            if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
             when (phase) {
                 ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)

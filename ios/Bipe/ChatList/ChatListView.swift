@@ -9,15 +9,20 @@ import SwiftUI
 /// Spec chat-list.
 struct ChatListView: View {
     @StateObject private var model: ChatListModel
-    @State private var path: [String] = []
+    @StateObject private var handle: HandlePickModel
+    @State private var path: [String]
+    @State private var showsHandlePick = false
     @State private var creatingGroup = false
     @State private var toast: String?
     @State private var deletingDm: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
     @Environment(\.scenePhase) private var scenePhase
 
-    init(session: AccountSession) {
+    /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
+    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil) {
         _model = StateObject(wrappedValue: ChatListModel(session: session))
+        _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: session))
+        _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
     }
 
     var body: some View {
@@ -61,10 +66,30 @@ struct ChatListView: View {
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
         .task { await model.start() }
         .task { await QuietGroups.applyOnce(session: model.session) }
+        .task { await handle.load() }
+        .sheet(isPresented: $showsHandlePick) {
+            HandlePickView(model: handle)
+        }
     }
 
     @ViewBuilder
+    private var handlePrompt: some View {
+        if handle.showsPrompt {
+            HandlePromptCard(model: handle) { showsHandlePick = true }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+        }
+    }
+
     private var content: some View {
+        VStack(spacing: 0) {
+            handlePrompt
+            list
+        }
+    }
+
+    @ViewBuilder
+    private var list: some View {
         switch model.phase {
         case .loading:
             ProgressView()
