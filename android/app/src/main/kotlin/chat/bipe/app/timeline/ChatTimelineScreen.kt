@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +58,8 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.groups.ClearedChatsStore
+import chat.bipe.app.groups.DmDeleteSheet
 import chat.bipe.app.polls.PollCard
 import chat.bipe.app.polls.PollCreateScreen
 import chat.bipe.app.polls.PollDetailScreen
@@ -71,6 +75,7 @@ fun ChatTimelineScreen(
     roomId: String,
     onBack: () -> Unit,
     onOpenGroupDetails: (() -> Unit)? = null,
+    onDmDeleted: () -> Unit = onBack,
 ) {
     val scope = rememberCoroutineScope()
     val model = remember(roomId) { ChatTimelineModel(session, roomId, scope) }
@@ -80,13 +85,30 @@ fun ChatTimelineScreen(
     }
     val colors = BipeTheme.colors
     val roomName by model.roomName.collectAsState()
-    val messages by model.messages.collectAsState()
+    val allMessages by model.messages.collectAsState()
+    val markers by ClearedChatsStore.markers.collectAsState()
+    // Spec dm-delete: events at or below the marker of a cleared DM are gone.
+    val messages = remember(allMessages, markers) {
+        val marker = markers[roomId]
+        if (marker == null) allMessages else allMessages.filter { it.sentAt > marker }
+    }
     val isLoadingHistory by model.isLoadingHistory.collectAsState()
     val reachedStart by model.reachedStart.collectAsState()
     val draft by model.draft.collectAsState()
     // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).
     val isGroup by produceState(false, roomId) {
         value = runCatching { session.client.getRoom(roomId)?.roomInfo() }.getOrNull()?.let { !it.isDm && !it.isSpace } ?: false
+    }
+    val isDm by produceState(false, roomId) {
+        value = runCatching { session.client.getRoom(roomId)?.roomInfo() }.getOrNull()?.isDm ?: false
+    }
+    var dmMenu by remember { mutableStateOf(false) }
+    var deletingDm by rememberSaveable { mutableStateOf(false) }
+    if (deletingDm) {
+        DmDeleteSheet(session, roomId, onDismiss = { deletingDm = false }, onDeleted = {
+            deletingDm = false
+            onDmDeleted()
+        })
     }
     val listState = rememberLazyListState()
     var creatingPoll by rememberSaveable { mutableStateOf(false) }
@@ -132,6 +154,26 @@ fun ChatTimelineScreen(
                             contentDescription = stringResource(R.string.bipe_app_group_details_title),
                             tint = colors.glyphPrimary,
                         )
+                    }
+                }
+                if (isDm) {
+                    Box {
+                        IconButton(onClick = { dmMenu = true }) {
+                            Icon(
+                                painterResource(PhosphorIcon.INFO.drawable),
+                                contentDescription = stringResource(R.string.bipe_dm_details_title),
+                                tint = colors.glyphPrimary,
+                            )
+                        }
+                        DropdownMenu(expanded = dmMenu, onDismissRequest = { dmMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) },
+                                onClick = {
+                                    dmMenu = false
+                                    deletingDm = true
+                                },
+                            )
+                        }
                     }
                 }
             }

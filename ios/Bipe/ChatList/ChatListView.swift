@@ -12,6 +12,9 @@ struct ChatListView: View {
     @State private var path: [String] = []
     @State private var creatingGroup = false
     @State private var toast: String?
+    @State private var deletingDm: String?
+    @ObservedObject private var cleared = ClearedChatsStore.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     init(session: AccountSession) {
         _model = StateObject(wrappedValue: ChatListModel(session: session))
@@ -45,7 +48,16 @@ struct ChatListView: View {
                 }
             }
         }
+        .sheet(item: Binding(get: { deletingDm.map(DmSheetId.init) }, set: { deletingDm = $0?.id })) { dm in
+            DmDeleteView(session: model.session, roomId: dm.id) {}
+        }
         .toast($toast)
+        .task { await cleared.refresh(client: model.session.client) }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await cleared.refresh(client: model.session.client) }
+            }
+        }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
         .task { await model.start() }
         .task { await QuietGroups.applyOnce(session: model.session) }
@@ -63,13 +75,21 @@ struct ChatListView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .loaded:
             List {
-                ForEach(model.chats) { chat in
+                // Spec dm-delete: a cleared DM stays hidden until a message after its marker.
+                ForEach(model.chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button {
                         openChat(chat.roomId)
                     } label: {
                         ChatRow(chat: chat, media: model.media)
                     }
                     .listRowBackground(BipeColor.surfaceBase)
+                    .swipeActions(edge: .trailing) {
+                        if chat.isDm {
+                            Button(BipeStrings.dmDeleteAction, role: .destructive) {
+                                deletingDm = chat.roomId
+                            }
+                        }
+                    }
                     .onAppear {
                         if chat.id == model.chats.last?.id {
                             model.loadMore()
@@ -86,6 +106,10 @@ struct ChatListView: View {
     private func openChat(_ roomId: String) {
         path.append(roomId)
     }
+}
+
+private struct DmSheetId: Identifiable {
+    let id: String
 }
 
 private struct ChatRow: View {

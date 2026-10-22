@@ -11,6 +11,10 @@ import SwiftUI
 struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     @State private var isGroup = false
+    @State private var isDm = false
+    @State private var deletingDm = false
+    @ObservedObject private var cleared = ClearedChatsStore.shared
+    @Environment(\.closeChat) private var closeChat
     @State private var creatingPoll = false
     @State private var openPollId: String?
     private let media: MediaLoader
@@ -43,6 +47,21 @@ struct ChatTimelineView: View {
                     .accessibilityLabel(BipeStrings.appGroupDetailsTitle)
                 }
             }
+            if isDm {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button(BipeStrings.dmDeleteAction, role: .destructive) {
+                            deletingDm = true
+                        }
+                    } label: {
+                        PhosphorIcon.info.image.resizable().frame(width: 22, height: 22)
+                    }
+                    .accessibilityLabel(BipeStrings.dmDetailsTitle)
+                }
+            }
+        }
+        .sheet(isPresented: $deletingDm) {
+            DmDeleteView(session: session, roomId: roomId) { closeChat() }
         }
         .sheet(isPresented: $creatingPoll) {
             PollCreateView(timeline: model)
@@ -56,6 +75,7 @@ struct ChatTimelineView: View {
             // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).
             if let info = try? await session.client.getRoom(roomId: roomId)?.roomInfo() {
                 isGroup = !info.isDm && !info.isSpace
+                isDm = info.isDm
             }
         }
     }
@@ -65,7 +85,8 @@ struct ChatTimelineView: View {
             ScrollView {
                 LazyVStack(spacing: 6) {
                     historyHeader
-                    ForEach(model.messages) { message in
+                    // Spec dm-delete: events at or below the marker of a cleared DM are gone.
+                    ForEach(model.messages.filter { cleared.keeps(roomId: roomId, sentAt: $0.sentAt) }) { message in
                         MessageRow(message: message, openPoll: { openPollId = $0 }) {
                             Task { await model.retrySend(id: message.id) }
                         }
