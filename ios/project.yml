@@ -19,6 +19,7 @@ options:
 
 settings:
   base:
+    # Placeholders. The tester build sets both from bipe-shared product/version.json (testflight.yml, ADR 0088).
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
