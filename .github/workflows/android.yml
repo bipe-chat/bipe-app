@@ -3,7 +3,8 @@
 # Copyright 2026 Bipe contributors
 
 # Android build (bipe-chat/bipe#549): debug and release APKs. The release APK is
-# unsigned. The debug APK is uploaded so that a tester can install it.
+# debug-signed (bipe-chat/bipe#575). The debug APK is uploaded as bipe-debug-apk; the
+# tester APK of chat.bipe.app.next comes from testflight.yml.
 name: android
 
 on:

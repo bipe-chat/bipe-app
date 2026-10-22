@@ -85,6 +85,22 @@ The workflow `.github/workflows/licence.yml` runs these jobs on every PR. All of
 - `.github/workflows/android.yml` (Linux runner, JDK 17) runs `./gradlew assembleDebug assembleRelease` in `android/` and uploads the debug APK as the artifact `bipe-debug-apk`.
 - IDs ([ADR 0147](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0147-own-client-tester-builds.md)): tester builds sit next to the fork on one phone. iOS bundle `chat.bipe.app.next`, extensions `chat.bipe.app.next.nse` and `chat.bipe.app.next.share`, app group `group.chat.bipe.next`. Android application ID `chat.bipe.app.next`, debug suffix `.debug`. At the switch the apps take the fork's IDs (ADR 0061).
 
+## Tester builds
+
+Every push to main runs `.github/workflows/testflight.yml` (also on demand: `gh workflow run testflight.yml --repo bipe-chat/bipe-app --ref main`). The build number is bipe-shared `product/version.json` build plus the run number, on both platforms.
+
+- iOS: the build goes to TestFlight (app "Bipe Next", internal testing group). The run also keeps an ad hoc IPA for the devices registered in team `992N457T8D` as the artifact `bipe-next-ipa`. `tools/asc.mjs` does the App Store Connect API steps. Signing is automatic through the API key (variables `ASC_KEY_ID`, `ASC_ISSUER_ID`, secret `ASC_KEY_P8`).
+- Android: the run keeps a debug-signed APK of `chat.bipe.app.next` as the artifact `bipe-next-apk`.
+
+Install over USB-C (MZ), after unzipping the artifact from the run page:
+
+```
+xcrun devicectl device install app --device <UDID> Bipe-Next-<n>.ipa
+adb install -r Bipe-Next-<n>.apk
+```
+
+`xcrun devicectl list devices` shows the UDID. CI makes a new debug key on each run, so `adb install -r` over an older tester APK can fail with a signature mismatch; then run `adb uninstall chat.bipe.app.next` first.
+
 ## Pull requests
 
 - One PR per issue. The PR covers iOS and Android together ([ADR 0031](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0031-platform-lockstep.md)).

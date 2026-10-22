@@ -19,6 +19,10 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"
+    # Signing (bipe-chat/bipe#575): automatic, team Centaur Labs (ADR 0061). CI signs with
+    # the App Store Connect API key (.github/workflows/testflight.yml).
+    DEVELOPMENT_TEAM: 992N457T8D
+    CODE_SIGN_STYLE: Automatic
 
 packages:
   MatrixRustSDK:
@@ -46,6 +50,8 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIRequiresFullScreen: true
+        # The shell encrypts nothing itself. Revisit before end-to-end encryption ships.
+        ITSAppUsesNonExemptEncryption: false
     entitlements:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:
