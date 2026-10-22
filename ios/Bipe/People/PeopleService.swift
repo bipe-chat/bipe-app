@@ -6,16 +6,8 @@ import BipeKit
 import Foundation
 import MatrixRustSDK
 
-/// Type Person of the people specs: the name to show, the photo and the @. Never the Matrix ID (ADR 0013).
-struct Person: Identifiable, Equatable, Hashable {
-    var userId: String
-    /// The saved contact name, else the profile name, else the @, else the ID's localpart.
-    var displayName: String
-    var avatarUrl: String?
-    var handle: String?
-
-    var id: String { userId }
-
+/// The people screens use Person of lane G (Groups/GroupPeople.swift): the name to show, the photo and the @.
+extension Person {
     /// The localpart of a Matrix ID, the last fallback of a name (blocked-list notes).
     static func localpart(of userId: String) -> String {
         let trimmed = userId.hasPrefix("@") ? String(userId.dropFirst()) : userId

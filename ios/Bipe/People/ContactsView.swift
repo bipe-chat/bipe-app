@@ -115,7 +115,7 @@ final class ContactsModel: ObservableObject {
         var list: [ContactMatch] = []
         for (userId, name) in found {
             let person = (try? await people.person(userId, contactName: name))
-                ?? Person(userId: userId, displayName: name)
+                ?? Person(userId: userId, displayName: name, avatarUrl: nil)
             list.append(ContactMatch(person: person, joinedWithInvite: invited.contains(userId)))
         }
         matches = list.sorted { $0.person.displayName.localizedCaseInsensitiveCompare($1.person.displayName) == .orderedAscending }
