@@ -13,7 +13,7 @@
 // The script never prints the key or the token.
 
 import { createPrivateKey, sign } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, appendFileSync } from 'node:fs';
 import { isMain } from './lib.mjs';
 
 export const API = 'https://api.appstoreconnect.apple.com';
@@ -119,7 +119,7 @@ export async function prepare(call) {
       });
       app = made.data;
     } catch (err) {
-      console.error(`::error::No App Store Connect app for ${BUNDLE_ID}, and the API cannot create one (${err.message}).`);
+      console.error(`::warning::No App Store Connect app for ${BUNDLE_ID}, and the API cannot create one (${err.message}). The ad hoc IPA is still built; TestFlight is skipped.`);
       console.error(`Create it once in App Store Connect: Apps, +, New App: iOS, name "${APP_NAME}", primary language Portuguese (Brazil), bundle ID ${BUNDLE_ID}, SKU ${APP_SKU}.`);
       return null;
     }
@@ -173,8 +173,10 @@ export async function distribute(call, buildNumber, { timeoutMs = 60 * 60 * 1000
 async function main([cmd, arg]) {
   const call = client();
   if (cmd === 'prepare') {
+    // A missing app record skips only the TestFlight steps (output app=false); the ad hoc IPA needs no record.
     const app = await prepare(call);
-    return app ? 0 : 1;
+    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `app=${app ? 'true' : 'false'}\n`);
+    return 0;
   }
   if (cmd === 'distribute' && /^\d+$/.test(arg ?? '')) {
     await distribute(call, arg);
