@@ -43,6 +43,9 @@ enum class BipeScreen(val id: String) {
     /** Add people to a group (flow groups). Spec: bipe-shared/product/screens/group-invite-members.json */
     GROUP_INVITE_MEMBERS("group-invite-members"),
 
+    /** People in a group (flow groups). Spec: bipe-shared/product/screens/group-members.json */
+    GROUP_MEMBERS("group-members"),
+
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
