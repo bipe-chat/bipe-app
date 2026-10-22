@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Spec push-registration: the system permission for notifications (Android 13 and later). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Link a computer (spec link-computer-scan): the camera reads the QR code of chat.bipe.net.br. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- App lock, the owner checks of settings (spec app-lock, pin-change, data-export) and device approval (device-verification). -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
