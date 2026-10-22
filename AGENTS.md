@@ -52,7 +52,8 @@ Other source files carry the same three lines in their own comment syntax.
 
 - Allowed dependency licences: Apache-2.0, MIT, BSD, ISC, MPL-2.0. Any other licence needs an ADR.
 - No analytics SDKs. No crash reporters that send data out of Brazil.
-- Icons are Phosphor (MIT) on both platforms. Do not use SF Symbols.
+- Icons are Phosphor (MIT) on both platforms. Do not use SF Symbols. `tools/phosphor.json` lists the icons; `node tools/phosphor.mjs <unpacked @phosphor-icons/core package>` writes them into `ios/Phosphor` (Swift package, `PhosphorIcon`) and `android/libraries/phosphor` (module, `PhosphorIcon`) with Phosphor's LICENSE. Do not hand-edit the output.
+- Colours come from `BipeColor` (iOS) and `BipeTheme.colors` (Android), generated from bipe-shared `design/tokens.json`. Do not write colour literals in UI code.
 - CI runs the dependency deny-list, a licence check of every dependency, the strings check and the similarity scan (see "Checks").
 
 ## Checks

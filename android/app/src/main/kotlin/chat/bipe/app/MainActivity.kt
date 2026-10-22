@@ -13,15 +13,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import org.matrix.rustcomponents.sdk.sdkGitSha
 
@@ -31,7 +35,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val sdkVersion = sdkGitSha()
         setContent {
-            MaterialTheme {
+            BipeTheme {
                 ShellScreen(sdkVersion)
             }
         }
@@ -40,23 +44,34 @@ class MainActivity : ComponentActivity() {
 
 /**
  * The shell screen (bipe-chat/bipe#549): the app name from bipe-shared strings and
- * the matrix-rust-sdk version that the SDK reports at run time.
+ * the matrix-rust-sdk version that the SDK reports at run time, in Bipe's colour tokens with a Phosphor icon.
  * The SDK writes no logs here and nothing is sent off the phone.
  */
 @Composable
 fun ShellScreen(sdkVersion: String) {
-    Surface(modifier = Modifier.fillMaxSize()) {
+    val colors = BipeTheme.colors
+    Surface(modifier = Modifier.fillMaxSize(), color = colors.surfaceBase) {
         Column(
             modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(stringResource(R.string.bipe_app_name), style = MaterialTheme.typography.headlineLarge)
+            Icon(
+                painter = painterResource(PhosphorIcon.CHAT_CIRCLE.drawable),
+                contentDescription = null,
+                tint = colors.accentInk,
+                modifier = Modifier.size(56.dp),
+            )
+            Text(
+                stringResource(R.string.bipe_app_name),
+                style = MaterialTheme.typography.headlineLarge,
+                color = colors.inkPrimary,
+            )
             Text(
                 stringResource(R.string.bipe_app_sdk_version, sdkVersion),
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.inkSecondary,
             )
         }
     }

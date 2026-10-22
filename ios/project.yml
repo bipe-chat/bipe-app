@@ -26,6 +26,8 @@ packages:
     exactVersion: 26.08.11
   BipeKit:
     path: BipeKit
+  Phosphor:
+    path: Phosphor
 
 targets:
   Bipe:
@@ -43,6 +45,7 @@ targets:
         CFBundleLocalizations: [pt-BR, en]
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIRequiresFullScreen: true
     entitlements:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:
@@ -55,6 +58,8 @@ targets:
         product: MatrixRustSDK
       - package: BipeKit
         product: BipeKit
+      - package: Phosphor
+        product: Phosphor
       - target: BipeNotificationService
       - target: BipeShare
     scheme: {}

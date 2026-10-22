@@ -81,6 +81,13 @@
       "licence": "Apache-2.0",
       "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
       "checked": "2026-10-22"
+    },
+    "@phosphor-icons/core": {
+      "ecosystem": "vendored",
+      "licence": "MIT",
+      "source": "https://github.com/phosphor-icons/core/blob/main/LICENSE",
+      "checked": "2026-10-22",
+      "note": "Vendored by tools/phosphor.mjs into ios/Phosphor and android/libraries/phosphor, with its LICENSE file. Version in tools/phosphor.json."
     }
   }
 }
