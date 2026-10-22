@@ -153,3 +153,79 @@ private struct MessagingSetting: Codable {
 private struct SupportRoom: Decodable {
     let roomId: String
 }
+
+// MARK: - Problem reports
+
+/// A problem report that the user starts (spec problem-report, ADR 0114). The field names are the API contract
+/// (api/openapi.yaml /v1/bug-reports/submit).
+public struct BipeProblemReport: Sendable, CustomStringConvertible {
+    public struct File: Sendable {
+        public let name: String
+        public let contentType: String
+        public let data: Data
+
+        public init(name: String, contentType: String, data: Data) {
+            self.name = name
+            self.contentType = contentType
+            self.data = data
+        }
+    }
+
+    public let text: String
+    public let app: String
+    public let version: String
+    public let build: String
+    public let os: String
+    /// Screenshots, at most 10.
+    public let screenshots: [File]
+    /// The compressed app logs, only when the user turned them on.
+    public let logs: [File]
+
+    public init(text: String, app: String, version: String, build: String, os: String, screenshots: [File], logs: [File]) {
+        self.text = text
+        self.app = app
+        self.version = version
+        self.build = build
+        self.os = os
+        self.screenshots = screenshots
+        self.logs = logs
+    }
+
+    /// Never prints the text.
+    public var description: String { "BipeProblemReport(\(screenshots.count) screenshots, \(logs.count) logs)" }
+
+    /// The multipart body and its content type.
+    func multipart(boundary: String) -> Data {
+        var body = Data()
+        func append(_ string: String) { body.append(Data(string.utf8)) }
+        func field(_ name: String, _ value: String) {
+            append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n")
+        }
+        func file(_ name: String, _ file: File) {
+            append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"; filename=\"\(file.name)\"\r\n")
+            append("Content-Type: \(file.contentType)\r\n\r\n")
+            body.append(file.data)
+            append("\r\n")
+        }
+        field("text", text)
+        field("app", app)
+        field("user_agent", "iOS")
+        field("version", version)
+        field("build", build)
+        field("os", os)
+        screenshots.prefix(10).forEach { file("file", $0) }
+        logs.prefix(20).forEach { file("compressed-log", $0) }
+        append("--\(boundary)--\r\n")
+        return body
+    }
+}
+
+public extension BipeAPIClient {
+    /// `POST /v1/bug-reports/submit`. Signed-in users only (ADR 0114).
+    func submitProblemReport(_ report: BipeProblemReport, accessToken: String) async throws(BipeAPIError) {
+        let boundary = "bipe-\(UUID().uuidString)"
+        _ = try await perform(method: "POST", path: ["v1", "bug-reports", "submit"],
+                              rawBody: (data: report.multipart(boundary: boundary), contentType: "multipart/form-data; boundary=\(boundary)"),
+                              accessToken: accessToken)
+    }
+}

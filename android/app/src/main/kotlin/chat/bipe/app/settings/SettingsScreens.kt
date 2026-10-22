@@ -82,6 +82,8 @@ sealed interface SettingsRoute {
     data object PinChange : SettingsRoute
     data object AppLockSetup : SettingsRoute
     data object AppLockOff : SettingsRoute
+    data object LinkedDevices : SettingsRoute
+    data object ProblemReport : SettingsRoute
 }
 
 /**
@@ -112,6 +114,15 @@ fun SettingsHost(session: AccountSession, api: BipeApiClient, onClose: () -> Uni
         SettingsRoute.Messaging -> MessagingPickerScreen(model, onBack = pop)
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
+        SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
+        SettingsRoute.ProblemReport -> ProblemReportScreen(
+            model,
+            onBack = pop,
+            onOpenSupport = {
+                stack.removeAt(stack.lastIndex)
+                stack.add(SettingsRoute.Support)
+            },
+        )
         SettingsRoute.AppLockSetup -> AppLockSetupScreen(onClose = pop)
         // Spec app-lock, turnOff on a phone with no screen lock: the app lock PIN.
         SettingsRoute.AppLockOff -> AppLockPinCheck(
@@ -204,6 +215,8 @@ fun SettingsGroupScreen(
             BipeSettingsRow.HELP_SUPPORT -> onOpen(SettingsRoute.Support)
             BipeSettingsRow.ACCOUNT_SIGN_OUT -> showsSignOut = true
             BipeSettingsRow.ACCOUNT_CHANGE_PIN -> onOpen(SettingsRoute.PinChange)
+            BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
+            BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
             // The screens of the other rows come with their own specs (see settings-group notes).
             else -> Unit

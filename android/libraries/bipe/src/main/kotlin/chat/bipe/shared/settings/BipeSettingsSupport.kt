@@ -192,3 +192,85 @@ suspend fun BipeApiClient.exportMyData(accessToken: String): BipeDataExportBody 
         connection.disconnect()
     }
 }
+
+/** A file of a problem report. */
+class BipeReportFile(val name: String, val contentType: String, val bytes: ByteArray) {
+    override fun toString(): String = "BipeReportFile($name)"
+}
+
+/**
+ * A problem report that the user starts (spec problem-report, ADR 0114). The field names are the API contract
+ * (api/openapi.yaml /v1/bug-reports/submit).
+ */
+class BipeProblemReport(
+    val text: String,
+    val app: String,
+    val version: String,
+    val build: String,
+    val os: String,
+    /** Screenshots, at most 10. */
+    val screenshots: List<BipeReportFile>,
+    /** The compressed app logs, only when the user turned them on. */
+    val logs: List<BipeReportFile>,
+) {
+    /** Never prints the text. */
+    override fun toString(): String = "BipeProblemReport(${screenshots.size} screenshots, ${logs.size} logs)"
+
+    internal fun multipart(boundary: String): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        fun append(text: String) = out.write(text.toByteArray(Charsets.UTF_8))
+        fun field(name: String, value: String) =
+            append("--$boundary\r\nContent-Disposition: form-data; name=\"$name\"\r\n\r\n$value\r\n")
+        fun file(name: String, file: BipeReportFile) {
+            append("--$boundary\r\nContent-Disposition: form-data; name=\"$name\"; filename=\"${file.name}\"\r\n")
+            append("Content-Type: ${file.contentType}\r\n\r\n")
+            out.write(file.bytes)
+            append("\r\n")
+        }
+        field("text", text)
+        field("app", app)
+        field("user_agent", "Android")
+        field("version", version)
+        field("build", build)
+        field("os", os)
+        screenshots.take(10).forEach { file("file", it) }
+        logs.take(20).forEach { file("compressed-log", it) }
+        append("--$boundary--\r\n")
+        return out.toByteArray()
+    }
+}
+
+/** `POST /v1/bug-reports/submit`. Signed-in users only (ADR 0114). */
+suspend fun BipeApiClient.submitProblemReport(report: BipeProblemReport, accessToken: String) = withContext(Dispatchers.IO) {
+    val boundary = "bipe-" + java.util.UUID.randomUUID()
+    val body = report.multipart(boundary)
+    val connection = try {
+        URL("$root/v1/bug-reports/submit").openConnection() as HttpURLConnection
+    } catch (error: IOException) {
+        throw BipeApiException.Network(error)
+    }
+    try {
+        connection.requestMethod = "POST"
+        connection.connectTimeout = 30_000
+        connection.readTimeout = 120_000
+        connection.doOutput = true
+        connection.setFixedLengthStreamingMode(body.size)
+        connection.setRequestProperty("Accept", "application/json")
+        connection.setRequestProperty("Authorization", "Bearer $accessToken")
+        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+        connection.outputStream.use { it.write(body) }
+        val status = connection.responseCode
+        if (status !in 200..299) {
+            val code = when (status) {
+                401 -> BipeApiErrorCode.UNAUTHORIZED
+                429 -> BipeApiErrorCode.RATE_LIMITED
+                else -> BipeApiErrorCode.INTERNAL
+            }
+            throw BipeApiException.Server(code, reason = null, statusCode = status)
+        }
+    } catch (error: IOException) {
+        throw BipeApiException.Network(error)
+    } finally {
+        connection.disconnect()
+    }
+}

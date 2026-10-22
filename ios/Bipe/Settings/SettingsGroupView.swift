@@ -156,6 +156,18 @@ struct SettingsGroupView: View {
             })) {
                 SettingsRowLabel(title: BipeStrings.accountBiometricUnlock(OwnerCheck.biometricWord))
             }
+        case .accountLinkedDevices:
+            NavigationLink {
+                LinkedDevicesView(model: model)
+            } label: {
+                SettingsRowLabel(title: row.title)
+            }
+        case .helpReportProblem:
+            NavigationLink {
+                ProblemReportView(model: model)
+            } label: {
+                SettingsRowLabel(title: row.title)
+            }
         case .helpSupport:
             NavigationLink(value: SettingsRoute.support) { SettingsRowLabel(title: row.title) }
         default:
