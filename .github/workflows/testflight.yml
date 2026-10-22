@@ -60,6 +60,7 @@ jobs:
           printf '%s\n' "$ASC_KEY_P8" > "$key"
           echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
       - name: Register the bundle IDs, check the app record
+        id: asc
         run: node tools/asc.mjs prepare
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -114,6 +115,7 @@ jobs:
           </dict></plist>
           EOF
       - name: Upload to TestFlight
+        if: steps.asc.outputs.app == 'true'
         run: |
           set -o pipefail
           xcodebuild -exportArchive \
@@ -145,6 +147,7 @@ jobs:
           path: ${{ runner.temp }}/adhoc/*.ipa
           retention-days: 30
       - name: Add the build to the internal testing group
+        if: steps.asc.outputs.app == 'true'
         run: node tools/asc.mjs distribute "$BUILD_NUMBER"
       - name: Upload the logs
         if: failure()
