@@ -70,7 +70,8 @@ final class ChatNotificationsModel: ObservableObject {
             isDefault = room.isDefault
         }
         defaultMode = NotificationMode(await settings.getDefaultRoomNotificationMode(isEncrypted: isEncrypted, isOneToOne: isOneToOne))
-        mentionsMayMiss = isEncrypted && !(await settings.canPushEncryptedEventToDevice())
+        let canPushEncrypted = await settings.canPushEncryptedEventToDevice()
+        mentionsMayMiss = isEncrypted && !canPushEncrypted
         isLoaded = true
     }
 
