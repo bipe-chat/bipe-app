@@ -54,7 +54,7 @@ struct GroupCreateView: View {
                 Section {
                     ForEach(model.people) { person in
                         HStack(spacing: 12) {
-                            AvatarView(name: person.displayName, mxcUrl: person.avatarUrl, loader: media, size: 36)
+                            AvatarView(name: person.displayName, mxcUrl: person.avatarUrl, loader: media, size: 36, userId: person.userId)
                             Text(person.displayName)
                                 .foregroundStyle(BipeColor.inkPrimary)
                                 .lineLimit(1)
