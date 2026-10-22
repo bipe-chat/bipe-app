@@ -84,6 +84,7 @@ sealed interface SettingsRoute {
     data object AppLockOff : SettingsRoute
     data object LinkedDevices : SettingsRoute
     data object ProblemReport : SettingsRoute
+    data object Licences : SettingsRoute
 }
 
 /**
@@ -115,6 +116,7 @@ fun SettingsHost(session: AccountSession, api: BipeApiClient, onClose: () -> Uni
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
+        SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
         SettingsRoute.ProblemReport -> ProblemReportScreen(
             model,
             onBack = pop,
@@ -217,6 +219,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_CHANGE_PIN -> onOpen(SettingsRoute.PinChange)
             BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
+            BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
             // The screens of the other rows come with their own specs (see settings-group notes).
             else -> Unit

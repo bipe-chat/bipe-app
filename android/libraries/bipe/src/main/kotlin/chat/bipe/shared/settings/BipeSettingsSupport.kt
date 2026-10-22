@@ -274,3 +274,26 @@ suspend fun BipeApiClient.submitProblemReport(report: BipeProblemReport, accessT
         connection.disconnect()
     }
 }
+
+/** One component of the open source licence list (spec open-source-licences, made by bipe-app tools/oss-licences.mjs). */
+@Serializable
+data class BipeLicensedComponent(
+    @SerialName("name") val name: String,
+    @SerialName("licence") val licence: String,
+    @SerialName("text") val text: String? = null,
+)
+
+@Serializable
+data class BipeLicenceList(
+    @SerialName("components") val components: List<BipeLicensedComponent>,
+    @SerialName("texts") val texts: Map<String, String>,
+) {
+    /** The full licence text of a component. */
+    fun textOf(component: BipeLicensedComponent): String = component.text ?: texts[component.licence].orEmpty()
+
+    companion object {
+        private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+        fun parse(text: String): BipeLicenceList = json.decodeFromString(serializer(), text)
+    }
+}

@@ -168,6 +168,12 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title)
             }
+        case .helpLicenses:
+            NavigationLink {
+                OpenSourceLicencesView()
+            } label: {
+                SettingsRowLabel(title: row.title)
+            }
         case .helpSupport:
             NavigationLink(value: SettingsRoute.support) { SettingsRowLabel(title: row.title) }
         default:
