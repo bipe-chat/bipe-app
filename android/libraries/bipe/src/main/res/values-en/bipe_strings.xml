@@ -1313,6 +1313,11 @@
     <string name="bipe_app_upload_preparing">Preparing…</string>
     <string name="bipe_app_upload_too_large">This file is too large. The limit is %1$s.</string>
     <string name="bipe_app_upload_failed">Couldn\'t send the file. Tap to try again.</string>
+    <string name="bipe_app_tab_search">Search</string>
+    <string name="bipe_app_account_current_a11y">Current account: %1$s</string>
+    <string name="bipe_app_tab_you_switch_hint">Double-tap to switch account</string>
+    <string name="bipe_app_account_switcher_title">Accounts on this phone</string>
+    <string name="bipe_app_account_new">New account</string>
     <string name="bipe_app_profile_name_reserved">This name is reserved. Choose another.</string>
     <string name="bipe_app_person_message">Send a message</string>
     <string name="bipe_app_person_new_group">New group with this person</string>
