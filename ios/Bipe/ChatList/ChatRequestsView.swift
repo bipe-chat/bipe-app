@@ -87,7 +87,7 @@ private struct RequestRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // hidePhotos: the initials avatar, never the photo, until accepted.
-            AvatarView(name: request.name, mxcUrl: hidePhoto ? nil : request.avatarUrl, loader: media)
+            AvatarView(name: request.name, mxcUrl: request.avatarUrl, loader: media, userId: request.inviterId, showsPhoto: !hidePhoto)
             VStack(alignment: .leading, spacing: 2) {
                 Text(request.name)
                     .font(.headline)
@@ -136,7 +136,7 @@ struct ChatRequestView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                AvatarView(name: request.name, mxcUrl: model.hidePhotos ? nil : request.avatarUrl, loader: media, size: 72)
+                AvatarView(name: request.name, mxcUrl: request.avatarUrl, loader: media, size: 72, userId: request.inviterId, showsPhoto: !model.hidePhotos)
                 Text(request.name)
                     .font(.title2.bold())
                     .foregroundStyle(BipeColor.inkPrimary)

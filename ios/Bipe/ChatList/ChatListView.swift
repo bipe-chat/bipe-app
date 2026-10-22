@@ -31,7 +31,7 @@ struct ChatListView: View {
         self.onOpenVoce = onOpenVoce
         _model = ObservedObject(wrappedValue: model)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
-        _requests = StateObject(wrappedValue: ChatRequestsModel(session: model.session))
+        _requests = StateObject(wrappedValue: ChatRequestsModel(session: model.session, api: api))
         _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
         _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
@@ -93,7 +93,7 @@ struct ChatListView: View {
         .task { await requests.start() }
         .task { await banner.refresh() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await banner.refresh() } }
+            if phase == .active { Task { await banner.refresh(); await requests.refreshTrust() } }
         }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)

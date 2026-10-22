@@ -113,7 +113,7 @@ fun HomeScreen(
     val media = remember(session) { tabs.media(session) }
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
-    val requests = remember(session) { ChatRequestsModel(context.applicationContext, session, scope) }
+    val requests = remember(session) { ChatRequestsModel(context.applicationContext, session, api, scope) }
     val search = remember(session) { ChatSearchModel(session, model, scope) }
     val remoteBanner = remember(session) { RemoteBannerModel(context.applicationContext, api, scope) }
     var showsRequests by rememberSaveable { mutableStateOf(false) }
@@ -134,7 +134,7 @@ fun HomeScreen(
         onDispose { encryption.close() }
     }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
-    LaunchedEffect(foregroundCount) { terms.check(); tabs.refreshProfiles() }
+    LaunchedEffect(foregroundCount) { terms.check(); tabs.refreshProfiles(); requests.refreshTrust() }
     val people = remember(session) { PeopleService(context, session, api, media, scope) }
     var peopleStack by remember { mutableStateOf(listOf<PeopleRoute>()) }
     DisposableEffect(people) {

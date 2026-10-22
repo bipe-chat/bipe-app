@@ -52,6 +52,7 @@ struct AvatarView: View {
     var size: CGFloat = 48
     var userId: String? = nil
     var isCompany = false
+    var showsPhoto = true
 
     @State private var image: UIImage?
     @State private var resolvedCompany = false
@@ -59,7 +60,7 @@ struct AvatarView: View {
     var body: some View {
         ZStack {
             BipeColor.accentWash
-            if let image {
+            if showsPhoto, let image {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -72,12 +73,12 @@ struct AvatarView: View {
         .frame(width: size, height: size)
         .clipShape(shape)
         .accessibilityHidden(true)
-        .task(id: "\(userId ?? "")|\(mxcUrl ?? "")|\(size)") {
+        .task(id: "\(userId ?? "")|\(mxcUrl ?? "")|\(size)|\(showsPhoto)") {
             image = nil
             resolvedCompany = false
             async let company = companyType()
-            var url = mxcUrl
-            if url == nil, let userId { url = await loader.avatarUrl(userId: userId) }
+            var url = showsPhoto ? mxcUrl : nil
+            if showsPhoto, url == nil, let userId { url = await loader.avatarUrl(userId: userId) }
             let loaded: UIImage?
             if let url { loaded = await loader.thumbnail(mxcUrl: url, size: Int(size * 3)) } else { loaded = nil }
             guard !Task.isCancelled else { return }

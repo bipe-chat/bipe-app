@@ -56,7 +56,18 @@ import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.inviteConnections
+import chat.bipe.shared.invites.BipeInviteTrust
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -77,12 +88,13 @@ data class ChatRequestSummary(
     val avatarUrl: String?,
     val trust: Trust,
     val invitedAt: Long?,
+    val isDm: Boolean = false,
 ) {
     enum class Trust { VERIFIED, UNVERIFIED, EXTERNAL }
 }
 
 /** Specs chat-requests and chat-request, and the group invites of chat-list-filters. */
-class ChatRequestsModel(private val context: Context, val session: AccountSession, private val scope: CoroutineScope) {
+class ChatRequestsModel(private val context: Context, val session: AccountSession, private val api: BipeApiClient, private val scope: CoroutineScope) {
     private val _requests = MutableStateFlow<List<ChatRequestSummary>>(emptyList())
     private val _groupInvites = MutableStateFlow<List<ChatRequestSummary>>(emptyList())
     private val _pending = MutableStateFlow<Set<String>>(emptySet())
@@ -98,7 +110,13 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
     val pending: StateFlow<Set<String>> = _pending.asStateFlow()
     val error: StateFlow<Boolean> = _error.asStateFlow()
 
-    private val dmInvites = FilteredRoomList(scope) { rooms -> _requests.value = summaries(rooms) }
+    private var invitePairs = emptySet<String>()
+    private var dmRooms = emptyList<Room>()
+    private var lastPairAttempt = 0L
+    private var checkingPairs = false
+    private var trustJob: Job? = null
+    private var pairJob: Job? = null
+    private val dmInvites = FilteredRoomList(scope) { rooms -> dmRooms = rooms; _requests.value = dmSummaries(rooms) }
     private val groupInviteList = FilteredRoomList(scope) { rooms -> _groupInvites.value = summaries(rooms) }
     private var started = false
 
@@ -109,16 +127,67 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
     fun start() {
         if (started) return
         started = true
-        scope.launch {
+        trustJob = scope.launch {
+            loadInvitePairs()
             // A request is an invite with Category People; a group invite is an invite with Category Group.
             dmInvites.start(session, inviteFilter(RoomListFilterCategory.PEOPLE))
             groupInviteList.start(session, inviteFilter(RoomListFilterCategory.GROUP))
+            while (isActive) {
+                delay(30_000)
+                if (_requests.value.isNotEmpty()) refreshTrust()
+            }
         }
     }
 
     fun close() {
+        trustJob?.cancel()
+        pairJob?.cancel()
         dmInvites.close()
         groupInviteList.close()
+    }
+
+    /** ADR 0034: use only this account's cached/API-confirmed pairs; an API outage keeps the cache. */
+    private suspend fun loadInvitePairs() {
+        if (checkingPairs) return
+        checkingPairs = true
+        try {
+            invitePairs = withContext(Dispatchers.IO) {
+                context.getSharedPreferences("bipe_native_invite_joins", Context.MODE_PRIVATE)
+                    .getStringSet("pairs_${session.userId}", emptySet()).orEmpty().toSet()
+            }
+            val now = System.currentTimeMillis()
+            if (now - lastPairAttempt < 60_000) return
+            lastPairAttempt = now
+            pairJob = scope.launch {
+                try {
+                    val confirmed = BipeApiClient.withTokenRetry({ session.accessToken() }) { api.inviteConnections(it) }.toSet()
+                    invitePairs = confirmed
+                    withContext(Dispatchers.IO) {
+                        context.getSharedPreferences("bipe_native_invite_joins", Context.MODE_PRIVATE).edit()
+                            .putStringSet("pairs_${session.userId}", confirmed).apply()
+                    }
+                    _requests.value = dmSummaries(dmRooms)
+                } catch (error: CancellationException) { throw error }
+                catch (_: Exception) { /* A failed refresh never trusts an unconfirmed account. */ }
+            }
+        } finally { checkingPairs = false }
+    }
+
+    suspend fun refreshTrust() { _requests.value = dmSummaries(dmRooms) }
+
+    private suspend fun dmSummaries(rooms: List<Room>): List<ChatRequestSummary> {
+        loadInvitePairs()
+        val visible = mutableListOf<ChatRequestSummary>()
+        for (room in rooms) {
+            currentCoroutineContext().ensureActive()
+            val request = summary(room) ?: continue // Ignored inviters are excluded before pair trust.
+            if (BipeInviteTrust.acceptsAutomatically(request.isDm, request.inviterId, false, invitePairs)) {
+                if (request.roomId in _pending.value) continue
+                if (run(request.roomId) { it.join() }) continue
+            }
+            visible += request
+        }
+        return visible.sortedByDescending { it.invitedAt ?: 0 }
     }
 
     private fun inviteFilter(category: RoomListFilterCategory) = RoomListEntriesDynamicFilterKind.All(
@@ -155,6 +224,7 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
                 ChatRequestSummary.Trust.EXTERNAL
             },
             invitedAt = invitedAt,
+            isDm = info.isDm,
         )
     }
 
@@ -272,7 +342,7 @@ fun ChatRequestsScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             // hidePhotos: the initials avatar, never the photo, until accepted.
-                            Avatar(request.name, if (model.hidePhotos) null else request.avatarUrl, media)
+                            Avatar(request.name, request.avatarUrl, media, userId = request.inviterId, showsPhoto = !model.hidePhotos)
                             Column {
                                 Text(request.name, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1)
                                 TrustLine(request.trust)
@@ -324,7 +394,7 @@ fun ChatRequestScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Avatar(request.name, if (model.hidePhotos) null else request.avatarUrl, media, size = 72.dp)
+                Avatar(request.name, request.avatarUrl, media, size = 72.dp, userId = request.inviterId, showsPhoto = !model.hidePhotos)
                 Text(request.name, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary, textAlign = TextAlign.Center)
                 TrustBlock(request)
                 if (error) Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)

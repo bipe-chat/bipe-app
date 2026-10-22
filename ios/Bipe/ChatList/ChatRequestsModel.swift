@@ -22,6 +22,7 @@ struct ChatRequestSummary: Identifiable, Equatable {
     var avatarUrl: String?
     var trust: Trust
     var invitedAt: Date?
+    var isDm = false
 
     var id: String { roomId }
 }
@@ -38,13 +39,23 @@ final class ChatRequestsModel: ObservableObject {
     @Published var error = false
 
     let session: AccountSession
+    private let api: BipeAPIClient
+    private var invitePairs: Set<String> = []
+    private var dmRooms: [Room] = []
+    private var lastPairAttempt = Date.distantPast
+    private var checkingPairs = false
+    private var trustTask: Task<Void, Never>?
+    private var pairTask: Task<Void, Never>?
     private var dmInvites: FilteredRoomList?
     private var groupInviteList: FilteredRoomList?
     private var started = false
 
-    init(session: AccountSession) {
+    init(session: AccountSession, api: BipeAPIClient) {
         self.session = session
+        self.api = api
     }
+
+    deinit { trustTask?.cancel(); pairTask?.cancel() }
 
     /// The privacy switch bipe_privacy_requests_hide_photos (settings-group, kept on the phone).
     var hidePhotos: Bool {
@@ -61,6 +72,7 @@ final class ChatRequestsModel: ObservableObject {
     func start() async {
         guard !started else { return }
         started = true
+        await loadInvitePairs()
         let dms = FilteredRoomList { [weak self] rooms in self?.refresh(rooms, groups: false) }
         let groups = FilteredRoomList { [weak self] rooms in self?.refresh(rooms, groups: true) }
         dmInvites = dms
@@ -68,16 +80,60 @@ final class ChatRequestsModel: ObservableObject {
         // A request is an invite with Category People; a group invite is an invite with Category Group.
         await dms.start(session: session, filter: .all(filters: [.invite, .nonSpace, .deduplicateVersions, .category(expect: .people)]))
         await groups.start(session: session, filter: .all(filters: [.invite, .nonSpace, .deduplicateVersions, .category(expect: .group)]))
+        trustTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(30)) } catch { return }
+                guard let self else { return }
+                if !self.requests.isEmpty { await self.refreshTrust() }
+            }
+        }
+    }
+
+    /// ADR 0034: read the per-account cache first; an unavailable API keeps the last confirmed pairs.
+    private func loadInvitePairs() async {
+        guard !checkingPairs else { return }
+        checkingPairs = true
+        defer { checkingPairs = false }
+        let userId = session.userId
+        invitePairs = await Task.detached { BipeInviteStore(userID: userId).invitePairs() }.value
+        guard Date().timeIntervalSince(lastPairAttempt) >= 60, !Task.isCancelled else { return }
+        lastPairAttempt = Date()
+        pairTask = Task { [weak self] in
+            guard let self else { return }
+            if let pairs = try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }, {
+                (token: String) async throws(BipeAPIError) -> [String] in
+                try await self.api.inviteConnections(accessToken: token)
+            }), !Task.isCancelled {
+                let confirmed = Set(pairs)
+                self.invitePairs = confirmed
+                await Task.detached { BipeInviteStore(userID: userId).setInvitePairs(confirmed) }.value
+                self.refresh(self.dmRooms, groups: false)
+            }
+        }
+    }
+
+    func refreshTrust() async {
+        await loadInvitePairs()
+        refresh(dmRooms, groups: false)
     }
 
     private func refresh(_ rooms: [Room], groups: Bool) {
+        if !groups { dmRooms = rooms }
         Task {
+            if !groups { await loadInvitePairs() }
             var summaries: [ChatRequestSummary] = []
             for room in rooms {
+                guard !Task.isCancelled else { return }
                 if let summary = await Self.summary(of: room, ownServer: Self.server(of: session.userId)) {
+                    if !groups && BipeInviteTrust.acceptsAutomatically(isDm: summary.isDm, inviterID: summary.inviterId,
+                                                                       isIgnored: false, pairs: invitePairs) {
+                        if pending.contains(summary.roomId) { continue }
+                        if await run(summary.roomId, { try await $0.join() }) { continue }
+                    }
                     summaries.append(summary)
                 }
             }
+            guard !Task.isCancelled else { return }
             summaries.sort { ($0.invitedAt ?? .distantPast) > ($1.invitedAt ?? .distantPast) }
             if groups {
                 groupInvites = summaries
@@ -107,7 +163,8 @@ final class ChatRequestsModel: ObservableObject {
             // The verified seal needs the badge check (GET /v1/badges), which comes with the trust work of people
             // and profiles (bipe-chat/bipe#568). Until then: external for another server, else unverified.
             trust: server(of: inviterId) == ownServer || inviterId.isEmpty ? .unverified : .external,
-            invitedAt: invitedAt)
+            invitedAt: invitedAt,
+            isDm: info.isDm)
     }
 
     private static func server(of userId: String) -> String {
