@@ -227,7 +227,7 @@ struct ContactsView: View {
 
     private func row(_ match: ContactMatch) -> some View {
         HStack(spacing: 12) {
-            AvatarView(name: match.person.displayName, mxcUrl: match.person.avatarUrl, loader: model.people.media, size: 40)
+            AvatarView(name: match.person.displayName, mxcUrl: match.person.avatarUrl, loader: model.people.media, size: 40, userId: match.person.userId)
             VStack(alignment: .leading, spacing: 2) {
                 Text(match.person.displayName)
                     .foregroundStyle(BipeColor.inkPrimary)

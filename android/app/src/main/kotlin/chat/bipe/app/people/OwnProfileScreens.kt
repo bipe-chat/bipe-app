@@ -220,6 +220,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var loading by remember { mutableStateOf(true) }
+    var isCompany by remember { mutableStateOf(false) }
     var enabled by remember { mutableStateOf(false) }
     var handle by remember { mutableStateOf<String?>(null) }
     var name by remember { mutableStateOf("") }
@@ -259,6 +260,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
 
     // Action appear: GET /v1/me/profile. A profile never saved starts from the Matrix profile.
     LaunchedEffect(Unit) {
+        isCompany = people.media.isCompany(people.session.userId)
         runCatching { people.withToken { people.api.myProfile(it) } }
             .onSuccess { profile ->
                 applyProfile(profile)
@@ -294,7 +296,8 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
             Text(stringResource(R.string.bipe_public_profile_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
         }
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            PhotoPreview(newPhoto ?: remotePhoto, fallback = { Avatar(name, null, people.media, size = 96.dp) })
+            PhotoPreview(newPhoto ?: remotePhoto, isCompany = isCompany,
+                fallback = { Avatar(name, null, people.media, size = 96.dp, userId = people.session.userId, isCompany = isCompany) })
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
                     Text(stringResource(R.string.bipe_public_profile_photo_change))
@@ -370,12 +373,12 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
 
 /** Spec profile-link: the user's link (bipe.chat/@handle) and its QR code. */
 @Composable
-fun ProfileLinkScreen(people: PeopleService, pickHandle: () -> Unit, onBack: () -> Unit) {
+fun ProfileLinkScreen(people: PeopleService, pickHandle: () -> Unit, onBack: () -> Unit, showQr: Boolean = false) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
     var loaded by remember { mutableStateOf(false) }
     var handle by remember { mutableStateOf<String?>(null) }
-    var showingQr by remember { mutableStateOf(false) }
+    var showingQr by remember { mutableStateOf(showQr) }
     var notice by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         handle = runCatching { people.withToken { people.api.myHandle(it) } }.getOrNull()?.handle

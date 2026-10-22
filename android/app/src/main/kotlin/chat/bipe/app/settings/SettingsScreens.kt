@@ -59,6 +59,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.people.PeopleService
+import chat.bipe.app.people.PeopleRoute
+import chat.bipe.app.people.PeopleScreen
+import chat.bipe.app.people.PeopleNavigation
+import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.handle.HandlePickModel
+import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
@@ -76,6 +83,8 @@ import kotlinx.coroutines.launch
 
 /** The screens that the settings stack pushes. */
 sealed interface SettingsRoute {
+    data class People(val route: PeopleRoute) : SettingsRoute
+    data object HandlePick : SettingsRoute
     data class Group(val group: BipeSettingsGroup) : SettingsRoute
     data object Messaging : SettingsRoute
     data object Support : SettingsRoute
@@ -98,13 +107,26 @@ fun SettingsHost(
     api: BipeApiClient,
     onClose: () -> Unit,
     onSignedOut: () -> Unit,
-    rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit) -> Unit)? = null,
+    onOpenChat: (String) -> Unit = {},
+    onProfileChanged: () -> Unit = {},
+    rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit, (PeopleRoute) -> Unit) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val model = remember(session) { SettingsModel(context.applicationContext, session, api, scope) }
+    val media = remember(session) { MediaLoader(session.client) }
+    val people = remember(session) { PeopleService(context, session, api, media, scope) }
+    androidx.compose.runtime.DisposableEffect(people) {
+        people.start()
+        onDispose { people.close() }
+    }
     val stack = remember { mutableStateListOf<SettingsRoute>() }
-    val pop: () -> Unit = { if (stack.isEmpty()) onClose() else stack.removeAt(stack.lastIndex) }
+    val pop: () -> Unit = {
+        if (stack.isEmpty()) onClose() else {
+            stack.removeAt(stack.lastIndex)
+            onProfileChanged()
+        }
+    }
     BackHandler(onBack = pop)
     LaunchedEffect(model) { model.load() }
     val openGroup: (BipeSettingsGroup) -> Unit = { group ->
@@ -113,7 +135,7 @@ fun SettingsHost(
     }
     when (val route = stack.lastOrNull()) {
         null -> {
-            if (rootContent != null) rootContent(model, openGroup)
+            if (rootContent != null) rootContent(model, openGroup) { stack.add(SettingsRoute.People(it)) }
             else {
                 SettingsPage(stringResource(R.string.bipe_settings_section), BipeScreen.SETTINGS_ROOT.id, onBack = onClose) {
                     SettingsRootSection(model, openGroup)
@@ -121,6 +143,16 @@ fun SettingsHost(
             }
         }
         is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut)
+        is SettingsRoute.People -> PeopleScreen(route.route, people, PeopleNavigation(
+            push = { stack.add(SettingsRoute.People(it)) }, pop = pop,
+            openChat = { stack.clear(); onOpenChat(it) },
+            pickHandle = { stack.add(SettingsRoute.HandlePick) },
+        ))
+        SettingsRoute.HandlePick -> {
+            val handle = remember(session) { HandlePickModel(context, api, session, scope) }
+            LaunchedEffect(handle) { handle.load() }
+            HandlePickScreen(handle, onClose = pop)
+        }
         SettingsRoute.Messaging -> MessagingPickerScreen(model, onBack = pop)
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
@@ -229,6 +261,11 @@ fun SettingsGroupScreen(
             return
         }
         when (row) {
+            BipeSettingsRow.PROFILE_NAME_PHOTO -> onOpen(SettingsRoute.People(PeopleRoute.ProfileEdit))
+            BipeSettingsRow.PROFILE_HANDLE -> onOpen(SettingsRoute.People(PeopleRoute.ProfileLink))
+            BipeSettingsRow.PROFILE_PUBLIC_PROFILE -> onOpen(SettingsRoute.People(PeopleRoute.PublicProfile))
+            BipeSettingsRow.PRIVACY_BLOCKED -> onOpen(SettingsRoute.People(PeopleRoute.BlockedList))
+            BipeSettingsRow.PRIVACY_CONTACTS -> onOpen(SettingsRoute.People(PeopleRoute.Contacts))
             BipeSettingsRow.PRIVACY_MESSAGING -> onOpen(SettingsRoute.Messaging)
             BipeSettingsRow.HELP_SUPPORT -> onOpen(SettingsRoute.Support)
             BipeSettingsRow.ACCOUNT_SIGN_OUT -> showsSignOut = true

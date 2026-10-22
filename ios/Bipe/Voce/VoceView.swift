@@ -12,6 +12,9 @@ struct VoceView: View {
     let chatList: ChatListModel
     let onNewAccount: () -> Void
     @StateObject private var settings: SettingsModel
+    @StateObject private var people: PeopleService
+    @StateObject private var handle: HandlePickModel
+    @State private var showsHandlePick = false
     @State private var path = NavigationPath()
     @State private var openingNotes = false
     @State private var notesFailed = false
@@ -22,14 +25,19 @@ struct VoceView: View {
         self.chatList = chatList
         self.onNewAccount = onNewAccount
         _settings = StateObject(wrappedValue: SettingsModel(session: chatList.session, api: api))
+        _people = StateObject(wrappedValue: PeopleService(session: chatList.session, api: api, media: chatList.media))
+        _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: chatList.session))
     }
 
     var body: some View {
         NavigationStack(path: $path) {
             List {
                 if let account = model.accounts.first(where: \.isCurrent) {
-                    VoceHeader(account: account, media: chatList.media)
+                    VoceHeader(account: account, media: chatList.media,
+                               openProfile: { path.append(SettingsRoute.group(.profile)) },
+                               openQr: { path.append(PeopleRoute.profileQr) })
                         .listRowBackground(BipeColor.surfaceBase)
+                        .buttonStyle(.borderless)
                 }
                 if model.accounts.count > 1 {
                     Section(BipeStrings.appAccountSwitcherTitle) {
@@ -71,12 +79,40 @@ struct VoceView: View {
                     ChatTimelineView(session: chatList.session, media: chatList.media, roomId: roomId)
                 }
             }
+            .navigationDestination(for: PeopleRoute.self) { route in
+                peopleScreen(route)
+            }
         }
         .accessibilityIdentifier(BipeScreen.voce.rawValue)
-        .task { await model.refreshProfiles() }
+        .onAppear { people.start(); Task { await model.refreshProfiles() } }
+        .sheet(isPresented: $showsHandlePick) { HandlePickView(model: handle) }
         .alert(BipeStrings.selfChatError, isPresented: $notesFailed) {
             Button(BipeStrings.appRetry, action: openNotes)
             Button(BipeStrings.appCancel, role: .cancel) {}
+        }
+    }
+
+    @ViewBuilder
+    private func peopleScreen(_ route: PeopleRoute) -> some View {
+        switch route {
+        case .profileEdit:
+            ProfileEditView(people: people)
+        case .publicProfile:
+            PublicProfileEditView(people: people, pickHandle: { showsHandlePick = true },
+                                  openLink: { path.append(PeopleRoute.profileLink) })
+        case .profileLink:
+            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
+        case .profileQr:
+            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true }, initiallyShowsQr: true)
+        case .contacts:
+            ContactsView(people: people, openChat: { path.append(Destination.notes($0)) }, invite: nil)
+        case .blockedList:
+            BlockedListView(people: people) { path.append(PeopleRoute.person(userId: $0, fromDm: false)) }
+        case .whoCanMessage:
+            WhoCanMessageView(people: people)
+        case .person(let userId, let fromDm):
+            PersonProfileView(people: people, userId: userId, fromDm: fromDm,
+                              routes: PersonProfileRoutes(openChat: { path.append(Destination.notes($0)) }))
         }
     }
 
@@ -94,20 +130,31 @@ struct VoceView: View {
 private struct VoceHeader: View {
     let account: AccountSummary
     let media: MediaLoader
+    let openProfile: () -> Void
+    let openQr: () -> Void
 
     var body: some View {
         VStack(spacing: 8) {
-            AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 88,
-                       userId: account.userId, isCompany: account.isCompany)
-            Text(account.displayName)
-                .font(.title2.bold())
-                .foregroundStyle(BipeColor.inkPrimary)
+            Button(action: openProfile) {
+                VStack(spacing: 8) {
+                    AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 88,
+                               userId: account.userId, isCompany: account.isCompany)
+                    Text(account.displayName).font(.title2.bold()).foregroundStyle(BipeColor.inkPrimary)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(BipeStrings.settingsProfile)
             if let handle = account.handle {
                 Text(verbatim: "@\(handle)")
                     .font(.subheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
                 if let url = URL(string: "https://bipe.chat/@\(handle)") {
                     ShareLink(item: url) { Text(BipeStrings.profileShare) }
+                }
+            }
+            Button(action: openQr) {
+                Label { Text(BipeStrings.profileQrAction) } icon: {
+                    PhosphorIcon.qrCode.image.resizable().frame(width: 20, height: 20)
                 }
             }
         }

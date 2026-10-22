@@ -13,6 +13,7 @@ struct ProfileLinkView: View {
     let people: PeopleService
     /// Action pickHandle: opens handle-pick.
     let pickHandle: () -> Void
+    var initiallyShowsQr = false
 
     @State private var handle: String?
     @State private var loaded = false
@@ -85,7 +86,7 @@ struct ProfileLinkView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toast($notice)
         .accessibilityIdentifier(BipeScreen.profileLink.rawValue)
-        .task { await appear() }
+        .task { showingQr = initiallyShowsQr; await appear() }
     }
 
     /// GET /v1/me/handle and MyProfile.enabled.

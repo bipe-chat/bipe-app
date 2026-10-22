@@ -26,40 +26,6 @@ struct IconLabel: View {
     }
 }
 
-/// A short notice at the bottom of the screen that hides itself.
-private struct ToastModifier: ViewModifier {
-    @Binding var message: String?
-
-    func body(content: Content) -> some View {
-        content.overlay(alignment: .bottom) {
-            if let message {
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkOnAccent)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Capsule().fill(BipeColor.accentFill))
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .task(id: message) {
-                        try? await Task.sleep(for: .seconds(3))
-                        withAnimation { self.message = nil }
-                    }
-                    .accessibilityAddTraits(.updatesFrequently)
-            }
-        }
-        .animation(.default, value: message)
-    }
-}
-
-extension View {
-    func toast(_ message: Binding<String?>) -> some View {
-        modifier(ToastModifier(message: message))
-    }
-}
-
 extension UIImage {
     /// The centre square, drawn upright: the "square crop" of the profile photo specs.
     func centreSquare() -> UIImage {

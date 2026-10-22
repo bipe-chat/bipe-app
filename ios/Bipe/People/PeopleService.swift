@@ -251,6 +251,7 @@ enum PeopleRoute: Hashable {
     case profileEdit
     case publicProfile
     case profileLink
+    case profileQr
     case contacts
     case whoCanMessage
     case blockedList

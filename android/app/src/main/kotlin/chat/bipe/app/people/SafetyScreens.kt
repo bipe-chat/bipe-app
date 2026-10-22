@@ -153,7 +153,7 @@ fun BlockedListScreen(people: PeopleService, openPerson: (String) -> Unit, onBac
                         modifier = Modifier.weight(1f).clickable(role = Role.Button) { openPerson(person.userId) },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Avatar(person.displayName, person.avatarUrl, people.media, size = 40.dp)
+                        Avatar(person.displayName, person.avatarUrl, people.media, size = 40.dp, userId = person.userId)
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text(person.displayName, color = colors.inkPrimary, maxLines = 1)

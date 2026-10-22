@@ -52,6 +52,8 @@ import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.settings.SettingsHost
 import chat.bipe.app.settings.SettingsRootSection
+import chat.bipe.app.people.PeopleRoute
+import chat.bipe.shared.generated.BipeSettingsGroup
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeScreen
@@ -79,12 +81,16 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
         }
     }
     SettingsHost(session, api, onClose = { tabs.selectTab(AppTabsModel.Tab.CONVERSAS) }, onSignedOut = { tabs.start.completeSignOut(session.userId) },
-        rootContent = { settings, openGroup ->
+        onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles,
+        rootContent = { settings, openGroup, openPeople ->
             Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.VOCE.id), color = BipeTheme.colors.surfaceBase) {
                 LazyColumn(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
                     item { Text(stringResource(R.string.bipe_tab_you), style = MaterialTheme.typography.headlineMedium,
                         color = BipeTheme.colors.inkPrimary, modifier = Modifier.padding(16.dp)) }
-                    item { state.accounts.firstOrNull { it.isCurrent }?.let { VoceHeader(it, media) } }
+                    item { state.accounts.firstOrNull { it.isCurrent }?.let {
+                        VoceHeader(it, media, openProfile = { openGroup(BipeSettingsGroup.PROFILE) },
+                            openQr = { openPeople(PeopleRoute.ProfileQr) })
+                    } }
                     if (state.accounts.size > 1) {
                         item { Text(stringResource(R.string.bipe_app_account_switcher_title), color = BipeTheme.colors.inkSecondary, modifier = Modifier.padding(16.dp)) }
                         item { AccountRows(tabs, media) }
@@ -119,7 +125,7 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
 }
 
 @Composable
-private fun VoceHeader(account: AccountSummary, media: MediaLoader) {
+private fun VoceHeader(account: AccountSummary, media: MediaLoader, openProfile: () -> Unit, openQr: () -> Unit) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
     val shareTitle = stringResource(R.string.bipe_profile_share)
@@ -128,8 +134,10 @@ private fun VoceHeader(account: AccountSummary, media: MediaLoader) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Avatar(account.displayName, account.avatarUrl, media, size = 88.dp, userId = account.userId, isCompany = account.isCompany)
-        Text(account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary)
+        Column(Modifier.clickable(onClick = openProfile), horizontalAlignment = Alignment.CenterHorizontally) {
+            Avatar(account.displayName, account.avatarUrl, media, size = 88.dp, userId = account.userId, isCompany = account.isCompany)
+            Text(account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary)
+        }
         account.handle?.let { handle ->
             Text("@$handle", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
             TextButton(onClick = {
@@ -137,5 +145,6 @@ private fun VoceHeader(account: AccountSummary, media: MediaLoader) {
                 context.startActivity(Intent.createChooser(send, shareTitle))
             }) { Text(shareTitle) }
         }
+        TextButton(onClick = openQr) { Text(stringResource(R.string.bipe_profile_qr_action)) }
     }
 }

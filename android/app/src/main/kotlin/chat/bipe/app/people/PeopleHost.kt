@@ -79,6 +79,7 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
             onBack = navigation.pop,
         )
         PeopleRoute.ProfileLink -> ProfileLinkScreen(people, pickHandle = navigation.pickHandle, onBack = navigation.pop)
+        PeopleRoute.ProfileQr -> ProfileLinkScreen(people, pickHandle = navigation.pickHandle, onBack = navigation.pop, showQr = true)
         is PeopleRoute.ProfileLinkOpen -> ProfileLinkOpenScreen(
             people,
             route.handle,

@@ -58,9 +58,6 @@ struct ChatListView: View {
                 peopleScreen(route)
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    peopleMenu
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     CreateGroupButton { creatingGroup = true }
                 }
@@ -105,25 +102,6 @@ struct ChatListView: View {
         }
     }
 
-    /// The people and profile screens (bipe-chat/bipe#568). Until the Você tab and Privacidade exist
-    /// (lanes D and E), this menu is their way in.
-    private var peopleMenu: some View {
-        Menu {
-            Button { path.append(PeopleRoute.profileEdit) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsProfileNamePhoto) }
-            Button { path.append(PeopleRoute.publicProfile) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsPublicProfile) }
-            Button { path.append(PeopleRoute.profileLink) } label: { IconLabel(icon: .qrCode, text: BipeStrings.appProfileLink) }
-            Button { path.append(PeopleRoute.contacts) } label: { IconLabel(icon: .addressBook, text: BipeStrings.contactsTitle) }
-            Button { path.append(PeopleRoute.whoCanMessage) } label: { IconLabel(icon: .chatText, text: BipeStrings.messagingTitle) }
-            Button { path.append(PeopleRoute.blockedList) } label: { IconLabel(icon: .prohibit, text: BipeStrings.privacyBlocked) }
-        } label: {
-            PhosphorIcon.userCircle.image
-                .resizable()
-                .frame(width: 26, height: 26)
-                .foregroundStyle(BipeColor.accentInk)
-                .accessibilityLabel(BipeStrings.settingsPublicProfile)
-        }
-    }
-
     @ViewBuilder
     private func peopleScreen(_ route: PeopleRoute) -> some View {
         switch route {
@@ -138,6 +116,8 @@ struct ChatListView: View {
                                   openLink: { path.append(PeopleRoute.profileLink) })
         case .profileLink:
             ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
+        case .profileQr:
+            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true }, initiallyShowsQr: true)
         case .contacts:
             ContactsView(people: people, openChat: { openChat($0) }, invite: nil)
         case .whoCanMessage:
