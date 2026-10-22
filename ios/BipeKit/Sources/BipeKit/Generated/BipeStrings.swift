@@ -2513,4 +2513,10 @@ public enum BipeStrings {
     public static var appTimelineLoadingHistory: String { NSLocalizedString("bipe_app_timeline_loading_history", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appTimelineStart: String { NSLocalizedString("bipe_app_timeline_start", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appName: String { NSLocalizedString("bipe_app_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appSdkVersion(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_sdk_version", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }
