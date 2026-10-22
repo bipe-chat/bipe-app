@@ -28,6 +28,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json
     case encryptionStatus = "encryption-status"
 
+    /// Create a group (flow groups). Spec: bipe-shared/product/screens/group-create.json
+    case groupCreate = "group-create"
+
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 

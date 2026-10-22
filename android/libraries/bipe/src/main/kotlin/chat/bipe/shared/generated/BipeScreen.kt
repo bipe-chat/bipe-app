@@ -34,6 +34,9 @@ enum class BipeScreen(val id: String) {
     /** Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
     ENCRYPTION_STATUS("encryption-status"),
 
+    /** Create a group (flow groups). Spec: bipe-shared/product/screens/group-create.json */
+    GROUP_CREATE("group-create"),
+
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
