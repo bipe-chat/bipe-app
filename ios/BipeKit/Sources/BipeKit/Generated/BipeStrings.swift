@@ -2940,6 +2940,28 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_app_notification_mode_default", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var appRequestsEmpty: String { NSLocalizedString("bipe_app_requests_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appRequestAccept: String { NSLocalizedString("bipe_app_request_accept", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appRequestDecline: String { NSLocalizedString("bipe_app_request_decline", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appRequestDeclineBlock: String { NSLocalizedString("bipe_app_request_decline_block", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appChatListFilterUnread: String { NSLocalizedString("bipe_app_chat_list_filter_unread", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupsEmpty: String { NSLocalizedString("bipe_app_groups_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appChatListNoUnread: String { NSLocalizedString("bipe_app_chat_list_no_unread", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appSearchPlaceholder: String { NSLocalizedString("bipe_app_search_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appSearchNoResults(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_search_no_results", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appSearchFindHandle: String { NSLocalizedString("bipe_app_search_find_handle", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appProfileNameReserved: String { NSLocalizedString("bipe_app_profile_name_reserved", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appPersonMessage: String { NSLocalizedString("bipe_app_person_message", tableName: "Bipe", bundle: .module, comment: "") }

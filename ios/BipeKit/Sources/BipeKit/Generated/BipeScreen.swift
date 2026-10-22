@@ -19,11 +19,23 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json
     case blockedList = "blocked-list"
 
+    /// Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json
+    case chatListFilters = "chat-list-filters"
+
     /// Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json
     case chatList = "chat-list"
 
     /// Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json
     case chatNotifications = "chat-notifications"
+
+    /// One chat request (flow home). Spec: bipe-shared/product/screens/chat-request.json
+    case chatRequest = "chat-request"
+
+    /// Chat requests (flow home). Spec: bipe-shared/product/screens/chat-requests.json
+    case chatRequests = "chat-requests"
+
+    /// Search chats (flow home). Spec: bipe-shared/product/screens/chat-search.json
+    case chatSearch = "chat-search"
 
     /// Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json
     case chatTimeline = "chat-timeline"
@@ -177,6 +189,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json
     case recoveryWaiting = "recovery-waiting"
+
+    /// Remote critical banner (flow home). Spec: bipe-shared/product/screens/remote-banner.json
+    case remoteBanner = "remote-banner"
 
     /// Report a chat (flow people). Spec: bipe-shared/product/screens/report-chat.json
     case reportChat = "report-chat"

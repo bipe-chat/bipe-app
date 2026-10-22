@@ -25,11 +25,23 @@ enum class BipeScreen(val id: String) {
     /** Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json */
     BLOCKED_LIST("blocked-list"),
 
+    /** Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json */
+    CHAT_LIST_FILTERS("chat-list-filters"),
+
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 
     /** Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json */
     CHAT_NOTIFICATIONS("chat-notifications"),
+
+    /** One chat request (flow home). Spec: bipe-shared/product/screens/chat-request.json */
+    CHAT_REQUEST("chat-request"),
+
+    /** Chat requests (flow home). Spec: bipe-shared/product/screens/chat-requests.json */
+    CHAT_REQUESTS("chat-requests"),
+
+    /** Search chats (flow home). Spec: bipe-shared/product/screens/chat-search.json */
+    CHAT_SEARCH("chat-search"),
 
     /** Chat timeline (flow chat). Spec: bipe-shared/product/screens/chat-timeline.json */
     CHAT_TIMELINE("chat-timeline"),
@@ -183,6 +195,9 @@ enum class BipeScreen(val id: String) {
 
     /** Safety wait (flow recovery). Spec: bipe-shared/product/screens/recovery-waiting.json */
     RECOVERY_WAITING("recovery-waiting"),
+
+    /** Remote critical banner (flow home). Spec: bipe-shared/product/screens/remote-banner.json */
+    REMOTE_BANNER("remote-banner"),
 
     /** Report a chat (flow people). Spec: bipe-shared/product/screens/report-chat.json */
     REPORT_CHAT("report-chat"),
