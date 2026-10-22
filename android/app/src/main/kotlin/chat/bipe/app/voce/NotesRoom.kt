@@ -38,7 +38,7 @@ class NotesRoom(context: Context, private val session: AccountSession) {
         val known = roomId
         if (known != null && known != pending) {
             if (runCatching { session.client.getRoom(known) }.getOrNull() == null) session.client.awaitRoomRemoteEcho(known)
-            val room = session.client.getRoom(known)
+            val room = checkNotNull(session.client.getRoom(known))
             check(room.roomInfo().membership == Membership.JOINED)
             return@withLock known
         }
