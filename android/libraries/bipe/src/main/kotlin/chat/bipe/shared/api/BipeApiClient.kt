@@ -6,6 +6,7 @@ package chat.bipe.shared.api
 
 import android.content.Context
 import chat.bipe.shared.BipeHandleProblem
+import chat.bipe.shared.BipeProfileProblem
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipePinProblem
 import chat.bipe.shared.generated.BipeRegistries
@@ -99,6 +100,51 @@ class BipeApiClient(baseUrl: String) {
             response = null,
         )
     }
+
+    // Recovery (ADR 0057, ADR 0059)
+
+    /** `POST /v1/me/device-first`. A beta account gets a hidden password and a recovery token, once. */
+    suspend fun moveToDeviceFirst(accessToken: String): BipeCredentials =
+        send("POST", listOf("v1", "me", "device-first"), accessToken = accessToken, response = BipeCredentials.serializer())
+
+    /** `POST /v1/me/recoveries/{id}/cancel`. An old device cancels a waiting recovery. */
+    suspend fun cancelRecovery(id: String, accessToken: String) {
+        send<Unit>("POST", listOf("v1", "me", "recoveries", id, "cancel"), accessToken = accessToken, response = null)
+    }
+
+    /** `POST /v1/recovery/token`. No auth. The synced token, then the PIN. New credentials, once. */
+    suspend fun recoverWithToken(token: String, pin: String): BipeCredentials = send(
+        "POST",
+        listOf("v1", "recovery", "token"),
+        body = encode(BipeTokenRecoveryRequest.serializer(), BipeTokenRecoveryRequest(token, pin)),
+        response = BipeCredentials.serializer(),
+    )
+
+    /** `POST /v1/recovery/email`. No auth. 202 for every well-formed address. */
+    suspend fun requestRecoveryEmail(email: String) {
+        send<Unit>(
+            "POST",
+            listOf("v1", "recovery", "email"),
+            body = encode(BipeRecoveryEmailRequest.serializer(), BipeRecoveryEmailRequest(email)),
+            response = null,
+        )
+    }
+
+    /** `POST /v1/recovery/email/confirm`. No auth. The link token and exactly one of [pin] (access) or [newPin] (PIN reset). */
+    suspend fun confirmRecoveryEmail(linkToken: String, pin: String?, newPin: String?): BipeRecoveryStarted = send(
+        "POST",
+        listOf("v1", "recovery", "email", "confirm"),
+        body = encode(BipeEmailConfirmRequest.serializer(), BipeEmailConfirmRequest(linkToken, pin, newPin)),
+        response = BipeRecoveryStarted.serializer(),
+    )
+
+    /** `POST /v1/recovery/{id}/claim`. No auth. Polls a recovery; the credentials come once when the delay has ended. */
+    suspend fun claimRecovery(id: String, claimSecret: String): BipeRecoveryClaim = send(
+        "POST",
+        listOf("v1", "recovery", id, "claim"),
+        body = encode(BipeClaimRequest.serializer(), BipeClaimRequest(claimSecret)),
+        response = BipeRecoveryClaim.serializer(),
+    )
 
     internal fun <T> encode(serializer: KSerializer<T>, value: T): String = json.encodeToString(serializer, value)
 
@@ -206,6 +252,9 @@ enum class BipeApiErrorCode(val id: String) {
     RECOVERY_INVALID("recovery_invalid"),
     EMAIL_UNAVAILABLE("email_unavailable"),
 
+    /** `PUT /v1/me/profile`: `reason` is a profile problem id (ADR 0041). */
+    PROFILE_INVALID("profile_invalid"),
+
     /** HTTP 403: the sign-up or the account lacks the current legal version (ADR 0113). */
     TERMS_REQUIRED("terms_required"),
     ;
@@ -257,6 +306,8 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.RECOVERY_INVALID -> context.getString(R.string.bipe_error_recovery_invalid)
             BipeApiErrorCode.EMAIL_UNAVAILABLE -> context.getString(R.string.bipe_error_email_unavailable)
             BipeApiErrorCode.TERMS_REQUIRED -> context.getString(R.string.bipe_signup_terms_required)
+            BipeApiErrorCode.PROFILE_INVALID ->
+                reason?.let(BipeProfileProblem::fromId)?.localizedMessage(context) ?: context.getString(R.string.bipe_error_generic)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL -> context.getString(R.string.bipe_error_generic)
         }
         is Network -> context.getString(R.string.bipe_error_network)

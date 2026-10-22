@@ -11,6 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import chat.bipe.app.account.AccountStartModel
+import chat.bipe.app.people.PeopleLinks
 import chat.bipe.app.account.AccountStartScreen
 import chat.bipe.app.settings.AppLockGate
 import chat.bipe.app.settings.AppLockModel
@@ -28,7 +29,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             BipeTheme {
                 AppLockGate {
-                    AccountStartScreen(accountStart)
+                    AccountStartScreen(accountStart, (application as BipeApplication).appTabs)
                 }
             }
         }
@@ -51,9 +52,13 @@ class MainActivity : ComponentActivity() {
         AppLockModel.get(this).onBackground()
     }
 
-    /** A bipe.chat/convite/<code> link (onboarding-welcome, action openInviteLink). */
+    /** A bipe.chat/convite/<code> link (onboarding-welcome) or a bipe.chat/recuperar/#<token> link (recovery-email). */
     private fun readInviteLink(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_VIEW) intent.data?.let { accountStart.pendingInviteLink = it }
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val uri = intent.data ?: return
+        // A profile link waits in PeopleLinks until the home screen shows (spec profile-link-open).
+        if (PeopleLinks.offer(uri)) return
+        accountStart.openLink(uri)
     }
 
     /**

@@ -6,11 +6,12 @@ import Foundation
 import MatrixRustSDK
 import Security
 
-/// Keeps the SDK session (tokens, device ID) in the app's own keychain group, on this device only.
-/// Never logged.
+/// Keeps the SDK session (tokens, device ID) of every account in the app's own keychain group, on this device only.
+/// One item per account, keyed by Matrix ID (ADR 0086). Never logged.
 enum SessionStore {
     private static let service = "chat.bipe.next.session"
-    private static let account = "current"
+    /// The single slot of builds before bipe-chat/bipe#577. `loadAll()` moves it under its Matrix ID.
+    private static let legacyAccount = "current"
 
     private struct Stored: Codable {
         var accessToken: String
@@ -22,25 +23,29 @@ enum SessionStore {
         var nativeSlidingSync: Bool
     }
 
-    static func load() -> Session? {
+    /// The saved session of every account on this phone, by Matrix ID.
+    static func loadAll() -> [String: Session] {
+        migrateLegacySlot()
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
             kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitAll,
         ]
         var result: AnyObject?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data,
-              let stored = try? JSONDecoder().decode(Stored.self, from: data) else { return nil }
-        return Session(accessToken: stored.accessToken,
-                       refreshToken: stored.refreshToken,
-                       userId: stored.userId,
-                       deviceId: stored.deviceId,
-                       homeserverUrl: stored.homeserverUrl,
-                       oauthData: stored.oauthData,
-                       slidingSyncVersion: stored.nativeSlidingSync ? .native : .none)
+              let items = result as? [[String: Any]] else { return [:] }
+        var sessions: [String: Session] = [:]
+        for item in items {
+            guard let data = item[kSecValueData as String] as? Data, let session = decode(data) else { continue }
+            sessions[session.userId] = session
+        }
+        return sessions
+    }
+
+    static func load(userId: String) -> Session? {
+        read(account: userId).flatMap(decode)
     }
 
     static func save(_ session: Session) {
@@ -52,7 +57,47 @@ enum SessionStore {
                             oauthData: session.oauthData,
                             nativeSlidingSync: session.slidingSyncVersion == .native)
         guard let data = try? JSONEncoder().encode(stored) else { return }
-        delete()
+        write(data, account: session.userId)
+    }
+
+    static func delete(userId: String) {
+        delete(account: userId)
+    }
+
+    private static func migrateLegacySlot() {
+        guard let data = read(account: legacyAccount) else { return }
+        if let session = decode(data), read(account: session.userId) == nil {
+            write(data, account: session.userId)
+        }
+        delete(account: legacyAccount)
+    }
+
+    private static func decode(_ data: Data) -> Session? {
+        guard let stored = try? JSONDecoder().decode(Stored.self, from: data) else { return nil }
+        return Session(accessToken: stored.accessToken,
+                       refreshToken: stored.refreshToken,
+                       userId: stored.userId,
+                       deviceId: stored.deviceId,
+                       homeserverUrl: stored.homeserverUrl,
+                       oauthData: stored.oauthData,
+                       slidingSyncVersion: stored.nativeSlidingSync ? .native : .none)
+    }
+
+    private static func read(account: String) -> Data? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess else { return nil }
+        return result as? Data
+    }
+
+    private static func write(_ data: Data, account: String) {
+        delete(account: account)
         let item: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -66,7 +111,7 @@ enum SessionStore {
         }
     }
 
-    static func delete() {
+    private static func delete(account: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -79,7 +124,7 @@ enum SessionStore {
 /// Saves the session again when the SDK refreshes the tokens.
 final class SessionSaver: ClientSessionDelegate {
     func retrieveSessionFromKeychain(userId: String) throws -> Session {
-        guard let session = SessionStore.load(), session.userId == userId else {
+        guard let session = SessionStore.load(userId: userId) else {
             throw ClientError.Generic(msg: "no saved session", details: nil)
         }
         return session

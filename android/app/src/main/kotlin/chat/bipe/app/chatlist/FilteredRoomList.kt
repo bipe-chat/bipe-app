@@ -55,6 +55,8 @@ class FilteredRoomList(private val scope: CoroutineScope, private val onChange: 
         }
     }
 
+    fun loadMore() { result?.controller()?.addOnePage() }
+
     fun close() {
         handle?.cancel()
         job?.cancel()

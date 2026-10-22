@@ -34,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -74,14 +75,19 @@ import chat.bipe.shared.generated.BipeScreen
 
 /** The sign-up flow from onboarding-welcome to signup-create. account-start shows it when its phase is noAccount. */
 @Composable
-fun SignupFlowScreen(model: SignupFlowModel) {
+fun SignupFlowScreen(model: SignupFlowModel, onCancel: (() -> Unit)? = null) {
     val path by model.path.collectAsState()
     val showsWaitlist by model.showsWaitlist.collectAsState()
     BackHandler(enabled = path.isNotEmpty()) { model.back() }
     Surface(modifier = Modifier.fillMaxSize(), color = BipeTheme.colors.surfaceBase) {
         Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             when (path.lastOrNull()) {
-                null -> OnboardingWelcomeScreen(model)
+                null -> Column {
+                    if (onCancel != null) {
+                        TextButton(onClick = onCancel) { Text(stringResource(R.string.bipe_app_cancel)) }
+                    }
+                    OnboardingWelcomeScreen(model)
+                }
                 SignupFlowModel.Route.INVITE_CODE -> SignupInviteCodeScreen(model)
                 SignupFlowModel.Route.NAME -> SignupNameScreen(model)
                 SignupFlowModel.Route.PIN -> SignupPinScreen(model, confirm = false)
@@ -222,8 +228,8 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel) {
                     FieldFooter(stringResource(R.string.bipe_onboarding_paste_invite_none), isError = true)
                 }
             }
-            // haveAccount: recovery-start comes with bipe-chat/bipe#556.
-            start.text.forEach { TextButtonRow(stringResource(it.title), enabled = false) {} }
+            // haveAccount: recovery-start (bipe-chat/bipe#556).
+            start.text.forEach { TextButtonRow(stringResource(it.title), onClick = model.onHaveAccount) }
         }
     }
 }

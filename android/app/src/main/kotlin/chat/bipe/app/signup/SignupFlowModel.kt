@@ -49,6 +49,8 @@ class SignupFlowModel(
     private val sessionStore: SessionStore,
     private val scope: CoroutineScope,
     private val onSignedUp: (AccountSession, SignupOutcome) -> Unit,
+    /** Action haveAccount of onboarding-welcome: account-start opens recovery-start. */
+    val onHaveAccount: () -> Unit = {},
 ) {
     /** The steps on top of onboarding-welcome. System back pops one step (action back). */
     enum class Route { INVITE_CODE, NAME, PIN, PIN_CONFIRM, FALLBACK, CREATE }

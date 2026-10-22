@@ -69,7 +69,9 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
     val state: StateFlow<State> = _state.asStateFlow()
     private val rooms = FilteredRoomList(scope) { found ->
         if (_state.value.query.isNotBlank()) {
-            _state.value = _state.value.copy(results = found.mapNotNull { list.summary(it) }, isSearching = false)
+            val query = _state.value.query
+            val summaries = found.filter { it.id() != list.notes.roomId }.mapNotNull { list.summary(it) }
+            if (_state.value.query == query) _state.value = _state.value.copy(results = summaries, isSearching = false)
         }
     }
     private var debounce: Job? = null
@@ -123,11 +125,12 @@ fun ChatSearchField(model: ChatSearchModel) {
 
 /** The results under the search field. */
 @Composable
-fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (String) -> Unit) {
+fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (String) -> Unit, onFindHandle: (String) -> Unit = {}) {
     val colors = BipeTheme.colors
     val state by model.state.collectAsState()
     LazyColumn(Modifier.fillMaxSize().testTag(BipeScreen.CHAT_SEARCH.id)) {
         when {
+            state.query.isBlank() -> Unit
             state.isSearching && state.results.isEmpty() -> item(key = "searching") {
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)
@@ -137,8 +140,8 @@ fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (S
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.bipe_app_search_no_results, state.query), color = colors.inkSecondary)
                     if (state.offersHandleLookup) {
-                        // Action findByHandle: the start-chat lookup comes with people and profiles (bipe-chat/bipe#568).
-                        Text(stringResource(R.string.bipe_app_search_find_handle), color = colors.inkDisabled)
+                        Text(stringResource(R.string.bipe_app_search_find_handle), color = colors.accentInk,
+                            modifier = Modifier.clickable { onFindHandle(state.query) })
                         Text(stringResource(R.string.bipe_start_chat_search_by_handle), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                     }
                 }
@@ -150,12 +153,12 @@ fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (S
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Avatar(chat.name, chat.avatarUrl, media, size = 40.dp)
+                    Avatar(chat.name, chat.avatarUrl, media, size = 40.dp, userId = chat.peerUserId)
                     Column {
                         Text(chat.name, color = colors.inkPrimary, maxLines = 1)
                         // Each result shows whether it is a chat or a group.
                         Text(
-                            stringResource(if (chat.isDirect) R.string.bipe_tab_chats else R.string.bipe_tab_groups),
+                            stringResource(if (chat.isDm) R.string.bipe_tab_chats else R.string.bipe_tab_groups),
                             style = MaterialTheme.typography.bodySmall,
                             color = colors.inkSecondary,
                         )

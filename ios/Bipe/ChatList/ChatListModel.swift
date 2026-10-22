@@ -14,8 +14,25 @@ struct ChatSummary: Identifiable, Equatable {
     var lastActivity: Date?
     var unreadCount: Int
     var isDirect: Bool
+    /// Joined and invited members. Not in the spec type: it decides the scope.
+    var memberCount: Int
+    /// Unread mentions and replies, for the Grupos badge (spec app-tabs gruposAttention).
+    var mentionCount: Int
+    /// The other member of a DM, for the avatar account-type lookup. Groups keep their room avatar.
+    var peerUserId: String? = nil
+    /// RoomInfo.isDm, the one DM test (ADR 0141).
+    var isDm = false
 
     var id: String { roomId }
+
+    /// ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test.
+    var scope: ChatScope { isDm ? .conversas : .grupos }
+}
+
+/// State scope of spec chat-list.
+enum ChatScope: String, CaseIterable, Hashable {
+    case conversas
+    case grupos
 }
 
 /// Spec chat-list (bipe-shared product/screens/chat-list.json).
@@ -31,11 +48,16 @@ final class ChatListModel: ObservableObject {
 
     @Published private(set) var phase: Phase = .loading
     @Published private(set) var chats: [ChatSummary] = []
-    /// The Unread filter (spec chat-list-filters, unreadOnly).
-    @Published private(set) var unreadOnly = false
+    /// Each tab keeps its own Unread filter without changing the all-chat stream used by tab badges.
+    @Published private(set) var unreadScopes: Set<ChatScope> = []
+    @Published private var unreadChats: [ChatScope: [ChatSummary]] = [:]
+    @Published private var unreadLoading: Set<ChatScope> = []
+    private var unreadLists: [ChatScope: FilteredRoomList] = [:]
+    private var unreadTasks: [ChatScope: Task<Void, Never>] = [:]
 
     let session: AccountSession
     let media: MediaLoader
+    let notes: NotesRoom
     private var rooms: [Room] = []
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult?
@@ -46,6 +68,18 @@ final class ChatListModel: ObservableObject {
     init(session: AccountSession) {
         self.session = session
         media = MediaLoader(client: session.client)
+        notes = NotesRoom(session: session)
+    }
+
+    /// The chats of one scope, in room list order.
+    func chats(in scope: ChatScope) -> [ChatSummary] {
+        (unreadScopes.contains(scope) ? unreadChats[scope, default: []] : chats).filter { $0.scope == scope }
+    }
+
+    /// The phase of one scope: empty when the list loaded and the scope has no chat.
+    func phase(in scope: ChatScope) -> Phase {
+        guard phase != .loading, !(unreadScopes.contains(scope) && unreadLoading.contains(scope)) else { return .loading }
+        return !chats(in: scope).isEmpty ? .loaded : (listLoaded ? .empty : .loading)
     }
 
     deinit {
@@ -57,6 +91,7 @@ final class ChatListModel: ObservableObject {
     func start() async {
         guard !started else { return }
         started = true
+        await refreshNotes()
         guard let roomList = try? await session.syncService.roomListService().allRooms() else { return }
 
         let loading = RoomListLoadingStream()
@@ -83,22 +118,47 @@ final class ChatListModel: ObservableObject {
         }
     }
 
-    /// Requests (invites) never show here; the Unread filter adds unread messages or marked unread.
-    private var filter: RoomListEntriesDynamicFilterKind {
-        var filters: [RoomListEntriesDynamicFilterKind] = [.joined, .nonSpace, .deduplicateVersions]
-        if unreadOnly { filters.append(.unread) }
-        return .all(filters: filters)
-    }
+    /// Requests stay outside the joined list; badges always observe the unfiltered stream.
+    private var filter: RoomListEntriesDynamicFilterKind { .all(filters: [.joined, .nonSpace, .deduplicateVersions]) }
 
-    /// Action toggleUnread of chat-list-filters.
-    func toggleUnread() {
-        unreadOnly.toggle()
-        _ = entries?.controller().setFilter(kind: filter)
+    func toggleUnread(in scope: ChatScope) {
+        if unreadScopes.remove(scope) != nil { return }
+        unreadScopes.insert(scope)
+        guard unreadLists[scope] == nil else { return }
+        unreadLoading.insert(scope)
+        let list = FilteredRoomList { [weak self] rooms in
+            guard let self else { return }
+            self.unreadTasks[scope]?.cancel()
+            self.unreadTasks[scope] = Task { [weak self] in
+                guard let self else { return }
+                var summaries: [ChatSummary] = []
+                for room in rooms where room.id() != self.notes.roomId {
+                    if let summary = await Self.summary(of: room, ownUserId: self.session.userId) { summaries.append(summary) }
+                }
+                guard !Task.isCancelled else { return }
+                self.unreadChats[scope] = summaries
+                self.unreadLoading.remove(scope)
+            }
+        }
+        unreadLists[scope] = list
+        Task { await list.start(session: session, filter: .all(filters: [.joined, .nonSpace, .deduplicateVersions,
+            .category(expect: scope == .conversas ? .people : .group), .unread])) }
     }
 
     /// Action loadMore: the next page, when the list scrolls near its end.
-    func loadMore() {
-        entries?.controller().addOnePage()
+    func loadMore(in scope: ChatScope) {
+        if unreadScopes.contains(scope) { unreadLists[scope]?.loadMore() }
+        else { entries?.controller().addOnePage() }
+    }
+
+    func refreshNotes() async {
+        try? await notes.refresh()
+        refreshSummaries()
+    }
+
+    func openNotes() async throws -> String {
+        defer { refreshSummaries() }
+        return try await notes.open()
     }
 
     private func onLoadingState(_ state: RoomListLoadingState) {
@@ -112,17 +172,18 @@ final class ChatListModel: ObservableObject {
         if !chats.isEmpty {
             phase = .loaded
         } else {
-            phase = listLoaded && rooms.isEmpty ? .empty : .loading
+            phase = listLoaded ? .empty : .loading
         }
     }
 
     private func refreshSummaries() {
         let rooms = rooms
+        let userId = session.userId
         summaryTask?.cancel()
         summaryTask = Task { [weak self] in
             var summaries: [ChatSummary] = []
             for room in rooms {
-                if let summary = await Self.summary(of: room) {
+                if room.id() != self?.notes.roomId, let summary = await Self.summary(of: room, ownUserId: userId) {
                     summaries.append(summary)
                 }
             }
@@ -132,7 +193,7 @@ final class ChatListModel: ObservableObject {
         }
     }
 
-    static func summary(of room: Room) async -> ChatSummary? {
+    static func summary(of room: Room, ownUserId: String) async -> ChatSummary? {
         guard let info = try? await room.roomInfo() else { return nil }
         var lastMessage: String?
         var lastActivity: Date?
@@ -151,6 +212,10 @@ final class ChatListModel: ObservableObject {
                            lastMessage: lastMessage,
                            lastActivity: lastActivity,
                            unreadCount: Int(info.numUnreadMessages),
-                           isDirect: info.isDirect)
+                           isDirect: info.isDirect,
+                           memberCount: Int(info.activeMembersCount),
+                           mentionCount: Int(info.numUnreadMentions),
+                           peerUserId: info.isDirect ? info.heroes.first(where: { $0.userId != ownUserId })?.userId : nil,
+                           isDm: info.isDm)
     }
 }

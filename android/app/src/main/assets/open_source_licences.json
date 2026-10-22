@@ -32,6 +32,10 @@
       "licence": "Apache-2.0"
     },
     {
+      "name": "androidx.compose.material:material-icons-extended",
+      "licence": "Apache-2.0"
+    },
+    {
       "name": "androidx.compose.material3:material3",
       "licence": "Apache-2.0"
     },
@@ -53,6 +57,10 @@
     },
     {
       "name": "com.google.crypto.tink:tink-android",
+      "licence": "Apache-2.0"
+    },
+    {
+      "name": "com.google.zxing:core",
       "licence": "Apache-2.0"
     },
     {

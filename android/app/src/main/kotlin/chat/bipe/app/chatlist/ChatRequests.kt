@@ -144,9 +144,9 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         return ChatRequestSummary(
             roomId = info.id,
             inviterId = inviterId,
-            name = if (info.isDirect) inviterName ?: info.displayName ?: info.id else info.displayName ?: info.id,
+            name = if (info.isDm) inviterName ?: info.displayName ?: info.id else info.displayName ?: info.id,
             inviterName = inviterName,
-            avatarUrl = if (info.isDirect) inviter?.avatarUrl else info.avatarUrl,
+            avatarUrl = if (info.isDm) inviter?.avatarUrl else info.avatarUrl,
             // The verified seal needs the badge check (GET /v1/badges), which comes with the trust work of people and
             // profiles (bipe-chat/bipe#568). Until then: external for another server, else unverified.
             trust = if (inviterId.isEmpty() || server(inviterId) == server(session.userId)) {

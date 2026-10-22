@@ -109,6 +109,9 @@ data class BipeAccountStatus(
     @SerialName("user_id") val userId: String,
     /** The last legal version the account accepted (ADR 0113). */
     @SerialName("terms_version") val termsVersion: String? = null,
+    @SerialName("max_accounts") val maxAccounts: Int? = null,
+    /** Recoveries that run or ended in the last 7 days (recovery-alert). */
+    @SerialName("recoveries") val recoveries: List<BipeRecovery> = emptyList(),
 )
 
 @Serializable
@@ -158,3 +161,93 @@ data class BipeBusinessDomain(
     @SerialName("domain") val domain: String,
     @Serializable(with = InstantSerializer::class) @SerialName("verified_at") val verifiedAt: Instant? = null,
 )
+
+// Recovery (ADR 0057, ADR 0059). Contract: bipe-shared/api/openapi.yaml, schemas RecoveryStarted and RecoveryClaim.
+
+@Serializable
+internal data class BipeTokenRecoveryRequest(
+    @SerialName("recovery_token") val recoveryToken: String,
+    @SerialName("pin") val pin: String,
+) {
+    override fun toString(): String = "BipeTokenRecoveryRequest"
+}
+
+@Serializable
+internal data class BipeRecoveryEmailRequest(@SerialName("email") val email: String) {
+    override fun toString(): String = "BipeRecoveryEmailRequest"
+}
+
+/** Exactly one of [pin] (access) and [newPin] (PIN reset). */
+@Serializable
+internal data class BipeEmailConfirmRequest(
+    @SerialName("token") val token: String,
+    @SerialName("pin") val pin: String? = null,
+    @SerialName("new_pin") val newPin: String? = null,
+) {
+    override fun toString(): String = "BipeEmailConfirmRequest"
+}
+
+@Serializable
+internal data class BipeClaimRequest(@SerialName("claim_secret") val claimSecret: String) {
+    override fun toString(): String = "BipeClaimRequest"
+}
+
+@Serializable
+enum class BipeRecoveryPurpose {
+    @SerialName("access") ACCESS,
+    @SerialName("pin_reset") PIN_RESET,
+}
+
+@Serializable
+enum class BipeRecoveryState {
+    @SerialName("waiting") WAITING,
+    @SerialName("completed") COMPLETED,
+    @SerialName("cancelled") CANCELLED,
+    @SerialName("expired") EXPIRED,
+}
+
+@Serializable
+enum class BipeRecoveryMethod {
+    @SerialName("token") TOKEN,
+    @SerialName("email") EMAIL,
+    @SerialName("guardian") GUARDIAN,
+    @SerialName("cpf") CPF,
+}
+
+/** `Recovery`, as GET /v1/me/account lists it for the old devices. */
+@Serializable
+data class BipeRecovery(
+    @SerialName("id") val id: String,
+    @SerialName("method") val method: BipeRecoveryMethod,
+    @SerialName("purpose") val purpose: BipeRecoveryPurpose,
+    @SerialName("state") val state: BipeRecoveryState,
+    @Serializable(with = InstantSerializer::class) @SerialName("created_at") val createdAt: Instant,
+    @Serializable(with = InstantSerializer::class) @SerialName("ready_at") val readyAt: Instant? = null,
+)
+
+/** `RecoveryStarted`. The new device keeps it, on this device only, until the claim ends. */
+@Serializable
+data class BipeRecoveryStarted(
+    @SerialName("recovery_id") val recoveryId: String,
+    @SerialName("claim_secret") val claimSecret: String,
+    @SerialName("purpose") val purpose: BipeRecoveryPurpose,
+    @Serializable(with = InstantSerializer::class) @SerialName("ready_at") val readyAt: Instant,
+) {
+    override fun toString(): String = "BipeRecoveryStarted($recoveryId)"
+}
+
+/** `RecoveryClaim`. [credentials] come once, when an access recovery completes with this call. */
+@Serializable
+data class BipeRecoveryClaim(
+    @SerialName("state") val state: BipeRecoveryState,
+    @SerialName("purpose") val purpose: BipeRecoveryPurpose,
+    @Serializable(with = InstantSerializer::class) @SerialName("ready_at") val readyAt: Instant? = null,
+    @SerialName("user_id") val userId: String? = null,
+    @SerialName("password") val password: String? = null,
+    @SerialName("recovery_token") val recoveryToken: String? = null,
+) {
+    val credentials: BipeCredentials?
+        get() = if (userId != null && password != null && recoveryToken != null) BipeCredentials(userId, password, recoveryToken) else null
+
+    override fun toString(): String = "BipeRecoveryClaim($state)"
+}

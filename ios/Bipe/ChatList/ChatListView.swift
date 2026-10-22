@@ -6,70 +6,91 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
-/// Spec chat-list.
+/// Spec chat-list, one scope: Conversas or Grupos (ADR 0053).
 struct ChatListView: View {
-    @StateObject private var model: ChatListModel
+    @ObservedObject private var model: ChatListModel
     @StateObject private var handle: HandlePickModel
     @StateObject private var requests: ChatRequestsModel
-    @StateObject private var search: ChatSearchModel
     @StateObject private var banner: RemoteBannerModel
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var encryption: EncryptionStatusModel
-    @State private var path: [String]
+    @StateObject private var people: PeopleService
+    @State private var path: NavigationPath
     @State private var showsHandlePick = false
-    private let onOpenSettings: (() -> Void)?
+    @State private var openingLink: String?
+    private let scope: ChatScope
+    private let account: AccountSummary?
+    private let onOpenVoce: () -> Void
+    @State private var creatingGroup = false
+    @State private var deletingDm: String?
+    @ObservedObject private var cleared = ClearedChatsStore.shared
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
-    /// onOpenSettings: the temporary entry to settings-root until the Você tab (bipe-chat/bipe#567) is on main.
-    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String? = nil, onOpenSettings: (() -> Void)? = nil) {
-        self.onOpenSettings = onOpenSettings
-        _model = StateObject(wrappedValue: ChatListModel(session: session))
-        _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: session))
-        _requests = StateObject(wrappedValue: ChatRequestsModel(session: session))
-        _search = StateObject(wrappedValue: ChatSearchModel(session: session))
+    init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil, account: AccountSummary? = nil, onOpenVoce: @escaping () -> Void = {}) {
+        self.account = account
+        self.onOpenVoce = onOpenVoce
+        _model = ObservedObject(wrappedValue: model)
+        _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
+        _requests = StateObject(wrappedValue: ChatRequestsModel(session: model.session))
         _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
-        _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: session))
-        _path = State(initialValue: initialRoomId.map { [$0] } ?? [])
+        _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
+        _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
+        _people = StateObject(wrappedValue: PeopleService(session: model.session, api: api, media: model.media))
+        self.scope = scope
     }
 
     var body: some View {
         NavigationStack(path: $path) {
             VStack(spacing: 0) {
                 // Spec encryption-status: the banner above the chat list.
-                if encryption.showsBanner {
+                if scope == .conversas && encryption.showsBanner {
                     HistoryBanner(model: encryption)
                 }
                 content
             }
             .background(BipeColor.surfaceBase.ignoresSafeArea())
-            .navigationTitle(BipeStrings.appChatListTitle)
+            .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
             .navigationDestination(for: String.self) { roomId in
-                ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
+                ChatTimelineView(session: model.session, media: model.media, roomId: roomId) {
+                    Task {
+                        if let userId = await people.dmPartner(roomId: roomId) {
+                            path.append(PeopleRoute.person(userId: userId, fromDm: true))
+                        }
+                    }
+                }
+            }
+            .navigationDestination(for: PeopleRoute.self) { route in
+                peopleScreen(route)
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        onOpenSettings?()
-                    } label: {
-                        PhosphorIcon.gear.image
-                            .resizable()
-                            .frame(width: 22, height: 22)
+                    CreateGroupButton { creatingGroup = true }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    if let account {
+                        Button(action: onOpenVoce) {
+                            AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: model.media,
+                                       size: 32, userId: account.userId, isCompany: account.isCompany)
+                        }
+                        .accessibilityLabel(BipeStrings.appAccountCurrentA11y(account.displayName))
                     }
-                    .accessibilityLabel(BipeStrings.settingsSection)
-                    .opacity(onOpenSettings == nil ? 0 : 1)
                 }
             }
         }
+        .groupHost(session: model.session, media: model.media, path: $path, creatingGroup: $creatingGroup, deletingDm: $deletingDm)
         .environment(\.openHistoryHelp, encryption.openSheet)
         .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
             EncryptionSheet(route: route, model: encryption, session: model.session)
         }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
         .task { await encryption.observe() }
-        .task { await model.start() }
-        .task { await handle.load() }
+        .onAppear { people.start() }
+        .task {
+            if scope == .conversas {
+                await handle.load()
+            }
+        }
         .task { await requests.start() }
-        // remote-banner, action refresh: when the list appears and when the app comes to the foreground.
         .task { await banner.refresh() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await banner.refresh() } }
@@ -77,11 +98,48 @@ struct ChatListView: View {
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
         }
+        .sheet(item: Binding(get: { openingLink.map(HandleLink.init) }, set: { openingLink = $0?.handle })) { link in
+            ProfileLinkOpenView(people: people, handle: link.handle,
+                                openPerson: { path.append(PeopleRoute.person(userId: $0, fromDm: false)) },
+                                openOwnLink: { path.append(PeopleRoute.profileLink) })
+        }
+        .onOpenURL { url in
+            switch PeopleLink(url: url) {
+            case .handle(let handle): openingLink = handle
+            case .userId(let userId): path.append(PeopleRoute.person(userId: userId, fromDm: false))
+            case nil: break
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func peopleScreen(_ route: PeopleRoute) -> some View {
+        switch route {
+        case .person(let userId, let fromDm):
+            PersonProfileView(people: people, userId: userId, fromDm: fromDm,
+                              routes: PersonProfileRoutes(openChat: { openChat($0) }))
+        case .profileEdit:
+            ProfileEditView(people: people)
+        case .publicProfile:
+            PublicProfileEditView(people: people,
+                                  pickHandle: { showsHandlePick = true },
+                                  openLink: { path.append(PeopleRoute.profileLink) })
+        case .profileLink:
+            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
+        case .profileQr:
+            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true }, initiallyShowsQr: true)
+        case .contacts:
+            ContactsView(people: people, openChat: { openChat($0) }, invite: nil)
+        case .whoCanMessage:
+            WhoCanMessageView(people: people)
+        case .blockedList:
+            BlockedListView(people: people) { path.append(PeopleRoute.person(userId: $0, fromDm: false)) }
+        }
     }
 
     @ViewBuilder
     private var handlePrompt: some View {
-        if handle.showsPrompt {
+        if scope == .conversas && handle.showsPrompt {
             HandlePromptCard(model: handle) { showsHandlePick = true }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -94,33 +152,24 @@ struct ChatListView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, banner.state == .hidden ? 0 : 8)
             handlePrompt
-            if search.query.isEmpty {
-                filterBar
-                list
-            } else {
-                ChatSearchResults(search: search, media: model.media) { roomId in
-                    search.close()
-                    openChat(roomId)
-                }
-            }
+            filterBar
+            list
         }
-        // chat-search: the top of the list until the search tab of the tab bar (ADR 0053) is on main.
-        .searchable(text: Binding(get: { search.query }, set: { search.edit($0) }), prompt: Text(BipeStrings.appSearchPlaceholder))
     }
 
     /// The only filter chip: Unread (spec chat-list-filters).
     private var filterBar: some View {
         HStack {
             Button {
-                model.toggleUnread()
+                model.toggleUnread(in: scope)
                 BipeHaptics.play(.tick)
             } label: {
                 Text(BipeStrings.appChatListFilterUnread)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(model.unreadOnly ? BipeColor.inkOnAccent : BipeColor.inkPrimary)
+                    .foregroundStyle(model.unreadScopes.contains(scope) ? BipeColor.inkOnAccent : BipeColor.inkPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(model.unreadOnly ? BipeColor.accentFill : BipeColor.surfaceRaised))
+                    .background(Capsule().fill(model.unreadScopes.contains(scope) ? BipeColor.accentFill : BipeColor.surfaceRaised))
             }
             .buttonStyle(.plain)
             Spacer()
@@ -132,16 +181,16 @@ struct ChatListView: View {
     /// The requests row and the group invites above the chats (specs chat-requests and chat-list-filters).
     @ViewBuilder
     private var topRows: some View {
-        if requests.rowCount > 0 {
+        if scope == .conversas && requests.rowCount > 0 {
             // Action openBox.
             NavigationLink {
-                ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat, onOpenWhoCanMessage: { onOpenSettings?() })
+                ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat, onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
             } label: {
                 ChatRequestsRow(count: requests.rowCount)
             }
             .listRowBackground(BipeColor.surfaceBase)
         }
-        ForEach(requests.visibleGroupInvites) { invite in
+        ForEach(scope == .grupos ? requests.visibleGroupInvites : []) { invite in
             GroupInviteRow(model: requests, invite: invite, media: model.media, onOpenChat: openChat)
                 .listRowBackground(BipeColor.surfaceBase)
         }
@@ -154,7 +203,7 @@ struct ChatListView: View {
 
     @ViewBuilder
     private var list: some View {
-        switch model.phase {
+        switch model.phase(in: scope) {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -168,18 +217,26 @@ struct ChatListView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
         case .loaded:
+            let chats = model.chats(in: scope)
             List {
                 topRows
-                ForEach(model.chats) { chat in
+                ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button {
                         openChat(chat.roomId)
                     } label: {
                         ChatRow(chat: chat, media: model.media)
                     }
                     .listRowBackground(BipeColor.surfaceBase)
+                    .swipeActions(edge: .trailing) {
+                        if chat.isDm {
+                            Button(BipeStrings.dmDeleteAction, role: .destructive) {
+                                deletingDm = chat.roomId
+                            }
+                        }
+                    }
                     .onAppear {
-                        if chat.id == model.chats.last?.id {
-                            model.loadMore()
+                        if chat.id == chats.last?.id {
+                            model.loadMore(in: scope)
                         }
                     }
                 }
@@ -193,14 +250,17 @@ struct ChatListView: View {
     @ViewBuilder
     private var emptyState: some View {
         VStack(spacing: 12) {
-            if model.unreadOnly {
+            if model.unreadScopes.contains(scope) {
                 Button {
-                    model.toggleUnread()
+                    model.toggleUnread(in: scope)
                 } label: {
                     Text(BipeStrings.appChatListNoUnread)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 .buttonStyle(.plain)
+            } else if scope == .grupos {
+                Text(BipeStrings.groupsEmptyTitle).font(.headline).foregroundStyle(BipeColor.inkPrimary)
+                Text(BipeStrings.groupsEmptyBody).foregroundStyle(BipeColor.inkSecondary)
             } else {
                 Text(BipeStrings.chatsEmptyTitle)
                     .font(.headline)
@@ -223,13 +283,13 @@ struct ChatListView: View {
     }
 }
 
-private struct ChatRow: View {
+struct ChatRow: View {
     let chat: ChatSummary
     let media: MediaLoader
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media)
+            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, userId: chat.peerUserId)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(chat.name)

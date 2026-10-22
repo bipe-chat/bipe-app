@@ -24,6 +24,7 @@ import org.matrix.rustcomponents.sdk.RoomListEntriesWithDynamicAdaptersResult
 import org.matrix.rustcomponents.sdk.RoomListLoadingState
 import org.matrix.rustcomponents.sdk.RoomListLoadingStateListener
 import org.matrix.rustcomponents.sdk.TaskHandle
+import chat.bipe.app.voce.NotesRoom
 
 /** Type ChatSummary of spec chat-list. */
 data class ChatSummary(
@@ -34,13 +35,29 @@ data class ChatSummary(
     val lastActivity: Long?,
     val unreadCount: Int,
     val isDirect: Boolean,
-)
+    /** Joined and invited members. Not in the spec type: it decides the scope. */
+    val memberCount: Int,
+    /** Unread mentions and replies, for the Grupos badge (spec app-tabs gruposAttention). */
+    val mentionCount: Int,
+    /** The other member of a DM, for the avatar account-type lookup. */
+    val peerUserId: String? = null,
+    /** RoomInfo.isDm, the one DM test (ADR 0141). */
+    val isDm: Boolean = false,
+) {
+    /** ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test. */
+    val scope: ChatScope
+        get() = if (isDm) ChatScope.CONVERSAS else ChatScope.GRUPOS
+}
+
+/** State scope of spec chat-list. */
+enum class ChatScope { CONVERSAS, GRUPOS }
 
 /** Spec chat-list (bipe-shared product/screens/chat-list.json). */
 class ChatListModel(
     val session: AccountSession,
     private val scope: CoroutineScope,
     private val undecryptableText: String,
+    val notes: NotesRoom,
 ) {
     enum class Phase { LOADING, EMPTY, LOADED }
 
@@ -48,10 +65,13 @@ class ChatListModel(
     val phase: StateFlow<Phase> = _phase.asStateFlow()
     private val _chats = MutableStateFlow<List<ChatSummary>>(emptyList())
     val chats: StateFlow<List<ChatSummary>> = _chats.asStateFlow()
-    private val _unreadOnly = MutableStateFlow(false)
-
-    /** The Unread filter (spec chat-list-filters, unreadOnly). */
-    val unreadOnly: StateFlow<Boolean> = _unreadOnly.asStateFlow()
+    private val _unreadScopes = MutableStateFlow<Set<ChatScope>>(emptySet())
+    val unreadScopes = _unreadScopes.asStateFlow()
+    private val _unreadChats = MutableStateFlow<Map<ChatScope, List<ChatSummary>>>(emptyMap())
+    val unreadChats = _unreadChats.asStateFlow()
+    private val _unreadLoading = MutableStateFlow<Set<ChatScope>>(emptySet())
+    val unreadLoading = _unreadLoading.asStateFlow()
+    private val unreadLists = mutableMapOf<ChatScope, FilteredRoomList>()
 
     private val rooms = mutableListOf<Room>()
     private var listLoaded = false
@@ -65,6 +85,7 @@ class ChatListModel(
         if (started) return
         started = true
         scope.launch {
+            refreshNotes()
             val roomList = runCatching { session.syncService.roomListService().allRooms() }.getOrNull() ?: return@launch
             val loading = Channel<RoomListLoadingState>(Channel.UNLIMITED)
             runCatching {
@@ -99,28 +120,54 @@ class ChatListModel(
         }
     }
 
-    /** Requests (invites) never show here; the Unread filter adds unread messages or marked unread. */
-    private fun filter(): RoomListEntriesDynamicFilterKind = RoomListEntriesDynamicFilterKind.All(
-        buildList {
-            add(RoomListEntriesDynamicFilterKind.Joined)
-            add(RoomListEntriesDynamicFilterKind.NonSpace)
-            add(RoomListEntriesDynamicFilterKind.DeduplicateVersions)
-            if (_unreadOnly.value) add(RoomListEntriesDynamicFilterKind.Unread)
-        },
-    )
+    /** Badges keep the unfiltered joined stream while each tab has its own unread subscription. */
+    private fun filter(): RoomListEntriesDynamicFilterKind = RoomListEntriesDynamicFilterKind.All(listOf(
+        RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace,
+        RoomListEntriesDynamicFilterKind.DeduplicateVersions,
+    ))
 
-    /** Action toggleUnread of chat-list-filters. */
-    fun toggleUnread() {
-        _unreadOnly.value = !_unreadOnly.value
-        entries?.controller()?.setFilter(filter())
+    fun toggleUnread(tab: ChatScope) {
+        if (tab in _unreadScopes.value) { _unreadScopes.value -= tab; return }
+        _unreadScopes.value += tab
+        if (unreadLists.containsKey(tab)) return
+        _unreadLoading.value += tab
+        val list = FilteredRoomList(scope) { found ->
+            val summaries = found.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
+            _unreadChats.value += (tab to summaries)
+            _unreadLoading.value -= tab
+        }
+        unreadLists[tab] = list
+        scope.launch { list.start(session, RoomListEntriesDynamicFilterKind.All(listOf(
+            RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace,
+            RoomListEntriesDynamicFilterKind.DeduplicateVersions,
+            RoomListEntriesDynamicFilterKind.Category(if (tab == ChatScope.CONVERSAS) org.matrix.rustcomponents.sdk.RoomCategory.PEOPLE else org.matrix.rustcomponents.sdk.RoomCategory.GROUP),
+            RoomListEntriesDynamicFilterKind.Unread,
+        ))) }
+    }
+
+    /** The phase of one scope: empty when the list loaded and the scope has no chat. */
+    fun phase(scope: ChatScope, phase: Phase, chats: List<ChatSummary>): Phase = when {
+        phase == Phase.LOADING -> Phase.LOADING
+        chats.any { it.scope == scope } -> Phase.LOADED
+        listLoaded -> Phase.EMPTY
+        else -> Phase.LOADING
     }
 
     /** Action loadMore: the next page, when the list scrolls near its end. */
-    fun loadMore() {
-        entries?.controller()?.addOnePage()
+    fun loadMore(tab: ChatScope) {
+        if (tab in _unreadScopes.value) unreadLists[tab]?.loadMore()
+        else entries?.controller()?.addOnePage()
     }
 
+    suspend fun refreshNotes() {
+        runCatching { notes.refresh() }
+        refreshSummaries()
+    }
+
+    suspend fun openNotes(title: String): String = try { notes.open(title) } finally { refreshSummaries() }
+
     fun close() {
+        unreadLists.values.forEach { it.close() }
         handles.forEach { it.cancel() }
         summaryJob?.cancel()
     }
@@ -133,7 +180,7 @@ class ChatListModel(
     private fun updatePhase() {
         _phase.value = when {
             _chats.value.isNotEmpty() -> Phase.LOADED
-            listLoaded && rooms.isEmpty() -> Phase.EMPTY
+            listLoaded -> Phase.EMPTY
             else -> Phase.LOADING
         }
     }
@@ -142,7 +189,7 @@ class ChatListModel(
         val snapshot = rooms.toList()
         summaryJob?.cancel()
         summaryJob = scope.launch {
-            _chats.value = snapshot.mapNotNull { summary(it) }
+            _chats.value = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
             updatePhase()
         }
     }
@@ -171,6 +218,10 @@ class ChatListModel(
             lastActivity = lastActivity,
             unreadCount = info.numUnreadMessages.toInt(),
             isDirect = info.isDirect,
+            memberCount = info.activeMembersCount.toInt(),
+            mentionCount = info.numUnreadMentions.toInt(),
+            peerUserId = if (info.isDirect) info.heroes.firstOrNull { it.userId != session.userId }?.userId else null,
+            isDm = info.isDm,
         )
     }
 

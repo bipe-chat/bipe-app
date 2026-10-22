@@ -101,9 +101,9 @@ final class ChatRequestsModel: ObservableObject {
         return ChatRequestSummary(
             roomId: info.id,
             inviterId: inviterId,
-            name: info.isDirect ? (inviterName ?? info.displayName ?? info.id) : (info.displayName ?? info.id),
+            name: info.isDm ? (inviterName ?? info.displayName ?? info.id) : (info.displayName ?? info.id),
             inviterName: inviterName,
-            avatarUrl: info.isDirect ? inviter?.avatarUrl : info.avatarUrl,
+            avatarUrl: info.isDm ? inviter?.avatarUrl : info.avatarUrl,
             // The verified seal needs the badge check (GET /v1/badges), which comes with the trust work of people
             // and profiles (bipe-chat/bipe#568). Until then: external for another server, else unverified.
             trust: server(of: inviterId) == ownServer || inviterId.isEmpty ? .unverified : .external,

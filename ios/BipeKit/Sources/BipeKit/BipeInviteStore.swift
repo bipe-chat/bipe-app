@@ -17,62 +17,73 @@ import Security
 public nonisolated struct BipeInviteStore {
     private let userID: String
     private let defaults: UserDefaults
+    private let ownedAccessGroup: String?
+    private let legacyReadGroups: [String]
+    private let keychain: any CredentialKeychain
+    private static let mutationLock = NSRecursiveLock()
+    private enum StorageError: Error { case unavailable }
     
     private static let linksKeychainService = "chat.bipe.invites"
     private static let notesKeychainService = "chat.bipe.invites.notes"
     
     public init(userID: String, defaults: UserDefaults = .standard) {
+        self.init(userID: userID, defaults: defaults,
+                  ownedAccessGroup: Bundle.main.object(forInfoDictionaryKey: "BipeOwnedKeychainGroup") as? String,
+                  legacyReadGroups: Bundle.main.object(forInfoDictionaryKey: "BipeLegacyKeychainReadGroups") as? [String] ?? [],
+                  keychain: SystemCredentialKeychain())
+    }
+
+    init(userID: String, defaults: UserDefaults, ownedAccessGroup: String?, legacyReadGroups: [String], keychain: any CredentialKeychain) {
         self.userID = userID
         self.defaults = defaults
+        self.ownedAccessGroup = ownedAccessGroup.flatMap { !$0.isEmpty && !$0.contains("$(") ? $0 : nil }
+        self.legacyReadGroups = legacyReadGroups.filter { !$0.isEmpty && !$0.contains("$(") && $0 != ownedAccessGroup }
+        self.keychain = keychain
     }
     
     // MARK: - Links
     
     /// Links of invites created on this device, by invite ID.
     public func links() -> [String: URL] {
-        guard let data = readKeychain(service: Self.linksKeychainService),
-              let strings = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
-        return strings.compactMapValues(URL.init(string:))
+        ((try? readStrings(service: Self.linksKeychainService)) ?? [:]).compactMapValues(URL.init(string:))
     }
-    
-    public func saveLink(_ url: URL, forInviteID id: String) {
-        var current = links()
-        current[id] = url
-        writeLinks(current)
+
+    @discardableResult
+    public func saveLink(_ url: URL, forInviteID id: String) -> Bool {
+        mutate(service: Self.linksKeychainService) { $0[id] = url.absoluteString }
     }
-    
-    /// Drops links whose invite is no longer pending (used, expired or revoked).
-    public func keepLinks(forPendingInviteIDs ids: Set<String>) {
-        let current = links()
-        let kept = current.filter { ids.contains($0.key) }
-        if kept.count != current.count {
-            writeLinks(kept)
-        }
+
+    /// A full own-group snapshot, including an empty map, prevents a removed legacy link from returning.
+    @discardableResult
+    public func keepLinks(forPendingInviteIDs ids: Set<String>) -> Bool {
+        mutate(service: Self.linksKeychainService) { $0 = $0.filter { ids.contains($0.key) } }
     }
-    
+
     // MARK: - Notes
-    
-    /// Notes of invites created on this device, by invite ID.
+
     public func notes() -> [String: String] {
-        guard let data = readKeychain(service: Self.notesKeychainService) else { return [:] }
-        return (try? JSONDecoder().decode([String: String].self, from: data)) ?? [:]
+        (try? readStrings(service: Self.notesKeychainService)) ?? [:]
     }
-    
-    /// Stores the note for an invite. Text with only spaces is no note.
-    public func saveNote(_ note: String, forInviteID id: String) {
+
+    @discardableResult
+    public func saveNote(_ note: String, forInviteID id: String) -> Bool {
         let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        var current = notes()
-        current[id] = trimmed
-        writeNotes(current)
+        guard !trimmed.isEmpty else { return true }
+        return mutate(service: Self.notesKeychainService) { $0[id] = trimmed }
     }
-    
-    public func removeNote(forInviteID id: String) {
-        var current = notes()
-        guard current.removeValue(forKey: id) != nil else { return }
-        writeNotes(current)
+
+    @discardableResult
+    public func removeNote(forInviteID id: String) -> Bool {
+        mutate(service: Self.notesKeychainService) { $0[id] = nil }
     }
-    
+
+    /// Claims one note before enqueueing. Only a successful own-group write permits sending it.
+    public func takeNote(forInviteID id: String) -> String? {
+        var note: String?
+        let written = mutate(service: Self.notesKeychainService) { note = $0.removeValue(forKey: id) }
+        return written ? note : nil
+    }
+
     // MARK: - Names
     
     /// Invite names from builds that kept them only on the device, by invite ID. The server keeps names now;
@@ -146,39 +157,44 @@ public nonisolated struct BipeInviteStore {
         "bipe.invites.greeting.\(userID)"
     }
     
-    private func writeLinks(_ links: [String: URL]) {
-        guard let data = try? JSONEncoder().encode(links.mapValues(\.absoluteString)) else { return }
-        writeKeychain(data, service: Self.linksKeychainService)
-    }
-    
-    private func writeNotes(_ notes: [String: String]) {
-        guard let data = try? JSONEncoder().encode(notes) else { return }
-        writeKeychain(data, service: Self.notesKeychainService)
-    }
-    
-    private func keychainQuery(service: String) -> [String: Any] {
+    private func query(service: String, group: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
          kSecAttrService as String: service,
-         kSecAttrAccount as String: userID]
+         kSecAttrAccount as String: userID,
+         kSecAttrAccessGroup as String: group,
+         kSecAttrSynchronizable as String: false]
     }
-    
-    private func readKeychain(service: String) -> Data? {
-        var query = keychainQuery(service: service)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess else { return nil }
-        return result as? Data
-    }
-    
-    private func writeKeychain(_ data: Data, service: String) {
-        let query = keychainQuery(service: service)
-        let attributes: [String: Any] = [kSecValueData as String: data,
-                                         kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
-        if SecItemUpdate(query as CFDictionary, attributes as CFDictionary) == errSecItemNotFound {
-            SecItemAdd(query.merging(attributes) { $1 } as CFDictionary, nil)
+
+    private func readStrings(service: String) throws -> [String: String] {
+        for group in [ownedAccessGroup].compactMap({ $0 }) + legacyReadGroups {
+            var request = query(service: service, group: group)
+            request[kSecReturnData as String] = true
+            request[kSecMatchLimit as String] = kSecMatchLimitOne
+            let (status, result) = keychain.copyMatching(request)
+            if status == errSecItemNotFound { continue }
+            guard status == errSecSuccess, let data = result as? Data else { throw StorageError.unavailable }
+            return try JSONDecoder().decode([String: String].self, from: data)
         }
+        return [:]
     }
+
+    private func mutate(service: String, transform: (inout [String: String]) -> Void) -> Bool {
+        guard let ownedAccessGroup else { return false }
+        Self.mutationLock.lock()
+        defer { Self.mutationLock.unlock() }
+        guard var current = try? readStrings(service: service) else { return false }
+        transform(&current)
+        guard let data = try? JSONEncoder().encode(current) else { return false }
+        let request = query(service: service, group: ownedAccessGroup)
+        let attributes: [String: Any] = [kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
+        let status = keychain.update(request, attributes: attributes)
+        if status == errSecItemNotFound {
+            return keychain.add(request.merging(attributes) { $1 }) == errSecSuccess
+        }
+        return status == errSecSuccess
+    }
+
 }
 
 /// The person who invited this account, by Matrix ID. `handle` comes from the invite preview and can be out of date.

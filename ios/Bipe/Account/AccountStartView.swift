@@ -6,10 +6,17 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
-/// Spec account-start: no login screen (ADR 0057). Shows chat-list when the account is ready.
+/// Spec account-start: no login screen (ADR 0057). Shows app-tabs when the current account is ready.
 struct AccountStartView: View {
-    @StateObject private var model = AccountStartModel()
+    @StateObject private var model: AccountStartModel
+    @StateObject private var tabs: AppTabsModel
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        let model = AccountStartModel()
+        _model = StateObject(wrappedValue: model)
+        _tabs = StateObject(wrappedValue: AppTabsModel(start: model))
+    }
 
     var body: some View {
         Group {
@@ -21,17 +28,27 @@ struct AccountStartView: View {
                             model.finishSignup(openRoomId: roomId)
                         }
                     } else {
-                        SignedInView(session: session, api: model.api, initialRoomId: model.initialRoomId) {
+                        // One view per account: a switch builds the tabs again for the new account.
+                        SignedInView(session: session, tabs: tabs, api: model.api, initialRoomId: model.initialRoomId) {
                             Task { await model.signOut() }
                         }
+                        .id(session.userId)
                     }
                 }
             case .opening:
                 StartMessage(icon: .chatCircle, title: BipeStrings.appName, message: BipeStrings.appStartLoading, showsProgress: true)
             case .noAccount:
-                // Spec account-start: noAccount shows onboarding-welcome.
-                SignupFlowView(api: model.api) { session, outcome in
-                    model.didSignUp(session, outcome: outcome)
+                if model.showsRecovery {
+                    RecoveryFlowView(api: model.api,
+                                     link: $model.recoveryLink,
+                                     close: { model.showsRecovery = false },
+                                     onSignedIn: model.didRecover)
+                } else {
+                    // Spec account-start: noAccount shows onboarding-welcome.
+                    SignupFlowView(api: model.api,
+                                   onSignedUp: { session, outcome in model.didSignUp(session, outcome: outcome) },
+                                   onHaveAccount: { model.showsRecovery = true },
+                                   onRecoveryLink: model.openLink)
                 }
             case .failed:
                 StartMessage(icon: .warningCircle, title: BipeStrings.appName, message: BipeStrings.appStartError) {
@@ -41,6 +58,7 @@ struct AccountStartView: View {
         }
         .accessibilityIdentifier(BipeScreen.accountStart.rawValue)
         .tint(BipeColor.accentFill)
+        .onOpenURL { model.openLink($0) }
         .task { await model.start() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -50,36 +68,45 @@ struct AccountStartView: View {
     }
 }
 
-/// The signed-in app: chat-list, with terms-reaccept over it when the legal version changed.
+/// The signed-in app: app-tabs, with terms-reaccept over it when the legal version changed, and recovery-alert
+/// while someone gets back into this account elsewhere.
 private struct SignedInView: View {
     let session: AccountSession
+    let tabs: AppTabsModel
     let api: BipeAPIClient
     let initialRoomId: String?
     let onSignOut: () -> Void
     @StateObject private var terms: TermsReacceptModel
-    @State private var showsSettings = false
+    @StateObject private var recoveryAlert: RecoveryAlertModel
     @Environment(\.scenePhase) private var scenePhase
 
-    init(session: AccountSession, api: BipeAPIClient, initialRoomId: String?, onSignOut: @escaping () -> Void) {
+    init(session: AccountSession, tabs: AppTabsModel, api: BipeAPIClient, initialRoomId: String?, onSignOut: @escaping () -> Void) {
         self.session = session
+        self.tabs = tabs
         self.api = api
         self.initialRoomId = initialRoomId
         self.onSignOut = onSignOut
         _terms = StateObject(wrappedValue: TermsReacceptModel(api: api, session: session))
+        _recoveryAlert = StateObject(wrappedValue: RecoveryAlertModel(api: api, session: session))
     }
 
     var body: some View {
-        ChatListView(session: session, api: api, initialRoomId: initialRoomId) { showsSettings = true }
-            .sheet(isPresented: $showsSettings) {
-                SettingsHomeView(session: session, api: api, onSignedOut: onSignOut)
+        AppTabsView(model: tabs, session: session, api: api, initialRoomId: initialRoomId)
+            .fullScreenCover(isPresented: Binding(get: { recoveryAlert.notice != nil }, set: { _ in })) {
+                RecoveryAlertView(model: recoveryAlert)
             }
             .fullScreenCover(isPresented: Binding(get: { terms.phase != .hidden }, set: { _ in })) {
                 TermsReacceptView(model: terms, onSignOut: onSignOut)
             }
             .task { await terms.check() }
+            .task { await recoveryAlert.check() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
-                    Task { await terms.check() }
+                    Task {
+                        await terms.check()
+                        await tabs.refreshProfiles()
+                    }
+                    Task { await recoveryAlert.check() }
                 }
             }
     }
