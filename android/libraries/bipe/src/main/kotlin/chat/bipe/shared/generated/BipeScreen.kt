@@ -58,6 +58,9 @@ enum class BipeScreen(val id: String) {
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
+    /** Create an invite with a first message (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
+    INVITE_NOTE("invite-note"),
+
     /** Invite people to Bipe (flow invites). Spec: bipe-shared/product/screens/invites.json */
     INVITES("invites"),
 
