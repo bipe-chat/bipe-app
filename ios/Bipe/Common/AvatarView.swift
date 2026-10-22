@@ -37,7 +37,8 @@ final class MediaLoader {
     /// The public account-type endpoint, independent of a CNPJ badge. Unknown accounts stay round (ADR 0132).
     func isCompany(userId: String) async -> Bool {
         if let cached = accountTypes.object(forKey: userId as NSString) { return cached.boolValue }
-        guard let company = try? await api.avatarAccountIsCompany(userID: userId) else { return false }
+        guard let type = try? await api.accountType(userID: userId) else { return false }
+        let company = type == .company
         accountTypes.setObject(NSNumber(value: company), forKey: userId as NSString)
         return company
     }
