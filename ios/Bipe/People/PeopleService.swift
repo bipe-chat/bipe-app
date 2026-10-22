@@ -38,7 +38,7 @@ final class PeopleService: ObservableObject {
 
     private var accountTypes: [String: BipeAccountType] = [:]
     private var ignoredHandle: TaskHandle?
-    private var started = false
+    private var ignoredTask: Task<Void, Never>?
 
     init(session: AccountSession, api: BipeAPIClient, media: MediaLoader) {
         self.session = session
@@ -49,21 +49,23 @@ final class PeopleService: ObservableObject {
 
     deinit {
         ignoredHandle?.cancel()
+        ignoredTask?.cancel()
     }
 
-    /// Starts the ignored-users subscription once.
-    func start() async {
-        guard !started else { return }
-        started = true
+    /// Starts the ignored-users subscription once. Any screen may call it; the service keeps it for its life.
+    func start() {
+        guard ignoredTask == nil else { return }
         let stream = IgnoredUsersStream()
         ignoredHandle = session.client.subscribeToIgnoredUsers(listener: stream)
-        if let current = try? await session.client.ignoredUsers() {
-            ignoredUsers = Set(current)
-        }
-        ignoredUsersLoaded = true
-        for await ids in stream.updates {
-            ignoredUsers = Set(ids)
-            ignoredUsersLoaded = true
+        ignoredTask = Task { [weak self] in
+            if let current = try? await self?.session.client.ignoredUsers() {
+                self?.ignoredUsers = Set(current)
+            }
+            self?.ignoredUsersLoaded = true
+            for await ids in stream.updates {
+                self?.ignoredUsers = Set(ids)
+                self?.ignoredUsersLoaded = true
+            }
         }
     }
 
@@ -164,6 +166,12 @@ final class PeopleService: ObservableObject {
 
     // MARK: - DMs (ADR 0141)
 
+    /// The other person of a DM (RoomInfo.isDm, ADR 0141), else `nil`.
+    func dmPartner(roomId: String) async -> String? {
+        guard let room = try? session.client.getRoom(roomId: roomId), let info = try? await room.roomInfo(), info.isDm else { return nil }
+        return info.heroes.map(\.userId).first { $0 != session.userId }
+    }
+
     /// Client.getDmRoom: the newest DM with the person.
     func dmRoomId(with userId: String) -> String? {
         guard let room = try? session.client.getDmRoom(userId: userId) else { return nil }
@@ -197,6 +205,37 @@ final class PeopleService: ObservableObject {
     }
 }
 
+extension PeopleService {
+    /// The dm-delete write (bipe-chat/bipe#464, registries/cleared-chats.json): merges this room's marker, the
+    /// origin_server_ts of its latest remote event, into the account data chat.bipe.cleared_chats. Keeps every other
+    /// entry; the marker never moves back. The room is not left, so the other person's next message brings it back.
+    func clearDm(_ roomId: String) async throws {
+        guard let room = try session.client.getRoom(roomId: roomId) else { throw PeopleError.notFound }
+        let latest: UInt64
+        switch await room.latestEvent() {
+        case .remote(let timestamp, _, _, _, _): latest = UInt64(timestamp)
+        case .remoteInvite(let timestamp, _, _), .local(let timestamp, _, _, _, _): latest = UInt64(timestamp)
+        case .none: latest = UInt64(Date().timeIntervalSince1970 * 1000)
+        }
+        let eventType = BipeRegistries.clearedChatsEventType
+        var content: [String: Any] = [:]
+        if let raw = try await session.client.accountData(eventType: eventType),
+           let object = try? JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any] {
+            content = object
+        }
+        var rooms = content["rooms"] as? [String: Any] ?? [:]
+        var marker = latest
+        if let entry = rooms[roomId] as? [String: Any], let number = entry["ts"] as? NSNumber,
+           CFGetTypeID(number) != CFBooleanGetTypeID(), number.int64Value >= 0, UInt64(number.int64Value) > latest {
+            marker = UInt64(number.int64Value)
+        }
+        rooms[roomId] = ["ts": marker]
+        content["rooms"] = rooms
+        let data = try JSONSerialization.data(withJSONObject: content)
+        try await session.client.setAccountData(eventType: eventType, content: String(decoding: data, as: UTF8.self))
+    }
+}
+
 enum PeopleError: Error {
     case notFound
     /// The other person's who-can-message setting refused the invite.
@@ -214,4 +253,21 @@ final class IgnoredUsersStream: IgnoredUsersListener {
     func call(ignoredUserIds: [String]) {
         continuation.yield(ignoredUserIds)
     }
+}
+
+/// The people screens a navigation stack can push.
+enum PeopleRoute: Hashable {
+    case person(userId: String, fromDm: Bool)
+    case profileEdit
+    case publicProfile
+    case profileLink
+    case contacts
+    case whoCanMessage
+    case blockedList
+}
+
+/// A bipe.chat/@handle link waiting for profile-link-open.
+struct HandleLink: Identifiable {
+    let handle: String
+    var id: String { handle }
 }

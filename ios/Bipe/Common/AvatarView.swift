@@ -30,17 +30,19 @@ final class MediaLoader {
 }
 
 /// A round avatar: the thumbnail when there is one, else the first letter of the name.
+/// A company account's avatar is a rounded square (ADR 0132).
 struct AvatarView: View {
     let name: String
     let mxcUrl: String?
     let loader: MediaLoader
     var size: CGFloat = 48
+    var isSquare = false
 
     @State private var image: UIImage?
 
     var body: some View {
         ZStack {
-            Circle().fill(BipeColor.accentWash)
+            shape.fill(BipeColor.accentWash)
             if let image {
                 Image(uiImage: image)
                     .resizable()
@@ -52,7 +54,7 @@ struct AvatarView: View {
             }
         }
         .frame(width: size, height: size)
-        .clipShape(Circle())
+        .clipShape(shape)
         .accessibilityHidden(true)
         .task(id: mxcUrl) {
             guard let mxcUrl else {
@@ -61,6 +63,10 @@ struct AvatarView: View {
             }
             image = await loader.thumbnail(mxcUrl: mxcUrl, size: Int(size * 3))
         }
+    }
+
+    private var shape: AnyShape {
+        isSquare ? AnyShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)) : AnyShape(Circle())
     }
 
     private var initial: String {

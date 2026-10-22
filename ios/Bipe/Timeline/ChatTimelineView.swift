@@ -10,10 +10,13 @@ import SwiftUI
 struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     private let media: MediaLoader
+    /// Opens the chat's info: person-profile for a DM.
+    private let openInfo: (() -> Void)?
 
-    init(session: AccountSession, media: MediaLoader, roomId: String) {
+    init(session: AccountSession, media: MediaLoader, roomId: String, openInfo: (() -> Void)? = nil) {
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
         self.media = media
+        self.openInfo = openInfo
     }
 
     var body: some View {
@@ -29,6 +32,18 @@ struct ChatTimelineView: View {
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(model.roomName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if let openInfo {
+                ToolbarItem(placement: .principal) {
+                    Button(action: openInfo) {
+                        Text(model.roomName)
+                            .font(.headline)
+                            .foregroundStyle(BipeColor.inkPrimary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+        }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
     }
