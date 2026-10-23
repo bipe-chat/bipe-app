@@ -456,6 +456,13 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = 
                         timeLabel(context, time),
                         style = MaterialTheme.typography.labelSmall,
                         color = colors.inkSecondary,
+                        maxLines = 1,
+                        modifier = Modifier.semantics {
+                            contentDescription = java.text.DateFormat.getDateTimeInstance(
+                                java.text.DateFormat.FULL, java.text.DateFormat.SHORT,
+                                context.resources.configuration.locales[0],
+                            ).format(time)
+                        },
                     )
                 }
             }

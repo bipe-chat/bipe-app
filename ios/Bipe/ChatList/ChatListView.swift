@@ -471,6 +471,10 @@ struct ChatRow: View {
                         Text(lastActivity, format: Self.timeFormat(for: lastActivity))
                             .font(.caption)
                             .foregroundStyle(BipeColor.inkSecondary)
+                            .monospacedDigit()
+                            .fixedSize(horizontal: true, vertical: false)
+                            .layoutPriority(1)
+                            .accessibilityLabel(lastActivity.formatted(date: .complete, time: .shortened))
                     }
                 }
                 HStack {
