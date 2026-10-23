@@ -29,7 +29,7 @@ import kotlinx.serialization.json.Json
  * - notes (ADR 0136): the first message for the person who joins with an invite. The server never receives a note.
  *
  * Both live in one file in no-backup storage, sealed with an Android Keystore key (AES-GCM), so they never leave
- * this phone in a backup. Unreadable data counts as empty.
+ * this phone in a backup. Unreadable data stops migration without replacing the stored content.
  */
 class BipeInviteStore(context: Context, userId: String) {
     @Serializable
@@ -39,6 +39,12 @@ class BipeInviteStore(context: Context, userId: String) {
     )
 
     private val file = File(context.noBackupFilesDir, "bipe-invites-" + userId.hashCode().toUInt().toString(16))
+
+    /** One consistent read for importing the earlier native-client format. Never reads fork storage. */
+    suspend fun snapshotForMigration(): BipeInviteMemoryData = mutex.withLock {
+        val saved = decode()
+        BipeInviteMemoryData(saved.links, saved.notes)
+    }
 
     /** Links of invites made on this phone, by invite ID. */
     suspend fun links(): Map<String, String> = read().links
@@ -69,12 +75,12 @@ class BipeInviteStore(context: Context, userId: String) {
 
     private suspend fun decode(): Contents = withContext(Dispatchers.IO) {
         if (!file.exists()) return@withContext Contents()
-        runCatching {
+        run {
             val sealed = Base64.decode(file.readText(), Base64.NO_WRAP)
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(TAG_BITS, sealed, 0, IV_SIZE))
             json.decodeFromString(Contents.serializer(), cipher.doFinal(sealed, IV_SIZE, sealed.size - IV_SIZE).decodeToString())
-        }.getOrDefault(Contents())
+        }
     }
 
     private suspend fun save(contents: Contents) = withContext(Dispatchers.IO) {

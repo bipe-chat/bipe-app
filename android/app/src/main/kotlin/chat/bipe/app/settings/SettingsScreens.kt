@@ -65,6 +65,8 @@ import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.PeopleRoute
 import chat.bipe.app.people.PeopleScreen
 import chat.bipe.app.people.PeopleNavigation
+import chat.bipe.app.invites.InvitesModel
+import chat.bipe.app.invites.InvitesScreen
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
@@ -87,6 +89,7 @@ import kotlinx.coroutines.launch
 sealed interface SettingsRoute {
     data class People(val route: PeopleRoute) : SettingsRoute
     data object HandlePick : SettingsRoute
+    data object Invites : SettingsRoute
     data class Group(val group: BipeSettingsGroup) : SettingsRoute
     data object Notifications : SettingsRoute
     data object Messaging : SettingsRoute
@@ -109,11 +112,12 @@ sealed interface SettingsRoute {
 fun SettingsHost(
     session: AccountSession,
     api: BipeApiClient,
+    invites: InvitesModel,
     onClose: () -> Unit,
     onSignedOut: () -> Unit,
     onOpenChat: (String) -> Unit = {},
     onProfileChanged: () -> Unit = {},
-    rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit, (PeopleRoute) -> Unit) -> Unit)? = null,
+    rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit, (PeopleRoute) -> Unit, () -> Unit) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -138,7 +142,8 @@ fun SettingsHost(
     }
     when (val route = stack.lastOrNull()) {
         null -> {
-            if (rootContent != null) rootContent(model, openGroup) { stack.add(SettingsRoute.People(it)) }
+            if (rootContent != null) rootContent(model, openGroup,
+                { stack.add(SettingsRoute.People(it)) }, { stack.add(SettingsRoute.Invites) })
             else {
                 SettingsPage(stringResource(R.string.bipe_settings_section), BipeScreen.SETTINGS_ROOT.id, onBack = onClose) {
                     SettingsRootSection(model, openGroup)
@@ -150,7 +155,10 @@ fun SettingsHost(
             push = { stack.add(SettingsRoute.People(it)) }, pop = pop,
             openChat = { stack.clear(); onOpenChat(it) },
             pickHandle = { stack.add(SettingsRoute.HandlePick) },
+            invite = { stack.add(SettingsRoute.Invites) },
         ))
+        SettingsRoute.Invites -> InvitesScreen(invites, people, onBack = pop,
+            openChat = { stack.clear(); onOpenChat(it) })
         SettingsRoute.HandlePick -> {
             val handle = remember(session) { HandlePickModel(context, api, session, scope) }
             LaunchedEffect(handle) { handle.load() }

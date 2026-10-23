@@ -24,7 +24,7 @@ private struct GroupHostModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: $showingInvites) {
-                InvitesView(session: session, api: api, media: media) { roomId in
+                InvitesEntryView(session: session, api: api, media: media) { roomId in
                     path.append(roomId)
                 }
             }

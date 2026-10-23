@@ -55,7 +55,7 @@ internal fun PickRow(pick: PersonPick, media: MediaLoader, onClick: () -> Unit) 
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Avatar(pick.person.displayName, pick.person.avatarUrl, media, size = 40.dp)
+        Avatar(pick.person.displayName, pick.person.avatarUrl, media, size = 40.dp, userId = pick.person.userId)
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(pick.person.displayName, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)

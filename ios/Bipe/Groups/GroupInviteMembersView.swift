@@ -70,7 +70,7 @@ struct GroupInviteMembersView: View {
         }
         .sheet(isPresented: $showingInvites) {
             if let api {
-                InvitesView(session: session, api: api, media: media) { _ in }
+                InvitesEntryView(session: session, api: api, media: media) { _ in }
             }
         }
         .accessibilityIdentifier(BipeScreen.groupInviteMembers.rawValue)
