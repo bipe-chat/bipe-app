@@ -29,6 +29,8 @@ import org.matrix.rustcomponents.sdk.RoomListLoadingStateListener
 import org.matrix.rustcomponents.sdk.RoomNotificationMode
 import org.matrix.rustcomponents.sdk.TaskHandle
 import chat.bipe.app.voce.NotesRoom
+import chat.bipe.shared.BipeChatRowName
+import java.util.UUID
 
 /** Type ChatSummary of spec chat-list. */
 data class ChatSummary(
@@ -87,6 +89,7 @@ class ChatListModel(
     private val unreadLists = mutableMapOf<ChatScope, FilteredRoomList>()
 
     private val rooms = mutableListOf<Room>()
+    private val subscriptionOwner = UUID.randomUUID().toString()
     /** One model belongs to one account session; absent previews must not erase a known time. */
     private val knownActivity = mutableMapOf<String, Long>()
     private val extraRoomIds = mutableSetOf<String>()
@@ -143,6 +146,8 @@ class ChatListModel(
             for (batch in updates) {
                 batch.forEach { rooms.applyDiff(it.toVectorDiff()) }
                 refreshSummaries()
+                // Publish cached rows first; subscription enables SDK latest-event calculation and online catchup.
+                session.roomSubscriptions.update(subscriptionOwner, rooms.map { it.id() } + archive.markers.value.keys)
             }
         }
     }
@@ -231,6 +236,7 @@ class ChatListModel(
         unreadLists.values.forEach { it.close() }
         handles.forEach { it.cancel() }
         summaryJob?.cancel()
+        session.releaseRoomSubscriptions(subscriptionOwner)
     }
 
     private fun onLoadingState(state: RoomListLoadingState) {
@@ -250,13 +256,14 @@ class ChatListModel(
         extraRoomIds += archive.markers.value.keys
         val snapshot = rooms.toMutableList()
         val loadedIds = snapshot.map { it.id() }.toSet()
-        for (id in extraRoomIds - loadedIds) runCatching { session.client.getRoom(id) }.getOrNull()?.let { snapshot += it }
+        for (id in (extraRoomIds - loadedIds).sorted()) runCatching { session.client.getRoom(id) }.getOrNull()?.let { snapshot += it }
         summaryJob?.cancel()
         summaryJob = scope.launch {
             val summaries = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
             val visible = retainingKnownActivity(NativeDmSelection.visible(summaries, session))
             archive.reconcile(visible)
-            _chats.value = visible.sortedByDescending { it.lastActivity ?: Long.MIN_VALUE }
+            // SDK order includes server recency stamps and local echoes, even when previews have no timestamp.
+            _chats.value = visible
             updatePhase()
         }
     }
@@ -286,12 +293,11 @@ class ChatListModel(
             LatestEventValue.None -> Unit
         }
         val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
-        val peerName = peer?.displayName?.takeIf { it.isNotBlank() }
-            ?: peer?.userId?.let { chat.bipe.app.people.Person.localpart(it) } ?: unnamedChatText
+        val name = BipeChatRowName.resolve(info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText)
         return ChatSummary(
             roomId = info.id,
-            name = if (info.isDm) peerName else info.displayName ?: info.id,
-            avatarUrl = if (info.isDm) peer?.avatarUrl else info.avatarUrl,
+            name = name,
+            avatarUrl = if (info.isDm) peer?.avatarUrl ?: info.avatarUrl else info.avatarUrl,
             lastMessage = lastMessage,
             lastActivity = lastActivity,
             unreadCount = info.numUnreadMessages.toInt(),

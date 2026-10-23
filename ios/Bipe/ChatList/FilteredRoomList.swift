@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 
@@ -13,6 +14,8 @@ final class FilteredRoomList {
     private var result: RoomListEntriesWithDynamicAdaptersResult?
     private var handle: TaskHandle?
     private var task: Task<Void, Never>?
+    private let subscriptionOwner = UUID().uuidString
+    private var subscriptions: BipeRoomSubscriptions?
     private let onChange: ([Room]) -> Void
 
     init(onChange: @escaping ([Room]) -> Void) {
@@ -22,10 +25,14 @@ final class FilteredRoomList {
     deinit {
         handle?.cancel()
         task?.cancel()
+        let subscriptions = subscriptions
+        let owner = subscriptionOwner
+        Task { await subscriptions?.remove(owner: owner) }
     }
 
     /// Subscribes once, then sets the filter; a later call only changes the filter.
     func start(session: AccountSession, filter: RoomListEntriesDynamicFilterKind, pageSize: UInt32 = 50) async {
+        subscriptions = session.roomSubscriptions
         if let result {
             _ = result.controller().setFilter(kind: filter)
             return
@@ -43,6 +50,7 @@ final class FilteredRoomList {
                     rooms.apply(update.vectorDiff)
                 }
                 onChange(rooms)
+                await session.roomSubscriptions.update(owner: subscriptionOwner, roomIDs: rooms.map { $0.id() })
             }
         }
     }
