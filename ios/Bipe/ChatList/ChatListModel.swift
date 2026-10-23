@@ -138,7 +138,9 @@ final class ChatListModel: ObservableObject {
                     if let summary = await Self.summary(of: room, ownUserId: self.session.userId) { summaries.append(summary) }
                 }
                 guard !Task.isCancelled else { return }
-                self.unreadChats[scope] = summaries
+                let visible = await NativeDmSelection.visible(summaries, session: self.session)
+                guard !Task.isCancelled else { return }
+                self.unreadChats[scope] = visible
                 self.unreadLoading.remove(scope)
             }
         }
@@ -190,7 +192,9 @@ final class ChatListModel: ObservableObject {
                 }
             }
             guard !Task.isCancelled, let self else { return }
-            chats = summaries
+            let visible = await NativeDmSelection.visible(summaries, session: session)
+            guard !Task.isCancelled else { return }
+            chats = visible
             updatePhase()
         }
     }

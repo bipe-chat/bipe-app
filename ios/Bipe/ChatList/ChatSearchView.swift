@@ -54,7 +54,9 @@ final class ChatSearchModel: ObservableObject {
                 if let summary = await ChatListModel.summary(of: room, ownUserId: session.userId) { summaries.append(summary) }
             }
             guard query == expectedQuery else { return }
-            results = summaries
+            let visible = await NativeDmSelection.visible(summaries, session: session)
+            guard query == expectedQuery else { return }
+            results = visible
             isSearching = false
         }
     }

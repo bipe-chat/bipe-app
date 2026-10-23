@@ -71,7 +71,8 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
         if (_state.value.query.isNotBlank()) {
             val query = _state.value.query
             val summaries = found.filter { it.id() != list.notes.roomId }.mapNotNull { list.summary(it) }
-            if (_state.value.query == query) _state.value = _state.value.copy(results = summaries, isSearching = false)
+            val visible = NativeDmSelection.visible(summaries, session)
+            if (_state.value.query == query) _state.value = _state.value.copy(results = visible, isSearching = false)
         }
     }
     private var debounce: Job? = null

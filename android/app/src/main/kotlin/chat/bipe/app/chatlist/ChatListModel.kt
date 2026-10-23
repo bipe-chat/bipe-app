@@ -139,7 +139,7 @@ class ChatListModel(
         _unreadLoading.value += tab
         val list = FilteredRoomList(scope) { found ->
             val summaries = found.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
-            _unreadChats.value += (tab to summaries)
+            _unreadChats.value += (tab to NativeDmSelection.visible(summaries, session))
             _unreadLoading.value -= tab
         }
         unreadLists[tab] = list
@@ -195,7 +195,8 @@ class ChatListModel(
         val snapshot = rooms.toList()
         summaryJob?.cancel()
         summaryJob = scope.launch {
-            _chats.value = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
+            val summaries = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
+            _chats.value = NativeDmSelection.visible(summaries, session)
             updatePhase()
         }
     }

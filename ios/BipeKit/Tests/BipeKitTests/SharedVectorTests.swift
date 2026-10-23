@@ -9,6 +9,25 @@ import Testing
 /// Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). Android runs the same files.
 struct SharedVectorTests {
     @Test
+    func dmSelection() throws {
+        for vector in try SharedVectors.array("dm-selection.json", key: "cases") {
+            let raw = try #require(vector["candidates"] as? [[String: Any]])
+            let candidates = try raw.map { item in
+                BipeDmCandidate(roomId: try #require(item["roomId"] as? String),
+                    peerUserId: try #require(item["peerUserId"] as? String),
+                    latestActivityMs: (item["latestActivityMs"] as? NSNumber)?.int64Value,
+                    eligible: try #require(item["eligible"] as? Bool), cleared: item["cleared"] as? Bool ?? false)
+            }
+            let expected = try #require(vector["expected"] as? [String: String])
+            #expect(BipeDmSelection.newestRooms(candidates) == expected)
+            #expect(BipeDmSelection.newestRooms(Array(candidates.reversed())) == expected)
+            if let fallback = vector["includingCleared"] as? [String: String] {
+                #expect(BipeDmSelection.newestRooms(candidates, includingCleared: true) == fallback)
+            }
+        }
+    }
+
+    @Test
     func trustFacts() throws {
         let vectors = try SharedVectors.array("trust-facts.json", key: "vectors")
         #expect(!vectors.isEmpty)

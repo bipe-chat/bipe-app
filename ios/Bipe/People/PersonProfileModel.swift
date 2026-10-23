@@ -68,7 +68,7 @@ final class PersonProfileModel: ObservableObject {
     /// Action appear: shows what it has and fills in the rest.
     func appear() async {
         phase = .loading
-        dmRoomId = people.dmRoomId(with: userId)
+        dmRoomId = await people.dmRoomId(with: userId)
         do {
             person = try await people.person(userId)
         } catch {
