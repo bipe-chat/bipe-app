@@ -153,11 +153,11 @@ final class ChatRequestsModel: ObservableObject {
             invitedAt = Date(milliseconds: timestamp)
         }
         let inviterId = inviter?.userId ?? ""
-        let inviterName = inviter?.displayName ?? (inviterId.isEmpty ? nil : inviterId)
+        let inviterName = inviter?.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? (inviterId.isEmpty ? nil : Person.localpart(of: inviterId))
         return ChatRequestSummary(
             roomId: info.id,
             inviterId: inviterId,
-            name: info.isDm ? (inviterName ?? info.displayName ?? info.id) : (info.displayName ?? info.id),
+            name: info.isDm ? (inviterName ?? BipeStrings.dmNoName) : (info.displayName ?? BipeStrings.tabGroups),
             inviterName: inviterName,
             avatarUrl: info.isDm ? inviter?.avatarUrl : info.avatarUrl,
             // The verified seal needs the badge check (GET /v1/badges), which comes with the trust work of people

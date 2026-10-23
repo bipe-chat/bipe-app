@@ -350,7 +350,7 @@ fun ChatListScreen(
                         if (requestsError) item(key = "requests-error") {
                             Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk, modifier = Modifier.padding(16.dp))
                         }
-                        if (phase == ChatListModel.Phase.EMPTY) item(key = "empty") { EmptyState(scope, unreadOnly) { model.toggleUnread(scope) } }
+                        if (phase == ChatListModel.Phase.EMPTY) item(key = "empty") { EmptyState(scope, unreadOnly, onTurnOffUnread = { model.toggleUnread(scope) }, onStartChat = { onOpenPeople(PeopleRoute.Contacts) }) }
                         items(chats, key = { it.roomId }) { chat ->
                             DmSwipeRow(chat.isDm, onDelete = { onDeleteDm(chat.roomId) }) { ChatRow(chat, media) { onOpenChat(chat.roomId) } }
                             if (chat.roomId == chats.lastOrNull()?.roomId) {
@@ -459,7 +459,7 @@ private fun UnreadChip(isOn: Boolean, onToggle: () -> Unit) {
 
 /** The empty messages of chat-list-filters: noUnread turns the filter off on a tap; noChats offers start chat. */
 @Composable
-private fun EmptyState(scope: ChatScope, unreadOnly: Boolean, onTurnOffUnread: () -> Unit) {
+private fun EmptyState(scope: ChatScope, unreadOnly: Boolean, onTurnOffUnread: () -> Unit, onStartChat: () -> Unit) {
     val colors = BipeTheme.colors
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
@@ -478,8 +478,7 @@ private fun EmptyState(scope: ChatScope, unreadOnly: Boolean, onTurnOffUnread: (
         } else {
             Text(stringResource(R.string.bipe_chats_empty_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
             Text(stringResource(R.string.bipe_chats_empty_body), color = colors.inkSecondary)
-            // Action startChat: the start-chat screen comes with people and profiles (bipe-chat/bipe#568).
-            Text(stringResource(R.string.bipe_action_start_chat), color = colors.inkDisabled)
+            TextButton(onClick = onStartChat) { Text(stringResource(R.string.bipe_action_start_chat)) }
         }
     }
 }

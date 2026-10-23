@@ -323,9 +323,8 @@ struct ChatListView: View {
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.chatsEmptyBody)
                     .foregroundStyle(BipeColor.inkSecondary)
-                // Action startChat: the start-chat screen comes with people and profiles (bipe-chat/bipe#568).
-                Text(BipeStrings.actionStartChat)
-                    .foregroundStyle(BipeColor.inkDisabled)
+                Button(BipeStrings.actionStartChat) { path.append(PeopleRoute.contacts) }
+                    .buttonStyle(.borderedProminent)
             }
         }
         .multilineTextAlignment(.center)

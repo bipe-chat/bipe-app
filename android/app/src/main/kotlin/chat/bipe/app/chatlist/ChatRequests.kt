@@ -209,11 +209,13 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         if (inviter?.isIgnored == true) return null
         val invitedAt = (room.latestEvent() as? LatestEventValue.RemoteInvite)?.timestamp?.toLong()
         val inviterId = inviter?.userId.orEmpty()
-        val inviterName = inviter?.displayName ?: inviterId.ifEmpty { null }
+        val inviterName = inviter?.displayName?.takeIf { it.isNotBlank() }
+            ?: inviterId.takeIf { it.isNotEmpty() }?.let { chat.bipe.app.people.Person.localpart(it) }
         return ChatRequestSummary(
             roomId = info.id,
             inviterId = inviterId,
-            name = if (info.isDm) inviterName ?: info.displayName ?: info.id else info.displayName ?: info.id,
+            name = if (info.isDm) inviterName ?: context.getString(R.string.bipe_dm_no_name)
+                else info.displayName ?: context.getString(R.string.bipe_tab_groups),
             inviterName = inviterName,
             avatarUrl = if (info.isDm) inviter?.avatarUrl else info.avatarUrl,
             // The verified seal needs the badge check (GET /v1/badges), which comes with the trust work of people and
