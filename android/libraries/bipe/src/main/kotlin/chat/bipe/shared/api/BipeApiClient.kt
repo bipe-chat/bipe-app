@@ -6,6 +6,7 @@ package chat.bipe.shared.api
 
 import android.content.Context
 import chat.bipe.shared.BipeHandleProblem
+import chat.bipe.shared.BipeProfileProblem
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipePinProblem
 import chat.bipe.shared.generated.BipeRegistries
@@ -264,6 +265,9 @@ enum class BipeApiErrorCode(val id: String) {
     RECOVERY_INVALID("recovery_invalid"),
     EMAIL_UNAVAILABLE("email_unavailable"),
 
+    /** `PUT /v1/me/profile`: `reason` is a profile problem id (ADR 0041). */
+    PROFILE_INVALID("profile_invalid"),
+
     /** HTTP 403: the sign-up or the account lacks the current legal version (ADR 0113). */
     TERMS_REQUIRED("terms_required"),
     ;
@@ -315,6 +319,8 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.RECOVERY_INVALID -> context.getString(R.string.bipe_error_recovery_invalid)
             BipeApiErrorCode.EMAIL_UNAVAILABLE -> context.getString(R.string.bipe_error_email_unavailable)
             BipeApiErrorCode.TERMS_REQUIRED -> context.getString(R.string.bipe_signup_terms_required)
+            BipeApiErrorCode.PROFILE_INVALID ->
+                reason?.let(BipeProfileProblem::fromId)?.localizedMessage(context) ?: context.getString(R.string.bipe_error_generic)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL -> context.getString(R.string.bipe_error_generic)
         }
         is Network -> context.getString(R.string.bipe_error_network)

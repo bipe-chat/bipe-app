@@ -96,6 +96,8 @@ fun ChatTimelineScreen(
     onOpenGroupDetails: (() -> Unit)? = null,
     onHistoryHelp: () -> Unit = {},
     onDmDeleted: () -> Unit = onBack,
+    /** Opens the chat's info: person-profile for a DM. */
+    onOpenInfo: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -186,16 +188,21 @@ fun ChatTimelineScreen(
                     IconButton(onClick = onBack) {
                         Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
                     }
-                    Avatar(roomName, null, media, size = 32.dp)
-                    Spacer(Modifier.size(8.dp))
-                    Text(
-                        roomName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = colors.inkPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
+                    // The header opens the chat's info: person-profile for a DM.
+                    Row(
+                        modifier = Modifier.weight(1f).then(if (onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Avatar(roomName, null, media, size = 32.dp)
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            roomName,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = colors.inkPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     if (isGroup && onOpenGroupDetails != null) {
                         IconButton(onClick = onOpenGroupDetails) {
                             Icon(

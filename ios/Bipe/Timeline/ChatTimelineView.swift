@@ -19,12 +19,15 @@ struct ChatTimelineView: View {
     @State private var creatingPoll = false
     @State private var openPollId: String?
     private let media: MediaLoader
+    /// Opens the chat's info: person-profile for a DM.
+    private let openInfo: (() -> Void)?
     private let session: AccountSession
     private let roomId: String
 
-    init(session: AccountSession, media: MediaLoader, roomId: String) {
+    init(session: AccountSession, media: MediaLoader, roomId: String, openInfo: (() -> Void)? = nil) {
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
         self.media = media
+        self.openInfo = openInfo
         self.session = session
         self.roomId = roomId
     }
@@ -45,6 +48,16 @@ struct ChatTimelineView: View {
         .navigationTitle(model.roomName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if let openInfo {
+                ToolbarItem(placement: .principal) {
+                    Button(action: openInfo) {
+                        Text(model.roomName)
+                            .font(.headline)
+                            .foregroundStyle(BipeColor.inkPrimary)
+                            .lineLimit(1)
+                    }
+                }
+            }
             if isGroup {
                 ToolbarItem(placement: .primaryAction) {
                     NavigationLink {
