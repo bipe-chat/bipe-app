@@ -11,15 +11,15 @@
 
 package chat.bipe.shared.generated
 
-/** Local room facts for ADR 0141. Eligibility excludes left, invited, cleared and non-DM rooms. */
-data class BipeDmCandidate(val roomId: String, val peerUserId: String, val latestActivityMs: Long?, val eligible: Boolean)
+/** Local room facts for ADR 0141. Eligibility excludes left, invited and non-DM rooms. Clear markers stay separate. */
+data class BipeDmCandidate(val roomId: String, val peerUserId: String, val latestActivityMs: Long?, val eligible: Boolean, val cleared: Boolean = false)
 
 /** Same selected room in lists, unread/search results and Start chat. No network or room mutation. */
 object BipeDmSelection {
-    fun newestRooms(candidates: List<BipeDmCandidate>): Map<String, String> {
+    fun newestRooms(candidates: List<BipeDmCandidate>, includingCleared: Boolean = false): Map<String, String> {
         val chosen = mutableMapOf<String, BipeDmCandidate>()
         for (candidate in candidates) {
-            if (!candidate.eligible || candidate.roomId.isEmpty() || candidate.peerUserId.isEmpty()) continue
+            if (!candidate.eligible || (!includingCleared && candidate.cleared) || candidate.roomId.isEmpty() || candidate.peerUserId.isEmpty()) continue
             val previous = chosen[candidate.peerUserId]
             if (previous != null) {
                 val oldTime = previous.latestActivityMs ?: Long.MIN_VALUE
