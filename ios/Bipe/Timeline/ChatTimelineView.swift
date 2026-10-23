@@ -48,6 +48,8 @@ struct ChatTimelineView: View {
             TypingLine(names: model.typingNames)
             ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
         }
+        .frame(maxWidth: 760)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .attachmentPicker(isPresented: $attaching,
                           onPicked: { urls in upload = PickedUpload(urls: urls, replyToEventId: model.takeReplyEventId()) },
                           onStickers: { showsStickers = true },
@@ -77,9 +79,13 @@ struct ChatTimelineView: View {
                     NavigationLink {
                         GroupDetailsView(session: session, media: media, roomId: roomId)
                     } label: {
-                        PhosphorIcon.info.image.resizable().frame(width: 22, height: 22)
+                        Label {
+                            Text(BipeStrings.appGroupDetailsTitle)
+                        } icon: {
+                            PhosphorIcon.info.image.resizable().frame(width: 22, height: 22)
+                        }
                     }
-                    .accessibilityLabel(BipeStrings.appGroupDetailsTitle)
+                    .labelStyle(.iconOnly)
                 }
             }
             if model.isDm {
@@ -89,9 +95,13 @@ struct ChatTimelineView: View {
                             deletingDm = true
                         }
                     } label: {
-                        PhosphorIcon.info.image.resizable().frame(width: 22, height: 22)
+                        Label {
+                            Text(BipeStrings.dmDetailsTitle)
+                        } icon: {
+                            PhosphorIcon.info.image.resizable().frame(width: 22, height: 22)
+                        }
                     }
-                    .accessibilityLabel(BipeStrings.dmDetailsTitle)
+                    .labelStyle(.iconOnly)
                 }
             }
         }
@@ -193,6 +203,7 @@ struct ChatTimelineView: View {
                 .padding(.vertical, 8)
             }
             .defaultScrollAnchor(.bottom)
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: model.rows.last?.id) { _, lastId in
                 if let lastId {
                     withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
@@ -319,6 +330,7 @@ private struct ComposerBar: View {
     let media: MediaLoader
     let openAttachments: () -> Void
     let openStickers: () -> Void
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -371,7 +383,7 @@ private struct ComposerBar: View {
                           text: Binding(get: { model.draft }, set: { model.editDraft($0) }),
                           axis: .vertical)
                     .focused($focused)
-                    .lineLimit(1...5)
+                    .lineLimit(1...(verticalSizeClass == .compact ? 3 : 5))
                     .padding(.vertical, 8)
                     .foregroundStyle(BipeColor.inkPrimary)
                 if model.editing == nil {

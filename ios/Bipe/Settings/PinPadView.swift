@@ -19,6 +19,19 @@ struct PinPadView: View {
     let onDelete: () -> Void
 
     var body: some View {
+        GeometryReader { geometry in
+            ScrollView {
+                content(keySize: min(72, max(44, (geometry.size.width - 96) / 3)))
+                    .padding(24)
+                    .frame(maxWidth: 400)
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .background(BipeColor.surfaceBase.ignoresSafeArea())
+    }
+
+    private func content(keySize: CGFloat) -> some View {
         VStack(spacing: 24) {
             Spacer(minLength: 16)
             PhosphorIcon.lockSimple.image
@@ -59,54 +72,51 @@ struct PinPadView: View {
             }
             .frame(minHeight: 40)
             Spacer(minLength: 8)
-            keys
+            keys(size: keySize)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
     }
 
-    private var keys: some View {
+    private func keys(size: CGFloat) -> some View {
         let rows = [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"]]
         return VStack(spacing: 14) {
             ForEach(rows, id: \.self) { row in
                 HStack(spacing: 24) {
-                    ForEach(row, id: \.self) { digit in key(digit) }
+                    ForEach(row, id: \.self) { digit in key(digit, size: size) }
                 }
             }
             HStack(spacing: 24) {
                 if let onBiometrics {
-                    iconKey(.fingerprint, action: onBiometrics)
+                    iconKey(.fingerprint, size: size, action: onBiometrics)
                 } else {
-                    Color.clear.frame(width: 72, height: 72)
+                    Color.clear.frame(width: size, height: size)
                 }
-                key("0")
-                iconKey(.backspace, action: onDelete)
+                key("0", size: size)
+                iconKey(.backspace, size: size, action: onDelete)
             }
         }
         .disabled(isBusy)
     }
 
-    private func key(_ digit: String) -> some View {
+    private func key(_ digit: String, size: CGFloat) -> some View {
         Button {
             onDigit(digit)
         } label: {
             Text(verbatim: digit)
                 .font(.title)
                 .foregroundStyle(BipeColor.inkPrimary)
-                .frame(width: 72, height: 72)
+                .frame(width: size, height: size)
                 .background(Circle().fill(BipeColor.surfaceRaised))
         }
         .buttonStyle(.plain)
     }
 
-    private func iconKey(_ icon: PhosphorIcon, action: @escaping () -> Void) -> some View {
+    private func iconKey(_ icon: PhosphorIcon, size: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             icon.image
                 .resizable()
                 .frame(width: 28, height: 28)
                 .foregroundStyle(BipeColor.glyphPrimary)
-                .frame(width: 72, height: 72)
+                .frame(width: size, height: size)
         }
         .buttonStyle(.plain)
     }

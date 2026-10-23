@@ -23,6 +23,9 @@ on:
 permissions:
   contents: read
 
+env:
+  DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+
 concurrency:
   group: ios-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -30,7 +33,7 @@ concurrency:
 jobs:
   build:
     name: ios (${{ matrix.configuration }})
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -76,7 +79,7 @@ jobs:
   # BipeKit unit tests (bipe-chat/bipe#576): the shared vectors of bipe-shared on macOS.
   bipekit-tests:
     name: ios (BipeKit tests)
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
