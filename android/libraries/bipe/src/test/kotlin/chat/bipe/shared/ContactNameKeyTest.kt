@@ -11,13 +11,14 @@ import org.junit.Test
 
 class ContactNameKeyTest {
     @Test fun answersCannotCrossAccountsPeersOrIdentityChanges() {
-        fun key(account: String = "@owner:example.invalid", peer: String = "@peer:example.invalid", saved: String = "Mãe", name: String = "Maria Souza") =
-            BipeContactNameKey.make(account, peer, saved, name)
+        fun key(account: String = "@owner:example.invalid", peer: String = "@peer:example.invalid", saved: String = "Mãe", name: String = "Maria Souza", identity: String = "master:first") =
+            BipeContactNameKey.make(account, peer, saved, name, identity)
         assertEquals(key(), key(saved = "  MÃE  ", name = "Mária  Souza"))
         assertNotEquals(key(), key(account = "@other:example.invalid"))
         assertNotEquals(key(), key(peer = "@other:example.invalid"))
         assertNotEquals(key(), key(saved = "Nina"))
         assertNotEquals(key(), key(name = "Joana Lima"))
+        assertNotEquals(key(), key(identity = "master:changed"))
         assertFalse(key().contains("Maria"))
         assertFalse(key().contains("example.invalid"))
         assertNotEquals(key("a", "bc"), key("ab", "c"))

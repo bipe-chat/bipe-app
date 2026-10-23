@@ -51,8 +51,9 @@ struct RequestTrustContent: View {
             .padding(16)
             .frame(maxWidth: .infinity)
             .background(RoundedRectangle(cornerRadius: 12).fill(verified ? BipeColor.trustVerifiedWash : BipeColor.trustCautionWash))
-            if case .verified(let name) = trust, let saved = people.contactName(for: request.inviterId) {
-                let key = BipeContactNameKey.make(accountId: model.session.userId, peerId: request.inviterId, savedName: saved, verifiedName: name)
+            if case .verified(let name) = trust, let badge = seals.badge(for: request.inviterId),
+               badge.name == name, let saved = people.contactName(for: request.inviterId) {
+                let key = BipeContactNameKey.make(accountId: model.session.userId, peerId: request.inviterId, savedName: saved, verifiedName: name, identityKey: identityKey(badge))
                 let answer = answers[key] ?? (UserDefaults.standard.object(forKey: key) as? Bool)
                 if let warning = BipeRelationshipNames.warning(savedName: saved, verifiedName: name, nicknameConfirmed: answer == true) {
                     VStack(spacing: 8) {
@@ -72,6 +73,13 @@ struct RequestTrustContent: View {
             }
         }
         .multilineTextAlignment(.center)
+    }
+
+    private func identityKey(_ badge: BadgePayload) -> String {
+        switch badge.binding {
+        case .masterKey(let key): "master:" + key
+        case .device(let key): "device:" + key
+        }
     }
 
     private func save(_ answer: Bool, key: String) {

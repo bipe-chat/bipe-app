@@ -410,7 +410,7 @@ fun ChatRequestScreen(
                 }
                 val trust = requestTrust(model, request)
                 TrustBlock(trust)
-                RequestNameWarning(model.people, request.inviterId, trust.verifiedName)
+                RequestNameWarning(model.people, request.inviterId, trust.verifiedName, trust.identityKey)
                 if (error) Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
                 if (reported) Text(stringResource(R.string.bipe_dm_reported_and_left), color = colors.inkSecondary, textAlign = TextAlign.Center)
                 val enabled = !isWorking && !reported
@@ -451,7 +451,7 @@ fun ChatRequestScreen(
     }
 }
 
-private data class RequestTrust(val kind: ChatRequestSummary.Trust, val verifiedName: String? = null)
+private data class RequestTrust(val kind: ChatRequestSummary.Trust, val verifiedName: String? = null, val identityKey: String? = null)
 
 /** Observe verified payload changes, and recheck expiry while this request stays visible. */
 @Composable
@@ -465,7 +465,7 @@ private fun requestTrust(model: ChatRequestsModel, request: ChatRequestSummary):
         else {
             val seal = model.people.seals.seal(request.inviterId)
             if (seal is BipeCompanySealState.Verified && seal.payload.name.isNotBlank()) {
-                RequestTrust(ChatRequestSummary.Trust.VERIFIED, seal.payload.name)
+                RequestTrust(ChatRequestSummary.Trust.VERIFIED, seal.payload.name, seal.payload.msk?.let { "master:$it" })
             } else RequestTrust(ChatRequestSummary.Trust.UNVERIFIED)
         }
     }

@@ -38,7 +38,7 @@ import chat.bipe.shared.generated.BipeRelationshipNames
 
 /** An already-known contact match and an authenticated proof name. Opening a request sends no address book. */
 @Composable
-internal fun RequestNameWarning(people: PeopleService, peerId: String, verifiedName: String?) {
+internal fun RequestNameWarning(people: PeopleService, peerId: String, verifiedName: String?, identityKey: String?) {
     val context = LocalContext.current
     val lifecycle = (context as? LifecycleOwner)?.lifecycle
     val names by people.contactNames.collectAsState()
@@ -50,7 +50,8 @@ internal fun RequestNameWarning(people: PeopleService, peerId: String, verifiedN
     }
     val savedName = remember(names, people, peerId, foregroundRevision) { people.contactName(peerId) } ?: return
     val proofName = verifiedName ?: return
-    val key = BipeContactNameKey.make(people.session.userId, peerId, savedName, proofName)
+    val proofKey = identityKey ?: return
+    val key = BipeContactNameKey.make(people.session.userId, peerId, savedName, proofName, proofKey)
     val prefs = remember(context) { context.getSharedPreferences("bipe_contact_name_answers", Context.MODE_PRIVATE) }
     var answer by remember(key) { mutableStateOf(if (prefs.contains(key)) prefs.getBoolean(key, false) else null) }
     val warning = BipeRelationshipNames.warning(savedName, proofName, answer == true) ?: return

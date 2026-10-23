@@ -7,14 +7,15 @@ import Testing
 
 struct ContactNameKeyTests {
     @Test func answersCannotCrossAccountsPeersOrIdentityChanges() {
-        func key(_ account: String = "@owner:example.invalid", _ peer: String = "@peer:example.invalid", _ saved: String = "Mãe", _ name: String = "Maria Souza") -> String {
-            BipeContactNameKey.make(accountId: account, peerId: peer, savedName: saved, verifiedName: name)
+        func key(_ account: String = "@owner:example.invalid", _ peer: String = "@peer:example.invalid", _ saved: String = "Mãe", _ name: String = "Maria Souza", _ identity: String = "master:first") -> String {
+            BipeContactNameKey.make(accountId: account, peerId: peer, savedName: saved, verifiedName: name, identityKey: identity)
         }
         #expect(key() == key("@owner:example.invalid", "@peer:example.invalid", "  MÃE  ", "Mária  Souza"))
         #expect(key() != key("@other:example.invalid"))
         #expect(key() != key("@owner:example.invalid", "@other:example.invalid"))
         #expect(key() != key("@owner:example.invalid", "@peer:example.invalid", "Nina"))
         #expect(key() != key("@owner:example.invalid", "@peer:example.invalid", "Mãe", "Joana Lima"))
+        #expect(key() != key("@owner:example.invalid", "@peer:example.invalid", "Mãe", "Maria Souza", "master:changed"))
         #expect(!key().contains("Maria"))
         #expect(!key().contains("example.invalid"))
         #expect(key("a", "bc") != key("ab", "c"))
