@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.TermsReacceptModel
@@ -69,21 +70,23 @@ import chat.bipe.app.people.PeopleService
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
+import chat.bipe.app.groups.CreateGroupButton
+import chat.bipe.app.groups.DmSwipeRow
+import chat.bipe.app.groups.GroupHost
+import chat.bipe.app.groups.withoutClearedDms
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.app.handle.HandlePromptCard
+import chat.bipe.app.recovery.RecoveryAlertModel
+import chat.bipe.app.recovery.RecoveryAlertScreen
 import chat.bipe.app.signup.SignupFlowModel
 import chat.bipe.app.signup.SignupFlowScreen
 import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.tabs.AppTabsScreen
-import chat.bipe.app.groups.CreateGroupButton
-import chat.bipe.app.groups.DmSwipeRow
-import chat.bipe.app.groups.GroupHost
-import chat.bipe.app.groups.withoutClearedDms
-import chat.bipe.app.recovery.RecoveryAlertModel
-import chat.bipe.app.recovery.RecoveryAlertScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
+import chat.bipe.app.groups.Person as GroupPerson
+import chat.bipe.app.people.Person
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeHaptic
@@ -129,6 +132,7 @@ fun HomeScreen(
         requests.start()
         onDispose { requests.close(); search.dispose() }
     }
+    val app = context.applicationContext as BipeApplication
     DisposableEffect(encryption) {
         encryption.observe()
         onDispose { encryption.close() }
@@ -159,6 +163,23 @@ fun HomeScreen(
     LaunchedEffect(foregroundCount) { recoveryAlert.check() }
     // Critical banners refresh alongside account/profile and recovery checks.
     LaunchedEffect(foregroundCount) { remoteBanner.refresh() }
+    // Spec notification-service, action open.
+    val roomToOpen by app.roomToOpen.collectAsState()
+    LaunchedEffect(roomToOpen) {
+        roomToOpen?.let {
+            peopleStack = emptyList()
+            showsHandlePick = false
+            showsRequests = false
+            openRoomId = it
+            app.roomToOpen.value = null
+        }
+    }
+    // An open chat has no notifications, and its pushes show none.
+    DisposableEffect(openRoomId) {
+        app.notifications.visibleRoomId = openRoomId
+        openRoomId?.let { app.notifications.clear(it) }
+        onDispose { app.notifications.visibleRoomId = null }
+    }
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
@@ -181,12 +202,32 @@ fun HomeScreen(
             onBack = { showsRequests = false },
             onOpenChat = { showsRequests = false; openRoomId = it },
             onOpenWhoCanMessage = { showsRequests = false; navigation.push(PeopleRoute.WhoCanMessage) })
-        peopleStack.isNotEmpty() -> {
-            BackHandler { navigation.pop() }
-            PeopleScreen(peopleStack.last(), people, navigation)
-        }
-        else -> GroupHost(session, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
-            if (roomId != null) {
+        else -> GroupHost(session, api, media, roomId, foregroundCount, onOpenRoom = {
+            peopleStack = emptyList()
+            openRoomId = it
+        }) { groups ->
+            if (peopleStack.isNotEmpty()) {
+                BackHandler { navigation.pop() }
+                // The people screens reach group-create, chat-notifications, dm-delete and invites through GroupHost.
+                val withGroups = PeopleNavigation(
+                    push = navigation.push,
+                    pop = navigation.pop,
+                    openChat = navigation.openChat,
+                    pickHandle = navigation.pickHandle,
+                    newGroup = { userId ->
+                        scope.launch {
+                            val person = runCatching { people.person(userId) }.getOrNull()
+                            groups.createGroupWith(
+                                listOf(GroupPerson(userId, person?.displayName ?: Person.localpart(userId), person?.avatarUrl, person?.handle)),
+                            )
+                        }
+                    },
+                    notifications = groups.openNotifications,
+                    deleteChat = groups.deleteDm,
+                    invite = groups.openInvites,
+                )
+                PeopleScreen(peopleStack.last(), people, withGroups)
+            } else if (roomId != null) {
                 BackHandler { openRoomId = null }
                 ChatTimelineScreen(
                     session,
@@ -196,7 +237,9 @@ fun HomeScreen(
                     onHistoryHelp = encryption::openSheet,
                     onOpenGroupDetails = groups.openGroupDetails,
                     onOpenInfo = {
-                        scope.launch { people.dmPartner(roomId)?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) } }
+                        scope.launch {
+                            people.dmPartner(roomId)?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
+                        }
                     },
                 )
             } else {
@@ -211,6 +254,8 @@ fun HomeScreen(
                     requests = requests, search = search, remoteBanner = remoteBanner,
                     onOpenRequests = { showsRequests = true },
                     onFindHandle = { navigation.push(PeopleRoute.ProfileLinkOpen(it.trim().removePrefix("@"))) },
+                    onInvite = groups.openInvites,
+                    onOpenPeople = navigation.push,
                 )
             }
         }
@@ -237,6 +282,8 @@ fun ChatListScreen(
     banner: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
+    onInvite: () -> Unit = {},
+    onOpenPeople: (PeopleRoute) -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
@@ -266,7 +313,7 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 )
-                CreateGroupButton(onCreateGroup)
+                CreateGroupButton(onCreateGroup, onInvite)
                 IconButton(onClick = onOpenSearch) {
                     Icon(
                         painterResource(PhosphorIcon.MAGNIFYING_GLASS.drawable),
@@ -354,6 +401,15 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                // Spec chat-notifications: a muted chat keeps its badge, without sound or notification.
+                if (chat.isMuted) {
+                    Icon(
+                        painterResource(PhosphorIcon.BELL_SLASH.drawable),
+                        contentDescription = stringResource(R.string.bipe_app_notification_mode_off),
+                        tint = colors.glyphSecondary,
+                        modifier = Modifier.padding(start = 8.dp).size(16.dp),
+                    )
+                }
                 if (chat.unreadCount > 0) {
                     val count = NumberFormat.getIntegerInstance().format(chat.unreadCount)
                     val label = stringResource(R.string.bipe_app_chat_list_unread, count)

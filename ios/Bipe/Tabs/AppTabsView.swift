@@ -49,6 +49,7 @@ struct AppTabsView: View {
                 Label(BipeStrings.appTabSearch, systemImage: "magnifyingglass")
             }
         }
+        .environmentObject(model)
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
                                    onLongPress: { model.longPressVoce() }))

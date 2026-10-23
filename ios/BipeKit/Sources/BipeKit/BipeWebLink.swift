@@ -146,3 +146,84 @@ public extension BipeAPIClient {
 private struct WebLinkFinish: Encodable {
     let since: String
 }
+
+// Link a computer (specs link-computer-scan and link-computer-approve, bipe-chat/bipe#574). Moved from bipe-ios
+// Components/BipeKit/Sources/BipeKit/BipeWebLink.swift (Bipe code): qrLoginFeature, isDeviceConsentPath,
+// firstIPAddress, BipeWebLinkPlace.label and supportsQRLogin.
+
+public extension BipeWebLink {
+    /// The `/versions` unstable feature that a server with QR sign-in advertises.
+    static let qrLoginFeature = "org.matrix.msc4108"
+
+    /// The MAS consent page of a device code grant is `/device/<id>`.
+    static func isDeviceConsentPath(_ url: URL) -> Bool {
+        let components = url.pathComponents.filter { $0 != "/" }
+        return components.count >= 2 && components[components.count - 2] == "device"
+    }
+
+    /// The first IPv4 or IPv6 address in the text of a page. The MAS consent page shows the IP of the browser
+    /// that asks to sign in (ADR 0118 F6).
+    static func firstIPAddress(in text: String) -> String? {
+        let separators = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "()[],;\"'<>"))
+        for token in text.components(separatedBy: separators) where !token.isEmpty {
+            let candidate = token.trimmingCharacters(in: CharacterSet(charactersIn: ".:"))
+            if isIPv4(candidate) || isIPv6(candidate) {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    private static func isIPv4(_ value: String) -> Bool {
+        var address = in_addr()
+        return value.contains(".") && inet_pton(AF_INET, value, &address) == 1
+    }
+
+    private static func isIPv6(_ value: String) -> Bool {
+        var address = in6_addr()
+        // Two colons at least, so a time like 12:30 does not count.
+        return value.filter { $0 == ":" }.count >= 2 && inet_pton(AF_INET6, value, &address) == 1
+    }
+}
+
+/// Contract: `GET /v1/web-link/place`. Every field is optional.
+public struct BipeWebLinkPlace: Decodable, Sendable, Equatable {
+    public let city: String?
+    public let region: String?
+    /// ISO 3166-1 alpha-2.
+    public let country: String?
+
+    public init(city: String?, region: String?, country: String?) {
+        self.city = city
+        self.region = region
+        self.country = country
+    }
+
+    /// "City, Region" in Brazil; the country name is added for a place abroad. `nil` when the place is unknown.
+    public func label(locale: Locale = .current) -> String? {
+        var parts = [city, region].compactMap { $0?.isEmpty == false ? $0 : nil }
+        if let country, !country.isEmpty, country.uppercased() != "BR" || parts.isEmpty {
+            parts.append(locale.localizedString(forRegionCode: country) ?? country)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+}
+
+public extension BipeMatrixAccountAPI {
+    /// `true` when `/versions` advertises QR sign-in (MSC4108).
+    func supportsQRLogin() async -> Bool {
+        struct Versions: Decodable {
+            let unstableFeatures: [String: Bool]?
+        }
+        guard let versions: Versions = try? await get(["_matrix", "client", "versions"], accessToken: nil) else { return false }
+        return versions.unstableFeatures?[BipeWebLink.qrLoginFeature] == true
+    }
+}
+
+public extension BipeAPIClient {
+    /// `GET /v1/web-link/place`: the approximate place of a browser IP. The IP goes to no outside service.
+    func webLinkPlace(ip: String, accessToken: String) async throws(BipeAPIError) -> BipeWebLinkPlace {
+        try await send(method: "GET", path: ["v1", "web-link", "place"], query: [URLQueryItem(name: "ip", value: ip)],
+                       rawBody: nil, accessToken: accessToken)
+    }
+}

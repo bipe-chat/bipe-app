@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import chat.bipe.app.notifications.NotificationSettingsScreen
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.encryption.RecoveryKeySaveScreen
 import chat.bipe.app.account.AccountSession
@@ -90,6 +91,7 @@ sealed interface SettingsRoute {
     data object HandlePick : SettingsRoute
     data object Invites : SettingsRoute
     data class Group(val group: BipeSettingsGroup) : SettingsRoute
+    data object Notifications : SettingsRoute
     data object Messaging : SettingsRoute
     data object Support : SettingsRoute
     data object PinChange : SettingsRoute
@@ -136,8 +138,7 @@ fun SettingsHost(
     BackHandler(onBack = pop)
     LaunchedEffect(model) { model.load() }
     val openGroup: (BipeSettingsGroup) -> Unit = { group ->
-        if (group == BipeSettingsGroup.NOTIFICATIONS) openNotificationSettings(context)
-        else stack.add(SettingsRoute.Group(group))
+        stack.add(if (group == BipeSettingsGroup.NOTIFICATIONS) SettingsRoute.Notifications else SettingsRoute.Group(group))
     }
     when (val route = stack.lastOrNull()) {
         null -> {
@@ -154,7 +155,7 @@ fun SettingsHost(
             push = { stack.add(SettingsRoute.People(it)) }, pop = pop,
             openChat = { stack.clear(); onOpenChat(it) },
             pickHandle = { stack.add(SettingsRoute.HandlePick) },
-            openInvites = { stack.add(SettingsRoute.Invites) },
+            invite = { stack.add(SettingsRoute.Invites) },
         ))
         SettingsRoute.Invites -> InvitesScreen(invites, people, onBack = pop,
             openChat = { stack.clear(); onOpenChat(it) })
@@ -163,6 +164,7 @@ fun SettingsHost(
             LaunchedEffect(handle) { handle.load() }
             HandlePickScreen(handle, onClose = pop)
         }
+        SettingsRoute.Notifications -> NotificationSettingsScreen(session, onBack = pop)
         SettingsRoute.Messaging -> MessagingPickerScreen(model, onBack = pop)
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)

@@ -38,6 +38,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -49,6 +52,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.linkcomputer.LinkComputerScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
@@ -193,6 +197,15 @@ fun LinkedDevicesScreen(model: SettingsModel, onBack: () -> Unit) {
     val state by devices.state.collectAsState()
     val colors = BipeTheme.colors
     LaunchedEffect(devices) { devices.load() }
+    var showsLinkComputer by rememberSaveable { mutableStateOf(false) }
+    if (showsLinkComputer) {
+        // Spec link-computer-scan: the only entry to a web sign-in (ADR 0116, rule 5).
+        LinkComputerScreen(model, onClose = {
+            showsLinkComputer = false
+            devices.load()
+        })
+        return
+    }
     val page = state.signOutPhase
     if (page is LinkedDevicesModel.SignOutPhase.Page || page == LinkedDevicesModel.SignOutPhase.Loading) {
         MasPage(devices, page)
@@ -200,12 +213,15 @@ fun LinkedDevicesScreen(model: SettingsModel, onBack: () -> Unit) {
     }
     SettingsPage(stringResource(R.string.bipe_linked_devices_title), BipeScreen.LINKED_DEVICES.id, onBack) {
         item(key = "link-computer") {
-            // Action linkComputer: link-computer-scan comes with bipe-chat/bipe#574.
-            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(PhosphorIcon.DESKTOP.drawable), contentDescription = null, tint = colors.inkDisabled, modifier = Modifier.size(22.dp))
+            // Action linkComputer: opens link-computer-scan.
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { showsLinkComputer = true }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(painterResource(PhosphorIcon.DESKTOP.drawable), contentDescription = null, tint = colors.glyphPrimary, modifier = Modifier.size(22.dp))
                 Text(
                     stringResource(R.string.bipe_linked_devices_link_computer),
-                    color = colors.inkDisabled,
+                    color = colors.inkPrimary,
                     modifier = Modifier.padding(start = 12.dp),
                 )
             }

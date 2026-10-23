@@ -24,6 +24,18 @@
       "licence": "Apache-2.0"
     },
     {
+      "name": "androidx.camera:camera-camera2",
+      "licence": "Apache-2.0"
+    },
+    {
+      "name": "androidx.camera:camera-lifecycle",
+      "licence": "Apache-2.0"
+    },
+    {
+      "name": "androidx.camera:camera-view",
+      "licence": "Apache-2.0"
+    },
+    {
       "name": "androidx.compose:compose-bom",
       "licence": "Apache-2.0"
     },

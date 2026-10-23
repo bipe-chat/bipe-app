@@ -19,6 +19,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Tab bar (flow home). Spec: bipe-shared/product/screens/app-tabs.json
     case appTabs = "app-tabs"
 
+    /// Attach (flow chat). Spec: bipe-shared/product/screens/attachment-picker.json
+    case attachmentPicker = "attachment-picker"
+
     /// Block or unblock a person (flow people). Spec: bipe-shared/product/screens/block-person.json
     case blockPerson = "block-person"
 
@@ -48,6 +51,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Business seal (flow people). Spec: bipe-shared/product/screens/company-seal.json
     case companySeal = "company-seal"
+
+    /// Composer (flow chat). Spec: bipe-shared/product/screens/composer.json
+    case composer = "composer"
 
     /// Contacts and invites (flow people). Spec: bipe-shared/product/screens/contacts.json
     case contacts = "contacts"
@@ -105,6 +111,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json
     case linkedDevices = "linked-devices"
+
+    /// Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json
+    case mediaViewer = "media-viewer"
 
     /// Message actions (flow chat). Spec: bipe-shared/product/screens/message-actions.json
     case messageActions = "message-actions"
@@ -235,11 +244,23 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json
     case signupWaitlist = "signup-waitlist"
 
+    /// Make a sticker from a photo (flow chat). Spec: bipe-shared/product/screens/sticker-from-photo.json
+    case stickerFromPhoto = "sticker-from-photo"
+
+    /// Import stickers (flow chat). Spec: bipe-shared/product/screens/sticker-import.json
+    case stickerImport = "sticker-import"
+
+    /// Stickers (flow chat). Spec: bipe-shared/product/screens/sticker-picker.json
+    case stickerPicker = "sticker-picker"
+
     /// Talk to support (flow settings). Spec: bipe-shared/product/screens/support-open.json
     case supportOpen = "support-open"
 
     /// Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json
     case termsReaccept = "terms-reaccept"
+
+    /// Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json
+    case timelineMedia = "timeline-media"
 
     /// Timeline rows (flow chat). Spec: bipe-shared/product/screens/timeline-rows.json
     case timelineRows = "timeline-rows"
@@ -247,8 +268,17 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Typing indicator (flow chat). Spec: bipe-shared/product/screens/typing-indicator.json
     case typingIndicator = "typing-indicator"
 
+    /// Upload preview (flow chat). Spec: bipe-shared/product/screens/upload-preview.json
+    case uploadPreview = "upload-preview"
+
     /// Você (flow voce). Spec: bipe-shared/product/screens/voce.json
     case voce = "voce"
+
+    /// Voice message (flow chat). Spec: bipe-shared/product/screens/voice-message.json
+    case voiceMessage = "voice-message"
+
+    /// Record a voice message (flow chat). Spec: bipe-shared/product/screens/voice-recording.json
+    case voiceRecording = "voice-recording"
 
     /// Who can message me (flow settings). Spec: bipe-shared/product/screens/who-can-message.json
     case whoCanMessage = "who-can-message"

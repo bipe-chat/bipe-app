@@ -89,7 +89,7 @@ The workflow `.github/workflows/licence.yml` runs these jobs on every PR. All of
 
 ## Tester builds
 
-Every push to main runs `.github/workflows/testflight.yml` (also on demand: `gh workflow run testflight.yml --repo bipe-chat/bipe-app --ref main`). The build number is bipe-shared `product/version.json` build plus the run number, on both platforms.
+Every push to main runs `.github/workflows/testflight.yml` (also on demand: `gh workflow run testflight.yml --repo bipe-chat/bipe-app --ref main`). The version name is bipe-shared `product/version.json` version and the build number is its build plus the run number, on both platforms (ADR 0088). Other builds keep the placeholder version `0.1.0`.
 
 - iOS: the build goes to TestFlight (app "Bipe Next", internal testing group). The run also keeps an ad hoc IPA for the devices registered in team `992N457T8D` as the artifact `bipe-next-ipa`. `tools/asc.mjs` does the App Store Connect API steps. Signing is automatic through the API key (variables `ASC_KEY_ID`, `ASC_ISSUER_ID`, secret `ASC_KEY_P8`).
 - Android: the run keeps a debug-signed APK of `chat.bipe.app.next` as the artifact `bipe-next-apk`.

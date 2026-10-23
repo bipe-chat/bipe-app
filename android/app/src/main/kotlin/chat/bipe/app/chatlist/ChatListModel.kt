@@ -24,6 +24,7 @@ import org.matrix.rustcomponents.sdk.RoomListFilterCategory
 import org.matrix.rustcomponents.sdk.RoomListEntriesWithDynamicAdaptersResult
 import org.matrix.rustcomponents.sdk.RoomListLoadingState
 import org.matrix.rustcomponents.sdk.RoomListLoadingStateListener
+import org.matrix.rustcomponents.sdk.RoomNotificationMode
 import org.matrix.rustcomponents.sdk.TaskHandle
 import chat.bipe.app.voce.NotesRoom
 
@@ -44,6 +45,7 @@ data class ChatSummary(
     val peerUserId: String? = null,
     /** RoomInfo.isDm, the one DM test (ADR 0141). */
     val isDm: Boolean = false,
+    val isMuted: Boolean = false,
 ) {
     /** ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test. */
     val scope: ChatScope
@@ -227,6 +229,7 @@ class ChatListModel(
             mentionCount = info.numUnreadMentions.toInt(),
             peerUserId = peer?.userId,
             isDm = info.isDm,
+            isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
         )
     }
 

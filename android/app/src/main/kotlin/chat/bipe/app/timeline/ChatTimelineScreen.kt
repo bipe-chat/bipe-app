@@ -68,6 +68,7 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.groups.DmDeleteSheet
@@ -95,6 +96,7 @@ fun ChatTimelineScreen(
     onOpenGroupDetails: (() -> Unit)? = null,
     onHistoryHelp: () -> Unit = {},
     onDmDeleted: () -> Unit = onBack,
+    /** Opens the chat's info: person-profile for a DM. */
     onOpenInfo: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
@@ -107,7 +109,11 @@ fun ChatTimelineScreen(
         undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable),
     )
     val model = remember(roomId) {
-        ChatTimelineModel(session, roomId, scope, InviterGreetings(context, session.userId), strings, context.getString(R.string.bipe_dm_no_name), sharesTyping = { sharesTyping(context) })
+        ChatTimelineModel(
+            session, roomId, scope, InviterGreetings(context, session.userId), strings, context.getString(R.string.bipe_dm_no_name),
+            sharesTyping = { sharesTyping(context) },
+            handleChanges = HandleChangeStores.store(context, session),
+        )
     }
     DisposableEffect(model) {
         model.start()
@@ -131,6 +137,8 @@ fun ChatTimelineScreen(
     val draft by model.draft.collectAsState()
     val ui by model.ui.collectAsState()
     val inviterHint by model.inviterHint.collectAsState()
+    val sentMessages by model.messages.collectAsState()
+    NotificationsPrompt(session, roomId, sentMessages)
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     var dmMenu by remember { mutableStateOf(false) }
@@ -179,16 +187,21 @@ fun ChatTimelineScreen(
                     IconButton(onClick = onBack) {
                         Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
                     }
-                    Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId)
-                    Spacer(Modifier.size(8.dp))
-                    Text(
-                        roomName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = colors.inkPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                    // The header opens the chat's info: person-profile for a DM.
+                    Row(
                         modifier = Modifier.weight(1f).then(if (isDm && onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier),
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId)
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            roomName,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = colors.inkPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     if (isGroup && onOpenGroupDetails != null) {
                         IconButton(onClick = onOpenGroupDetails) {
                             Icon(

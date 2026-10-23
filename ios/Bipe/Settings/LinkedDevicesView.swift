@@ -132,20 +132,27 @@ final class LinkedDevicesModel: ObservableObject {
 
 struct LinkedDevicesView: View {
     @StateObject private var devices: LinkedDevicesModel
+    private let settings: SettingsModel
+    @State private var showsLinkComputer = false
 
     init(model: SettingsModel) {
         _devices = StateObject(wrappedValue: LinkedDevicesModel(model: model))
+        settings = model
     }
 
     var body: some View {
         List {
             Section {
-                // Action linkComputer: link-computer-scan comes with bipe-chat/bipe#574.
-                Label {
-                    Text(BipeStrings.linkedDevicesLinkComputer)
-                        .foregroundStyle(BipeColor.inkDisabled)
-                } icon: {
-                    PhosphorIconView(icon: .desktop, size: 22)
+                // Action linkComputer: opens link-computer-scan, the only entry to a web sign-in (ADR 0116, rule 5).
+                Button {
+                    showsLinkComputer = true
+                } label: {
+                    Label {
+                        Text(BipeStrings.linkedDevicesLinkComputer)
+                            .foregroundStyle(BipeColor.inkPrimary)
+                    } icon: {
+                        PhosphorIconView(icon: .desktop, size: 22)
+                    }
                 }
                 .listRowBackground(BipeColor.surfaceRaised)
             } footer: {
@@ -162,6 +169,9 @@ struct LinkedDevicesView: View {
         .accessibilityIdentifier(BipeScreen.linkedDevices.rawValue)
         .task { await devices.load() }
         .refreshable { await devices.load() }
+        .fullScreenCover(isPresented: $showsLinkComputer, onDismiss: { Task { await devices.load() } }) {
+            LinkComputerView(settings: settings)
+        }
         .confirmationDialog(signOutTitle,
                             isPresented: Binding(get: { devices.signOutCandidate != nil && devices.signOutPhase == .idle },
                                                  set: { if !$0 && devices.signOutPhase == .idle { devices.cancelSignOut() } }),

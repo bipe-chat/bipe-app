@@ -4,11 +4,14 @@
 
 package chat.bipe.app.groups
 
+import androidx.activity.compose.BackHandler
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -17,6 +20,9 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,11 +38,25 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.invites.InvitesScreen
+import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 
 /** What the group screens on top of the home screen need from it. */
-class GroupHostActions(val createGroup: () -> Unit, val openGroupDetails: () -> Unit, val deleteDm: (String) -> Unit)
+class GroupHostActions(
+    val createGroup: () -> Unit,
+    val openGroupDetails: () -> Unit,
+    val deleteDm: (String) -> Unit,
+    val openInvites: () -> Unit,
+    /** group-create with these people picked (person-profile, action newGroup). */
+    val createGroupWith: (List<Person>) -> Unit = {},
+    /** chat-notifications for a room (person-profile, action notifications). */
+    val openNotifications: (String) -> Unit = {},
+)
+
+/** The Bipe API client for the screens behind GroupHost that need it (invites from group-invite-members). */
+val LocalBipeApi = staticCompositionLocalOf<BipeApiClient?> { null }
 
 /**
  * The group and DM screens over chat-list and chat-timeline: group-create, group-details (with the screens behind
@@ -46,6 +66,7 @@ class GroupHostActions(val createGroup: () -> Unit, val openGroupDetails: () -> 
 @Composable
 fun GroupHost(
     session: AccountSession,
+    api: BipeApiClient,
     media: MediaLoader,
     roomId: String?,
     foregroundCount: Int,
@@ -54,8 +75,11 @@ fun GroupHost(
 ) {
     val context = LocalContext.current
     var creating by rememberSaveable { mutableStateOf(false) }
+    var creatingWith by remember { mutableStateOf(emptyList<Person>()) }
+    var notificationsRoom by rememberSaveable { mutableStateOf<String?>(null) }
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
     var deletingDm by rememberSaveable { mutableStateOf<String?>(null) }
+    var showingInvites by rememberSaveable { mutableStateOf(false) }
     val invitesFailed = stringResource(R.string.bipe_app_group_create_invites_failed)
     LaunchedEffect(session) { QuietGroups.applyOnce(context, session) }
     LaunchedEffect(session, foregroundCount) { ClearedChatsStore.refresh(session.client) }
@@ -66,40 +90,76 @@ fun GroupHost(
             if (dm == roomId) onOpenRoom(null)
         })
     }
-    when {
-        creating -> GroupCreateScreen(
-            session,
-            media,
-            onClose = { creating = false },
-            onCreated = { newRoomId, allInvited ->
-                creating = false
-                onOpenRoom(newRoomId)
-                if (!allInvited) Toast.makeText(context, invitesFailed, Toast.LENGTH_LONG).show()
-            },
-        )
-        roomId != null && detailsOpen -> GroupDetailsScreen(
-            session,
-            media,
-            roomId,
-            onBack = { detailsOpen = false },
-            onLeft = {
-                detailsOpen = false
-                onOpenRoom(null)
-            },
-        )
-        else -> content(GroupHostActions(createGroup = { creating = true }, openGroupDetails = { detailsOpen = true }, deleteDm = { deletingDm = it }))
+    val actions = GroupHostActions(
+        createGroup = { creating = true },
+        openGroupDetails = { detailsOpen = true },
+        deleteDm = { deletingDm = it },
+        openInvites = { showingInvites = true },
+        createGroupWith = {
+            creatingWith = it
+            creating = true
+        },
+        openNotifications = { notificationsRoom = it },
+    )
+    CompositionLocalProvider(LocalBipeApi provides api) {
+        when {
+            showingInvites -> InvitesScreen(session, api, media, onClose = { showingInvites = false }, onOpenChat = onOpenRoom)
+            creating -> GroupCreateScreen(
+                session,
+                media,
+                onClose = {
+                    creating = false
+                    creatingWith = emptyList()
+                },
+                onCreated = { newRoomId, allInvited ->
+                    creating = false
+                    creatingWith = emptyList()
+                    onOpenRoom(newRoomId)
+                    if (!allInvited) Toast.makeText(context, invitesFailed, Toast.LENGTH_LONG).show()
+                },
+                people = creatingWith,
+            )
+            notificationsRoom != null -> {
+                BackHandler { notificationsRoom = null }
+                ChatNotificationsScreen(session, notificationsRoom!!, onBack = { notificationsRoom = null })
+            }
+            roomId != null && detailsOpen -> GroupDetailsScreen(
+                session,
+                media,
+                roomId,
+                onBack = { detailsOpen = false },
+                onLeft = {
+                    detailsOpen = false
+                    onOpenRoom(null)
+                },
+            )
+            else -> content(actions)
+        }
     }
 }
 
-/** The plus button of chat-list that opens group-create (the Grupos tab takes it over, lane D). */
+/** The plus menu of chat-list: group-create and invites (the Grupos and Você tabs take them over, lane D). */
 @Composable
-fun CreateGroupButton(onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.padding(end = 4.dp)) {
-        Icon(
-            painterResource(PhosphorIcon.PLUS.drawable),
-            contentDescription = stringResource(R.string.bipe_groups_empty_action),
-            tint = BipeTheme.colors.glyphPrimary,
-        )
+fun CreateGroupButton(onCreateGroup: () -> Unit, onInvite: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }, modifier = Modifier.padding(end = 4.dp)) {
+            Icon(
+                painterResource(PhosphorIcon.PLUS.drawable),
+                contentDescription = stringResource(R.string.bipe_groups_empty_action),
+                tint = BipeTheme.colors.glyphPrimary,
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(text = { Text(stringResource(R.string.bipe_groups_empty_action)) }, onClick = {
+                open = false
+                onCreateGroup()
+            })
+            DropdownMenuItem(text = { Text(stringResource(R.string.bipe_invites_title)) }, onClick = {
+                open = false
+                onInvite()
+            })
+        }
     }
 }
 

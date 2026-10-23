@@ -7,6 +7,7 @@ package chat.bipe.shared
 import chat.bipe.shared.api.BipeCreatedInvite
 import chat.bipe.shared.api.BipeMyInvites
 import chat.bipe.shared.invites.BipeInviteMemoryData
+import chat.bipe.shared.invites.importOwnedInviteMemory
 import com.google.common.truth.Truth.assertThat
 import kotlinx.serialization.json.Json
 import org.junit.Test
@@ -34,4 +35,20 @@ class InvitesTest {
         val memory = BipeInviteMemoryData(mapOf(created.id to created.url), mapOf(created.id to "Synthetic first message"))
         assertThat(memory.toString()).isEqualTo("BipeInviteMemoryData")
     }
+
+    @Test
+    fun earlierNativeImportIsAccountBoundAndCannotResurrectConsumedNotes() {
+        val previous = BipeInviteMemoryData(
+            links = mapOf("owned" to "https://example.invalid/old", "other-account" to "https://example.invalid/other"),
+            notes = mapOf("owned" to "Earlier synthetic note", "other-account" to "Other synthetic note"),
+        )
+        val current = BipeInviteMemoryData(links = mapOf("owned" to "https://example.invalid/current"))
+        val imported = importOwnedInviteMemory(current, previous, setOf("owned"))
+        assertThat(imported.links).containsExactly("owned", "https://example.invalid/current")
+        assertThat(imported.notes).containsExactly("owned", "Earlier synthetic note")
+        assertThat(imported.importedEarlierNativeStore).isTrue()
+        val consumed = imported.copy(notes = emptyMap())
+        assertThat(importOwnedInviteMemory(consumed, previous, setOf("owned"))).isEqualTo(consumed)
+    }
+
 }

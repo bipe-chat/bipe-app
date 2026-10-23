@@ -26,6 +26,7 @@ import kotlinx.serialization.json.Json
 data class BipeInviteMemoryData(
     val links: Map<String, String> = emptyMap(),
     val notes: Map<String, String> = emptyMap(),
+    val importedEarlierNativeStore: Boolean = false,
 ) {
     override fun toString(): String = "BipeInviteMemoryData"
 }
@@ -35,6 +36,7 @@ private data class InviteAccounts(val accounts: Map<String, BipeInviteMemoryData
 
 /** Bipe's existing invite-store protocol with native Android Keystore encryption, without fork adapters. */
 class BipeInviteMemory(context: Context, private val userId: String) {
+    private val earlierNativeStore = BipeInviteStore(context, userId)
     private val file = AtomicFile(File(context.noBackupFilesDir, "bipe-native-invites"))
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -49,6 +51,15 @@ class BipeInviteMemory(context: Context, private val userId: String) {
             val updated = transform(current.accounts[userId] ?: BipeInviteMemoryData())
             save(current.copy(accounts = current.accounts + (userId to updated)))
         }
+    }
+
+    /** Import only server-confirmed invite IDs: the earlier native format used a hash for its account filename.
+     * A persisted marker prevents a consumed note from returning on a later refresh. Source data is retained.
+     */
+    suspend fun importEarlierNativeStore(ownedInviteIds: Set<String>) {
+        if (read().importedEarlierNativeStore) return
+        val previous = earlierNativeStore.snapshotForMigration()
+        update { current -> importOwnedInviteMemory(current, previous, ownedInviteIds) }
     }
 
     suspend fun keepPending(ids: Set<String>) = update { it.copy(links = it.links.filterKeys(ids::contains)) }
@@ -102,4 +113,18 @@ class BipeInviteMemory(context: Context, private val userId: String) {
         const val KEY_ALIAS = "bipe_next_invites"
         const val IV_BYTES = 12
     }
+}
+
+/** Pure boundary used by the on-device format migration; current data always wins. */
+internal fun importOwnedInviteMemory(
+    current: BipeInviteMemoryData,
+    previous: BipeInviteMemoryData,
+    ownedInviteIds: Set<String>,
+): BipeInviteMemoryData {
+    if (current.importedEarlierNativeStore) return current
+    return current.copy(
+        links = previous.links.filterKeys(ownedInviteIds::contains) + current.links,
+        notes = previous.notes.filterKeys(ownedInviteIds::contains) + current.notes,
+        importedEarlierNativeStore = true,
+    )
 }
