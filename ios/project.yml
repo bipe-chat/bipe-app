@@ -65,8 +65,11 @@ targets:
         BipeOwnedKeychainGroup: $(AppIdentifierPrefix)chat.bipe.app.next
         BipeLegacyKeychainReadGroups: [992N457T8D.chat.bipe.app.dev]
         UILaunchScreen: {}
-        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         # Spec contacts (ADR 0015): bipe_contacts_intro in pt-BR, the development language.
         NSContactsUsageDescription: Veja quem dos seus contatos já está no Bipe. O servidor só compara os números e não guarda nenhum.
         # App lock, the owner checks of settings (spec app-lock, pin-change, data-export) and device approval (device-verification).

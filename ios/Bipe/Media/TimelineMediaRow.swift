@@ -64,8 +64,24 @@ struct TimelineMediaRow: View {
 
     private var visual: some View {
         let width = media.kind == .sticker ? Self.stickerWidth : Self.maxWidth
-        let height = min(width / media.aspectRatio, width * 1.4)
-        return ZStack {
+        // Size the box from the local proposal; the image cannot widen a narrow chat column.
+        return Color.clear
+            .aspectRatio(max(media.aspectRatio, 1 / 1.4), contentMode: .fit)
+            .frame(idealWidth: width, maxWidth: width)
+            .overlay {
+                visualContent
+            }
+            .clipShape(RoundedRectangle(cornerRadius: media.kind == .sticker ? 0 : 12))
+            .contentShape(Rectangle())
+            .onTapGesture(perform: tap)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(media.caption?.nilIfBlank.map { "\(media.kindLabel), \($0)" } ?? media.kindLabel)
+            .accessibilityAddTraits(.isButton)
+            .task(id: "\(media.source.url)#\(revealed)") { await appear() }
+    }
+
+    private var visualContent: some View {
+        ZStack {
             if let blurhash = media.blurhash, display != .shown, let placeholder = Blurhash.image(blurhash) {
                 Image(uiImage: placeholder)
                     .resizable()
@@ -79,14 +95,6 @@ struct TimelineMediaRow: View {
             }
             overlay
         }
-        .frame(width: width, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: media.kind == .sticker ? 0 : 12))
-        .contentShape(Rectangle())
-        .onTapGesture(perform: tap)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(media.caption?.nilIfBlank.map { "\(media.kindLabel), \($0)" } ?? media.kindLabel)
-        .accessibilityAddTraits(.isButton)
-        .task(id: "\(media.source.url)#\(revealed)") { await appear() }
     }
 
     @ViewBuilder
