@@ -418,7 +418,7 @@ fun ChatTimelineScreen(
 private fun sharesTyping(context: Context): Boolean =
     context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE).getBoolean(SettingsKeys.SHARE_PRESENCE, true)
 
-private fun copyToClipboard(context: Context, text: String) {
+internal fun copyToClipboard(context: Context, text: String) {
     context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(null, text))
 }
 

@@ -487,6 +487,8 @@ class ChatTimelineModel(
     /** Action choose. copy puts the text on the clipboard through the screen. */
     fun choose(action: MessageAction, rowId: String, copy: (String) -> Unit) {
         closeActions()
+        val current = row(rowId) ?: return
+        if (action !in actions(current)) return
         when (action) {
             MessageAction.REPLY -> startReply(rowId)
             MessageAction.EDIT -> startEdit(rowId)
@@ -570,12 +572,16 @@ class ChatTimelineModel(
 
     /** Action react of message-actions: toggle, then the sheet closes. */
     fun react(rowId: String, key: String) {
+        val current = row(rowId) ?: return
+        if (!showsReactions(current)) return
         closeActions()
         toggleReaction(rowId, key)
     }
 
     /** Action moreReactions of message-actions. */
     fun moreReactions(rowId: String) {
+        val current = row(rowId) ?: return
+        if (!showsReactions(current)) return
         _ui.update { it.copy(actionsRowId = null, pickerOpenFor = rowId) }
     }
 

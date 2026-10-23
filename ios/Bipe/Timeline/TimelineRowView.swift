@@ -28,9 +28,12 @@ struct TimelineRowView: View {
             }
         case .undecryptable:
             if let message = row.message {
-                UndecryptableRow(message: message)
-                    .contentShape(Rectangle())
-                    .onLongPressGesture(minimumDuration: 0.4) { model.openActions(rowId: row.id) }
+                VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 0) {
+                    UndecryptableRow(message: message)
+                        .contentShape(Rectangle())
+                        .contextMenu { MessageContextActions(model: model, rowId: row.id) }
+                    MessageOverflowMenu(model: model, rowId: row.id)
+                }
             }
         case .deleted:
             if let message = row.message {
@@ -179,11 +182,12 @@ private struct MessageBubbleRow: View {
                 .offset(x: swipe)
             }
             .contentShape(Rectangle())
-            .onLongPressGesture(minimumDuration: 0.4) { model.openActions(rowId: row.id) }
+            .contextMenu { MessageContextActions(model: model, rowId: row.id) }
             .simultaneousGesture(swipeGesture)
             .accessibilityElement(children: .combine)
             .accessibilityAction(named: BipeStrings.appMessageActionReply) { model.startReply(rowId: row.id) }
-            .accessibilityAction { model.openActions(rowId: row.id) }
+            .accessibilityAction(named: BipeStrings.messageActions) { model.openActions(rowId: row.id) }
+            MessageOverflowMenu(model: model, rowId: row.id)
             if !details.reactions.isEmpty {
                 ReactionPills(reactions: details.reactions,
                               onToggle: { key in Task { await model.toggleReaction(rowId: row.id, key: key) } },

@@ -7,6 +7,7 @@ package chat.bipe.app.timeline
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -34,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -131,8 +133,10 @@ fun TimelineRowItem(
             }
         }
         TimelineRow.Kind.UNDECRYPTABLE -> row.message?.let { message ->
-            Box(Modifier.pointerInput(row.id) { detectTapGestures(onLongPress = { onLongPress() }) }) {
-                UndecryptableRow(message, onHistoryHelp)
+            var menu by remember(model, row.id) { mutableStateOf(false) }
+            Column(horizontalAlignment = if (message.isOwn) Alignment.End else Alignment.Start) {
+                Box(Modifier.combinedClickable(onClick = {}, onLongClick = { menu = true })) { UndecryptableRow(message, onHistoryHelp) }
+                MessageOverflowMenu(model, row.id, menu, onOpen = { menu = true }, onDismiss = { menu = false })
             }
         }
         TimelineRow.Kind.DELETED -> row.message?.let { DeletedRow(it) }
@@ -246,6 +250,9 @@ private fun MessageBubbleRow(
     var swipe by remember(row.id) { mutableFloatStateOf(0f) }
     val shownSwipe by animateFloatAsState(swipe, label = "swipe")
     val replyLabel = stringResource(R.string.bipe_app_message_action_reply)
+    val menuLabel = stringResource(R.string.bipe_message_actions)
+    var menu by remember(model, row.id) { mutableStateOf(false) }
+    val openMenu = { menu = true; view.bipeHaptic(BipeHaptic.Hold) }
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (message.isOwn) Alignment.End else Alignment.Start,
@@ -264,7 +271,7 @@ private fun MessageBubbleRow(
                 isPlain = message.media?.kind == MediaMessage.Kind.STICKER,
                 modifier = Modifier
                     .offset { IntOffset(shownSwipe.roundToInt(), 0) }
-                    .pointerInput(row.id) { detectTapGestures(onLongPress = { onLongPress() }) }
+                    .combinedClickable(onClick = {}, onLongClick = openMenu, onLongClickLabel = menuLabel)
                     .pointerInput(row.id, details.canReply) {
                         if (!details.canReply) return@pointerInput
                         detectHorizontalDragGestures(
@@ -283,7 +290,7 @@ private fun MessageBubbleRow(
                         }
                     }
                     .semantics {
-                        onLongClick { onLongPress(); true }
+                        onLongClick { openMenu(); true }
                         if (details.canReply) {
                             customActions = listOf(CustomAccessibilityAction(replyLabel) { model.startReply(row.id); true })
                         }
@@ -301,6 +308,7 @@ private fun MessageBubbleRow(
                 MessageFooter(message, details, onFailedTap = onLongPress, modifier = Modifier.align(Alignment.End))
             }
         }
+        MessageOverflowMenu(model, row.id, menu, onOpen = openMenu, onDismiss = { menu = false })
         if (details.reactions.isNotEmpty()) {
             ReactionPills(
                 reactions = details.reactions,

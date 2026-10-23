@@ -128,9 +128,9 @@ fun MessageActionsSheet(model: ChatTimelineModel, row: TimelineRow, onCopy: (Str
 }
 
 /** Spec message-reactions notes: the quick reactions, in this order. */
-private val QUICK_REACTIONS = listOf("👍", "❤️", "😂", "😮", "😢", "🙏")
+internal val QUICK_REACTIONS = listOf("👍", "❤️", "😂", "😮", "😢", "🙏")
 
-private fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
+internal fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
     MessageAction.REPLY -> PhosphorIcon.ARROW_BEND_UP_LEFT
     MessageAction.EDIT -> PhosphorIcon.PENCIL_SIMPLE
     MessageAction.COPY -> PhosphorIcon.COPY
@@ -139,7 +139,7 @@ private fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
     MessageAction.REPORT -> PhosphorIcon.FLAG
 }
 
-private fun actionTitle(action: MessageAction): Int = when (action) {
+internal fun actionTitle(action: MessageAction): Int = when (action) {
     MessageAction.REPLY -> R.string.bipe_app_message_action_reply
     MessageAction.EDIT -> R.string.bipe_app_message_action_edit
     MessageAction.COPY -> R.string.bipe_app_copy

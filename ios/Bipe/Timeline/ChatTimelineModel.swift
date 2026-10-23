@@ -456,6 +456,7 @@ final class ChatTimelineModel: ObservableObject {
     /// Action choose.
     func choose(_ action: MessageAction, rowId: String) {
         actionsRowId = nil
+        guard let current = row(rowId), actions(for: current).contains(action) else { return }
         switch action {
         case .reply: startReply(rowId: rowId)
         case .edit: startEdit(rowId: rowId)
@@ -534,12 +535,14 @@ final class ChatTimelineModel: ObservableObject {
 
     /// Action react of message-actions: toggle, then the sheet closes.
     func react(rowId: String, key: String) {
+        guard let current = row(rowId), showsReactions(current) else { return }
         actionsRowId = nil
         Task { await toggleReaction(rowId: rowId, key: key) }
     }
 
     /// Action moreReactions of message-actions.
     func moreReactions(rowId: String) {
+        guard let current = row(rowId), showsReactions(current) else { return }
         actionsRowId = nil
         pickerOpenFor = rowId
     }
