@@ -10,7 +10,7 @@ import UIKit
 struct RequestTrustContent: View {
     @ObservedObject var model: ChatRequestsModel
     @ObservedObject private var people: PeopleService
-    @ObservedObject private var seals: BipeCompanySeals
+    @Bindable private var seals: BipeCompanySeals
     let request: ChatRequestSummary
     @State private var answers: [String: Bool] = [:]
     @State private var foregroundRevision = 0
