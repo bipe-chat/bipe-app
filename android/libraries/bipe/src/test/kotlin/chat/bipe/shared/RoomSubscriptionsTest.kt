@@ -11,7 +11,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
 class RoomSubscriptionsTest {
-    @Test fun ownersShareUnionAndReleaseIndependently() = runBlocking {
+    @Test fun ownersShareUnionAndReleaseIndependently(): Unit = runBlocking {
         val calls = mutableListOf<List<String>>()
         val subscriptions = BipeRoomSubscriptions { calls += it }
         subscriptions.update("chats", listOf("!a:example.test", "!a:example.test"))
@@ -21,7 +21,7 @@ class RoomSubscriptionsTest {
         assertThat(calls).containsExactly(listOf("!a:example.test"), listOf("!a:example.test", "!b:example.test"), emptyList<String>()).inOrder()
     }
 
-    @Test fun failureRetriesAndClosedAccountCannotRevive() = runBlocking {
+    @Test fun failureRetriesAndClosedAccountCannotRevive(): Unit = runBlocking {
         val calls = mutableListOf<List<String>>()
         var failsOnce = true
         val subscriptions = BipeRoomSubscriptions {
@@ -38,7 +38,7 @@ class RoomSubscriptionsTest {
         assertThat(second).containsExactly(listOf("!c:example.test"))
     }
 
-    @Test(timeout = 5_000) fun concurrentOwnersNeverReplaceEachOther() = runBlocking {
+    @Test(timeout = 5_000) fun concurrentOwnersNeverReplaceEachOther(): Unit = runBlocking {
         val started = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
         val calls = mutableListOf<List<String>>()
