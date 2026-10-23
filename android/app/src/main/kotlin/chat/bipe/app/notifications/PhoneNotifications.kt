@@ -11,6 +11,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
+import android.net.Uri
+import chat.bipe.app.BipeApplication
+import chat.bipe.shared.BipeNotificationTarget
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
@@ -47,7 +51,7 @@ class PhoneNotifications(private val context: Context) {
 
     /** The chat on screen: its pushes show no notification. */
     @Volatile
-    var visibleRoomId: String? = null
+    var visibleRoom: BipeNotificationTarget? = null
 
     var sound: NotificationSound
         get() = prefs.getString(KEY_SOUND, null)?.let { runCatching { NotificationSound.valueOf(it) }.getOrNull() } ?: NotificationSound.PHONE
@@ -70,57 +74,75 @@ class PhoneNotifications(private val context: Context) {
 
     /** Action pushReceived. */
     suspend fun pushReceived(session: AccountSession, roomId: String, eventId: String) {
-        if (roomId == visibleRoomId) return
+        val target = BipeNotificationTarget.create(session.userId, roomId) ?: return
+        if (!isActive(session) || target == visibleRoom) return
         val status = runCatching {
             withTimeout(FETCH_TIMEOUT_MS) { client(session).getNotification(roomId, eventId) }
         }.getOrNull()
+        if (!isActive(session) || target == visibleRoom) return
         when (status) {
-            is NotificationStatus.Event -> show(status.item, roomId, eventId)
+            is NotificationStatus.Event -> show(status.item, target, eventId)
             NotificationStatus.EventFilteredOut, NotificationStatus.EventRedacted, NotificationStatus.EventNotFound -> Unit
-            null -> showFallback(roomId, eventId)
+            null -> showFallback(target, eventId)
         }
     }
 
+    /** A legacy push cannot name a room or offer actions without its immutable account owner. */
+    @SuppressLint("MissingPermission")
+    fun unownedPush() {
+        if (!manager.areNotificationsEnabled()) return
+        val notification = NotificationCompat.Builder(context, messagesChannelId())
+            .setSmallIcon(PhosphorIcon.CHAT_CIRCLE.drawable)
+            .setContentTitle(context.getString(R.string.bipe_app_name))
+            .setContentText(context.getString(R.string.bipe_app_notification_new_message))
+            .setAutoCancel(true)
+            .build()
+        manager.notify("unowned", NOTIFICATION_ID, notification)
+    }
+
     /** Opening a chat, a read on another device, or markAsRead removes that chat's notifications. */
-    fun clear(roomId: String) {
-        manager.cancel(roomId, NOTIFICATION_ID)
-        manager.cancel(roomId, INVITE_ID)
-        manager.cancel(roomId, FAILURE_ID)
+    fun clear(target: BipeNotificationTarget) {
+        manager.cancel(target.identifier, NOTIFICATION_ID)
+        manager.cancel(target.identifier, INVITE_ID)
+        manager.cancel(target.identifier, FAILURE_ID)
     }
 
     /** A failed inline reply shows a new notification with the failure string. */
     @SuppressLint("MissingPermission")
-    fun replyFailed(roomId: String, isDm: Boolean) {
+    fun replyFailed(target: BipeNotificationTarget, isDm: Boolean) {
         if (!manager.areNotificationsEnabled()) return
         val text = context.getString(if (isDm) R.string.bipe_dm_inline_reply_failed else R.string.bipe_group_notification_inline_reply_failed)
         val notification = NotificationCompat.Builder(context, messagesChannelId())
             .setSmallIcon(PhosphorIcon.CHAT_CIRCLE.drawable)
+            .addExtras(metadata(target))
             .setContentText(text)
-            .setContentIntent(openIntent(roomId))
+            .setContentIntent(openIntent(target))
             .setAutoCancel(true)
             .build()
-        manager.notify(roomId, FAILURE_ID, notification)
+        manager.notify(target.identifier, FAILURE_ID, notification)
     }
 
     private suspend fun client(session: AccountSession): NotificationClient {
         val current = notificationClient
         if (current != null && clientSession === session) return current
         return session.client.notificationClient(NotificationProcessSetup.SingleProcess(session.syncService)).also {
-            notificationClient = it
-            clientSession = session
+            if (isActive(session)) {
+                notificationClient = it
+                clientSession = session
+            }
         }
     }
 
-    private fun show(item: NotificationItem, roomId: String, eventId: String) {
+    private fun show(item: NotificationItem, target: BipeNotificationTarget, eventId: String) {
         val room = item.roomInfo
         val senderName = item.senderInfo.displayName?.takeIf { it.isNotEmpty() }
         when (val event = item.event) {
             is NotificationEvent.Timeline -> {
-                val text = messageText(event.event) ?: return showFallback(roomId, eventId)
+                val text = messageText(event.event) ?: return showFallback(target, eventId)
                 val sender = senderName ?: event.event.senderId()
                 // ADR 0141: a DM shows the other person, never the room name.
                 val title = if (room.isDm) sender else room.displayName
-                post(roomId, eventId, title, isGroup = !room.isDm, sender, text, event.event.timestamp().toLong(), isNoisy = item.isNoisy ?: true)
+                post(target, eventId, title, isGroup = !room.isDm, sender, text, event.event.timestamp().toLong(), isNoisy = item.isNoisy ?: true)
             }
             is NotificationEvent.Invite -> {
                 val sender = senderName ?: event.sender
@@ -129,23 +151,23 @@ class PhoneNotifications(private val context: Context) {
                 } else {
                     context.getString(R.string.bipe_group_notification_room_invite_body_with_sender, sender)
                 }
-                postSimple(roomId, if (room.isDm) sender else room.displayName, text, INVITES_CHANNEL)
+                postSimple(target, if (room.isDm) sender else room.displayName, text, INVITES_CHANNEL)
             }
         }
     }
 
     /** Kind fallback: the event could not be fetched or decrypted in time. */
-    private fun showFallback(roomId: String, eventId: String) {
-        postSimple(roomId, context.getString(R.string.bipe_app_name), context.getString(R.string.bipe_app_notification_new_message), messagesChannelId(), eventId)
+    private fun showFallback(target: BipeNotificationTarget, eventId: String) {
+        postSimple(target, context.getString(R.string.bipe_app_name), context.getString(R.string.bipe_app_notification_new_message), messagesChannelId(), eventId)
     }
 
     /** One conversation notification per chat, with its messages since the chat was last read. */
     @SuppressLint("MissingPermission")
-    private fun post(roomId: String, eventId: String, title: String, isGroup: Boolean, sender: String, text: String, sentAt: Long, isNoisy: Boolean) {
+    private fun post(target: BipeNotificationTarget, eventId: String, title: String, isGroup: Boolean, sender: String, text: String, sentAt: Long, isNoisy: Boolean) {
         if (!manager.areNotificationsEnabled()) return
         // The earlier messages come from the notification on screen: decrypted text never goes to storage.
         val me = Person.Builder().setName(context.getString(R.string.bipe_app_name)).build()
-        val shown = manager.activeNotifications.firstOrNull { it.tag == roomId && it.id == NOTIFICATION_ID }
+        val shown = manager.activeNotifications.firstOrNull { it.tag == target.identifier && it.id == NOTIFICATION_ID }
         val style = shown?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it.notification) }
             ?: NotificationCompat.MessagingStyle(me)
         style.setGroupConversation(isGroup)
@@ -158,49 +180,72 @@ class PhoneNotifications(private val context: Context) {
         val reply = NotificationCompat.Action.Builder(
             PhosphorIcon.PAPER_PLANE_RIGHT.drawable,
             context.getString(R.string.bipe_app_notification_reply),
-            NotificationActionReceiver.intent(context, NotificationActionReceiver.ACTION_REPLY, roomId, eventId, mutable = true),
+            NotificationActionReceiver.intent(context, NotificationActionReceiver.ACTION_REPLY, target, eventId, mutable = true),
         ).addRemoteInput(replyInput).setAllowGeneratedReplies(false).build()
         val markRead = NotificationCompat.Action.Builder(
             PhosphorIcon.CHECK.drawable,
             context.getString(R.string.bipe_app_notification_mark_read),
-            NotificationActionReceiver.intent(context, NotificationActionReceiver.ACTION_MARK_READ, roomId, eventId, mutable = false),
+            NotificationActionReceiver.intent(context, NotificationActionReceiver.ACTION_MARK_READ, target, eventId, mutable = false),
         ).build()
         val builder = NotificationCompat.Builder(context, messagesChannelId())
             .setSmallIcon(PhosphorIcon.CHAT_CIRCLE.drawable)
+            .addExtras(metadata(target))
             .setStyle(style)
             .setContentTitle(title)
             .setContentText(if (isGroup) "$sender: $text" else text)
             .setWhen(sentAt)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setContentIntent(openIntent(roomId))
+            .setContentIntent(openIntent(target))
             .addAction(reply)
             .addAction(markRead)
             .setAutoCancel(true)
             .setOnlyAlertOnce(false)
         if (!isNoisy) builder.setSilent(true)
-        manager.notify(roomId, NOTIFICATION_ID, builder.build())
+        manager.notify(target.identifier, NOTIFICATION_ID, builder.build())
     }
 
     @SuppressLint("MissingPermission")
-    private fun postSimple(roomId: String, title: String, text: String, channel: String, eventId: String? = null) {
+    private fun postSimple(target: BipeNotificationTarget, title: String, text: String, channel: String, eventId: String? = null) {
         if (!manager.areNotificationsEnabled()) return
         val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(PhosphorIcon.CHAT_CIRCLE.drawable)
+            .addExtras(metadata(target))
             .setContentTitle(title)
             .setContentText(text)
-            .setContentIntent(openIntent(roomId))
+            .setContentIntent(openIntent(target))
             .setAutoCancel(true)
             .build()
-        manager.notify(roomId, if (eventId == null) INVITE_ID else NOTIFICATION_ID, notification)
+        manager.notify(target.identifier, if (eventId == null) INVITE_ID else NOTIFICATION_ID, notification)
     }
 
     /** Action open: the app on chat-timeline of the chat. */
-    private fun openIntent(roomId: String): PendingIntent {
+    private fun openIntent(target: BipeNotificationTarget): PendingIntent {
         val intent = Intent(context, MainActivity::class.java)
             .setAction(ACTION_OPEN_CHAT)
-            .putExtra(EXTRA_ROOM_ID, roomId)
+            .setData(Uri.parse("bipe-notification://open/${target.identifier}"))
+            .putExtra(EXTRA_ACCOUNT_USER_ID, target.accountUserId)
+            .putExtra(EXTRA_ROOM_ID, target.roomId)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        return PendingIntent.getActivity(context, roomId.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    /** Account sign-out invalidates only this account's cache and delivered notifications. */
+    fun detach(userId: String) {
+        if (clientSession?.userId == userId) {
+            notificationClient = null
+            clientSession = null
+        }
+        if (visibleRoom?.accountUserId == userId) visibleRoom = null
+        manager.activeNotifications.filter { it.notification.extras.getString(EXTRA_ACCOUNT_USER_ID) == userId }
+            .forEach { manager.cancel(it.tag, it.id) }
+    }
+
+    private fun isActive(session: AccountSession): Boolean =
+        (context.applicationContext as BipeApplication).accountStart.sessions.value.any { it === session }
+
+    private fun metadata(target: BipeNotificationTarget) = Bundle().apply {
+        putString(EXTRA_ACCOUNT_USER_ID, target.accountUserId)
+        putString(EXTRA_ROOM_ID, target.roomId)
     }
 
     /** Channels: messages (with the sound of notification-settings), and requests and invites. */
@@ -232,6 +277,7 @@ class PhoneNotifications(private val context: Context) {
 
     companion object {
         const val ACTION_OPEN_CHAT = "chat.bipe.app.OPEN_CHAT"
+        const val EXTRA_ACCOUNT_USER_ID = "account_user_id"
         const val EXTRA_ROOM_ID = "room_id"
         private const val INVITES_CHANNEL = "invites"
         private const val KEY_SOUND = "sound"

@@ -59,13 +59,11 @@ final class AccountStartModel: ObservableObject {
         recoveryLink = url
         showsRecovery = true
     }
-    /// Spec push-registration: keep this phone's pusher on the current account; notification actions use it too.
+    /// Spec push-registration: keep this phone's pusher on the current account.
     private func attachServices(_ session: AccountSession) {
         guard attachedUserId != session.userId else { return }
         attachedUserId = session.userId
-        SessionStore.pushUserId = session.userId
         PushRegistration.shared.attach(session)
-        NotificationActions.shared.attach(session)
     }
     private var attachedUserId: String?
 
@@ -183,15 +181,16 @@ final class AccountStartModel: ObservableObject {
     func signOut(userId targetId: String? = nil, alreadyLoggedOut: Bool = false) async {
         let id = targetId ?? userId
         guard let session = sessions.first(where: { $0.userId == id }) else { return }
+        NotificationActions.shared.detach(userId: session.userId)
+        NotificationKeys.accountRoutes?.remove(userId: session.userId)
+        sessions.removeAll { $0 === session }
         if attachedUserId == session.userId {
             // Spec push-registration, action signOut: the pusher goes before the session ends.
-            await PushRegistration.shared.signOut()
             attachedUserId = nil
-            SessionStore.pushUserId = nil
+            await PushRegistration.shared.signOut()
         }
         await session.signOut(alreadyLoggedOut: alreadyLoggedOut)
         AccountList.remove(session.userId)
-        sessions.removeAll { $0.userId == session.userId }
         guard userId == session.userId else { return }
         signupOutcome = nil
         if let next = sessions.first {
@@ -213,6 +212,7 @@ final class AccountStartModel: ObservableObject {
     private func add(_ session: AccountSession) {
         guard !sessions.contains(where: { $0.userId == session.userId }) else { return }
         let order = AccountList.order
+        NotificationActions.shared.attach(session)
         sessions.append(session)
         sessions.sort { (order.firstIndex(of: $0.userId) ?? .max) < (order.firstIndex(of: $1.userId) ?? .max) }
     }

@@ -29,8 +29,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     /// The open chat shows its messages itself; other chats show a banner.
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        let roomId = notification.request.content.userInfo[NotificationKeys.roomId] as? String
-        let isOpen = await MainActor.run { roomId != nil && NotificationActions.shared.visibleRoomId == roomId }
+        let target = NotificationKeys.target(notification.request.content.userInfo)
+        let isOpen = await MainActor.run { target != nil && NotificationActions.shared.visibleRoom == target }
         return isOpen ? [] : [.banner, .list, .sound, .badge]
     }
 
@@ -44,12 +44,11 @@ final class NotificationActions: ObservableObject {
     static let shared = NotificationActions()
 
     /// Action open: the chat that chat-list opens next.
-    @Published var roomToOpen: String?
+    @Published var roomToOpen: BipeNotificationTarget?
     /// The chat on screen, so its pushes do not show a banner.
-    var visibleRoomId: String?
+    var visibleRoom: BipeNotificationTarget?
 
-    private var session: AccountSession?
-    private var sessionWaiters: [CheckedContinuation<AccountSession?, Never>] = []
+    private var sessions: [String: AccountSession] = [:]
 
     nonisolated static let messageCategory = UNNotificationCategory(
         identifier: NotificationKeys.messageCategory,
@@ -67,104 +66,124 @@ final class NotificationActions: ObservableObject {
     )
 
     func attach(_ session: AccountSession) {
-        self.session = session
-        sessionWaiters.forEach { $0.resume(returning: session) }
-        sessionWaiters.removeAll()
+        sessions[session.userId] = session
+    }
+
+    func owns(_ session: AccountSession) -> Bool {
+        sessions[session.userId] === session
+    }
+
+    func detach(userId: String) {
+        sessions.removeValue(forKey: userId)
+        let center = UNUserNotificationCenter.current()
+        Task {
+            let ids = await center.deliveredNotifications()
+                .filter { NotificationKeys.target($0.request.content.userInfo)?.accountUserId == userId }
+                .map(\.request.identifier)
+            center.removeDeliveredNotifications(withIdentifiers: ids)
+        }
+        if roomToOpen?.accountUserId == userId { roomToOpen = nil }
+        if visibleRoom?.accountUserId == userId { visibleRoom = nil }
     }
 
     func handle(_ response: UNNotificationResponse) async {
         let userInfo = response.notification.request.content.userInfo
-        guard let roomId = userInfo[NotificationKeys.roomId] as? String else { return }
+        guard let target = NotificationKeys.target(userInfo) else { return }
         let eventId = userInfo[NotificationKeys.eventId] as? String
         switch response.actionIdentifier {
         case NotificationKeys.replyAction:
             guard let text = (response as? UNTextInputNotificationResponse)?.userText, let eventId else { return }
-            await reply(text: text, roomId: roomId, eventId: eventId)
+            await reply(text: text, target: target, eventId: eventId)
         case NotificationKeys.markReadAction:
-            await markAsRead(roomId: roomId)
+            await markAsRead(target: target)
         case UNNotificationDefaultActionIdentifier:
-            open(roomId: roomId)
+            open(target: target)
         default:
             break
         }
     }
 
     /// Action open: chat-timeline of the chat. Scrolling to the event waits for timeline focus (chat-timeline).
-    func open(roomId: String) {
-        roomToOpen = roomId
-        removeNotifications(roomId: roomId)
+    func open(target: BipeNotificationTarget) {
+        roomToOpen = target
     }
 
     /// Opening a chat removes its notifications (spec notification-service notes).
-    func chatOpened(_ roomId: String?) {
-        visibleRoomId = roomId
-        if let roomId {
-            removeNotifications(roomId: roomId)
-        }
+    func chatOpened(_ target: BipeNotificationTarget?) {
+        visibleRoom = target
+        if let target { removeNotifications(target: target) }
     }
 
     /// Action reply: sends the text as a reply to the event and marks the chat as read, without opening the app.
-    private func reply(text: String, roomId: String, eventId: String) async {
+    private func reply(text: String, target: BipeNotificationTarget, eventId: String) async {
         let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return }
         let backgroundTask = UIApplication.shared.beginBackgroundTask()
         defer { UIApplication.shared.endBackgroundTask(backgroundTask) }
         var isDm = true
+        var owner: AccountSession?
         do {
-            guard let session = await waitForSession(), let room = try session.client.getRoom(roomId: roomId) else {
+            guard let session = await waitForSession(userId: target.accountUserId),
+                  let room = try session.client.getRoom(roomId: target.roomId) else {
                 throw ClientError.Generic(msg: "no room", details: nil)
             }
+            owner = session
             isDm = (try? await room.roomInfo().isDm) ?? true
             let timeline = try await room.timeline()
             let content = try messageEventContentNew(msgtype: .text(content: TextMessageContent(body: body, formatted: nil)))
+            guard sessions[target.accountUserId] === session else { return }
             try await timeline.sendReply(msg: content, eventId: eventId)
             try await Self.waitUntilSent(timeline)
+            guard sessions[target.accountUserId] === session else { return }
             try? await room.markAsRead(receiptType: .read)
-            removeNotifications(roomId: roomId)
+            guard sessions[target.accountUserId] === session else { return }
+            removeNotifications(target: target)
         } catch {
+            guard let owner, sessions[target.accountUserId] === owner else { return }
             let failure = UNMutableNotificationContent()
             failure.body = isDm ? BipeStrings.dmInlineReplyFailed : BipeStrings.groupNotificationInlineReplyFailed
-            failure.threadIdentifier = roomId
-            failure.userInfo = [NotificationKeys.roomId: roomId, NotificationKeys.eventId: eventId]
+            failure.threadIdentifier = target.identifier
+            failure.userInfo = NotificationKeys.payload(target, eventId: eventId)
             try? await UNUserNotificationCenter.current().add(
                 UNNotificationRequest(identifier: UUID().uuidString, content: failure, trigger: nil))
         }
     }
 
     /// Action markAsRead: a public read receipt, then the chat's notifications go away.
-    private func markAsRead(roomId: String) async {
+    private func markAsRead(target: BipeNotificationTarget) async {
         let backgroundTask = UIApplication.shared.beginBackgroundTask()
         defer { UIApplication.shared.endBackgroundTask(backgroundTask) }
-        if let session = await waitForSession(), let room = try? session.client.getRoom(roomId: roomId) {
-            try? await room.markAsRead(receiptType: .read)
+        guard let session = await waitForSession(userId: target.accountUserId),
+              let room = try? session.client.getRoom(roomId: target.roomId),
+              sessions[target.accountUserId] === session else { return }
+        do {
+            try await room.markAsRead(receiptType: .read)
+            guard sessions[target.accountUserId] === session else { return }
+            removeNotifications(target: target)
+        } catch {
+            // Keep the notification available for another attempt.
         }
-        removeNotifications(roomId: roomId)
     }
 
-    private func removeNotifications(roomId: String) {
+    private func removeNotifications(target: BipeNotificationTarget) {
         let center = UNUserNotificationCenter.current()
         Task {
             let ids = await center.deliveredNotifications()
-                .filter { $0.request.content.threadIdentifier == roomId }
+                .filter { NotificationKeys.target($0.request.content.userInfo) == target }
                 .map(\.request.identifier)
             center.removeDeliveredNotifications(withIdentifiers: ids)
         }
     }
 
-    /// An action can start the app in the background: the account opens through account-start.
-    private func waitForSession() async -> AccountSession? {
-        if let session { return session }
-        let timeout = Task { [weak self] in
-            guard (try? await Task.sleep(for: .seconds(20))) != nil else { return }
-            self?.attachTimedOut()
+    /// The owner can restore after the foreground account. Never substitute that foreground session.
+    private func waitForSession(userId: String) async -> AccountSession? {
+        let deadline = ContinuousClock.now + .seconds(20)
+        while !Task.isCancelled {
+            if let session = sessions[userId] { return session }
+            guard ContinuousClock.now < deadline else { return nil }
+            do { try await Task.sleep(for: .milliseconds(100)) } catch { return nil }
         }
-        defer { timeout.cancel() }
-        return await withCheckedContinuation { sessionWaiters.append($0) }
-    }
-
-    private func attachTimedOut() {
-        sessionWaiters.forEach { $0.resume(returning: nil) }
-        sessionWaiters.removeAll()
+        return nil
     }
 
     /// The send queue sends in the background; the app stays awake until the reply left the phone.

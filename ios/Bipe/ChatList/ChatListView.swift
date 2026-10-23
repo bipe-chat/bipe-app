@@ -146,9 +146,14 @@ struct ChatListView: View {
             }
         }
         // Spec notification-service, action open.
-        .onReceive(notifications.$roomToOpen.compactMap { $0 }) { roomId in
-            notifications.roomToOpen = nil
-            path = NavigationPath([roomId])
+        .onReceive(notifications.$roomToOpen.compactMap { $0 }) { target in
+            // @Published emits before assignment. Consume after the owner/tab route has settled.
+            Task { @MainActor in
+                guard scope == .conversas, target.accountUserId == model.session.userId,
+                      notifications.owns(model.session), notifications.roomToOpen == target else { return }
+                notifications.roomToOpen = nil
+                path = NavigationPath([target.roomId])
+            }
         }
     }
 

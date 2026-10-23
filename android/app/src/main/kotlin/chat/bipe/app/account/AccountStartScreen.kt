@@ -33,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.BipeApplication
 import chat.bipe.app.chatlist.HomeScreen
 import chat.bipe.app.recovery.RecoveryFlowModel
 import chat.bipe.app.recovery.RecoveryFlowScreen
@@ -47,11 +48,20 @@ import chat.bipe.shared.generated.BipeScreen
 /** Spec account-start: no login screen (ADR 0057). Shows app-tabs when the current account is ready. */
 @Composable
 fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
+    val app = LocalContext.current.applicationContext as BipeApplication
+    val notificationTarget by app.roomToOpen.collectAsState()
     val phase by model.phase.collectAsState()
     val outcome by model.signupOutcome.collectAsState()
     val foregroundCount by model.foregroundCount.collectAsState()
     val userId by model.userId.collectAsState()
     val sessions by model.sessions.collectAsState()
+    LaunchedEffect(notificationTarget, sessions) {
+        val target = notificationTarget ?: return@LaunchedEffect
+        if (sessions.any { it.userId == target.accountUserId }) {
+            model.switchAccount(target.accountUserId)
+            tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+        }
+    }
     val session = sessions.firstOrNull { it.userId == userId }
     if (phase == AccountStartModel.Phase.READY && session != null) {
         val signedUp = outcome

@@ -92,6 +92,7 @@ import chat.bipe.app.tabs.AppTabsScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.BipeNotificationTarget
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.bipeHaptic
 import androidx.compose.ui.platform.LocalView
@@ -173,19 +174,20 @@ fun HomeScreen(
     val pendingPix = remember(pixPreview) { pixPreview?.let { PixPreview.resolve(context, it) } }
     LaunchedEffect(Unit) { PixPreview.deleteStale(context) }
     LaunchedEffect(roomToOpen) {
-        roomToOpen?.let {
+        roomToOpen?.takeIf { it.accountUserId == session.userId }?.let {
             peopleStack = emptyList()
             showsHandlePick = false
             showsRequests = false
-            openRoomId = it
+            openRoomId = it.roomId
             app.roomToOpen.value = null
         }
     }
     // An open chat has no notifications, and its pushes show none.
-    DisposableEffect(openRoomId) {
-        app.notifications.visibleRoomId = openRoomId
-        openRoomId?.let { app.notifications.clear(it) }
-        onDispose { app.notifications.visibleRoomId = null }
+    DisposableEffect(session, openRoomId) {
+        val target = BipeNotificationTarget.create(session.userId, openRoomId)
+        app.notifications.visibleRoom = target
+        target?.let { app.notifications.clear(it) }
+        onDispose { if (app.notifications.visibleRoom == target) app.notifications.visibleRoom = null }
     }
     val roomId = openRoomId
     when {

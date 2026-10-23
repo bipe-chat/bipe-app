@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 
 /// Names the app and the notification service extension share. Also compiled into the extension (project.yml).
@@ -12,9 +13,32 @@ enum NotificationKeys {
     static let markReadAction = "chat.bipe.markRead"
 
     /// Keys of the push payload: Sygnal puts them at the top level for format event_id_only.
+    static let accountUserId = "account_user_id"
+    static let accountRoute = "account_route"
+    static var accountRoutes: BipePushAccountRoutes? {
+        UserDefaults(suiteName: AppConfig.appGroup).map { BipePushAccountRoutes(defaults: $0) }
+    }
     static let roomId = "room_id"
     static let eventId = "event_id"
     static let unreadCount = "unread_count"
+
+    /// A provider payload carries only a random registration route; the Matrix ID stays on this phone.
+    static func pushTarget(_ userInfo: [AnyHashable: Any]) -> BipeNotificationTarget? {
+        guard let route = userInfo[accountRoute] as? String,
+              let userId = accountRoutes?.account(for: route) else { return nil }
+        return BipeNotificationTarget(accountUserId: userId, roomId: userInfo[roomId] as? String)
+    }
+
+    static func target(_ userInfo: [AnyHashable: Any]) -> BipeNotificationTarget? {
+        BipeNotificationTarget(accountUserId: userInfo[accountUserId] as? String,
+                               roomId: userInfo[roomId] as? String)
+    }
+
+    static func payload(_ target: BipeNotificationTarget, eventId: String? = nil) -> [AnyHashable: Any] {
+        var info: [AnyHashable: Any] = [accountUserId: target.accountUserId, roomId: target.roomId]
+        if let eventId { info[Self.eventId] = eventId }
+        return info
+    }
 }
 
 /// The message sound on this phone (spec notification-settings, state sound). A phone setting, not a push rule.
