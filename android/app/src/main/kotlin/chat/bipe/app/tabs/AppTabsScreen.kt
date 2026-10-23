@@ -24,6 +24,7 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeHaptic
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.voce.VoceScreen
+import chat.bipe.app.people.PeopleRoute
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
 
@@ -42,6 +43,8 @@ fun AppTabsScreen(
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
     onInvite: () -> Unit = {},
+    /** Opens a people screen (bipe-chat/bipe#568). */
+    onOpenPeople: (PeopleRoute) -> Unit = {},
 ) {
     val state by tabs.state.collectAsState()
     val account = state.accounts.firstOrNull { it.isCurrent }
@@ -59,12 +62,12 @@ fun AppTabsScreen(
                 AppTabsModel.Tab.CONVERSAS ->
                     ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner,
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite)
+                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite, onOpenPeople = onOpenPeople)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) },
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite)
-                AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
+                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite, onOpenPeople = onOpenPeople)
+                AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat, onOpenPeople)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }
                     ChatSearchScreen(chatList, media, onOpenChat)

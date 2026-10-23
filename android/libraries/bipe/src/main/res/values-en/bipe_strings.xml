@@ -881,6 +881,9 @@
     <string name="bipe_profile_display_name_footer">People you chat with see it.</string>
     <string name="bipe_profile_choose_file">Choose file</string>
     <string name="bipe_chats_appearance">Appearance</string>
+    <string name="bipe_chats_appearance_system">Same as the phone</string>
+    <string name="bipe_chats_appearance_light">Light</string>
+    <string name="bipe_chats_appearance_dark">Dark</string>
     <string name="bipe_notifications_enable">Turn on for this phone</string>
     <string name="bipe_notifications_notify_about">Notify me about</string>
     <string name="bipe_notifications_chats">Chats</string>

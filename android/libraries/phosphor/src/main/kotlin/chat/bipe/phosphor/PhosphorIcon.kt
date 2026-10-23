@@ -10,6 +10,7 @@ import androidx.annotation.DrawableRes
 
 /** Phosphor icons (MIT) that the app uses. Add an icon in tools/phosphor.json, then run tools/phosphor.mjs. */
 enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
+    ADDRESS_BOOK("address-book", R.drawable.phosphor_address_book),
     ARROW_BEND_UP_LEFT("arrow-bend-up-left", R.drawable.phosphor_arrow_bend_up_left),
     ARROW_CLOCKWISE("arrow-clockwise", R.drawable.phosphor_arrow_clockwise),
     BACKSPACE("backspace", R.drawable.phosphor_backspace),
@@ -20,6 +21,7 @@ enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     CARET_RIGHT("caret-right", R.drawable.phosphor_caret_right),
     CHART_BAR("chart-bar", R.drawable.phosphor_chart_bar),
     CHAT_CIRCLE("chat-circle", R.drawable.phosphor_chat_circle),
+    CHAT_TEXT("chat-text", R.drawable.phosphor_chat_text),
     CHECK("check", R.drawable.phosphor_check),
     CHECK_CIRCLE("check-circle", R.drawable.phosphor_check_circle),
     CHECKS("checks", R.drawable.phosphor_checks),
@@ -32,9 +34,11 @@ enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     FINGERPRINT("fingerprint", R.drawable.phosphor_fingerprint),
     FLAG("flag", R.drawable.phosphor_flag),
     GEAR("gear", R.drawable.phosphor_gear),
+    HANDSHAKE("handshake", R.drawable.phosphor_handshake),
     IMAGE("image", R.drawable.phosphor_image),
     INFO("info", R.drawable.phosphor_info),
     KEY("key", R.drawable.phosphor_key),
+    LINK("link", R.drawable.phosphor_link),
     LOCK_SIMPLE("lock-simple", R.drawable.phosphor_lock_simple),
     MAGNIFYING_GLASS("magnifying-glass", R.drawable.phosphor_magnifying_glass),
     MICROPHONE("microphone", R.drawable.phosphor_microphone),
@@ -45,7 +49,10 @@ enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     PENCIL_SIMPLE("pencil-simple", R.drawable.phosphor_pencil_simple),
     PLAY("play", R.drawable.phosphor_play),
     PLUS("plus", R.drawable.phosphor_plus),
+    PROHIBIT("prohibit", R.drawable.phosphor_prohibit),
     QR_CODE("qr-code", R.drawable.phosphor_qr_code),
+    SEAL_CHECK("seal-check", R.drawable.phosphor_seal_check),
+    SEAL_WARNING("seal-warning", R.drawable.phosphor_seal_warning),
     SHARE_NETWORK("share-network", R.drawable.phosphor_share_network),
     SIGN_OUT("sign-out", R.drawable.phosphor_sign_out),
     SMILEY("smiley", R.drawable.phosphor_smiley),
@@ -55,6 +62,7 @@ enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     USER_CIRCLE("user-circle", R.drawable.phosphor_user_circle),
     USER_PLUS("user-plus", R.drawable.phosphor_user_plus),
     USERS_THREE("users-three", R.drawable.phosphor_users_three),
+    WARNING("warning", R.drawable.phosphor_warning),
     WARNING_CIRCLE("warning-circle", R.drawable.phosphor_warning_circle),
     X("x", R.drawable.phosphor_x),
 }

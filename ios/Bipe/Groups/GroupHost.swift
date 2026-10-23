@@ -13,7 +13,7 @@ private struct GroupHostModifier: ViewModifier {
     let session: AccountSession
     let api: BipeAPIClient
     let media: MediaLoader
-    @Binding var path: [String]
+    @Binding var path: NavigationPath
     @Binding var creatingGroup: Bool
     @Binding var deletingDm: String?
     @Binding var showingInvites: Bool
@@ -48,7 +48,7 @@ private struct GroupHostModifier: ViewModifier {
                 }
             }
             // Last, so the sheets above get them too.
-            .environment(\.closeChat, { path.removeAll() })
+            .environment(\.closeChat, { path = NavigationPath() })
             .environment(\.bipeAPI, api)
     }
 }
@@ -58,7 +58,7 @@ private struct DmSheetId: Identifiable {
 }
 
 extension View {
-    func groupHost(session: AccountSession, api: BipeAPIClient, media: MediaLoader, path: Binding<[String]>,
+    func groupHost(session: AccountSession, api: BipeAPIClient, media: MediaLoader, path: Binding<NavigationPath>,
                    creatingGroup: Binding<Bool>, deletingDm: Binding<String?>, showingInvites: Binding<Bool>) -> some View {
         modifier(GroupHostModifier(session: session, api: api, media: media, path: path, creatingGroup: creatingGroup,
                                    deletingDm: deletingDm, showingInvites: showingInvites))

@@ -13,6 +13,8 @@
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- Spec contacts: the numbers leave the phone only for the lookup, and the server keeps none (ADR 0015). -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Spec push-registration: the system permission for notifications (Android 13 and later). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Link a computer (spec link-computer-scan): the camera reads the QR code of chat.bipe.net.br. -->
@@ -44,6 +46,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/convite/" />
+            </intent-filter>
+            <!-- Profile links bipe.chat/@handle (spec profile-link-open). The site serves the association file. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="bipe.chat" />
+                <data android:host="www.bipe.chat" />
+                <data android:pathPattern="/@.*" />
             </intent-filter>
             <!-- Recovery links from the recovery e-mail (recovery-email, action openLink). Not verified, like the invite links. -->
             <intent-filter>

@@ -12,6 +12,9 @@ struct VoceView: View {
     let chatList: ChatListModel
     let onNewAccount: () -> Void
     @StateObject private var settings: SettingsModel
+    @StateObject private var people: PeopleService
+    @StateObject private var handle: HandlePickModel
+    @State private var showsHandlePick = false
     @State private var path = NavigationPath()
     @State private var openingNotes = false
     @State private var notesFailed = false
@@ -22,13 +25,17 @@ struct VoceView: View {
         self.chatList = chatList
         self.onNewAccount = onNewAccount
         _settings = StateObject(wrappedValue: SettingsModel(session: chatList.session, api: api))
+        _people = StateObject(wrappedValue: PeopleService(session: chatList.session, api: api, media: chatList.media))
+        _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: chatList.session))
     }
 
     var body: some View {
         NavigationStack(path: $path) {
             List {
                 if let account = model.accounts.first(where: \.isCurrent) {
-                    VoceHeader(account: account, media: chatList.media)
+                    VoceHeader(account: account, media: chatList.media,
+                               openProfile: { path.append(PeopleRoute.profileEdit) },
+                               openQr: { path.append(PeopleRoute.profileLink) })
                         .listRowBackground(BipeColor.surfaceBase)
                 }
                 if model.accounts.count > 1 {
@@ -71,9 +78,21 @@ struct VoceView: View {
                     ChatTimelineView(session: chatList.session, media: chatList.media, roomId: roomId)
                 }
             }
+            // Actions openProfile and openQr of spec voce: the people screens (bipe-chat/bipe#568).
+            .navigationDestination(for: PeopleRoute.self) { route in
+                switch route {
+                case .profileLink:
+                    ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
+                default:
+                    ProfileEditView(people: people)
+                }
+            }
         }
         .accessibilityIdentifier(BipeScreen.voce.rawValue)
         .task { await model.refreshProfiles() }
+        .sheet(isPresented: $showsHandlePick) {
+            HandlePickView(model: handle)
+        }
         .alert(BipeStrings.selfChatError, isPresented: $notesFailed) {
             Button(BipeStrings.appRetry, action: openNotes)
             Button(BipeStrings.appCancel, role: .cancel) {}
@@ -94,14 +113,22 @@ struct VoceView: View {
 private struct VoceHeader: View {
     let account: AccountSummary
     let media: MediaLoader
+    let openProfile: () -> Void
+    let openQr: () -> Void
 
     var body: some View {
         VStack(spacing: 8) {
-            AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 88,
-                       userId: account.userId, isCompany: account.isCompany)
-            Text(account.displayName)
-                .font(.title2.bold())
-                .foregroundStyle(BipeColor.inkPrimary)
+            // Action openProfile: photo and name open profile-edit.
+            Button(action: openProfile) {
+                VStack(spacing: 8) {
+                    AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 88,
+                               userId: account.userId, isCompany: account.isCompany)
+                    Text(account.displayName)
+                        .font(.title2.bold())
+                        .foregroundStyle(BipeColor.inkPrimary)
+                }
+            }
+            .buttonStyle(.plain)
             if let handle = account.handle {
                 Text(verbatim: "@\(handle)")
                     .font(.subheadline)
@@ -109,6 +136,9 @@ private struct VoceHeader: View {
                 if let url = URL(string: "https://bipe.chat/@\(handle)") {
                     ShareLink(item: url) { Text(BipeStrings.profileShare) }
                 }
+                // Action openQr: the profile link and its QR code (profile-link).
+                Button(BipeStrings.profileQrTitle, action: openQr)
+                    .buttonStyle(.borderless)
             }
         }
         .frame(maxWidth: .infinity)

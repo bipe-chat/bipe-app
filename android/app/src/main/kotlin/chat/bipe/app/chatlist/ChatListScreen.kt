@@ -61,6 +61,12 @@ import chat.bipe.app.account.TermsReacceptModel
 import chat.bipe.app.account.TermsReacceptScreen
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.people.PeopleLinks
+import chat.bipe.app.people.PeopleMenu
+import chat.bipe.app.people.PeopleNavigation
+import chat.bipe.app.people.PeopleRoute
+import chat.bipe.app.people.PeopleScreen
+import chat.bipe.app.people.PeopleService
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
@@ -84,6 +90,7 @@ import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
+import kotlinx.coroutines.launch
 
 /**
  * The signed-in app: app-tabs, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, and
@@ -121,10 +128,31 @@ fun HomeScreen(
     LaunchedEffect(foregroundCount) { terms.check(); tabs.refreshProfiles() }
     // recovery-alert, action check: on launch and on every return to the foreground.
     LaunchedEffect(foregroundCount) { recoveryAlert.check() }
+    val people = remember(session) { PeopleService(context, session, api, media, scope) }
+    var peopleStack by remember { mutableStateOf(listOf<PeopleRoute>()) }
+    DisposableEffect(people) {
+        people.start()
+        onDispose { people.close() }
+    }
+    // A profile link from the system (spec profile-link-open) opens once the home screen shows.
+    val pendingLink by PeopleLinks.pending.collectAsState()
+    LaunchedEffect(pendingLink) {
+        PeopleLinks.take()?.let { peopleStack = peopleStack + it }
+    }
+    val navigation = PeopleNavigation(
+        push = { peopleStack = peopleStack + it },
+        pop = { peopleStack = peopleStack.dropLast(1) },
+        openChat = { id ->
+            peopleStack = emptyList()
+            openRoomId = id
+        },
+        pickHandle = { showsHandlePick = true },
+    )
     // Spec notification-service, action open.
     val roomToOpen by app.roomToOpen.collectAsState()
     LaunchedEffect(roomToOpen) {
         roomToOpen?.let {
+            peopleStack = emptyList()
             showsHandlePick = false
             openRoomId = it
             app.roomToOpen.value = null
@@ -154,6 +182,10 @@ fun HomeScreen(
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
+        peopleStack.isNotEmpty() -> {
+            BackHandler { navigation.pop() }
+            PeopleScreen(peopleStack.last(), people, navigation)
+        }
         else -> GroupHost(session, api, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
             if (roomId != null) {
                 BackHandler { openRoomId = null }
@@ -164,6 +196,11 @@ fun HomeScreen(
                     onBack = { openRoomId = null },
                     onHistoryHelp = encryption::openSheet,
                     onOpenGroupDetails = groups.openGroupDetails,
+                    onOpenInfo = {
+                        scope.launch {
+                            people.dmPartner(roomId)?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
+                        }
+                    },
                 )
             } else {
                 AppTabsScreen(
@@ -175,6 +212,7 @@ fun HomeScreen(
                     onCreateGroup = groups.createGroup,
                     onDeleteDm = groups.deleteDm,
                     onInvite = groups.openInvites,
+                    onOpenPeople = navigation.push,
                 )
             }
         }
@@ -199,6 +237,7 @@ fun ChatListScreen(
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
     onInvite: () -> Unit = {},
+    onOpenPeople: (PeopleRoute) -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val allPhase by model.phase.collectAsState()
@@ -216,6 +255,7 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 )
+                PeopleMenu(onOpenPeople)
                 CreateGroupButton(onCreateGroup, onInvite)
                 IconButton(onClick = onOpenSearch) {
                     Icon(
