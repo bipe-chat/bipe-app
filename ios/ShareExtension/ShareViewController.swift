@@ -13,9 +13,16 @@ final class ShareViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        let host = UIHostingController(rootView: PixCheckView(model: model, accountAvailable: false) { [weak self] in
-            self?.finish()
-        })
+        let model = model
+        let host = UIHostingController(rootView: PixCheckView(model: model, accountAvailable: PixHandoff.accountAvailable,
+                                                              close: { [weak self] in self?.finish() },
+                                                              sendToChat: { [weak self] item in
+            // Only after the tap: the preview waits in the app group; finishing does not mean it was sent.
+            if model.handOff(item) {
+                model.close()
+                self?.finish()
+            }
+        }))
         addChild(host)
         host.view.frame = view.bounds
         host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]

@@ -9,12 +9,14 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import chat.bipe.app.BipeTheme
+import chat.bipe.shared.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -49,6 +51,18 @@ class PixCheckActivity : ComponentActivity() {
                         finish()
                     },
                     onRetry = model::retry,
+                    accountAvailable = PixPreview.accountAvailable(this),
+                    // Only after the tap: the app shows the editable preview and asks for chat choice and Send.
+                    onSendToChat = { item ->
+                        val image = model.sourceImage(item)
+                        runCatching { PixPreview.open(this, text = item.input, image = image) }
+                            .onSuccess {
+                                model.close()
+                                finish()
+                            }
+                            // handoffFailed: a generic error; a new tap retries the same preview.
+                            .onFailure { Toast.makeText(this, getString(R.string.bipe_error_generic), Toast.LENGTH_SHORT).show() }
+                    },
                 )
             }
         }

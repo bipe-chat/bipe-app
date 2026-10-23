@@ -53,6 +53,7 @@ struct AppTabsView: View {
                                    onDoubleTap: { model.doubleTapVoce() },
                                    onLongPress: { model.longPressVoce() }))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
+        .pixHandoff(chatList: chatList)
         .sheet(isPresented: $model.showsAccountSwitcher, onDismiss: {
             if pendingNewAccount {
                 pendingNewAccount = false

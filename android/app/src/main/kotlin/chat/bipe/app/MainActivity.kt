@@ -7,6 +7,7 @@ package chat.bipe.app
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.Bundle
+import chat.bipe.app.pixcheck.PixPreview
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,6 +28,8 @@ class MainActivity : ComponentActivity() {
         readInviteLink(intent)
         readDevAccount(intent)
         readOpenChat(intent)
+        readPixPreview(intent)
+        (application as BipeApplication).watchAccountsForPixCheck()
         accountStart.start()
         setContent {
             BipeTheme {
@@ -42,6 +45,12 @@ class MainActivity : ComponentActivity() {
         readInviteLink(intent)
         readDevAccount(intent)
         readOpenChat(intent)
+        readPixPreview(intent)
+    }
+
+    /** Spec pix-check-result, action sendToChat: the preview from PixCheckActivity waits for chat choice and Send. */
+    private fun readPixPreview(intent: Intent?) {
+        PixPreview.from(intent)?.let { (application as BipeApplication).pixPreview.value = it }
     }
 
     /** Spec notification-service, action open: a tap on a notification opens its chat. */

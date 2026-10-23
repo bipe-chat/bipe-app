@@ -36,6 +36,9 @@ struct PixCheckView: View {
                     }
                 }
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
+                .alert(BipeStrings.errorGeneric, isPresented: $model.handoffFailed) {
+                    Button(BipeStrings.appCancel, role: .cancel) {}
+                }
         }
         .accessibilityIdentifier(BipeScreen.pixCheckReceive.rawValue)
     }

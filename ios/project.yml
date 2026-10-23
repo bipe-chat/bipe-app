@@ -158,6 +158,7 @@ targets:
     sources:
       - path: ShareExtension
       - path: Bipe/PixCheck
+      - path: Bipe/Common/AppConfig.swift
     info:
       path: SupportFiles/BipeShare/Info.plist
       properties:

@@ -97,6 +97,10 @@ class PixCheckReceiveModel(private val scope: CoroutineScope) {
     /** Action close: deletes the kept input and results. */
     fun close() = cancel()
 
+    /** The shared image a report came from, for the send preview; null for text. */
+    fun sourceImage(item: PixCheckedItem): java.io.File? =
+        (items.getOrNull(item.sourceIndex) as? PixSharedItem.Image)?.file
+
     private fun run(runGeneration: Int) {
         val current = items
         _state.value = State(if (current.any { it is PixSharedItem.Image }) Phase.READING else Phase.CHECKING)

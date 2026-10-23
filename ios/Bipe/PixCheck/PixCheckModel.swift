@@ -55,6 +55,9 @@ final class PixCheckReceiveModel: ObservableObject {
     @Published private(set) var phase: Phase = .reading
     @Published private(set) var results: [PixCheckedItem] = []
     @Published private(set) var canRetry = false
+    /// isHandingOff and handoffFailed of spec pix-check-result.
+    @Published private(set) var isHandingOff = false
+    @Published var handoffFailed = false
 
     private var items: [PixSharedItem] = []
     /// Every operation has a generation: a newer share or a cancel makes older completions inert.
@@ -97,6 +100,25 @@ final class PixCheckReceiveModel: ObservableObject {
     /// Action close: deletes the kept input and results.
     func close() {
         cancel()
+    }
+
+    /// Action sendToChat (iOS extension): saves the pending preview of the original input, never sends.
+    /// Returns true when the preview is saved; retryHandoff is a new tap.
+    func handOff(_ item: PixCheckedItem) -> Bool {
+        isHandingOff = true
+        defer { isHandingOff = false }
+        var image: URL?
+        if items.indices.contains(item.sourceIndex), case .image(let url) = items[item.sourceIndex] {
+            image = url
+        }
+        do {
+            try PixHandoff.save(text: image == nil ? item.input : nil, image: image)
+            handoffFailed = false
+            return true
+        } catch {
+            handoffFailed = true
+            return false
+        }
     }
 
     private func run(generation: Int) {
