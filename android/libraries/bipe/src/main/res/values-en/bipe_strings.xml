@@ -1345,4 +1345,23 @@
     <string name="bipe_app_profile_link_opening">Opening the profile…</string>
     <string name="bipe_app_contacts_loading">Checking your contacts…</string>
     <string name="bipe_app_seal_title">Business seal</string>
+    <string name="bipe_app_composer_attach">Attach</string>
+    <string name="bipe_app_composer_record">Record a voice message</string>
+    <string name="bipe_app_composer_mention_everyone">Everyone in the group</string>
+    <string name="bipe_app_chat_list_draft">Draft: %1$s</string>
+    <string name="bipe_app_attach_photos">Photos and videos</string>
+    <string name="bipe_app_attach_camera">Camera</string>
+    <string name="bipe_app_attach_file">File</string>
+    <string name="bipe_app_attach_poll">Poll</string>
+    <string name="bipe_app_attach_photos_permission">To send photos, allow photo access in Bipe\'s settings on this phone.</string>
+    <string name="bipe_app_voice_recording">Recording</string>
+    <string name="bipe_app_voice_resume">Resume recording</string>
+    <string name="bipe_app_voice_stop">Stop</string>
+    <string name="bipe_app_voice_delete">Delete voice message</string>
+    <string name="bipe_app_voice_duration">Length: %1$s</string>
+    <string name="bipe_app_voice_too_short">The voice message is too short. Record again.</string>
+    <string name="bipe_app_voice_failed">Couldn\'t send the voice message. Try again.</string>
+    <string name="bipe_app_sticker_send_failed">Couldn\'t send the sticker. Try again.</string>
+    <string name="bipe_app_sticker_making">Making the sticker…</string>
+    <string name="bipe_app_sticker_make_failed">Couldn\'t make a sticker from this photo. Try another one.</string>
 </resources>
