@@ -36,29 +36,36 @@ struct VoceView: View {
                     VoceHeader(account: account, media: chatList.media,
                                openProfile: { path.append(SettingsRoute.group(.profile)) },
                                openQr: { path.append(PeopleRoute.profileQr) })
-                        .listRowBackground(BipeColor.surfaceBase)
-                        .buttonStyle(.borderless)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
                 }
-                if model.accounts.count > 1 {
-                    Section(BipeStrings.appAccountSwitcherTitle) {
-                        AccountRows(model: model, fallbackMedia: chatList.media)
-                    }
-                }
-                if model.canAddAccount {
+                // The accounts on this phone (ADR 0112, 0135); Nova conta closes the section while the cap allows.
+                if model.accounts.count > 1 || model.canAddAccount {
                     Section {
-                        Button(BipeStrings.appAccountNew, action: onNewAccount)
+                        if model.accounts.count > 1 {
+                            AccountRows(model: model, fallbackMedia: chatList.media)
+                        }
+                        if model.canAddAccount {
+                            Button(action: onNewAccount) {
+                                IconLabel(icon: .plus, text: BipeStrings.appAccountNew, tint: BipeColor.accentInk)
+                            }
                             .listRowBackground(BipeColor.surfaceRaised)
+                        }
+                    } header: {
+                        if model.accounts.count > 1 { Text(BipeStrings.appAccountSwitcherTitle) }
                     }
                 }
                 Section {
                     Button(action: openNotes) {
                         HStack(spacing: 12) {
                             PhosphorIcon.notepad.image.resizable().frame(width: 24, height: 24)
+                                .foregroundStyle(BipeColor.accentInk)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(BipeStrings.selfChatTitle).foregroundStyle(BipeColor.inkPrimary)
                                 Text(BipeStrings.selfChatSubtitle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                             }
-                            if openingNotes { Spacer(); ProgressView() }
+                            Spacer()
+                            if openingNotes { ProgressView() }
                         }
                     }
                     .disabled(openingNotes)
@@ -144,31 +151,42 @@ private struct VoceHeader: View {
     let openQr: () -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             Button(action: openProfile) {
-                VStack(spacing: 8) {
-                    AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 88,
+                VStack(spacing: 6) {
+                    AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 96,
                                userId: account.userId, isCompany: account.isCompany)
+                        .padding(.bottom, 6)
                     Text(account.displayName).font(.title2.bold()).foregroundStyle(BipeColor.inkPrimary)
+                    if let handle = account.handle {
+                        Text(verbatim: "@\(handle)").font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                    }
                 }
             }
             .buttonStyle(.plain)
             .accessibilityLabel(BipeStrings.settingsProfile)
-            if let handle = account.handle {
-                Text(verbatim: "@\(handle)")
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkSecondary)
-                if let url = URL(string: "https://bipe.chat/@\(handle)") {
-                    ShareLink(item: url) { Text(BipeStrings.profileShare) }
+            // QR and Compartilhar perfil side by side, as the system's bordered buttons.
+            HStack(spacing: 12) {
+                Button(action: openQr) {
+                    Label { Text(BipeStrings.profileQrAction) } icon: {
+                        PhosphorIcon.qrCode.image.resizable().frame(width: 18, height: 18)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                if let handle = account.handle, let url = URL(string: "https://bipe.chat/@\(handle)") {
+                    ShareLink(item: url) {
+                        Label { Text(BipeStrings.profileShare) } icon: {
+                            PhosphorIcon.shareNetwork.image.resizable().frame(width: 18, height: 18)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
                 }
             }
-            Button(action: openQr) {
-                Label { Text(BipeStrings.profileQrAction) } icon: {
-                    PhosphorIcon.qrCode.image.resizable().frame(width: 20, height: 20)
-                }
-            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .labelStyle(.titleAndIcon)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.vertical, 8)
     }
 }

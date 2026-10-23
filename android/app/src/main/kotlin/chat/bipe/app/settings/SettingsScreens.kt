@@ -4,6 +4,14 @@
 
 package chat.bipe.app.settings
 
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -200,20 +208,27 @@ fun SettingsHost(
     }
 }
 
-/** A settings screen: a back button, the title, then the list. */
+/** A settings screen: the Material 3 top app bar with back and the title, then the list. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsPage(title: String, tag: String, onBack: () -> Unit, content: LazyListScope.() -> Unit) {
     val colors = BipeTheme.colors
-    Surface(modifier = Modifier.fillMaxSize().testTag(tag), color = colors.surfaceBase) {
-        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            Row(modifier = Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
-                }
-                Text(title, style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary)
-            }
-            LazyColumn(modifier = Modifier.fillMaxSize(), content = content)
-        }
+    Scaffold(
+        modifier = Modifier.fillMaxSize().testTag(tag),
+        containerColor = colors.surfaceBase,
+        topBar = {
+            TopAppBar(
+                title = { Text(title) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surfaceBase, titleContentColor = colors.inkPrimary),
+            )
+        },
+    ) { padding ->
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = padding, content = content)
     }
 }
 
@@ -524,6 +539,7 @@ private fun StatusCard(text: String) {
     }
 }
 
+/** A Material 3 list item: the title, the current value and a footer under it, a chevron when it opens a screen. */
 @Composable
 fun SettingsRowItem(
     title: String,
@@ -536,16 +552,21 @@ fun SettingsRowItem(
     onClick: (() -> Unit)?,
 ) {
     val colors = BipeTheme.colors
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    val supporting: (@Composable () -> Unit)? = if (value == null && footer == null) null else {
+        {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (value != null) Text(value, color = valueColor ?: colors.inkSecondary)
+                if (footer != null) Text(footer, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+            }
+        }
+    }
+    val chevron: (@Composable () -> Unit)? = if (!showsChevron) null else {
+        { Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(16.dp)) }
+    }
+    ListItem(
+        headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.bodyLarge, color = titleColor ?: colors.inkPrimary)
+                Text(title, color = titleColor ?: colors.inkPrimary)
                 if (showsWarning) {
                     Spacer(Modifier.width(6.dp))
                     Icon(
@@ -556,46 +577,32 @@ fun SettingsRowItem(
                     )
                 }
             }
-            if (value != null) {
-                Text(value, style = MaterialTheme.typography.bodyMedium, color = valueColor ?: colors.inkSecondary)
-            }
-            if (footer != null) {
-                Text(footer, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-            }
-        }
-        if (showsChevron) {
-            Icon(
-                painterResource(PhosphorIcon.CARET_RIGHT.drawable),
-                contentDescription = null,
-                tint = colors.glyphSecondary,
-                modifier = Modifier.size(16.dp),
-            )
-        }
-    }
-    HorizontalDivider(color = colors.lineSubtle, modifier = Modifier.padding(start = 16.dp))
+        },
+        supportingContent = supporting,
+        trailingContent = chevron,
+        colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
+        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+    )
 }
 
+/** A Material 3 list item with a switch; a tap anywhere on the row toggles it. */
 @Composable
 fun SettingsSwitchItem(title: String, footer: String?, isOn: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     val colors = BipeTheme.colors
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = if (enabled) colors.inkPrimary else colors.inkDisabled)
-            if (footer != null) {
-                Text(footer, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-            }
-        }
-        Switch(
-            checked = isOn,
-            onCheckedChange = onChange,
-            enabled = enabled,
-            colors = SwitchDefaults.colors(checkedTrackColor = colors.accentFill, checkedThumbColor = colors.inkOnAccent),
-        )
-    }
-    HorizontalDivider(color = colors.lineSubtle, modifier = Modifier.padding(start = 16.dp))
+    ListItem(
+        headlineContent = { Text(title, color = if (enabled) colors.inkPrimary else colors.inkDisabled) },
+        supportingContent = footer?.let { text -> @Composable { Text(text, color = colors.inkSecondary) } },
+        trailingContent = {
+            Switch(
+                checked = isOn,
+                onCheckedChange = null,
+                enabled = enabled,
+                colors = SwitchDefaults.colors(checkedTrackColor = colors.accentFill, checkedThumbColor = colors.inkOnAccent),
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
+        modifier = Modifier.toggleable(value = isOn, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+    )
 }
 
 /** The who-can-message picker of the privacy group (PUT /v1/me/messaging). */

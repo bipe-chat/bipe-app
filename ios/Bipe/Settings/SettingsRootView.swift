@@ -31,6 +31,7 @@ struct SettingsHomeView: View {
             List {
                 SettingsRootSection(model: model)
             }
+            .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.settingsSection)
