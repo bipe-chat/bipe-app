@@ -33,7 +33,8 @@ enum NativeDmSelection {
     }
 
     private static func candidates(peers: Set<String>, session: AccountSession) async throws -> [BipeDmCandidate] {
-        let cleared = ClearedChats(json: try await session.client.accountData(eventType: ClearedChats.eventType))
+        let stored = ClearedChats(json: try await session.client.accountData(eventType: ClearedChats.eventType))
+        let cleared = ClearedChatsStore.shared.overlay(stored, userId: session.userId)
         var result: [BipeDmCandidate] = []
         for peer in peers.sorted() {
             // getDmRooms is local and includes every joined DM for the peer, beyond the loaded/unread/search page.

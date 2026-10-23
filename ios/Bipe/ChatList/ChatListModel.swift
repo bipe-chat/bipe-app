@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Combine
 import Foundation
 import MatrixRustSDK
 
@@ -66,11 +67,16 @@ final class ChatListModel: ObservableObject {
     private var handles: [TaskHandle] = []
     private var summaryTask: Task<Void, Never>?
     private var started = false
+    private var clearChanges: AnyCancellable?
 
     init(session: AccountSession) {
         self.session = session
         media = MediaLoader(client: session.client)
         notes = NotesRoom(session: session)
+        clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in
+            self?.refreshSummaries()
+            self?.unreadLists.values.forEach { $0.refresh() }
+        }
     }
 
     /// The chats of one scope, in room list order.

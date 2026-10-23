@@ -5,6 +5,7 @@
 package chat.bipe.app.chatlist
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.shared.clearedchats.ClearedChats
 import chat.bipe.shared.generated.BipeDmCandidate
 import chat.bipe.shared.generated.BipeDmSelection
@@ -35,7 +36,8 @@ object NativeDmSelection {
     }
 
     private suspend fun candidates(peers: Set<String>, session: AccountSession): List<BipeDmCandidate> {
-        val cleared = ClearedChats.parse(session.client.accountData(BipeRegistries.CLEARED_CHATS_EVENT_TYPE))
+        val stored = ClearedChats.parse(session.client.accountData(BipeRegistries.CLEARED_CHATS_EVENT_TYPE))
+        val cleared = ClearedChatsStore.overlay(stored, session.userId)
         val result = mutableListOf<BipeDmCandidate>()
         for (peer in peers.sorted()) {
             // Local SDK results include DMs beyond the current page, unread filter or search results.

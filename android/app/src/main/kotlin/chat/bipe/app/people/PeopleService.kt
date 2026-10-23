@@ -15,6 +15,7 @@ import chat.bipe.shared.api.isCompany
 import chat.bipe.shared.company.BipeCompanySeals
 import chat.bipe.shared.company.BipeCompanySealsSeen
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -158,7 +159,9 @@ class PeopleService(
         runCatching { session.client.encryption().userIdentity(userId, false)?.isVerified() }.getOrNull() == true
 
     /** Client.getDmRoom: the newest DM with the person. */
-    suspend fun dmRoomId(userId: String): String? = runCatching { NativeDmSelection.roomId(userId, session) }.getOrNull()
+    suspend fun dmRoomId(userId: String): String? = try { NativeDmSelection.roomId(userId, session) }
+        catch (error: CancellationException) { throw error }
+        catch (_: Exception) { null }
 
     /** The other person of a DM (RoomInfo.isDm, ADR 0141), else `null`. */
     suspend fun dmPartner(roomId: String): String? {

@@ -43,6 +43,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.matrix.rustcomponents.sdk.Client
@@ -56,15 +57,41 @@ import org.matrix.rustcomponents.sdk.Room
 object ClearedChatsStore {
     private val _markers = MutableStateFlow(ClearedChats.EMPTY)
     val markers: StateFlow<ClearedChats> = _markers.asStateFlow()
+    private val _revision = MutableStateFlow(0L)
+    val revision = _revision.asStateFlow()
+    private val cached = mutableMapOf<String, ClearedChats>()
+    private val pending = mutableMapOf<String, MutableMap<String, Long>>()
+    private var displayedUserId: String? = null
+    private var refreshVersion = 0L
 
     suspend fun refresh(client: Client) {
-        val json = runCatching { client.accountData(EVENT_TYPE) }.getOrNull()
-        _markers.value = ClearedChats.parse(json)
+        val userId = client.userId()
+        val version = ++refreshVersion
+        if (displayedUserId != userId) {
+            displayedUserId = userId
+            _markers.value = cached[userId] ?: ClearedChats.EMPTY.mergedWith(pending[userId].orEmpty())
+        }
+        try {
+            val loaded = overlay(ClearedChats.parse(client.accountData(EVENT_TYPE)), userId)
+            val changed = cached[userId] != loaded
+            cached[userId] = loaded
+            if (version != refreshVersion) return
+            _markers.value = loaded
+            if (changed) _revision.update { it + 1 }
+        } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+        catch (_: Exception) { /* Retain this account's cached markers. */ }
     }
 
-    fun set(roomId: String, marker: Long) {
-        _markers.value = _markers.value.mergedWith(mapOf(roomId to marker))
+    fun set(userId: String, roomId: String, marker: Long) {
+        val account = pending.getOrPut(userId) { mutableMapOf() }
+        account[roomId] = maxOf(account[roomId] ?: 0, marker)
+        val loaded = (cached[userId] ?: ClearedChats.EMPTY).mergedWith(mapOf(roomId to marker))
+        cached[userId] = loaded
+        if (displayedUserId == userId) _markers.value = loaded
+        _revision.update { it + 1 }
     }
+
+    fun overlay(stored: ClearedChats, userId: String): ClearedChats = stored.mergedWith(pending[userId].orEmpty())
 
     const val EVENT_TYPE = BipeRegistries.CLEARED_CHATS_EVENT_TYPE
 }
@@ -92,7 +119,7 @@ class DmDeleteModel(
                 session.client.setAccountData(ClearedChatsStore.EVENT_TYPE, content)
                 ts
             }.onSuccess { ts ->
-                ClearedChatsStore.set(roomId, ts)
+                ClearedChatsStore.set(session.userId, roomId, ts)
                 onDeleted()
             }.onFailure {
                 _phase.value = Phase.FAILED

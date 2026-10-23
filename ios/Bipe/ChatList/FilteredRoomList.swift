@@ -50,4 +50,6 @@ final class FilteredRoomList {
     func loadMore() {
         result?.controller().addOnePage()
     }
+
+    func refresh() { onChange(rooms) }
 }

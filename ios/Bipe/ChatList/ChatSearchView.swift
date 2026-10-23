@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Combine
 import MatrixRustSDK
 import SwiftUI
 
@@ -17,10 +18,12 @@ final class ChatSearchModel: ObservableObject {
     private let notes: NotesRoom?
     private var list: FilteredRoomList?
     private var debounce: Task<Void, Never>?
+    private var clearChanges: AnyCancellable?
 
     init(session: AccountSession, notes: NotesRoom? = nil) {
         self.session = session
         self.notes = notes
+        clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in self?.list?.refresh() }
     }
 
     /// Action editQuery: sets the name filter, at most every 150 ms.

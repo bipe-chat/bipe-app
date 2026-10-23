@@ -5,6 +5,7 @@
 package chat.bipe.app.chatlist
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.previewText
 import chat.bipe.app.common.toVectorDiff
@@ -14,6 +15,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Room
@@ -85,6 +87,12 @@ class ChatListModel(
     private val handles = mutableListOf<TaskHandle>()
     private var summaryJob: Job? = null
     private var started = false
+    private val clearChanges = scope.launch {
+        ClearedChatsStore.revision.collect {
+            refreshSummaries()
+            unreadLists.values.forEach { it.refresh() }
+        }
+    }
 
     /** Subscribes to the room list service: joined chats, newest activity first. */
     fun start() {
@@ -173,6 +181,7 @@ class ChatListModel(
     suspend fun openNotes(title: String): String = try { notes.open(title) } finally { refreshSummaries() }
 
     fun close() {
+        clearChanges.cancel()
         unreadLists.values.forEach { it.close() }
         handles.forEach { it.cancel() }
         summaryJob?.cancel()

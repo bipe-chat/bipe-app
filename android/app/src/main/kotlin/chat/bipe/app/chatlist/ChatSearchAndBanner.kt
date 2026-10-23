@@ -41,6 +41,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.settings.openPage
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -55,6 +56,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 
@@ -76,6 +78,7 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
         }
     }
     private var debounce: Job? = null
+    private val clearChanges = scope.launch { ClearedChatsStore.revision.collect { rooms.refresh() } }
 
     /** Action editQuery: sets the name filter, at most every 150 ms. */
     fun edit(text: String) {
@@ -103,7 +106,7 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
     /** Action close. */
     fun close() = edit("")
 
-    fun dispose() = rooms.close()
+    fun dispose() { clearChanges.cancel(); rooms.close() }
 }
 
 /** The search field of chat-list: the top bar on Android (ADR 0053). */
