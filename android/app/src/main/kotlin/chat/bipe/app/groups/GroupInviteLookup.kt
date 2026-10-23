@@ -37,6 +37,7 @@ internal class GroupInviteLookup(private val context: Context, private val peopl
                 found.forEach { names[it.userId] = book[it.phone] }
             }
         }
+        people.rememberContactNames(names.mapNotNull { (id, name) -> name?.let { id to it } }.toMap())
         return names.filterKeys { it != people.session.userId && it !in except }.map { (userId, name) ->
             runCatching { people.person(userId, contactName = name) }.getOrNull()
                 ?.let { Person(it.userId, it.displayName, it.avatarUrl, it.handle) }

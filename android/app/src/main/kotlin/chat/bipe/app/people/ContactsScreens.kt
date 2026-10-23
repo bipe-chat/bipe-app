@@ -120,6 +120,7 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                 checking = false
                 return@launch
             }
+            people.rememberContactNames(found)
             val invited = runCatching { people.withToken { people.api.inviteConnections(it) }.toSet() }.getOrDefault(emptySet())
             matches = found.map { (userId, name) ->
                 val person = runCatching { people.person(userId, contactName = name) }.getOrElse { Person(userId, name) }
