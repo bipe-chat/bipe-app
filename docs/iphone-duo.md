@@ -18,7 +18,7 @@ No hardware pixel dimensions are used as layout breakpoints.
 
 | Finding on 23 October 2026 | Adjustment |
 | --- | --- |
-| The app declares portrait only and `UIRequiresFullScreen`. | Allow portrait and both landscape orientations; remove the full-screen requirement. |
+| The app declares portrait only and `UIRequiresFullScreen`. | Allow all four interface orientations; remove the full-screen requirement. Xcode 27.1 warns if any orientation is omitted without this requirement. |
 | Recent iOS CI builds select Xcode 26.6. | Select Xcode 27.1 explicitly in the iOS gate, BipeKit tests and tester archive. Keep the iOS 18 deployment target. |
 | The timeline and composer fill all available width. | Center a conversation column capped at 760 points. It shrinks with the local safe-area proposal. The width is a Bipe reading-width default, not a Duo device dimension. |
 | Image, video and sticker boxes have fixed widths. | Treat 260 points and 160 points as maximum widths. Scale the box to the local proposal and preserve its aspect ratio and existing portrait-height limit. |
