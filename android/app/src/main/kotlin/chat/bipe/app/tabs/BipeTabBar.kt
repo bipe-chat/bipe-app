@@ -7,6 +7,7 @@ package chat.bipe.app.tabs
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -42,6 +43,8 @@ internal fun BipeTabBar(
     onSelect: (AppTabsModel.Tab) -> Unit,
     onDoubleTapVoce: () -> Unit,
     onLongPressVoce: () -> Unit,
+    /** The account menu, anchored to the Você item (ADR 0135). */
+    voceMenu: @Composable () -> Unit = {},
 ) {
     NavigationBar {
         TabItem(
@@ -56,6 +59,7 @@ internal fun BipeTabBar(
             state, AppTabsModel.Tab.VOCE, Icons.Outlined.AccountCircle, Icons.Filled.AccountCircle,
             R.string.bipe_tab_you, 0, onSelect,
             showsDot = state.otherAccountUnread,
+            menu = voceMenu,
             modifier = Modifier.voceGestures(onDoubleTapVoce, onLongPressVoce),
         )
     }
@@ -71,6 +75,7 @@ private fun RowScope.TabItem(
     badge: Int,
     onSelect: (AppTabsModel.Tab) -> Unit,
     showsDot: Boolean = false,
+    menu: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val selected = state.selectedTab == tab
@@ -85,7 +90,10 @@ private fun RowScope.TabItem(
                     showsDot -> Badge()
                 }
             }) {
-                Icon(if (selected) selectedIcon else icon, contentDescription = null)
+                Box {
+                    Icon(if (selected) selectedIcon else icon, contentDescription = null)
+                    menu()
+                }
             }
         },
         label = { Text(stringResource(label)) },

@@ -5,37 +5,28 @@
 import BipeKit
 import Phosphor
 import SwiftUI
+import UIKit
 
-/// Spec account-switcher (ADR 0086, 0135). The same account rows appear in Você.
-struct AccountSwitcherView: View {
-    @ObservedObject var model: AppTabsModel
-    let fallbackMedia: MediaLoader
-    let onNewAccount: () -> Void
-
-    var body: some View {
-        NavigationStack {
-            List {
-                AccountRows(model: model, fallbackMedia: fallbackMedia)
-                if model.canAddAccount {
-                    Button(action: onNewAccount) {
-                        Label { Text(BipeStrings.appAccountNew) } icon: { PhosphorIcon.plus.image }
-                    }
-                    .listRowBackground(BipeColor.surfaceRaised)
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
-            .navigationTitle(BipeStrings.appAccountSwitcherTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(BipeStrings.appCancel) { model.showsAccountSwitcher = false }
-                }
+/// Spec account-switcher (ADR 0086, 0135): the native context menu a long press on Você opens. Each account shows its
+/// photo or initial, name and @handle, with the system check on the current one; then Nova conta while the cap allows.
+@MainActor
+enum AccountMenu {
+    static func make(model: AppTabsModel, onNewAccount: @escaping () -> Void) -> UIMenu {
+        let accounts = model.accounts.map { account in
+            UIAction(title: account.displayName,
+                     subtitle: account.handle.map { "@\($0)" },
+                     image: model.menuAvatar(of: account),
+                     state: account.isCurrent ? .on : .off) { _ in
+                model.switchAccount(to: account.userId)
             }
         }
-        .presentationDetents([.medium, .large])
-        .task { await model.refreshProfiles() }
-        .accessibilityIdentifier(BipeScreen.accountSwitcher.rawValue)
+        var children: [UIMenuElement] = [UIMenu(options: .displayInline, children: accounts)]
+        if model.canAddAccount {
+            children.append(UIAction(title: BipeStrings.appAccountNew, image: UIImage(systemName: "plus")) { _ in
+                onNewAccount()
+            })
+        }
+        return UIMenu(title: BipeStrings.appAccountSwitcherTitle, children: children)
     }
 }
 

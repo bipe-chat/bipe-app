@@ -95,7 +95,7 @@ fun AppTabsScreen(
                 view.bipeHaptic(BipeHaptic.Hold)
                 tabs.longPressVoce()
             },
+            voceMenu = { AccountMenu(tabs, media, onNewAccount) },
         )
     }
-    if (state.showsAccountSwitcher) AccountSwitcher(tabs, media, onNewAccount)
 }

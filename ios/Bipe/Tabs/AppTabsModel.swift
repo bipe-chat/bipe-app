@@ -5,6 +5,8 @@
 import BipeKit
 import Combine
 import Foundation
+import SwiftUI
+import UIKit
 
 /// Type AccountSummary of spec app-tabs.
 struct AccountSummary: Identifiable, Equatable {
@@ -37,7 +39,6 @@ final class AppTabsModel: ObservableObject {
     @Published private(set) var conversasUnread = 0
     @Published private(set) var gruposAttention = 0
     @Published private(set) var otherAccountUnread = false
-    @Published var showsAccountSwitcher = false
     @Published private(set) var canAddAccount = true
 
     let start: AccountStartModel
@@ -54,6 +55,7 @@ final class AppTabsModel: ObservableObject {
         var maxAccounts: Int
     }
     private var profiles: [String: Profile] = [:]
+    private var avatarPhotos: [String: UIImage] = [:]
     private var cancellables: Set<AnyCancellable> = []
     private var listCancellables: [String: AnyCancellable] = [:]
 
@@ -100,14 +102,8 @@ final class AppTabsModel: ObservableObject {
         switchAccount(to: accounts[(index + 1) % accounts.count].userId)
     }
 
-    /// Action longPressVoce: opens the account menu without changing the visible tab.
-    func longPressVoce() {
-        showsAccountSwitcher = true
-    }
-
     /// Action switchAccount: that account's chats show in the tabs, and the choice is saved for the next start.
     func switchAccount(to userId: String) {
-        showsAccountSwitcher = false
         guard userId != currentId, accounts.contains(where: { $0.userId == userId }) else { return }
         start.switchAccount(to: userId)
         BipeHaptic.tick.play()
@@ -139,6 +135,7 @@ final class AppTabsModel: ObservableObject {
             listCancellables[userId] = nil
             latestChats[userId] = nil
             profiles[userId] = nil
+            avatarPhotos[userId] = nil
             inviteModels.removeValue(forKey: userId)?.close()
         }
         for session in sessions {
@@ -160,10 +157,46 @@ final class AppTabsModel: ObservableObject {
         }
         guard sessionIds.contains(session.userId), let media = chatLists[session.userId]?.media else { return }
         let company = await media.isCompany(userId: session.userId)
+        var photo: UIImage?
+        if let avatarUrl { photo = await media.thumbnail(mxcUrl: avatarUrl, size: 96) }
         guard sessionIds.contains(session.userId) else { return }
+        avatarPhotos[session.userId] = photo
         profiles[session.userId] = Profile(displayName: displayName, avatarUrl: avatarUrl, handle: mine?.handle,
                                           isCompany: company, maxAccounts: max(1, status?.maxAccounts ?? BipeRegistries.maxPersonalAccounts))
         refresh()
+    }
+
+    /// The account's photo or initial for the native account menu, in the shape of ADR 0132, with the unread dot.
+    func menuAvatar(of account: AccountSummary) -> UIImage {
+        let side: CGFloat = 32
+        let bounds = CGRect(x: 0, y: 0, width: side, height: side)
+        let image = UIGraphicsImageRenderer(size: bounds.size).image { _ in
+            let shape = account.isCompany
+                ? UIBezierPath(roundedRect: bounds, cornerRadius: side * 0.25)
+                : UIBezierPath(ovalIn: bounds)
+            UIGraphicsGetCurrentContext()?.saveGState()
+            shape.addClip()
+            if let photo = avatarPhotos[account.userId] {
+                photo.draw(in: bounds)
+            } else {
+                UIColor(BipeColor.accentWash).setFill()
+                UIRectFill(bounds)
+                let initial = account.displayName.trimmingCharacters(in: CharacterSet(charactersIn: "@#!+ ")).first
+                    .map { String($0).uppercased() } ?? ""
+                let text = NSAttributedString(string: initial, attributes: [
+                    .font: UIFont.systemFont(ofSize: side * 0.42, weight: .semibold),
+                    .foregroundColor: UIColor(BipeColor.accentInk),
+                ])
+                let size = text.size()
+                text.draw(at: CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2))
+            }
+            UIGraphicsGetCurrentContext()?.restoreGState()
+            if account.hasUnread && !account.isCurrent {
+                UIColor(BipeColor.accentFill).setFill()
+                UIBezierPath(ovalIn: CGRect(x: side - 10, y: 0, width: 10, height: 10)).fill()
+            }
+        }
+        return image.withRenderingMode(.alwaysOriginal)
     }
 
     private func refresh() {

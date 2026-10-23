@@ -6,13 +6,14 @@ import SwiftUI
 import UIKit
 
 /// Double tap and long press on the Você tab (ADR 0135). SwiftUI `Tab` has neither, so this finds the `UITabBar` of
-/// the enclosing tab bar controller and adds two gesture recognizers to it. They never cancel the tab bar's own taps:
-/// a tap on Você still opens Você.
+/// the enclosing tab bar controller and adds a double tap recognizer and a context menu interaction to it. A long press
+/// on Você opens the native account menu; neither cancels the tab bar's own taps, so a tap on Você still opens Você.
 struct TabBarGestures: UIViewRepresentable {
     /// The accessibility label of the Você tab item: it finds the item in the tab bar.
     let voceLabel: String
     let onDoubleTap: () -> Void
-    let onLongPress: () -> Void
+    /// The account menu, built when the long press begins so it shows the latest accounts.
+    let menu: () -> UIMenu
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -27,7 +28,7 @@ struct TabBarGestures: UIViewRepresentable {
     func updateUIView(_ view: ProbeView, context: Context) {
         context.coordinator.voceLabel = voceLabel
         context.coordinator.onDoubleTap = onDoubleTap
-        context.coordinator.onLongPress = onLongPress
+        context.coordinator.menu = menu
         view.install()
     }
 
@@ -59,10 +60,10 @@ struct TabBarGestures: UIViewRepresentable {
         }
     }
 
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate, UIContextMenuInteractionDelegate {
         var voceLabel = ""
         var onDoubleTap: () -> Void = {}
-        var onLongPress: () -> Void = {}
+        var menu: () -> UIMenu = { UIMenu(children: []) }
         private weak var tabBar: UITabBar?
         private lazy var doubleTap: UITapGestureRecognizer = {
             let recognizer = UITapGestureRecognizer(target: self, action: #selector(didDoubleTap(_:)))
@@ -72,19 +73,14 @@ struct TabBarGestures: UIViewRepresentable {
             recognizer.delegate = self
             return recognizer
         }()
-        private lazy var longPress: UILongPressGestureRecognizer = {
-            let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(didLongPress(_:)))
-            recognizer.cancelsTouchesInView = false
-            recognizer.delegate = self
-            return recognizer
-        }()
+        private lazy var menuInteraction = UIContextMenuInteraction(delegate: self)
 
         func attach(to tabBar: UITabBar) {
             guard self.tabBar !== tabBar else { return }
             self.tabBar?.removeGestureRecognizer(doubleTap)
-            self.tabBar?.removeGestureRecognizer(longPress)
+            self.tabBar?.removeInteraction(menuInteraction)
             tabBar.addGestureRecognizer(doubleTap)
-            tabBar.addGestureRecognizer(longPress)
+            tabBar.addInteraction(menuInteraction)
             self.tabBar = tabBar
         }
 
@@ -93,9 +89,21 @@ struct TabBarGestures: UIViewRepresentable {
             onDoubleTap()
         }
 
-        @objc private func didLongPress(_ recognizer: UILongPressGestureRecognizer) {
-            guard recognizer.state == .began, isOnVoce(recognizer) else { return }
-            onLongPress()
+        func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
+                                    configurationForMenuAtLocation location: CGPoint) -> UIContextMenuConfiguration? {
+            guard let tabBar, let item = voceItem(in: tabBar),
+                  item.convert(item.bounds, to: tabBar).contains(location) else { return nil }
+            return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in self?.menu() }
+        }
+
+        /// The menu lifts the Você item, not the whole tab bar.
+        func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
+                                    configuration: UIContextMenuConfiguration,
+                                    highlightPreviewForItemWithIdentifier identifier: any NSCopying) -> UITargetedPreview? {
+            guard let tabBar, let item = voceItem(in: tabBar), item.window != nil else { return nil }
+            let parameters = UIPreviewParameters()
+            parameters.backgroundColor = .clear
+            return UITargetedPreview(view: item, parameters: parameters)
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
@@ -108,18 +116,18 @@ struct TabBarGestures: UIViewRepresentable {
         }
 
         private func isOnVoce(_ recognizer: UIGestureRecognizer) -> Bool {
-            guard let tabBar, let frame = voceFrame(in: tabBar) else { return false }
-            return frame.contains(recognizer.location(in: tabBar))
+            guard let tabBar, let item = voceItem(in: tabBar) else { return false }
+            return item.convert(item.bounds, to: tabBar).contains(recognizer.location(in: tabBar))
         }
 
-        /// The frame of the Você item: the view whose accessibility label is the tab's title.
-        private func voceFrame(in tabBar: UITabBar) -> CGRect? {
+        /// The Você item: the view whose accessibility label is the tab's title.
+        private func voceItem(in tabBar: UITabBar) -> UIView? {
             var stack: [UIView] = [tabBar]
             while !stack.isEmpty {
                 let view = stack.removeFirst()
                 if view !== tabBar, view.isAccessibilityElement,
                    let label = view.accessibilityLabel, label.hasPrefix(voceLabel) {
-                    return view.convert(view.bounds, to: tabBar)
+                    return view
                 }
                 stack.append(contentsOf: view.subviews)
             }
