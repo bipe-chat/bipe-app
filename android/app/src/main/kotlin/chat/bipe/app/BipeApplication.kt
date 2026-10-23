@@ -8,6 +8,8 @@ import android.app.Application
 import chat.bipe.app.account.AccountStartModel
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.shared.R
+import chat.bipe.shared.BipeNotificationTarget
+import chat.bipe.shared.BipeNotificationOpen
 import chat.bipe.app.notifications.PhoneNotifications
 import chat.bipe.app.notifications.PushRegistration
 import kotlinx.coroutines.MainScope
@@ -28,7 +30,7 @@ class BipeApplication : Application() {
     val notifications: PhoneNotifications by lazy { PhoneNotifications(this) }
 
     /** Action open of a notification: the chat that the home screen opens next. */
-    val roomToOpen = MutableStateFlow<String?>(null)
+    val roomToOpen = MutableStateFlow<BipeNotificationOpen?>(null)
 
     /** Spec pix-check-result, action sendToChat: the preview the home screen offers next. */
     val pixPreview = MutableStateFlow<PixPreview?>(null)
@@ -48,10 +50,15 @@ class BipeApplication : Application() {
      * Action pushReceived. The push transport calls this with the room ID and the event ID of a
      * content-free push; the app opens the account if the push woke the process.
      */
-    fun pushReceived(roomId: String, eventId: String) {
+    fun pushReceived(accountUserId: String?, roomId: String, eventId: String) {
+        val target = BipeNotificationTarget.create(accountUserId, roomId)
+        if (target == null) {
+            notifications.unownedPush()
+            return
+        }
         accountStart.start()
         scope.launch {
-            val session = accountStart.awaitSession() ?: return@launch
+            val session = accountStart.awaitSession(target.accountUserId) ?: return@launch
             notifications.pushReceived(session, roomId, eventId)
         }
     }

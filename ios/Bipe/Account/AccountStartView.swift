@@ -11,6 +11,7 @@ struct AccountStartView: View {
     @StateObject private var model: AccountStartModel
     @StateObject private var tabs: AppTabsModel
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var notifications = NotificationActions.shared
 
     init() {
         let model = AccountStartModel()
@@ -59,12 +60,26 @@ struct AccountStartView: View {
         .accessibilityIdentifier(BipeScreen.accountStart.rawValue)
         .tint(BipeColor.accentFill)
         .onOpenURL { model.openLink($0) }
+        .onReceive(notifications.$roomToOpen) { target in
+            Task { @MainActor in routeNotification(target) }
+        }
+        .onReceive(model.$sessions) { _ in
+            // Published values arrive before assignment; route after this update.
+            Task { @MainActor in routeNotification(notifications.roomToOpen) }
+        }
         .task { await model.start() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 Task { await model.resume() }
             }
         }
+    }
+
+    private func routeNotification(_ pending: BipeNotificationOpen?) {
+        guard let target = pending,
+              model.sessions.contains(where: { $0.userId == target.accountUserId }) else { return }
+        model.switchAccount(to: target.accountUserId)
+        tabs.selectTab(target.destination == .groups ? .grupos : .conversas)
     }
 }
 

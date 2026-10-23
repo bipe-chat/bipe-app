@@ -15,6 +15,9 @@ final class NotificationService: UNNotificationServiceExtension {
 
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var task: Task<Void, Never>?
+    private var target: BipeNotificationTarget?
+    private var eventId: String?
+    private var accountRoute: String?
 
     override func didReceive(
         _ request: UNNotificationRequest,
@@ -22,21 +25,26 @@ final class NotificationService: UNNotificationServiceExtension {
     ) {
         self.contentHandler = contentHandler
         let userInfo = request.content.userInfo
-        guard let roomId = userInfo[NotificationKeys.roomId] as? String,
+        guard let route = userInfo[NotificationKeys.accountRoute] as? String,
+              let target = NotificationKeys.pushTarget(userInfo),
               let eventId = userInfo[NotificationKeys.eventId] as? String else {
-            deliver(Self.fallback(roomId: nil, eventId: nil, unreadCount: nil))
+            deliver(Self.fallback(target: nil, route: nil, eventId: nil, unreadCount: nil))
             return
         }
+        self.accountRoute = route
+        self.target = target
+        self.eventId = eventId
         let unreadCount = (userInfo[NotificationKeys.unreadCount] as? NSNumber)?.intValue
         task = Task { [weak self] in
-            let content = await Self.content(roomId: roomId, eventId: eventId, unreadCount: unreadCount)
+            let content = await Self.content(target: target, route: route, eventId: eventId, unreadCount: unreadCount)
             self?.deliver(content)
         }
     }
 
     override func serviceExtensionTimeWillExpire() {
         task?.cancel()
-        deliver(Self.fallback(roomId: nil, eventId: nil, unreadCount: nil))
+        let valid = accountRoute.flatMap { NotificationKeys.accountRoutes?.account(for: $0) } == target?.accountUserId
+        deliver(Self.fallback(target: valid ? target : nil, route: accountRoute, eventId: eventId, unreadCount: nil))
     }
 
     /// Delivers once: the first of the fetch and the timeout wins.
@@ -47,15 +55,19 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     /// Action pushReceived.
-    private static func content(roomId: String, eventId: String, unreadCount: Int?) async -> UNNotificationContent {
+    private static func content(target: BipeNotificationTarget, route: String, eventId: String, unreadCount: Int?) async -> UNNotificationContent {
         do {
             let status = try await withNotificationTimeout(fetchTimeout) {
-                let client = try await NotificationClients.shared.client()
-                return try await client.getNotification(roomId: roomId, eventId: eventId)
+                let client = try await NotificationClients.shared.client(userId: target.accountUserId)
+                return try await client.getNotification(roomId: target.roomId, eventId: eventId)
+            }
+            guard NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId,
+                  SessionStore.loadForPush(userId: target.accountUserId) != nil else {
+                return UNMutableNotificationContent()
             }
             switch status {
             case .event(let item):
-                return content(item: item, roomId: roomId, eventId: eventId, unreadCount: unreadCount)
+                return content(item: item, target: target, route: route, eventId: eventId, unreadCount: unreadCount)
             case .eventFilteredOut, .eventRedacted, .eventNotFound:
                 // Shows nothing: an empty content replaces the gateway alert.
                 let empty = UNMutableNotificationContent()
@@ -63,18 +75,20 @@ final class NotificationService: UNNotificationServiceExtension {
                 return empty
             }
         } catch {
-            return fallback(roomId: roomId, eventId: eventId, unreadCount: unreadCount)
+            let valid = NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId
+            return fallback(target: valid ? target : nil, route: route, eventId: eventId, unreadCount: unreadCount)
         }
     }
 
-    private static func content(item: NotificationItem, roomId: String, eventId: String, unreadCount: Int?) -> UNNotificationContent {
+    private static func content(item: NotificationItem, target: BipeNotificationTarget, route: String, eventId: String, unreadCount: Int?) -> UNNotificationContent {
         let room = item.roomInfo
         let senderName = item.senderInfo.displayName.flatMap { $0.isEmpty ? nil : $0 }
         let content = UNMutableNotificationContent()
+        var kind = "message"
         switch item.event {
         case .timeline(let event):
             guard let text = messageText(event) else {
-                return fallback(roomId: roomId, eventId: eventId, unreadCount: unreadCount)
+                return fallback(target: target, route: route, eventId: eventId, unreadCount: unreadCount)
             }
             let sender = senderName ?? event.senderId()
             // ADR 0141: a DM shows the other person, never the room name.
@@ -87,6 +101,7 @@ final class NotificationService: UNNotificationServiceExtension {
             }
             content.categoryIdentifier = NotificationKeys.messageCategory
         case .invite(let senderId):
+            kind = room.isDm ? "chatRequest" : "groupInvite"
             let sender = senderName ?? senderId
             if room.isDm {
                 content.title = sender
@@ -96,36 +111,43 @@ final class NotificationService: UNNotificationServiceExtension {
                 content.body = BipeStrings.groupNotificationRoomInviteBodyWithSender(sender)
             }
         }
-        content.threadIdentifier = roomId
-        content.userInfo = [NotificationKeys.roomId: roomId, NotificationKeys.eventId: eventId]
+        content.threadIdentifier = target.identifier
+        content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId, kind: kind)
         content.badge = unreadCount.map { NSNumber(value: $0) }
         content.sound = sound(isNoisy: item.isNoisy ?? true)
         return content
     }
 
-    /// The plain text of a message. nil for an event the notification cannot show as text (media until
-    /// #561, undecryptable events): those show the fallback. No Markdown (spec notes).
+    /// Plain text and media kind/caption from the decrypted event; no attachment fetch or raw filename.
     private static func messageText(_ event: TimelineEvent) -> String? {
-        guard case .messageLike(let content)? = try? event.content(),
-              case .roomMessage(let messageType, _) = content else { return nil }
-        switch messageType {
-        case .text(let text): return text.body
-        case .emote(let emote): return emote.body
-        case .notice(let notice): return notice.body
+        guard case .messageLike(let content)? = try? event.content() else { return nil }
+        switch content {
+        case .sticker: return BipeStrings.appMediaSticker
+        case .roomMessage(let type, _):
+            switch type {
+            case .text(let value): return BipeNotificationPreview.text(value.body)
+            case .emote(let value): return BipeNotificationPreview.text(value.body)
+            case .notice(let value): return BipeNotificationPreview.text(value.body)
+            case .image(let value): return BipeNotificationPreview.attachment(label: BipeStrings.appMediaImage, caption: value.caption)
+            case .video(let value): return BipeNotificationPreview.attachment(label: BipeStrings.appMediaVideo, caption: value.caption)
+            case .file(let value): return BipeNotificationPreview.attachment(label: BipeStrings.appMediaFile, caption: value.caption)
+            case .audio(let value): return BipeNotificationPreview.attachment(label: value.voice != nil ? BipeStrings.appMediaVoice : BipeStrings.appMediaFile, caption: value.caption)
+            default: return nil
+            }
         default: return nil
         }
     }
 
     /// Kind fallback: the event could not be fetched or decrypted in time.
-    private static func fallback(roomId: String?, eventId: String?, unreadCount: Int?) -> UNNotificationContent {
+    private static func fallback(target: BipeNotificationTarget?, route: String?, eventId: String?, unreadCount: Int?) -> UNNotificationContent {
         let content = UNMutableNotificationContent()
         content.title = BipeStrings.appName
         content.body = BipeStrings.appNotificationNewMessage
         content.badge = unreadCount.map { NSNumber(value: $0) }
         content.sound = sound(isNoisy: true)
-        if let roomId, let eventId {
-            content.threadIdentifier = roomId
-            content.userInfo = [NotificationKeys.roomId: roomId, NotificationKeys.eventId: eventId]
+        if let target, let route, let eventId {
+            content.threadIdentifier = target.identifier
+            content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId, kind: "fallback")
         }
         return content
     }
@@ -145,16 +167,20 @@ private actor NotificationClients {
     static let shared = NotificationClients()
 
     private var notificationClient: NotificationClient?
+    private var owner: String?
+    private var deviceId: String?
 
-    func client() async throws -> NotificationClient {
-        if let notificationClient { return notificationClient }
-        guard let session = SessionStore.loadForPush() else {
+    func client(userId: String) async throws -> NotificationClient {
+        guard let session = SessionStore.loadForPush(userId: userId) else {
             throw ClientError.Generic(msg: "no saved session", details: nil)
         }
-        let client = try await AccountSession.makeClient(userId: session.userId, process: .notificationService)
+        if owner == userId, deviceId == session.deviceId, let notificationClient { return notificationClient }
+        let client = try await AccountSession.makeClient(userId: session.userId, process: .notificationService, homeserverURL: session.homeserverUrl)
         try await client.restoreSession(session: session)
         let notificationClient = try await client.notificationClient(processSetup: .multipleProcesses)
         self.notificationClient = notificationClient
+        owner = userId
+        deviceId = session.deviceId
         return notificationClient
     }
 }

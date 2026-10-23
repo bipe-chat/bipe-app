@@ -25,6 +25,8 @@ final class PushRegistration: ObservableObject {
         var appId: String
         var lang: String
         var registeredAt: Date
+        var ownerVersion: Int? = nil
+        var accountRoute: String? = nil
     }
 
     static let shared = PushRegistration()
@@ -65,17 +67,20 @@ final class PushRegistration: ObservableObject {
 
     /// Action tokenReceived: sets the HTTP pusher when the token, the account or the language changed.
     func tokenReceived(_ token: Data) async {
-        guard permission == .allowed, let session else { return }
+        guard permission == .allowed, let session,
+              let accountRoutes = NotificationKeys.accountRoutes else { return }
+        let route = accountRoutes.route(for: session.userId)
         let pushkey = token.map { String(format: "%02x", $0) }.joined()
         let lang = Self.appLanguage
         if let registration, registration.userId == session.userId, registration.pushkey == pushkey,
-           registration.appId == AppConfig.pusherAppId, registration.lang == lang {
+           registration.appId == AppConfig.pusherAppId, registration.lang == lang, registration.ownerVersion == 1, registration.accountRoute == route {
             return
         }
         do {
             // Content-free: event_id_only. mutable-content makes iOS run the notification service extension
             // for every push; the alert shows only if the extension cannot run.
             let defaultPayload: [String: Any] = [
+                NotificationKeys.accountRoute: route,
                 "aps": [
                     "mutable-content": 1,
                     "alert": ["title": BipeStrings.appName, "body": BipeStrings.appNotificationNewMessage],
@@ -93,8 +98,9 @@ final class PushRegistration: ObservableObject {
                 lang: lang,
                 append: false
             )
+            guard self.session === session else { return }
             save(Registration(userId: session.userId, pushkey: pushkey, appId: AppConfig.pusherAppId,
-                              lang: lang, registeredAt: .now))
+                              lang: lang, registeredAt: .now, ownerVersion: 1, accountRoute: route))
         } catch {
             NSLog("Bipe pusher registration failed")
         }
@@ -102,12 +108,14 @@ final class PushRegistration: ObservableObject {
 
     /// Action signOut: deletes the pusher of this phone before the session ends. A failure does not stop the sign-out.
     func signOut() async {
-        if let session, let registration {
-            try? await session.client.deletePusher(
-                identifiers: PusherIdentifiers(pushkey: registration.pushkey, appId: registration.appId))
-        }
-        save(nil)
+        let owner = session
+        let saved = registration
         session = nil
+        save(nil)
+        if let owner, let saved, saved.userId == owner.userId {
+            try? await owner.client.deletePusher(
+                identifiers: PusherIdentifiers(pushkey: saved.pushkey, appId: saved.appId))
+        }
     }
 
     /// pt-BR or en, the languages of the generated strings.

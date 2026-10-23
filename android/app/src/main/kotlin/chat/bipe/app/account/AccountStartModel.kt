@@ -162,11 +162,10 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     }
 
     /** The account, once start has opened it. A push or a notification action can start the process. */
-    suspend fun awaitSession(timeoutMs: Long = 20_000): AccountSession? {
+    suspend fun awaitSession(userId: String, timeoutMs: Long = 20_000): AccountSession? {
         start()
         return withTimeoutOrNull(timeoutMs) {
-            phase.first { it == Phase.READY || it == Phase.NO_ACCOUNT || it == Phase.FAILED }
-            session
+            sessions.first { list -> list.any { it.userId == userId } }.first { it.userId == userId }
         }
     }
 
@@ -220,11 +219,15 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     private fun removeAccount(current: AccountSession, alreadyLoggedOut: Boolean) {
         scope.launch {
-            // Spec push-registration, action signOut: the pusher of the current account goes before its session ends.
-            if (_userId.value == current.userId) (context.applicationContext as BipeApplication).push.signOut()
+            // Detach before any suspending remote cleanup so in-flight actions cannot use this session.
+            _sessions.value = _sessions.value.filter { it !== current }
+            val app = context.applicationContext as BipeApplication
+            app.notifications.detach(current.userId)
+            if (app.roomToOpen.value?.accountUserId == current.userId) app.roomToOpen.value = null
+            // The pusher still goes before the SDK session ends.
+            if (_userId.value == current.userId) app.push.signOut()
             current.signOut(context, sessionStore, vault, alreadyLoggedOut)
             accountList.remove(current.userId)
-            _sessions.value = _sessions.value.filter { it.userId != current.userId }
             if (_userId.value != current.userId) return@launch
             _signupOutcome.value = null
             val next = _sessions.value.firstOrNull()

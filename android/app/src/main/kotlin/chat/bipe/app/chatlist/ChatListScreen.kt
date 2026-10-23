@@ -92,6 +92,8 @@ import chat.bipe.app.tabs.AppTabsScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.BipeNotificationTarget
+import chat.bipe.shared.BipeNotificationDestination
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.bipeHaptic
 import androidx.compose.ui.platform.LocalView
@@ -124,6 +126,7 @@ fun HomeScreen(
     val search = remember(session) { ChatSearchModel(session, model, scope) }
     val remoteBanner = remember(session) { RemoteBannerModel(context.applicationContext, api, scope) }
     var showsRequests by rememberSaveable { mutableStateOf(false) }
+    var notificationListOpen by rememberSaveable { mutableStateOf(0) }
     val encryption = remember(session) { EncryptionStatusModel(session, scope, context.applicationContext) }
     val recoveryAlert = remember(session) { RecoveryAlertModel(context.applicationContext, api, session, scope) }
     val alertNotice by recoveryAlert.notice.collectAsState()
@@ -173,19 +176,31 @@ fun HomeScreen(
     val pendingPix = remember(pixPreview) { pixPreview?.let { PixPreview.resolve(context, it) } }
     LaunchedEffect(Unit) { PixPreview.deleteStale(context) }
     LaunchedEffect(roomToOpen) {
-        roomToOpen?.let {
+        roomToOpen?.takeIf { it.accountUserId == session.userId }?.let {
+            var opensChat = false
+            if (it.destination == BipeNotificationDestination.CHAT) {
+                opensChat = runCatching {
+                    val info = session.client.getRoom(it.roomId)?.roomInfo()
+                    info != null && info.membership == org.matrix.rustcomponents.sdk.Membership.JOINED && !info.isSpace
+                }.getOrDefault(false)
+            }
+            if (app.accountStart.sessions.value.none { active -> active === session } || app.roomToOpen.value != it) return@LaunchedEffect
+            // The current owner can consume this before the parent route effect; select its destination here too.
+            tabs.selectTab(if (it.destination == BipeNotificationDestination.GROUPS) AppTabsModel.Tab.GRUPOS else AppTabsModel.Tab.CONVERSAS)
             peopleStack = emptyList()
             showsHandlePick = false
-            showsRequests = false
-            openRoomId = it
+            showsRequests = it.destination == BipeNotificationDestination.REQUESTS
+            notificationListOpen += 1
+            openRoomId = it.roomId.takeIf { opensChat }
             app.roomToOpen.value = null
         }
     }
     // An open chat has no notifications, and its pushes show none.
-    DisposableEffect(openRoomId) {
-        app.notifications.visibleRoomId = openRoomId
-        openRoomId?.let { app.notifications.clear(it) }
-        onDispose { app.notifications.visibleRoomId = null }
+    DisposableEffect(session, openRoomId) {
+        val target = BipeNotificationTarget.create(session.userId, openRoomId)
+        app.notifications.visibleRoom = target
+        target?.let { app.notifications.clear(it) }
+        onDispose { if (app.notifications.visibleRoom == target) app.notifications.visibleRoom = null }
     }
     val roomId = openRoomId
     when {
@@ -256,6 +271,7 @@ fun HomeScreen(
             } else {
                 AppTabsScreen(
                     tabs = tabs, chatList = model, media = media, handle = handle,
+                    listOpenRequest = notificationListOpen,
                     onOpenHandlePick = { showsHandlePick = true },
                     onOpenChat = { openRoomId = it },
                     onNewAccount = { if (tabs.state.value.canAddAccount) showsNewAccount = true },
@@ -302,6 +318,7 @@ fun ChatListScreen(
     onChatInfo: (ChatSummary) -> Unit = {},
     onInvite: () -> Unit = {},
     onOpenPeople: (PeopleRoute) -> Unit = {},
+    listOpenRequest: Int = 0,
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
@@ -316,6 +333,7 @@ fun ChatListScreen(
     val readFailed by model.readActionFailed.collectAsState()
     val markingRoomId by model.markingRoomId.collectAsState()
     var showingArchived by rememberSaveable(model.session.userId, scope) { mutableStateOf(false) }
+    LaunchedEffect(listOpenRequest) { if (listOpenRequest > 0) showingArchived = false }
     val displayed = if (unreadOnly && !showingArchived) unreadChats[scope].orEmpty() else allChats
     val visibleChats = withoutClearedDms(displayed, { it.roomId }, { it.lastActivity })
     val chats = visibleChats.filter { it.scope == scope && archiveMarkers.containsKey(it.roomId) == showingArchived }

@@ -50,23 +50,11 @@ enum SessionStore {
         read(account: userId).flatMap(decode)
     }
 
-    /// The account this phone's pusher belongs to (push-registration follows the current account). The app writes
-    /// it; the notification service extension reads it from the app group.
-    static var pushUserId: String? {
-        get { UserDefaults(suiteName: AppConfig.appGroup)?.string(forKey: pushUserKey) }
-        set { UserDefaults(suiteName: AppConfig.appGroup)?.set(newValue, forKey: pushUserKey) }
+    /// A push must name its immutable owner. Never use a mutable current-account preference.
+    static func loadForPush(userId: String) -> Session? {
+        guard let session = load(userId: userId), session.userId == userId else { return nil }
+        return session
     }
-
-    /// The session a content-free push is for: the pusher's account, else the only saved one.
-    static func loadForPush() -> Session? {
-        if let userId = pushUserId, let session = load(userId: userId) {
-            return session
-        }
-        let all = loadAll()
-        return all.count == 1 ? all.values.first : nil
-    }
-
-    private static let pushUserKey = "bipe.push.userId"
 
     static func save(_ session: Session) {
         let stored = Stored(accessToken: session.accessToken,

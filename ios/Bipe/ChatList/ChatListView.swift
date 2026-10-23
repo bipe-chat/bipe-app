@@ -4,8 +4,11 @@
 
 import BipeKit
 import Combine
+import MatrixRustSDK
 import Phosphor
 import SwiftUI
+
+private enum RequestInboxRoute: Hashable { case inbox }
 
 /// Spec chat-list, one scope: Conversas or Grupos (ADR 0053).
 struct ChatListView: View {
@@ -71,6 +74,10 @@ struct ChatListView: View {
                         }
                     }
                 }
+            }
+            .navigationDestination(for: RequestInboxRoute.self) { _ in
+                ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat,
+                                 onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
             }
             .navigationDestination(for: PeopleRoute.self) { route in
                 peopleScreen(route)
@@ -146,9 +153,27 @@ struct ChatListView: View {
             }
         }
         // Spec notification-service, action open.
-        .onReceive(notifications.$roomToOpen.compactMap { $0 }) { roomId in
-            notifications.roomToOpen = nil
-            path = NavigationPath([roomId])
+        .onReceive(notifications.$roomToOpen.compactMap { $0 }) { target in
+            // @Published emits before assignment. Consume after the owner/tab route has settled.
+            Task { @MainActor in
+                let destinationScope: ChatScope = target.destination == .groups ? .grupos : .conversas
+                guard scope == destinationScope, target.accountUserId == model.session.userId,
+                      notifications.owns(model.session), notifications.roomToOpen == target else { return }
+                var opensChat = false
+                if target.destination == .chat,
+                   let room = try? model.session.client.getRoom(roomId: target.roomId),
+                   let info = try? await room.roomInfo() {
+                    opensChat = info.membership == .joined && !info.isSpace
+                }
+                guard notifications.owns(model.session), notifications.roomToOpen == target else { return }
+                notifications.roomToOpen = nil
+                showingArchived = false
+                switch target.destination {
+                case .chat: path = opensChat ? NavigationPath([target.roomId]) : NavigationPath()
+                case .requests: path = NavigationPath([RequestInboxRoute.inbox])
+                case .groups, .inbox: path = NavigationPath()
+                }
+            }
         }
     }
 
