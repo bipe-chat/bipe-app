@@ -27,6 +27,7 @@ public enum PhosphorIcon: String, CaseIterable, Sendable {
     case copy = "copy"
     case desktop = "desktop"
     case devices = "devices"
+    case dotsThree = "dots-three"
     case downloadSimple = "download-simple"
     case file = "file"
     case fingerprint = "fingerprint"
