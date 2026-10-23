@@ -173,7 +173,7 @@ fun GroupCreateScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Avatar(person.displayName, person.avatarUrl, media, size = 36.dp)
+                        Avatar(person.displayName, person.avatarUrl, media, size = 36.dp, userId = person.userId)
                         Spacer(Modifier.width(12.dp))
                         Text(
                             person.displayName,

@@ -46,6 +46,7 @@ sealed interface PeopleRoute {
     data class PersonProfile(val userId: String, val fromDm: Boolean) : PeopleRoute
     data object ProfileEdit : PeopleRoute
     data object PublicProfile : PeopleRoute
+    data object ProfileQr : PeopleRoute
     data object ProfileLink : PeopleRoute
     data class ProfileLinkOpen(val handle: String) : PeopleRoute
     data object Contacts : PeopleRoute

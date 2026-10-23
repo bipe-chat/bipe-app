@@ -305,7 +305,7 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Avatar(state.person.displayName, state.person.avatarUrl, model.people.media, size = 96.dp, isCompany = state.isCompany)
+        Avatar(state.person.displayName, state.person.avatarUrl, model.people.media, size = 96.dp, userId = state.person.userId, isCompany = state.isCompany)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 state.person.displayName,
