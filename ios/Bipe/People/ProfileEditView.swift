@@ -109,7 +109,7 @@ struct ProfileEditView: View {
                 .resizable()
                 .scaledToFill()
                 .frame(width: 96, height: 96)
-                .clipShape(isCompany ? AnyShape(RoundedRectangle(cornerRadius: 21, style: .continuous)) : AnyShape(Circle()))
+                .clipShape(isCompany ? AnyShape(RoundedRectangle(cornerRadius: 24, style: .continuous)) : AnyShape(Circle()))
         } else {
             AvatarView(name: name, mxcUrl: removesPhoto ? nil : avatarUrl, loader: people.media, size: 96, isCompany: isCompany)
         }

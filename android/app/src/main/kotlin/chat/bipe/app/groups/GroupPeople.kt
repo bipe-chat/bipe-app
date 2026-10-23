@@ -31,7 +31,7 @@ data class Person(
 
     companion object {
         fun of(userId: String, displayName: String?, avatarUrl: String?): Person =
-            Person(userId, displayName?.takeIf { it.isNotEmpty() } ?: userId, avatarUrl)
+            Person(userId, displayName?.takeIf { it.isNotEmpty() } ?: chat.bipe.app.people.Person.localpart(userId), avatarUrl)
 
         fun of(member: RoomMember): Person = of(member.userId, member.displayName, member.avatarUrl)
 

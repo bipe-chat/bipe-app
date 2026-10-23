@@ -6,8 +6,23 @@ import BipeKit
 import Foundation
 import MatrixRustSDK
 
-/// The people screens use Person of lane G (Groups/GroupPeople.swift): the name to show, the photo and the @.
-extension Person {
+/// Type Person of the people specs: the name to show, the photo and the @. Never the Matrix ID (ADR 0013).
+struct Person: Identifiable, Equatable, Hashable {
+    var userId: String
+    /// The saved contact name, else the profile name, else the @, else the ID's localpart.
+    var displayName: String
+    var avatarUrl: String?
+    var handle: String?
+
+    init(userId: String, displayName: String?, avatarUrl: String? = nil, handle: String? = nil) {
+        self.userId = userId
+        self.displayName = displayName.flatMap { $0.isEmpty ? nil : $0 } ?? Self.localpart(of: userId)
+        self.avatarUrl = avatarUrl
+        self.handle = handle
+    }
+
+    var id: String { userId }
+
     /// The localpart of a Matrix ID, the last fallback of a name (blocked-list notes).
     static func localpart(of userId: String) -> String {
         let trimmed = userId.hasPrefix("@") ? String(userId.dropFirst()) : userId
@@ -188,8 +203,9 @@ final class PeopleService: ObservableObject {
 }
 
 extension PeopleService {
-    /// The dm-delete write for report-chat's "delete the chat too": lane G's DmDeleteModel (spec dm-delete).
-    /// The room is not left, so the other person's next message brings it back.
+    /// The dm-delete write (bipe-chat/bipe#464, registries/cleared-chats.json): merges this room's marker, the
+    /// origin_server_ts of its latest remote event, into the account data chat.bipe.cleared_chats. Keeps every other
+    /// entry; the marker never moves back. The room is not left, so the other person's next message brings it back.
     func clearDm(_ roomId: String) async throws {
         guard await DmDeleteModel(session: session, roomId: roomId).delete() else { throw PeopleError.notFound }
     }
@@ -220,6 +236,7 @@ enum PeopleRoute: Hashable {
     case profileEdit
     case publicProfile
     case profileLink
+    case profileQr
     case contacts
     case whoCanMessage
     case blockedList

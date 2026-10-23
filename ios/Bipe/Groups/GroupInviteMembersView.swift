@@ -70,7 +70,7 @@ struct GroupInviteMembersView: View {
         }
         .sheet(isPresented: $showingInvites) {
             if let api {
-                InvitesView(session: session, api: api, media: media) { _ in }
+                InvitesEntryView(session: session, api: api, media: media) { _ in }
             }
         }
         .accessibilityIdentifier(BipeScreen.groupInviteMembers.rawValue)
@@ -99,7 +99,7 @@ private struct PickRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(name: pick.person.displayName, mxcUrl: pick.person.avatarUrl, loader: media, size: 40)
+            AvatarView(name: pick.person.displayName, mxcUrl: pick.person.avatarUrl, loader: media, size: 40, userId: pick.person.userId)
             VStack(alignment: .leading, spacing: 2) {
                 Text(pick.person.displayName)
                     .foregroundStyle(BipeColor.inkPrimary)

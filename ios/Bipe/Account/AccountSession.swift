@@ -42,14 +42,18 @@ final class AccountSession {
     static func restore(_ saved: Session) async throws -> AccountSession {
         // The keychain outlives a deleted app, the SDK store does not: a session without its store cannot restore.
         guard hasStore(userId: saved.userId) else { throw AccountStep.Failure.noStore }
-        let client = try await AccountStep.run("build client") { try await makeClient(userId: saved.userId) }
+        let client = try await AccountStep.run("build client") {
+            try await makeClient(userId: saved.userId, homeserverURL: saved.homeserverUrl)
+        }
         try await AccountStep.run("restore session") { try await client.restoreSession(session: saved) }
         return try await start(client)
     }
 
     private static func start(_ client: Client) async throws -> AccountSession {
         let syncService = try await AccountStep.run("sync service") {
-            let syncService = try await client.syncService().finish()
+            // The SDK starts network tasks in the background and reconnects after offline failures.
+            // Neither an initial sync response nor a reachability probe is a local-readiness gate.
+            let syncService = try await client.syncService().withOfflineMode().finish()
             await syncService.start()
             return syncService
         }
@@ -80,12 +84,15 @@ final class AccountSession {
 
     /// Builds a client whose store lives in the app group, one folder per account
     /// (spec account-start notes: the switch from the fork can reuse it).
-    static func makeClient(userId: String, process: Process = .app) async throws -> Client {
+    static func makeClient(userId: String, process: Process = .app,
+                           homeserverURL: String = AppConfig.homeserver) async throws -> Client {
         let paths = try storePaths(userId: userId)
         var builder = ClientBuilder()
-            .serverNameOrHomeserverUrl(serverNameOrUrl: AppConfig.homeserver)
+            .homeserverUrl(url: homeserverURL)
             .sessionPaths(dataPath: paths.data.path, cachePath: paths.cache.path)
-            .slidingSyncVersionBuilder(versionBuilder: .discoverNative)
+            // Bipe uses native sliding sync. Discovery requests /versions during build, making even
+            // a saved local session wait for internet. Restore also retains the saved sync version.
+            .slidingSyncVersionBuilder(versionBuilder: .native)
             .setSessionDelegate(sessionDelegate: SessionSaver())
             .crossProcessLockConfig(crossProcessLockConfig: .multiProcess(holderName: process.rawValue))
             // Spec encryption-status: a new account gets cross-signing and key backup with no screen.

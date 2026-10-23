@@ -51,14 +51,16 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
         suspend fun restore(context: Context, saved: Session, sessionStore: SessionStore): AccountSession {
             // A session without its SDK store cannot restore.
             if (!hasStore(context, saved.userId)) throw AccountStep.NoStore()
-            val client = AccountStep.run("build client") { makeClient(context, saved.userId, sessionStore) }
+            val client = AccountStep.run("build client") { makeClient(context, saved.userId, sessionStore, saved.homeserverUrl) }
             AccountStep.run("restore session") { client.restoreSession(saved) }
             return start(client)
         }
 
         private suspend fun start(client: Client): AccountSession {
             val syncService = AccountStep.run("sync service") {
-                client.syncService().finish().also { it.start() }
+                // start() spawns SDK network tasks; offline mode retries when connectivity returns.
+                // Initial sync/reachability responses must never gate local readiness.
+                client.syncService().withOfflineMode().finish().also { it.start() }
             }
             return AccountSession(client, syncService, client.userId())
         }
@@ -71,12 +73,14 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
          * Builds a client whose store lives in app storage, one folder per account
          * (spec account-start notes: the switch from the fork can reuse it).
          */
-        suspend fun makeClient(context: Context, userId: String, sessionStore: SessionStore): Client {
+        suspend fun makeClient(context: Context, userId: String, sessionStore: SessionStore,
+                               homeserverUrl: String = AppConfig.HOMESERVER): Client {
             val (data, cache) = storePaths(context, userId)
             return ClientBuilder()
-                .serverNameOrHomeserverUrl(AppConfig.HOMESERVER)
+                .homeserverUrl(homeserverUrl)
                 .sessionPaths(data.path, cache.path)
-                .slidingSyncVersionBuilder(SlidingSyncVersionBuilder.DISCOVER_NATIVE)
+                // Discovery requests /versions during build, blocking offline local restore.
+                .slidingSyncVersionBuilder(SlidingSyncVersionBuilder.NATIVE)
                 .setSessionDelegate(sessionStore.delegate())
                 // Spec encryption-status: a new account gets cross-signing and key backup with no screen.
                 .autoEnableCrossSigning(true)

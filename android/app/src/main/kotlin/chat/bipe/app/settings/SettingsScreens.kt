@@ -57,10 +57,19 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import chat.bipe.app.notifications.NotificationSettingsScreen
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.encryption.RecoveryKeySaveScreen
 import chat.bipe.app.account.AccountSession
-import chat.bipe.app.notifications.NotificationSettingsScreen
+import chat.bipe.app.people.PeopleService
+import chat.bipe.app.people.PeopleRoute
+import chat.bipe.app.people.PeopleScreen
+import chat.bipe.app.people.PeopleNavigation
+import chat.bipe.app.invites.InvitesModel
+import chat.bipe.app.invites.InvitesScreen
+import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.handle.HandlePickModel
+import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
@@ -78,10 +87,13 @@ import kotlinx.coroutines.launch
 
 /** The screens that the settings stack pushes. */
 sealed interface SettingsRoute {
+    data class People(val route: PeopleRoute) : SettingsRoute
+    data object HandlePick : SettingsRoute
+    data object Invites : SettingsRoute
     data class Group(val group: BipeSettingsGroup) : SettingsRoute
+    data object Notifications : SettingsRoute
     data object Messaging : SettingsRoute
     data object Support : SettingsRoute
-    data object Notifications : SettingsRoute
     data object PinChange : SettingsRoute
     data object AppLockSetup : SettingsRoute
     data object AppLockOff : SettingsRoute
@@ -100,24 +112,38 @@ sealed interface SettingsRoute {
 fun SettingsHost(
     session: AccountSession,
     api: BipeApiClient,
+    invites: InvitesModel,
     onClose: () -> Unit,
     onSignedOut: () -> Unit,
-    rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit) -> Unit)? = null,
+    onOpenChat: (String) -> Unit = {},
+    onProfileChanged: () -> Unit = {},
+    rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit, (PeopleRoute) -> Unit, () -> Unit) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val model = remember(session) { SettingsModel(context.applicationContext, session, api, scope) }
+    val media = remember(session) { MediaLoader(session.client) }
+    val people = remember(session) { PeopleService(context, session, api, media, scope) }
+    androidx.compose.runtime.DisposableEffect(people) {
+        people.start()
+        onDispose { people.close() }
+    }
     val stack = remember { mutableStateListOf<SettingsRoute>() }
-    val pop: () -> Unit = { if (stack.isEmpty()) onClose() else stack.removeAt(stack.lastIndex) }
+    val pop: () -> Unit = {
+        if (stack.isEmpty()) onClose() else {
+            stack.removeAt(stack.lastIndex)
+            onProfileChanged()
+        }
+    }
     BackHandler(onBack = pop)
     LaunchedEffect(model) { model.load() }
-    // Action openGroup. notifications opens notification-settings (bipe-chat/bipe#566).
     val openGroup: (BipeSettingsGroup) -> Unit = { group ->
         stack.add(if (group == BipeSettingsGroup.NOTIFICATIONS) SettingsRoute.Notifications else SettingsRoute.Group(group))
     }
     when (val route = stack.lastOrNull()) {
         null -> {
-            if (rootContent != null) rootContent(model, openGroup)
+            if (rootContent != null) rootContent(model, openGroup,
+                { stack.add(SettingsRoute.People(it)) }, { stack.add(SettingsRoute.Invites) })
             else {
                 SettingsPage(stringResource(R.string.bipe_settings_section), BipeScreen.SETTINGS_ROOT.id, onBack = onClose) {
                     SettingsRootSection(model, openGroup)
@@ -125,9 +151,22 @@ fun SettingsHost(
             }
         }
         is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut)
+        is SettingsRoute.People -> PeopleScreen(route.route, people, PeopleNavigation(
+            push = { stack.add(SettingsRoute.People(it)) }, pop = pop,
+            openChat = { stack.clear(); onOpenChat(it) },
+            pickHandle = { stack.add(SettingsRoute.HandlePick) },
+            invite = { stack.add(SettingsRoute.Invites) },
+        ))
+        SettingsRoute.Invites -> InvitesScreen(invites, people, onBack = pop,
+            openChat = { stack.clear(); onOpenChat(it) })
+        SettingsRoute.HandlePick -> {
+            val handle = remember(session) { HandlePickModel(context, api, session, scope) }
+            LaunchedEffect(handle) { handle.load() }
+            HandlePickScreen(handle, onClose = pop)
+        }
+        SettingsRoute.Notifications -> NotificationSettingsScreen(session, onBack = pop)
         SettingsRoute.Messaging -> MessagingPickerScreen(model, onBack = pop)
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
-        SettingsRoute.Notifications -> NotificationSettingsScreen(session, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
@@ -235,6 +274,11 @@ fun SettingsGroupScreen(
             return
         }
         when (row) {
+            BipeSettingsRow.PROFILE_NAME_PHOTO -> onOpen(SettingsRoute.People(PeopleRoute.ProfileEdit))
+            BipeSettingsRow.PROFILE_HANDLE -> onOpen(SettingsRoute.People(PeopleRoute.ProfileLink))
+            BipeSettingsRow.PROFILE_PUBLIC_PROFILE -> onOpen(SettingsRoute.People(PeopleRoute.PublicProfile))
+            BipeSettingsRow.PRIVACY_BLOCKED -> onOpen(SettingsRoute.People(PeopleRoute.BlockedList))
+            BipeSettingsRow.PRIVACY_CONTACTS -> onOpen(SettingsRoute.People(PeopleRoute.Contacts))
             BipeSettingsRow.PRIVACY_MESSAGING -> onOpen(SettingsRoute.Messaging)
             BipeSettingsRow.HELP_SUPPORT -> onOpen(SettingsRoute.Support)
             BipeSettingsRow.ACCOUNT_SIGN_OUT -> showsSignOut = true
@@ -414,6 +458,13 @@ fun openPage(context: Context, url: String) {
     } catch (error: ActivityNotFoundException) {
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
+}
+
+private fun openNotificationSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
 }
 
 @Composable

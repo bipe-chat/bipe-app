@@ -18,7 +18,7 @@ struct VoceView: View {
     @State private var path = NavigationPath()
     @State private var openingNotes = false
     @State private var notesFailed = false
-    private enum Destination: Hashable { case notes(String) }
+    private enum Destination: Hashable { case notes(String), invites }
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
@@ -34,9 +34,10 @@ struct VoceView: View {
             List {
                 if let account = model.accounts.first(where: \.isCurrent) {
                     VoceHeader(account: account, media: chatList.media,
-                               openProfile: { path.append(PeopleRoute.profileEdit) },
-                               openQr: { path.append(PeopleRoute.profileLink) })
+                               openProfile: { path.append(SettingsRoute.group(.profile)) },
+                               openQr: { path.append(PeopleRoute.profileQr) })
                         .listRowBackground(BipeColor.surfaceBase)
+                        .buttonStyle(.borderless)
                 }
                 if model.accounts.count > 1 {
                     Section(BipeStrings.appAccountSwitcherTitle) {
@@ -63,6 +64,12 @@ struct VoceView: View {
                     .disabled(openingNotes)
                     .listRowBackground(BipeColor.surfaceRaised)
                 }
+                Section {
+                    NavigationLink(value: Destination.invites) {
+                        IconLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
+                    }
+                    .listRowBackground(BipeColor.surfaceRaised)
+                }
                 SettingsRootSection(model: settings)
             }
             .listStyle(.insetGrouped)
@@ -76,26 +83,46 @@ struct VoceView: View {
                 switch destination {
                 case .notes(let roomId):
                     ChatTimelineView(session: chatList.session, media: chatList.media, roomId: roomId)
+                case .invites:
+                    InvitesView(model: model.invites(for: chatList.session), people: people,
+                                openChat: { path.append(Destination.notes($0)) })
                 }
             }
-            // Actions openProfile and openQr of spec voce: the people screens (bipe-chat/bipe#568).
             .navigationDestination(for: PeopleRoute.self) { route in
-                switch route {
-                case .profileLink:
-                    ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
-                default:
-                    ProfileEditView(people: people)
-                }
+                peopleScreen(route)
             }
         }
         .accessibilityIdentifier(BipeScreen.voce.rawValue)
-        .task { await model.refreshProfiles() }
-        .sheet(isPresented: $showsHandlePick) {
-            HandlePickView(model: handle)
-        }
+        .onAppear { people.start(); Task { await model.refreshProfiles() } }
+        .sheet(isPresented: $showsHandlePick) { HandlePickView(model: handle) }
         .alert(BipeStrings.selfChatError, isPresented: $notesFailed) {
             Button(BipeStrings.appRetry, action: openNotes)
             Button(BipeStrings.appCancel, role: .cancel) {}
+        }
+    }
+
+    @ViewBuilder
+    private func peopleScreen(_ route: PeopleRoute) -> some View {
+        switch route {
+        case .profileEdit:
+            ProfileEditView(people: people)
+        case .publicProfile:
+            PublicProfileEditView(people: people, pickHandle: { showsHandlePick = true },
+                                  openLink: { path.append(PeopleRoute.profileLink) })
+        case .profileLink:
+            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
+        case .profileQr:
+            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true }, initiallyShowsQr: true)
+        case .contacts:
+            ContactsView(people: people, openChat: { path.append(Destination.notes($0)) },
+                         invite: { path.append(Destination.invites) })
+        case .blockedList:
+            BlockedListView(people: people) { path.append(PeopleRoute.person(userId: $0, fromDm: false)) }
+        case .whoCanMessage:
+            WhoCanMessageView(people: people)
+        case .person(let userId, let fromDm):
+            PersonProfileView(people: people, userId: userId, fromDm: fromDm,
+                              routes: PersonProfileRoutes(openChat: { path.append(Destination.notes($0)) }))
         }
     }
 
@@ -118,17 +145,15 @@ private struct VoceHeader: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // Action openProfile: photo and name open profile-edit.
             Button(action: openProfile) {
                 VStack(spacing: 8) {
                     AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 88,
                                userId: account.userId, isCompany: account.isCompany)
-                    Text(account.displayName)
-                        .font(.title2.bold())
-                        .foregroundStyle(BipeColor.inkPrimary)
+                    Text(account.displayName).font(.title2.bold()).foregroundStyle(BipeColor.inkPrimary)
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(BipeStrings.settingsProfile)
             if let handle = account.handle {
                 Text(verbatim: "@\(handle)")
                     .font(.subheadline)
@@ -136,9 +161,11 @@ private struct VoceHeader: View {
                 if let url = URL(string: "https://bipe.chat/@\(handle)") {
                     ShareLink(item: url) { Text(BipeStrings.profileShare) }
                 }
-                // Action openQr: the profile link and its QR code (profile-link).
-                Button(BipeStrings.profileQrTitle, action: openQr)
-                    .buttonStyle(.borderless)
+            }
+            Button(action: openQr) {
+                Label { Text(BipeStrings.profileQrAction) } icon: {
+                    PhosphorIcon.qrCode.image.resizable().frame(width: 20, height: 20)
+                }
             }
         }
         .frame(maxWidth: .infinity)

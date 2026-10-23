@@ -5,22 +5,8 @@
 import Foundation
 import MatrixRustSDK
 
-/// Type Person of spec group-create.
-struct Person: Identifiable, Hashable {
-    var userId: String
-    var displayName: String
-    var avatarUrl: String?
-    var handle: String?
-
-    var id: String { userId }
-
-    init(userId: String, displayName: String?, avatarUrl: String?, handle: String? = nil) {
-        self.userId = userId
-        self.displayName = displayName.flatMap { $0.isEmpty ? nil : $0 } ?? userId
-        self.avatarUrl = avatarUrl
-        self.handle = handle
-    }
-
+/// Group adapters share the native people model, so every screen uses the same display-name rules.
+extension Person {
     init(member: RoomMember) {
         self.init(userId: member.userId, displayName: member.displayName, avatarUrl: member.avatarUrl)
     }

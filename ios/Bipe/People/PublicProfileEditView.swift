@@ -25,6 +25,7 @@ struct PublicProfileEditView: View {
     let openLink: () -> Void
 
     @State private var enabled = false
+    @State private var isCompany = false
     @State private var handle: String?
     @State private var name = ""
     @State private var bio = ""
@@ -143,7 +144,7 @@ struct PublicProfileEditView: View {
                 .resizable()
                 .scaledToFill()
                 .frame(width: 96, height: 96)
-                .clipShape(Circle())
+                .clipShape(photoShape)
         } else if let photoUrl {
             AsyncImage(url: photoUrl) { image in
                 image.resizable().scaledToFill()
@@ -151,14 +152,19 @@ struct PublicProfileEditView: View {
                 Circle().fill(BipeColor.accentWash)
             }
             .frame(width: 96, height: 96)
-            .clipShape(Circle())
+            .clipShape(photoShape)
         } else {
-            AvatarView(name: name, mxcUrl: nil, loader: people.media, size: 96)
+            AvatarView(name: name, mxcUrl: nil, loader: people.media, size: 96, userId: people.session.userId, isCompany: isCompany)
         }
+    }
+
+    private var photoShape: AnyShape {
+        isCompany ? AnyShape(RoundedRectangle(cornerRadius: 24, style: .continuous)) : AnyShape(Circle())
     }
 
     /// Action appear: GET /v1/me/profile. A profile never saved starts from the Matrix profile.
     private func appear() async {
+        isCompany = await people.media.isCompany(userId: people.session.userId)
         do throws(BipeAPIError) {
             let profile = try await people.withToken { (token: String) async throws(BipeAPIError) -> BipeMyProfile in
                 try await people.api.myProfile(accessToken: token)

@@ -42,6 +42,7 @@ final class AppTabsModel: ObservableObject {
 
     let start: AccountStartModel
     private var chatLists: [String: ChatListModel] = [:]
+    private var inviteModels: [String: InvitesModel] = [:]
     private var latestChats: [String: [ChatSummary]] = [:]
     private var sessionIds: [String] = []
     private var currentId: String?
@@ -72,12 +73,14 @@ final class AppTabsModel: ObservableObject {
         }
         let model = ChatListModel(session: session)
         chatLists[session.userId] = model
+        _ = invites(for: session)
         let userId = session.userId
         listCancellables[userId] = model.$chats
             .receive(on: RunLoop.main)
             .sink { [weak self] chats in
                 self?.latestChats[userId] = chats
                 self?.refresh()
+                Task { await self?.inviteModels[userId]?.retryNotes() }
             }
         Task { await model.start() }
         Task { await loadProfile(of: session) }
@@ -114,7 +117,18 @@ final class AppTabsModel: ObservableObject {
 
     /// Refresh photos, handles and the live personal-account limit after profile changes or returning to the app.
     func refreshProfiles() async {
-        for session in start.sessions { await loadProfile(of: session) }
+        for session in start.sessions {
+            await loadProfile(of: session)
+            await invites(for: session).refresh()
+        }
+    }
+
+    func invites(for session: AccountSession) -> InvitesModel {
+        if let existing = inviteModels[session.userId] { return existing }
+        let model = InvitesModel(session: session, api: start.api)
+        inviteModels[session.userId] = model
+        model.start()
+        return model
     }
 
     private func sessionsChanged(_ sessions: [AccountSession], current: String?) {
@@ -125,6 +139,7 @@ final class AppTabsModel: ObservableObject {
             listCancellables[userId] = nil
             latestChats[userId] = nil
             profiles[userId] = nil
+            inviteModels.removeValue(forKey: userId)?.close()
         }
         for session in sessions {
             _ = chatList(for: session)

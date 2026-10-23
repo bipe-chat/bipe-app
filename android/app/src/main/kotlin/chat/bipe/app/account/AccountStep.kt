@@ -26,16 +26,19 @@ object AccountStep {
     class NoStore : Exception("no SDK store")
 
     suspend fun <T> run(name: String, operation: suspend () -> T): T {
+        val started = System.nanoTime()
         Log.i(TAG, "$name: start")
         return try {
-            BipeDeadline.run(LIMIT_MS, operation).also { Log.i(TAG, "$name: done") }
+            BipeDeadline.run(LIMIT_MS, operation).also { Log.i(TAG, "$name: done in ${elapsedMs(started)} ms") }
         } catch (e: TimeoutCancellationException) {
-            Log.w(TAG, "$name: timed out")
+            Log.w(TAG, "$name: timed out in ${elapsedMs(started)} ms")
             // Not a CancellationException: the caller treats it as a failed step, not as its own cancellation.
             throw TimedOut(name)
         } catch (e: Exception) {
-            Log.w(TAG, "$name: failed, ${e.javaClass.simpleName}")
+            Log.w(TAG, "$name: failed in ${elapsedMs(started)} ms")
             throw e
         }
     }
+
+    private fun elapsedMs(started: Long): Long = (System.nanoTime() - started) / 1_000_000
 }

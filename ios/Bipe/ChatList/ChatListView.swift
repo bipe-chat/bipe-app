@@ -66,9 +66,6 @@ struct ChatListView: View {
                 peopleScreen(route)
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    peopleMenu
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
                 }
@@ -173,6 +170,8 @@ struct ChatListView: View {
             PublicProfileEditView(people: people,
                                   pickHandle: { showsHandlePick = true },
                                   openLink: { path.append(PeopleRoute.profileLink) })
+        case .profileQr:
+            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true }, initiallyShowsQr: true)
         case .profileLink:
             ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
         case .contacts:

@@ -49,11 +49,13 @@ struct AppTabsView: View {
                 Label(BipeStrings.appTabSearch, systemImage: "magnifyingglass")
             }
         }
+        .environmentObject(model)
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
                                    onLongPress: { model.longPressVoce() }))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
+        .modifier(InviteJoinNotice(model: model.invites(for: session)))
         .sheet(isPresented: $model.showsAccountSwitcher, onDismiss: {
             if pendingNewAccount {
                 pendingNewAccount = false

@@ -287,7 +287,6 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 )
-                PeopleMenu(onOpenPeople)
                 CreateGroupButton(onCreateGroup, onInvite)
                 IconButton(onClick = onOpenSearch) {
                     Icon(
