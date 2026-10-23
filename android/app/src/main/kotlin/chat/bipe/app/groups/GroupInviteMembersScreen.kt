@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -51,8 +53,10 @@ fun GroupInviteMembersScreen(
     onDone: (List<Person>) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val api = LocalBipeApi.current
     val model = remember(mode) { GroupInviteMembersModel(session, mode, scope) }
-    LaunchedEffect(model) { model.appear() }
+    LaunchedEffect(model) { model.appear(context, api, media) }
     BackHandler(onBack = onBack)
     val colors = BipeTheme.colors
     val query by model.query.collectAsState()
@@ -60,6 +64,8 @@ fun GroupInviteMembersScreen(
     val phase by model.phase.collectAsState()
     val loading by model.loading.collectAsState()
     val selectedCount by model.selectedCount.collectAsState()
+    val handleMatch by model.handleMatch.collectAsState()
+    val handleNotFound by model.handleNotFound.collectAsState()
 
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.GROUP_INVITE_MEMBERS.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -93,6 +99,20 @@ fun GroupInviteMembersScreen(
             )
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 item(key = "header") { GroupSectionHeader(stringResource(R.string.bipe_app_people_contacts)) }
+                handleMatch?.let { match ->
+                    item(key = "handle") { PickRow(match, media) { model.toggle(match.person.userId) } }
+                }
+                val notFound = GroupInviteLookup.handle(query)?.takeIf { handleMatch == null && handleNotFound }
+                if (notFound != null) {
+                    item(key = "handle-not-found") {
+                        Text(
+                            stringResource(R.string.bipe_start_chat_handle_not_found, notFound),
+                            color = colors.inkSecondary,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                }
                 if (loading) {
                     item(key = "loading") {
                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {

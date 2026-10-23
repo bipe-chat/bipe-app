@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 
@@ -40,6 +41,8 @@ final class GroupInviteMembersModel: ObservableObject {
 
     @Published private(set) var query = ""
     @Published private(set) var contacts: [PersonPick] = []
+    @Published private(set) var handleMatch: PersonPick?
+    @Published private(set) var handleNotFound = false
     @Published private(set) var phase = Phase.choosing
     @Published private(set) var loading = true
 
@@ -50,6 +53,11 @@ final class GroupInviteMembersModel: ObservableObject {
     private var selected: [String] = []
     private var memberStatus: [String: PersonPick.Status] = [:]
     private var results: [String: PersonPick.Status] = [:]
+    /// Needs the Bipe API client; without it the screen has the SDK contacts only.
+    private var lookup: GroupInviteLookup?
+    private var lookupTask: Task<Void, Never>?
+    /// The holder of the @ in query, from the last lookup.
+    private var holder: Person?
 
     init(session: AccountSession, mode: Mode) {
         self.session = session
@@ -62,8 +70,11 @@ final class GroupInviteMembersModel: ObservableObject {
 
     var selectedCount: Int { selected.count }
 
-    func appear() async {
+    func appear(api: BipeAPIClient?, media: MediaLoader) async {
         guard loading else { return }
+        if let api {
+            lookup = GroupInviteLookup(people: PeopleService(session: session, api: api, media: media))
+        }
         var people = await GroupPeople.contacts(client: session.client, ownUserId: session.userId)
         // People picked before stay on the list even when they are not contacts.
         for person in self.people where !people.contains(where: { $0.userId == person.userId }) {
@@ -82,17 +93,49 @@ final class GroupInviteMembersModel: ObservableObject {
         }
         loading = false
         rebuild()
+        // Invite pairs and address-book matches come after: the API calls must not hold the list back.
+        if let lookup {
+            let more = await lookup.moreContacts(except: Set(self.people.map(\.userId)))
+            self.people = (self.people + more.filter { person in !self.people.contains { $0.userId == person.userId } })
+                .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+            rebuild()
+        }
     }
 
-    /// Action setQuery: filters contacts at once.
+    /// Action setQuery: filters contacts at once. A valid @ is looked up after a short pause.
     func setQuery(_ query: String) {
         self.query = query
+        lookupTask?.cancel()
+        holder = nil
+        handleNotFound = false
         rebuild()
+        guard let lookup, let handle = GroupInviteLookup.handle(in: query) else { return }
+        lookupTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            let found: Person?
+            do {
+                found = try await lookup.holder(of: handle)
+            } catch {
+                // A failed lookup shows neither the person nor "not found".
+                return
+            }
+            guard let self, !Task.isCancelled, self.query == query else { return }
+            if let found, found.userId != self.session.userId {
+                self.holder = found
+            } else if found == nil {
+                self.handleNotFound = true
+            }
+            self.rebuild()
+        }
     }
 
     /// Action toggle.
     func toggle(_ userId: String) {
         guard phase != .inviting else { return }
+        if let holder, holder.userId == userId, !people.contains(where: { $0.userId == userId }) {
+            people.append(holder)
+        }
         switch status(of: userId) {
         case .member, .invited:
             return
@@ -157,5 +200,9 @@ final class GroupInviteMembersModel: ObservableObject {
         contacts = people
             .filter { $0.matches(query) || results[$0.userId] != nil }
             .map { PersonPick(person: $0, status: status(of: $0.userId)) }
+        // The holder of the @ shows on its own row unless the contacts above show the person already.
+        handleMatch = holder.flatMap { holder in
+            contacts.contains { $0.person.userId == holder.userId } ? nil : PersonPick(person: holder, status: status(of: holder.userId))
+        }
     }
 }

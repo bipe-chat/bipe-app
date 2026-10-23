@@ -66,7 +66,7 @@ private enum class ContactsPermission { NOT_ASKED, GRANTED, DENIED }
 private enum class LinkPhase { RESOLVING, NOT_FOUND, FAILED }
 
 /** The address book: E.164 to the saved name. Numbers that do not normalise and duplicates are dropped. */
-private suspend fun readAddressBook(context: Context): Map<String, String> = withContext(Dispatchers.IO) {
+internal suspend fun readAddressBook(context: Context): Map<String, String> = withContext(Dispatchers.IO) {
     val names = mutableMapOf<String, String>()
     val projection = arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
     runCatching {

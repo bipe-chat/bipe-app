@@ -27,6 +27,19 @@ struct GroupInviteMembersView: View {
     var body: some View {
         List {
             Section {
+                if let match = model.handleMatch {
+                    Button {
+                        model.toggle(match.person.userId)
+                    } label: {
+                        PickRow(pick: match, media: media)
+                    }
+                    .listRowBackground(BipeColor.surfaceBase)
+                } else if model.handleNotFound, let handle = GroupInviteLookup.handle(in: model.query) {
+                    Text(BipeStrings.startChatHandleNotFound(handle))
+                        .font(.footnote)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                        .listRowBackground(BipeColor.surfaceBase)
+                }
                 if model.loading {
                     ProgressView().frame(maxWidth: .infinity)
                 }
@@ -74,7 +87,7 @@ struct GroupInviteMembersView: View {
             }
         }
         .accessibilityIdentifier(BipeScreen.groupInviteMembers.rawValue)
-        .task { await model.appear() }
+        .task { await model.appear(api: api, media: media) }
     }
 
     /// Action invite.
