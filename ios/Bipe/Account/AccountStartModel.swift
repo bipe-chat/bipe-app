@@ -88,7 +88,6 @@ final class AccountStartModel: ObservableObject {
         }
         let saved = snapshot.saved
         let credentials = snapshot.credentials
-        AccountStep.log.info("start: \(saved.count) saved sessions, \(credentials.count) device credentials")
         let found = credentials.map(\.userId) + saved.keys.sorted().filter { id in !credentials.contains { $0.userId == id } }
         let accounts = AccountList.merge(found: found)
 
@@ -233,7 +232,10 @@ final class AccountStartModel: ObservableObject {
                 log.notice("saved session without its store, dropped")
                 SessionStore.delete(userId: userId)
             } catch {
-                log.error("restore failed")
+                // A local restore failure does not establish that this saved session is invalid.
+                // In particular, never delete its database to try password login after a transient error.
+                log.error("restore failed; saved session and store retained")
+                return nil
             }
         }
         guard let credential else {

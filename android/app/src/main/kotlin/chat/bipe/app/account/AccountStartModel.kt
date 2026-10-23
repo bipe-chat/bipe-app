@@ -241,7 +241,6 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         val (saved, passwords) = AccountStep.run("read saved accounts") {
             sessionStore.loadAll() to vault.read().accounts.filterValues { it.password != null }.mapValues { it.value.password!! }
         }
-        Log.i(AccountStep.TAG, "start: ${saved.size} saved sessions, ${passwords.size} device credentials")
         val found = passwords.keys.toList() + saved.keys.sorted().filterNot(passwords::containsKey)
         val accounts = accountList.merge(found)
 
@@ -306,7 +305,9 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
                 Log.i(AccountStep.TAG, "saved session without its store, dropped")
                 sessionStore.delete(userId)
             } catch (e: Exception) {
-                Log.w(AccountStep.TAG, "restore failed: ${e.javaClass.simpleName}")
+                // A transient/local restore error never authorizes deleting a usable session store.
+                Log.w(AccountStep.TAG, "restore failed; saved session and store retained")
+                return null
             }
         }
         if (password == null) {
