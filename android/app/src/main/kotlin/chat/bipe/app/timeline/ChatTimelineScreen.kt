@@ -124,7 +124,7 @@ fun ChatTimelineScreen(
         undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable),
         label = { context.getString(it) },
     )
-    val model = remember(roomId) {
+    val model = remember(session, roomId) {
         ChatTimelineModel(
             session, roomId, scope, InviterGreetings(context, session.userId), strings, context.getString(R.string.bipe_dm_no_name),
             sharesTyping = { sharesTyping(context) },
@@ -156,10 +156,10 @@ fun ChatTimelineScreen(
     val messages by model.messages.collectAsState()
     val isPrivateRoom by model.isPrivateRoom.collectAsState()
     // Spec voice-message: one player per chat; it stops when the chat closes.
-    val voicePlayer = remember(roomId) { VoicePlayer(context.applicationContext, media, scope) }
+    val voicePlayer = remember(session, roomId) { VoicePlayer(context.applicationContext, media, scope) }
     val voiceState by voicePlayer.state.collectAsState()
     DisposableEffect(voicePlayer) { onDispose { voicePlayer.stop() } }
-    var viewerRowId by rememberSaveable { mutableStateOf<String?>(null) }
+    var viewerRowId by rememberSaveable(session.userId, roomId) { mutableStateOf<String?>(null) }
     // composer
     val composer by model.composer.collectAsState()
     var attaching by remember { mutableStateOf(false) }

@@ -151,7 +151,7 @@ struct ChatTimelineView: View {
             Text(BipeStrings.appMessageDeleteBody)
         }
         // Spec notification-service: an open chat has no notifications.
-        .onAppear { NotificationActions.shared.chatOpened(model.roomId) }
+        .onAppear { model.resumeMenuActions(); NotificationActions.shared.chatOpened(model.roomId) }
         .onDisappear { NotificationActions.shared.chatOpened(nil) }
         .notificationsPrompt(session: session, roomId: model.roomId, messages: model.rows.compactMap(\.message))
     }
