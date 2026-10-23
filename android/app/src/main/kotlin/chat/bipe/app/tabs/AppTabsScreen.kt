@@ -17,6 +17,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import chat.bipe.app.chatlist.ChatRequestsModel
+import chat.bipe.app.chatlist.ChatSearchModel
+import chat.bipe.app.chatlist.RemoteBannerModel
 import chat.bipe.app.chatlist.ChatListModel
 import chat.bipe.app.chatlist.ChatListScreen
 import chat.bipe.app.chatlist.ChatScope
@@ -38,6 +41,11 @@ fun AppTabsScreen(
     onOpenHandlePick: () -> Unit,
     onOpenChat: (String) -> Unit,
     onNewAccount: () -> Unit,
+    requests: ChatRequestsModel,
+    search: ChatSearchModel,
+    remoteBanner: RemoteBannerModel,
+    onOpenRequests: () -> Unit,
+    onFindHandle: (String) -> Unit,
     /** Spec encryption-status: the banner above Conversas. */
     banner: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
@@ -62,15 +70,17 @@ fun AppTabsScreen(
                 AppTabsModel.Tab.CONVERSAS ->
                     ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner,
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite, onOpenPeople = onOpenPeople)
+                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite, onOpenPeople = onOpenPeople,
+                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) },
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite, onOpenPeople = onOpenPeople)
+                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite, onOpenPeople = onOpenPeople,
+                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests)
                 AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }
-                    ChatSearchScreen(chatList, media, onOpenChat)
+                    ChatSearchScreen(search, media, onOpenChat, onFindHandle)
                 }
             }
         }

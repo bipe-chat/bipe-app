@@ -8,6 +8,8 @@ import com.google.common.truth.Truth.assertWithMessage
 import chat.bipe.shared.account.BipePin
 import chat.bipe.shared.clearedchats.ClearedChats
 import chat.bipe.shared.generated.BipeRegistries
+import chat.bipe.shared.generated.BipeDmCandidate
+import chat.bipe.shared.generated.BipeDmSelection
 import chat.bipe.shared.generated.BipeTrustFacts
 import chat.bipe.shared.generated.BipeTrustInput
 import kotlinx.serialization.json.Json
@@ -26,6 +28,26 @@ import java.io.File
 
 /** Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). iOS runs the same files. */
 class SharedVectorTest {
+    @Test
+    fun dmSelection() {
+        for (vector in vectors("dm-selection.json", "cases")) {
+            val candidates = vector.getValue("candidates").jsonArray.map { raw ->
+                val item = raw.jsonObject
+                BipeDmCandidate(item.getValue("roomId").jsonPrimitive.content,
+                    item.getValue("peerUserId").jsonPrimitive.content,
+                    item.getValue("latestActivityMs").jsonPrimitive.longOrNull,
+                    item.getValue("eligible").jsonPrimitive.boolean,
+                    item["cleared"]?.jsonPrimitive?.boolean ?: false)
+            }
+            fun expected(key: String) = vector.getValue(key).jsonObject.mapValues { it.value.jsonPrimitive.content }
+            assertWithMessage("DM selection ${vector.string("name")}").that(BipeDmSelection.newestRooms(candidates)).isEqualTo(expected("expected"))
+            assertWithMessage("DM reverse order").that(BipeDmSelection.newestRooms(candidates.reversed())).isEqualTo(expected("expected"))
+            if ("includingCleared" in vector) {
+                assertWithMessage("DM reuse when all cleared").that(BipeDmSelection.newestRooms(candidates, includingCleared = true)).isEqualTo(expected("includingCleared"))
+            }
+        }
+    }
+
     @Test
     fun trustFacts() {
         val cases = vectors("trust-facts.json", "vectors")

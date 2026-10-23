@@ -7,6 +7,7 @@ package chat.bipe.app.people
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.groups.DmDeleteModel
+import chat.bipe.app.chatlist.NativeDmSelection
 import android.content.Context
 import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.api.BipeApiClient
@@ -14,6 +15,7 @@ import chat.bipe.shared.api.isCompany
 import chat.bipe.shared.company.BipeCompanySeals
 import chat.bipe.shared.company.BipeCompanySealsSeen
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -157,7 +159,9 @@ class PeopleService(
         runCatching { session.client.encryption().userIdentity(userId, false)?.isVerified() }.getOrNull() == true
 
     /** Client.getDmRoom: the newest DM with the person. */
-    fun dmRoomId(userId: String): String? = runCatching { session.client.getDmRoom(userId)?.id() }.getOrNull()
+    suspend fun dmRoomId(userId: String): String? = try { NativeDmSelection.roomId(userId, session) }
+        catch (error: CancellationException) { throw error }
+        catch (_: Exception) { null }
 
     /** The other person of a DM (RoomInfo.isDm, ADR 0141), else `null`. */
     suspend fun dmPartner(roomId: String): String? {
@@ -171,7 +175,7 @@ class PeopleService(
      * invite or change the room (ADR 0141). Throws INVITE_REFUSED when the person's who-can-message setting refuses it.
      */
     suspend fun openOrCreateDm(userId: String): String {
-        dmRoomId(userId)?.let { return it }
+        NativeDmSelection.roomId(userId, session)?.let { return it }
         val locked = 101
         val powerLevels = PowerLevels(
             usersDefault = null,

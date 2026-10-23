@@ -14,14 +14,46 @@ final class ClearedChatsStore: ObservableObject {
     static let shared = ClearedChatsStore()
 
     @Published private(set) var markers: [String: UInt64] = [:]
+    @Published private(set) var revision: UInt64 = 0
+    private var cached: [String: [String: UInt64]] = [:]
+    private var pending: [String: [String: UInt64]] = [:]
+    private var displayedUserId: String?
+    private var refreshVersion: UInt64 = 0
 
     func refresh(client: Client) async {
-        let json = try? await client.accountData(eventType: ClearedChats.eventType)
-        markers = ClearedChats(json: json ?? nil).markers
+        guard let userId = try? client.userId() else { return }
+        refreshVersion &+= 1
+        let version = refreshVersion
+        if displayedUserId != userId {
+            displayedUserId = userId
+            markers = cached[userId] ?? pending[userId] ?? [:]
+        }
+        do {
+            let loaded = overlay(ClearedChats(json: try await client.accountData(eventType: ClearedChats.eventType)), userId: userId).markers
+            let changed = cached[userId] != loaded
+            cached[userId] = loaded
+            guard version == refreshVersion else { return }
+            if markers != loaded { markers = loaded }
+            if changed { revision &+= 1 }
+        } catch { /* Keep this account's cached markers on a local read error. */ }
     }
 
-    func set(roomId: String, marker: UInt64) {
-        markers[roomId] = max(markers[roomId] ?? 0, marker)
+    func set(userId: String, roomId: String, marker: UInt64) {
+        var accountPending = pending[userId] ?? [:]
+        accountPending[roomId] = max(accountPending[roomId] ?? 0, marker)
+        pending[userId] = accountPending
+        var accountCached = cached[userId] ?? [:]
+        accountCached[roomId] = max(accountCached[roomId] ?? 0, marker)
+        cached[userId] = accountCached
+        if displayedUserId == userId { markers = cached[userId] ?? [:] }
+        revision &+= 1
+    }
+
+    /// A successful clear takes effect before the SDK receives its account-data echo, only for its owner.
+    func overlay(_ stored: ClearedChats, userId: String) -> ClearedChats {
+        var result = stored.markers
+        for (room, marker) in pending[userId, default: [:]] { result[room] = max(result[room] ?? 0, marker) }
+        return ClearedChats(markers: result)
     }
 
     func hidden(roomId: String, latest: Date?) -> Bool {
@@ -65,7 +97,7 @@ final class DmDeleteModel: ObservableObject {
             let content = ClearedChats.content(clearing: try await serverContent(), roomID: roomId, at: ts)
             let data = try JSONSerialization.data(withJSONObject: content)
             try await session.client.setAccountData(eventType: ClearedChats.eventType, content: String(decoding: data, as: UTF8.self))
-            ClearedChatsStore.shared.set(roomId: roomId, marker: ts)
+            ClearedChatsStore.shared.set(userId: session.userId, roomId: roomId, marker: ts)
             return true
         } catch {
             phase = .failed

@@ -241,7 +241,7 @@ fun ReadersSheet(readers: List<ReceiptReader>, media: MediaLoader, onDismiss: ()
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Avatar(reader.name, reader.avatarUrl, media, size = 32.dp)
+                        Avatar(reader.name, reader.avatarUrl, media, size = 32.dp, userId = reader.userId)
                         Text(reader.name, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary, modifier = Modifier.weight(1f))
                         reader.readAt?.let { Text(format.format(it), style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
                     }

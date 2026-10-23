@@ -37,7 +37,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
-import chat.bipe.app.chatlist.ChatListModel
+import chat.bipe.app.chatlist.ChatSearchModel
+import chat.bipe.app.chatlist.ChatSearchResults
 import chat.bipe.app.chatlist.ChatRow
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.phosphor.PhosphorIcon
@@ -46,19 +47,16 @@ import java.text.Normalizer
 
 /** Search, the top-bar action: the current account's chats whose name matches. */
 @Composable
-internal fun ChatSearchScreen(model: ChatListModel, media: MediaLoader, onOpenChat: (String) -> Unit) {
+internal fun ChatSearchScreen(model: ChatSearchModel, media: MediaLoader, onOpenChat: (String) -> Unit, onFindHandle: (String) -> Unit) {
     val colors = BipeTheme.colors
-    val chats by model.chats.collectAsState()
-    var query by rememberSaveable { mutableStateOf("") }
+    val state by model.state.collectAsState()
     val focus = remember { FocusRequester() }
     LaunchedEffect(focus) { focus.requestFocus() }
-    val needle = fold(query.trim())
-    val matches = if (needle.isEmpty()) emptyList() else chats.filter { fold(it.name).contains(needle) }
     Surface(modifier = Modifier.fillMaxSize(), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
             TextField(
-                value = query,
-                onValueChange = { query = it },
+                value = state.query,
+                onValueChange = model::edit,
                 singleLine = true,
                 placeholder = { Text(stringResource(R.string.bipe_app_tab_search)) },
                 leadingIcon = {
@@ -73,15 +71,7 @@ internal fun ChatSearchScreen(model: ChatListModel, media: MediaLoader, onOpenCh
                 shape = CircleShape,
                 modifier = Modifier.fillMaxWidth().padding(16.dp).focusRequester(focus),
             )
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(matches, key = { it.roomId }) { chat ->
-                    ChatRow(chat, media) { onOpenChat(chat.roomId) }
-                }
-            }
+            ChatSearchResults(model, media, onOpenChat, onFindHandle)
         }
     }
 }
-
-/** Lowercase without accents, so "joao" finds "João". */
-private fun fold(text: String): String =
-    Normalizer.normalize(text.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")

@@ -12,7 +12,6 @@ import UIKit
 struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     @Environment(\.scenePhase) private var scenePhase
-    @State private var isGroup = false
     @State private var deletingDm = false
     @ObservedObject private var cleared = ClearedChatsStore.shared
     @Environment(\.closeChat) private var closeChat
@@ -69,17 +68,11 @@ struct ChatTimelineView: View {
         .navigationTitle(model.roomName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if let openInfo {
-                ToolbarItem(placement: .principal) {
-                    Button(action: openInfo) {
-                        Text(model.roomName)
-                            .font(.headline)
-                            .foregroundStyle(BipeColor.inkPrimary)
-                            .lineLimit(1)
-                    }
-                }
+            ToolbarItem(placement: .principal) {
+                if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
+                else { chatTitle }
             }
-            if isGroup {
+            if model.isGroup {
                 ToolbarItem(placement: .primaryAction) {
                     NavigationLink {
                         GroupDetailsView(session: session, media: media, roomId: roomId)
@@ -113,12 +106,6 @@ struct ChatTimelineView: View {
         }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
-        .task {
-            // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).
-            if let info = try? await session.client.getRoom(roomId: roomId)?.roomInfo() {
-                isGroup = !info.isDm && !info.isSpace
-            }
-        }
         .onDisappear {
             voicePlayer.stop()
             model.close()
@@ -216,6 +203,13 @@ struct ChatTimelineView: View {
                 withAnimation { proxy.scrollTo(target, anchor: .center) }
                 model.scrolledToTarget()
             }
+        }
+    }
+
+    private var chatTitle: some View {
+        HStack(spacing: 8) {
+            AvatarView(name: model.roomName, mxcUrl: model.roomAvatarUrl, loader: media, size: 32, userId: model.peerUserId)
+            Text(model.roomName).font(.headline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
         }
     }
 

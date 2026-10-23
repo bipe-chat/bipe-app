@@ -126,7 +126,7 @@ fun ChatTimelineScreen(
     )
     val model = remember(roomId) {
         ChatTimelineModel(
-            session, roomId, scope, InviterGreetings(context, session.userId), strings,
+            session, roomId, scope, InviterGreetings(context, session.userId), strings, context.getString(R.string.bipe_dm_no_name),
             sharesTyping = { sharesTyping(context) },
             handleChanges = HandleChangeStores.store(context, session),
         )
@@ -137,6 +137,9 @@ fun ChatTimelineScreen(
     }
     val colors = BipeTheme.colors
     val roomName by model.roomName.collectAsState()
+    val roomAvatarUrl by model.roomAvatarUrl.collectAsState()
+    val peerUserId by model.peerUserId.collectAsState()
+    val isGroup by model.isGroup.collectAsState()
     val allRows by model.rows.collectAsState()
     val markers by ClearedChatsStore.markers.collectAsState()
     // Spec dm-delete: events at or below the marker of a cleared DM are gone.
@@ -165,10 +168,6 @@ fun ChatTimelineScreen(
     NotificationsPrompt(session, roomId, messages)
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
-    // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).
-    val isGroup by produceState(false, roomId) {
-        value = runCatching { session.client.getRoom(roomId)?.roomInfo() }.getOrNull()?.let { !it.isDm && !it.isSpace } ?: false
-    }
     var dmMenu by remember { mutableStateOf(false) }
     var deletingDm by rememberSaveable { mutableStateOf(false) }
     if (deletingDm) {
@@ -217,10 +216,10 @@ fun ChatTimelineScreen(
                     }
                     // The header opens the chat's info: person-profile for a DM.
                     Row(
-                        modifier = Modifier.weight(1f).then(if (onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier),
+                        modifier = Modifier.weight(1f).then(if (isDm && onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Avatar(roomName, null, media, size = 32.dp)
+                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId)
                         Spacer(Modifier.size(8.dp))
                         Text(
                             roomName,

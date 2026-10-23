@@ -5,6 +5,7 @@
 package chat.bipe.app.chatlist
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.previewText
 import chat.bipe.app.common.toVectorDiff
@@ -14,12 +15,14 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 import org.matrix.rustcomponents.sdk.RoomListEntriesListener
 import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
+import org.matrix.rustcomponents.sdk.RoomListFilterCategory
 import org.matrix.rustcomponents.sdk.RoomListEntriesWithDynamicAdaptersResult
 import org.matrix.rustcomponents.sdk.RoomListLoadingState
 import org.matrix.rustcomponents.sdk.RoomListLoadingStateListener
@@ -46,9 +49,9 @@ data class ChatSummary(
     val isDm: Boolean = false,
     val isMuted: Boolean = false,
 ) {
-    /** The scope that lists this chat: conversas holds rooms with two members, grupos rooms with more (ADR 0053). */
+    /** ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test. */
     val scope: ChatScope
-        get() = if (memberCount > 2) ChatScope.GRUPOS else ChatScope.CONVERSAS
+        get() = if (isDm) ChatScope.CONVERSAS else ChatScope.GRUPOS
 }
 
 /** State scope of spec chat-list. */
@@ -59,6 +62,7 @@ class ChatListModel(
     val session: AccountSession,
     private val scope: CoroutineScope,
     private val undecryptableText: String,
+    private val unnamedChatText: String,
     /** Resolves the media kind labels of the previews. */
     private val label: (Int) -> String,
     val notes: NotesRoom,
@@ -69,6 +73,13 @@ class ChatListModel(
     val phase: StateFlow<Phase> = _phase.asStateFlow()
     private val _chats = MutableStateFlow<List<ChatSummary>>(emptyList())
     val chats: StateFlow<List<ChatSummary>> = _chats.asStateFlow()
+    private val _unreadScopes = MutableStateFlow<Set<ChatScope>>(emptySet())
+    val unreadScopes = _unreadScopes.asStateFlow()
+    private val _unreadChats = MutableStateFlow<Map<ChatScope, List<ChatSummary>>>(emptyMap())
+    val unreadChats = _unreadChats.asStateFlow()
+    private val _unreadLoading = MutableStateFlow<Set<ChatScope>>(emptySet())
+    val unreadLoading = _unreadLoading.asStateFlow()
+    private val unreadLists = mutableMapOf<ChatScope, FilteredRoomList>()
 
     private val rooms = mutableListOf<Room>()
     private var listLoaded = false
@@ -76,6 +87,12 @@ class ChatListModel(
     private val handles = mutableListOf<TaskHandle>()
     private var summaryJob: Job? = null
     private var started = false
+    private val clearChanges = scope.launch {
+        ClearedChatsStore.revision.collect {
+            refreshSummaries()
+            unreadLists.values.forEach { it.refresh() }
+        }
+    }
 
     /** Subscribes to the room list service: joined chats, newest activity first. */
     fun start() {
@@ -104,11 +121,7 @@ class ChatListModel(
                     }
                 },
             )
-            result.controller().setFilter(
-                RoomListEntriesDynamicFilterKind.All(
-                    listOf(RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace),
-                ),
-            )
+            result.controller().setFilter(filter())
             handles += result.entriesStream()
             entries = result
             launch {
@@ -121,6 +134,31 @@ class ChatListModel(
         }
     }
 
+    /** Badges keep the unfiltered joined stream while each tab has its own unread subscription. */
+    private fun filter(): RoomListEntriesDynamicFilterKind = RoomListEntriesDynamicFilterKind.All(listOf(
+        RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace,
+        RoomListEntriesDynamicFilterKind.DeduplicateVersions,
+    ))
+
+    fun toggleUnread(tab: ChatScope) {
+        if (tab in _unreadScopes.value) { _unreadScopes.value -= tab; return }
+        _unreadScopes.value += tab
+        if (unreadLists.containsKey(tab)) return
+        _unreadLoading.value += tab
+        val list = FilteredRoomList(scope) { found ->
+            val summaries = found.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
+            _unreadChats.value += (tab to NativeDmSelection.visible(summaries, session))
+            _unreadLoading.value -= tab
+        }
+        unreadLists[tab] = list
+        scope.launch { list.start(session, RoomListEntriesDynamicFilterKind.All(listOf(
+            RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace,
+            RoomListEntriesDynamicFilterKind.DeduplicateVersions,
+            RoomListEntriesDynamicFilterKind.Category(if (tab == ChatScope.CONVERSAS) RoomListFilterCategory.PEOPLE else RoomListFilterCategory.GROUP),
+            RoomListEntriesDynamicFilterKind.Unread,
+        ))) }
+    }
+
     /** The phase of one scope: empty when the list loaded and the scope has no chat. */
     fun phase(scope: ChatScope, phase: Phase, chats: List<ChatSummary>): Phase = when {
         phase == Phase.LOADING -> Phase.LOADING
@@ -130,8 +168,9 @@ class ChatListModel(
     }
 
     /** Action loadMore: the next page, when the list scrolls near its end. */
-    fun loadMore() {
-        entries?.controller()?.addOnePage()
+    fun loadMore(tab: ChatScope) {
+        if (tab in _unreadScopes.value) unreadLists[tab]?.loadMore()
+        else entries?.controller()?.addOnePage()
     }
 
     suspend fun refreshNotes() {
@@ -142,6 +181,8 @@ class ChatListModel(
     suspend fun openNotes(title: String): String = try { notes.open(title) } finally { refreshSummaries() }
 
     fun close() {
+        clearChanges.cancel()
+        unreadLists.values.forEach { it.close() }
         handles.forEach { it.cancel() }
         summaryJob?.cancel()
     }
@@ -163,12 +204,13 @@ class ChatListModel(
         val snapshot = rooms.toList()
         summaryJob?.cancel()
         summaryJob = scope.launch {
-            _chats.value = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
+            val summaries = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
+            _chats.value = NativeDmSelection.visible(summaries, session)
             updatePhase()
         }
     }
 
-    private suspend fun summary(room: Room): ChatSummary? {
+    suspend fun summary(room: Room): ChatSummary? {
         val info = runCatching { room.roomInfo() }.getOrNull() ?: return null
         var lastMessage: String? = null
         var lastActivity: Long? = null
@@ -184,17 +226,20 @@ class ChatListModel(
             is LatestEventValue.RemoteInvite -> lastActivity = latest.timestamp.toLong()
             LatestEventValue.None -> Unit
         }
+        val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
+        val peerName = peer?.displayName?.takeIf { it.isNotBlank() }
+            ?: peer?.userId?.let { chat.bipe.app.people.Person.localpart(it) } ?: unnamedChatText
         return ChatSummary(
             roomId = info.id,
-            name = info.displayName ?: info.id,
-            avatarUrl = info.avatarUrl,
+            name = if (info.isDm) peerName else info.displayName ?: info.id,
+            avatarUrl = if (info.isDm) peer?.avatarUrl else info.avatarUrl,
             lastMessage = lastMessage,
             lastActivity = lastActivity,
             unreadCount = info.numUnreadMessages.toInt(),
             isDirect = info.isDirect,
             memberCount = info.activeMembersCount.toInt(),
             mentionCount = info.numUnreadMentions.toInt(),
-            peerUserId = if (info.isDirect) info.heroes.firstOrNull { it.userId != session.userId }?.userId else null,
+            peerUserId = peer?.userId,
             isDm = info.isDm,
             isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
         )

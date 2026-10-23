@@ -169,16 +169,15 @@ final class PeopleService: ObservableObject {
         return info.heroes.map(\.userId).first { $0 != session.userId }
     }
 
-    /// Client.getDmRoom: the newest DM with the person.
-    func dmRoomId(with userId: String) -> String? {
-        guard let room = try? session.client.getDmRoom(userId: userId) else { return nil }
-        return room.id()
+    /// The same newest eligible local DM that the list shows (ADR 0141).
+    func dmRoomId(with userId: String) async -> String? {
+        try? await NativeDmSelection.roomId(with: userId, session: session)
     }
 
     /// The DM with the person, created when missing: encrypted, trusted private chat, power levels that let
     /// neither person invite or change the room (ADR 0141).
     func openOrCreateDM(with userId: String) async throws -> String {
-        if let existing = dmRoomId(with: userId) {
+        if let existing = try await NativeDmSelection.roomId(with: userId, session: session) {
             return existing
         }
         let me = session.userId

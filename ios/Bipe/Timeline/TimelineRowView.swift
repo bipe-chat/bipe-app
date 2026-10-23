@@ -319,7 +319,7 @@ private struct ReaderAvatars: View {
     var body: some View {
         HStack(spacing: -4) {
             ForEach(readers.prefix(3)) { reader in
-                AvatarView(name: reader.name, mxcUrl: reader.avatarUrl, loader: media, size: 16)
+                AvatarView(name: reader.name, mxcUrl: reader.avatarUrl, loader: media, size: 16, userId: reader.userId)
                     .overlay(Circle().stroke(BipeColor.surfaceBase, lineWidth: 1))
             }
             if readers.count > 3 {

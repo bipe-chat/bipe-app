@@ -44,7 +44,7 @@ struct AppTabsView: View {
             .badge(model.otherAccountUnread ? Text("•") : nil)
 
             Tab(value: AppTabsModel.Tab.search, role: .search) {
-                ChatSearchView(model: chatList)
+                AccountSearchView(model: chatList, api: api)
             } label: {
                 Label(BipeStrings.appTabSearch, systemImage: "magnifyingglass")
             }
@@ -72,39 +72,5 @@ struct AppTabsView: View {
                 model.start.didSignUp(session, outcome: outcome)
             }
         }
-    }
-}
-
-/// Search, in the search tab role: the current account's chats whose name matches.
-private struct ChatSearchView: View {
-    @ObservedObject var model: ChatListModel
-    @State private var query = ""
-    @State private var path: [String] = []
-
-    var body: some View {
-        NavigationStack(path: $path) {
-            List(matches) { chat in
-                Button {
-                    path.append(chat.roomId)
-                } label: {
-                    ChatRow(chat: chat, media: model.media)
-                }
-                .listRowBackground(BipeColor.surfaceBase)
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
-            .navigationTitle(BipeStrings.appTabSearch)
-            .navigationDestination(for: String.self) { roomId in
-                ChatTimelineView(session: model.session, media: model.media, roomId: roomId)
-            }
-        }
-        .searchable(text: $query)
-    }
-
-    private var matches: [ChatSummary] {
-        let query = query.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return [] }
-        return model.chats.filter { $0.name.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
     }
 }
