@@ -299,7 +299,7 @@ struct ChatListView: View {
                         Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
                             .buttonStyle(.plain)
                         Menu { archiveAction(chat) } label: {
-                            PhosphorIcon.dotsThree.image.frame(width: 24, height: 24).padding(8)
+                            PhosphorIcon.dotsThree.image.frame(width: 24, height: 24).padding(10)
                         }
                         .accessibilityLabel(BipeStrings.chatActions)
                     }
@@ -323,8 +323,9 @@ struct ChatListView: View {
     }
 
     private func archiveAction(_ chat: ChatSummary) -> some View {
-        Button(archive.contains(chat) ? BipeStrings.unarchiveAction : BipeStrings.archiveAction) {
-            archive.set(chat, archived: !archive.contains(chat))
+        let archived = archive.contains(chat)
+        return Button(archived ? BipeStrings.unarchiveAction : BipeStrings.archiveAction) {
+            archive.set(chat, archived: !archived)
         }
     }
 
