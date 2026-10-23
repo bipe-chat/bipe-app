@@ -3,9 +3,12 @@
 # Copyright 2026 Bipe contributors
 
 # Tester builds (bipe-chat/bipe#575, ADR 0147). Every push to main:
-# - iOS: archive with automatic signing through the App Store Connect API key, upload to
-#   TestFlight and add the build to the internal testing group; also export an ad hoc IPA
-#   for the devices registered in team 992N457T8D (artifact bipe-next-ipa).
+# - iOS: archive with manual signing by the team's existing distribution certificate (secrets
+#   DIST_CERT_P12, DIST_CERT_PASSWORD; bipe-chat/bipe#585) and profiles made through the App
+#   Store Connect API, upload to TestFlight and add the build to the internal testing group;
+#   also export an ad hoc IPA for the devices registered in team 992N457T8D (artifact
+#   bipe-next-ipa). The job never makes a certificate: automatic signing made a development
+#   certificate on every run until the team reached Apple's limit.
 # - Android: a debug-signed release APK of chat.bipe.app.next (artifact bipe-next-apk).
 # Version (bipe-chat/bipe#584, ADR 0088): the version name of bipe-shared product/version.json;
 # build number: its build plus the run number. Both platforms carry the same pair.
@@ -68,6 +71,40 @@ jobs:
       - name: Register the bundle IDs, check the app record
         id: asc
         run: node tools/asc.mjs prepare
+      - name: Report the development certificates
+        # Report only (bipe-chat/bipe#585): MZ revokes the ones the old runs made.
+        continue-on-error: true
+        run: node tools/asc.mjs certificates
+      - name: Import the distribution certificate
+        env:
+          DIST_CERT_P12: ${{ secrets.DIST_CERT_P12 }}
+          DIST_CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
+        run: |
+          if [ -z "$DIST_CERT_P12" ] || [ -z "$DIST_CERT_PASSWORD" ]; then
+            echo "::error::Secrets DIST_CERT_P12 and DIST_CERT_PASSWORD are not set (bipe-chat/bipe#585)."
+            exit 1
+          fi
+          umask 077
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(openssl rand -hex 24)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "KEYCHAIN_PATH=$keychain" >> "$GITHUB_ENV"
+          printf '%s' "$DIST_CERT_P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$keychain" -f pkcs12 -P "$DIST_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/dist.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          serial=$(security find-certificate -c "Apple Distribution" -p "$keychain" | openssl x509 -noout -serial | cut -d= -f2)
+          if [ -z "$serial" ]; then
+            echo "::error::The .p12 in DIST_CERT_P12 holds no Apple Distribution certificate."
+            exit 1
+          fi
+          echo "DIST_CERT_SERIAL=$serial" >> "$GITHUB_ENV"
+          security find-identity -v -p codesigning "$keychain"
+      - name: Make the profiles and export options
+        run: node tools/asc.mjs signing "$DIST_CERT_SERIAL"
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate the project
@@ -88,39 +125,16 @@ jobs:
             -destination "generic/platform=iOS" \
             -derivedDataPath ios/DerivedData \
             -archivePath "$RUNNER_TEMP/Bipe.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
+            BIPE_SIGN_STYLE=Manual \
+            BIPE_SIGN_IDENTITY="Apple Distribution" \
+            BIPE_CI_PROFILE_APP="$BIPE_CI_PROFILE_APP" \
+            BIPE_CI_PROFILE_NSE="$BIPE_CI_PROFILE_NSE" \
+            BIPE_CI_PROFILE_SHARE="$BIPE_CI_PROFILE_SHARE" \
+            BIPE_APS_ENVIRONMENT=production \
             MARKETING_VERSION="$VERSION_NAME" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" | tee "$RUNNER_TEMP/archive.log" | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
           grep -q "ARCHIVE SUCCEEDED" "$RUNNER_TEMP/archive.log"
-      - name: Export options
-        run: |
-          cat > "$RUNNER_TEMP/upload.plist" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
-            <key>teamID</key><string>${TEAM_ID}</string>
-            <key>signingStyle</key><string>automatic</string>
-            <key>manageAppVersionAndBuildNumber</key><false/>
-            <key>uploadSymbols</key><true/>
-          </dict></plist>
-          EOF
-          cat > "$RUNNER_TEMP/adhoc.plist" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>method</key><string>release-testing</string>
-            <key>destination</key><string>export</string>
-            <key>teamID</key><string>${TEAM_ID}</string>
-            <key>signingStyle</key><string>automatic</string>
-            <key>thinning</key><string>&lt;none&gt;</string>
-          </dict></plist>
-          EOF
       - name: Upload to TestFlight
         if: steps.asc.outputs.app == 'true'
         run: |
@@ -140,11 +154,7 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/Bipe.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/adhoc.plist" \
-            -exportPath "$RUNNER_TEMP/adhoc" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee "$RUNNER_TEMP/adhoc.log" | grep -E "error:|EXPORT (SUCCEEDED|FAILED)" || true
+            -exportPath "$RUNNER_TEMP/adhoc" 2>&1 | tee "$RUNNER_TEMP/adhoc.log" | grep -E "error:|EXPORT (SUCCEEDED|FAILED)" || true
           grep -q "EXPORT SUCCEEDED" "$RUNNER_TEMP/adhoc.log"
           mv "$RUNNER_TEMP"/adhoc/*.ipa "$RUNNER_TEMP/adhoc/Bipe-Next-${BUILD_NUMBER}.ipa"
       - name: Keep the ad hoc IPA
@@ -162,9 +172,12 @@ jobs:
         with:
           name: testflight-logs
           path: ${{ runner.temp }}/*.log
-      - name: Remove the API key
+      - name: Remove the API key, the keychain and the profiles
         if: always()
-        run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8
+        run: |
+          rm -f "$RUNNER_TEMP"/AuthKey_*.p8 "$RUNNER_TEMP/dist.p12"
+          if [ -n "${KEYCHAIN_PATH:-}" ]; then security delete-keychain "$KEYCHAIN_PATH" || true; fi
+          rm -rf "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" "$HOME/Library/MobileDevice/Provisioning Profiles"
 
   android:
     needs: build-number

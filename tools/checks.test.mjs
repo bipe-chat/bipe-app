@@ -6,7 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -17,7 +17,7 @@ import { checkStrings, findLiterals, isUserText } from './strings.mjs';
 import { provenanceLine } from './provenance.mjs';
 import { evaluate, flatNames, matchedTokens, parseCsv, tokenCounts } from './similarity.mjs';
 import { checkSdkVersion, projectPin, resolvedPin, catalogPin } from './sdk-version.mjs';
-import { exact, token } from './asc.mjs';
+import { exact, token, sameSerial, profileName, exportOptions, signing, certificates } from './asc.mjs';
 import { generateKeyPairSync, verify } from 'node:crypto';
 
 function tree(files) {
@@ -287,4 +287,114 @@ test('asc exact ignores prefix matches', () => {
   const rows = [{ attributes: { identifier: 'chat.bipe.app.next.nse' } }, { attributes: { identifier: 'chat.bipe.app.next' } }];
   assert.equal(exact(rows, 'identifier', 'chat.bipe.app.next'), rows[1]);
   assert.equal(exact(rows, 'identifier', 'chat.bipe.app'), null);
+});
+
+test('asc sameSerial ignores case and leading zeros', () => {
+  assert.ok(sameSerial('105a9943', '00105A9943'));
+  assert.ok(!sameSerial('105A9943', '105A9944'));
+  assert.ok(!sameSerial('', ''));
+  assert.ok(!sameSerial(undefined, '0'));
+});
+
+test('asc export options sign manually with the CI profiles', () => {
+  const adhoc = exportOptions('adhoc');
+  assert.match(adhoc, /<key>method<\/key><string>release-testing<\/string>/);
+  assert.match(adhoc, /<key>signingStyle<\/key><string>manual<\/string>/);
+  assert.match(adhoc, /<key>chat\.bipe\.app\.next\.share<\/key><string>Bipe Next CI Ad Hoc chat\.bipe\.app\.next\.share<\/string>/);
+  assert.doesNotMatch(adhoc, /destination<\/key><string>upload/);
+  const upload = exportOptions('appstore');
+  assert.match(upload, /<key>destination<\/key><string>upload<\/string>/);
+  assert.match(upload, new RegExp(profileName('appstore', 'chat.bipe.app.next.nse').replace(/\./g, '\\.')));
+});
+
+// A fake App Store Connect API: records the calls, answers from fixed rows.
+function fakeAsc({ certs, devices = [{ id: 'D1' }], oldProfiles = [] }) {
+  const calls = [];
+  let n = 0;
+  const call = async (method, path, body) => {
+    calls.push({ method, path, body });
+    const p = path.split('?')[0];
+    if (method === 'GET' && p === '/v1/certificates') return { data: certs };
+    if (method === 'GET' && p === '/v1/devices') return { data: devices };
+    if (method === 'GET' && p === '/v1/bundleIds') {
+      const identifier = decodeURIComponent(path.match(/identifier\]=([^&]+)/)[1]);
+      return { data: [{ id: `B-${identifier}`, attributes: { identifier } }] };
+    }
+    if (method === 'GET' && p.endsWith('/bundleIdCapabilities')) {
+      return { data: ['APP_GROUPS', 'PUSH_NOTIFICATIONS', 'ASSOCIATED_DOMAINS'].map((t) => ({ attributes: { capabilityType: t } })) };
+    }
+    if (method === 'GET' && p === '/v1/profiles') {
+      const name = decodeURIComponent(path.match(/name\]=([^&]+)/)[1]);
+      return { data: oldProfiles.filter((r) => r.attributes.name.startsWith(name)) };
+    }
+    if (method === 'DELETE') return {};
+    if (method === 'POST' && p === '/v1/profiles') {
+      n += 1;
+      return { data: { id: `P${n}`, attributes: { uuid: `uuid-${n}`, profileContent: Buffer.from(`profile ${n}`).toString('base64') } } };
+    }
+    throw new Error(`unexpected ${method} ${path}`);
+  };
+  return { call, calls };
+}
+
+test('asc signing makes six profiles for the given certificate and never makes a certificate', async () => {
+  const certs = [
+    { id: 'C-old', attributes: { serialNumber: '0AAA', certificateType: 'DISTRIBUTION' } },
+    { id: 'C-dist', attributes: { serialNumber: '105A9943', certificateType: 'DISTRIBUTION', name: 'Apple Distribution' } },
+  ];
+  const oldProfiles = [
+    { id: 'old-1', attributes: { name: 'Bipe Next CI Ad Hoc chat.bipe.app.next' } },
+    // A prefix match of the app's name: only the NSE pass deletes it.
+    { id: 'old-nse', attributes: { name: 'Bipe Next CI Ad Hoc chat.bipe.app.next.nse' } },
+  ];
+  const { call, calls } = fakeAsc({ certs, oldProfiles });
+  const home = mkdtempSync(join(tmpdir(), 'bipe-asc-home-'));
+  const outDir = mkdtempSync(join(tmpdir(), 'bipe-asc-out-'));
+  const envFile = join(outDir, 'env');
+  writeFileSync(envFile, '');
+  await signing(call, '0105a9943', { home, outDir, env: { GITHUB_ENV: envFile } });
+
+  assert.ok(!calls.some((c) => c.method === 'POST' && c.path.startsWith('/v1/certificates')));
+  const made = calls.filter((c) => c.method === 'POST' && c.path === '/v1/profiles').map((c) => c.body.data);
+  assert.equal(made.length, 6);
+  assert.ok(made.every((d) => d.relationships.certificates.data[0].id === 'C-dist'));
+  assert.deepEqual(made.filter((d) => d.attributes.profileType === 'IOS_APP_ADHOC').map((d) => d.relationships.devices.data), [[{ type: 'devices', id: 'D1' }], [{ type: 'devices', id: 'D1' }], [{ type: 'devices', id: 'D1' }]]);
+  assert.ok(made.filter((d) => d.attributes.profileType === 'IOS_APP_STORE').every((d) => !d.relationships.devices));
+  const order = calls.map((c) => `${c.method} ${c.method === 'POST' ? c.body.data.attributes.name : c.path}`);
+  assert.deepEqual(order.filter((c) => c.startsWith('DELETE')), ['DELETE /v1/profiles/old-1', 'DELETE /v1/profiles/old-nse']);
+  assert.ok(order.indexOf('DELETE /v1/profiles/old-nse') > order.indexOf('POST Bipe Next CI Ad Hoc chat.bipe.app.next'));
+  assert.ok(order.indexOf('DELETE /v1/profiles/old-nse') < order.indexOf('POST Bipe Next CI Ad Hoc chat.bipe.app.next.nse'));
+
+  assert.equal(readdirSync(join(home, 'Library/Developer/Xcode/UserData/Provisioning Profiles')).length, 6);
+  assert.equal(readdirSync(join(home, 'Library/MobileDevice/Provisioning Profiles')).length, 6);
+  assert.match(readFileSync(join(outDir, 'adhoc.plist'), 'utf8'), /release-testing/);
+  assert.match(readFileSync(join(outDir, 'upload.plist'), 'utf8'), /app-store-connect/);
+  assert.equal(readFileSync(envFile, 'utf8'), [
+    'BIPE_CI_PROFILE_APP=Bipe Next CI App Store chat.bipe.app.next',
+    'BIPE_CI_PROFILE_NSE=Bipe Next CI App Store chat.bipe.app.next.nse',
+    'BIPE_CI_PROFILE_SHARE=Bipe Next CI App Store chat.bipe.app.next.share',
+    '',
+  ].join('\n'));
+});
+
+test('asc signing fails without the certificate or without devices', async () => {
+  const cert = { id: 'C', attributes: { serialNumber: '1', certificateType: 'DISTRIBUTION' } };
+  const home = mkdtempSync(join(tmpdir(), 'bipe-asc-home-'));
+  await assert.rejects(signing(fakeAsc({ certs: [cert] }).call, '2', { home, outDir: home, env: {} }), /no distribution certificate/);
+  await assert.rejects(signing(fakeAsc({ certs: [cert], devices: [] }).call, '1', { home, outDir: home, env: {} }), /no enabled iOS devices/);
+});
+
+test('asc certificates lists development certificates only', async () => {
+  const rows = [
+    { attributes: { certificateType: 'DEVELOPMENT', name: 'Created via API', expirationDate: '2027-10-22T23:00:00.000+00:00' } },
+    { attributes: { certificateType: 'DISTRIBUTION', name: 'Apple Distribution' } },
+  ];
+  const log = console.log;
+  console.log = () => {};
+  try {
+    const dev = await certificates(async () => ({ data: rows }));
+    assert.equal(dev.length, 1);
+  } finally {
+    console.log = log;
+  }
 });
