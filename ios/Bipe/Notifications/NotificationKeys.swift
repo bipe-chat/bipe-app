@@ -20,6 +20,7 @@ enum NotificationKeys {
     }
     static let roomId = "room_id"
     static let eventId = "event_id"
+    static let kind = "notification_kind"
     static let unreadCount = "unread_count"
 
     /// A provider payload carries only a random registration route; the Matrix ID stays on this phone.
@@ -42,8 +43,8 @@ enum NotificationKeys {
                                roomId: userInfo[roomId] as? String)
     }
 
-    static func payload(_ target: BipeNotificationTarget, route: String, eventId: String? = nil) -> [AnyHashable: Any] {
-        var info: [AnyHashable: Any] = [accountUserId: target.accountUserId, accountRoute: route, roomId: target.roomId]
+    static func payload(_ target: BipeNotificationTarget, route: String, eventId: String? = nil, kind: String = "message") -> [AnyHashable: Any] {
+        var info: [AnyHashable: Any] = [accountUserId: target.accountUserId, accountRoute: route, roomId: target.roomId, Self.kind: kind]
         if let eventId { info[Self.eventId] = eventId }
         return info
     }

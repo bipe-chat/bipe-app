@@ -34,6 +34,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         val app = context.applicationContext as BipeApplication
         val target = app.notifications.target(intent) ?: return
         val route = intent.getStringExtra(PhoneNotifications.EXTRA_ACCOUNT_ROUTE) ?: return
+        if (intent.getStringExtra(PhoneNotifications.EXTRA_KIND) != "message") return
         val eventId = intent.getStringExtra(EXTRA_EVENT_ID) ?: return
         val pending = goAsync()
         app.scope.launch {
@@ -59,7 +60,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
             val session = app.accountStart.awaitSession(target.accountUserId) ?: return
             owner = session
             val room = session.client.getRoom(target.roomId) ?: error("no room")
-            isDm = runCatching { room.roomInfo().isDm }.getOrDefault(true)
+            val info = room.roomInfo()
+            if (info.membership != org.matrix.rustcomponents.sdk.Membership.JOINED || info.isSpace) return
+            isDm = info.isDm
             val timeline = room.timeline()
             if (!app.notifications.owns(target, route) || app.accountStart.sessions.value.none { it === session }) return
             timeline.sendReply(messageEventContentNew(MessageType.Text(TextMessageContent(text, null))), eventId)
@@ -76,6 +79,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
     private suspend fun markAsRead(app: BipeApplication, target: BipeNotificationTarget, route: String) {
         val session = app.accountStart.awaitSession(target.accountUserId) ?: return
         val room = runCatching { session.client.getRoom(target.roomId) }.getOrNull() ?: return
+        val info = runCatching { room.roomInfo() }.getOrNull() ?: return
+        if (info.membership != org.matrix.rustcomponents.sdk.Membership.JOINED || info.isSpace) return
         if (!app.notifications.owns(target, route) || app.accountStart.sessions.value.none { it === session }) return
         runCatching { room.markAsRead(ReceiptType.READ) }.onSuccess {
             if (app.notifications.owns(target, route) && app.accountStart.sessions.value.any { it === session }) app.notifications.clear(target)
@@ -120,6 +125,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 .setData(Uri.Builder().scheme("bipe-notification").authority("action").appendPath(action).appendPath(target.identifier).appendPath(route).build())
                 .putExtra(PhoneNotifications.EXTRA_ACCOUNT_USER_ID, target.accountUserId)
                 .putExtra(PhoneNotifications.EXTRA_ACCOUNT_ROUTE, route)
+                .putExtra(PhoneNotifications.EXTRA_KIND, "message")
                 .putExtra(EXTRA_ROOM_ID, target.roomId)
                 .putExtra(EXTRA_EVENT_ID, eventId)
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (mutable) PendingIntent.FLAG_MUTABLE else PendingIntent.FLAG_IMMUTABLE

@@ -44,7 +44,7 @@ final class NotificationActions: ObservableObject {
     static let shared = NotificationActions()
 
     /// Action open: the chat that chat-list opens next.
-    @Published var roomToOpen: BipeNotificationTarget?
+    @Published var roomToOpen: BipeNotificationOpen?
     /// The chat on screen, so its pushes do not show a banner.
     var visibleRoom: BipeNotificationTarget?
 
@@ -93,20 +93,22 @@ final class NotificationActions: ObservableObject {
         let eventId = userInfo[NotificationKeys.eventId] as? String
         switch response.actionIdentifier {
         case NotificationKeys.replyAction:
+            guard userInfo[NotificationKeys.kind] as? String == "message" else { return }
             guard let text = (response as? UNTextInputNotificationResponse)?.userText, let eventId else { return }
             await reply(text: text, target: target, route: route, eventId: eventId)
         case NotificationKeys.markReadAction:
+            guard userInfo[NotificationKeys.kind] as? String == "message" else { return }
             await markAsRead(target: target, route: route)
         case UNNotificationDefaultActionIdentifier:
-            open(target: target)
+            open(target: target, kind: userInfo[NotificationKeys.kind] as? String)
         default:
             break
         }
     }
 
     /// Action open: chat-timeline of the chat. Scrolling to the event waits for timeline focus (chat-timeline).
-    func open(target: BipeNotificationTarget) {
-        roomToOpen = target
+    func open(target: BipeNotificationTarget, kind: String?) {
+        roomToOpen = BipeNotificationOpen(target: target, kind: kind)
     }
 
     /// Opening a chat removes its notifications (spec notification-service notes).
@@ -129,7 +131,9 @@ final class NotificationActions: ObservableObject {
                 throw ClientError.Generic(msg: "no room", details: nil)
             }
             owner = session
-            isDm = (try? await room.roomInfo().isDm) ?? true
+            let info = try await room.roomInfo()
+            guard info.membership == .joined, !info.isSpace else { return }
+            isDm = info.isDm
             let timeline = try await room.timeline()
             let content = try messageEventContentNew(msgtype: .text(content: TextMessageContent(body: body, formatted: nil)))
             guard sessions[target.accountUserId] === session, NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
@@ -159,6 +163,9 @@ final class NotificationActions: ObservableObject {
               sessions[target.accountUserId] === session,
               NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
         do {
+            let info = try await room.roomInfo()
+            guard info.membership == .joined, !info.isSpace, sessions[target.accountUserId] === session,
+                  NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
             try await room.markAsRead(receiptType: .read)
             guard sessions[target.accountUserId] === session, NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
             removeNotifications(target: target)

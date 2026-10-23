@@ -84,6 +84,7 @@ final class NotificationService: UNNotificationServiceExtension {
         let room = item.roomInfo
         let senderName = item.senderInfo.displayName.flatMap { $0.isEmpty ? nil : $0 }
         let content = UNMutableNotificationContent()
+        var kind = "message"
         switch item.event {
         case .timeline(let event):
             guard let text = messageText(event) else {
@@ -100,6 +101,7 @@ final class NotificationService: UNNotificationServiceExtension {
             }
             content.categoryIdentifier = NotificationKeys.messageCategory
         case .invite(let senderId):
+            kind = room.isDm ? "chatRequest" : "groupInvite"
             let sender = senderName ?? senderId
             if room.isDm {
                 content.title = sender
@@ -110,21 +112,28 @@ final class NotificationService: UNNotificationServiceExtension {
             }
         }
         content.threadIdentifier = target.identifier
-        content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId)
+        content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId, kind: kind)
         content.badge = unreadCount.map { NSNumber(value: $0) }
         content.sound = sound(isNoisy: item.isNoisy ?? true)
         return content
     }
 
-    /// The plain text of a message. nil for an event the notification cannot show as text (media until
-    /// #561, undecryptable events): those show the fallback. No Markdown (spec notes).
+    /// Plain text and media kind/caption from the decrypted event; no attachment fetch or raw filename.
     private static func messageText(_ event: TimelineEvent) -> String? {
-        guard case .messageLike(let content)? = try? event.content(),
-              case .roomMessage(let messageType, _) = content else { return nil }
-        switch messageType {
-        case .text(let text): return text.body
-        case .emote(let emote): return emote.body
-        case .notice(let notice): return notice.body
+        guard case .messageLike(let content)? = try? event.content() else { return nil }
+        switch content {
+        case .sticker: return BipeStrings.appMediaSticker
+        case .roomMessage(let type, _):
+            switch type {
+            case .text(let value): return BipeNotificationPreview.text(value.body)
+            case .emote(let value): return BipeNotificationPreview.text(value.body)
+            case .notice(let value): return BipeNotificationPreview.text(value.body)
+            case .image(let value): return BipeNotificationPreview.attachment(label: BipeStrings.appMediaImage, caption: value.caption)
+            case .video(let value): return BipeNotificationPreview.attachment(label: BipeStrings.appMediaVideo, caption: value.caption)
+            case .file(let value): return BipeNotificationPreview.attachment(label: BipeStrings.appMediaFile, caption: value.caption)
+            case .audio(let value): return BipeNotificationPreview.attachment(label: value.voice != nil ? BipeStrings.appMediaVoice : BipeStrings.appMediaFile, caption: value.caption)
+            default: return nil
+            }
         default: return nil
         }
     }
@@ -138,7 +147,7 @@ final class NotificationService: UNNotificationServiceExtension {
         content.sound = sound(isNoisy: true)
         if let target, let route, let eventId {
             content.threadIdentifier = target.identifier
-            content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId)
+            content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId, kind: "fallback")
         }
         return content
     }

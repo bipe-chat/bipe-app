@@ -9,6 +9,7 @@ import chat.bipe.app.account.AccountStartModel
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeNotificationTarget
+import chat.bipe.shared.BipeNotificationOpen
 import chat.bipe.app.notifications.PhoneNotifications
 import chat.bipe.app.notifications.PushRegistration
 import kotlinx.coroutines.MainScope
@@ -29,7 +30,7 @@ class BipeApplication : Application() {
     val notifications: PhoneNotifications by lazy { PhoneNotifications(this) }
 
     /** Action open of a notification: the chat that the home screen opens next. */
-    val roomToOpen = MutableStateFlow<BipeNotificationTarget?>(null)
+    val roomToOpen = MutableStateFlow<BipeNotificationOpen?>(null)
 
     /** Spec pix-check-result, action sendToChat: the preview the home screen offers next. */
     val pixPreview = MutableStateFlow<PixPreview?>(null)

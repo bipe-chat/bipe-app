@@ -55,6 +55,7 @@ fun AppTabsScreen(
     onInvite: () -> Unit = {},
     /** Opens a people screen (bipe-chat/bipe#568). */
     onOpenPeople: (PeopleRoute) -> Unit = {},
+    listOpenRequest: Int = 0,
 ) {
     val state by tabs.state.collectAsState()
     val account = state.accounts.firstOrNull { it.isCurrent }
@@ -73,12 +74,12 @@ fun AppTabsScreen(
                     ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner,
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
-                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests)
+                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) },
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
-                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests)
+                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
                 AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }

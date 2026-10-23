@@ -43,6 +43,7 @@ import chat.bipe.app.signup.SignupFlowScreen
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.BipeNotificationDestination
 import chat.bipe.shared.generated.BipeScreen
 
 /** Spec account-start: no login screen (ADR 0057). Shows app-tabs when the current account is ready. */
@@ -59,7 +60,7 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
         val target = notificationTarget ?: return@LaunchedEffect
         if (sessions.any { it.userId == target.accountUserId }) {
             model.switchAccount(target.accountUserId)
-            tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+            tabs.selectTab(if (target.destination == BipeNotificationDestination.GROUPS) AppTabsModel.Tab.GRUPOS else AppTabsModel.Tab.CONVERSAS)
         }
     }
     val session = sessions.firstOrNull { it.userId == userId }

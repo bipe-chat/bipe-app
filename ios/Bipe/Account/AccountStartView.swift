@@ -75,11 +75,11 @@ struct AccountStartView: View {
         }
     }
 
-    private func routeNotification(_ pending: BipeNotificationTarget?) {
+    private func routeNotification(_ pending: BipeNotificationOpen?) {
         guard let target = pending,
               model.sessions.contains(where: { $0.userId == target.accountUserId }) else { return }
         model.switchAccount(to: target.accountUserId)
-        tabs.selectTab(.conversas)
+        tabs.selectTab(target.destination == .groups ? .grupos : .conversas)
     }
 }
 

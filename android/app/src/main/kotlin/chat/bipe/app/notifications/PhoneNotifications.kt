@@ -16,6 +16,7 @@ import android.net.Uri
 import chat.bipe.app.BipeApplication
 import chat.bipe.shared.BipeNotificationTarget
 import chat.bipe.shared.BipePushAccountRoutes
+import chat.bipe.shared.BipeNotificationPreview
 import org.json.JSONObject
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -129,7 +130,7 @@ class PhoneNotifications(private val context: Context) {
             .setSmallIcon(PhosphorIcon.CHAT_CIRCLE.drawable)
             .addExtras(metadata(target, route))
             .setContentText(text)
-            .setContentIntent(openIntent(target, route))
+            .setContentIntent(openIntent(target, route, "message"))
             .setAutoCancel(true)
             .build()
         manager.notify(target.identifier, FAILURE_ID, notification)
@@ -164,7 +165,7 @@ class PhoneNotifications(private val context: Context) {
                 } else {
                     context.getString(R.string.bipe_group_notification_room_invite_body_with_sender, sender)
                 }
-                postSimple(target, route, if (room.isDm) sender else room.displayName, text, INVITES_CHANNEL)
+                postSimple(target, route, if (room.isDm) sender else room.displayName, text, INVITES_CHANNEL, kind = if (room.isDm) "chatRequest" else "groupInvite")
             }
         }
     }
@@ -208,7 +209,7 @@ class PhoneNotifications(private val context: Context) {
             .setContentText(if (isGroup) "$sender: $text" else text)
             .setWhen(sentAt)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setContentIntent(openIntent(target, route))
+            .setContentIntent(openIntent(target, route, "message"))
             .addAction(reply)
             .addAction(markRead)
             .setAutoCancel(true)
@@ -218,26 +219,27 @@ class PhoneNotifications(private val context: Context) {
     }
 
     @SuppressLint("MissingPermission")
-    private fun postSimple(target: BipeNotificationTarget, route: String, title: String, text: String, channel: String, eventId: String? = null) {
+    private fun postSimple(target: BipeNotificationTarget, route: String, title: String, text: String, channel: String, eventId: String? = null, kind: String = "fallback") {
         if (!manager.areNotificationsEnabled()) return
         val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(PhosphorIcon.CHAT_CIRCLE.drawable)
             .addExtras(metadata(target, route))
             .setContentTitle(title)
             .setContentText(text)
-            .setContentIntent(openIntent(target, route))
+            .setContentIntent(openIntent(target, route, kind))
             .setAutoCancel(true)
             .build()
         manager.notify(target.identifier, if (eventId == null) INVITE_ID else NOTIFICATION_ID, notification)
     }
 
     /** Action open: the app on chat-timeline of the chat. */
-    private fun openIntent(target: BipeNotificationTarget, route: String): PendingIntent {
+    private fun openIntent(target: BipeNotificationTarget, route: String, kind: String): PendingIntent {
         val intent = Intent(context, MainActivity::class.java)
             .setAction(ACTION_OPEN_CHAT)
-            .setData(Uri.parse("bipe-notification://open/${target.identifier}/$route"))
+            .setData(Uri.parse("bipe-notification://open/${target.identifier}/$route/$kind"))
             .putExtra(EXTRA_ACCOUNT_USER_ID, target.accountUserId)
             .putExtra(EXTRA_ACCOUNT_ROUTE, route)
+            .putExtra(EXTRA_KIND, kind)
             .putExtra(EXTRA_ROOM_ID, target.roomId)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -288,22 +290,31 @@ class PhoneNotifications(private val context: Context) {
 
     private fun messagesChannelId(): String = "messages_" + sound.name.lowercase()
 
-    /** The plain text of a message. null for media until #561 and for undecryptable events. No Markdown. */
+    /** Plain body or decrypted attachment kind/caption; never fetch a file or use its computed filename. */
     private fun messageText(event: TimelineEvent): String? {
-        val content = runCatching { event.content() }.getOrNull() as? TimelineEventContent.MessageLike ?: return null
-        val message = content.content as? MessageLikeEventContent.RoomMessage ?: return null
+        val content = (runCatching { event.content() }.getOrNull() as? TimelineEventContent.MessageLike)?.content ?: return null
+        if (content is MessageLikeEventContent.Sticker) return context.getString(R.string.bipe_app_media_sticker)
+        val message = content as? MessageLikeEventContent.RoomMessage ?: return null
         return when (val type = message.messageType) {
-            is MessageType.Text -> type.content.body
-            is MessageType.Emote -> type.content.body
-            is MessageType.Notice -> type.content.body
+            is MessageType.Text -> BipeNotificationPreview.text(type.content.body)
+            is MessageType.Emote -> BipeNotificationPreview.text(type.content.body)
+            is MessageType.Notice -> BipeNotificationPreview.text(type.content.body)
+            is MessageType.Image -> attachmentPreview(R.string.bipe_app_media_image, type.content.caption)
+            is MessageType.Video -> attachmentPreview(R.string.bipe_app_media_video, type.content.caption)
+            is MessageType.File -> attachmentPreview(R.string.bipe_app_media_file, type.content.caption)
+            is MessageType.Audio -> attachmentPreview(if (type.content.voice != null) R.string.bipe_app_media_voice else R.string.bipe_app_media_file, type.content.caption)
             else -> null
         }
     }
+
+    private fun attachmentPreview(label: Int, caption: String?): String =
+        BipeNotificationPreview.attachment(context.getString(label), caption)
 
     companion object {
         const val ACTION_OPEN_CHAT = "chat.bipe.app.OPEN_CHAT"
         const val EXTRA_ACCOUNT_USER_ID = "account_user_id"
         const val EXTRA_ACCOUNT_ROUTE = "account_route"
+        const val EXTRA_KIND = "notification_kind"
         const val EXTRA_ROOM_ID = "room_id"
         private const val INVITES_CHANNEL = "invites"
         private const val KEY_SOUND = "sound"
