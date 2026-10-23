@@ -25,6 +25,8 @@ struct ChatSummary: Identifiable, Equatable {
     /// RoomInfo.isDm, the one DM test (ADR 0141).
     var isDm = false
     var isMuted = false
+    var isMarkedUnread = false
+    var isUnread: Bool { unreadCount > 0 || isMarkedUnread }
     var latestIncomingMs: Int64? = nil
 
     var id: String { roomId }
@@ -69,6 +71,10 @@ final class ChatListModel: ObservableObject {
     private var entries: RoomListEntriesWithDynamicAdaptersResult?
     private var handles: [TaskHandle] = []
     private var summaryTask: Task<Void, Never>?
+    @Published private(set) var markingRoomId: String?
+    @Published private(set) var readActionFailed = false
+    private var failedReadIntent: (roomId: String, unread: Bool)?
+    private enum ReadFailure: Error { case unavailable }
     private var started = false
     private var clearChanges: AnyCancellable?
 
@@ -166,6 +172,40 @@ final class ChatListModel: ObservableObject {
         else { entries?.controller().addOnePage() }
     }
 
+    /// Resolve actions in this account's all-room or SDK unread stream, never a global current account.
+    func currentChat(_ roomId: String) -> ChatSummary? {
+        chats.first { $0.roomId == roomId } ?? unreadChats.values.flatMap { $0 }.first { $0.roomId == roomId }
+    }
+
+    /// Marking read is an explicit public receipt, followed by clearing the manual unread flag (ADR 0050).
+    func setUnread(roomId: String, unread: Bool) async {
+        guard markingRoomId == nil else { return }
+        markingRoomId = roomId
+        readActionFailed = false
+        defer { markingRoomId = nil }
+        do {
+            guard currentChat(roomId) != nil || (failedReadIntent?.roomId == roomId && failedReadIntent?.unread == unread),
+                  let room = try? session.client.getRoom(roomId: roomId) else { throw ReadFailure.unavailable }
+            let info = try await room.roomInfo()
+            guard info.membership == .joined, !info.isSpace else { throw ReadFailure.unavailable }
+            if !unread { try await room.markAsRead(receiptType: .read) }
+            try await room.setUnreadFlag(newValue: unread)
+            failedReadIntent = nil
+            refreshSummaries()
+            unreadLists.values.forEach { $0.refresh() }
+        } catch is CancellationError {
+            // A discarded view task must not become a retry in a different account.
+        } catch {
+            failedReadIntent = (roomId, unread)
+            readActionFailed = true
+        }
+    }
+
+    func retryReadAction() async {
+        guard let intent = failedReadIntent else { return }
+        await setUnread(roomId: intent.roomId, unread: intent.unread)
+    }
+
     func refreshNotes() async {
         try? await notes.refresh()
         refreshSummaries()
@@ -249,6 +289,7 @@ final class ChatListModel: ObservableObject {
                            peerUserId: peer?.userId,
                            isDm: info.isDm,
                            isMuted: info.cachedUserDefinedNotificationMode == .mute,
+                           isMarkedUnread: info.isMarkedUnread,
                            latestIncomingMs: latestIncomingMs)
     }
 }

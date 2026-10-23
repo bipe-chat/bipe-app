@@ -174,11 +174,11 @@ final class AppTabsModel: ObservableObject {
                                   handle: profile?.handle,
                                   avatarUrl: profile?.avatarUrl,
                                   isCurrent: userId == currentId,
-                                  hasUnread: latestChats[userId]?.contains { $0.unreadCount > 0 } ?? false,
+                                  hasUnread: latestChats[userId]?.contains { $0.isUnread } ?? false,
                                   isCompany: profile?.isCompany ?? false)
         }
         let chats = currentId.flatMap { latestChats[$0] } ?? []
-        conversasUnread = chats.filter { $0.scope == .conversas && $0.unreadCount > 0 }.count
+        conversasUnread = chats.filter { $0.scope == .conversas && $0.isUnread }.count
         gruposAttention = chats.filter { $0.scope == .grupos }.reduce(0) { $0 + $1.mentionCount }
         otherAccountUnread = accounts.contains { !$0.isCurrent && $0.hasUnread }
         let limit = currentId.flatMap { profiles[$0]?.maxAccounts } ?? BipeRegistries.maxPersonalAccounts
