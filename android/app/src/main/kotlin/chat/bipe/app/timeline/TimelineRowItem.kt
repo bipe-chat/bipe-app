@@ -148,6 +148,7 @@ fun TimelineRowItem(
                         Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
                     }
                     PollCard(poll)
+                    MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))
                 }
             }
         }
@@ -352,15 +353,13 @@ private fun ScamWarningCard(kind: ScamWarningKind) {
 @Composable
 private fun MessageFooter(message: TimelineMessage, details: MessageDetails, onFailedTap: () -> Unit, modifier: Modifier = Modifier) {
     val colors = BipeTheme.colors
-    val locale = LocalConfiguration.current.locales[0]
-    val time = remember(message.sentAt, locale) { DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(message.sentAt) }
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         val style = MaterialTheme.typography.labelSmall
-        Text(time, style = style, color = colors.inkSecondary)
+        MessageTimestamp(message.sentAt)
         if (details.isEdited) Text(stringResource(R.string.bipe_app_message_edited), style = style, color = colors.inkSecondary)
         val receipt = details.receipt ?: return@Row
         when (receipt.tick) {
@@ -475,6 +474,16 @@ private fun ReactionPills(reactions: List<MessageReaction>, onToggle: (String) -
 /** Spec message-reactions notes: keys longer than one grapheme show in full up to 16 characters, then cut. */
 fun reactionKeyText(key: String): String = if (key.length > 16) key.take(16) + "…" else key
 
+/** Original event time on every message, with the full date exposed to TalkBack. */
+@Composable
+private fun MessageTimestamp(sentAt: Long, modifier: Modifier = Modifier) {
+    val locale = LocalConfiguration.current.locales[0]
+    val time = remember(sentAt, locale) { DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(sentAt) }
+    val fullDate = remember(sentAt, locale) { DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.SHORT, locale).format(sentAt) }
+    Text(time, style = MaterialTheme.typography.labelSmall, color = BipeTheme.colors.inkSecondary,
+        modifier = modifier.semantics { contentDescription = fullDate })
+}
+
 /** Spec message-undecryptable: a quiet line in the sender's bubble position. */
 @Composable
 private fun UndecryptableRow(message: TimelineMessage, onHistoryHelp: () -> Unit) {
@@ -496,6 +505,7 @@ private fun UndecryptableRow(message: TimelineMessage, onHistoryHelp: () -> Unit
                 modifier = Modifier.clickable(onClick = onHistoryHelp),
             )
         }
+        MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))
     }
 }
 
@@ -522,5 +532,6 @@ private fun DeletedRow(message: TimelineMessage) {
                 color = colors.inkSecondary,
             )
         }
+        MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))
     }
 }

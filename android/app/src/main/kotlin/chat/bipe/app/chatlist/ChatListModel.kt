@@ -87,6 +87,8 @@ class ChatListModel(
     private val unreadLists = mutableMapOf<ChatScope, FilteredRoomList>()
 
     private val rooms = mutableListOf<Room>()
+    /** One model belongs to one account session; absent previews must not erase a known time. */
+    private val knownActivity = mutableMapOf<String, Long>()
     private val extraRoomIds = mutableSetOf<String>()
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult? = null
@@ -158,7 +160,7 @@ class ChatListModel(
         _unreadLoading.value += tab
         val list = FilteredRoomList(scope) { found ->
             val summaries = found.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
-            val visible = NativeDmSelection.visible(summaries, session)
+            val visible = retainingKnownActivity(NativeDmSelection.visible(summaries, session))
             archive.reconcile(visible)
             _unreadChats.value += (tab to visible)
             _unreadLoading.value -= tab
@@ -252,11 +254,16 @@ class ChatListModel(
         summaryJob?.cancel()
         summaryJob = scope.launch {
             val summaries = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
-            val visible = NativeDmSelection.visible(summaries, session)
+            val visible = retainingKnownActivity(NativeDmSelection.visible(summaries, session))
             archive.reconcile(visible)
             _chats.value = visible.sortedByDescending { it.lastActivity ?: Long.MIN_VALUE }
             updatePhase()
         }
+    }
+
+    private fun retainingKnownActivity(summaries: List<ChatSummary>): List<ChatSummary> = summaries.map { summary ->
+        summary.lastActivity?.let { knownActivity[summary.roomId] = it }
+        summary.copy(lastActivity = summary.lastActivity ?: knownActivity[summary.roomId])
     }
 
     suspend fun summary(room: Room): ChatSummary? {
