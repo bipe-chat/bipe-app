@@ -28,7 +28,7 @@ final class NotificationService: UNNotificationServiceExtension {
         guard let route = userInfo[NotificationKeys.accountRoute] as? String,
               let target = NotificationKeys.pushTarget(userInfo),
               let eventId = userInfo[NotificationKeys.eventId] as? String else {
-            deliver(Self.fallback(target: nil, eventId: nil, unreadCount: nil))
+            deliver(Self.fallback(target: nil, route: nil, eventId: nil, unreadCount: nil))
             return
         }
         self.accountRoute = route
@@ -44,7 +44,7 @@ final class NotificationService: UNNotificationServiceExtension {
     override func serviceExtensionTimeWillExpire() {
         task?.cancel()
         let valid = accountRoute.flatMap { NotificationKeys.accountRoutes?.account(for: $0) } == target?.accountUserId
-        deliver(Self.fallback(target: valid ? target : nil, eventId: eventId, unreadCount: nil))
+        deliver(Self.fallback(target: valid ? target : nil, route: accountRoute, eventId: eventId, unreadCount: nil))
     }
 
     /// Delivers once: the first of the fetch and the timeout wins.
@@ -67,7 +67,7 @@ final class NotificationService: UNNotificationServiceExtension {
             }
             switch status {
             case .event(let item):
-                return content(item: item, target: target, eventId: eventId, unreadCount: unreadCount)
+                return content(item: item, target: target, route: route, eventId: eventId, unreadCount: unreadCount)
             case .eventFilteredOut, .eventRedacted, .eventNotFound:
                 // Shows nothing: an empty content replaces the gateway alert.
                 let empty = UNMutableNotificationContent()
@@ -76,18 +76,18 @@ final class NotificationService: UNNotificationServiceExtension {
             }
         } catch {
             let valid = NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId
-            return fallback(target: valid ? target : nil, eventId: eventId, unreadCount: unreadCount)
+            return fallback(target: valid ? target : nil, route: route, eventId: eventId, unreadCount: unreadCount)
         }
     }
 
-    private static func content(item: NotificationItem, target: BipeNotificationTarget, eventId: String, unreadCount: Int?) -> UNNotificationContent {
+    private static func content(item: NotificationItem, target: BipeNotificationTarget, route: String, eventId: String, unreadCount: Int?) -> UNNotificationContent {
         let room = item.roomInfo
         let senderName = item.senderInfo.displayName.flatMap { $0.isEmpty ? nil : $0 }
         let content = UNMutableNotificationContent()
         switch item.event {
         case .timeline(let event):
             guard let text = messageText(event) else {
-                return fallback(target: target, eventId: eventId, unreadCount: unreadCount)
+                return fallback(target: target, route: route, eventId: eventId, unreadCount: unreadCount)
             }
             let sender = senderName ?? event.senderId()
             // ADR 0141: a DM shows the other person, never the room name.
@@ -110,7 +110,7 @@ final class NotificationService: UNNotificationServiceExtension {
             }
         }
         content.threadIdentifier = target.identifier
-        content.userInfo = NotificationKeys.payload(target, eventId: eventId)
+        content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId)
         content.badge = unreadCount.map { NSNumber(value: $0) }
         content.sound = sound(isNoisy: item.isNoisy ?? true)
         return content
@@ -130,15 +130,15 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     /// Kind fallback: the event could not be fetched or decrypted in time.
-    private static func fallback(target: BipeNotificationTarget?, eventId: String?, unreadCount: Int?) -> UNNotificationContent {
+    private static func fallback(target: BipeNotificationTarget?, route: String?, eventId: String?, unreadCount: Int?) -> UNNotificationContent {
         let content = UNMutableNotificationContent()
         content.title = BipeStrings.appName
         content.body = BipeStrings.appNotificationNewMessage
         content.badge = unreadCount.map { NSNumber(value: $0) }
         content.sound = sound(isNoisy: true)
-        if let target, let eventId {
+        if let target, let route, let eventId {
             content.threadIdentifier = target.identifier
-            content.userInfo = NotificationKeys.payload(target, eventId: eventId)
+            content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId)
         }
         return content
     }

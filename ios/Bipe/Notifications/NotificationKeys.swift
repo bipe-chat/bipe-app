@@ -30,12 +30,20 @@ enum NotificationKeys {
     }
 
     static func target(_ userInfo: [AnyHashable: Any]) -> BipeNotificationTarget? {
+        guard let route = userInfo[accountRoute] as? String,
+              let target = recordedTarget(userInfo),
+              accountRoutes?.account(for: route) == target.accountUserId else { return nil }
+        return target
+    }
+
+    /// For clearing this account's older delivered notices, including invalidated registrations.
+    static func recordedTarget(_ userInfo: [AnyHashable: Any]) -> BipeNotificationTarget? {
         BipeNotificationTarget(accountUserId: userInfo[accountUserId] as? String,
                                roomId: userInfo[roomId] as? String)
     }
 
-    static func payload(_ target: BipeNotificationTarget, eventId: String? = nil) -> [AnyHashable: Any] {
-        var info: [AnyHashable: Any] = [accountUserId: target.accountUserId, roomId: target.roomId]
+    static func payload(_ target: BipeNotificationTarget, route: String, eventId: String? = nil) -> [AnyHashable: Any] {
+        var info: [AnyHashable: Any] = [accountUserId: target.accountUserId, accountRoute: route, roomId: target.roomId]
         if let eventId { info[Self.eventId] = eventId }
         return info
     }

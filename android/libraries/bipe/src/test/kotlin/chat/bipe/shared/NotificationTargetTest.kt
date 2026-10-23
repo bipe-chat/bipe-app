@@ -10,6 +10,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.util.UUID
 
 class NotificationTargetTest {
     @Test fun sharedRoomKeepsTwoAccountsSeparate() {
@@ -31,6 +32,26 @@ class NotificationTargetTest {
         listOf(null, "", "shared", "!", "!shared room:example.invalid", "!shared\u0000:example.invalid").forEach {
             assertNull(BipeNotificationTarget.create("@owner:example.invalid", it))
         }
+    }
+
+    @Test fun registrationLifetimesSurviveRestartAndInvalidateOldActionsAtSignOut() {
+        var saved = emptyMap<String, String>()
+        fun store() = BipePushAccountRoutes({ saved }, { saved = it })
+        val routes = store()
+        val first = routes.routeFor("@owner:example.invalid")
+        val other = routes.routeFor("@other:example.invalid")
+        assertNotEquals(first, other)
+        assertFalse(first.contains("owner"))
+        assertEquals(first, store().routeFor("@owner:example.invalid"))
+        assertEquals("@owner:example.invalid", store().accountFor(first))
+        store().remove("@owner:example.invalid")
+        assertNull(store().accountFor(first))
+        assertEquals("@other:example.invalid", store().accountFor(other))
+        assertNotEquals(first, store().routeFor("@owner:example.invalid"))
+        assertNull(store().accountFor("legacy"))
+        val ambiguous = UUID.randomUUID().toString()
+        saved = mapOf("@owner:example.invalid" to ambiguous, "@other:example.invalid" to ambiguous)
+        assertNull(store().accountFor(ambiguous))
     }
 
     @Test fun accountCaseAndRoomIdentityArePreserved() {

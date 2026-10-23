@@ -32,7 +32,8 @@ import org.matrix.rustcomponents.sdk.messageEventContentNew
 class NotificationActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val app = context.applicationContext as BipeApplication
-        val target = BipeNotificationTarget.create(intent.getStringExtra(PhoneNotifications.EXTRA_ACCOUNT_USER_ID), intent.getStringExtra(EXTRA_ROOM_ID)) ?: return
+        val target = app.notifications.target(intent) ?: return
+        val route = intent.getStringExtra(PhoneNotifications.EXTRA_ACCOUNT_ROUTE) ?: return
         val eventId = intent.getStringExtra(EXTRA_EVENT_ID) ?: return
         val pending = goAsync()
         app.scope.launch {
@@ -40,9 +41,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     ACTION_REPLY -> {
                         val text = RemoteInput.getResultsFromIntent(intent)?.getCharSequence(KEY_REPLY_TEXT)?.toString()?.trim()
-                        if (!text.isNullOrEmpty()) reply(app, target, eventId, text)
+                        if (!text.isNullOrEmpty()) reply(app, target, route, eventId, text)
                     }
-                    ACTION_MARK_READ -> markAsRead(app, target)
+                    ACTION_MARK_READ -> markAsRead(app, target, route)
                 }
             } finally {
                 pending.finish()
@@ -51,7 +52,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
     }
 
     /** Action reply: sends the text as a reply to the event, then marks the chat as read. */
-    private suspend fun reply(app: BipeApplication, target: BipeNotificationTarget, eventId: String, text: String) {
+    private suspend fun reply(app: BipeApplication, target: BipeNotificationTarget, route: String, eventId: String, text: String) {
         var isDm = true
         var owner: AccountSession? = null
         try {
@@ -60,24 +61,24 @@ class NotificationActionReceiver : BroadcastReceiver() {
             val room = session.client.getRoom(target.roomId) ?: error("no room")
             isDm = runCatching { room.roomInfo().isDm }.getOrDefault(true)
             val timeline = room.timeline()
-            if (app.accountStart.sessions.value.none { it === session }) return
+            if (!app.notifications.owns(target, route) || app.accountStart.sessions.value.none { it === session }) return
             timeline.sendReply(messageEventContentNew(MessageType.Text(TextMessageContent(text, null))), eventId)
             waitUntilSent(timeline)
-            if (app.accountStart.sessions.value.none { it === session }) return
+            if (!app.notifications.owns(target, route) || app.accountStart.sessions.value.none { it === session }) return
             runCatching { room.markAsRead(ReceiptType.READ) }
-            if (app.accountStart.sessions.value.any { it === session }) app.notifications.clear(target)
+            if (app.notifications.owns(target, route) && app.accountStart.sessions.value.any { it === session }) app.notifications.clear(target)
         } catch (e: Exception) {
-            if (owner != null && app.accountStart.sessions.value.any { it === owner }) app.notifications.replyFailed(target, isDm)
+            if (owner != null && app.accountStart.sessions.value.any { it === owner }) app.notifications.replyFailed(target, route, isDm)
         }
     }
 
     /** Action markAsRead: a public read receipt, then the chat's notifications go away. */
-    private suspend fun markAsRead(app: BipeApplication, target: BipeNotificationTarget) {
+    private suspend fun markAsRead(app: BipeApplication, target: BipeNotificationTarget, route: String) {
         val session = app.accountStart.awaitSession(target.accountUserId) ?: return
         val room = runCatching { session.client.getRoom(target.roomId) }.getOrNull() ?: return
-        if (app.accountStart.sessions.value.none { it === session }) return
+        if (!app.notifications.owns(target, route) || app.accountStart.sessions.value.none { it === session }) return
         runCatching { room.markAsRead(ReceiptType.READ) }.onSuccess {
-            if (app.accountStart.sessions.value.any { it === session }) app.notifications.clear(target)
+            if (app.notifications.owns(target, route) && app.accountStart.sessions.value.any { it === session }) app.notifications.clear(target)
         }
     }
 
@@ -113,11 +114,12 @@ class NotificationActionReceiver : BroadcastReceiver() {
         private const val SEND_TIMEOUT_MS = 20_000L
 
         /** The reply needs a mutable intent: the system adds the typed text. */
-        fun intent(context: Context, action: String, target: BipeNotificationTarget, eventId: String, mutable: Boolean): PendingIntent {
+        fun intent(context: Context, action: String, target: BipeNotificationTarget, route: String, eventId: String, mutable: Boolean): PendingIntent {
             val intent = Intent(context, NotificationActionReceiver::class.java)
                 .setAction(action)
-                .setData(Uri.Builder().scheme("bipe-notification").authority("action").appendPath(action).appendPath(target.identifier).build())
+                .setData(Uri.Builder().scheme("bipe-notification").authority("action").appendPath(action).appendPath(target.identifier).appendPath(route).build())
                 .putExtra(PhoneNotifications.EXTRA_ACCOUNT_USER_ID, target.accountUserId)
+                .putExtra(PhoneNotifications.EXTRA_ACCOUNT_ROUTE, route)
                 .putExtra(EXTRA_ROOM_ID, target.roomId)
                 .putExtra(EXTRA_EVENT_ID, eventId)
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (mutable) PendingIntent.FLAG_MUTABLE else PendingIntent.FLAG_IMMUTABLE

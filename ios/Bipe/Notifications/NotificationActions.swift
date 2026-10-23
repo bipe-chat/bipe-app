@@ -78,7 +78,7 @@ final class NotificationActions: ObservableObject {
         let center = UNUserNotificationCenter.current()
         Task {
             let ids = await center.deliveredNotifications()
-                .filter { NotificationKeys.target($0.request.content.userInfo)?.accountUserId == userId }
+                .filter { NotificationKeys.recordedTarget($0.request.content.userInfo)?.accountUserId == userId }
                 .map(\.request.identifier)
             center.removeDeliveredNotifications(withIdentifiers: ids)
         }
@@ -88,14 +88,15 @@ final class NotificationActions: ObservableObject {
 
     func handle(_ response: UNNotificationResponse) async {
         let userInfo = response.notification.request.content.userInfo
-        guard let target = NotificationKeys.target(userInfo) else { return }
+        guard let target = NotificationKeys.target(userInfo),
+              let route = userInfo[NotificationKeys.accountRoute] as? String else { return }
         let eventId = userInfo[NotificationKeys.eventId] as? String
         switch response.actionIdentifier {
         case NotificationKeys.replyAction:
             guard let text = (response as? UNTextInputNotificationResponse)?.userText, let eventId else { return }
-            await reply(text: text, target: target, eventId: eventId)
+            await reply(text: text, target: target, route: route, eventId: eventId)
         case NotificationKeys.markReadAction:
-            await markAsRead(target: target)
+            await markAsRead(target: target, route: route)
         case UNNotificationDefaultActionIdentifier:
             open(target: target)
         default:
@@ -115,7 +116,7 @@ final class NotificationActions: ObservableObject {
     }
 
     /// Action reply: sends the text as a reply to the event and marks the chat as read, without opening the app.
-    private func reply(text: String, target: BipeNotificationTarget, eventId: String) async {
+    private func reply(text: String, target: BipeNotificationTarget, route: String, eventId: String) async {
         let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !body.isEmpty else { return }
         let backgroundTask = UIApplication.shared.beginBackgroundTask()
@@ -131,34 +132,35 @@ final class NotificationActions: ObservableObject {
             isDm = (try? await room.roomInfo().isDm) ?? true
             let timeline = try await room.timeline()
             let content = try messageEventContentNew(msgtype: .text(content: TextMessageContent(body: body, formatted: nil)))
-            guard sessions[target.accountUserId] === session else { return }
+            guard sessions[target.accountUserId] === session, NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
             try await timeline.sendReply(msg: content, eventId: eventId)
             try await Self.waitUntilSent(timeline)
-            guard sessions[target.accountUserId] === session else { return }
+            guard sessions[target.accountUserId] === session, NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
             try? await room.markAsRead(receiptType: .read)
-            guard sessions[target.accountUserId] === session else { return }
+            guard sessions[target.accountUserId] === session, NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
             removeNotifications(target: target)
         } catch {
-            guard let owner, sessions[target.accountUserId] === owner else { return }
+            guard let owner, sessions[target.accountUserId] === owner, NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
             let failure = UNMutableNotificationContent()
             failure.body = isDm ? BipeStrings.dmInlineReplyFailed : BipeStrings.groupNotificationInlineReplyFailed
             failure.threadIdentifier = target.identifier
-            failure.userInfo = NotificationKeys.payload(target, eventId: eventId)
+            failure.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId)
             try? await UNUserNotificationCenter.current().add(
                 UNNotificationRequest(identifier: UUID().uuidString, content: failure, trigger: nil))
         }
     }
 
     /// Action markAsRead: a public read receipt, then the chat's notifications go away.
-    private func markAsRead(target: BipeNotificationTarget) async {
+    private func markAsRead(target: BipeNotificationTarget, route: String) async {
         let backgroundTask = UIApplication.shared.beginBackgroundTask()
         defer { UIApplication.shared.endBackgroundTask(backgroundTask) }
         guard let session = await waitForSession(userId: target.accountUserId),
               let room = try? session.client.getRoom(roomId: target.roomId),
-              sessions[target.accountUserId] === session else { return }
+              sessions[target.accountUserId] === session,
+              NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
         do {
             try await room.markAsRead(receiptType: .read)
-            guard sessions[target.accountUserId] === session else { return }
+            guard sessions[target.accountUserId] === session, NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
             removeNotifications(target: target)
         } catch {
             // Keep the notification available for another attempt.
@@ -169,7 +171,7 @@ final class NotificationActions: ObservableObject {
         let center = UNUserNotificationCenter.current()
         Task {
             let ids = await center.deliveredNotifications()
-                .filter { NotificationKeys.target($0.request.content.userInfo) == target }
+                .filter { NotificationKeys.recordedTarget($0.request.content.userInfo) == target }
                 .map(\.request.identifier)
             center.removeDeliveredNotifications(withIdentifiers: ids)
         }

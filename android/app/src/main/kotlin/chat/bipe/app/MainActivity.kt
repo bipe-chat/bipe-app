@@ -15,7 +15,6 @@ import chat.bipe.app.account.AccountStartModel
 import chat.bipe.app.people.PeopleLinks
 import chat.bipe.app.account.AccountStartScreen
 import chat.bipe.app.notifications.PhoneNotifications
-import chat.bipe.shared.BipeNotificationTarget
 import chat.bipe.app.settings.AppLockGate
 import chat.bipe.app.settings.AppLockModel
 
@@ -57,11 +56,10 @@ class MainActivity : ComponentActivity() {
     /** Spec notification-service, action open: a tap on a notification opens its chat. */
     private fun readOpenChat(intent: Intent?) {
         if (intent?.action != PhoneNotifications.ACTION_OPEN_CHAT) return
-        val target = BipeNotificationTarget.create(
-            intent.getStringExtra(PhoneNotifications.EXTRA_ACCOUNT_USER_ID),
-            intent.getStringExtra(PhoneNotifications.EXTRA_ROOM_ID),
-        ) ?: return
-        (application as BipeApplication).roomToOpen.value = target
+        val app = application as BipeApplication
+        val target = app.notifications.target(intent) ?: return
+        app.roomToOpen.value = target
+        intent.removeExtra(PhoneNotifications.EXTRA_ACCOUNT_ROUTE)
         intent.removeExtra(PhoneNotifications.EXTRA_ACCOUNT_USER_ID)
         intent.removeExtra(PhoneNotifications.EXTRA_ROOM_ID)
     }
