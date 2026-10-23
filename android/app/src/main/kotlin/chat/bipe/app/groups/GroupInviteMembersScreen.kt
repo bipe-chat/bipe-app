@@ -58,7 +58,7 @@ fun GroupInviteMembersScreen(
     val context = LocalContext.current
     val api = LocalBipeApi.current
     val service = remember(session, api) { api?.let { PeopleService(context.applicationContext, session, it, media, scope) } }
-    val model = remember(session, mode, service) { GroupInviteMembersModel(session, mode, scope, service) }
+    val model = remember(session, mode, service) { GroupInviteMembersModel(session, mode, scope, service, context.applicationContext) }
     DisposableEffect(model) { service?.start(); onDispose { model.close(); service?.close() } }
     LaunchedEffect(model) { model.appear() }
     BackHandler(onBack = onBack)
@@ -72,6 +72,8 @@ fun GroupInviteMembersScreen(
     val handleNotFound by model.handleNotFound.collectAsState()
     val lookupFailed by model.lookupFailed.collectAsState()
     val lookingUp by model.lookingUp.collectAsState()
+    val enrichingContacts by model.enrichingContacts.collectAsState()
+    val contactsFailed by model.contactsFailed.collectAsState()
 
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.GROUP_INVITE_MEMBERS.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -135,6 +137,19 @@ fun GroupInviteMembersScreen(
                     PickRow(pick, media) { model.toggle(pick.person.userId) }
                 }
                 item(key = "footer") { GroupFooter(stringResource(R.string.bipe_start_chat_search_by_handle)) }
+                if (enrichingContacts) {
+                    item(key = "contacts-loading") {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = colors.accentFill) }
+                    }
+                }
+                if (contactsFailed) {
+                    item(key = "contacts-failed") {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
+                            TextButton(onClick = model::refreshContacts) { Text(stringResource(R.string.bipe_app_retry)) }
+                        }
+                    }
+                }
                 item(key = "invite") { InviteSomeoneNewRow(session, media) }
             }
         }

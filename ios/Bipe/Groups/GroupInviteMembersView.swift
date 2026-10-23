@@ -57,6 +57,13 @@ struct GroupInviteMembersView: View {
             } footer: {
                 Text(BipeStrings.startChatSearchByHandle)
             }
+            if model.enrichingContacts { ProgressView().frame(maxWidth: .infinity) }
+            if model.contactsFailed {
+                Section {
+                    Text(BipeStrings.errorGeneric).foregroundStyle(BipeColor.trustDangerInk)
+                    Button(BipeStrings.appRetry) { model.refreshContacts() }
+                }
+            }
             // Action inviteSomeoneNew: a personal Bipe invite for a person who is not on Bipe yet.
             if api != nil {
                 Section {

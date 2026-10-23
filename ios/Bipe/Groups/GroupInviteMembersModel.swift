@@ -47,6 +47,8 @@ final class GroupInviteMembersModel: ObservableObject {
     @Published private(set) var handleNotFound = false
     @Published private(set) var lookupFailed = false
     @Published private(set) var lookingUp = false
+    @Published private(set) var enrichingContacts = false
+    @Published private(set) var contactsFailed = false
 
     let mode: Mode
     private let session: AccountSession
@@ -60,6 +62,8 @@ final class GroupInviteMembersModel: ObservableObject {
     private var lookupVersion: UInt64 = 0
     private var handlePerson: Person?
     private var lookupOnlyIds: Set<String> = []
+    private var contactsTask: Task<Void, Never>?
+    private var contactsVersion: UInt64 = 0
 
     init(session: AccountSession, mode: Mode) {
         self.session = session
@@ -72,14 +76,14 @@ final class GroupInviteMembersModel: ObservableObject {
 
     var selectedCount: Int { selected.count }
 
-    deinit { lookupTask?.cancel() }
+    deinit { lookupTask?.cancel(); contactsTask?.cancel() }
 
     func appear(api: BipeAPIClient?, media: MediaLoader) async {
         if service == nil, let api {
             service = PeopleService(session: session, api: api, media: media)
             service?.start()
         }
-        guard loading else { setQuery(query); return }
+        guard loading else { setQuery(query); refreshContacts(); return }
         var people = await GroupPeople.contacts(client: session.client, ownUserId: session.userId)
         lookupOnlyIds.subtract(people.map(\.userId))
         // People picked before stay on the list even when they are not contacts.
@@ -100,6 +104,7 @@ final class GroupInviteMembersModel: ObservableObject {
         loading = false
         selected.removeAll { memberStatus[$0] == .member || memberStatus[$0] == .invited }
         setQuery(query)
+        refreshContacts()
     }
 
     /// Filters immediately; only a valid exact @ triggers the existing handle endpoint after a short pause.
@@ -147,7 +152,60 @@ final class GroupInviteMembersModel: ObservableObject {
         }
     }
 
-    func close() { lookupTask?.cancel(); lookingUp = false }
+    func close() {
+        lookupTask?.cancel()
+        contactsTask?.cancel()
+        contactsTask = nil
+        contactsVersion &+= 1
+        lookingUp = false
+        enrichingContacts = false
+    }
+
+    /// Local room contacts stay usable while invite pairs and already-authorized phone contacts load.
+    /// This never opens the permission dialog. ContactsModel uses the existing 500-number lookup batches.
+    func refreshContacts() {
+        guard contactsTask == nil, let service else { return }
+        contactsVersion &+= 1
+        let version = contactsVersion
+        enrichingContacts = true
+        contactsFailed = false
+        contactsTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if version == self.contactsVersion { self.enrichingContacts = false; self.contactsTask = nil }
+            }
+            do {
+                let ids = try await service.withToken { (token: String) async throws(BipeAPIError) -> [String] in
+                    try await service.api.inviteConnections(accessToken: token)
+                }
+                let found = await service.people(ids.filter { $0 != self.session.userId && !service.isBlocked($0) })
+                guard !Task.isCancelled, version == self.contactsVersion else { return }
+                self.mergeContacts(found, preferLoadedNames: false)
+            } catch {
+                guard !Task.isCancelled, version == self.contactsVersion else { return }
+                self.contactsFailed = true
+            }
+            let addressBook = ContactsModel(people: service)
+            await addressBook.appear()
+            guard !Task.isCancelled, version == self.contactsVersion else { return }
+            self.mergeContacts(addressBook.matches.map(\.person), preferLoadedNames: true)
+            if case .failed = addressBook.phase { self.contactsFailed = true }
+        }
+    }
+
+    private func mergeContacts(_ incoming: [Person], preferLoadedNames: Bool) {
+        for person in incoming where person.userId != session.userId && service?.isBlocked(person.userId) != true {
+            lookupOnlyIds.remove(person.userId)
+            if let index = people.firstIndex(where: { $0.userId == person.userId }) {
+                if preferLoadedNames { people[index].displayName = person.displayName }
+                people[index].handle = person.handle ?? people[index].handle
+                people[index].avatarUrl = person.avatarUrl ?? people[index].avatarUrl
+            } else { people.append(person) }
+        }
+        people.sort { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
+        if let id = handlePerson?.userId { handlePerson = people.first { $0.userId == id } }
+        rebuild()
+    }
 
     /// Action toggle.
     func toggle(_ userId: String) {
@@ -213,7 +271,9 @@ final class GroupInviteMembersModel: ObservableObject {
     }
 
     private func rebuild() {
+        selected.removeAll { $0 == session.userId || service?.isBlocked($0) == true }
         contacts = people
+            .filter { $0.userId != session.userId && service?.isBlocked($0.userId) != true }
             .filter { !lookupOnlyIds.contains($0.userId) || selected.contains($0.userId) || results[$0.userId] != nil }
             .filter { $0.userId != handlePerson?.userId }
             .filter { $0.matches(query) || results[$0.userId] != nil }

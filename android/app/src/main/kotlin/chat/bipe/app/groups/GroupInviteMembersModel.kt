@@ -4,9 +4,16 @@
 
 package chat.bipe.app.groups
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.people.PeopleService
+import chat.bipe.app.people.readAddressBook
 import chat.bipe.shared.BipeHandle
+import chat.bipe.shared.api.inviteConnections
+import chat.bipe.shared.api.lookupContacts
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +38,7 @@ class GroupInviteMembersModel(
     val mode: Mode,
     private val scope: CoroutineScope,
     private val service: PeopleService?,
+    private val context: Context,
 ) {
     sealed interface Mode {
         /** From group-create, with the people it already has. Nothing is sent. */
@@ -64,6 +72,12 @@ class GroupInviteMembersModel(
     private var lookupVersion = 0L
     private var handlePerson: Person? = null
     private val lookupOnlyIds = mutableSetOf<String>()
+    private val _enrichingContacts = MutableStateFlow(false)
+    val enrichingContacts = _enrichingContacts.asStateFlow()
+    private val _contactsFailed = MutableStateFlow(false)
+    val contactsFailed = _contactsFailed.asStateFlow()
+    private var contactsJob: Job? = null
+    private var contactsVersion = 0L
 
     private var people: List<Person> = (mode as? Mode.Pick)?.people.orEmpty()
 
@@ -94,6 +108,7 @@ class GroupInviteMembersModel(
             _loading.value = false
             selected.removeAll { memberStatus[it] == PersonPick.Status.MEMBER || memberStatus[it] == PersonPick.Status.INVITED }
             setQuery(_query.value)
+            refreshContacts()
         }
     }
 
@@ -141,7 +156,70 @@ class GroupInviteMembersModel(
         }
     }
 
-    fun close() { lookupJob?.cancel(); _lookingUp.value = false }
+    fun close() {
+        lookupJob?.cancel(); _lookingUp.value = false
+        contactsJob?.cancel(); contactsJob = null; contactsVersion += 1; _enrichingContacts.value = false
+    }
+
+    /** Keep local room contacts usable. Add invite pairs and phone matches only with existing OS permission. */
+    fun refreshContacts() {
+        val peopleService = service ?: return
+        if (contactsJob?.isActive == true) return
+        val version = ++contactsVersion
+        _enrichingContacts.value = true
+        _contactsFailed.value = false
+        contactsJob = scope.launch {
+            try {
+                try {
+                    val ids = peopleService.withToken { peopleService.api.inviteConnections(it) }
+                    val found = peopleService.people(ids.filter { it != session.userId && !peopleService.isBlocked(it) })
+                    coroutineContext.ensureActive()
+                    if (version != contactsVersion) return@launch
+                    mergeContacts(found.map { Person(it.userId, it.displayName, it.avatarUrl, it.handle) }, preferLoadedNames = false)
+                } catch (error: CancellationException) { throw error }
+                catch (_: Exception) { if (version == contactsVersion) _contactsFailed.value = true }
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                    val names = readAddressBook(context)
+                    val found = linkedMapOf<String, String>()
+                    names.keys.toList().chunked(500).forEach { phones ->
+                        peopleService.withToken { peopleService.api.lookupContacts(phones, it) }.forEach { match ->
+                            if (match.userId != session.userId && match.userId !in found) found[match.userId] = names[match.phone].orEmpty()
+                        }
+                    }
+                    val matches = found.mapNotNull { (id, name) ->
+                        if (peopleService.isBlocked(id)) null
+                        else {
+                            val loaded = runCatching { peopleService.person(id, contactName = name) }.getOrNull()
+                            coroutineContext.ensureActive()
+                            loaded?.let { Person(it.userId, it.displayName, it.avatarUrl, it.handle) }
+                                ?: Person.of(id, name, null)
+                        }
+                    }
+                    coroutineContext.ensureActive()
+                    if (version != contactsVersion) return@launch
+                    mergeContacts(matches, preferLoadedNames = true)
+                }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { if (version == contactsVersion) _contactsFailed.value = true }
+            finally { if (version == contactsVersion) { _enrichingContacts.value = false; contactsJob = null } }
+        }
+    }
+
+    private fun mergeContacts(incoming: List<Person>, preferLoadedNames: Boolean) {
+        val combined = people.associateByTo(linkedMapOf()) { it.userId }
+        for (person in incoming) {
+            if (person.userId == session.userId || service?.isBlocked(person.userId) == true) continue
+            lookupOnlyIds -= person.userId
+            val old = combined[person.userId]
+            combined[person.userId] = if (old == null) person else old.copy(
+                displayName = if (preferLoadedNames) person.displayName else old.displayName,
+                handle = person.handle ?: old.handle, avatarUrl = person.avatarUrl ?: old.avatarUrl,
+            )
+        }
+        people = combined.values.sortedWith(compareBy(GroupPeople.byName) { it.displayName })
+        handlePerson = handlePerson?.let { current -> people.firstOrNull { it.userId == current.userId } }
+        rebuild()
+    }
 
     /** Action toggle. */
     fun toggle(userId: String) {
@@ -195,7 +273,9 @@ class GroupInviteMembersModel(
 
     private fun rebuild() {
         val query = _query.value
+        selected.removeAll { it == session.userId || service?.isBlocked(it) == true }
         _contacts.value = people
+            .filter { it.userId != session.userId && service?.isBlocked(it.userId) != true }
             .filter { it.userId !in lookupOnlyIds || it.userId in selected || results.containsKey(it.userId) }
             .filter { it.userId != handlePerson?.userId }
             .filter { it.matches(query) || results.containsKey(it.userId) }
