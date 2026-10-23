@@ -62,6 +62,11 @@ struct TimelineRowView: View {
                 Rectangle().fill(BipeColor.accentFill).frame(height: 1)
             }
             .padding(.vertical, 6)
+        case .handleChange:
+            if let line = row.handleChange, let text = line.change.line(name: line.name) {
+                SystemLine(text: text)
+                    .accessibilityIdentifier(BipeScreen.handleChangeLine.rawValue)
+            }
         case .notEncrypted:
             SystemLine(text: BipeStrings.appTimelineNotEncrypted)
         case .chatStart:
@@ -158,6 +163,9 @@ private struct MessageBubbleRow: View {
                     }
                     Text(message.body ?? "")
                         .foregroundStyle(BipeColor.inkPrimary)
+                    if let warning = details.scamWarning {
+                        ScamWarningCard(kind: warning)
+                    }
                     footer
                 }
                 .offset(x: swipe)
@@ -210,6 +218,34 @@ private struct MessageBubbleRow: View {
         }
         .font(.caption2)
         .foregroundStyle(BipeColor.inkSecondary)
+    }
+}
+
+/// Spec scam-warning: a calm caution card. Title then the kind text, one element for screen readers.
+private struct ScamWarningCard: View {
+    let kind: ScamWarningKind
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            PhosphorIcon.warningCircle.image
+                .resizable()
+                .frame(width: 16, height: 16)
+                .foregroundStyle(BipeColor.trustCautionInk)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(BipeStrings.scamWarningTitle)
+                    .font(.caption.bold())
+                    .foregroundStyle(BipeColor.trustCautionInk)
+                Text(kind.message)
+                    .font(.caption)
+                    .foregroundStyle(BipeColor.inkPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 10).fill(BipeColor.trustCautionWash))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(BipeColor.trustCautionLine, lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(BipeScreen.scamWarning.rawValue)
     }
 }
 

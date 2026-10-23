@@ -56,6 +56,15 @@ final class AccountStartModel: ObservableObject {
         recoveryLink = url
         showsRecovery = true
     }
+    /// Spec push-registration: keep this phone's pusher on the current account; notification actions use it too.
+    private func attachServices(_ session: AccountSession) {
+        guard attachedUserId != session.userId else { return }
+        attachedUserId = session.userId
+        SessionStore.pushUserId = session.userId
+        PushRegistration.shared.attach(session)
+        NotificationActions.shared.attach(session)
+    }
+    private var attachedUserId: String?
 
     let api = BipeAPIClient(baseURL: AppConfig.apiBaseURL)
     private var starting = false
@@ -126,13 +135,15 @@ final class AccountStartModel: ObservableObject {
         for session in sessions {
             await session.syncService.start()
         }
+        await PushRegistration.shared.appBecameActive()
     }
 
     /// app-tabs switchAccount: makes that account current and saves the choice for the next start.
     func switchAccount(to userId: String) {
-        guard sessions.contains(where: { $0.userId == userId }) else { return }
+        guard let session = sessions.first(where: { $0.userId == userId }) else { return }
         self.userId = userId
         AccountList.current = userId
+        attachServices(session)
     }
 
     /// signup-create made the account and signed in.
@@ -170,6 +181,12 @@ final class AccountStartModel: ObservableObject {
     func signOut(userId targetId: String? = nil, alreadyLoggedOut: Bool = false) async {
         let id = targetId ?? userId
         guard let session = sessions.first(where: { $0.userId == id }) else { return }
+        if attachedUserId == session.userId {
+            // Spec push-registration, action signOut: the pusher goes before the session ends.
+            await PushRegistration.shared.signOut()
+            attachedUserId = nil
+            SessionStore.pushUserId = nil
+        }
         await session.signOut(alreadyLoggedOut: alreadyLoggedOut)
         AccountList.remove(session.userId)
         sessions.removeAll { $0.userId == session.userId }
@@ -187,6 +204,7 @@ final class AccountStartModel: ObservableObject {
     private func show(_ session: AccountSession) {
         add(session)
         userId = session.userId
+        attachServices(session)
         phase = .ready
     }
 

@@ -67,6 +67,9 @@ import chat.bipe.app.polls.PollCard
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.line
+import androidx.compose.ui.platform.LocalContext
+import chat.bipe.shared.ScamWarningKind
 import chat.bipe.shared.generated.BipeScreen
 import androidx.compose.ui.platform.testTag
 import chat.bipe.shared.generated.BipeHaptic
@@ -123,6 +126,10 @@ fun TimelineRowItem(
             Box(Modifier.weight(1f).height(1.dp).background(colors.accentFill))
             Text(stringResource(R.string.bipe_app_timeline_new_messages), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = colors.accentInk)
             Box(Modifier.weight(1f).height(1.dp).background(colors.accentFill))
+        }
+        TimelineRow.Kind.HANDLE_CHANGE -> row.handleChange?.let { line ->
+            val context = LocalContext.current
+            line.change.line(context, line.name)?.let { SystemLine(it, Modifier.testTag(BipeScreen.HANDLE_CHANGE_LINE.id)) }
         }
         TimelineRow.Kind.NOT_ENCRYPTED -> SystemLine(stringResource(R.string.bipe_app_timeline_not_encrypted))
         TimelineRow.Kind.CHAT_START -> SystemLine(stringResource(R.string.bipe_app_timeline_start))
@@ -248,6 +255,7 @@ private fun MessageBubbleRow(
                     ReplyQuote(reply, Modifier.clickable { model.openOriginal(reply.eventId) })
                 }
                 Text(message.body.orEmpty(), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                details.scamWarning?.let { ScamWarningCard(it) }
                 MessageFooter(message, details, onFailedTap = onLongPress, modifier = Modifier.align(Alignment.End))
             }
         }
@@ -264,6 +272,28 @@ private fun MessageBubbleRow(
         val receipt = details.receipt
         if (receipt != null && !isDm && receipt.readers.isNotEmpty()) {
             ReaderAvatars(receipt.readers, media, onClick = { model.openReaders(row.id) })
+        }
+    }
+}
+
+/** Spec scam-warning: a calm caution card. Title then the kind text, one element for screen readers. */
+@Composable
+private fun ScamWarningCard(kind: ScamWarningKind) {
+    val colors = BipeTheme.colors
+    val shape = RoundedCornerShape(10.dp)
+    Row(
+        modifier = Modifier
+            .background(colors.trustCautionWash, shape)
+            .border(1.dp, colors.trustCautionLine, shape)
+            .padding(8.dp)
+            .semantics(mergeDescendants = true) {}
+            .testTag(BipeScreen.SCAM_WARNING.id),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustCautionInk, modifier = Modifier.size(16.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(stringResource(R.string.bipe_scam_warning_title), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.trustCautionInk)
+            Text(stringResource(kind.messageRes), style = MaterialTheme.typography.labelMedium, color = colors.inkPrimary)
         }
     }
 }

@@ -115,7 +115,7 @@ final class ContactsModel: ObservableObject {
         var list: [ContactMatch] = []
         for (userId, name) in found {
             let person = (try? await people.person(userId, contactName: name))
-                ?? Person(userId: userId, displayName: name)
+                ?? Person(userId: userId, displayName: name, avatarUrl: nil)
             list.append(ContactMatch(person: person, joinedWithInvite: invited.contains(userId)))
         }
         matches = list.sorted { $0.person.displayName.localizedCaseInsensitiveCompare($1.person.displayName) == .orderedAscending }
@@ -227,7 +227,7 @@ struct ContactsView: View {
 
     private func row(_ match: ContactMatch) -> some View {
         HStack(spacing: 12) {
-            AvatarView(name: match.person.displayName, mxcUrl: match.person.avatarUrl, loader: model.people.media, size: 40, userId: match.person.userId)
+            AvatarView(name: match.person.displayName, mxcUrl: match.person.avatarUrl, loader: model.people.media, size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(match.person.displayName)
                     .foregroundStyle(BipeColor.inkPrimary)

@@ -15,6 +15,7 @@ enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     ARROW_CLOCKWISE("arrow-clockwise", R.drawable.phosphor_arrow_clockwise),
     BACKSPACE("backspace", R.drawable.phosphor_backspace),
     BELL("bell", R.drawable.phosphor_bell),
+    BELL_SLASH("bell-slash", R.drawable.phosphor_bell_slash),
     CAMERA("camera", R.drawable.phosphor_camera),
     CARET_LEFT("caret-left", R.drawable.phosphor_caret_left),
     CARET_RIGHT("caret-right", R.drawable.phosphor_caret_right),

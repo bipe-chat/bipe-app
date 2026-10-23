@@ -7,7 +7,8 @@
 #   TestFlight and add the build to the internal testing group; also export an ad hoc IPA
 #   for the devices registered in team 992N457T8D (artifact bipe-next-ipa).
 # - Android: a debug-signed release APK of chat.bipe.app.next (artifact bipe-next-apk).
-# Build number: bipe-shared product/version.json build plus the run number.
+# Version (bipe-chat/bipe#584, ADR 0088): the version name of bipe-shared product/version.json;
+# build number: its build plus the run number. Both platforms carry the same pair.
 # Install commands: AGENTS.md, "Tester builds".
 name: testflight
 
@@ -31,12 +32,16 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       number: ${{ steps.n.outputs.number }}
+      version: ${{ steps.n.outputs.version }}
     steps:
       - id: n
         run: |
-          base=$(curl -fsSL https://raw.githubusercontent.com/bipe-chat/bipe-shared/main/product/version.json | jq -er '.build')
+          curl -fsSL https://raw.githubusercontent.com/bipe-chat/bipe-shared/main/product/version.json > version.json
+          base=$(jq -er '.build' version.json)
+          version=$(jq -er '.version' version.json)
           echo "number=$((base + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
-          echo "build number: $((base + GITHUB_RUN_NUMBER))"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "version $version, build number: $((base + GITHUB_RUN_NUMBER))"
 
   ios:
     needs: build-number
@@ -44,6 +49,7 @@ jobs:
     timeout-minutes: 120
     env:
       BUILD_NUMBER: ${{ needs.build-number.outputs.number }}
+      VERSION_NAME: ${{ needs.build-number.outputs.version }}
       ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
     steps:
@@ -87,6 +93,7 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
+            MARKETING_VERSION="$VERSION_NAME" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" | tee "$RUNNER_TEMP/archive.log" | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
           grep -q "ARCHIVE SUCCEEDED" "$RUNNER_TEMP/archive.log"
       - name: Export options
@@ -175,7 +182,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build the tester APK
         run: |
-          ./gradlew --no-daemon assembleRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }}
+          ./gradlew --no-daemon assembleRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }}
           mv app/build/outputs/apk/release/*.apk "app/build/outputs/apk/release/Bipe-Next-${{ needs.build-number.outputs.number }}.apk"
       - name: Keep the tester APK
         uses: actions/upload-artifact@v4

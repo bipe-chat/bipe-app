@@ -19,17 +19,17 @@ struct ChatTimelineView: View {
     @State private var creatingPoll = false
     @State private var openPollId: String?
     private let media: MediaLoader
-    private let session: AccountSession
-    private let roomId: String
     /// Opens the chat's info: person-profile for a DM.
     private let openInfo: (() -> Void)?
+    private let session: AccountSession
+    private let roomId: String
 
     init(session: AccountSession, media: MediaLoader, roomId: String, openInfo: (() -> Void)? = nil) {
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
         self.media = media
+        self.openInfo = openInfo
         self.session = session
         self.roomId = roomId
-        self.openInfo = openInfo
     }
 
     var body: some View {
@@ -48,10 +48,13 @@ struct ChatTimelineView: View {
         .navigationTitle(model.roomName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if model.isDm, let openInfo {
+            if let openInfo {
                 ToolbarItem(placement: .principal) {
                     Button(action: openInfo) {
-                        Text(model.roomName).font(.headline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
+                        Text(model.roomName)
+                            .font(.headline)
+                            .foregroundStyle(BipeColor.inkPrimary)
+                            .lineLimit(1)
                     }
                 }
             }
@@ -130,6 +133,10 @@ struct ChatTimelineView: View {
         } message: {
             Text(BipeStrings.appMessageDeleteBody)
         }
+        // Spec notification-service: an open chat has no notifications.
+        .onAppear { NotificationActions.shared.chatOpened(model.roomId) }
+        .onDisappear { NotificationActions.shared.chatOpened(nil) }
+        .notificationsPrompt(session: session, roomId: model.roomId, messages: model.rows.compactMap(\.message))
     }
 
     /// Spec dm-delete: events at or below the marker of a cleared DM are gone.

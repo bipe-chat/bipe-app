@@ -11,11 +11,15 @@ import SwiftUI
 struct GroupInviteMembersView: View {
     @StateObject private var model: GroupInviteMembersModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.bipeAPI) private var api
+    @State private var showingInvites = false
     private let media: MediaLoader
+    private let session: AccountSession
     private let onDone: ([Person]) -> Void
 
     init(session: AccountSession, media: MediaLoader, mode: GroupInviteMembersModel.Mode, onDone: @escaping ([Person]) -> Void) {
         _model = StateObject(wrappedValue: GroupInviteMembersModel(session: session, mode: mode))
+        self.session = session
         self.media = media
         self.onDone = onDone
     }
@@ -39,6 +43,12 @@ struct GroupInviteMembersView: View {
             } footer: {
                 Text(BipeStrings.startChatSearchByHandle)
             }
+            // Action inviteSomeoneNew: a personal Bipe invite for a person who is not on Bipe yet.
+            if api != nil {
+                Section {
+                    Button(BipeStrings.contactsInvite) { showingInvites = true }
+                }
+            }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
@@ -56,6 +66,11 @@ struct GroupInviteMembersView: View {
                     }
                     .disabled(model.selectedCount == 0)
                 }
+            }
+        }
+        .sheet(isPresented: $showingInvites) {
+            if let api {
+                InvitesView(session: session, api: api, media: media) { _ in }
             }
         }
         .accessibilityIdentifier(BipeScreen.groupInviteMembers.rawValue)
