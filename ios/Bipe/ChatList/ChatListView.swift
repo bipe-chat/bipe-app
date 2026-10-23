@@ -336,26 +336,12 @@ struct ChatListView: View {
             List {
                 topRows
                 ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
-                    HStack {
-                        Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
-                            .buttonStyle(.plain)
-                        Menu { rowMenu(chat.roomId) } label: {
-                            PhosphorIcon.dotsThree.image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 20, height: 20)
-                                .foregroundStyle(BipeColor.glyphSecondary)
-                                .frame(width: 44, height: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(BipeStrings.chatActions)
-                    }
+                    Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
+                    .buttonStyle(.plain)
                     .listRowBackground(BipeColor.surfaceBase)
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
                     .contextMenu { rowMenu(chat.roomId) }
-                    .accessibilityAction(named: archive.contains(chat) ? BipeStrings.unarchiveAction : BipeStrings.archiveAction) {
-                        archive.set(chat, archived: !archive.contains(chat))
-                    }
+                    .accessibilityActions { rowMenu(chat.roomId) }
                     .onAppear {
                         if chat.id == chats.last?.id {
                             if !showingArchived { model.loadMore(in: scope) }
