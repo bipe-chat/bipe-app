@@ -13,14 +13,18 @@ struct TimelineRowView: View {
     let isHighlighted: Bool
     @ObservedObject var model: ChatTimelineModel
     let media: MediaLoader
+    @ObservedObject var voicePlayer: VoicePlayer
     var openPoll: (String) -> Void = { _ in }
+    /// Action open of spec timeline-media: the row id for media-viewer.
+    var openViewer: (String) -> Void = { _ in }
 
     var body: some View {
         switch row.kind {
         case .message:
             if let message = row.message, let details = row.details {
                 MessageBubbleRow(row: row, message: message, details: details, isDm: isDm,
-                                 isHighlighted: isHighlighted, model: model, media: media)
+                                 isHighlighted: isHighlighted, model: model, media: media,
+                                 voicePlayer: voicePlayer, openViewer: openViewer)
             }
         case .undecryptable:
             if let message = row.message {
@@ -110,6 +114,8 @@ private struct Bubble<Content: View>: View {
     var isHighlighted = false
     /// The last view (the footer of a message) sits at the trailing edge.
     var trailingLast = false
+    /// A sticker has no bubble (spec timeline-media).
+    var isPlain = false
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -118,9 +124,9 @@ private struct Bubble<Content: View>: View {
             BubbleStack(spacing: 4, trailingLast: trailingLast) {
                 content()
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 16).fill(isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther))
+            .padding(.horizontal, isPlain ? 0 : 12)
+            .padding(.vertical, isPlain ? 0 : 8)
+            .background(RoundedRectangle(cornerRadius: 16).fill(isPlain ? .clear : isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(BipeColor.accentFill, lineWidth: isHighlighted ? 2 : 0))
             if !isOwn { Spacer(minLength: 48) }
         }
@@ -137,6 +143,8 @@ private struct MessageBubbleRow: View {
     let isHighlighted: Bool
     @ObservedObject var model: ChatTimelineModel
     let media: MediaLoader
+    @ObservedObject var voicePlayer: VoicePlayer
+    let openViewer: (String) -> Void
 
     @State private var swipe: CGFloat = 0
     private let swipeThreshold: CGFloat = 60
@@ -150,7 +158,8 @@ private struct MessageBubbleRow: View {
                     .foregroundStyle(BipeColor.glyphSecondary)
                     .opacity(Double(min(1, swipe / swipeThreshold)))
                     .accessibilityHidden(true)
-                Bubble(isOwn: message.isOwn, isHighlighted: isHighlighted, trailingLast: true) {
+                Bubble(isOwn: message.isOwn, isHighlighted: isHighlighted, trailingLast: true,
+                       isPlain: message.media?.kind == .sticker) {
                     if !message.isOwn && !isDm {
                         Text(message.senderName)
                             .font(.caption.bold())
@@ -161,8 +170,7 @@ private struct MessageBubbleRow: View {
                             .onTapGesture { Task { await model.openOriginal(eventId: reply.eventId) } }
                             .task { await model.loadReply(rowId: row.id) }
                     }
-                    Text(message.body ?? "")
-                        .foregroundStyle(BipeColor.inkPrimary)
+                    content
                     if let warning = details.scamWarning {
                         ScamWarningCard(kind: warning)
                     }
@@ -185,6 +193,22 @@ private struct MessageBubbleRow: View {
                 ReaderAvatars(readers: receipt.readers, media: media)
                     .onTapGesture { model.openReaders(rowId: row.id) }
             }
+        }
+    }
+
+    /// Text, or the media and voice content of specs timeline-media and voice-message.
+    @ViewBuilder
+    private var content: some View {
+        if let mediaMessage = message.media {
+            TimelineMediaRow(message: message, media: mediaMessage, loader: media,
+                             isPrivateRoom: model.isPrivateRoom,
+                             openViewer: { openViewer(row.id) },
+                             cancelUpload: { Task { await model.cancelUpload(id: row.id) } })
+        } else if let voice = message.voice {
+            VoiceMessageRow(message: message, voice: voice, loader: media, player: voicePlayer)
+        } else {
+            Text(message.body ?? "")
+                .foregroundStyle(BipeColor.inkPrimary)
         }
     }
 

@@ -63,6 +63,11 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.media.MediaMessage
+import chat.bipe.app.media.TimelineMediaRow
+import chat.bipe.app.media.VoiceMessage
+import chat.bipe.app.media.VoiceMessageRow
+import chat.bipe.app.media.VoicePlayer
 import chat.bipe.app.polls.PollCard
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.phosphor.PhosphorIcon
@@ -90,13 +95,40 @@ fun TimelineRowItem(
     onLongPress: () -> Unit,
     onHistoryHelp: () -> Unit = {},
     onOpenPoll: (String) -> Unit = {},
+    isPrivateRoom: Boolean = true,
+    voiceState: VoicePlayer.State = VoicePlayer.State(),
+    onTogglePlay: (String, VoiceMessage) -> Unit = { _, _ -> },
+    onSeek: (String, Float) -> Unit = { _, _ -> },
+    /** Action open of spec timeline-media: the row id for media-viewer. */
+    onOpenViewer: (String) -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     when (row.kind) {
         TimelineRow.Kind.MESSAGE -> {
             val message = row.message ?: return
             val details = row.details ?: return
-            MessageBubbleRow(row, message, details, isDm, isHighlighted, model, media, onLongPress)
+            MessageBubbleRow(row, message, details, isDm, isHighlighted, model, media, onLongPress) {
+                val mediaMessage = message.media
+                val voice = message.voice
+                when {
+                    mediaMessage != null -> TimelineMediaRow(
+                        message = message,
+                        media = mediaMessage,
+                        loader = media,
+                        isPrivateRoom = isPrivateRoom,
+                        onOpenViewer = { onOpenViewer(row.id) },
+                        onCancelUpload = { model.cancelUpload(row.id) },
+                    )
+                    voice != null -> VoiceMessageRow(
+                        message = message,
+                        voice = voice,
+                        state = voiceState,
+                        onTogglePlay = { onTogglePlay(message.id, voice) },
+                        onSeek = { onSeek(message.id, it) },
+                    )
+                    else -> Text(message.body.orEmpty(), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                }
+            }
         }
         TimelineRow.Kind.UNDECRYPTABLE -> row.message?.let { message ->
             Box(Modifier.pointerInput(row.id) { detectTapGestures(onLongPress = { onLongPress() }) }) {
@@ -167,16 +199,23 @@ private fun SystemLine(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Bubble(isOwn: Boolean, isHighlighted: Boolean = false, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+private fun Bubble(
+    isOwn: Boolean,
+    isHighlighted: Boolean = false,
+    modifier: Modifier = Modifier,
+    /** A sticker has no bubble (spec timeline-media). */
+    isPlain: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val colors = BipeTheme.colors
     val shape = RoundedCornerShape(16.dp)
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = if (isOwn) Arrangement.End else Arrangement.Start) {
         Column(
             modifier = modifier
                 .widthIn(max = 300.dp)
-                .background(if (isOwn) colors.bubbleOwn else colors.bubbleOther, shape)
+                .then(if (isPlain) Modifier else Modifier.background(if (isOwn) colors.bubbleOwn else colors.bubbleOther, shape))
                 .then(if (isHighlighted) Modifier.border(2.dp, colors.accentFill, shape) else Modifier)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = if (isPlain) 0.dp else 12.dp, vertical = if (isPlain) 0.dp else 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             content()
@@ -198,6 +237,8 @@ private fun MessageBubbleRow(
     model: ChatTimelineModel,
     media: MediaLoader,
     onLongPress: () -> Unit,
+    /** Text, or the media and voice content of specs timeline-media and voice-message. */
+    content: @Composable () -> Unit,
 ) {
     val colors = BipeTheme.colors
     val view = LocalView.current
@@ -220,6 +261,7 @@ private fun MessageBubbleRow(
             Bubble(
                 isOwn = message.isOwn,
                 isHighlighted = isHighlighted,
+                isPlain = message.media?.kind == MediaMessage.Kind.STICKER,
                 modifier = Modifier
                     .offset { IntOffset(shownSwipe.roundToInt(), 0) }
                     .pointerInput(row.id) { detectTapGestures(onLongPress = { onLongPress() }) }
@@ -254,7 +296,7 @@ private fun MessageBubbleRow(
                     LaunchedEffect(row.id, reply.state) { model.loadReply(row.id) }
                     ReplyQuote(reply, Modifier.clickable { model.openOriginal(reply.eventId) })
                 }
-                Text(message.body.orEmpty(), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                content()
                 details.scamWarning?.let { ScamWarningCard(it) }
                 MessageFooter(message, details, onFailedTap = onLongPress, modifier = Modifier.align(Alignment.End))
             }

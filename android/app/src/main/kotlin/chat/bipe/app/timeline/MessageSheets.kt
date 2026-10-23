@@ -70,7 +70,10 @@ fun MessageActionsSheet(model: ChatTimelineModel, row: TimelineRow, onCopy: (Str
         ) {
             row.message?.let { message ->
                 Text(
-                    message.body ?: message.senderName,
+                    message.body
+                        ?: message.media?.let { stringResource(it.kindLabel) }
+                        ?: message.voice?.let { stringResource(R.string.bipe_app_media_voice) }
+                        ?: message.senderName,
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.inkPrimary,
                     maxLines = 3,

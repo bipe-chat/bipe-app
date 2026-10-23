@@ -12,6 +12,10 @@ import UIKit
 struct TimelineMessage: Identifiable, Equatable {
     enum Kind: Equatable {
         case text
+        /// Image, video, file or sticker (spec timeline-media).
+        case media
+        /// Voice message or audio file (spec voice-message).
+        case voice
         case undecryptable
         case poll
         case unsupported
@@ -43,6 +47,10 @@ struct TimelineMessage: Identifiable, Equatable {
     var cause: UndecryptableCause?
     /// Kind poll: the data of spec poll-detail.
     var poll: PollData?
+    /// Kind media.
+    var media: MediaMessage? = nil
+    /// Kind voice.
+    var voice: VoiceMessage? = nil
 }
 
 /// Type MessageAction of spec message-actions, in the order of the sheet.
@@ -116,7 +124,21 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var reachedStart = false
     @Published private(set) var isDm = false
     @Published private(set) var isEncrypted = true
+    /// A DM or a group that needs an invite, for the show-media setting (spec timeline-media).
+    @Published private(set) var isPrivateRoom = true
     @Published var draft = ""
+    // composer
+    /// The pills in the draft, in order.
+    @Published private(set) var mentions: [ComposerMention] = []
+    /// @ suggestions in a group; empty hides the list.
+    @Published private(set) var suggestions: [MentionSuggestion] = []
+    /// mode recording: voice-recording replaces the field.
+    @Published var recording: VoiceRecordingModel?
+    /// false: the composer is off, with the reason bar instead.
+    @Published private(set) var canPost = true
+    /// The poll row of attachment-picker.
+    @Published private(set) var canPoll = true
+    private let mentionDirectory = MentionDirectory()
     /// signup-done: the inviter while this chat has no first message (ADR 0034).
     @Published private(set) var inviterHint: BipeInviterGreeting?
     // message-actions
@@ -215,6 +237,16 @@ final class ChatTimelineModel: ObservableObject {
             inviterHint = greeting
         }
         await loadRoomFacts(room)
+        // Action appear of spec composer: a saved newMessage draft fills the field.
+        if draft.isEmpty, let saved = await room.newMessageDraft() {
+            draft = saved
+        }
+        if !facts.isDm {
+            Task { [weak self] in
+                guard let self else { return }
+                await mentionDirectory.load(room: room, ownUserId: session.userId)
+            }
+        }
         await loadHandleChanges(room)
         let typing = TypingStream()
         typingHandle = room.subscribeToTypingNotifications(listener: typing)
@@ -238,6 +270,25 @@ final class ChatTimelineModel: ObservableObject {
     /// Called when the screen goes away: typing off (spec typing-indicator draftChanged).
     func close() {
         sendTyping(false)
+        leave()
+    }
+
+    /// Action leave of spec composer: keeps the draft on this device, or clears it.
+    func leave() {
+        guard let room, editing == nil else { return }
+        let text = draft
+        Task { await room.keepDraft(text) }
+    }
+
+    /// The client, for upload-preview and sticker-picker.
+    var client: Client { session.client }
+
+    /// The reply target for a media, voice or sticker send; the reply bar closes.
+    func takeReplyEventId() -> String? {
+        let eventId = replyingTo?.eventId
+        replyingTo = nil
+        replyingToRowId = nil
+        return eventId
     }
 
     private func loadRoomFacts(_ room: Room) async {
@@ -258,9 +309,12 @@ final class ChatTimelineModel: ObservableObject {
         if let powerLevels = try? await room.getPowerLevels() {
             facts.canRedactOwn = powerLevels.canOwnUserRedactOwn()
             facts.canRedactOther = powerLevels.canOwnUserRedactOther()
+            canPost = powerLevels.canOwnUserSendMessage(message: .roomMessage)
+            canPoll = powerLevels.canOwnUserSendMessage(message: .pollStart)
         }
         isDm = facts.isDm
         isEncrypted = facts.isEncrypted
+        isPrivateRoom = room.isPublic() != true
     }
 
     // MARK: chat-timeline
@@ -279,6 +333,13 @@ final class ChatTimelineModel: ObservableObject {
     func editDraft(_ text: String) {
         draft = text
         guard editing == nil else { return }
+        // Spec composer editText: pills that left the text go; an @word in a group filters the members.
+        mentions = ComposerMarkdown.mentions(mentions, in: text)
+        if !isDm, let query = ComposerMarkdown.mentionQuery(text) {
+            suggestions = mentionDirectory.suggestions(query, everyoneLabel: BipeStrings.appComposerMentionEveryone)
+        } else {
+            suggestions = []
+        }
         let isBlank = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         if isBlank {
             sendTyping(false)
@@ -294,9 +355,13 @@ final class ChatTimelineModel: ObservableObject {
             return
         }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let timeline, !text.isEmpty,
-              let content = try? messageEventContentNew(msgtype: .text(content: TextMessageContent(body: text, formatted: nil))) else { return }
+        guard let timeline, !text.isEmpty else { return }
+        // Spec composer send: Markdown with the pills as matrix.to links, then the mentions.
+        let content = ComposerMarkdown.content(text: text, mentions: mentions)
         draft = ""
+        mentions = []
+        suggestions = []
+        if let room { Task { try? await room.clearComposerDraft(threadRoot: nil) } }
         sendTyping(false)
         BipeHaptics.play(.tap)
         if let replyingTo {
@@ -306,6 +371,20 @@ final class ChatTimelineModel: ObservableObject {
         } else {
             _ = try? await timeline.send(msg: content)
         }
+    }
+
+    /// Action pickSuggestion of spec composer: the @word becomes a pill.
+    func pickSuggestion(_ suggestion: MentionSuggestion) {
+        let inserted = ComposerMarkdown.insert(suggestion, into: draft, everyoneLabel: BipeStrings.appComposerMentionEveryone)
+        mentions.append(inserted.mention)
+        draft = inserted.text
+        suggestions = []
+    }
+
+    /// Action startRecording of spec composer.
+    func startRecording() {
+        guard let timeline, recording == nil, let model = try? VoiceRecordingModel(timeline: timeline, replyToEventId: takeReplyEventId()) else { return }
+        recording = model
     }
 
     /// The action of the inviter hint (spec signup-done notes): sends bipe_inviter_greeting.
@@ -320,6 +399,12 @@ final class ChatTimelineModel: ObservableObject {
     func retrySend(id: String) async {
         guard let handle = item(id)?.asEvent()?.lazyProvider.getSendHandle() else { return }
         try? await handle.tryResend()
+    }
+
+    /// Action cancelUpload of spec timeline-media: cancels the send of own media and removes the row.
+    func cancelUpload(id: String) async {
+        guard let handle = item(id)?.asEvent()?.lazyProvider.getSendHandle() else { return }
+        _ = try? await handle.abort()
     }
 
     // MARK: timeline-rows
@@ -354,7 +439,8 @@ final class ChatTimelineModel: ObservableObject {
             switch action {
             case .reply: details.canReply && isSent
             case .edit: details.canEdit
-            case .copy: true
+            // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
+            case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
             case .retry: message.isOwn && message.sendState == .failed
             case .delete: details.canDelete || (message.isOwn && !isSent)
             case .report: !message.isOwn && isSent

@@ -61,6 +61,8 @@ class ChatListModel(
     private val scope: CoroutineScope,
     private val undecryptableText: String,
     private val unnamedChatText: String,
+    /** Resolves the media kind labels of the previews. */
+    private val label: (Int) -> String,
     val notes: NotesRoom,
 ) {
     enum class Phase { LOADING, EMPTY, LOADED }
@@ -204,11 +206,11 @@ class ChatListModel(
         var lastActivity: Long? = null
         when (val latest = room.latestEvent()) {
             is LatestEventValue.Remote -> {
-                lastMessage = latest.content.previewText(undecryptableText)
+                lastMessage = latest.content.previewText(undecryptableText, label)
                 lastActivity = latest.timestamp.toLong()
             }
             is LatestEventValue.Local -> {
-                lastMessage = latest.content.previewText(undecryptableText)
+                lastMessage = latest.content.previewText(undecryptableText, label)
                 lastActivity = latest.timestamp.toLong()
             }
             is LatestEventValue.RemoteInvite -> lastActivity = latest.timestamp.toLong()

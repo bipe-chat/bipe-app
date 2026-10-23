@@ -40,7 +40,7 @@ import org.matrix.rustcomponents.sdk.MediaSource
 import java.util.concurrent.ConcurrentHashMap
 
 /** Loads avatar thumbnails through the SDK media API and keeps them in memory. */
-class MediaLoader(private val client: Client) {
+class MediaLoader(val client: Client) {
     private val cache = LruCache<String, ImageBitmap>(100)
     private val accountTypes = ConcurrentHashMap<String, Boolean>()
     private val api = BipeApiClient(AppConfig.API_BASE_URL)
