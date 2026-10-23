@@ -3129,4 +3129,6 @@ public enum BipeStrings {
     public static var chatListMore: String { NSLocalizedString("bipe_chat_list_more", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatActions: String { NSLocalizedString("bipe_chat_actions", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var messageActions: String { NSLocalizedString("bipe_message_actions", tableName: "Bipe", bundle: .module, comment: "") }
 }
