@@ -9,11 +9,18 @@
 //                                        capability; checks the app record.
 //   node tools/asc.mjs distribute <n>    Waits until build <n> is processed and adds
 //                                        it to the internal testing group.
+//   node tools/asc.mjs signing <serial>  Makes the App Store and ad hoc profiles of the
+//                                        three bundle IDs for the distribution certificate
+//                                        with this serial, installs them and writes the
+//                                        export options (bipe-chat/bipe#585).
+//   node tools/asc.mjs certificates      Lists the team's development certificates. Never
+//                                        revokes one.
 // Environment: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH (path of the .p8 key).
 // The script never prints the key or the token.
 
 import { createPrivateKey, sign } from 'node:crypto';
-import { readFileSync, appendFileSync } from 'node:fs';
+import { readFileSync, appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { isMain } from './lib.mjs';
 
 export const API = 'https://api.appstoreconnect.apple.com';
@@ -26,6 +33,23 @@ export const BUNDLE_IDS = [
 export const APP_NAME = 'Bipe Next';
 export const APP_SKU = 'bipe-next';
 export const INTERNAL_GROUP = 'Bipe team';
+export const TEAM_ID = '992N457T8D';
+// Capabilities of the bundle IDs. A profile carries only what its bundle ID has. The App
+// Groups capability needs group.chat.bipe.next linked to it, which the API cannot do (see
+// prepare). App Attest has no API capability type: automatic signing turned it on before
+// bipe-chat/bipe#585, and the archive fails with a clear message if it is off.
+export const CAPABILITIES = {
+  [BUNDLE_ID]: ['APP_GROUPS', 'PUSH_NOTIFICATIONS', 'ASSOCIATED_DOMAINS'],
+  [`${BUNDLE_ID}.nse`]: ['APP_GROUPS'],
+  [`${BUNDLE_ID}.share`]: ['APP_GROUPS'],
+};
+// The build setting that carries each target's profile name (ios/project.yml).
+export const PROFILE_SETTINGS = {
+  [BUNDLE_ID]: 'BIPE_CI_PROFILE_APP',
+  [`${BUNDLE_ID}.nse`]: 'BIPE_CI_PROFILE_NSE',
+  [`${BUNDLE_ID}.share`]: 'BIPE_CI_PROFILE_SHARE',
+};
+export const PROFILE_TYPES = { appstore: 'IOS_APP_STORE', adhoc: 'IOS_APP_ADHOC' };
 
 const b64url = (buf) => Buffer.from(buf).toString('base64url');
 
@@ -84,17 +108,24 @@ async function ensureBundleId(call, { identifier, name }) {
     console.log(`bundle ID ${identifier}: registered`);
   }
   const caps = await call('GET', `/v1/bundleIds/${row.id}/bundleIdCapabilities`);
-  if (caps.data.some((c) => c.attributes.capabilityType === 'APP_GROUPS')) {
-    console.log(`bundle ID ${identifier}: App Groups on`);
-  } else {
-    await call('POST', '/v1/bundleIdCapabilities', {
-      data: {
-        type: 'bundleIdCapabilities',
-        attributes: { capabilityType: 'APP_GROUPS' },
-        relationships: { bundleId: { data: { type: 'bundleIds', id: row.id } } },
-      },
-    });
-    console.log(`bundle ID ${identifier}: App Groups enabled`);
+  for (const capabilityType of CAPABILITIES[identifier] ?? []) {
+    if (caps.data.some((c) => c.attributes.capabilityType === capabilityType)) {
+      console.log(`bundle ID ${identifier}: ${capabilityType} on`);
+      continue;
+    }
+    try {
+      await call('POST', '/v1/bundleIdCapabilities', {
+        data: {
+          type: 'bundleIdCapabilities',
+          attributes: { capabilityType },
+          relationships: { bundleId: { data: { type: 'bundleIds', id: row.id } } },
+        },
+      });
+      console.log(`bundle ID ${identifier}: ${capabilityType} enabled`);
+    } catch (err) {
+      // The profile then lacks it, and the archive names the missing entitlement.
+      console.error(`::warning::bundle ID ${identifier}: cannot enable ${capabilityType} (${err.message})`);
+    }
   }
   return row;
 }
@@ -104,8 +135,9 @@ export async function findApp(call) {
   return exact(list.data, 'bundleId', BUNDLE_ID);
 }
 
-// The app group itself (group.chat.bipe.next) has no API endpoint. Xcode registers
-// it during the archive (-allowProvisioningUpdates) because the entitlements name it.
+// The app group itself (group.chat.bipe.next) has no API endpoint. Xcode registered it
+// and linked it to the bundle IDs in the automatic signing runs before bipe-chat/bipe#585.
+// A new group needs that step once by hand (Certificates, Identifiers & Profiles).
 export async function prepare(call) {
   for (const b of BUNDLE_IDS) await ensureBundleId(call, b);
   let app = await findApp(call);
@@ -170,6 +202,116 @@ export async function distribute(call, buildNumber, { timeoutMs = 60 * 60 * 1000
   return { app, build, group };
 }
 
+// Serials compare as hex numbers: the API and openssl may differ in case and leading zeros.
+export const sameSerial = (a, b) =>
+  String(a ?? '').toUpperCase().replace(/^0+/, '') === String(b ?? '').toUpperCase().replace(/^0+/, '') && !!a;
+
+export const profileName = (kind, identifier) =>
+  `Bipe Next CI ${kind === 'adhoc' ? 'Ad Hoc' : 'App Store'} ${identifier}`;
+
+// The distribution certificate whose key the runner holds. The CI never makes a certificate:
+// each new one counts against the team's limit (bipe-chat/bipe#585).
+export async function findCertificate(call, serial) {
+  const list = await call('GET', '/v1/certificates?filter[certificateType]=DISTRIBUTION,IOS_DISTRIBUTION&limit=200');
+  const cert = list.data.find((c) => sameSerial(c.attributes.serialNumber, serial)) ?? null;
+  if (!cert) throw new Error(`no distribution certificate with serial ${serial} in team ${TEAM_ID}`);
+  return cert;
+}
+
+// Makes the profile again on every run, so it carries the current devices and capabilities.
+// Only profiles with the CI's own names are deleted.
+export async function makeProfile(call, { kind, bundleId, certificate, devices }) {
+  const name = profileName(kind, bundleId.attributes.identifier);
+  const old = await call('GET', `/v1/profiles?filter[name]=${encodeURIComponent(name)}&limit=200`);
+  for (const row of old.data.filter((r) => r.attributes?.name === name)) {
+    await call('DELETE', `/v1/profiles/${row.id}`);
+  }
+  const relationships = {
+    bundleId: { data: { type: 'bundleIds', id: bundleId.id } },
+    certificates: { data: [{ type: 'certificates', id: certificate.id }] },
+  };
+  if (kind === 'adhoc') relationships.devices = { data: devices.map((d) => ({ type: 'devices', id: d.id })) };
+  const made = await call('POST', '/v1/profiles', {
+    data: { type: 'profiles', attributes: { name, profileType: PROFILE_TYPES[kind] }, relationships },
+  });
+  console.log(`profile ${name}: made`);
+  return made.data;
+}
+
+const xml = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Export options for xcodebuild -exportArchive: manual signing with the CI profiles.
+export function exportOptions(kind, teamId = TEAM_ID) {
+  const entries = [
+    ['method', kind === 'adhoc' ? 'release-testing' : 'app-store-connect'],
+    ['destination', kind === 'adhoc' ? 'export' : 'upload'],
+    ['teamID', teamId],
+    ['signingStyle', 'manual'],
+    ['signingCertificate', 'Apple Distribution'],
+  ];
+  const tail = kind === 'adhoc'
+    ? '  <key>thinning</key><string>&lt;none&gt;</string>\n'
+    : '  <key>manageAppVersionAndBuildNumber</key><false/>\n  <key>uploadSymbols</key><true/>\n';
+  const profiles = BUNDLE_IDS.map(({ identifier }) =>
+    `    <key>${xml(identifier)}</key><string>${xml(profileName(kind, identifier))}</string>\n`).join('');
+  return '<?xml version="1.0" encoding="UTF-8"?>\n'
+    + '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+    + '<plist version="1.0"><dict>\n'
+    + entries.map(([k, v]) => `  <key>${k}</key><string>${xml(v)}</string>\n`).join('')
+    + `  <key>provisioningProfiles</key><dict>\n${profiles}  </dict>\n`
+    + tail
+    + '</dict></plist>\n';
+}
+
+// Profiles go where Xcode 16 and later look, and where older tools look.
+function installProfile(home, profile) {
+  const body = Buffer.from(profile.attributes.profileContent, 'base64');
+  for (const dir of ['Library/Developer/Xcode/UserData/Provisioning Profiles', 'Library/MobileDevice/Provisioning Profiles']) {
+    mkdirSync(join(home, dir), { recursive: true });
+    writeFileSync(join(home, dir, `${profile.attributes.uuid}.mobileprovision`), body);
+  }
+}
+
+export async function signing(call, serial, { home = process.env.HOME, outDir = process.env.RUNNER_TEMP, env = process.env } = {}) {
+  const certificate = await findCertificate(call, serial);
+  console.log(`certificate ${certificate.attributes.name ?? certificate.attributes.displayName}: expires ${certificate.attributes.expirationDate}`);
+  const devices = (await call('GET', '/v1/devices?filter[platform]=IOS&filter[status]=ENABLED&limit=200')).data;
+  if (devices.length === 0) throw new Error('no enabled iOS devices for the ad hoc profiles');
+  console.log(`devices: ${devices.length}`);
+  for (const b of BUNDLE_IDS) {
+    const bundleId = await ensureBundleId(call, b);
+    for (const kind of Object.keys(PROFILE_TYPES)) {
+      installProfile(home, await makeProfile(call, { kind, bundleId, certificate, devices }));
+    }
+  }
+  for (const kind of Object.keys(PROFILE_TYPES)) {
+    writeFileSync(join(outDir, `${kind === 'adhoc' ? 'adhoc' : 'upload'}.plist`), exportOptions(kind));
+  }
+  // The archive signs with the App Store profiles; the exports sign again with their own.
+  if (env.GITHUB_ENV) {
+    for (const { identifier } of BUNDLE_IDS) {
+      appendFileSync(env.GITHUB_ENV, `${PROFILE_SETTINGS[identifier]}=${profileName('appstore', identifier)}\n`);
+    }
+  }
+}
+
+// Report only, for MZ to revoke by hand (bipe-chat/bipe#585).
+export async function certificates(call) {
+  const list = await call('GET', '/v1/certificates?limit=200');
+  const dev = list.data.filter((c) => ['DEVELOPMENT', 'IOS_DEVELOPMENT'].includes(c.attributes.certificateType));
+  console.log(`development certificates: ${dev.length}`);
+  for (const c of dev) {
+    console.log(`- ${c.attributes.displayName ?? ''} | ${c.attributes.name ?? ''} | expires ${c.attributes.expirationDate} | serial ${c.attributes.serialNumber}`);
+  }
+  const byExpiry = {};
+  for (const c of dev) {
+    const day = String(c.attributes.expirationDate ?? '').slice(0, 10);
+    byExpiry[day] = (byExpiry[day] ?? 0) + 1;
+  }
+  console.log(`by expiry day: ${JSON.stringify(byExpiry)}`);
+  return dev;
+}
+
 async function main([cmd, arg]) {
   const call = client();
   if (cmd === 'prepare') {
@@ -182,7 +324,15 @@ async function main([cmd, arg]) {
     await distribute(call, arg);
     return 0;
   }
-  console.error('usage: node tools/asc.mjs prepare | distribute <build-number>');
+  if (cmd === 'signing' && /^[0-9A-Fa-f]+$/.test(arg ?? '')) {
+    await signing(call, arg);
+    return 0;
+  }
+  if (cmd === 'certificates') {
+    await certificates(call);
+    return 0;
+  }
+  console.error('usage: node tools/asc.mjs prepare | distribute <build-number> | signing <serial> | certificates');
   return 2;
 }
 
