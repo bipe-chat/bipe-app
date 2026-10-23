@@ -17,6 +17,7 @@ enum AccountStep {
     }
 
     static let log = Logger(subsystem: "chat.bipe.app", category: "account-start")
+    private static let clock = ContinuousClock()
 
     /// The time limit of each step.
     static let limit: UInt64 = 20
@@ -24,17 +25,23 @@ enum AccountStep {
     /// Runs the step. On time-out it throws `timedOut` at once and leaves the step running; the SDK call ignores
     /// cancellation.
     static func run<T: Sendable>(_ name: String, _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        let started = clock.now
         log.notice("\(name, privacy: .public): start")
         do {
             let value = try await BipeDeadline.run(seconds: TimeInterval(limit), operation: operation)
-            log.notice("\(name, privacy: .public): done")
+            log.notice("\(name, privacy: .public): done in \(elapsedMilliseconds(since: started)) ms")
             return value
         } catch is BipeDeadline.Expired {
-            log.error("\(name, privacy: .public): timed out")
+            log.error("\(name, privacy: .public): timed out in \(elapsedMilliseconds(since: started)) ms")
             throw Failure.timedOut(name)
         } catch {
-            log.error("\(name, privacy: .public): failed")
+            log.error("\(name, privacy: .public): failed in \(elapsedMilliseconds(since: started)) ms")
             throw error
         }
+    }
+
+    private static func elapsedMilliseconds(since started: ContinuousClock.Instant) -> Int64 {
+        let elapsed = started.duration(to: clock.now).components
+        return elapsed.seconds * 1_000 + elapsed.attoseconds / 1_000_000_000_000_000
     }
 }
