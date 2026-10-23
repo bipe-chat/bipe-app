@@ -1367,4 +1367,8 @@
     <string name="bipe_app_sticker_send_failed">Couldn\'t send the sticker. Try again.</string>
     <string name="bipe_app_sticker_making">Making the sticker…</string>
     <string name="bipe_app_sticker_make_failed">Couldn\'t make a sticker from this photo. Try another one.</string>
+    <string name="bipe_archived_empty">No archived chats.</string>
+    <string name="bipe_archive_error">Could not save archived chats. Try again.</string>
+    <string name="bipe_chat_list_more">Load more chats</string>
+    <string name="bipe_chat_actions">Chat actions</string>
 </resources>
