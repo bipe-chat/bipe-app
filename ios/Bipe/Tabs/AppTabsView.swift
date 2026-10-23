@@ -13,7 +13,6 @@ struct AppTabsView: View {
     let api: BipeAPIClient
     let initialRoomId: String?
     @State private var showsNewAccount = false
-    @State private var pendingNewAccount = false
 
     var body: some View {
         let chatList = model.chatList(for: session)
@@ -52,21 +51,10 @@ struct AppTabsView: View {
         .environmentObject(model)
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
-                                   onLongPress: { model.longPressVoce() }))
+                                   menu: { AccountMenu.make(model: model) { showsNewAccount = true } }))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
         .modifier(InviteJoinNotice(model: model.invites(for: session)))
-        .sheet(isPresented: $model.showsAccountSwitcher, onDismiss: {
-            if pendingNewAccount {
-                pendingNewAccount = false
-                showsNewAccount = model.canAddAccount
-            }
-        }) {
-            AccountSwitcherView(model: model, fallbackMedia: chatList.media) {
-                pendingNewAccount = true
-                model.showsAccountSwitcher = false
-            }
-        }
         .sheet(isPresented: $showsNewAccount) {
             SignupFlowView(api: api, onCancel: { showsNewAccount = false }) { session, outcome in
                 showsNewAccount = false

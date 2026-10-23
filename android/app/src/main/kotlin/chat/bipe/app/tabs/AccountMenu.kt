@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -43,24 +45,60 @@ import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
 
-/** Spec account-switcher. A long press opens the menu without selecting a different tab. */
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Spec account-switcher (ADR 0135): the Material 3 dropdown menu that a long press on Você opens, anchored to the item.
+ * Each account shows its photo or initial, name and @handle, with a check on the current one; then Nova conta while
+ * the cap allows.
+ */
 @Composable
-fun AccountSwitcher(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: () -> Unit) {
+fun AccountMenu(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: () -> Unit) {
     val state by tabs.state.collectAsState()
-    ModalBottomSheet(onDismissRequest = tabs::dismissAccountSwitcher, containerColor = BipeTheme.colors.surfaceBase) {
-        Column(Modifier.fillMaxWidth().padding(bottom = 24.dp).testTag(BipeScreen.ACCOUNT_SWITCHER.id)) {
-            Text(stringResource(R.string.bipe_app_account_switcher_title), style = MaterialTheme.typography.titleLarge,
-                color = BipeTheme.colors.inkPrimary, modifier = Modifier.padding(16.dp))
-            AccountRows(tabs, fallbackMedia)
-            if (state.canAddAccount) {
-                TextButton(onClick = { tabs.dismissAccountSwitcher(); onNewAccount() }, modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Text(stringResource(R.string.bipe_app_account_new))
-                }
-            }
+    val view = LocalView.current
+    DropdownMenu(
+        expanded = state.showsAccountSwitcher,
+        onDismissRequest = tabs::dismissAccountSwitcher,
+        modifier = Modifier.testTag(BipeScreen.ACCOUNT_SWITCHER.id),
+    ) {
+        state.accounts.forEach { account ->
+            val name = account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }
+            val label = if (account.isCurrent) stringResource(R.string.bipe_app_account_current_a11y, name) else name
+            DropdownMenuItem(
+                text = {
+                    Column {
+                        Text(name, style = MaterialTheme.typography.bodyLarge)
+                        account.handle?.let {
+                            Text("@$it", style = MaterialTheme.typography.bodyMedium, color = BipeTheme.colors.inkSecondary)
+                        }
+                    }
+                },
+                onClick = { if (tabs.switchAccount(account.userId)) view.bipeHaptic(BipeHaptic.Tick) },
+                leadingIcon = {
+                    BadgedBox(badge = { if (account.hasUnread && !account.isCurrent) Badge() }) {
+                        Avatar(name, account.avatarUrl, tabs.media(account.userId) ?: fallbackMedia, size = 32.dp,
+                            userId = account.userId, isCompany = account.isCompany)
+                    }
+                },
+                trailingIcon = {
+                    if (account.isCurrent) {
+                        Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = BipeTheme.colors.accentInk)
+                    }
+                },
+                modifier = Modifier.semantics(mergeDescendants = true) {
+                    selected = account.isCurrent
+                    contentDescription = label
+                },
+            )
+        }
+        if (state.canAddAccount) {
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.bipe_app_account_new)) },
+                onClick = { tabs.dismissAccountSwitcher(); onNewAccount() },
+                leadingIcon = { Icon(painterResource(PhosphorIcon.PLUS.drawable), contentDescription = null) },
+            )
         }
     }
-    LaunchedEffect(tabs) { tabs.refreshProfiles() }
+    LaunchedEffect(state.showsAccountSwitcher) { if (state.showsAccountSwitcher) tabs.refreshProfiles() }
 }
 
 /** Account photos, names and handles shared by the menu and Você; never Matrix IDs. */
