@@ -55,6 +55,14 @@ class PeopleNavigation(
     val openChat: (String) -> Unit,
     /** Opens handle-pick. */
     val pickHandle: () -> Unit,
+    /** person-profile newGroup: group-create with the person picked. `null` hides the row. */
+    val newGroup: ((String) -> Unit)? = null,
+    /** person-profile notifications (fromDm): chat-notifications for the DM. */
+    val notifications: ((String) -> Unit)? = null,
+    /** person-profile deleteChat (fromDm): dm-delete for the DM. */
+    val deleteChat: ((String) -> Unit)? = null,
+    /** contacts invite: opens invites. */
+    val invite: (() -> Unit)? = null,
 )
 
 /** The screen of [route]. */
@@ -68,6 +76,9 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
             PersonProfileRoutes(
                 openChat = navigation.openChat,
                 openReport = { roomId -> navigation.push(PeopleRoute.ReportChat(roomId, isDm = true, otherUserId = route.userId)) },
+                newGroup = navigation.newGroup,
+                notifications = navigation.notifications,
+                deleteChat = navigation.deleteChat,
             ),
             onBack = navigation.pop,
         )
@@ -92,7 +103,7 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
             },
             onClose = navigation.pop,
         )
-        PeopleRoute.Contacts -> ContactsScreen(people, openChat = navigation.openChat, invite = null, onBack = navigation.pop)
+        PeopleRoute.Contacts -> ContactsScreen(people, openChat = navigation.openChat, invite = navigation.invite, onBack = navigation.pop)
         PeopleRoute.WhoCanMessage -> WhoCanMessageScreen(people, onBack = navigation.pop)
         PeopleRoute.BlockedList -> BlockedListScreen(
             people,

@@ -4,6 +4,7 @@
 
 package chat.bipe.app.groups
 
+import androidx.activity.compose.BackHandler
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -48,6 +49,10 @@ class GroupHostActions(
     val openGroupDetails: () -> Unit,
     val deleteDm: (String) -> Unit,
     val openInvites: () -> Unit,
+    /** group-create with these people picked (person-profile, action newGroup). */
+    val createGroupWith: (List<Person>) -> Unit = {},
+    /** chat-notifications for a room (person-profile, action notifications). */
+    val openNotifications: (String) -> Unit = {},
 )
 
 /** The Bipe API client for the screens behind GroupHost that need it (invites from group-invite-members). */
@@ -70,6 +75,8 @@ fun GroupHost(
 ) {
     val context = LocalContext.current
     var creating by rememberSaveable { mutableStateOf(false) }
+    var creatingWith by remember { mutableStateOf(emptyList<Person>()) }
+    var notificationsRoom by rememberSaveable { mutableStateOf<String?>(null) }
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
     var deletingDm by rememberSaveable { mutableStateOf<String?>(null) }
     var showingInvites by rememberSaveable { mutableStateOf(false) }
@@ -88,6 +95,11 @@ fun GroupHost(
         openGroupDetails = { detailsOpen = true },
         deleteDm = { deletingDm = it },
         openInvites = { showingInvites = true },
+        createGroupWith = {
+            creatingWith = it
+            creating = true
+        },
+        openNotifications = { notificationsRoom = it },
     )
     CompositionLocalProvider(LocalBipeApi provides api) {
         when {
@@ -95,13 +107,22 @@ fun GroupHost(
             creating -> GroupCreateScreen(
                 session,
                 media,
-                onClose = { creating = false },
+                onClose = {
+                    creating = false
+                    creatingWith = emptyList()
+                },
                 onCreated = { newRoomId, allInvited ->
                     creating = false
+                    creatingWith = emptyList()
                     onOpenRoom(newRoomId)
                     if (!allInvited) Toast.makeText(context, invitesFailed, Toast.LENGTH_LONG).show()
                 },
+                people = creatingWith,
             )
+            notificationsRoom != null -> {
+                BackHandler { notificationsRoom = null }
+                ChatNotificationsScreen(session, notificationsRoom!!, onBack = { notificationsRoom = null })
+            }
             roomId != null && detailsOpen -> GroupDetailsScreen(
                 session,
                 media,
