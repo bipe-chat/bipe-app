@@ -163,6 +163,12 @@ enum class BipeScreen(val id: String) {
     /** Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json */
     PIN_CHANGE("pin-change"),
 
+    /** Receive a shared Pix item (flow share). Spec: bipe-shared/product/screens/pix-check-receive.json */
+    PIX_CHECK_RECEIVE("pix-check-receive"),
+
+    /** Offline Pix check result (flow share). Spec: bipe-shared/product/screens/pix-check-result.json */
+    PIX_CHECK_RESULT("pix-check-result"),
+
     /** Create a poll (flow chat). Spec: bipe-shared/product/screens/poll-create.json */
     POLL_CREATE("poll-create"),
 
