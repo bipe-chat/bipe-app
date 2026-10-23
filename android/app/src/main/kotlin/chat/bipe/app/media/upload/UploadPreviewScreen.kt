@@ -108,7 +108,7 @@ fun UploadPreviewScreen(
                     IconButton(onClick = { model.remove(pager.currentPage.coerceAtMost(items.size - 1)) }) {
                         Icon(
                             painterResource(PhosphorIcon.TRASH.drawable),
-                            contentDescription = stringResource(R.string.bipe_app_attach_remove),
+                            contentDescription = stringResource(R.string.bipe_catalog_remove),
                             tint = colors.glyphPrimary,
                         )
                     }

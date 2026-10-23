@@ -32,7 +32,7 @@ struct UploadPreviewView: View {
                             .foregroundStyle(BipeColor.glyphPrimary)
                             .padding(8)
                     }
-                    .accessibilityLabel(BipeStrings.appAttachRemove)
+                    .accessibilityLabel(BipeStrings.catalogRemove)
                 }
             }
             .padding(.horizontal, 16)
