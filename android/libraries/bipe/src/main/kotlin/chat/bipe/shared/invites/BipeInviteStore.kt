@@ -45,9 +45,12 @@ class BipeInviteStore(context: Context, userId: String) {
 
     suspend fun saveLink(url: String, inviteId: String) = update { it.copy(links = it.links + (inviteId to url)) }
 
-    /** Drops the links and notes of invites that are no longer pending (used, expired or revoked). */
-    suspend fun keepOnly(pendingInviteIds: Set<String>) = update { contents ->
-        contents.copy(links = contents.links.filterKeys { it in pendingInviteIds }, notes = contents.notes.filterKeys { it in pendingInviteIds })
+    /**
+     * Drops the links of invites that are no longer pending, and the notes of invites outside [noteInviteIds]. A used
+     * invite's note stays until the app sends it to the person who joined (ADR 0136).
+     */
+    suspend fun keepOnly(pendingInviteIds: Set<String>, noteInviteIds: Set<String> = pendingInviteIds) = update { contents ->
+        contents.copy(links = contents.links.filterKeys { it in pendingInviteIds }, notes = contents.notes.filterKeys { it in noteInviteIds })
     }
 
     /** Notes of invites made on this phone, by invite ID. */

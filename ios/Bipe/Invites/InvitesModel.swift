@@ -51,7 +51,8 @@ final class InvitesModel: ObservableObject {
         BipeInviteQuota.footer(available: available, nextAvailableAt: nextAvailableAt)
     }
 
-    /// Action appear: GET /v1/me/invites. Drops the kept links and notes of invites that are no longer pending.
+    /// Action appear: GET /v1/me/invites. Drops the kept links of invites that are no longer pending, and the notes of
+    /// invites nobody can use any more. A used invite's note waits until InviteJoinWatcher sends it.
     func appear() async {
         if available == nil { phase = .loading }
         do {
@@ -62,7 +63,8 @@ final class InvitesModel: ObservableObject {
             nextAvailableAt = mine.nextAvailableAt
             let pendingIDs = Set(mine.invites.filter { $0.status == .pending }.map(\.id))
             store.keepLinks(forPendingInviteIDs: pendingIDs)
-            for id in store.notes().keys where !pendingIDs.contains(id) {
+            let noteIDs = Set(mine.invites.filter { $0.status == .pending || $0.status == .used }.map(\.id))
+            for id in store.notes().keys where !noteIDs.contains(id) {
                 store.removeNote(forInviteID: id)
             }
             let links = store.links()

@@ -14,6 +14,8 @@ struct ChatListView: View {
     @StateObject private var handle: HandlePickModel
     @StateObject private var encryption: EncryptionStatusModel
     @StateObject private var people: PeopleService
+    @StateObject private var joins: InviteJoinWatcher
+    @Environment(\.scenePhase) private var scenePhase
     @State private var path: NavigationPath
     @State private var showsHandlePick = false
     @State private var openingLink: String?
@@ -38,6 +40,7 @@ struct ChatListView: View {
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
         _people = StateObject(wrappedValue: PeopleService(session: model.session, api: api, media: model.media))
+        _joins = StateObject(wrappedValue: InviteJoinWatcher(session: model.session, api: api))
         _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
         self.scope = scope
     }
@@ -97,6 +100,14 @@ struct ChatListView: View {
             }
         }
         .onAppear { people.start() }
+        // Specs invites and invite-note: the join toast and the waiting notes, at start and on each return to the foreground.
+        .task { if scope == .conversas { await joins.check() } }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, scope == .conversas {
+                Task { await joins.check() }
+            }
+        }
+        .toast($joins.toast)
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
         }

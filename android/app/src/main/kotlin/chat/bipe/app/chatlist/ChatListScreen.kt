@@ -93,6 +93,8 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeScreen
 import java.text.NumberFormat
 import kotlinx.coroutines.launch
+import chat.bipe.app.invites.InviteJoinWatcher
+import android.widget.Toast
 
 /**
  * The signed-in app: app-tabs, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, and
@@ -130,6 +132,11 @@ fun HomeScreen(
     LaunchedEffect(foregroundCount) { terms.check(); tabs.refreshProfiles() }
     // recovery-alert, action check: on launch and on every return to the foreground.
     LaunchedEffect(foregroundCount) { recoveryAlert.check() }
+    // Specs invites and invite-note: the join toast and the waiting notes, at start and on each return to the foreground.
+    val joins = remember(session) { InviteJoinWatcher(context.applicationContext, session, api) }
+    LaunchedEffect(joins, foregroundCount) {
+        joins.check()?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+    }
     val people = remember(session) { PeopleService(context, session, api, media, scope) }
     var peopleStack by remember { mutableStateOf(listOf<PeopleRoute>()) }
     DisposableEffect(people) {

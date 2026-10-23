@@ -87,13 +87,17 @@ class InvitesModel(
         return explainer + " " + context.getString(R.string.bipe_invites_available, available.toString())
     }
 
-    /** Action appear: GET /v1/me/invites. Drops the kept links and notes of invites that are no longer pending. */
+    /**
+     * Action appear: GET /v1/me/invites. Drops the kept links of invites that are no longer pending, and the notes of
+     * invites nobody can use any more. A used invite's note waits until InviteJoinWatcher sends it.
+     */
     fun appear() {
         scope.launch {
             runCatching { session.authorized { api.myInvites(it) } }
                 .onSuccess { mine ->
                     val pendingIds = mine.invites.filter { it.status == BipeInviteStatus.PENDING }.map { it.id }.toSet()
-                    store.keepOnly(pendingIds)
+                    val noteIds = mine.invites.filter { it.status == BipeInviteStatus.PENDING || it.status == BipeInviteStatus.USED }.map { it.id }.toSet()
+                    store.keepOnly(pendingIds, noteIds)
                     val links = store.links()
                     val notes = store.notes()
                     _state.value = State(
