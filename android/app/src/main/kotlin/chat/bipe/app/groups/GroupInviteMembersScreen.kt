@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,12 +30,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.invites.InviteSomeoneNewRow
+import chat.bipe.app.people.PeopleService
+import chat.bipe.shared.BipeHandle
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 
@@ -51,7 +55,11 @@ fun GroupInviteMembersScreen(
     onDone: (List<Person>) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val model = remember(mode) { GroupInviteMembersModel(session, mode, scope) }
+    val context = LocalContext.current
+    val api = LocalBipeApi.current
+    val service = remember(session, api) { api?.let { PeopleService(context.applicationContext, session, it, media, scope) } }
+    val model = remember(session, mode, service) { GroupInviteMembersModel(session, mode, scope, service) }
+    DisposableEffect(model) { service?.start(); onDispose { model.close(); service?.close() } }
     LaunchedEffect(model) { model.appear() }
     BackHandler(onBack = onBack)
     val colors = BipeTheme.colors
@@ -60,6 +68,10 @@ fun GroupInviteMembersScreen(
     val phase by model.phase.collectAsState()
     val loading by model.loading.collectAsState()
     val selectedCount by model.selectedCount.collectAsState()
+    val handleMatch by model.handleMatch.collectAsState()
+    val handleNotFound by model.handleNotFound.collectAsState()
+    val lookupFailed by model.lookupFailed.collectAsState()
+    val lookingUp by model.lookingUp.collectAsState()
 
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.GROUP_INVITE_MEMBERS.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -68,7 +80,7 @@ fun GroupInviteMembersScreen(
                     CircularProgressIndicator(color = colors.accentFill, modifier = Modifier.size(24.dp).padding(end = 4.dp))
                 } else {
                     TextButton(
-                        enabled = selectedCount > 0,
+                        enabled = !loading && selectedCount > 0,
                         onClick = {
                             // Action invite.
                             when (mode) {
@@ -92,6 +104,25 @@ fun GroupInviteMembersScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             )
             LazyColumn(modifier = Modifier.fillMaxSize()) {
+                if (lookingUp) {
+                    item(key = "handle-loading") {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = colors.accentFill)
+                        }
+                    }
+                }
+                handleMatch?.let { pick -> item(key = "handle-match") { PickRow(pick, media) { model.toggle(pick.person.userId) } } }
+                if (handleNotFound) {
+                    item(key = "handle-missing") { Text(stringResource(R.string.bipe_start_chat_handle_not_found, BipeHandle.sanitize(query)), modifier = Modifier.padding(16.dp)) }
+                }
+                if (lookupFailed) {
+                    item(key = "handle-failed") {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
+                            TextButton(onClick = { model.setQuery(query) }) { Text(stringResource(R.string.bipe_app_retry)) }
+                        }
+                    }
+                }
                 item(key = "header") { GroupSectionHeader(stringResource(R.string.bipe_app_people_contacts)) }
                 if (loading) {
                     item(key = "loading") {

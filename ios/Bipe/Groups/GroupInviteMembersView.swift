@@ -26,6 +26,20 @@ struct GroupInviteMembersView: View {
 
     var body: some View {
         List {
+            if model.lookingUp || model.handleMatch != nil || model.handleNotFound || model.lookupFailed {
+                Section {
+                    if model.lookingUp { ProgressView().frame(maxWidth: .infinity) }
+                    if let pick = model.handleMatch {
+                        Button { model.toggle(pick.person.userId) } label: { PickRow(pick: pick, media: media) }
+                            .listRowBackground(BipeColor.surfaceBase)
+                    }
+                    if model.handleNotFound { Text(BipeStrings.startChatHandleNotFound(BipeHandle.sanitize(model.query))) }
+                    if model.lookupFailed {
+                        Text(BipeStrings.errorGeneric).foregroundStyle(BipeColor.trustDangerInk)
+                        Button(BipeStrings.appRetry) { model.setQuery(model.query) }
+                    }
+                }
+            }
             Section {
                 if model.loading {
                     ProgressView().frame(maxWidth: .infinity)
@@ -64,7 +78,7 @@ struct GroupInviteMembersView: View {
                     Button(BipeStrings.appGroupInviteAction) {
                         Task { await invite() }
                     }
-                    .disabled(model.selectedCount == 0)
+                    .disabled(model.loading || model.selectedCount == 0)
                 }
             }
         }
@@ -74,7 +88,8 @@ struct GroupInviteMembersView: View {
             }
         }
         .accessibilityIdentifier(BipeScreen.groupInviteMembers.rawValue)
-        .task { await model.appear() }
+        .task { await model.appear(api: api, media: media) }
+        .onDisappear { model.close() }
     }
 
     /// Action invite.

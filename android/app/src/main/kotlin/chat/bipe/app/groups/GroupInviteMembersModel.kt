@@ -5,7 +5,15 @@
 package chat.bipe.app.groups
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.people.PeopleService
+import chat.bipe.shared.BipeHandle
+import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +30,7 @@ class GroupInviteMembersModel(
     private val session: AccountSession,
     val mode: Mode,
     private val scope: CoroutineScope,
+    private val service: PeopleService?,
 ) {
     sealed interface Mode {
         /** From group-create, with the people it already has. Nothing is sent. */
@@ -43,6 +52,18 @@ class GroupInviteMembersModel(
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
     private val _selectedCount = MutableStateFlow(0)
     val selectedCount: StateFlow<Int> = _selectedCount.asStateFlow()
+    private val _handleMatch = MutableStateFlow<PersonPick?>(null)
+    val handleMatch = _handleMatch.asStateFlow()
+    private val _handleNotFound = MutableStateFlow(false)
+    val handleNotFound = _handleNotFound.asStateFlow()
+    private val _lookupFailed = MutableStateFlow(false)
+    val lookupFailed = _lookupFailed.asStateFlow()
+    private val _lookingUp = MutableStateFlow(false)
+    val lookingUp = _lookingUp.asStateFlow()
+    private var lookupJob: Job? = null
+    private var lookupVersion = 0L
+    private var handlePerson: Person? = null
+    private val lookupOnlyIds = mutableSetOf<String>()
 
     private var people: List<Person> = (mode as? Mode.Pick)?.people.orEmpty()
 
@@ -55,6 +76,7 @@ class GroupInviteMembersModel(
         if (!_loading.value) return
         scope.launch {
             val contacts = GroupPeople.contacts(session.client, session.userId).toMutableList()
+            lookupOnlyIds.removeAll(contacts.map { it.userId }.toSet())
             // People picked before stay on the list even when they are not contacts.
             people.filter { picked -> contacts.none { it.userId == picked.userId } }.forEach { contacts += it }
             people = contacts
@@ -70,15 +92,56 @@ class GroupInviteMembersModel(
                 }
             }
             _loading.value = false
-            rebuild()
+            selected.removeAll { memberStatus[it] == PersonPick.Status.MEMBER || memberStatus[it] == PersonPick.Status.INVITED }
+            setQuery(_query.value)
         }
     }
 
-    /** Action setQuery: filters contacts at once. */
+    /** Filter immediately; valid exact @ queries use the existing handle endpoint after a short pause. */
     fun setQuery(query: String) {
         _query.value = query
+        lookupJob?.cancel()
+        val version = ++lookupVersion
+        handlePerson = null
+        _handleNotFound.value = false
+        _lookupFailed.value = false
+        _lookingUp.value = false
         rebuild()
+        val input = query.trim()
+        val peopleService = service ?: return
+        if (!input.startsWith('@')) return
+        val handle = input.removePrefix("@").lowercase(Locale.ROOT)
+        if (BipeHandle.localProblem(handle) != null) return
+        _lookingUp.value = true
+        lookupJob = scope.launch {
+            try {
+                delay(250)
+                val id = peopleService.handles.userId(handle)
+                coroutineContext.ensureActive()
+                if (version != lookupVersion) return@launch
+                if (id == null || id == session.userId || peopleService.isBlocked(id)) {
+                    _lookingUp.value = false
+                    _handleNotFound.value = true
+                    return@launch
+                }
+                val loaded = runCatching { peopleService.person(id) }.getOrNull()
+                coroutineContext.ensureActive()
+                if (version != lookupVersion) return@launch
+                val person = loaded?.let { Person(it.userId, it.displayName, it.avatarUrl, it.handle ?: handle) }
+                    ?: Person(id, "@$handle", null, handle)
+                if (people.none { it.userId == id }) { people = people + person; lookupOnlyIds += id }
+                else people = people.map { if (it.userId == id && it.handle == null) it.copy(handle = handle) else it }
+                handlePerson = people.firstOrNull { it.userId == id } ?: person
+                _lookingUp.value = false
+                rebuild()
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) {
+                if (version == lookupVersion) { _lookingUp.value = false; _lookupFailed.value = true }
+            }
+        }
     }
+
+    fun close() { lookupJob?.cancel(); _lookingUp.value = false }
 
     /** Action toggle. */
     fun toggle(userId: String) {
@@ -133,8 +196,11 @@ class GroupInviteMembersModel(
     private fun rebuild() {
         val query = _query.value
         _contacts.value = people
+            .filter { it.userId !in lookupOnlyIds || it.userId in selected || results.containsKey(it.userId) }
+            .filter { it.userId != handlePerson?.userId }
             .filter { it.matches(query) || results.containsKey(it.userId) }
             .map { PersonPick(it, status(it.userId)) }
         _selectedCount.value = selected.size
+        _handleMatch.value = handlePerson?.let { PersonPick(it, status(it.userId)) }
     }
 }

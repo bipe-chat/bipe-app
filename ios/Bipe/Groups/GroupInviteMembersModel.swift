@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 
@@ -42,6 +43,10 @@ final class GroupInviteMembersModel: ObservableObject {
     @Published private(set) var contacts: [PersonPick] = []
     @Published private(set) var phase = Phase.choosing
     @Published private(set) var loading = true
+    @Published private(set) var handleMatch: PersonPick?
+    @Published private(set) var handleNotFound = false
+    @Published private(set) var lookupFailed = false
+    @Published private(set) var lookingUp = false
 
     let mode: Mode
     private let session: AccountSession
@@ -50,6 +55,11 @@ final class GroupInviteMembersModel: ObservableObject {
     private var selected: [String] = []
     private var memberStatus: [String: PersonPick.Status] = [:]
     private var results: [String: PersonPick.Status] = [:]
+    private var service: PeopleService?
+    private var lookupTask: Task<Void, Never>?
+    private var lookupVersion: UInt64 = 0
+    private var handlePerson: Person?
+    private var lookupOnlyIds: Set<String> = []
 
     init(session: AccountSession, mode: Mode) {
         self.session = session
@@ -62,9 +72,16 @@ final class GroupInviteMembersModel: ObservableObject {
 
     var selectedCount: Int { selected.count }
 
-    func appear() async {
-        guard loading else { return }
+    deinit { lookupTask?.cancel() }
+
+    func appear(api: BipeAPIClient?, media: MediaLoader) async {
+        if service == nil, let api {
+            service = PeopleService(session: session, api: api, media: media)
+            service?.start()
+        }
+        guard loading else { setQuery(query); return }
         var people = await GroupPeople.contacts(client: session.client, ownUserId: session.userId)
+        lookupOnlyIds.subtract(people.map(\.userId))
         // People picked before stay on the list even when they are not contacts.
         for person in self.people where !people.contains(where: { $0.userId == person.userId }) {
             people.append(person)
@@ -81,14 +98,56 @@ final class GroupInviteMembersModel: ObservableObject {
             }
         }
         loading = false
-        rebuild()
+        selected.removeAll { memberStatus[$0] == .member || memberStatus[$0] == .invited }
+        setQuery(query)
     }
 
-    /// Action setQuery: filters contacts at once.
+    /// Filters immediately; only a valid exact @ triggers the existing handle endpoint after a short pause.
     func setQuery(_ query: String) {
         self.query = query
+        lookupTask?.cancel()
+        lookupVersion &+= 1
+        let version = lookupVersion
+        handlePerson = nil
+        handleNotFound = false
+        lookupFailed = false
+        lookingUp = false
         rebuild()
+        let input = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard input.hasPrefix("@"), let service else { return }
+        let handle = String(input.dropFirst()).lowercased()
+        guard BipeHandle.localProblem(for: handle) == nil else { return }
+        lookingUp = true
+        lookupTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .milliseconds(250))
+                let id = try await service.handles.userID(forHandle: handle)
+                guard !Task.isCancelled, let self, version == self.lookupVersion else { return }
+                guard let id, id != self.session.userId, !service.isBlocked(id) else {
+                    self.lookingUp = false
+                    self.handleNotFound = true
+                    return
+                }
+                let loaded = (try? await service.person(id)) ?? Person(userId: id, displayName: "@" + handle, handle: handle)
+                guard !Task.isCancelled, version == self.lookupVersion else { return }
+                if !self.people.contains(where: { $0.userId == id }) {
+                    self.people.append(loaded)
+                    self.lookupOnlyIds.insert(id)
+                } else if let index = self.people.firstIndex(where: { $0.userId == id }) {
+                    self.people[index].handle = self.people[index].handle ?? handle
+                }
+                self.handlePerson = self.people.first { $0.userId == id } ?? loaded
+                self.lookingUp = false
+                self.rebuild()
+            } catch {
+                guard !Task.isCancelled, let self, version == self.lookupVersion else { return }
+                self.lookingUp = false
+                self.lookupFailed = true
+            }
+        }
     }
+
+    func close() { lookupTask?.cancel(); lookingUp = false }
 
     /// Action toggle.
     func toggle(_ userId: String) {
@@ -155,7 +214,10 @@ final class GroupInviteMembersModel: ObservableObject {
 
     private func rebuild() {
         contacts = people
+            .filter { !lookupOnlyIds.contains($0.userId) || selected.contains($0.userId) || results[$0.userId] != nil }
+            .filter { $0.userId != handlePerson?.userId }
             .filter { $0.matches(query) || results[$0.userId] != nil }
             .map { PersonPick(person: $0, status: status(of: $0.userId)) }
+        handleMatch = handlePerson.map { PersonPick(person: $0, status: status(of: $0.userId)) }
     }
 }
