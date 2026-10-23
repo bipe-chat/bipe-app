@@ -185,6 +185,8 @@ fun HomeScreen(
                 }.getOrDefault(false)
             }
             if (app.accountStart.sessions.value.none { active -> active === session } || app.roomToOpen.value != it) return@LaunchedEffect
+            // The current owner can consume this before the parent route effect; select its destination here too.
+            tabs.selectTab(if (it.destination == BipeNotificationDestination.GROUPS) AppTabsModel.Tab.GRUPOS else AppTabsModel.Tab.CONVERSAS)
             peopleStack = emptyList()
             showsHandlePick = false
             showsRequests = it.destination == BipeNotificationDestination.REQUESTS
