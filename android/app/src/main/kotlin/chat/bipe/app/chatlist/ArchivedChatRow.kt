@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -74,7 +75,7 @@ fun ArchivedChatRow(
             ChatRow(chat, media, onLongClick = { menu = true }, actions = {
                 Box {
                     IconButton(onClick = { menu = true }) {
-                        Icon(painterResource(PhosphorIcon.DOTS_THREE.drawable), contentDescription = stringResource(R.string.bipe_chat_actions), tint = colors.glyphPrimary)
+                        Icon(painterResource(PhosphorIcon.DOTS_THREE.drawable), contentDescription = stringResource(R.string.bipe_chat_actions), tint = colors.glyphSecondary, modifier = Modifier.size(20.dp))
                     }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text(action) }, onClick = { menu = false; onArchive() })
