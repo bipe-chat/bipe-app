@@ -436,10 +436,13 @@ final class ChatTimelineModel: ObservableObject {
     /// The actions that apply to a row (spec message-actions notes).
     func actions(for row: TimelineRow) -> [MessageAction] {
         guard let message = row.message else { return [] }
-        let isSent = message.sendState == .sent && row.details?.eventId != nil
         if row.kind == .undecryptable {
+            // Undecryptable rows have no MessageDetails. Resolve the original SDK event instead.
+            let eventId = item(row.id)?.asEvent().flatMap { TimelineRowBuilder.eventId($0) }
+            let isSent = message.sendState == .sent && eventId != nil
             return !message.isOwn && isSent ? [.report] : []
         }
+        let isSent = message.sendState == .sent && row.details?.eventId != nil
         guard row.kind == .message, let details = row.details else { return [] }
         return MessageAction.allCases.filter { action in
             switch action {

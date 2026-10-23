@@ -466,10 +466,13 @@ class ChatTimelineModel(
     /** The actions that apply to a row (spec message-actions notes). */
     fun actions(row: TimelineRow): List<MessageAction> {
         val message = row.message ?: return emptyList()
-        val isSent = message.sendState == TimelineMessage.SendState.SENT && row.details?.eventId != null
         if (row.kind == TimelineRow.Kind.UNDECRYPTABLE) {
+            // Undecryptable rows have no MessageDetails. Resolve the original SDK event instead.
+            val eventId = item(row.id)?.asEvent()?.let(TimelineRowBuilder::eventId)
+            val isSent = message.sendState == TimelineMessage.SendState.SENT && eventId != null
             return if (!message.isOwn && isSent) listOf(MessageAction.REPORT) else emptyList()
         }
+        val isSent = message.sendState == TimelineMessage.SendState.SENT && row.details?.eventId != null
         val details = row.details ?: return emptyList()
         if (row.kind != TimelineRow.Kind.MESSAGE) return emptyList()
         return MessageAction.entries.filter { action ->
