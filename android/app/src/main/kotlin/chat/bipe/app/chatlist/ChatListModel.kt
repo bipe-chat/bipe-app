@@ -48,6 +48,7 @@ data class ChatSummary(
     /** RoomInfo.isDm, the one DM test (ADR 0141). */
     val isDm: Boolean = false,
     val isMuted: Boolean = false,
+    val latestIncomingMs: Long? = null,
 ) {
     /** ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test. */
     val scope: ChatScope
@@ -66,6 +67,7 @@ class ChatListModel(
     /** Resolves the media kind labels of the previews. */
     private val label: (Int) -> String,
     val notes: NotesRoom,
+    val archive: ChatArchiveModel,
 ) {
     enum class Phase { LOADING, EMPTY, LOADED }
 
@@ -82,6 +84,7 @@ class ChatListModel(
     private val unreadLists = mutableMapOf<ChatScope, FilteredRoomList>()
 
     private val rooms = mutableListOf<Room>()
+    private val extraRoomIds = mutableSetOf<String>()
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult? = null
     private val handles = mutableListOf<TaskHandle>()
@@ -147,7 +150,9 @@ class ChatListModel(
         _unreadLoading.value += tab
         val list = FilteredRoomList(scope) { found ->
             val summaries = found.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
-            _unreadChats.value += (tab to NativeDmSelection.visible(summaries, session))
+            val visible = NativeDmSelection.visible(summaries, session)
+            archive.reconcile(visible)
+            _unreadChats.value += (tab to visible)
             _unreadLoading.value -= tab
         }
         unreadLists[tab] = list
@@ -201,23 +206,31 @@ class ChatListModel(
     }
 
     private fun refreshSummaries() {
-        val snapshot = rooms.toList()
+        extraRoomIds += archive.markers.value.keys
+        val snapshot = rooms.toMutableList()
+        val loadedIds = snapshot.map { it.id() }.toSet()
+        for (id in extraRoomIds - loadedIds) runCatching { session.client.getRoom(id) }.getOrNull()?.let { snapshot += it }
         summaryJob?.cancel()
         summaryJob = scope.launch {
             val summaries = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
-            _chats.value = NativeDmSelection.visible(summaries, session)
+            val visible = NativeDmSelection.visible(summaries, session)
+            archive.reconcile(visible)
+            _chats.value = visible.sortedByDescending { it.lastActivity ?: Long.MIN_VALUE }
             updatePhase()
         }
     }
 
     suspend fun summary(room: Room): ChatSummary? {
         val info = runCatching { room.roomInfo() }.getOrNull() ?: return null
+        if (info.membership != org.matrix.rustcomponents.sdk.Membership.JOINED || info.isSpace) return null
         var lastMessage: String? = null
         var lastActivity: Long? = null
+        var latestIncomingMs: Long? = null
         when (val latest = room.latestEvent()) {
             is LatestEventValue.Remote -> {
                 lastMessage = latest.content.previewText(undecryptableText, label)
                 lastActivity = latest.timestamp.toLong()
+                if (!latest.isOwn && lastMessage != null) latestIncomingMs = lastActivity
             }
             is LatestEventValue.Local -> {
                 lastMessage = latest.content.previewText(undecryptableText, label)
@@ -242,6 +255,7 @@ class ChatListModel(
             peerUserId = peer?.userId,
             isDm = info.isDm,
             isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
+            latestIncomingMs = latestIncomingMs,
         )
     }
 

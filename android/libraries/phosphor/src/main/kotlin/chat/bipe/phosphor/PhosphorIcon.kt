@@ -29,6 +29,7 @@ enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     COPY("copy", R.drawable.phosphor_copy),
     DESKTOP("desktop", R.drawable.phosphor_desktop),
     DEVICES("devices", R.drawable.phosphor_devices),
+    DOTS_THREE("dots-three", R.drawable.phosphor_dots_three),
     DOWNLOAD_SIMPLE("download-simple", R.drawable.phosphor_download_simple),
     FILE("file", R.drawable.phosphor_file),
     FINGERPRINT("fingerprint", R.drawable.phosphor_fingerprint),

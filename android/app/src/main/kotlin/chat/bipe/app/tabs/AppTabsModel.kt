@@ -79,7 +79,7 @@ class AppTabsModel(
     /** The chat list of an account, started on first use. */
     fun chatList(session: AccountSession): ChatListModel {
         chatLists[session.userId]?.let { return it }
-        val model = ChatListModel(session, scope, undecryptableText, start.appContext.getString(chat.bipe.shared.R.string.bipe_dm_no_name), start.appContext::getString, NotesRoom(start.appContext, session))
+        val model = ChatListModel(session, scope, undecryptableText, start.appContext.getString(chat.bipe.shared.R.string.bipe_dm_no_name), start.appContext::getString, NotesRoom(start.appContext, session), chat.bipe.app.chatlist.ChatArchiveModel(chat.bipe.shared.BipeChatArchiveStore(java.io.File(start.appContext.noBackupFilesDir, "ChatArchives"), session.userId)))
         chatLists[session.userId] = model
         invites(session)
         media(session)

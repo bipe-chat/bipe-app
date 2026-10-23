@@ -10,6 +10,8 @@ import SwiftUI
 /// Spec chat-list, one scope: Conversas or Grupos (ADR 0053).
 struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
+    @ObservedObject private var archive: ChatArchiveModel
+    @State private var showingArchived = false
     @ObservedObject private var notifications = NotificationActions.shared
     @StateObject private var handle: HandlePickModel
     @StateObject private var requests: ChatRequestsModel
@@ -38,6 +40,7 @@ struct ChatListView: View {
         self.onOpenVoce = onOpenVoce
         self.api = api
         _model = ObservedObject(wrappedValue: model)
+        _archive = ObservedObject(wrappedValue: model.archive)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
         let people = PeopleService(session: model.session, api: api, media: model.media)
         _requests = StateObject(wrappedValue: ChatRequestsModel(session: model.session, api: api, people: people))
@@ -238,7 +241,18 @@ struct ChatListView: View {
     /// The requests row and the group invites above the chats (specs chat-requests and chat-list-filters).
     @ViewBuilder
     private var topRows: some View {
-        if scope == .conversas && requests.rowCount > 0 {
+        Button(showingArchived ? (scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups) : BipeStrings.archivedTitle) {
+            showingArchived.toggle()
+        }
+        .listRowBackground(BipeColor.surfaceBase)
+        if archive.failed {
+            VStack(alignment: .leading) {
+                Text(BipeStrings.archiveError).foregroundStyle(BipeColor.trustDangerInk)
+                Button(BipeStrings.appRetry) { archive.retry(model.chats) }
+            }
+            .listRowBackground(BipeColor.surfaceBase)
+        }
+        if !showingArchived && scope == .conversas && requests.rowCount > 0 {
             // Action openBox.
             NavigationLink {
                 ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat, onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
@@ -247,7 +261,7 @@ struct ChatListView: View {
             }
             .listRowBackground(BipeColor.surfaceBase)
         }
-        ForEach(scope == .grupos ? requests.visibleGroupInvites : []) { invite in
+        ForEach(!showingArchived && scope == .grupos ? requests.visibleGroupInvites : []) { invite in
             GroupInviteRow(model: requests, invite: invite, media: model.media, onOpenChat: openChat)
                 .listRowBackground(BipeColor.surfaceBase)
         }
@@ -260,46 +274,64 @@ struct ChatListView: View {
 
     @ViewBuilder
     private var list: some View {
-        switch model.phase(in: scope) {
+        switch model.phase(in: scope, archived: showingArchived) {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .empty:
             List {
                 topRows
-                emptyState
+                if showingArchived {
+                    Text(BipeStrings.archivedEmpty).foregroundStyle(BipeColor.inkSecondary)
+                } else { emptyState }
+                moreRows
                     .listRowBackground(BipeColor.surfaceBase)
                     .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
         case .loaded:
-            let chats = model.chats(in: scope)
+            let chats = model.chats(in: scope, archived: showingArchived)
             List {
                 topRows
                 ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
-                    Button {
-                        openChat(chat.roomId)
-                    } label: {
-                        ChatRow(chat: chat, media: model.media)
+                    HStack {
+                        Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
+                            .buttonStyle(.plain)
+                        Menu { archiveAction(chat) } label: {
+                            PhosphorIcon.dotsThree.image.frame(width: 24, height: 24).padding(8)
+                        }
+                        .accessibilityLabel(BipeStrings.chatActions)
                     }
                     .listRowBackground(BipeColor.surfaceBase)
-                    .swipeActions(edge: .trailing) {
-                        if chat.isDm {
-                            Button(BipeStrings.dmDeleteAction, role: .destructive) {
-                                deletingDm = chat.roomId
-                            }
-                        }
+                    .swipeActions(edge: .trailing) { archiveAction(chat) }
+                    .contextMenu { archiveAction(chat) }
+                    .accessibilityAction(named: archive.contains(chat) ? BipeStrings.unarchiveAction : BipeStrings.archiveAction) {
+                        archive.set(chat, archived: !archive.contains(chat))
                     }
                     .onAppear {
                         if chat.id == chats.last?.id {
-                            model.loadMore(in: scope)
+                            if !showingArchived { model.loadMore(in: scope) }
                         }
                     }
                 }
+                moreRows
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+        }
+    }
+
+    private func archiveAction(_ chat: ChatSummary) -> some View {
+        Button(archive.contains(chat) ? BipeStrings.unarchiveAction : BipeStrings.archiveAction) {
+            archive.set(chat, archived: !archive.contains(chat))
+        }
+    }
+
+    @ViewBuilder private var moreRows: some View {
+        if !showingArchived {
+            Button(BipeStrings.chatListMore) { model.loadMore(in: scope) }
+                .listRowBackground(BipeColor.surfaceBase)
         }
     }
 

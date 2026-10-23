@@ -25,6 +25,7 @@ struct ChatSummary: Identifiable, Equatable {
     /// RoomInfo.isDm, the one DM test (ADR 0141).
     var isDm = false
     var isMuted = false
+    var latestIncomingMs: Int64? = nil
 
     var id: String { roomId }
 
@@ -61,6 +62,8 @@ final class ChatListModel: ObservableObject {
     let session: AccountSession
     let media: MediaLoader
     let notes: NotesRoom
+    let archive: ChatArchiveModel
+    private var extraRoomIds: Set<String> = []
     private var rooms: [Room] = []
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult?
@@ -71,6 +74,7 @@ final class ChatListModel: ObservableObject {
 
     init(session: AccountSession) {
         self.session = session
+        archive = ChatArchiveModel(accountId: session.userId)
         media = MediaLoader(client: session.client)
         notes = NotesRoom(session: session)
         clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in
@@ -80,14 +84,14 @@ final class ChatListModel: ObservableObject {
     }
 
     /// The chats of one scope, in room list order.
-    func chats(in scope: ChatScope) -> [ChatSummary] {
-        (unreadScopes.contains(scope) ? unreadChats[scope, default: []] : chats).filter { $0.scope == scope }
+    func chats(in scope: ChatScope, archived: Bool = false) -> [ChatSummary] {
+        (unreadScopes.contains(scope) && !archived ? unreadChats[scope, default: []] : chats).filter { $0.scope == scope && archive.contains($0) == archived }
     }
 
     /// The phase of one scope: empty when the list loaded and the scope has no chat.
-    func phase(in scope: ChatScope) -> Phase {
-        guard phase != .loading, !(unreadScopes.contains(scope) && unreadLoading.contains(scope)) else { return .loading }
-        return !chats(in: scope).isEmpty ? .loaded : (listLoaded ? .empty : .loading)
+    func phase(in scope: ChatScope, archived: Bool = false) -> Phase {
+        guard phase != .loading, !(unreadScopes.contains(scope) && !archived && unreadLoading.contains(scope)) else { return .loading }
+        return !chats(in: scope, archived: archived).isEmpty ? .loaded : (listLoaded ? .empty : .loading)
     }
 
     deinit {
@@ -146,6 +150,7 @@ final class ChatListModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 let visible = await NativeDmSelection.visible(summaries, session: self.session)
                 guard !Task.isCancelled else { return }
+                self.archive.reconcile(visible)
                 self.unreadChats[scope] = visible
                 self.unreadLoading.remove(scope)
             }
@@ -187,7 +192,12 @@ final class ChatListModel: ObservableObject {
     }
 
     private func refreshSummaries() {
-        let rooms = rooms
+        extraRoomIds.formUnion(archive.markers.keys)
+        var rooms = rooms
+        let loadedIds = Set(rooms.map { $0.id() })
+        for id in extraRoomIds.subtracting(loadedIds) {
+            if let room = try? session.client.getRoom(roomId: id) { rooms.append(room) }
+        }
         let userId = session.userId
         summaryTask?.cancel()
         summaryTask = Task { [weak self] in
@@ -200,17 +210,23 @@ final class ChatListModel: ObservableObject {
             guard !Task.isCancelled, let self else { return }
             let visible = await NativeDmSelection.visible(summaries, session: session)
             guard !Task.isCancelled else { return }
-            chats = visible
+            archive.reconcile(visible)
+            chats = visible.sorted { ($0.lastActivity ?? .distantPast) > ($1.lastActivity ?? .distantPast) }
             updatePhase()
         }
     }
 
     static func summary(of room: Room, ownUserId: String) async -> ChatSummary? {
-        guard let info = try? await room.roomInfo() else { return nil }
+        guard let info = try? await room.roomInfo(), info.membership == .joined, !info.isSpace else { return nil }
         var lastMessage: String?
         var lastActivity: Date?
+        var latestIncomingMs: Int64?
         switch await room.latestEvent() {
-        case .remote(let timestamp, _, _, _, let content), .local(let timestamp, _, _, let content, _):
+        case .remote(let timestamp, _, let isOwn, _, let content):
+            lastMessage = content.previewText
+            lastActivity = Date(milliseconds: timestamp)
+            if !isOwn, lastMessage != nil { latestIncomingMs = Int64(clamping: timestamp) }
+        case .local(let timestamp, _, _, let content, _):
             lastMessage = content.previewText
             lastActivity = Date(milliseconds: timestamp)
         case .remoteInvite(let timestamp, _, _):
@@ -232,6 +248,7 @@ final class ChatListModel: ObservableObject {
                            mentionCount: Int(info.numUnreadMentions),
                            peerUserId: peer?.userId,
                            isDm: info.isDm,
-                           isMuted: info.cachedUserDefinedNotificationMode == .mute)
+                           isMuted: info.cachedUserDefinedNotificationMode == .mute,
+                           latestIncomingMs: latestIncomingMs)
     }
 }

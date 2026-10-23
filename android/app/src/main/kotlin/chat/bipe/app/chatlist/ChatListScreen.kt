@@ -7,6 +7,7 @@ package chat.bipe.app.chatlist
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,7 +67,6 @@ import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
 import chat.bipe.app.groups.CreateGroupButton
-import chat.bipe.app.groups.DmSwipeRow
 import chat.bipe.app.groups.GroupHost
 import chat.bipe.app.groups.Person as GroupPerson
 import chat.bipe.app.groups.withoutClearedDms
@@ -304,10 +304,13 @@ fun ChatListScreen(
     val unreadOnly = scope in unreadScopes
     val allPhase by model.phase.collectAsState()
     val allChats by model.chats.collectAsState()
-    val displayed = if (unreadOnly) unreadChats[scope].orEmpty() else allChats
+    val archiveMarkers by model.archive.markers.collectAsState()
+    val archiveFailed by model.archive.failed.collectAsState()
+    var showingArchived by rememberSaveable(model.session.userId, scope) { mutableStateOf(false) }
+    val displayed = if (unreadOnly && !showingArchived) unreadChats[scope].orEmpty() else allChats
     val visibleChats = withoutClearedDms(displayed, { it.roomId }, { it.lastActivity })
-    val chats = visibleChats.filter { it.scope == scope }
-    val phase = if (unreadOnly && scope in unreadLoading) ChatListModel.Phase.LOADING else model.phase(scope, allPhase, visibleChats)
+    val chats = visibleChats.filter { it.scope == scope && archiveMarkers.containsKey(it.roomId) == showingArchived }
+    val phase = if (unreadOnly && !showingArchived && scope in unreadLoading) ChatListModel.Phase.LOADING else model.phase(scope, allPhase, chats)
     val handleState by handle.state.collectAsState()
     val requestList = requests?.requests?.collectAsState()?.value.orEmpty()
     val groupInvites = requests?.groupInvites?.collectAsState()?.value.orEmpty()
@@ -345,15 +348,22 @@ fun ChatListScreen(
             banner()
             run {
                 if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
-                UnreadChip(unreadOnly) { model.toggleUnread(scope) }
+                if (!showingArchived) UnreadChip(unreadOnly) { model.toggleUnread(scope) }
+                TextButton(onClick = { showingArchived = !showingArchived }) {
+                    Text(stringResource(if (!showingArchived) R.string.bipe_archived_title else if (scope == ChatScope.CONVERSAS) R.string.bipe_app_chat_list_title else R.string.bipe_tab_groups))
+                }
+                if (archiveFailed) Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.bipe_archive_error), color = colors.trustDangerInk, modifier = Modifier.weight(1f).padding(16.dp))
+                    TextButton(onClick = { model.archive.retry(allChats) }) { Text(stringResource(R.string.bipe_app_retry)) }
+                }
                 when (phase) {
                     ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = colors.accentFill)
                     }
                     ChatListModel.Phase.EMPTY, ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                         // The requests row and the group invites (specs chat-requests and chat-list-filters).
-                        if (scope == ChatScope.CONVERSAS && rowCount > 0) item(key = "requests") { ChatRequestsRow(rowCount, onOpenRequests) }
-                        if (scope == ChatScope.GRUPOS && requests != null) {
+                        if (!showingArchived && scope == ChatScope.CONVERSAS && rowCount > 0) item(key = "requests") { ChatRequestsRow(rowCount, onOpenRequests) }
+                        if (!showingArchived && scope == ChatScope.GRUPOS && requests != null) {
                             items(invites, key = { "invite-${it.roomId}" }) { invite ->
                                 GroupInviteRow(requests, invite, media, onOpenChat)
                             }
@@ -361,12 +371,18 @@ fun ChatListScreen(
                         if (requestsError) item(key = "requests-error") {
                             Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk, modifier = Modifier.padding(16.dp))
                         }
-                        if (phase == ChatListModel.Phase.EMPTY) item(key = "empty") { EmptyState(scope, unreadOnly, onTurnOffUnread = { model.toggleUnread(scope) }, onStartChat = { onOpenPeople(PeopleRoute.Contacts) }) }
+                        if (phase == ChatListModel.Phase.EMPTY) item(key = "empty") {
+                            if (showingArchived) Text(stringResource(R.string.bipe_archived_empty), color = colors.inkSecondary, modifier = Modifier.padding(16.dp))
+                            else EmptyState(scope, unreadOnly, onTurnOffUnread = { model.toggleUnread(scope) }, onStartChat = { onOpenPeople(PeopleRoute.Contacts) })
+                        }
                         items(chats, key = { it.roomId }) { chat ->
-                            DmSwipeRow(chat.isDm, onDelete = { onDeleteDm(chat.roomId) }) { ChatRow(chat, media) { onOpenChat(chat.roomId) } }
-                            if (chat.roomId == chats.lastOrNull()?.roomId) {
+                            ArchivedChatRow(chat, media, archived = archiveMarkers.containsKey(chat.roomId), onArchive = { model.archive.set(chat, !archiveMarkers.containsKey(chat.roomId)) }, onOpen = { onOpenChat(chat.roomId) })
+                            if (!showingArchived && chat.roomId == chats.lastOrNull()?.roomId) {
                                 LaunchedEffect(chats.size) { model.loadMore(scope) }
                             }
+                        }
+                        if (!showingArchived) item(key = "load-more") {
+                            TextButton(onClick = { model.loadMore(scope) }) { Text(stringResource(R.string.bipe_chat_list_more)) }
                         }
                     }
                 }
@@ -376,11 +392,11 @@ fun ChatListScreen(
 }
 
 @Composable
-fun ChatRow(chat: ChatSummary, media: MediaLoader, onClick: () -> Unit) {
+fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = null, actions: @Composable () -> Unit = {}, onClick: () -> Unit) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Avatar(chat.name, chat.avatarUrl, media, userId = chat.peerUserId)
@@ -438,6 +454,7 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onClick: () -> Unit) {
                 }
             }
         }
+        actions()
     }
 }
 

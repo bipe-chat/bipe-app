@@ -12,13 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -168,32 +164,4 @@ fun CreateGroupButton(onCreateGroup: () -> Unit, onInvite: () -> Unit) {
 fun <T> withoutClearedDms(chats: List<T>, roomId: (T) -> String, lastActivity: (T) -> Long?): List<T> {
     val markers by ClearedChatsStore.markers.collectAsState()
     return chats.filterNot { markers.isHidden(roomId(it), lastActivity(it)) }
-}
-
-/** A chat-list row that a swipe to the left offers to delete, for a DM (spec dm-delete notes). */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DmSwipeRow(isDm: Boolean, onDelete: () -> Unit, row: @Composable () -> Unit) {
-    if (!isDm) {
-        row()
-        return
-    }
-    val colors = BipeTheme.colors
-    val swipe = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) onDelete()
-            false
-        },
-    )
-    SwipeToDismissBox(
-        state = swipe,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            Box(Modifier.fillMaxSize().background(colors.trustDangerWash).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterEnd) {
-                Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk)
-            }
-        },
-    ) {
-        Box(Modifier.background(colors.surfaceBase)) { row() }
-    }
 }
