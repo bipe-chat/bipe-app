@@ -166,7 +166,7 @@ private actor NotificationClients {
             throw ClientError.Generic(msg: "no saved session", details: nil)
         }
         if owner == userId, deviceId == session.deviceId, let notificationClient { return notificationClient }
-        let client = try await AccountSession.makeClient(userId: session.userId, process: .notificationService)
+        let client = try await AccountSession.makeClient(userId: session.userId, process: .notificationService, homeserverURL: session.homeserverUrl)
         try await client.restoreSession(session: session)
         let notificationClient = try await client.notificationClient(processSetup: .multipleProcesses)
         self.notificationClient = notificationClient

@@ -52,7 +52,8 @@ enum SessionStore {
 
     /// A push must name its immutable owner. Never use a mutable current-account preference.
     static func loadForPush(userId: String) -> Session? {
-        load(userId: userId)
+        guard let session = load(userId: userId), session.userId == userId else { return nil }
+        return session
     }
 
     static func save(_ session: Session) {
