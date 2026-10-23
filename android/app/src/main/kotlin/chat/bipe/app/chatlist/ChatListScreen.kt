@@ -262,6 +262,11 @@ fun HomeScreen(
                     banner = { HistoryBanner(encryption) },
                     onCreateGroup = groups.createGroup,
                     onDeleteDm = groups.deleteDm,
+                    onChatNotifications = groups.openNotifications,
+                    onChatInfo = { chat ->
+                        if (chat.isDm) chat.peerUserId?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
+                        else groups.openDetailsForRoom(chat.roomId)
+                    },
                     requests = requests, search = search, remoteBanner = remoteBanner,
                     onOpenRequests = { showsRequests = true },
                     onFindHandle = { navigation.push(PeopleRoute.ProfileLinkOpen(it.trim().removePrefix("@"))) },
@@ -293,6 +298,8 @@ fun ChatListScreen(
     banner: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
+    onChatNotifications: (String) -> Unit = {},
+    onChatInfo: (ChatSummary) -> Unit = {},
     onInvite: () -> Unit = {},
     onOpenPeople: (PeopleRoute) -> Unit = {},
 ) {
@@ -306,6 +313,8 @@ fun ChatListScreen(
     val allChats by model.chats.collectAsState()
     val archiveMarkers by model.archive.markers.collectAsState()
     val archiveFailed by model.archive.failed.collectAsState()
+    val readFailed by model.readActionFailed.collectAsState()
+    val markingRoomId by model.markingRoomId.collectAsState()
     var showingArchived by rememberSaveable(model.session.userId, scope) { mutableStateOf(false) }
     val displayed = if (unreadOnly && !showingArchived) unreadChats[scope].orEmpty() else allChats
     val visibleChats = withoutClearedDms(displayed, { it.roomId }, { it.lastActivity })
@@ -352,6 +361,10 @@ fun ChatListScreen(
                 TextButton(onClick = { showingArchived = !showingArchived }) {
                     Text(stringResource(if (!showingArchived) R.string.bipe_archived_title else if (scope == ChatScope.CONVERSAS) R.string.bipe_app_chat_list_title else R.string.bipe_tab_groups))
                 }
+                if (readFailed) Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.bipe_chat_read_error), color = colors.trustDangerInk, modifier = Modifier.weight(1f).padding(16.dp))
+                    TextButton(onClick = model::retryReadAction, enabled = markingRoomId == null) { Text(stringResource(R.string.bipe_app_retry)) }
+                }
                 if (archiveFailed) Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.bipe_archive_error), color = colors.trustDangerInk, modifier = Modifier.weight(1f).padding(16.dp))
                     TextButton(onClick = { model.archive.retry(allChats) }) { Text(stringResource(R.string.bipe_app_retry)) }
@@ -376,7 +389,16 @@ fun ChatListScreen(
                             else EmptyState(scope, unreadOnly, onTurnOffUnread = { model.toggleUnread(scope) }, onStartChat = { onOpenPeople(PeopleRoute.Contacts) })
                         }
                         items(chats, key = { it.roomId }) { chat ->
-                            ArchivedChatRow(chat, media, archived = archiveMarkers.containsKey(chat.roomId), onArchive = { model.archive.set(chat, !archiveMarkers.containsKey(chat.roomId)) }, onOpen = { onOpenChat(chat.roomId) })
+                            ArchivedChatRow(
+                                chat, media, ownerId = model.session.userId,
+                                archived = archiveMarkers.containsKey(chat.roomId), readPending = markingRoomId != null,
+                                onArchive = { model.currentChat(chat.roomId)?.let { model.archive.set(it, !archiveMarkers.containsKey(it.roomId)) } },
+                                onOpen = { onOpenChat(chat.roomId) },
+                                onRead = { model.setUnread(chat.roomId, !chat.isUnread) },
+                                onNotifications = { if (model.currentChat(chat.roomId) != null) onChatNotifications(chat.roomId) },
+                                onInfo = if (!chat.isDm || chat.peerUserId != null) ({ model.currentChat(chat.roomId)?.let(onChatInfo) }) else null,
+                                onDelete = if (chat.isDm) ({ if (model.currentChat(chat.roomId)?.isDm == true) onDeleteDm(chat.roomId) }) else null,
+                            )
                             if (!showingArchived && chat.roomId == chats.lastOrNull()?.roomId) {
                                 LaunchedEffect(chats.size) { model.loadMore(scope) }
                             }
@@ -451,6 +473,9 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = 
                             .padding(horizontal = 7.dp, vertical = 2.dp)
                             .semantics { contentDescription = label },
                     )
+                } else if (chat.isMarkedUnread) {
+                    val unreadLabel = stringResource(R.string.bipe_chat_unread_state)
+                    Box(Modifier.size(8.dp).background(colors.accentFill, CircleShape).semantics { contentDescription = unreadLabel })
                 }
             }
         }

@@ -45,7 +45,7 @@ import chat.bipe.shared.generated.BipeScreen
 @Composable
 fun ChatNotificationsScreen(session: AccountSession, roomId: String, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val model = remember(roomId) { ChatNotificationsModel(session, roomId, scope) }
+    val model = remember(session, roomId) { ChatNotificationsModel(session, roomId, scope) }
     LaunchedEffect(model) { model.appear() }
     val colors = BipeTheme.colors
     val options by model.options.collectAsState()

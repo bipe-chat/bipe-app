@@ -49,6 +49,7 @@ class GroupHostActions(
     val createGroupWith: (List<Person>) -> Unit = {},
     /** chat-notifications for a room (person-profile, action notifications). */
     val openNotifications: (String) -> Unit = {},
+    val openDetailsForRoom: (String) -> Unit = {},
 )
 
 /** The Bipe API client for the screens behind GroupHost that need it (invites from group-invite-members). */
@@ -72,9 +73,9 @@ fun GroupHost(
     val context = LocalContext.current
     var creating by rememberSaveable { mutableStateOf(false) }
     var creatingWith by remember { mutableStateOf(emptyList<Person>()) }
-    var notificationsRoom by rememberSaveable { mutableStateOf<String?>(null) }
-    var detailsOpen by rememberSaveable { mutableStateOf(false) }
-    var deletingDm by rememberSaveable { mutableStateOf<String?>(null) }
+    var notificationsRoom by rememberSaveable(session.userId) { mutableStateOf<String?>(null) }
+    var detailsRoom by rememberSaveable(session.userId) { mutableStateOf<String?>(null) }
+    var deletingDm by rememberSaveable(session.userId) { mutableStateOf<String?>(null) }
     var showingInvites by rememberSaveable { mutableStateOf(false) }
     val invitesFailed = stringResource(R.string.bipe_app_group_create_invites_failed)
     LaunchedEffect(session) { QuietGroups.applyOnce(context, session) }
@@ -88,7 +89,8 @@ fun GroupHost(
     }
     val actions = GroupHostActions(
         createGroup = { creating = true },
-        openGroupDetails = { detailsOpen = true },
+        openGroupDetails = { detailsRoom = roomId },
+        openDetailsForRoom = { detailsRoom = it },
         deleteDm = { deletingDm = it },
         openInvites = { showingInvites = true },
         createGroupWith = {
@@ -119,13 +121,13 @@ fun GroupHost(
                 BackHandler { notificationsRoom = null }
                 ChatNotificationsScreen(session, notificationsRoom!!, onBack = { notificationsRoom = null })
             }
-            roomId != null && detailsOpen -> GroupDetailsScreen(
+            detailsRoom != null -> GroupDetailsScreen(
                 session,
                 media,
-                roomId,
-                onBack = { detailsOpen = false },
+                detailsRoom!!,
+                onBack = { detailsRoom = null },
                 onLeft = {
-                    detailsOpen = false
+                    detailsRoom = null
                     onOpenRoom(null)
                 },
             )

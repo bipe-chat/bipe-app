@@ -3131,4 +3131,12 @@ public enum BipeStrings {
     public static var chatActions: String { NSLocalizedString("bipe_chat_actions", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var messageActions: String { NSLocalizedString("bipe_message_actions", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatMarkUnread: String { NSLocalizedString("bipe_chat_mark_unread", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatUnreadState: String { NSLocalizedString("bipe_chat_unread_state", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatDetails: String { NSLocalizedString("bipe_chat_details", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatReadError: String { NSLocalizedString("bipe_chat_read_error", tableName: "Bipe", bundle: .module, comment: "") }
 }

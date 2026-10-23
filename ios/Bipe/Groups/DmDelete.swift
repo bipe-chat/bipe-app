@@ -93,6 +93,8 @@ final class DmDeleteModel: ObservableObject {
         guard phase != .deleting, let room = try? session.client.getRoom(roomId: roomId) else { return false }
         phase = .deleting
         do {
+            let info = try await room.roomInfo()
+            guard info.isDm, info.membership == .joined else { phase = .failed; return false }
             let ts = await Self.latestTs(room)
             let content = ClearedChats.content(clearing: try await serverContent(), roomID: roomId, at: ts)
             let data = try JSONSerialization.data(withJSONObject: content)

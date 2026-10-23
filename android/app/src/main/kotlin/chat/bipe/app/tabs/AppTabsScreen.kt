@@ -50,6 +50,8 @@ fun AppTabsScreen(
     banner: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
+    onChatNotifications: (String) -> Unit = {},
+    onChatInfo: (chat.bipe.app.chatlist.ChatSummary) -> Unit = {},
     onInvite: () -> Unit = {},
     /** Opens a people screen (bipe-chat/bipe#568). */
     onOpenPeople: (PeopleRoute) -> Unit = {},
@@ -70,12 +72,12 @@ fun AppTabsScreen(
                 AppTabsModel.Tab.CONVERSAS ->
                     ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner,
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite, onOpenPeople = onOpenPeople,
+                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                         requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) },
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite, onOpenPeople = onOpenPeople,
+                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                         requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests)
                 AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
                 AppTabsModel.Tab.SEARCH -> {
