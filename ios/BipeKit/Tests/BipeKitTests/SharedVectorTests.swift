@@ -9,6 +9,18 @@ import Testing
 /// Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). Android runs the same files.
 struct SharedVectorTests {
     @Test
+    func relationshipNames() throws {
+        let vectors = try SharedVectors.array("relationship-names.json", key: "vectors")
+        #expect(!vectors.isEmpty)
+        for vector in vectors {
+            #expect(BipeRelationshipNames.warning(savedName: vector["savedName"] as? String,
+                verifiedName: vector["verifiedName"] as? String,
+                nicknameConfirmed: vector["nicknameConfirmed"] as? Bool ?? false) == vector["expected"] as? String,
+                "relationship name \(vector["name"] ?? "")")
+        }
+    }
+
+    @Test
     func dmSelection() throws {
         for vector in try SharedVectors.array("dm-selection.json", key: "cases") {
             let raw = try #require(vector["candidates"] as? [[String: Any]])

@@ -109,6 +109,7 @@ final class ContactsModel: ObservableObject {
             }
             return
         }
+        people.rememberContactNames(found)
         let invited = (try? await people.withToken { (token: String) async throws(BipeAPIError) -> Set<String> in
             Set(try await people.api.inviteConnections(accessToken: token))
         }) ?? []

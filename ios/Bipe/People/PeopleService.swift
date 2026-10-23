@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Contacts
 import Foundation
 import MatrixRustSDK
 
@@ -45,6 +46,23 @@ final class PeopleService: ObservableObject {
     /// Client.ignoredUsers, kept current by Client.subscribeToIgnoredUsers.
     @Published private(set) var ignoredUsers: Set<String> = []
     @Published private(set) var ignoredUsersLoaded = false
+
+    /// Names learned from an explicitly permitted contact lookup. Memory only, partitioned by this account.
+    /// Request checks use this map locally; opening a request never uploads the address book.
+    @Published private(set) var contactNames: [String: String] = [:]
+
+    func rememberContactNames(_ names: [String: String]) {
+        guard ContactsModel.currentPermission() == .granted || ContactsModel.currentPermission() == .limited else {
+            contactNames = [:]
+            return
+        }
+        contactNames = names.mapValues { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.value.isEmpty }
+    }
+
+    func contactName(for userId: String) -> String? {
+        guard ContactsModel.currentPermission() == .granted || ContactsModel.currentPermission() == .limited else { return nil }
+        return contactNames[userId]
+    }
 
     private var ignoredHandle: TaskHandle?
     private var ignoredTask: Task<Void, Never>?

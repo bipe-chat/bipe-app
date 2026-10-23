@@ -9,6 +9,7 @@ import chat.bipe.shared.account.BipePin
 import chat.bipe.shared.clearedchats.ClearedChats
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeDmCandidate
+import chat.bipe.shared.generated.BipeRelationshipNames
 import chat.bipe.shared.generated.BipeDmSelection
 import chat.bipe.shared.generated.BipeTrustFacts
 import chat.bipe.shared.generated.BipeTrustInput
@@ -28,6 +29,17 @@ import java.io.File
 
 /** Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). iOS runs the same files. */
 class SharedVectorTest {
+    @Test
+    fun relationshipNames() {
+        val cases = vectors("relationship-names.json", "vectors")
+        assertWithMessage("relationship vectors").that(cases).isNotEmpty()
+        for (vector in cases) {
+            assertWithMessage("relationship ${vector.string("name")}").that(BipeRelationshipNames.warning(
+                vector.string("savedName"), vector.string("verifiedName"), vector["nicknameConfirmed"]?.jsonPrimitive?.boolean ?: false,
+            )).isEqualTo(vector.string("expected"))
+        }
+    }
+
     @Test
     fun dmSelection() {
         for (vector in vectors("dm-selection.json", "cases")) {

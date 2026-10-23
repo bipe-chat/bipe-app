@@ -147,7 +147,7 @@ struct ChatRequestView: View {
                         .font(.subheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
-                trustBlock
+                RequestTrustContent(model: model, request: request)
                 if model.error {
                     Text(BipeStrings.errorGeneric)
                         .foregroundStyle(BipeColor.trustDangerInk)
@@ -234,31 +234,7 @@ struct ChatRequestView: View {
         }
     }
 
-    @ViewBuilder
-    private var trustBlock: some View {
-        let trust = model.trust(for: request)
-        let verified: Bool = if case .verified = trust { true } else { false }
-        VStack(spacing: 8) {
-            switch trust {
-            case .verified(let name):
-                Text(BipeStrings.badgeVerifiedName(name))
-                    .foregroundStyle(BipeColor.trustVerifiedInk)
-            case .unverified:
-                Text(BipeStrings.bannerUnverifiedTitle)
-                    .font(.headline)
-                    .foregroundStyle(BipeColor.trustCautionInk)
-                Text(BipeStrings.requestUnverifiedBody)
-                    .foregroundStyle(BipeColor.inkSecondary)
-            case .external:
-                Text(BipeStrings.bannerExternal)
-                    .foregroundStyle(BipeColor.trustNeutralInk)
-            }
-        }
-        .multilineTextAlignment(.center)
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: 12).fill(verified ? BipeColor.trustVerifiedWash : BipeColor.trustCautionWash))
-    }
+
 }
 
 /// A group invite row at the top of the groups list (spec chat-list-filters).

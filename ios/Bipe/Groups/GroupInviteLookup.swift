@@ -42,6 +42,7 @@ struct GroupInviteLookup {
                 }
             }
         }
+        people.rememberContactNames(names.compactMapValues { $0 })
         var result: [Person] = []
         for (userId, name) in names where userId != people.session.userId && !known.contains(userId) {
             let person = (try? await people.person(userId, contactName: name))

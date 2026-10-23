@@ -8,7 +8,10 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.groups.DmDeleteModel
 import chat.bipe.app.chatlist.NativeDmSelection
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.isCompany
@@ -94,6 +97,20 @@ class PeopleService(
     /** Client.ignoredUsers, kept current by Client.subscribeToIgnoredUsers. `null` until the first list arrives. */
     val ignoredUsers: StateFlow<Set<String>?> = _ignoredUsers.asStateFlow()
 
+    private val appContext = context.applicationContext
+    private val _contactNames = MutableStateFlow<Map<String, String>>(emptyMap())
+    /** Names from a permitted contact lookup, in memory for this account only. Request checks send nothing. */
+    val contactNames: StateFlow<Map<String, String>> = _contactNames.asStateFlow()
+
+    fun rememberContactNames(names: Map<String, String>) {
+        _contactNames.value = if (canReadContacts()) names.mapValues { it.value.trim() }.filterValues { it.isNotEmpty() } else emptyMap()
+    }
+
+    fun contactName(userId: String): String? = if (canReadContacts()) _contactNames.value[userId] else null
+
+    private fun canReadContacts(): Boolean =
+        ContextCompat.checkSelfPermission(appContext, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+
     private val companies = mutableMapOf<String, Boolean>()
     private var ignoredHandle: TaskHandle? = null
 
@@ -114,6 +131,7 @@ class PeopleService(
     fun close() {
         ignoredHandle?.cancel()
         ignoredHandle = null
+        _contactNames.value = emptyMap()
     }
 
     fun isBlocked(userId: String): Boolean = _ignoredUsers.value?.contains(userId) == true
