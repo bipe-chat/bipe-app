@@ -157,6 +157,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json
     case pinChange = "pin-change"
 
+    /// Receive a shared Pix item (flow share). Spec: bipe-shared/product/screens/pix-check-receive.json
+    case pixCheckReceive = "pix-check-receive"
+
+    /// Offline Pix check result (flow share). Spec: bipe-shared/product/screens/pix-check-result.json
+    case pixCheckResult = "pix-check-result"
+
     /// Create a poll (flow chat). Spec: bipe-shared/product/screens/poll-create.json
     case pollCreate = "poll-create"
 
