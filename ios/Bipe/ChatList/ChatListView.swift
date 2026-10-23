@@ -17,6 +17,9 @@ struct ChatListView: View {
     @State private var path: NavigationPath
     @State private var showsHandlePick = false
     @State private var openingLink: String?
+    @State private var newGroupWith: [Person]?
+    @State private var notificationsRoom: String?
+    @State private var deletingFromProfile: String?
     private let scope: ChatScope
     private let account: AccountSummary?
     private let onOpenVoce: () -> Void
@@ -102,6 +105,18 @@ struct ChatListView: View {
                                 openPerson: { path.append(PeopleRoute.person(userId: $0, fromDm: false)) },
                                 openOwnLink: { path.append(PeopleRoute.profileLink) })
         }
+        // person-profile: group-create with the person picked, chat-notifications and dm-delete for the DM.
+        .sheet(item: Binding(get: { newGroupWith.map(PeoplePick.init) }, set: { newGroupWith = $0?.people })) { pick in
+            GroupCreateView(session: model.session, media: model.media, people: pick.people) { roomId, _ in
+                path = NavigationPath([roomId])
+            }
+        }
+        .sheet(item: Binding(get: { notificationsRoom.map(RoomSheetId.init) }, set: { notificationsRoom = $0?.id })) { room in
+            NavigationStack { ChatNotificationsView(session: model.session, roomId: room.id) }
+        }
+        .sheet(item: Binding(get: { deletingFromProfile.map(RoomSheetId.init) }, set: { deletingFromProfile = $0?.id })) { room in
+            DmDeleteView(session: model.session, roomId: room.id) { path = NavigationPath() }
+        }
         .onOpenURL { url in
             // Both tabs show a chat list; the Conversas one takes profile links.
             guard scope == .conversas else { return }
@@ -142,7 +157,16 @@ struct ChatListView: View {
         switch route {
         case .person(let userId, let fromDm):
             PersonProfileView(people: people, userId: userId, fromDm: fromDm,
-                              routes: PersonProfileRoutes(openChat: { openChat($0) }))
+                              routes: PersonProfileRoutes(
+                                  openChat: { openChat($0) },
+                                  newGroup: { userId in
+                                      Task {
+                                          let person = try? await people.person(userId)
+                                          newGroupWith = [person ?? Person(userId: userId, displayName: Person.localpart(of: userId), avatarUrl: nil)]
+                                      }
+                                  },
+                                  notifications: { notificationsRoom = $0 },
+                                  deleteChat: { deletingFromProfile = $0 }))
         case .profileEdit:
             ProfileEditView(people: people)
         case .publicProfile:
@@ -152,7 +176,7 @@ struct ChatListView: View {
         case .profileLink:
             ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
         case .contacts:
-            ContactsView(people: people, openChat: { openChat($0) }, invite: nil)
+            ContactsView(people: people, openChat: { openChat($0) }, invite: { showingInvites = true })
         case .whoCanMessage:
             WhoCanMessageView(people: people)
         case .blockedList:
@@ -295,4 +319,13 @@ struct ChatRow: View {
             ? .dateTime.hour().minute()
             : .dateTime.day().month(.abbreviated)
     }
+}
+
+private struct PeoplePick: Identifiable {
+    let people: [Person]
+    var id: String { people.map(\.userId).joined(separator: ",") }
+}
+
+private struct RoomSheetId: Identifiable {
+    let id: String
 }

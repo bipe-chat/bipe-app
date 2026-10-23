@@ -85,6 +85,8 @@ import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.tabs.AppTabsScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
+import chat.bipe.app.groups.Person as GroupPerson
+import chat.bipe.app.people.Person
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
@@ -182,12 +184,32 @@ fun HomeScreen(
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
-        peopleStack.isNotEmpty() -> {
-            BackHandler { navigation.pop() }
-            PeopleScreen(peopleStack.last(), people, navigation)
-        }
-        else -> GroupHost(session, api, media, roomId, foregroundCount, onOpenRoom = { openRoomId = it }) { groups ->
-            if (roomId != null) {
+        else -> GroupHost(session, api, media, roomId, foregroundCount, onOpenRoom = {
+            peopleStack = emptyList()
+            openRoomId = it
+        }) { groups ->
+            if (peopleStack.isNotEmpty()) {
+                BackHandler { navigation.pop() }
+                // The people screens reach group-create, chat-notifications, dm-delete and invites through GroupHost.
+                val withGroups = PeopleNavigation(
+                    push = navigation.push,
+                    pop = navigation.pop,
+                    openChat = navigation.openChat,
+                    pickHandle = navigation.pickHandle,
+                    newGroup = { userId ->
+                        scope.launch {
+                            val person = runCatching { people.person(userId) }.getOrNull()
+                            groups.createGroupWith(
+                                listOf(GroupPerson(userId, person?.displayName ?: Person.localpart(userId), person?.avatarUrl, person?.handle)),
+                            )
+                        }
+                    },
+                    notifications = groups.openNotifications,
+                    deleteChat = groups.deleteDm,
+                    invite = groups.openInvites,
+                )
+                PeopleScreen(peopleStack.last(), people, withGroups)
+            } else if (roomId != null) {
                 BackHandler { openRoomId = null }
                 ChatTimelineScreen(
                     session,
