@@ -31,7 +31,7 @@ struct BlockedListView: View {
                             openPerson(person.userId)
                         } label: {
                             HStack(spacing: 12) {
-                                AvatarView(name: person.displayName, mxcUrl: person.avatarUrl, loader: people.media, size: 40, userId: person.userId)
+                                AvatarView(name: person.displayName, mxcUrl: person.avatarUrl, loader: people.media, size: 40)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(person.displayName)
                                         .foregroundStyle(BipeColor.inkPrimary)

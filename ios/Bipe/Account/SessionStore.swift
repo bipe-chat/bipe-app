@@ -7,7 +7,9 @@ import MatrixRustSDK
 import Security
 
 /// Keeps the SDK session (tokens, device ID) of every account in the app's own keychain group, on this device only.
-/// One item per account, keyed by Matrix ID (ADR 0086). Never logged.
+/// One item per account, keyed by Matrix ID (ADR 0086). Never logged. The notification service extension reads it
+/// too: its first keychain access group is the app's (project.yml), so both use the same default group. Also
+/// compiled into the extension.
 enum SessionStore {
     private static let service = "chat.bipe.next.session"
     /// The single slot of builds before bipe-chat/bipe#577. `loadAll()` moves it under its Matrix ID.
@@ -47,6 +49,24 @@ enum SessionStore {
     static func load(userId: String) -> Session? {
         read(account: userId).flatMap(decode)
     }
+
+    /// The account this phone's pusher belongs to (push-registration follows the current account). The app writes
+    /// it; the notification service extension reads it from the app group.
+    static var pushUserId: String? {
+        get { UserDefaults(suiteName: AppConfig.appGroup)?.string(forKey: pushUserKey) }
+        set { UserDefaults(suiteName: AppConfig.appGroup)?.set(newValue, forKey: pushUserKey) }
+    }
+
+    /// The session a content-free push is for: the pusher's account, else the only saved one.
+    static func loadForPush() -> Session? {
+        if let userId = pushUserId, let session = load(userId: userId) {
+            return session
+        }
+        let all = loadAll()
+        return all.count == 1 ? all.values.first : nil
+    }
+
+    private static let pushUserKey = "bipe.push.userId"
 
     static func save(_ session: Session) {
         let stored = Stored(accessToken: session.accessToken,

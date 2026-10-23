@@ -11,6 +11,7 @@ import UIKit
 enum SettingsRoute: Hashable {
     case group(BipeSettingsGroup)
     case support
+    case notifications
 }
 
 /// The settings stack. Until the Você tab (bipe-chat/bipe#567) is on main, chat-list opens it as a sheet; the Você tab
@@ -47,22 +48,9 @@ struct SettingsRootSection: View {
     var body: some View {
         Section {
             ForEach(BipeSettingsGroup.root, id: \.self) { group in
-                // Action openGroup. notifications opens the notifications settings screen of bipe-chat/bipe#565;
-                // until that is on main, the system page of the app.
-                Group {
-                    if group == .notifications {
-                        Button {
-                            if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
-                                UIApplication.shared.open(url)
-                            }
-                        } label: {
-                            row(group)
-                        }
-                    } else {
-                        NavigationLink(value: SettingsRoute.group(group)) {
-                            row(group)
-                        }
-                    }
+                // Action openGroup. notifications opens notification-settings (bipe-chat/bipe#566).
+                NavigationLink(value: group == .notifications ? SettingsRoute.notifications : SettingsRoute.group(group)) {
+                    row(group)
                 }
                 .listRowBackground(BipeColor.surfaceRaised)
             }
@@ -116,6 +104,8 @@ extension View {
                 SettingsGroupView(model: model, group: group, onSignedOut: onSignedOut)
             case .support:
                 SupportOpenView(session: model.session, api: model.api)
+            case .notifications:
+                NotificationSettingsView(session: model.session)
             }
         }
     }

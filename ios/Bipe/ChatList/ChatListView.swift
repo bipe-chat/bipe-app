@@ -3,21 +3,28 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Combine
 import Phosphor
 import SwiftUI
 
 /// Spec chat-list, one scope: Conversas or Grupos (ADR 0053).
 struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
+    @ObservedObject private var notifications = NotificationActions.shared
     @StateObject private var handle: HandlePickModel
     @StateObject private var encryption: EncryptionStatusModel
     @StateObject private var people: PeopleService
     @State private var path: NavigationPath
     @State private var showsHandlePick = false
     @State private var openingLink: String?
+    @State private var newGroupWith: [Person]?
+    @State private var notificationsRoom: String?
+    @State private var deletingFromProfile: String?
     private let scope: ChatScope
     private let account: AccountSummary?
     private let onOpenVoce: () -> Void
+    private let api: BipeAPIClient
+    @State private var showingInvites = false
     @State private var creatingGroup = false
     @State private var deletingDm: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
@@ -26,11 +33,12 @@ struct ChatListView: View {
     init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil, account: AccountSummary? = nil, onOpenVoce: @escaping () -> Void = {}) {
         self.account = account
         self.onOpenVoce = onOpenVoce
+        self.api = api
         _model = ObservedObject(wrappedValue: model)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
-        _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
         _people = StateObject(wrappedValue: PeopleService(session: model.session, api: api, media: model.media))
+        _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
         self.scope = scope
     }
 
@@ -59,7 +67,7 @@ struct ChatListView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    CreateGroupButton { creatingGroup = true }
+                    CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     if let account {
@@ -72,19 +80,20 @@ struct ChatListView: View {
                 }
             }
         }
-        .groupHost(session: model.session, media: model.media, path: $path, creatingGroup: $creatingGroup, deletingDm: $deletingDm)
+        .groupHost(session: model.session, api: api, media: model.media, path: $path, creatingGroup: $creatingGroup,
+                   deletingDm: $deletingDm, showingInvites: $showingInvites)
         .environment(\.openHistoryHelp, encryption.openSheet)
         .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
             EncryptionSheet(route: route, model: encryption, session: model.session)
         }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
         .task { await encryption.observe() }
-        .onAppear { people.start() }
         .task {
             if scope == .conversas {
                 await handle.load()
             }
         }
+        .onAppear { people.start() }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
         }
@@ -93,12 +102,50 @@ struct ChatListView: View {
                                 openPerson: { path.append(PeopleRoute.person(userId: $0, fromDm: false)) },
                                 openOwnLink: { path.append(PeopleRoute.profileLink) })
         }
+        // person-profile: group-create with the person picked, chat-notifications and dm-delete for the DM.
+        .sheet(item: Binding(get: { newGroupWith.map(PeoplePick.init) }, set: { newGroupWith = $0?.people })) { pick in
+            GroupCreateView(session: model.session, media: model.media, people: pick.people) { roomId, _ in
+                path = NavigationPath([roomId])
+            }
+        }
+        .sheet(item: Binding(get: { notificationsRoom.map(RoomSheetId.init) }, set: { notificationsRoom = $0?.id })) { room in
+            NavigationStack { ChatNotificationsView(session: model.session, roomId: room.id) }
+        }
+        .sheet(item: Binding(get: { deletingFromProfile.map(RoomSheetId.init) }, set: { deletingFromProfile = $0?.id })) { room in
+            DmDeleteView(session: model.session, roomId: room.id) { path = NavigationPath() }
+        }
         .onOpenURL { url in
+            // Both tabs show a chat list; the Conversas one takes profile links.
+            guard scope == .conversas else { return }
             switch PeopleLink(url: url) {
             case .handle(let handle): openingLink = handle
             case .userId(let userId): path.append(PeopleRoute.person(userId: userId, fromDm: false))
             case nil: break
             }
+        }
+        // Spec notification-service, action open.
+        .onReceive(notifications.$roomToOpen.compactMap { $0 }) { roomId in
+            notifications.roomToOpen = nil
+            path = NavigationPath([roomId])
+        }
+    }
+
+    /// The people and profile screens (bipe-chat/bipe#568). Until the Você tab and Privacidade exist
+    /// (lanes D and E), this menu is their way in.
+    private var peopleMenu: some View {
+        Menu {
+            Button { path.append(PeopleRoute.profileEdit) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsProfileNamePhoto) }
+            Button { path.append(PeopleRoute.publicProfile) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsPublicProfile) }
+            Button { path.append(PeopleRoute.profileLink) } label: { IconLabel(icon: .qrCode, text: BipeStrings.appProfileLink) }
+            Button { path.append(PeopleRoute.contacts) } label: { IconLabel(icon: .addressBook, text: BipeStrings.contactsTitle) }
+            Button { path.append(PeopleRoute.whoCanMessage) } label: { IconLabel(icon: .chatText, text: BipeStrings.messagingTitle) }
+            Button { path.append(PeopleRoute.blockedList) } label: { IconLabel(icon: .prohibit, text: BipeStrings.privacyBlocked) }
+        } label: {
+            PhosphorIcon.userCircle.image
+                .resizable()
+                .frame(width: 26, height: 26)
+                .foregroundStyle(BipeColor.accentInk)
+                .accessibilityLabel(BipeStrings.settingsPublicProfile)
         }
     }
 
@@ -107,19 +154,28 @@ struct ChatListView: View {
         switch route {
         case .person(let userId, let fromDm):
             PersonProfileView(people: people, userId: userId, fromDm: fromDm,
-                              routes: PersonProfileRoutes(openChat: { openChat($0) }))
+                              routes: PersonProfileRoutes(
+                                  openChat: { openChat($0) },
+                                  newGroup: { userId in
+                                      Task {
+                                          let person = try? await people.person(userId)
+                                          newGroupWith = [person ?? Person(userId: userId, displayName: Person.localpart(of: userId), avatarUrl: nil)]
+                                      }
+                                  },
+                                  notifications: { notificationsRoom = $0 },
+                                  deleteChat: { deletingFromProfile = $0 }))
         case .profileEdit:
             ProfileEditView(people: people)
         case .publicProfile:
             PublicProfileEditView(people: people,
                                   pickHandle: { showsHandlePick = true },
                                   openLink: { path.append(PeopleRoute.profileLink) })
-        case .profileLink:
-            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
         case .profileQr:
             ProfileLinkView(people: people, pickHandle: { showsHandlePick = true }, initiallyShowsQr: true)
+        case .profileLink:
+            ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
         case .contacts:
-            ContactsView(people: people, openChat: { openChat($0) }, invite: nil)
+            ContactsView(people: people, openChat: { openChat($0) }, invite: { showingInvites = true })
         case .whoCanMessage:
             WhoCanMessageView(people: people)
         case .blockedList:
@@ -232,6 +288,14 @@ struct ChatRow: View {
                         .foregroundStyle(BipeColor.inkSecondary)
                         .lineLimit(2)
                     Spacer(minLength: 8)
+                    // Spec chat-notifications: a muted chat keeps its badge, without sound or notification.
+                    if chat.isMuted {
+                        PhosphorIcon.bellSlash.image
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                            .foregroundStyle(BipeColor.inkSecondary)
+                            .accessibilityLabel(BipeStrings.appNotificationModeOff)
+                    }
                     if chat.unreadCount > 0 {
                         let count = chat.unreadCount.formatted()
                         Text(count)
@@ -254,4 +318,13 @@ struct ChatRow: View {
             ? .dateTime.hour().minute()
             : .dateTime.day().month(.abbreviated)
     }
+}
+
+private struct PeoplePick: Identifiable {
+    let people: [Person]
+    var id: String { people.map(\.userId).joined(separator: ",") }
+}
+
+private struct RoomSheetId: Identifiable {
+    let id: String
 }

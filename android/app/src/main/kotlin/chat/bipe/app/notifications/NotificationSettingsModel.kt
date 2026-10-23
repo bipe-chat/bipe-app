@@ -1,0 +1,189 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+// Copyright 2026 Bipe contributors
+
+package chat.bipe.app.notifications
+
+import chat.bipe.app.account.AccountSession
+import chat.bipe.shared.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import org.matrix.rustcomponents.sdk.NotificationSettings
+import org.matrix.rustcomponents.sdk.NotificationSettingsDelegate
+import org.matrix.rustcomponents.sdk.RoomNotificationMode
+
+/** Type NotificationMode of spec notification-settings. */
+enum class NotificationMode(val label: Int) {
+    ALL(R.string.bipe_app_notification_mode_all),
+    MENTIONS(R.string.bipe_app_notification_mode_mentions),
+    OFF(R.string.bipe_app_notification_mode_off),
+    ;
+
+    val sdkMode: RoomNotificationMode
+        get() = when (this) {
+            ALL -> RoomNotificationMode.ALL_MESSAGES
+            MENTIONS -> RoomNotificationMode.MENTIONS_AND_KEYWORDS_ONLY
+            OFF -> RoomNotificationMode.MUTE
+        }
+
+    companion object {
+        fun of(mode: RoomNotificationMode): NotificationMode = when (mode) {
+            RoomNotificationMode.ALL_MESSAGES -> ALL
+            RoomNotificationMode.MENTIONS_AND_KEYWORDS_ONLY -> MENTIONS
+            RoomNotificationMode.MUTE -> OFF
+        }
+    }
+}
+
+/** Spec notification-settings (bipe-shared product/screens/notification-settings.json). */
+class NotificationSettingsModel(
+    private val session: AccountSession,
+    private val push: PushRegistration,
+    private val notifications: PhoneNotifications,
+    private val scope: CoroutineScope,
+) {
+    data class State(
+        val chatsMode: NotificationMode = NotificationMode.ALL,
+        val groupsMode: NotificationMode = NotificationMode.MENTIONS,
+        val wholeGroupMentions: Boolean = true,
+        val invites: Boolean = true,
+        val sound: NotificationSound = NotificationSound.PHONE,
+        val mentionsMayMiss: Boolean = false,
+        val hasOlderChoices: Boolean = false,
+        val isLoaded: Boolean = false,
+        /** The older-choices dialog, with the change that waits for it. */
+        val pendingGroupsMode: NotificationMode? = null,
+        val showsError: Boolean = false,
+        val showsToneError: Boolean = false,
+    )
+
+    private val _state = MutableStateFlow(State(sound = notifications.sound))
+    val state: StateFlow<State> = _state.asStateFlow()
+
+    /** The system permission is allowed and push-registration has a pusher. */
+    val phoneEnabled = combine(push.permission, push.registration) { permission, registration ->
+        permission == PushRegistration.Permission.ALLOWED && registration != null
+    }
+
+    private var settings: NotificationSettings? = null
+
+    /** Action appear: reads the permission and the push rules, and follows changes from other devices. */
+    fun appear() {
+        push.appBecameActive()
+        scope.launch {
+            val settings = settings ?: session.client.getNotificationSettings().also { settings ->
+                settings.setDelegate(object : NotificationSettingsDelegate {
+                    override fun settingsDidChange() {
+                        scope.launch { load() }
+                    }
+                })
+                this@NotificationSettingsModel.settings = settings
+            }
+            load(settings)
+        }
+    }
+
+    fun close() {
+        settings?.setDelegate(null)
+    }
+
+    /** Action setChatsMode: all or off, for one-to-one rooms, encrypted and not. */
+    fun setChatsMode(mode: NotificationMode) {
+        val old = _state.value.chatsMode
+        _state.update { it.copy(chatsMode = mode) }
+        write(restore = { it.copy(chatsMode = old) }) { setDefault(it, isOneToOne = true, mode) }
+    }
+
+    /** Action setGroupsMode: with older choices on the account, the dialog comes first. */
+    fun setGroupsMode(mode: NotificationMode) {
+        if (_state.value.hasOlderChoices) {
+            _state.update { it.copy(pendingGroupsMode = mode) }
+        } else {
+            applyGroupsMode(mode)
+        }
+    }
+
+    fun confirmGroupsMode() {
+        val mode = _state.value.pendingGroupsMode ?: return
+        _state.update { it.copy(pendingGroupsMode = null, hasOlderChoices = false) }
+        applyGroupsMode(mode)
+    }
+
+    fun cancelGroupsMode() {
+        _state.update { it.copy(pendingGroupsMode = null) }
+    }
+
+    fun setWholeGroupMentions(isOn: Boolean) {
+        val old = _state.value.wholeGroupMentions
+        _state.update { it.copy(wholeGroupMentions = isOn) }
+        write(restore = { it.copy(wholeGroupMentions = old) }) { it.setRoomMentionEnabled(isOn) }
+    }
+
+    fun setInvites(isOn: Boolean) {
+        val old = _state.value.invites
+        _state.update { it.copy(invites = isOn) }
+        write(restore = { it.copy(invites = old) }) { it.setInviteForMeEnabled(isOn) }
+    }
+
+    /** Action setSound: moves the messages channel to that sound. A failure shows bipe_notifications_tone_error. */
+    fun setSound(sound: NotificationSound) {
+        val saved = notifications.setSound(sound)
+        _state.update { it.copy(sound = notifications.sound, showsToneError = !saved) }
+    }
+
+    fun dismissErrors() {
+        _state.update { it.copy(showsError = false, showsToneError = false) }
+    }
+
+    private fun applyGroupsMode(mode: NotificationMode) {
+        val old = _state.value.groupsMode
+        _state.update { it.copy(groupsMode = mode) }
+        write(restore = { it.copy(groupsMode = old) }) { setDefault(it, isOneToOne = false, mode) }
+    }
+
+    private suspend fun load(settings: NotificationSettings? = this.settings) {
+        settings ?: return
+        // The screen reads the encrypted value and writes both (spec notes).
+        val chats = settings.getDefaultRoomNotificationMode(isEncrypted = true, isOneToOne = true)
+        val groups = settings.getDefaultRoomNotificationMode(isEncrypted = true, isOneToOne = false)
+        val chatsPlain = settings.getDefaultRoomNotificationMode(isEncrypted = false, isOneToOne = true)
+        val groupsPlain = settings.getDefaultRoomNotificationMode(isEncrypted = false, isOneToOne = false)
+        val current = _state.value
+        val wholeGroup = runCatching { settings.isRoomMentionEnabled() }.getOrDefault(current.wholeGroupMentions)
+        val invites = runCatching { settings.isInviteForMeEnabled() }.getOrDefault(current.invites)
+        val mentionsMayMiss = !settings.canPushEncryptedEventToDevice()
+        val hasKeywords = settings.containsKeywordsRules()
+        _state.update {
+            it.copy(
+                chatsMode = NotificationMode.of(chats),
+                groupsMode = NotificationMode.of(groups),
+                wholeGroupMentions = wholeGroup,
+                invites = invites,
+                mentionsMayMiss = mentionsMayMiss,
+                hasOlderChoices = chats != chatsPlain || groups != groupsPlain || hasKeywords,
+                sound = notifications.sound,
+                isLoaded = true,
+            )
+        }
+    }
+
+    /** A failed rule change puts the row back and shows bipe_error_generic. */
+    private fun write(restore: (State) -> State, change: suspend (NotificationSettings) -> Unit) {
+        val settings = settings ?: return
+        scope.launch {
+            runCatching { change(settings) }.onFailure {
+                _state.update { restore(it).copy(showsError = true) }
+            }
+        }
+    }
+
+    private suspend fun setDefault(settings: NotificationSettings, isOneToOne: Boolean, mode: NotificationMode) {
+        settings.setDefaultRoomNotificationMode(isEncrypted = true, isOneToOne = isOneToOne, mode = mode.sdkMode)
+        settings.setDefaultRoomNotificationMode(isEncrypted = false, isOneToOne = isOneToOne, mode = mode.sdkMode)
+    }
+}

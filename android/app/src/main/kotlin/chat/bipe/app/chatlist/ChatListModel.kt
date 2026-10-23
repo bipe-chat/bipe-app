@@ -23,6 +23,7 @@ import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
 import org.matrix.rustcomponents.sdk.RoomListEntriesWithDynamicAdaptersResult
 import org.matrix.rustcomponents.sdk.RoomListLoadingState
 import org.matrix.rustcomponents.sdk.RoomListLoadingStateListener
+import org.matrix.rustcomponents.sdk.RoomNotificationMode
 import org.matrix.rustcomponents.sdk.TaskHandle
 import chat.bipe.app.voce.NotesRoom
 
@@ -43,6 +44,7 @@ data class ChatSummary(
     val peerUserId: String? = null,
     /** RoomInfo.isDm, the one DM test (ADR 0141). */
     val isDm: Boolean = false,
+    val isMuted: Boolean = false,
 ) {
     /** The scope that lists this chat: conversas holds rooms with two members, grupos rooms with more (ADR 0053). */
     val scope: ChatScope
@@ -192,6 +194,7 @@ class ChatListModel(
             mentionCount = info.numUnreadMentions.toInt(),
             peerUserId = if (info.isDirect) info.heroes.firstOrNull { it.userId != session.userId }?.userId else null,
             isDm = info.isDm,
+            isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
         )
     }
 

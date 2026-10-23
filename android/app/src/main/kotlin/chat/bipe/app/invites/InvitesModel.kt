@@ -81,6 +81,7 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
         busy = true
         try {
             val response = withToken { api.myInvites(it) }
+            memory.importEarlierNativeStore(response.invites.map { it.id }.toSet())
             val pending = response.invites.filter { it.isPending }.map { it.id }.toSet()
             val active = response.invites.filter { it.isPending || it.isUsed }.map { it.id }.toSet()
             memory.update { it.copy(links = it.links.filterKeys(pending::contains), notes = it.notes.filterKeys(active::contains)) }

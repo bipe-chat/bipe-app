@@ -57,7 +57,7 @@ final class PersonProfileModel: ObservableObject {
         self.people = people
         self.userId = userId
         self.fromDm = fromDm
-        person = Person(userId: userId, displayName: Person.localpart(of: userId))
+        person = Person(userId: userId, displayName: Person.localpart(of: userId), avatarUrl: nil)
     }
 
     /// The user id is in Client.ignoredUsers.
