@@ -408,7 +408,9 @@ fun ChatRequestScreen(
                 handles[request.inviterId]?.let { handle ->
                     Text("@$handle", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
                 }
-                TrustBlock(requestTrust(model, request))
+                val trust = requestTrust(model, request)
+                TrustBlock(trust)
+                RequestNameWarning(model.people, request.inviterId, trust.verifiedName)
                 if (error) Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
                 if (reported) Text(stringResource(R.string.bipe_dm_reported_and_left), color = colors.inkSecondary, textAlign = TextAlign.Center)
                 val enabled = !isWorking && !reported
