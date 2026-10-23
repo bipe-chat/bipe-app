@@ -53,10 +53,10 @@ struct MessageActionsSheet: View {
                         model.choose(action, rowId: row.id)
                     } label: {
                         HStack(spacing: 14) {
-                            icon(action).image
+                            action.menuIcon.image
                                 .resizable()
                                 .frame(width: 22, height: 22)
-                            Text(title(action))
+                            Text(action.menuTitle)
                             Spacer()
                         }
                         .foregroundStyle(action == .delete ? BipeColor.trustDangerInk : BipeColor.inkPrimary)
@@ -74,27 +74,7 @@ struct MessageActionsSheet: View {
         .accessibilityIdentifier(BipeScreen.messageActions.rawValue)
     }
 
-    private func icon(_ action: MessageAction) -> PhosphorIcon {
-        switch action {
-        case .reply: .arrowBendUpLeft
-        case .edit: .pencilSimple
-        case .copy: .copy
-        case .retry: .arrowClockwise
-        case .delete: .trash
-        case .report: .flag
-        }
-    }
 
-    private func title(_ action: MessageAction) -> String {
-        switch action {
-        case .reply: BipeStrings.appMessageActionReply
-        case .edit: BipeStrings.appMessageActionEdit
-        case .copy: BipeStrings.appCopy
-        case .retry: BipeStrings.appRetry
-        case .delete: BipeStrings.appMessageActionDelete
-        case .report: BipeStrings.appMessageActionReport
-        }
-    }
 }
 
 /// Spec message-reactions openPicker: the system emoji keyboard. The first emoji typed is the reaction.

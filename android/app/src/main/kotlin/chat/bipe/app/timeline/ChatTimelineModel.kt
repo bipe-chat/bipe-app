@@ -201,6 +201,7 @@ class ChatTimelineModel(
     private var handle: TaskHandle? = null
     private var typingHandle: TaskHandle? = null
     private var started = false
+    private var acceptsMenuActions = true
     private var facts = RoomFacts(ownUserId = session.userId)
     private val membersLoading = mutableSetOf<String>()
     private var keptDraft = ""
@@ -210,6 +211,7 @@ class ChatTimelineModel(
     private var noticeJob: Job? = null
 
     fun start() {
+        acceptsMenuActions = true
         if (started) return
         started = true
         scope.launch {
@@ -258,6 +260,8 @@ class ChatTimelineModel(
 
     /** Called when the screen goes away: typing off (spec typing-indicator draftChanged). */
     fun close() {
+        acceptsMenuActions = false
+        _ui.update { it.copy(actionsRowId = null, pickerOpenFor = null) }
         sendTyping(false)
         leave()
         handle?.cancel()
@@ -447,6 +451,7 @@ class ChatTimelineModel(
 
     /** Action open: date, notice and deleted rows have no sheet. Returns true when the sheet opens. */
     fun openActions(rowId: String): Boolean {
+        if (!acceptsMenuActions) return false
         val row = row(rowId) ?: return false
         if (row.kind != TimelineRow.Kind.MESSAGE && row.kind != TimelineRow.Kind.UNDECRYPTABLE) return false
         if (!showsReactions(row) && actions(row).isEmpty()) return false
@@ -487,6 +492,8 @@ class ChatTimelineModel(
     /** Action choose. copy puts the text on the clipboard through the screen. */
     fun choose(action: MessageAction, rowId: String, copy: (String) -> Unit) {
         closeActions()
+        val current = row(rowId) ?: return
+        if (!acceptsMenuActions || action !in actions(current)) return
         when (action) {
             MessageAction.REPLY -> startReply(rowId)
             MessageAction.EDIT -> startEdit(rowId)
@@ -570,12 +577,16 @@ class ChatTimelineModel(
 
     /** Action react of message-actions: toggle, then the sheet closes. */
     fun react(rowId: String, key: String) {
+        val current = row(rowId) ?: return
+        if (!acceptsMenuActions || !showsReactions(current)) return
         closeActions()
         toggleReaction(rowId, key)
     }
 
     /** Action moreReactions of message-actions. */
     fun moreReactions(rowId: String) {
+        val current = row(rowId) ?: return
+        if (!acceptsMenuActions || !showsReactions(current)) return
         _ui.update { it.copy(actionsRowId = null, pickerOpenFor = rowId) }
     }
 

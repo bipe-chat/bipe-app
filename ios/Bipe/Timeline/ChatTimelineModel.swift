@@ -173,6 +173,7 @@ final class ChatTimelineModel: ObservableObject {
     private var handle: TaskHandle?
     private var typingHandle: TaskHandle?
     private var started = false
+    private var acceptsMenuActions = true
     private var facts: RoomFacts
     private var membersLoading = Set<String>()
     private var keptDraft = ""
@@ -268,7 +269,12 @@ final class ChatTimelineModel: ObservableObject {
     }
 
     /// Called when the screen goes away: typing off (spec typing-indicator draftChanged).
+    func resumeMenuActions() { acceptsMenuActions = true }
+
     func close() {
+        acceptsMenuActions = false
+        actionsRowId = nil
+        pickerOpenFor = nil
         sendTyping(false)
         leave()
     }
@@ -421,7 +427,7 @@ final class ChatTimelineModel: ObservableObject {
 
     /// Action open: date, notice and deleted rows have no sheet.
     func openActions(rowId: String) {
-        guard let row = self.row(rowId), row.kind == .message || row.kind == .undecryptable,
+        guard acceptsMenuActions, let row = self.row(rowId), row.kind == .message || row.kind == .undecryptable,
               showsReactions(row) || !actions(for: row).isEmpty else { return }
         BipeHaptics.play(.hold)
         actionsRowId = rowId
@@ -456,6 +462,7 @@ final class ChatTimelineModel: ObservableObject {
     /// Action choose.
     func choose(_ action: MessageAction, rowId: String) {
         actionsRowId = nil
+        guard acceptsMenuActions, let current = row(rowId), actions(for: current).contains(action) else { return }
         switch action {
         case .reply: startReply(rowId: rowId)
         case .edit: startEdit(rowId: rowId)
@@ -534,12 +541,14 @@ final class ChatTimelineModel: ObservableObject {
 
     /// Action react of message-actions: toggle, then the sheet closes.
     func react(rowId: String, key: String) {
+        guard acceptsMenuActions, let current = row(rowId), showsReactions(current) else { return }
         actionsRowId = nil
         Task { await toggleReaction(rowId: rowId, key: key) }
     }
 
     /// Action moreReactions of message-actions.
     func moreReactions(rowId: String) {
+        guard acceptsMenuActions, let current = row(rowId), showsReactions(current) else { return }
         actionsRowId = nil
         pickerOpenFor = rowId
     }
