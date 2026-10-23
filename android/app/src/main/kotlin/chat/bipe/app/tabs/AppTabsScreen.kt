@@ -77,7 +77,7 @@ fun AppTabsScreen(
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) },
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onInvite = onInvite, onOpenPeople = onOpenPeople,
                         requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests)
-                AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat, onOpenPeople)
+                AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }
                     ChatSearchScreen(search, media, onOpenChat, onFindHandle)
