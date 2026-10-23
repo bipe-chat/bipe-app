@@ -36,7 +36,9 @@ kotlin {
 dependencies {
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.serialization.core)
+    // Sticker packs (stickers/StickerPacks.kt).
     implementation(libs.kotlinx.serialization.json)
+    // Voice transcript session (voice/BipeVoiceTranscriber.kt).
     implementation(libs.kotlinx.coroutines.core)
     // BadgeVerifier: Ed25519 signatures of Bipe badges.
     implementation(libs.tink.android)

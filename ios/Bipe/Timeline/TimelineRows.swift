@@ -204,12 +204,29 @@ enum TimelineRowBuilder {
             }
             guard let event = item.asEvent(), case .msgLike(let content) = event.content else { continue }
             let base = message(id: id, event: event, senderName: name(event.sender))
+            // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
+            var mediaContent = MediaContent(content.kind)
+            if case .media(var media) = mediaContent {
+                media.uploadProgress = event.isOwn ? MediaFormat.uploadPercent(event.localSendState) : nil
+                mediaContent = .media(media)
+            }
             switch content.kind {
             case .message(let messageContent):
-                guard case .text = messageContent.msgType else { continue }
                 var message = base
-                message.kind = .text
-                message.body = messageContent.body
+                switch mediaContent {
+                case .media(let media):
+                    message.kind = .media
+                    message.media = media
+                    message.body = media.caption?.nilIfBlank ?? media.kindLabel
+                case .voice(let voice):
+                    message.kind = .voice
+                    message.voice = voice
+                    message.body = voice.transcript ?? (voice.isVoice ? BipeStrings.appMediaVoice : voice.filename)
+                case nil:
+                    guard case .text = messageContent.msgType else { continue }
+                    message.kind = .text
+                    message.body = messageContent.body
+                }
                 let isSent: Bool
                 switch event.localSendState {
                 case .none, .some(.sent): isSent = true
@@ -224,7 +241,7 @@ enum TimelineRowBuilder {
                     // The detector runs on the device; the cache keys on the event and the body, so an edit runs it again.
                     scamWarning: event.isOwn ? nil : ScamDetector.warningKind(for: messageContent.body, eventID: eventId(event) ?? id),
                     canReply: event.canBeRepliedTo && isSent,
-                    canEdit: event.isEditable,
+                    canEdit: event.isEditable && message.kind == .text,
                     canDelete: event.isOwn ? (facts.canRedactOwn || !isSent) : (!facts.isDm && facts.canRedactOther)
                 )
                 rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
@@ -235,6 +252,24 @@ enum TimelineRowBuilder {
                 rows.append(TimelineRow(id: id, kind: .undecryptable, message: message))
             case .redacted:
                 rows.append(TimelineRow(id: id, kind: .deleted, message: base))
+            case .sticker:
+                guard case .media(let media) = mediaContent else { continue }
+                var message = base
+                message.kind = .media
+                message.media = media
+                message.body = media.kindLabel
+                let details = MessageDetails(
+                    eventId: eventId(event),
+                    reply: content.inReplyTo.map { reply(from: $0, facts: facts, name: name) },
+                    reactions: reactions(content.reactions, facts: facts, name: name),
+                    isEdited: false,
+                    receipt: event.isOwn ? receipts[index] : nil,
+                    scamWarning: nil,
+                    canReply: event.canBeRepliedTo && message.sendState == .sent,
+                    canEdit: false,
+                    canDelete: event.isOwn ? (facts.canRedactOwn || message.sendState != .sent) : (!facts.isDm && facts.canRedactOther)
+                )
+                rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
             case .poll(let question, let pollKind, _, let answers, let votes, let endTime, _):
                 guard let eventId = eventId(event) else { continue }
                 var message = base
@@ -307,7 +342,9 @@ enum TimelineRowBuilder {
     }
 
     static func isShownMessage(_ event: EventTimelineItem) -> Bool {
-        guard case .msgLike(let content) = event.content, case .message(let message) = content.kind, case .text = message.msgType else { return false }
+        guard case .msgLike(let content) = event.content else { return false }
+        if MediaContent(content.kind) != nil { return true }
+        guard case .message(let message) = content.kind, case .text = message.msgType else { return false }
         return true
     }
 
@@ -355,7 +392,13 @@ enum TimelineRowBuilder {
     private static func replyPreview(_ content: TimelineItemContent, isOwn: Bool) -> String {
         guard case .msgLike(let msgLike) = content else { return "" }
         switch msgLike.kind {
-        case .message(let message): return message.body
+        case .message(let message):
+            switch MediaContent(message.msgType) {
+            case .media(let media): return media.caption?.nilIfBlank ?? media.kindLabel
+            case .voice(let voice): return voice.isVoice ? BipeStrings.appMediaVoice : voice.filename
+            case nil: return message.body
+            }
+        case .sticker: return BipeStrings.appMediaSticker
         case .redacted: return isOwn ? BipeStrings.appMessageDeletedOwn : BipeStrings.appMessageDeleted
         case .unableToDecrypt: return BipeStrings.appTimelineUndecryptable
         default: return ""

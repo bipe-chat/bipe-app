@@ -5,6 +5,9 @@
 package chat.bipe.app.timeline
 
 import chat.bipe.app.common.displayName
+import chat.bipe.app.media.MediaContent
+import chat.bipe.app.media.MediaFormat
+import chat.bipe.shared.R
 import chat.bipe.shared.BipeHandleChangePlacement
 import chat.bipe.shared.api.BipeHandleChange
 import java.time.Instant
@@ -119,7 +122,14 @@ data class RoomFacts(
 )
 
 /** Strings the builder puts into rows. */
-data class RowStrings(val you: String, val deleted: String, val deletedOwn: String, val undecryptable: String)
+data class RowStrings(
+    val you: String,
+    val deleted: String,
+    val deletedOwn: String,
+    val undecryptable: String,
+    /** A string resource, for the kind labels of media (spec timeline-media notes). */
+    val label: (Int) -> String = { "" },
+)
 
 class BuiltRows(val rows: List<TimelineRow>, val hitStart: Boolean, val unknownUsers: Set<String>)
 
@@ -181,23 +191,46 @@ object TimelineRowBuilder {
                     val event = item.asEvent() ?: return@forEachIndexed
                     val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return@forEachIndexed
                     val base = message(id, event, name(event.sender))
+                    // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
+                    val mediaContent = when (val found = MediaContent.of(content.kind)) {
+                        is MediaContent.Media -> MediaContent.Media(
+                            found.media.copy(uploadProgress = if (event.isOwn) MediaFormat.uploadPercent(event.localSendState) else null),
+                        )
+                        else -> found
+                    }
                     when (val kind = content.kind) {
-                        is MsgLikeKind.Message -> {
-                            if (kind.content.msgType !is MessageType.Text) return@forEachIndexed
+                        is MsgLikeKind.Message, is MsgLikeKind.Sticker -> {
+                            val message = when (mediaContent) {
+                                is MediaContent.Media -> base.copy(
+                                    kind = TimelineMessage.Kind.MEDIA,
+                                    media = mediaContent.media,
+                                    body = mediaContent.media.caption?.takeIf { it.isNotBlank() },
+                                )
+                                is MediaContent.Voice -> base.copy(
+                                    kind = TimelineMessage.Kind.VOICE,
+                                    voice = mediaContent.voice,
+                                    body = mediaContent.voice.transcript,
+                                )
+                                null -> {
+                                    if (kind !is MsgLikeKind.Message || kind.content.msgType !is MessageType.Text) return@forEachIndexed
+                                    base.copy(kind = TimelineMessage.Kind.TEXT, body = kind.content.body)
+                                }
+                            }
+                            val isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited ?: false
                             val isSent = event.localSendState.let { it == null || it is EventSendState.Sent }
                             val details = MessageDetails(
                                 eventId = eventId(event),
                                 reply = content.inReplyTo?.let { reply(it, facts, strings, ::name) },
                                 reactions = reactions(content.reactions, facts, ::name),
-                                isEdited = kind.content.isEdited,
+                                isEdited = isEdited,
                                 receipt = if (event.isOwn) receipts[index] else null,
                                 // The detector runs on the device; the cache keys on the event and the body, so an edit runs it again.
-                                scamWarning = if (event.isOwn) null else ScamDetector.warningKind(kind.content.body, eventId(event) ?: id),
+                                scamWarning = if (event.isOwn) null else message.body?.let { ScamDetector.warningKind(it, eventId(event) ?: id) },
                                 canReply = event.canBeRepliedTo && isSent,
-                                canEdit = event.isEditable,
+                                canEdit = event.isEditable && message.kind == TimelineMessage.Kind.TEXT,
                                 canDelete = if (event.isOwn) facts.canRedactOwn || !isSent else !facts.isDm && facts.canRedactOther,
                             )
-                            rows += TimelineRow(id, TimelineRow.Kind.MESSAGE, base.copy(kind = TimelineMessage.Kind.TEXT, body = kind.content.body), details)
+                            rows += TimelineRow(id, TimelineRow.Kind.MESSAGE, message, details)
                         }
                         is MsgLikeKind.UnableToDecrypt -> rows += TimelineRow(
                             id,
@@ -263,6 +296,7 @@ object TimelineRowBuilder {
 
     fun isShownMessage(event: EventTimelineItem): Boolean {
         val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
+        if (kind != null && MediaContent.of(kind) != null) return true
         return kind is MsgLikeKind.Message && kind.content.msgType is MessageType.Text
     }
 
@@ -312,7 +346,12 @@ object TimelineRowBuilder {
     private fun replyPreview(content: TimelineItemContent, isOwn: Boolean, strings: RowStrings): String {
         val kind = (content as? TimelineItemContent.MsgLike)?.content?.kind ?: return ""
         return when (kind) {
-            is MsgLikeKind.Message -> kind.content.body
+            is MsgLikeKind.Message -> when (val media = MediaContent.of(kind.content.msgType)) {
+                is MediaContent.Media -> media.media.caption?.takeIf { it.isNotBlank() } ?: strings.label(media.media.kindLabel)
+                is MediaContent.Voice -> if (media.voice.isVoice) strings.label(R.string.bipe_app_media_voice) else media.voice.filename
+                null -> kind.content.body
+            }
+            is MsgLikeKind.Sticker -> strings.label(R.string.bipe_app_media_sticker)
             MsgLikeKind.Redacted -> if (isOwn) strings.deletedOwn else strings.deleted
             is MsgLikeKind.UnableToDecrypt -> strings.undecryptable
             else -> ""

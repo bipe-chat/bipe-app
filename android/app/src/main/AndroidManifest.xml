@@ -7,6 +7,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Voice messages (spec voice-recording). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Media viewer save on Android 8 and 9 (spec media-viewer). Android 10 and later need no permission. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <!-- Spec contacts: the numbers leave the phone only for the lookup, and the server keeps none (ADR 0015). -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Spec push-registration: the system permission for notifications (Android 13 and later). -->
@@ -72,6 +78,16 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/export_paths" />
+        </provider>
+        <!-- Opens and shares decrypted media from the app cache (spec timeline-media, media-viewer). -->
+        <provider
+            android:name=".media.MediaFileProvider"
+            android:authorities="${applicationId}.media"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/media_paths" />
         </provider>
     </application>
 
