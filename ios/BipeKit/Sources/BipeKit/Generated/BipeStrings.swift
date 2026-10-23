@@ -3121,4 +3121,12 @@ public enum BipeStrings {
     public static var appStickerMaking: String { NSLocalizedString("bipe_app_sticker_making", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appStickerMakeFailed: String { NSLocalizedString("bipe_app_sticker_make_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var archivedEmpty: String { NSLocalizedString("bipe_archived_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var archiveError: String { NSLocalizedString("bipe_archive_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatListMore: String { NSLocalizedString("bipe_chat_list_more", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatActions: String { NSLocalizedString("bipe_chat_actions", tableName: "Bipe", bundle: .module, comment: "") }
 }
