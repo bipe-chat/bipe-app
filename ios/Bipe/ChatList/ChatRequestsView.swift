@@ -58,7 +58,7 @@ struct ChatRequestsView: View {
                     NavigationLink {
                         ChatRequestView(model: model, request: request, media: media, onOpenChat: onOpenChat)
                     } label: {
-                        RequestRow(request: request, media: media, hidePhoto: model.hidePhotos)
+                        RequestRow(request: request, trust: model.trust(for: request), media: media, hidePhoto: model.hidePhotos)
                     }
                     .listRowBackground(BipeColor.surfaceBase)
                 }
@@ -81,6 +81,7 @@ struct ChatRequestsView: View {
 
 private struct RequestRow: View {
     let request: ChatRequestSummary
+    let trust: ChatRequestSummary.Trust
     let media: MediaLoader
     let hidePhoto: Bool
 
@@ -93,7 +94,7 @@ private struct RequestRow: View {
                     .font(.headline)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .lineLimit(1)
-                TrustLine(trust: request.trust)
+                TrustLine(trust: trust)
             }
         }
         .padding(.vertical, 4)
@@ -141,6 +142,11 @@ struct ChatRequestView: View {
                     .font(.title2.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
+                if let handle = model.people.handles.handle(for: request.inviterId) {
+                    Text("@\(handle)")
+                        .font(.subheadline)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                }
                 trustBlock
                 if model.error {
                     Text(BipeStrings.errorGeneric)
@@ -230,10 +236,12 @@ struct ChatRequestView: View {
 
     @ViewBuilder
     private var trustBlock: some View {
+        let trust = model.trust(for: request)
+        let verified: Bool = if case .verified = trust { true } else { false }
         VStack(spacing: 8) {
-            switch request.trust {
-            case .verified:
-                Text(BipeStrings.badgeVerifiedName(request.name))
+            switch trust {
+            case .verified(let name):
+                Text(BipeStrings.badgeVerifiedName(name))
                     .foregroundStyle(BipeColor.trustVerifiedInk)
             case .unverified:
                 Text(BipeStrings.bannerUnverifiedTitle)
@@ -249,7 +257,7 @@ struct ChatRequestView: View {
         .multilineTextAlignment(.center)
         .padding(16)
         .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: 12).fill(request.trust == .verified ? BipeColor.trustVerifiedWash : BipeColor.trustCautionWash))
+        .background(RoundedRectangle(cornerRadius: 12).fill(verified ? BipeColor.trustVerifiedWash : BipeColor.trustCautionWash))
     }
 }
 

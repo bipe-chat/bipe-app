@@ -34,11 +34,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +54,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.people.PeopleService
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -59,6 +62,7 @@ import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.inviteConnections
 import chat.bipe.shared.invites.BipeInviteTrust
+import chat.bipe.shared.company.BipeCompanySealState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -94,7 +98,8 @@ data class ChatRequestSummary(
 }
 
 /** Specs chat-requests and chat-request, and the group invites of chat-list-filters. */
-class ChatRequestsModel(private val context: Context, val session: AccountSession, private val api: BipeApiClient, private val scope: CoroutineScope) {
+class ChatRequestsModel(private val context: Context, val session: AccountSession, private val api: BipeApiClient,
+                        private val scope: CoroutineScope, val people: PeopleService) {
     private val _requests = MutableStateFlow<List<ChatRequestSummary>>(emptyList())
     private val _groupInvites = MutableStateFlow<List<ChatRequestSummary>>(emptyList())
     private val _pending = MutableStateFlow<Set<String>>(emptySet())
@@ -347,7 +352,7 @@ fun ChatRequestsScreen(
                             Avatar(request.name, request.avatarUrl, media, userId = request.inviterId, showsPhoto = !model.hidePhotos)
                             Column {
                                 Text(request.name, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1)
-                                TrustLine(request.trust)
+                                TrustLine(requestTrust(model, request).kind)
                             }
                         }
                     }
@@ -375,6 +380,8 @@ fun ChatRequestScreen(
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
     val error by model.error.collectAsState()
+    val handles by model.people.handles.handles.collectAsState()
+    LaunchedEffect(request.inviterId) { model.people.handles.resolve(request.inviterId) }
     var isWorking by remember { mutableStateOf(false) }
     var confirmBlock by remember { mutableStateOf(false) }
     var reported by remember { mutableStateOf(false) }
@@ -398,7 +405,10 @@ fun ChatRequestScreen(
             ) {
                 Avatar(request.name, request.avatarUrl, media, size = 72.dp, userId = request.inviterId, showsPhoto = !model.hidePhotos)
                 Text(request.name, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary, textAlign = TextAlign.Center)
-                TrustBlock(request)
+                handles[request.inviterId]?.let { handle ->
+                    Text("@$handle", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
+                }
+                TrustBlock(requestTrust(model, request))
                 if (error) Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
                 if (reported) Text(stringResource(R.string.bipe_dm_reported_and_left), color = colors.inkSecondary, textAlign = TextAlign.Center)
                 val enabled = !isWorking && !reported
@@ -439,10 +449,30 @@ fun ChatRequestScreen(
     }
 }
 
+private data class RequestTrust(val kind: ChatRequestSummary.Trust, val verifiedName: String? = null)
+
+/** Observe verified payload changes, and recheck expiry while this request stays visible. */
 @Composable
-private fun TrustBlock(request: ChatRequestSummary) {
+private fun requestTrust(model: ChatRequestsModel, request: ChatRequestSummary): RequestTrust {
+    val seals by model.people.seals.states.collectAsState()
+    val tick by produceState(0L, model, request.inviterId) {
+        while (isActive) { delay(30_000); value += 1 }
+    }
+    return remember(request.inviterId, request.trust, seals[request.inviterId], tick) {
+        if (request.trust == ChatRequestSummary.Trust.EXTERNAL) RequestTrust(ChatRequestSummary.Trust.EXTERNAL)
+        else {
+            val seal = model.people.seals.seal(request.inviterId)
+            if (seal is BipeCompanySealState.Verified && seal.payload.name.isNotBlank()) {
+                RequestTrust(ChatRequestSummary.Trust.VERIFIED, seal.payload.name)
+            } else RequestTrust(ChatRequestSummary.Trust.UNVERIFIED)
+        }
+    }
+}
+
+@Composable
+private fun TrustBlock(trust: RequestTrust) {
     val colors = BipeTheme.colors
-    val verified = request.trust == ChatRequestSummary.Trust.VERIFIED
+    val verified = trust.kind == ChatRequestSummary.Trust.VERIFIED
     Column(
         Modifier.fillMaxWidth()
             .background(if (verified) colors.trustVerifiedWash else colors.trustCautionWash, RoundedCornerShape(12.dp))
@@ -450,9 +480,9 @@ private fun TrustBlock(request: ChatRequestSummary) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        when (request.trust) {
+        when (trust.kind) {
             ChatRequestSummary.Trust.VERIFIED ->
-                Text(stringResource(R.string.bipe_badge_verified_name, request.name), color = colors.trustVerifiedInk, textAlign = TextAlign.Center)
+                Text(stringResource(R.string.bipe_badge_verified_name, requireNotNull(trust.verifiedName)), color = colors.trustVerifiedInk, textAlign = TextAlign.Center)
             ChatRequestSummary.Trust.UNVERIFIED -> {
                 Text(stringResource(R.string.bipe_banner_unverified_title), style = MaterialTheme.typography.titleSmall, color = colors.trustCautionInk)
                 Text(stringResource(R.string.bipe_request_unverified_body), color = colors.inkSecondary, textAlign = TextAlign.Center)

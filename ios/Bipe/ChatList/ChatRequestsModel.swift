@@ -9,7 +9,7 @@ import MatrixRustSDK
 /// Type ChatRequestSummary of spec chat-requests, also used for the group invites of chat-list-filters.
 struct ChatRequestSummary: Identifiable, Equatable {
     enum Trust: Equatable {
-        case verified
+        case verified(name: String)
         case unverified
         case external
     }
@@ -39,6 +39,7 @@ final class ChatRequestsModel: ObservableObject {
     @Published var error = false
 
     let session: AccountSession
+    let people: PeopleService
     private let api: BipeAPIClient
     private var invitePairs: Set<String> = []
     private var dmRooms: [Room] = []
@@ -50,9 +51,19 @@ final class ChatRequestsModel: ObservableObject {
     private var groupInviteList: FilteredRoomList?
     private var started = false
 
-    init(session: AccountSession, api: BipeAPIClient) {
+    init(session: AccountSession, api: BipeAPIClient, people: PeopleService) {
         self.session = session
         self.api = api
+        self.people = people
+    }
+
+    /// Only a signed company payload verified against the inviter's master key supplies a verified name.
+    /// The observable seal store updates readers and suppresses expired/revoked/invalid badges.
+    func trust(for request: ChatRequestSummary) -> ChatRequestSummary.Trust {
+        if request.trust == .external { return .external }
+        guard let badge = people.seals.badge(for: request.inviterId),
+              !badge.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .unverified }
+        return .verified(name: badge.name)
     }
 
     deinit { trustTask?.cancel(); pairTask?.cancel() }
@@ -160,8 +171,7 @@ final class ChatRequestsModel: ObservableObject {
             name: info.isDm ? (inviterName ?? BipeStrings.dmNoName) : (info.displayName ?? BipeStrings.tabGroups),
             inviterName: inviterName,
             avatarUrl: info.isDm ? inviter?.avatarUrl : info.avatarUrl,
-            // The verified seal needs the badge check (GET /v1/badges), which comes with the trust work of people
-            // and profiles (bipe-chat/bipe#568). Until then: external for another server, else unverified.
+            // Local requests start unverified; views observe the shared, verified company-seal store.
             trust: server(of: inviterId) == ownServer || inviterId.isEmpty ? .unverified : .external,
             invitedAt: invitedAt,
             isDm: info.isDm)

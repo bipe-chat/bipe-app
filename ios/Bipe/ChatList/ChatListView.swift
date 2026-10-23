@@ -39,10 +39,11 @@ struct ChatListView: View {
         self.api = api
         _model = ObservedObject(wrappedValue: model)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
-        _requests = StateObject(wrappedValue: ChatRequestsModel(session: model.session, api: api))
+        let people = PeopleService(session: model.session, api: api, media: model.media)
+        _requests = StateObject(wrappedValue: ChatRequestsModel(session: model.session, api: api, people: people))
         _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
-        _people = StateObject(wrappedValue: PeopleService(session: model.session, api: api, media: model.media))
+        _people = StateObject(wrappedValue: people)
         _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
         self.scope = scope
     }
