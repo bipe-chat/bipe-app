@@ -34,6 +34,9 @@ enum class BipeScreen(val id: String) {
     /** Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json */
     BLOCKED_LIST("blocked-list"),
 
+    /** Archived chats (flow home). Spec: bipe-shared/product/screens/chat-archive.json */
+    CHAT_ARCHIVE("chat-archive"),
+
     /** Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json */
     CHAT_LIST_FILTERS("chat-list-filters"),
 

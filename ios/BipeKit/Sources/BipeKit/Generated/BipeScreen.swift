@@ -28,6 +28,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json
     case blockedList = "blocked-list"
 
+    /// Archived chats (flow home). Spec: bipe-shared/product/screens/chat-archive.json
+    case chatArchive = "chat-archive"
+
     /// Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json
     case chatListFilters = "chat-list-filters"
 
