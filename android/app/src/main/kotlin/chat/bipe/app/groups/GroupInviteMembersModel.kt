@@ -4,8 +4,14 @@
 
 package chat.bipe.app.groups
 
+import android.content.Context
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.people.PeopleService
+import chat.bipe.shared.api.BipeApiClient
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,6 +49,10 @@ class GroupInviteMembersModel(
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
     private val _selectedCount = MutableStateFlow(0)
     val selectedCount: StateFlow<Int> = _selectedCount.asStateFlow()
+    private val _handleMatch = MutableStateFlow<PersonPick?>(null)
+    val handleMatch: StateFlow<PersonPick?> = _handleMatch.asStateFlow()
+    private val _handleNotFound = MutableStateFlow(false)
+    val handleNotFound: StateFlow<Boolean> = _handleNotFound.asStateFlow()
 
     private var people: List<Person> = (mode as? Mode.Pick)?.people.orEmpty()
 
@@ -51,8 +61,19 @@ class GroupInviteMembersModel(
     private val memberStatus = mutableMapOf<String, PersonPick.Status>()
     private val results = mutableMapOf<String, PersonPick.Status>()
 
-    fun appear() {
+    /** Needs the Bipe API client; without it the screen has the SDK contacts only. */
+    private var lookup: GroupInviteLookup? = null
+    private var lookupJob: Job? = null
+
+    /** The holder of the @ in query, from the last lookup. */
+    private var holder: Person? = null
+
+    fun appear(context: Context, api: BipeApiClient?, media: MediaLoader) {
         if (!_loading.value) return
+        if (api != null && lookup == null) {
+            val people = PeopleService(context, session, api, media, scope)
+            lookup = GroupInviteLookup(context, people)
+        }
         scope.launch {
             val contacts = GroupPeople.contacts(session.client, session.userId).toMutableList()
             // People picked before stay on the list even when they are not contacts.
@@ -71,18 +92,44 @@ class GroupInviteMembersModel(
             }
             _loading.value = false
             rebuild()
+            // Invite pairs and address-book matches come after: the API calls must not hold the list back.
+            lookup?.let { lookup ->
+                val known = people.map { it.userId }.toSet()
+                val more = lookup.moreContacts(except = known).filter { it.userId !in known }
+                people = (people + more).sortedWith(compareBy(GroupPeople.byName) { it.displayName })
+                rebuild()
+            }
         }
     }
 
-    /** Action setQuery: filters contacts at once. */
+    /** Action setQuery: filters contacts at once. A valid @ is looked up after a short pause. */
     fun setQuery(query: String) {
         _query.value = query
+        lookupJob?.cancel()
+        holder = null
+        _handleNotFound.value = false
         rebuild()
+        val lookup = lookup ?: return
+        val handle = GroupInviteLookup.handle(query) ?: return
+        lookupJob = scope.launch {
+            delay(LOOKUP_PAUSE_MS)
+            // A failed lookup shows neither the person nor "not found".
+            val result = runCatching { lookup.holder(handle) }
+            if (result.isFailure || _query.value != query) return@launch
+            val found = result.getOrNull()
+            if (found == null) {
+                _handleNotFound.value = true
+            } else if (found.userId != session.userId) {
+                holder = found
+            }
+            rebuild()
+        }
     }
 
     /** Action toggle. */
     fun toggle(userId: String) {
         if (_phase.value == Phase.INVITING) return
+        holder?.takeIf { it.userId == userId && people.none { person -> person.userId == userId } }?.let { people = people + it }
         when (status(userId)) {
             PersonPick.Status.MEMBER, PersonPick.Status.INVITED -> return
             // Try again: the person is picked once more.
@@ -135,6 +182,13 @@ class GroupInviteMembersModel(
         _contacts.value = people
             .filter { it.matches(query) || results.containsKey(it.userId) }
             .map { PersonPick(it, status(it.userId)) }
+        // The holder of the @ shows on its own row unless the contacts above show the person already.
+        _handleMatch.value = holder?.takeIf { found -> _contacts.value.none { it.person.userId == found.userId } }
+            ?.let { PersonPick(it, status(it.userId)) }
         _selectedCount.value = selected.size
+    }
+
+    private companion object {
+        const val LOOKUP_PAUSE_MS = 400L
     }
 }
