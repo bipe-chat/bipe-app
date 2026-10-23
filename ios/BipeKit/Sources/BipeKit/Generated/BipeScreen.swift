@@ -46,6 +46,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Chat requests (flow home). Spec: bipe-shared/product/screens/chat-requests.json
     case chatRequests = "chat-requests"
 
+    /// Chat row actions (flow home). Spec: bipe-shared/product/screens/chat-row-actions.json
+    case chatRowActions = "chat-row-actions"
+
     /// Search chats (flow home). Spec: bipe-shared/product/screens/chat-search.json
     case chatSearch = "chat-search"
 

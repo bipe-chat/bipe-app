@@ -114,6 +114,8 @@ class DmDeleteModel(
         _phase.value = Phase.DELETING
         scope.launch {
             runCatching {
+                val info = room.roomInfo()
+                check(info.isDm && info.membership == org.matrix.rustcomponents.sdk.Membership.JOINED)
                 val ts = latestTs(room)
                 val content = ClearedChats.contentClearing(serverContent(), roomId, ts)
                 session.client.setAccountData(ClearedChatsStore.EVENT_TYPE, content)

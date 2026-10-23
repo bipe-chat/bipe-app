@@ -35,13 +35,20 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 
-/** Swipe, native long press menu and a visible accessible menu all use the same non-destructive action. */
+/** Swipe archives only; native context/visible overflow menus expose the selected account-owned row commands. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ArchivedChatRow(chat: ChatSummary, media: MediaLoader, archived: Boolean, onArchive: () -> Unit, onOpen: () -> Unit) {
+fun ArchivedChatRow(
+    chat: ChatSummary, media: MediaLoader, ownerId: String, archived: Boolean, readPending: Boolean,
+    onArchive: () -> Unit, onOpen: () -> Unit, onRead: () -> Unit, onNotifications: () -> Unit,
+    onInfo: (() -> Unit)?, onDelete: (() -> Unit)?,
+) {
     val colors = BipeTheme.colors
     val action = stringResource(if (archived) R.string.bipe_unarchive_action else R.string.bipe_archive_action)
-    var menu by remember(chat.roomId) { mutableStateOf(false) }
+    val readLabel = stringResource(if (chat.isUnread) R.string.bipe_app_notification_mark_read else R.string.bipe_chat_mark_unread)
+    val notificationsLabel = stringResource(R.string.bipe_settings_notifications)
+    val detailsLabel = stringResource(R.string.bipe_chat_details)
+    var menu by remember(ownerId, chat.roomId) { mutableStateOf(false) }
     val swipe = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
         if (value == SwipeToDismissBoxValue.EndToStart) onArchive()
         false
@@ -49,7 +56,14 @@ fun ArchivedChatRow(chat: ChatSummary, media: MediaLoader, archived: Boolean, on
     SwipeToDismissBox(
         state = swipe,
         enableDismissFromStartToEnd = false,
-        modifier = Modifier.semantics { customActions = listOf(CustomAccessibilityAction(action) { onArchive(); true }) },
+        modifier = Modifier.semantics {
+            customActions = buildList {
+                add(CustomAccessibilityAction(action) { onArchive(); true })
+                if (!readPending) add(CustomAccessibilityAction(readLabel) { onRead(); true })
+                add(CustomAccessibilityAction(notificationsLabel) { onNotifications(); true })
+                onInfo?.let { open -> add(CustomAccessibilityAction(detailsLabel) { open(); true }) }
+            }
+        },
         backgroundContent = {
             Box(Modifier.fillMaxSize().background(colors.surfaceBase).padding(horizontal = 16.dp), contentAlignment = Alignment.CenterEnd) {
                 Text(action, color = colors.accentFill)
@@ -64,6 +78,12 @@ fun ArchivedChatRow(chat: ChatSummary, media: MediaLoader, archived: Boolean, on
                     }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text(action) }, onClick = { menu = false; onArchive() })
+                        DropdownMenuItem(text = { Text(readLabel) }, enabled = !readPending, onClick = { menu = false; onRead() })
+                        DropdownMenuItem(text = { Text(notificationsLabel) }, onClick = { menu = false; onNotifications() })
+                        DropdownMenuItem(text = { Text(detailsLabel) }, enabled = onInfo != null, onClick = { menu = false; onInfo?.invoke() })
+                        onDelete?.let { delete ->
+                            DropdownMenuItem(text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) }, onClick = { menu = false; delete() })
+                        }
                     }
                 }
             }, onClick = onOpen)

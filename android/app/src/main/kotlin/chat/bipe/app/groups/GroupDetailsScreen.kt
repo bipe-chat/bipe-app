@@ -67,7 +67,7 @@ private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS }
 @Composable
 fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: String, onBack: () -> Unit, onLeft: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val model = remember(roomId) { GroupDetailsModel(session, roomId, scope) }
+    val model = remember(session, roomId) { GroupDetailsModel(session, roomId, scope) }
     DisposableEffect(model) {
         model.appear()
         onDispose { model.close() }

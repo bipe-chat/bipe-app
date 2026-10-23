@@ -175,14 +175,14 @@ class AppTabsModel(
                 handle = profile?.handle,
                 avatarUrl = profile?.avatar,
                 isCurrent = userId == currentId,
-                hasUnread = latestChats[userId].orEmpty().any { it.unreadCount > 0 },
+                hasUnread = latestChats[userId].orEmpty().any { it.isUnread },
                 isCompany = profile?.company ?: false,
             )
         }
         val chats = currentId?.let { latestChats[it] }.orEmpty()
         _state.value = _state.value.copy(
             accounts = accounts,
-            conversasUnread = chats.count { it.scope == ChatScope.CONVERSAS && it.unreadCount > 0 },
+            conversasUnread = chats.count { it.scope == ChatScope.CONVERSAS && it.isUnread },
             gruposAttention = chats.filter { it.scope == ChatScope.GRUPOS }.sumOf { it.mentionCount },
             otherAccountUnread = accounts.any { !it.isCurrent && it.hasUnread },
             canAddAccount = accounts.count { !it.isCompany } < (currentId?.let { profiles[it]?.limit } ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS),

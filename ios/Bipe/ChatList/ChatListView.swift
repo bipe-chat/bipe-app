@@ -24,6 +24,7 @@ struct ChatListView: View {
     @State private var openingLink: String?
     @State private var newGroupWith: [Person]?
     @State private var notificationsRoom: String?
+    @State private var groupDetailsRoom: String?
     @State private var deletingFromProfile: String?
     private let scope: ChatScope
     private let account: AccountSummary?
@@ -124,6 +125,13 @@ struct ChatListView: View {
         }
         .sheet(item: Binding(get: { notificationsRoom.map(RoomSheetId.init) }, set: { notificationsRoom = $0?.id })) { room in
             NavigationStack { ChatNotificationsView(session: model.session, roomId: room.id) }
+        }
+        .sheet(item: Binding(get: { groupDetailsRoom.map(RoomSheetId.init) }, set: { groupDetailsRoom = $0?.id })) { room in
+            NavigationStack {
+                GroupDetailsView(session: model.session, media: model.media, roomId: room.id)
+                    .id(model.session.userId)
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button(BipeStrings.appClose) { groupDetailsRoom = nil } } }
+            }
         }
         .sheet(item: Binding(get: { deletingFromProfile.map(RoomSheetId.init) }, set: { deletingFromProfile = $0?.id })) { room in
             DmDeleteView(session: model.session, roomId: room.id) { path = NavigationPath() }
@@ -245,6 +253,14 @@ struct ChatListView: View {
             showingArchived.toggle()
         }
         .listRowBackground(BipeColor.surfaceBase)
+        if model.readActionFailed {
+            VStack(alignment: .leading) {
+                Text(BipeStrings.chatReadError).foregroundStyle(BipeColor.trustDangerInk)
+                Button(BipeStrings.appRetry) { Task { await model.retryReadAction() } }
+                    .disabled(model.markingRoomId != nil)
+            }
+            .listRowBackground(BipeColor.surfaceBase)
+        }
         if archive.failed {
             VStack(alignment: .leading) {
                 Text(BipeStrings.archiveError).foregroundStyle(BipeColor.trustDangerInk)
@@ -298,14 +314,14 @@ struct ChatListView: View {
                     HStack {
                         Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
                             .buttonStyle(.plain)
-                        Menu { archiveAction(chat) } label: {
+                        Menu { rowMenu(chat.roomId) } label: {
                             PhosphorIcon.dotsThree.image.frame(width: 24, height: 24).padding(10)
                         }
                         .accessibilityLabel(BipeStrings.chatActions)
                     }
                     .listRowBackground(BipeColor.surfaceBase)
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
-                    .contextMenu { archiveAction(chat) }
+                    .contextMenu { rowMenu(chat.roomId) }
                     .accessibilityAction(named: archive.contains(chat) ? BipeStrings.unarchiveAction : BipeStrings.archiveAction) {
                         archive.set(chat, archived: !archive.contains(chat))
                     }
@@ -320,6 +336,28 @@ struct ChatListView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
         }
+    }
+
+    @ViewBuilder private func rowMenu(_ roomId: String) -> some View {
+        if let chat = model.currentChat(roomId) {
+            archiveAction(chat)
+            Button(chat.isUnread ? BipeStrings.appNotificationMarkRead : BipeStrings.chatMarkUnread) {
+                Task { await model.setUnread(roomId: roomId, unread: !chat.isUnread) }
+            }
+            .disabled(model.markingRoomId != nil)
+            Button(BipeStrings.settingsNotifications) { notificationsRoom = roomId }
+            Button(BipeStrings.chatDetails) { openDetails(chat) }
+                .disabled(chat.isDm && chat.peerUserId == nil)
+            if chat.isDm {
+                Button(BipeStrings.dmDeleteAction, role: .destructive) { deletingDm = roomId }
+            }
+        }
+    }
+
+    private func openDetails(_ chat: ChatSummary) {
+        if chat.isDm {
+            if let peer = chat.peerUserId { path.append(PeopleRoute.person(userId: peer, fromDm: true)) }
+        } else { groupDetailsRoom = chat.roomId }
     }
 
     private func archiveAction(_ chat: ChatSummary) -> some View {
@@ -415,6 +453,9 @@ struct ChatRow: View {
                             .padding(.vertical, 2)
                             .background(Capsule().fill(BipeColor.accentFill))
                             .accessibilityLabel(BipeStrings.appChatListUnread(count))
+                    } else if chat.isMarkedUnread {
+                        Circle().fill(BipeColor.accentFill).frame(width: 8, height: 8)
+                            .accessibilityLabel(BipeStrings.chatUnreadState)
                     }
                 }
             }

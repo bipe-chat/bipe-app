@@ -48,8 +48,11 @@ data class ChatSummary(
     /** RoomInfo.isDm, the one DM test (ADR 0141). */
     val isDm: Boolean = false,
     val isMuted: Boolean = false,
+    val isMarkedUnread: Boolean = false,
     val latestIncomingMs: Long? = null,
 ) {
+    val isUnread: Boolean get() = unreadCount > 0 || isMarkedUnread
+
     /** ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test. */
     val scope: ChatScope
         get() = if (isDm) ChatScope.CONVERSAS else ChatScope.GRUPOS
@@ -89,6 +92,11 @@ class ChatListModel(
     private var entries: RoomListEntriesWithDynamicAdaptersResult? = null
     private val handles = mutableListOf<TaskHandle>()
     private var summaryJob: Job? = null
+    private val _markingRoomId = MutableStateFlow<String?>(null)
+    val markingRoomId = _markingRoomId.asStateFlow()
+    private val _readActionFailed = MutableStateFlow(false)
+    val readActionFailed = _readActionFailed.asStateFlow()
+    private var failedReadIntent: Pair<String, Boolean>? = null
     private var started = false
     private val clearChanges = scope.launch {
         ClearedChatsStore.revision.collect {
@@ -178,6 +186,37 @@ class ChatListModel(
         else entries?.controller()?.addOnePage()
     }
 
+    /** Resolve actions in the immutable owner's all-room or SDK unread stream. */
+    fun currentChat(roomId: String): ChatSummary? = _chats.value.firstOrNull { it.roomId == roomId }
+        ?: _unreadChats.value.values.flatten().firstOrNull { it.roomId == roomId }
+
+    /** Explicit public receipt first, then the manual unread flag. No optimistic fake count or startup gate. */
+    fun setUnread(roomId: String, unread: Boolean) {
+        if (_markingRoomId.value != null) return
+        _markingRoomId.value = roomId
+        _readActionFailed.value = false
+        scope.launch {
+            try {
+                check(currentChat(roomId) != null || failedReadIntent == (roomId to unread))
+                val room = session.client.getRoom(roomId) ?: error("room unavailable")
+                val info = room.roomInfo()
+                check(info.membership == org.matrix.rustcomponents.sdk.Membership.JOINED && !info.isSpace)
+                if (!unread) room.markAsRead(org.matrix.rustcomponents.sdk.ReceiptType.READ)
+                room.setUnreadFlag(unread)
+                failedReadIntent = null
+                refreshSummaries()
+                unreadLists.values.forEach { it.refresh() }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                failedReadIntent = roomId to unread
+                _readActionFailed.value = true
+            } finally { _markingRoomId.value = null }
+        }
+    }
+
+    fun retryReadAction() { failedReadIntent?.let { (roomId, unread) -> setUnread(roomId, unread) } }
+
     suspend fun refreshNotes() {
         runCatching { notes.refresh() }
         refreshSummaries()
@@ -255,6 +294,7 @@ class ChatListModel(
             peerUserId = peer?.userId,
             isDm = info.isDm,
             isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
+            isMarkedUnread = info.isMarkedUnread,
             latestIncomingMs = latestIncomingMs,
         )
     }

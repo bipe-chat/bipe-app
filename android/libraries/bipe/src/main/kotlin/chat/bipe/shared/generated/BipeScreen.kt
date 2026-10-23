@@ -52,6 +52,9 @@ enum class BipeScreen(val id: String) {
     /** Chat requests (flow home). Spec: bipe-shared/product/screens/chat-requests.json */
     CHAT_REQUESTS("chat-requests"),
 
+    /** Chat row actions (flow home). Spec: bipe-shared/product/screens/chat-row-actions.json */
+    CHAT_ROW_ACTIONS("chat-row-actions"),
+
     /** Search chats (flow home). Spec: bipe-shared/product/screens/chat-search.json */
     CHAT_SEARCH("chat-search"),
 
