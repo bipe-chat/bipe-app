@@ -11,6 +11,7 @@ import chat.bipe.shared.R
 import chat.bipe.app.notifications.PhoneNotifications
 import chat.bipe.app.notifications.PushRegistration
 import kotlinx.coroutines.MainScope
+import chat.bipe.app.pixcheck.PixPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
@@ -28,6 +29,20 @@ class BipeApplication : Application() {
 
     /** Action open of a notification: the chat that the home screen opens next. */
     val roomToOpen = MutableStateFlow<String?>(null)
+
+    /** Spec pix-check-result, action sendToChat: the preview the home screen offers next. */
+    val pixPreview = MutableStateFlow<PixPreview?>(null)
+
+    private var watchingAccounts = false
+
+    /** accountAvailable of spec pix-check-result, kept for PixCheckActivity, which starts no account. */
+    fun watchAccountsForPixCheck() {
+        if (watchingAccounts) return
+        watchingAccounts = true
+        scope.launch {
+            accountStart.sessions.collect { sessions -> PixPreview.setAccountAvailable(this@BipeApplication, sessions.isNotEmpty()) }
+        }
+    }
 
     /**
      * Action pushReceived. The push transport calls this with the room ID and the event ID of a

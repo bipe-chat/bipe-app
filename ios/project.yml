@@ -150,12 +150,15 @@ targets:
       - package: BipeKit
         product: BipeKit
 
-  # Empty share extension. Sharing into a chat comes later.
+  # Share extension: Conferir no Bipe (specs pix-check-receive and pix-check-result, bipe-chat/bipe#581).
+  # The check and its result run inside the extension, signed out and offline.
   BipeShare:
     type: app-extension
     platform: iOS
     sources:
       - path: ShareExtension
+      - path: Bipe/PixCheck
+      - path: Bipe/Common/AppConfig.swift
     info:
       path: SupportFiles/BipeShare/Info.plist
       properties:
@@ -168,10 +171,10 @@ targets:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
           NSExtensionAttributes:
+            # Plain text and images only (spec pix-check-receive); at most 10 items.
             NSExtensionActivationRule:
               NSExtensionActivationSupportsText: true
-              NSExtensionActivationSupportsWebURLWithMaxCount: 1
-              NSExtensionActivationSupportsImageWithMaxCount: 1
+              NSExtensionActivationSupportsImageWithMaxCount: 10
     entitlements:
       path: SupportFiles/BipeShare/BipeShare.entitlements
       properties:
@@ -179,3 +182,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next.share
+    dependencies:
+      - package: BipeKit
+        product: BipeKit
+      - package: Phosphor
+        product: Phosphor

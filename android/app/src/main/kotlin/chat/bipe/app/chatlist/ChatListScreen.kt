@@ -62,22 +62,26 @@ import chat.bipe.app.account.TermsReacceptModel
 import chat.bipe.app.account.TermsReacceptScreen
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
-import chat.bipe.app.people.PeopleLinks
-import chat.bipe.app.people.PeopleMenu
-import chat.bipe.app.people.PeopleNavigation
-import chat.bipe.app.people.PeopleRoute
-import chat.bipe.app.people.PeopleScreen
-import chat.bipe.app.people.PeopleService
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
 import chat.bipe.app.groups.CreateGroupButton
 import chat.bipe.app.groups.DmSwipeRow
 import chat.bipe.app.groups.GroupHost
+import chat.bipe.app.groups.Person as GroupPerson
 import chat.bipe.app.groups.withoutClearedDms
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.app.handle.HandlePromptCard
+import chat.bipe.app.people.PeopleLinks
+import chat.bipe.app.people.PeopleMenu
+import chat.bipe.app.people.PeopleNavigation
+import chat.bipe.app.people.PeopleRoute
+import chat.bipe.app.people.PeopleScreen
+import chat.bipe.app.people.PeopleService
+import chat.bipe.app.people.Person
+import chat.bipe.app.pixcheck.PixPreview
+import chat.bipe.app.pixcheck.PixSendScreen
 import chat.bipe.app.recovery.RecoveryAlertModel
 import chat.bipe.app.recovery.RecoveryAlertScreen
 import chat.bipe.app.signup.SignupFlowModel
@@ -86,8 +90,6 @@ import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.tabs.AppTabsScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
-import chat.bipe.app.groups.Person as GroupPerson
-import chat.bipe.app.people.Person
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeHaptic
@@ -95,8 +97,8 @@ import chat.bipe.shared.bipeHaptic
 import androidx.compose.ui.platform.LocalView
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeScreen
-import java.text.NumberFormat
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
 
 /**
  * The signed-in app: app-tabs, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, and
@@ -166,6 +168,10 @@ fun HomeScreen(
     LaunchedEffect(foregroundCount) { remoteBanner.refresh() }
     // Spec notification-service, action open.
     val roomToOpen by app.roomToOpen.collectAsState()
+    // Spec pix-check-result, action sendToChat: a preview from Conferir no Bipe, for this account only.
+    val pixPreview by app.pixPreview.collectAsState()
+    val pendingPix = remember(pixPreview) { pixPreview?.let { PixPreview.resolve(context, it) } }
+    LaunchedEffect(Unit) { PixPreview.deleteStale(context) }
     LaunchedEffect(roomToOpen) {
         roomToOpen?.let {
             peopleStack = emptyList()
@@ -184,6 +190,10 @@ fun HomeScreen(
     val roomId = openRoomId
     when {
         termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
+        pendingPix != null -> PixSendScreen(pendingPix, model, media) {
+            pendingPix.delete()
+            app.pixPreview.value = null
+        }
         alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
         showsNewAccount -> {
             BackHandler { showsNewAccount = false }

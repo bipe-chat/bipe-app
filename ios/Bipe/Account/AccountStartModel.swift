@@ -37,7 +37,10 @@ final class AccountStartModel: ObservableObject {
     /// Set right after a sign-up: the app shows signup-done before chat-list.
     @Published var signupOutcome: SignupOutcome?
     /// The open accounts, oldest first.
-    @Published private(set) var sessions: [AccountSession] = []
+    @Published private(set) var sessions: [AccountSession] = [] {
+        // accountAvailable of spec pix-check-result, for the share extension.
+        didSet { PixHandoff.accountAvailable = !sessions.isEmpty }
+    }
 
     /// The current account.
     var session: AccountSession? {
