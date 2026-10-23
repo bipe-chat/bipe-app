@@ -44,13 +44,14 @@ struct TimelineRowView: View {
                 Button {
                     openPoll(poll.eventId)
                 } label: {
-                    Bubble(isOwn: message.isOwn) {
+                    Bubble(isOwn: message.isOwn, trailingLast: true) {
                         if !message.isOwn && !isDm {
                             Text(message.senderName)
                                 .font(.caption.bold())
                                 .foregroundStyle(BipeColor.accentInk)
                         }
                         PollCard(poll: poll)
+                        MessageTimestamp(sentAt: message.sentAt)
                     }
                 }
                 .buttonStyle(.plain)
@@ -236,7 +237,7 @@ private struct MessageBubbleRow: View {
     /// Time, edited label (message-edit) and the tick of an own message (read-receipts).
     private var footer: some View {
         HStack(spacing: 4) {
-            Text(message.sentAt.formatted(date: .omitted, time: .shortened))
+            MessageTimestamp(sentAt: message.sentAt)
             if details.isEdited {
                 Text(BipeStrings.appMessageEdited)
             }
@@ -246,6 +247,20 @@ private struct MessageBubbleRow: View {
         }
         .font(.caption2)
         .foregroundStyle(BipeColor.inkSecondary)
+    }
+}
+
+/// Every event message keeps its clock time; accessibility also exposes the date.
+private struct MessageTimestamp: View {
+    let sentAt: Date
+
+    var body: some View {
+        Text(sentAt.formatted(date: .omitted, time: .shortened))
+            .font(.caption2)
+            .monospacedDigit()
+            .foregroundStyle(BipeColor.inkSecondary)
+            .fixedSize(horizontal: true, vertical: false)
+            .accessibilityLabel(sentAt.formatted(date: .complete, time: .shortened))
     }
 }
 
@@ -476,7 +491,7 @@ private struct UndecryptableRow: View {
     @Environment(\.openHistoryHelp) private var openHistoryHelp
 
     var body: some View {
-        Bubble(isOwn: message.isOwn) {
+        Bubble(isOwn: message.isOwn, trailingLast: true) {
             if !message.isOwn {
                 Text(message.senderName)
                     .font(.caption.bold())
@@ -501,6 +516,7 @@ private struct UndecryptableRow: View {
                 }
                 .buttonStyle(.plain)
             }
+            MessageTimestamp(sentAt: message.sentAt)
         }
         .accessibilityIdentifier(BipeScreen.messageUndecryptable.rawValue)
     }
@@ -521,7 +537,7 @@ private struct DeletedRow: View {
     let message: TimelineMessage
 
     var body: some View {
-        Bubble(isOwn: message.isOwn) {
+        Bubble(isOwn: message.isOwn, trailingLast: true) {
             HStack(spacing: 6) {
                 PhosphorIcon.trash.image
                     .resizable()
@@ -532,6 +548,7 @@ private struct DeletedRow: View {
                     .font(.subheadline.italic())
                     .foregroundStyle(BipeColor.inkSecondary)
             }
+            MessageTimestamp(sentAt: message.sentAt)
         }
     }
 }

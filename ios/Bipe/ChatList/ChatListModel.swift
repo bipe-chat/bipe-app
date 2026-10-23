@@ -67,6 +67,8 @@ final class ChatListModel: ObservableObject {
     let archive: ChatArchiveModel
     private var extraRoomIds: Set<String> = []
     private var rooms: [Room] = []
+    /// One model belongs to one account session. Never replace a known time with an absent preview.
+    private var knownActivity: [String: Date] = [:]
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult?
     private var handles: [TaskHandle] = []
@@ -156,8 +158,9 @@ final class ChatListModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 let visible = await NativeDmSelection.visible(summaries, session: self.session)
                 guard !Task.isCancelled else { return }
-                self.archive.reconcile(visible)
-                self.unreadChats[scope] = visible
+                let dated = self.retainingKnownActivity(visible)
+                self.archive.reconcile(dated)
+                self.unreadChats[scope] = dated
                 self.unreadLoading.remove(scope)
             }
         }
@@ -250,9 +253,19 @@ final class ChatListModel: ObservableObject {
             guard !Task.isCancelled, let self else { return }
             let visible = await NativeDmSelection.visible(summaries, session: session)
             guard !Task.isCancelled else { return }
-            archive.reconcile(visible)
-            chats = visible.sorted { ($0.lastActivity ?? .distantPast) > ($1.lastActivity ?? .distantPast) }
+            let dated = retainingKnownActivity(visible)
+            archive.reconcile(dated)
+            chats = dated.sorted { ($0.lastActivity ?? .distantPast) > ($1.lastActivity ?? .distantPast) }
             updatePhase()
+        }
+    }
+
+    private func retainingKnownActivity(_ summaries: [ChatSummary]) -> [ChatSummary] {
+        summaries.map { summary in
+            var summary = summary
+            if let time = summary.lastActivity { knownActivity[summary.roomId] = time }
+            else { summary.lastActivity = knownActivity[summary.roomId] }
+            return summary
         }
     }
 
