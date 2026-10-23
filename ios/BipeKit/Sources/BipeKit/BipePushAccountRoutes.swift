@@ -18,7 +18,7 @@ public final class BipePushAccountRoutes {
         lock.lock()
         defer { lock.unlock() }
         var routes = defaults.dictionary(forKey: key) as? [String: String] ?? [:]
-        if let route = routes[userId], routes.values.filter({ $0 == route }).count == 1 { return route }
+        if let route = routes[userId], UUID(uuidString: route) != nil, routes.values.filter({ $0 == route }).count == 1 { return route }
         let route = UUID().uuidString.lowercased()
         routes[userId] = route
         defaults.set(routes, forKey: key)
@@ -26,6 +26,7 @@ public final class BipePushAccountRoutes {
     }
 
     public func account(for route: String) -> String? {
+        guard UUID(uuidString: route) != nil else { return nil }
         lock.lock()
         defer { lock.unlock() }
         let routes = defaults.dictionary(forKey: key) as? [String: String] ?? [:]

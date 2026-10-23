@@ -48,9 +48,10 @@ struct NotificationTargetTests {
         #expect(recreated.account(for: other) == "@other:example.invalid")
         #expect(recreated.route(for: "@owner:example.invalid") != first)
         #expect(recreated.account(for: "legacy") == nil)
-        defaults.set(["@owner:example.invalid": "ambiguous", "@other:example.invalid": "ambiguous"],
+        let ambiguous = UUID().uuidString.lowercased()
+        defaults.set(["@owner:example.invalid": ambiguous, "@other:example.invalid": ambiguous],
                      forKey: "bipe.push.accountRoutes.v1")
-        #expect(recreated.account(for: "ambiguous") == nil)
+        #expect(recreated.account(for: ambiguous) == nil)
     }
 
     @Test func accountCaseAndRoomIdentityArePreserved() throws {
