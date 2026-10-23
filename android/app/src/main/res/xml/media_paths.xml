@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: AGPL-3.0-only
+  Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+  Copyright 2026 Bipe contributors
+-->
+<!-- Decrypted media in the app cache, shared only when the person opens, shares or saves it (spec media-viewer notes). -->
+<paths>
+    <cache-path name="media" path="." />
+    <files-path name="files" path="." />
+</paths>

@@ -4,9 +4,13 @@
 
 package chat.bipe.app.timeline
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -23,6 +27,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -34,6 +39,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,11 +53,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -68,23 +80,26 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.composer.MentionSuggestion
 import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.groups.DmDeleteSheet
+import chat.bipe.app.media.MediaViewer
+import chat.bipe.app.media.VoicePlayer
+import chat.bipe.app.media.stickers.StickerPicker
+import chat.bipe.app.media.upload.AttachmentPicker
+import chat.bipe.app.media.upload.UploadPreviewScreen
+import chat.bipe.app.media.voice.MicrophoneDeniedBar
+import chat.bipe.app.media.voice.VoiceRecordingBar
 import chat.bipe.app.polls.PollCreateScreen
 import chat.bipe.app.polls.PollDetailScreen
+import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
-import chat.bipe.app.settings.SettingsKeys
+import java.io.File
 
 /** Spec chat-timeline, with the rows of timeline-rows and the interactions of the message specs. */
 @Composable
@@ -107,6 +122,7 @@ fun ChatTimelineScreen(
         deleted = stringResource(R.string.bipe_app_message_deleted),
         deletedOwn = stringResource(R.string.bipe_app_message_deleted_own),
         undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable),
+        label = { context.getString(it) },
     )
     val model = remember(roomId) {
         ChatTimelineModel(
@@ -134,8 +150,19 @@ fun ChatTimelineScreen(
     val draft by model.draft.collectAsState()
     val ui by model.ui.collectAsState()
     val inviterHint by model.inviterHint.collectAsState()
-    val sentMessages by model.messages.collectAsState()
-    NotificationsPrompt(session, roomId, sentMessages)
+    val messages by model.messages.collectAsState()
+    val isPrivateRoom by model.isPrivateRoom.collectAsState()
+    // Spec voice-message: one player per chat; it stops when the chat closes.
+    val voicePlayer = remember(roomId) { VoicePlayer(context.applicationContext, media, scope) }
+    val voiceState by voicePlayer.state.collectAsState()
+    DisposableEffect(voicePlayer) { onDispose { voicePlayer.stop() } }
+    var viewerRowId by rememberSaveable { mutableStateOf<String?>(null) }
+    // composer
+    val composer by model.composer.collectAsState()
+    var attaching by remember { mutableStateOf(false) }
+    var upload by remember { mutableStateOf<PickedUpload?>(null) }
+    var showsStickers by remember { mutableStateOf(false) }
+    NotificationsPrompt(session, roomId, messages)
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     // group-details is for groups only: RoomInfo.isDm is the one DM test (ADR 0141).
@@ -250,6 +277,11 @@ fun ChatTimelineScreen(
                             onLongPress = { if (model.openActions(row.id)) view.bipeHaptic(BipeHaptic.Hold) },
                             onHistoryHelp = onHistoryHelp,
                             onOpenPoll = { openPollId = it },
+                            isPrivateRoom = isPrivateRoom,
+                            voiceState = voiceState,
+                            onTogglePlay = voicePlayer::togglePlay,
+                            onSeek = voicePlayer::seek,
+                            onOpenViewer = { viewerRowId = it },
                         )
                     }
                     item(key = "history") {
@@ -274,6 +306,8 @@ fun ChatTimelineScreen(
                     draft = draft,
                     canSend = model.canSend,
                     ui = ui,
+                    composer = composer,
+                    media = media,
                     onEdit = model::editDraft,
                     onSend = {
                         if (ui.editing == null) view.bipeHaptic(BipeHaptic.Tap)
@@ -281,7 +315,11 @@ fun ChatTimelineScreen(
                     },
                     onCancelReply = model::cancelReply,
                     onCancelEdit = model::cancelEdit,
-                    onCreatePoll = { creatingPoll = true },
+                    onPickSuggestion = model::pickSuggestion,
+                    onAttach = { attaching = true },
+                    onStickers = { showsStickers = true },
+                    onRecord = { model.startRecording(context.applicationContext) },
+                    onEndRecording = model::endRecording,
                 )
             }
             ui.notice?.let { notice ->
@@ -346,6 +384,35 @@ fun ChatTimelineScreen(
             textContentColor = colors.inkSecondary,
         )
     }
+    if (attaching) {
+        AttachmentPicker(
+            onPicked = { files ->
+                attaching = false
+                upload = PickedUpload(files, model.takeReplyEventId())
+            },
+            onStickers = { showsStickers = true },
+            onPoll = if (composer.canPoll) ({ creatingPoll = true }) else null,
+            onDismiss = { attaching = false },
+        )
+    }
+    upload?.let { picked ->
+        val timeline = model.timeline
+        if (timeline != null) {
+            UploadPreviewScreen(picked.files, model.client, timeline, picked.replyToEventId, onClose = { upload = null })
+        }
+    }
+    if (showsStickers) {
+        StickerPicker(model.client, roomId, media, onClose = { showsStickers = false })
+    }
+    viewerRowId?.let { rowId ->
+        MediaViewer(
+            messages = messages,
+            startRowId = rowId,
+            loader = media,
+            onLoadHistory = model::loadHistory,
+            onClose = { viewerRowId = null },
+        )
+    }
 }
 
 /** Spec typing-indicator sharesTyping: the presence setting (bipe_privacy_presence). On unless turned off. */
@@ -399,24 +466,76 @@ private fun TypingLine(names: List<String>) {
     }
 }
 
-/** The composer with the reply bar (message-reply) and the edit bar (message-edit). */
+/** Picked files for upload-preview, with the reply target taken when they were picked. */
+private class PickedUpload(val files: List<Pair<File, String?>>, val replyToEventId: String?)
+
+/**
+ * Spec composer: Markdown text, @ mentions in groups, the draft, and the entries to attachments,
+ * stickers and voice. The reply bar (message-reply) and the edit bar (message-edit) sit above it.
+ */
 @Composable
 private fun ComposerBar(
     draft: String,
     canSend: Boolean,
     ui: TimelineInteractions,
+    composer: ComposerState,
+    media: MediaLoader,
     onEdit: (String) -> Unit,
     onSend: () -> Unit,
     onCancelReply: () -> Unit,
     onCancelEdit: () -> Unit,
-    onCreatePoll: () -> Unit,
+    onPickSuggestion: (MentionSuggestion) -> Unit,
+    onAttach: () -> Unit,
+    onStickers: () -> Unit,
+    onRecord: () -> Unit,
+    onEndRecording: () -> Unit,
 ) {
     val colors = BipeTheme.colors
     val focus = remember { FocusRequester() }
+    var microphoneDenied by remember { mutableStateOf(false) }
+    val microphone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) onRecord() else microphoneDenied = true
+    }
     LaunchedEffect(ui.replyingToRowId, ui.editing) {
         if (ui.replyingToRowId != null || ui.editing != null) runCatching { focus.requestFocus() }
     }
-    Column(modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised)) {
+    val recording = composer.recording
+    Column(modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised).testTag(BipeScreen.COMPOSER.id)) {
+        if (!composer.canPost) {
+            Text(
+                stringResource(R.string.bipe_dm_no_permission_to_post),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.inkSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+            )
+            return@Column
+        }
+        if (microphoneDenied) {
+            MicrophoneDeniedBar(onClose = { microphoneDenied = false })
+            return@Column
+        }
+        if (recording != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            VoiceRecordingBar(recording, onClose = onEndRecording)
+            return@Column
+        }
+        if (composer.suggestions.isNotEmpty()) {
+            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
+                items(composer.suggestions, key = { it.userId ?: "@room" }) { suggestion ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { onPickSuggestion(suggestion) }.padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Avatar(suggestion.name, suggestion.avatarUrl, media, size = 32.dp)
+                        Column {
+                            Text(suggestion.name, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                            suggestion.handle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
+                        }
+                    }
+                }
+            }
+        }
         val reply = ui.replyingTo
         val editing = ui.editing
         if (reply != null) {
@@ -439,47 +558,81 @@ private fun ComposerBar(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Opens poll-create (the attach menu comes with the composer spec, bipe-chat/bipe#563).
             if (editing == null) {
-                IconButton(onClick = onCreatePoll) {
+                IconButton(onClick = onAttach) {
                     Icon(
-                        painterResource(PhosphorIcon.CHART_BAR.drawable),
-                        contentDescription = stringResource(R.string.bipe_app_poll_create_title),
+                        painterResource(PhosphorIcon.PAPERCLIP.drawable),
+                        contentDescription = stringResource(R.string.bipe_app_composer_attach),
                         tint = colors.glyphPrimary,
                     )
                 }
             }
             val placeholder = stringResource(R.string.bipe_app_timeline_composer_placeholder)
-            BasicTextField(
-                value = draft,
-                onValueChange = onEdit,
-                maxLines = 5,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.inkPrimary),
-                cursorBrush = SolidColor(colors.accentFill),
+            Row(
                 modifier = Modifier
                     .weight(1f)
-                    .focusRequester(focus)
                     .background(colors.surfaceSunken, RoundedCornerShape(20.dp))
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                decorationBox = { inner ->
-                    Box {
-                        if (draft.isEmpty()) {
-                            Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
-                        }
-                        inner()
-                    }
-                },
-            )
-            IconButton(
-                onClick = onSend,
-                enabled = canSend,
-                modifier = Modifier.background(if (canSend) colors.accentFill else colors.surfaceSunken, CircleShape),
+                    .padding(start = 14.dp, end = 6.dp),
+                verticalAlignment = Alignment.Bottom,
             ) {
-                Icon(
-                    painterResource(if (editing == null) PhosphorIcon.PAPER_PLANE_RIGHT.drawable else PhosphorIcon.CHECK.drawable),
-                    contentDescription = stringResource(if (editing == null) R.string.bipe_app_timeline_send else R.string.bipe_app_message_save_edit),
-                    tint = if (canSend) colors.inkOnAccent else colors.inkDisabled,
+                BasicTextField(
+                    value = draft,
+                    onValueChange = onEdit,
+                    maxLines = 5,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.inkPrimary),
+                    cursorBrush = SolidColor(colors.accentFill),
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(focus)
+                        .padding(vertical = 10.dp),
+                    decorationBox = { inner ->
+                        Box {
+                            if (draft.isEmpty()) {
+                                Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
+                            }
+                            inner()
+                        }
+                    },
                 )
+                if (editing == null) {
+                    Icon(
+                        painterResource(PhosphorIcon.STICKER.drawable),
+                        contentDescription = stringResource(R.string.bipe_action_stickers),
+                        tint = colors.glyphSecondary,
+                        modifier = Modifier
+                            .padding(vertical = 8.dp)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .clickable(onClick = onStickers)
+                            .padding(4.dp),
+                    )
+                }
+            }
+            // The send button and the record button share one place (spec composer notes).
+            val showsRecord = !canSend && editing == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+            if (showsRecord) {
+                IconButton(
+                    onClick = { microphone.launch(Manifest.permission.RECORD_AUDIO) },
+                    modifier = Modifier.background(colors.accentFill, CircleShape),
+                ) {
+                    Icon(
+                        painterResource(PhosphorIcon.MICROPHONE.drawable),
+                        contentDescription = stringResource(R.string.bipe_app_composer_record),
+                        tint = colors.inkOnAccent,
+                    )
+                }
+            } else {
+                IconButton(
+                    onClick = onSend,
+                    enabled = canSend,
+                    modifier = Modifier.background(if (canSend) colors.accentFill else colors.surfaceSunken, CircleShape),
+                ) {
+                    Icon(
+                        painterResource(if (editing == null) PhosphorIcon.PAPER_PLANE_RIGHT.drawable else PhosphorIcon.CHECK.drawable),
+                        contentDescription = stringResource(if (editing == null) R.string.bipe_app_timeline_send else R.string.bipe_app_message_save_edit),
+                        tint = if (canSend) colors.inkOnAccent else colors.inkDisabled,
+                    )
+                }
             }
         }
     }

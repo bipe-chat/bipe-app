@@ -68,6 +68,18 @@
       "licence": "Apache-2.0"
     },
     {
+      "name": "androidx.media3:media3-common",
+      "licence": "Apache-2.0"
+    },
+    {
+      "name": "androidx.media3:media3-effect",
+      "licence": "Apache-2.0"
+    },
+    {
+      "name": "androidx.media3:media3-transformer",
+      "licence": "Apache-2.0"
+    },
+    {
       "name": "com.google.crypto.tink:tink-android",
       "licence": "Apache-2.0"
     },

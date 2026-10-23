@@ -169,6 +169,24 @@
       "licence": "Apache-2.0",
       "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
       "checked": "2026-10-22"
+    },
+    "androidx.media3:media3-common": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/androidx/media/blob/release/LICENSE",
+      "checked": "2026-10-22"
+    },
+    "androidx.media3:media3-effect": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/androidx/media/blob/release/LICENSE",
+      "checked": "2026-10-22"
+    },
+    "androidx.media3:media3-transformer": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/androidx/media/blob/release/LICENSE",
+      "checked": "2026-10-22"
     }
   }
 }
