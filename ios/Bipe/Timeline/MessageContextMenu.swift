@@ -14,16 +14,18 @@ struct MessageContextActions: View {
     var body: some View {
         if let row = model.row(rowId) {
             if model.showsReactions(row) {
-                Menu(BipeStrings.appMessageActionMoreReactions) {
+                Menu {
                     ForEach(ChatTimelineModel.quickReactions, id: \.self) { key in
                         Button(key) { model.react(rowId: rowId, key: key) }
                     }
                     Button(BipeStrings.appMessageActionMoreReactions) { model.moreReactions(rowId: rowId) }
+                } label: {
+                    Label(BipeStrings.appMessageActionMoreReactions, systemImage: "face.smiling")
                 }
             }
             ForEach(model.actions(for: row)) { action in
                 Button(role: action == .delete ? .destructive : nil) { model.choose(action, rowId: rowId) } label: {
-                    Label { Text(action.menuTitle) } icon: { action.menuIcon.image }
+                    Label(action.menuTitle, systemImage: action.menuSymbol)
                 }
             }
         }
@@ -65,6 +67,18 @@ extension MessageAction {
         case .retry: .arrowClockwise
         case .delete: .trash
         case .report: .flag
+        }
+    }
+
+    /// MZ requested SF Symbols in native context-menu options on 23 October 2026.
+    var menuSymbol: String {
+        switch self {
+        case .reply: "arrowshape.turn.up.left"
+        case .edit: "pencil"
+        case .copy: "doc.on.doc"
+        case .retry: "arrow.clockwise"
+        case .delete: "trash"
+        case .report: "flag"
         }
     }
 }

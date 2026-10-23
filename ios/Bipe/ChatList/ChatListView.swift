@@ -340,8 +340,14 @@ struct ChatListView: View {
                         Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
                             .buttonStyle(.plain)
                         Menu { rowMenu(chat.roomId) } label: {
-                            PhosphorIcon.dotsThree.image.frame(width: 24, height: 24).padding(10)
+                            PhosphorIcon.dotsThree.image
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 20, height: 20)
+                                .foregroundStyle(BipeColor.glyphSecondary)
+                                .frame(width: 44, height: 44)
                         }
+                        .buttonStyle(.plain)
                         .accessibilityLabel(BipeStrings.chatActions)
                     }
                     .listRowBackground(BipeColor.surfaceBase)
@@ -366,15 +372,24 @@ struct ChatListView: View {
     @ViewBuilder private func rowMenu(_ roomId: String) -> some View {
         if let chat = model.currentChat(roomId) {
             archiveAction(chat)
-            Button(chat.isUnread ? BipeStrings.appNotificationMarkRead : BipeStrings.chatMarkUnread) {
+            Button {
                 Task { await model.setUnread(roomId: roomId, unread: !chat.isUnread) }
+            } label: {
+                Label(chat.isUnread ? BipeStrings.appNotificationMarkRead : BipeStrings.chatMarkUnread,
+                      systemImage: chat.isUnread ? "envelope.open" : "envelope.badge")
             }
             .disabled(model.markingRoomId != nil)
-            Button(BipeStrings.settingsNotifications) { notificationsRoom = roomId }
-            Button(BipeStrings.chatDetails) { openDetails(chat) }
+            Button { notificationsRoom = roomId } label: {
+                Label(BipeStrings.settingsNotifications, systemImage: "bell")
+            }
+            Button { openDetails(chat) } label: {
+                Label(BipeStrings.chatDetails, systemImage: "info.circle")
+            }
                 .disabled(chat.isDm && chat.peerUserId == nil)
             if chat.isDm {
-                Button(BipeStrings.dmDeleteAction, role: .destructive) { deletingDm = roomId }
+                Button(role: .destructive) { deletingDm = roomId } label: {
+                    Label(BipeStrings.dmDeleteAction, systemImage: "trash")
+                }
             }
         }
     }
@@ -387,8 +402,11 @@ struct ChatListView: View {
 
     private func archiveAction(_ chat: ChatSummary) -> some View {
         let archived = archive.contains(chat)
-        return Button(archived ? BipeStrings.unarchiveAction : BipeStrings.archiveAction) {
+        return Button {
             archive.set(chat, archived: !archived)
+        } label: {
+            Label(archived ? BipeStrings.unarchiveAction : BipeStrings.archiveAction,
+                  systemImage: archived ? "tray.and.arrow.up" : "archivebox")
         }
     }
 
