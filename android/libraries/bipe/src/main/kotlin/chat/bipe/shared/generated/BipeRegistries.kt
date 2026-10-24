@@ -571,6 +571,19 @@ object BipeRegistries {
         "urgency",
     )
 
+    /** The money pause (security.md rule 9, trust-ui.md): copy and links stay off this many seconds on these kinds. */
+    const val SCAM_MONEY_PAUSE_SECONDS = 5
+    val scamMoneyPauseKinds: Set<String> = setOf(
+        "extortion",
+        "pixCode",
+        "boleto",
+        "remoteApp",
+        "pixKey",
+        "deliveryFee",
+        "lookalikeLink",
+        "bankAlert",
+    )
+
     /** Username (handle) rules. The server is the authority; clients check early for feedback. */
     const val HANDLE_MIN_LENGTH = 3
     const val HANDLE_MAX_LENGTH = 30
