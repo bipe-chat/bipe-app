@@ -11,8 +11,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import chat.bipe.app.BipeApplication
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.AppConfig
+import chat.bipe.shared.BipePushMessage
 import chat.bipe.shared.R
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -27,8 +29,8 @@ import org.matrix.rustcomponents.sdk.PusherIdentifiers
 import org.matrix.rustcomponents.sdk.PusherKind
 
 /**
- * The system push service of this build. FCM comes in a follow-up, after the ADR on the Play services licence
- * and the Firebase project (bipe-chat/bipe#89). Until then no transport is set and the phone gets no pushes.
+ * The system push service of this build: Firebase Cloud Messaging in the Play flavour (ADR 0150), when the build has
+ * the Firebase project's values (PushTransports); none in the foss flavour. Without a transport the phone gets no pushes.
  */
 interface PushTransport {
     /** Asks the push service for a token. The transport calls [PushRegistration.tokenReceived] with it. */
@@ -43,7 +45,15 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
     enum class Permission { NOT_ASKED, ALLOWED, DENIED }
 
     /** Type PushRegistration, saved so a new token or language can be compared with it. */
-    data class Registration(val userId: String, val pushkey: String, val appId: String, val lang: String, val registeredAt: Long)
+    data class Registration(
+        val userId: String,
+        val pushkey: String,
+        val appId: String,
+        val lang: String,
+        val registeredAt: Long,
+        /** The random account route in the pusher's default_payload. `null` for a pusher from before routing. */
+        val accountRoute: String? = null,
+    )
 
     private val prefs = context.getSharedPreferences("push", Context.MODE_PRIVATE)
     private val _permission = MutableStateFlow(readPermission())
@@ -84,21 +94,32 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
         if (_permission.value != Permission.ALLOWED) return
         val appId = AppConfig.pusherAppId(context.packageName, isDebug)
         val lang = appLanguage()
+        // Spec push-registration: a random route, bound on this phone to the account, travels in the data message so
+        // the push opens only that account. Sygnal never gets the Matrix ID.
+        val route = (context.applicationContext as BipeApplication).notifications.accountRoute(session.userId)
         val current = _registration.value
-        if (current != null && current.userId == session.userId && current.pushkey == pushkey && current.appId == appId && current.lang == lang) return
+        if (current != null && current.userId == session.userId && current.pushkey == pushkey && current.appId == appId &&
+            current.lang == lang && current.accountRoute == route
+        ) {
+            return
+        }
+        val defaultPayload = JSONObject().put(BipePushMessage.ACCOUNT_ROUTE, route).toString()
         scope.launch {
             runCatching {
-                // Content-free: event_id_only. FCM gets a data message with the room ID, the event ID and the count.
+                // Content-free: event_id_only. FCM gets a data message with the room ID, the event ID, the count and
+                // the account route of default_payload.
                 session.client.setPusher(
                     identifiers = PusherIdentifiers(pushkey, appId),
-                    kind = PusherKind.Http(HttpPusherData(AppConfig.PUSH_GATEWAY_URL, PushFormat.EVENT_ID_ONLY, null)),
+                    kind = PusherKind.Http(HttpPusherData(AppConfig.PUSH_GATEWAY_URL, PushFormat.EVENT_ID_ONLY, defaultPayload)),
                     appDisplayName = context.getString(R.string.bipe_app_name),
                     deviceDisplayName = Build.MODEL,
                     profileTag = null,
                     lang = lang,
                     append = false,
                 )
-                save(Registration(session.userId, pushkey, appId, lang, System.currentTimeMillis()))
+                if (this@PushRegistration.session === session) {
+                    save(Registration(session.userId, pushkey, appId, lang, System.currentTimeMillis(), route))
+                }
             }
         }
     }
@@ -134,7 +155,14 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
     private fun loadRegistration(): Registration? = prefs.getString(KEY_REGISTRATION, null)?.let { text ->
         runCatching {
             val json = JSONObject(text)
-            Registration(json.getString("userId"), json.getString("pushkey"), json.getString("appId"), json.getString("lang"), json.getLong("registeredAt"))
+            Registration(
+                json.getString("userId"),
+                json.getString("pushkey"),
+                json.getString("appId"),
+                json.getString("lang"),
+                json.getLong("registeredAt"),
+                json.optString("accountRoute").takeIf { it.isNotEmpty() },
+            )
         }.getOrNull()
     }
 
@@ -152,6 +180,7 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
                     .put("appId", registration.appId)
                     .put("lang", registration.lang)
                     .put("registeredAt", registration.registeredAt)
+                    .put("accountRoute", registration.accountRoute)
                     .toString(),
             )
         }

@@ -87,6 +87,9 @@ class AppTabsModel(
         listJobs[session.userId] = scope.launch {
             model.chats.collect { chats ->
                 latestChats[session.userId] = chats
+                // Spec notification-service: a chat read on another device loses its notifications.
+                (start.appContext as? chat.bipe.app.BipeApplication)?.notifications
+                    ?.clearRead(session.userId, chats.filterNot { it.isUnread }.map { it.roomId }.toSet())
                 refresh()
                 scope.launch { inviteModels[session.userId]?.retryNotes() }
             }

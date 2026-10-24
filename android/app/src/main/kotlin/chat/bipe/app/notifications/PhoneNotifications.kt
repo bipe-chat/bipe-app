@@ -113,6 +113,38 @@ class PhoneNotifications(private val context: Context) {
         manager.notify("unowned", NOTIFICATION_ID, notification)
     }
 
+    /** The random route of [userId] for its pusher's default_payload (spec push-registration). */
+    fun accountRoute(userId: String): String = accountRoutes.routeFor(userId)
+
+    /** The account a push's route was registered for on this phone; `null` when unknown or ambiguous. */
+    fun accountFor(route: String): String? = accountRoutes.accountFor(route)
+
+    /**
+     * A read on another device: removes the message notifications of [userId]'s chats in [readRoomIds] (no unread
+     * messages and not marked unread). Invites stay until they are answered.
+     */
+    fun clearRead(userId: String, readRoomIds: Set<String>) {
+        if (readRoomIds.isEmpty()) return
+        runCatching { manager.activeNotifications }.getOrDefault(emptyList())
+            .filter { it.id != INVITE_ID && it.notification.extras.getString(EXTRA_ACCOUNT_USER_ID) == userId }
+            .filter { it.notification.extras.getString(EXTRA_ROOM_ID) in readRoomIds }
+            .forEach { manager.cancel(it.tag, it.id) }
+    }
+
+    /** A push without an event (the unread count changed, for example after a read on another device). */
+    suspend fun countChanged(session: AccountSession) {
+        if (!isActive(session)) return
+        val shown = runCatching { manager.activeNotifications }.getOrDefault(emptyList())
+            .filter { it.id != INVITE_ID && it.notification.extras.getString(EXTRA_ACCOUNT_USER_ID) == session.userId }
+            .mapNotNull { it.notification.extras.getString(EXTRA_ROOM_ID) }
+            .toSet()
+        val read = shown.filter { roomId ->
+            val info = runCatching { withTimeout(FETCH_TIMEOUT_MS) { session.client.getRoom(roomId)?.roomInfo() } }.getOrNull()
+            info != null && info.numUnreadMessages.toInt() == 0 && !info.isMarkedUnread
+        }.toSet()
+        if (isActive(session)) clearRead(session.userId, read)
+    }
+
     /** Opening a chat, a read on another device, or markAsRead removes that chat's notifications. */
     fun clear(target: BipeNotificationTarget) {
         manager.cancel(target.identifier, NOTIFICATION_ID)

@@ -88,6 +88,10 @@
       "licence": "Apache-2.0"
     },
     {
+      "name": "com.google.firebase:firebase-messaging",
+      "licence": "Apache-2.0"
+    },
+    {
       "name": "com.google.zxing:core",
       "licence": "Apache-2.0"
     },
