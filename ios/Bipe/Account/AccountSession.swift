@@ -92,8 +92,12 @@ final class AccountSession {
     static func makeClient(userId: String, process: Process = .app,
                            homeserverURL: String = AppConfig.homeserver) async throws -> Client {
         let paths = try storePaths(userId: userId)
+        return try await builder(paths: paths, process: process).homeserverUrl(url: homeserverURL).build()
+    }
+
+    /// The settings every client of the app shares; the caller names the server.
+    static func builder(paths: (data: URL, cache: URL), process: Process = .app) -> ClientBuilder {
         var builder = ClientBuilder()
-            .homeserverUrl(url: homeserverURL)
             .sessionPaths(dataPath: paths.data.path, cachePath: paths.cache.path)
             // Bipe uses native sliding sync. Discovery requests /versions during build, making even
             // a saved local session wait for internet. Restore also retains the saved sync version.
@@ -108,13 +112,17 @@ final class AccountSession {
         if process == .notificationService {
             builder = builder.systemIsMemoryConstrained()
         }
-        return try await builder.build()
+        return builder
     }
 
     /// Deletes the store of an account. A new sign-in needs an empty store: the crypto store
     /// belongs to one device.
     static func deleteStore(userId: String) {
-        guard let paths = try? storePaths(userId: userId) else { return }
+        deleteStore(folder: folderName(userId: userId))
+    }
+
+    static func deleteStore(folder: String) {
+        guard let paths = try? storePaths(folder: folder) else { return }
         try? FileManager.default.removeItem(at: paths.data)
         try? FileManager.default.removeItem(at: paths.cache)
     }
@@ -125,16 +133,20 @@ final class AccountSession {
             ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     }
 
-    private static func folderName(userId: String) -> String {
+    static func folderName(userId: String) -> String {
         Data(userId.utf8).base64EncodedString()
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "+", with: "-")
     }
 
     private static func storePaths(userId: String) throws -> (data: URL, cache: URL) {
+        try storePaths(folder: folderName(userId: userId))
+    }
+
+    /// The data and cache folders of one store, made when missing.
+    static func storePaths(folder: String) throws -> (data: URL, cache: URL) {
         let fileManager = FileManager.default
         let root = storeRoot()
-        let folder = folderName(userId: userId)
         let data = root.appendingPathComponent("Sessions", isDirectory: true).appendingPathComponent(folder, isDirectory: true)
         let cache = root.appendingPathComponent("Library/Caches/Sessions", isDirectory: true).appendingPathComponent(folder, isDirectory: true)
         try fileManager.createDirectory(at: data, withIntermediateDirectories: true)

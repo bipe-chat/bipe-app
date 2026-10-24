@@ -25,11 +25,37 @@ final class GrantProgressStream: GrantQrLoginProgressListener {
     }
 }
 
+/// The same for the code this phone shows (spec link-phone-show).
+final class GrantGeneratedProgressStream: GrantGeneratedQrLoginProgressListener {
+    let updates: AsyncStream<GrantGeneratedQrLoginProgress>
+    private let continuation: AsyncStream<GrantGeneratedQrLoginProgress>.Continuation
+
+    init() {
+        (updates, continuation) = AsyncStream.makeStream()
+    }
+
+    func onUpdate(state: GrantGeneratedQrLoginProgress) {
+        continuation.yield(state)
+    }
+
+    func finish() {
+        continuation.finish()
+    }
+}
+
 /// Specs link-computer-scan, link-computer-warning and link-computer-approve (bipe-shared product/screens):
 /// the phone scans the QR code of chat.bipe.net.br, opens the MSC4108 secure channel, warns, waits through the
 /// cooldown, checks the owner and approves on the MAS consent page in a private web view (ADR 0116, ADR 0118).
+///
+/// Mode phone is specs link-phone-show and link-phone-approve: this old phone shows the code, the new phone scans it
+/// (ADR 0059), and the same warning, owner check and MAS page approve it.
 @MainActor
 final class LinkComputerModel: ObservableObject {
+    enum Mode: Equatable {
+        case computer
+        case phone
+    }
+
     /// Type LinkComputerSupport.
     enum Support: Equatable {
         case checking
@@ -40,6 +66,8 @@ final class LinkComputerModel: ObservableObject {
 
     enum Step: Equatable {
         case scan
+        /// Mode phone: link-phone-show.
+        case show
         case warning
         case approve
     }
@@ -49,6 +77,15 @@ final class LinkComputerModel: ObservableObject {
         case scanning
         case connecting
         case showCheckCode
+        case failed
+    }
+
+    /// Spec link-phone-show, state phase.
+    enum ShowPhase: Equatable {
+        case preparing
+        case showingCode
+        case enterCheckCode
+        case checking
         case failed
     }
 
@@ -67,24 +104,40 @@ final class LinkComputerModel: ObservableObject {
         case expired
         case insecure
         case needsRecoveryKey
+        case wrongCheckCode
         case stopped
         case network
         case signIn
         case generic
 
-        var message: String {
-            switch self {
-            case .notBipeCode: BipeStrings.appLinkComputerNotBipeCode
-            case .expired: BipeStrings.appLinkComputerExpired
-            case .insecure: BipeStrings.appLinkComputerInsecure
-            case .needsRecoveryKey: BipeStrings.appLinkComputerNeedsRecoveryKey
-            case .stopped: BipeStrings.appLinkComputerStopped
-            case .network: BipeStrings.errorNetwork
-            case .signIn: BipeStrings.linkComputerErrorSignIn
-            case .generic: BipeStrings.errorGeneric
+        func message(_ mode: Mode) -> String {
+            switch (self, mode) {
+            case (.notBipeCode, _): BipeStrings.appLinkComputerNotBipeCode
+            case (.expired, .computer): BipeStrings.appLinkComputerExpired
+            case (.expired, .phone): BipeStrings.appLinkPhoneExpired
+            case (.insecure, .computer): BipeStrings.appLinkComputerInsecure
+            case (.insecure, .phone): BipeStrings.appLinkPhoneInsecure
+            case (.needsRecoveryKey, .computer): BipeStrings.appLinkComputerNeedsRecoveryKey
+            case (.needsRecoveryKey, .phone): BipeStrings.appLinkPhoneNeedsRecoveryKey
+            case (.wrongCheckCode, _): BipeStrings.appLinkPhoneWrongCheckCode
+            case (.stopped, _): BipeStrings.appLinkComputerStopped
+            case (.network, _): BipeStrings.errorNetwork
+            case (.signIn, _): BipeStrings.linkComputerErrorSignIn
+            case (.generic, _): BipeStrings.errorGeneric
             }
         }
     }
+
+    /// Debug builds and the Simulator only: the copy button of link-phone-show (bipe-chat/bipe#608).
+    static var canCopyCode: Bool {
+        #if targetEnvironment(simulator) || DEBUG
+        true
+        #else
+        false
+        #endif
+    }
+
+    let mode: Mode
 
     @Published private(set) var support: Support = .checking
     @Published private(set) var step: Step = .scan
@@ -92,6 +145,13 @@ final class LinkComputerModel: ObservableObject {
     @Published private(set) var checkCode: String?
     @Published private(set) var scanError: Failure?
     @Published private(set) var secondsLeft = BipeRegistries.webLinkCooldownSeconds
+    @Published private(set) var showPhase: ShowPhase = .preparing
+    /// QrCodeData.toBytes of qrReady.
+    @Published private(set) var qrBytes: Data?
+    @Published private(set) var typedCheckCode = ""
+    @Published private(set) var showError: Failure?
+    /// When the new phone scanned the code (link-phone-approve requestedAt).
+    @Published private(set) var requestedAt: Date?
     @Published private(set) var approvePhase: ApprovePhase = .confirmIdentity
     @Published private(set) var place: String?
     @Published private(set) var placeKnown = false
@@ -105,6 +165,9 @@ final class LinkComputerModel: ObservableObject {
     private(set) var verificationURL: URL?
     private(set) var masHost: String?
     private var continuationSender: ContinuationMessageSender?
+    private var checkCodeSender: CheckCodeSender?
+    /// Mode phone: each code has its own number, so that a dropped code never touches the next one.
+    private var codeAttempt = 0
     private var grantTask: Task<Void, Never>?
     private var countdown: Task<Void, Never>?
     private var startedAt = Date.now
@@ -114,8 +177,10 @@ final class LinkComputerModel: ObservableObject {
     /// Held only between the owner check and the one submit of the MAS login form.
     private var password: String?
 
-    init(settings: SettingsModel) {
+    init(settings: SettingsModel, mode: Mode = .computer) {
         self.settings = settings
+        self.mode = mode
+        step = mode == .computer ? .scan : .show
     }
 
     private var matrix: BipeMatrixAccountAPI? {
@@ -144,7 +209,10 @@ final class LinkComputerModel: ObservableObject {
         default: support = .notSupported
         }
         guard support == .supported else { return }
-        await askCamera()
+        switch mode {
+        case .computer: await askCamera()
+        case .phone: generate()
+        }
     }
 
     private func askCamera() async {
@@ -214,6 +282,7 @@ final class LinkComputerModel: ObservableObject {
         let failure: Failure
         switch error as? HumanQrGrantLoginError {
         case .NotFound, .Expired: failure = .expired
+        case .InvalidCheckCode where mode == .phone: failure = .wrongCheckCode
         case .ConnectionInsecure, .InvalidCheckCode: failure = .insecure
         case .MissingSecretsBackup: failure = .needsRecoveryKey
         case .Cancelled: failure = .stopped
@@ -221,11 +290,20 @@ final class LinkComputerModel: ObservableObject {
         default: failure = error is URLError ? .network : .generic
         }
         switch step {
-        case .scan, .warning:
+        case .scan, .show, .warning:
             guard !isClosed else { return }
-            step = .scan
-            scanError = failure
-            scanPhase = .failed
+            switch mode {
+            case .computer:
+                step = .scan
+                scanError = failure
+                scanPhase = .failed
+            case .phone:
+                // A second error for the same try (send, then the task) keeps the first.
+                guard showPhase != .failed else { return }
+                step = .show
+                showError = failure
+                showPhase = .failed
+            }
         case .approve:
             // Cancelled after the consent page: the user declined on the MAS page.
             if failure == .stopped && sawConsentPage {
@@ -247,6 +325,95 @@ final class LinkComputerModel: ObservableObject {
         scanError = nil
         step = .scan
         scanPhase = .scanning
+    }
+
+    // MARK: link-phone-show
+
+    /// Action open (mode phone): GrantLoginWithQrCodeHandler.generate; the code arrives with qrReady.
+    private func generate() {
+        guard grantTask == nil else { return }
+        showError = nil
+        showPhase = .preparing
+        startedAt = .now
+        codeAttempt += 1
+        let current = codeAttempt
+        let handler = session.client.newGrantLoginWithQrCodeHandler()
+        let progress = GrantGeneratedProgressStream()
+        Task { [weak self] in
+            for await update in progress.updates where self?.codeAttempt == current {
+                self?.generatedProgress(update)
+            }
+        }
+        grantTask = Task { [weak self] in
+            do {
+                try await handler.generate(progressListener: progress)
+                progress.finish()
+                guard self?.codeAttempt == current else { return }
+                self?.generatedProgress(.done)
+            } catch {
+                progress.finish()
+                guard self?.codeAttempt == current else { return }
+                self?.taskFailed(error)
+            }
+        }
+    }
+
+    /// Action progress (mode phone).
+    private func generatedProgress(_ update: GrantGeneratedQrLoginProgress) {
+        switch update {
+        case .starting:
+            break
+        case .qrReady(let qrCode):
+            qrBytes = qrCode.toBytes()
+            showPhase = .showingCode
+        case .qrScanned(let sender):
+            checkCodeSender = sender
+            requestedAt = .now
+            typedCheckCode = ""
+            showPhase = .enterCheckCode
+        case .waitingForAuth(let verificationUri, let continuationSender):
+            verificationURL = URL(string: verificationUri)
+            self.continuationSender = continuationSender
+            step = .warning
+        case .syncingSecrets:
+            approvePhase = .finishing
+        case .done:
+            approvePhase = .done
+            Task { await finish() }
+        }
+    }
+
+    /// Action editCheckCode: ASCII digits, at most 2; at 2 digits, submitCheckCode.
+    func editCheckCode(_ text: String) {
+        guard showPhase == .enterCheckCode else { return }
+        typedCheckCode = String(text.filter { $0.isASCII && $0.isNumber }.prefix(2))
+        guard typedCheckCode.count == 2, let code = UInt8(typedCheckCode), let sender = checkCodeSender else { return }
+        showPhase = .checking
+        checkCodeSender = nil
+        let current = codeAttempt
+        Task { [weak self] in
+            do {
+                try await sender.send(code: code)
+            } catch {
+                // A wrong number also ends the generate task with invalidCheckCode.
+                guard self?.codeAttempt == current else { return }
+                self?.taskFailed(error)
+            }
+        }
+    }
+
+    /// Action newCode: drops the handler and makes a new code.
+    func newCode() {
+        codeAttempt += 1
+        grantTask?.cancel()
+        grantTask = nil
+        continuationSender = nil
+        checkCodeSender = nil
+        qrBytes = nil
+        typedCheckCode = ""
+        requestedAt = nil
+        step = .show
+        generate()
     }
 
     // MARK: link-computer-warning
@@ -280,6 +447,7 @@ final class LinkComputerModel: ObservableObject {
         isClosed = true
         let sender = continuationSender
         continuationSender = nil
+        checkCodeSender = nil
         grantTask?.cancel()
         grantTask = nil
         countdown?.cancel()
@@ -290,7 +458,8 @@ final class LinkComputerModel: ObservableObject {
 
     /// Action confirmIdentity: the biometric check (or the device code), then the hidden password.
     func confirmIdentity() async {
-        guard await OwnerCheck.owner(reason: BipeStrings.linkComputerBiometric), let secret = hiddenPassword else {
+        let reason = mode == .computer ? BipeStrings.linkComputerBiometric : BipeStrings.appLinkPhoneBiometric
+        guard await OwnerCheck.owner(reason: reason), let secret = hiddenPassword else {
             step = .warning
             warningAppeared()
             return
@@ -388,7 +557,11 @@ final class LinkComputerModel: ObservableObject {
         approveError = nil
         verificationURL = nil
         masHost = nil
-        scanAgain()
+        finished = false
+        switch mode {
+        case .computer: scanAgain()
+        case .phone: newCode()
+        }
     }
 
     private func fail(_ failure: Failure) {

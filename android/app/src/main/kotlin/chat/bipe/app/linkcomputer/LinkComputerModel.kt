@@ -5,6 +5,7 @@
 package chat.bipe.app.linkcomputer
 
 import android.content.Context
+import android.util.Base64
 import chat.bipe.app.settings.SettingsModel
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
@@ -25,7 +26,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.matrix.rustcomponents.sdk.CheckCodeSender
 import org.matrix.rustcomponents.sdk.ContinuationMessageSender
+import org.matrix.rustcomponents.sdk.GrantGeneratedQrLoginProgress
+import org.matrix.rustcomponents.sdk.GrantGeneratedQrLoginProgressListener
 import org.matrix.rustcomponents.sdk.GrantQrLoginProgress
 import org.matrix.rustcomponents.sdk.GrantQrLoginProgressListener
 import org.matrix.rustcomponents.sdk.HumanQrGrantLoginException
@@ -36,8 +40,16 @@ import uniffi.matrix_sdk_crypto.QrCodeIntent
  * Specs link-computer-scan, link-computer-warning and link-computer-approve (bipe-shared product/screens): the phone
  * scans the QR code of chat.bipe.net.br, opens the MSC4108 secure channel, warns, waits through the cooldown, checks
  * the owner and approves on the MAS consent page in a private web view (ADR 0116, ADR 0118).
+ *
+ * Mode PHONE is specs link-phone-show and link-phone-approve: this old phone shows the code, the new phone scans it
+ * (ADR 0059), and the same warning, owner check and MAS page approve it.
  */
-class LinkComputerModel(private val context: Context, private val settings: SettingsModel, private val scope: CoroutineScope) {
+class LinkComputerModel(
+    private val context: Context,
+    private val settings: SettingsModel,
+    private val scope: CoroutineScope,
+    val mode: Mode = Mode.COMPUTER,
+) {
     private val session get() = settings.session
     private val matrix get() = BipeMatrixAccountApi(session.client.homeserver())
 
@@ -47,20 +59,30 @@ class LinkComputerModel(private val context: Context, private val settings: Sett
 
     /** Type LinkComputerSupport. */
     enum class Support { CHECKING, SUPPORTED, NEEDS_PIN, NOT_SUPPORTED }
-    enum class Step { SCAN, WARNING, APPROVE }
+    enum class Mode { COMPUTER, PHONE }
+
+    /** SHOW is link-phone-show (mode PHONE). */
+    enum class Step { SCAN, SHOW, WARNING, APPROVE }
     enum class ScanPhase { CAMERA_DENIED, SCANNING, CONNECTING, SHOW_CHECK_CODE, FAILED }
+
+    /** Spec link-phone-show, state phase. */
+    enum class ShowPhase { PREPARING, SHOWING_CODE, ENTER_CHECK_CODE, CHECKING, FAILED }
     enum class ApprovePhase { CONFIRM_IDENTITY, LOADING, CONSENT, FINISHING, DONE, FAILED }
 
-    /** The failed phases, each with its string. */
-    enum class Failure(val message: Int) {
+    /** The failed phases, each with its string per mode. */
+    enum class Failure(private val computer: Int, private val phone: Int = computer) {
         NOT_BIPE_CODE(R.string.bipe_app_link_computer_not_bipe_code),
-        EXPIRED(R.string.bipe_app_link_computer_expired),
-        INSECURE(R.string.bipe_app_link_computer_insecure),
-        NEEDS_RECOVERY_KEY(R.string.bipe_app_link_computer_needs_recovery_key),
+        EXPIRED(R.string.bipe_app_link_computer_expired, R.string.bipe_app_link_phone_expired),
+        INSECURE(R.string.bipe_app_link_computer_insecure, R.string.bipe_app_link_phone_insecure),
+        NEEDS_RECOVERY_KEY(R.string.bipe_app_link_computer_needs_recovery_key, R.string.bipe_app_link_phone_needs_recovery_key),
+        WRONG_CHECK_CODE(R.string.bipe_app_link_phone_wrong_check_code),
         STOPPED(R.string.bipe_app_link_computer_stopped),
         NETWORK(R.string.bipe_error_network),
         SIGN_IN(R.string.bipe_link_computer_error_sign_in),
         GENERIC(R.string.bipe_error_generic),
+        ;
+
+        fun message(mode: Mode): Int = if (mode == Mode.COMPUTER) computer else phone
     }
 
     data class State(
@@ -69,6 +91,13 @@ class LinkComputerModel(private val context: Context, private val settings: Sett
         val scanPhase: ScanPhase = ScanPhase.SCANNING,
         val checkCode: String? = null,
         val scanError: Failure? = null,
+        val showPhase: ShowPhase = ShowPhase.PREPARING,
+        /** QrCodeData.toBytes of qrReady, as base64 (RFC 4648, with padding): the copy text and the QR content. */
+        val qrCode: String? = null,
+        val typedCheckCode: String = "",
+        val showError: Failure? = null,
+        /** When the new phone scanned the code (link-phone-approve requestedAt). */
+        val requestedAt: Instant? = null,
         val secondsLeft: Int = BipeRegistries.WEB_LINK_COOLDOWN_SECONDS,
         val approvePhase: ApprovePhase = ApprovePhase.CONFIRM_IDENTITY,
         val place: String? = null,
@@ -82,11 +111,14 @@ class LinkComputerModel(private val context: Context, private val settings: Sett
         val canContinue: Boolean get() = secondsLeft == 0
     }
 
-    private val _state = MutableStateFlow(State())
+    private val _state = MutableStateFlow(State(step = if (mode == Mode.COMPUTER) Step.SCAN else Step.SHOW))
     val state: StateFlow<State> = _state.asStateFlow()
 
     private var verificationUri: String? = null
     private var continuationSender: ContinuationMessageSender? = null
+    private var checkCodeSender: CheckCodeSender? = null
+    /** Mode PHONE: each code has its own number, so that a dropped code never touches the next one. */
+    private var codeAttempt = 0
     private var grantJob: Job? = null
     private var countdown: Job? = null
     private var startedAt: Instant = Instant.now()
@@ -108,6 +140,7 @@ class LinkComputerModel(private val context: Context, private val settings: Sett
                 else -> Support.NOT_SUPPORTED
             }
             _state.update { it.copy(support = support, scanPhase = if (cameraAllowed) ScanPhase.SCANNING else ScanPhase.CAMERA_DENIED) }
+            if (support == Support.SUPPORTED && mode == Mode.PHONE) generate()
         }
     }
 
@@ -145,6 +178,90 @@ class LinkComputerModel(private val context: Context, private val settings: Sett
         }
     }
 
+    /** Action open (mode PHONE): GrantLoginWithQrCodeHandler.generate; the code arrives with qrReady. */
+    private fun generate() {
+        if (grantJob != null) return
+        _state.update { it.copy(showError = null, showPhase = ShowPhase.PREPARING) }
+        startedAt = Instant.now()
+        codeAttempt += 1
+        val current = codeAttempt
+        val handler = session.client.newGrantLoginWithQrCodeHandler()
+        val listener = object : GrantGeneratedQrLoginProgressListener {
+            override fun onUpdate(state: GrantGeneratedQrLoginProgress) {
+                scope.launch { if (codeAttempt == current) generatedProgress(state) }
+            }
+        }
+        grantJob = scope.launch {
+            try {
+                handler.generate(listener)
+                if (codeAttempt == current) generatedProgress(GrantGeneratedQrLoginProgress.Done)
+            } catch (e: CancellationException) {
+                // A new code or cancel dropped the task.
+                throw e
+            } catch (e: Exception) {
+                if (codeAttempt == current) taskFailed(e)
+            }
+        }
+    }
+
+    /** Action progress (mode PHONE). */
+    private fun generatedProgress(update: GrantGeneratedQrLoginProgress) {
+        when (update) {
+            GrantGeneratedQrLoginProgress.Starting -> Unit
+            is GrantGeneratedQrLoginProgress.QrReady ->
+                _state.update {
+                    it.copy(qrCode = Base64.encodeToString(update.qrCode.toBytes(), Base64.NO_WRAP), showPhase = ShowPhase.SHOWING_CODE)
+                }
+            is GrantGeneratedQrLoginProgress.QrScanned -> {
+                checkCodeSender = update.checkCodeSender
+                _state.update { it.copy(requestedAt = Instant.now(), typedCheckCode = "", showPhase = ShowPhase.ENTER_CHECK_CODE) }
+            }
+            is GrantGeneratedQrLoginProgress.WaitingForAuth -> {
+                verificationUri = update.verificationUri
+                continuationSender = update.continuationSender
+                _state.update { it.copy(step = Step.WARNING) }
+            }
+            GrantGeneratedQrLoginProgress.SyncingSecrets -> _state.update { it.copy(approvePhase = ApprovePhase.FINISHING) }
+            GrantGeneratedQrLoginProgress.Done -> {
+                _state.update { it.copy(approvePhase = ApprovePhase.DONE) }
+                scope.launch { finish() }
+            }
+        }
+    }
+
+    /** Action editCheckCode: ASCII digits, at most 2; at 2 digits, submitCheckCode. */
+    fun editCheckCode(text: String) {
+        if (_state.value.showPhase != ShowPhase.ENTER_CHECK_CODE) return
+        val digits = text.filter { it in '0'..'9' }.take(2)
+        _state.update { it.copy(typedCheckCode = digits) }
+        val sender = checkCodeSender
+        if (digits.length < 2 || sender == null) return
+        checkCodeSender = null
+        _state.update { it.copy(showPhase = ShowPhase.CHECKING) }
+        val current = codeAttempt
+        scope.launch {
+            try {
+                sender.send(digits.toInt().toUByte())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A wrong number also ends the generate task with invalidCheckCode.
+                if (codeAttempt == current) taskFailed(e)
+            }
+        }
+    }
+
+    /** Action newCode: drops the handler and makes a new code. */
+    fun newCode() {
+        codeAttempt += 1
+        grantJob?.cancel()
+        grantJob = null
+        continuationSender = null
+        checkCodeSender = null
+        _state.update { it.copy(step = Step.SHOW, qrCode = null, typedCheckCode = "", requestedAt = null) }
+        generate()
+    }
+
     /** Action progress. */
     private fun progress(update: GrantQrLoginProgress) {
         when (update) {
@@ -169,7 +286,8 @@ class LinkComputerModel(private val context: Context, private val settings: Sett
         grantJob = null
         val failure = when (error) {
             is HumanQrGrantLoginException.NotFound, is HumanQrGrantLoginException.Expired -> Failure.EXPIRED
-            is HumanQrGrantLoginException.ConnectionInsecure, is HumanQrGrantLoginException.InvalidCheckCode -> Failure.INSECURE
+            is HumanQrGrantLoginException.ConnectionInsecure -> Failure.INSECURE
+            is HumanQrGrantLoginException.InvalidCheckCode -> if (mode == Mode.PHONE) Failure.WRONG_CHECK_CODE else Failure.INSECURE
             is HumanQrGrantLoginException.MissingSecretsBackup -> Failure.NEEDS_RECOVERY_KEY
             is HumanQrGrantLoginException.Cancelled -> Failure.STOPPED
             is HumanQrGrantLoginException.UnsupportedQrCodeType,
@@ -182,7 +300,13 @@ class LinkComputerModel(private val context: Context, private val settings: Sett
         val state = _state.value
         if (state.isClosed) return
         when (state.step) {
-            Step.SCAN, Step.WARNING -> _state.update { it.copy(step = Step.SCAN, scanError = failure, scanPhase = ScanPhase.FAILED) }
+            Step.SCAN, Step.SHOW, Step.WARNING -> when (mode) {
+                Mode.COMPUTER -> _state.update { it.copy(step = Step.SCAN, scanError = failure, scanPhase = ScanPhase.FAILED) }
+                // A second error for the same try (send, then the task) keeps the first.
+                Mode.PHONE -> if (state.showPhase != ShowPhase.FAILED) {
+                    _state.update { it.copy(step = Step.SHOW, showError = failure, showPhase = ShowPhase.FAILED) }
+                }
+            }
             Step.APPROVE -> {
                 // Cancelled after the consent page: the user declined on the MAS page.
                 if (failure == Failure.STOPPED && sawConsentPage) {
@@ -230,6 +354,7 @@ class LinkComputerModel(private val context: Context, private val settings: Sett
     fun cancel() {
         val sender = continuationSender
         continuationSender = null
+        checkCodeSender = null
         grantJob?.cancel()
         grantJob = null
         countdown?.cancel()
@@ -322,7 +447,11 @@ class LinkComputerModel(private val context: Context, private val settings: Sett
         sawConsentPage = false
         verificationUri = null
         _state.update { it.copy(place = null, placeKnown = false, approveError = null, consentUrl = null, masHost = null) }
-        scanAgain()
+        finished = false
+        when (mode) {
+            Mode.COMPUTER -> scanAgain()
+            Mode.PHONE -> newCode()
+        }
     }
 
     private fun fail(failure: Failure) {

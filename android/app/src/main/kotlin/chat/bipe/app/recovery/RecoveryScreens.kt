@@ -79,6 +79,7 @@ fun RecoveryFlowScreen(model: RecoveryFlowModel, onClose: () -> Unit) {
             RecoveryFlowModel.Route.EMAIL -> RecoveryEmailScreen(model)
             RecoveryFlowModel.Route.BETA -> RecoveryBetaScreen(model)
             RecoveryFlowModel.Route.WAITING -> RecoveryWaitingScreen(model)
+            RecoveryFlowModel.Route.OLD_PHONE -> OldPhoneScreen(model)
         }
     }
 }

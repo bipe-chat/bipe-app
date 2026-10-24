@@ -74,23 +74,28 @@ import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.launch
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import org.json.JSONObject
 
 /**
  * The link-a-computer flow: link-computer-scan, then link-computer-warning, then link-computer-approve. The only way
- * into it is Settings > Linked devices > Link a computer (ADR 0116, security.md rule 5).
+ * into it is Settings > Linked devices > Link a computer (ADR 0116, security.md rule 5). Mode PHONE: link-phone-show,
+ * then link-phone-approve; the only way in is Você > Conectar outro aparelho (ADR 0059).
  */
 @Composable
-fun LinkComputerScreen(settings: SettingsModel, onClose: () -> Unit) {
+fun LinkComputerScreen(settings: SettingsModel, onClose: () -> Unit, mode: LinkComputerModel.Mode = LinkComputerModel.Mode.COMPUTER) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val model = remember(settings) { LinkComputerModel(context.applicationContext, settings, scope) }
+    val model = remember(settings, mode) { LinkComputerModel(context.applicationContext, settings, scope, mode) }
     val state by model.state.collectAsState()
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), model::cameraResult)
     LaunchedEffect(model) {
         val allowed = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         model.open(cameraAllowed = allowed)
-        if (!allowed) cameraPermission.launch(Manifest.permission.CAMERA)
+        // The old phone shows a code: no camera.
+        if (!allowed && mode == LinkComputerModel.Mode.COMPUTER) cameraPermission.launch(Manifest.permission.CAMERA)
     }
     LaunchedEffect(state.isClosed) { if (state.isClosed) onClose() }
     val closeOrCancel = { if (state.step == LinkComputerModel.Step.APPROVE) model.close() else model.cancel() }
@@ -104,6 +109,7 @@ fun LinkComputerScreen(settings: SettingsModel, onClose: () -> Unit) {
             }
             when (state.step) {
                 LinkComputerModel.Step.SCAN -> ScanContent(state, model)
+                LinkComputerModel.Step.SHOW -> LinkPhoneShowContent(state, model)
                 LinkComputerModel.Step.WARNING -> WarningContent(state, model)
                 LinkComputerModel.Step.APPROVE -> ApproveContent(state, model)
             }
@@ -142,7 +148,7 @@ private fun ScanContent(state: LinkComputerModel.State, model: LinkComputerModel
                         Text(stringResource(R.string.bipe_recovery_qr_never_from_others), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)
                         state.scanError?.let { error ->
                             Text(stringResource(R.string.bipe_link_computer_error_title), style = MaterialTheme.typography.titleMedium, color = colors.trustDangerInk)
-                            Text(stringResource(error.message), color = colors.inkPrimary, textAlign = TextAlign.Center)
+                            Text(stringResource(error.message(model.mode)), color = colors.inkPrimary, textAlign = TextAlign.Center)
                             OutlinedButton(onClick = model::scanAgain) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
                         }
                     }
@@ -181,12 +187,24 @@ private fun WarningContent(state: LinkComputerModel.State, model: LinkComputerMo
         onDispose { model.warningLeftFront() }
     }
     LifecycleResumeEffect(onResume = model::warningAppeared, onPause = model::warningLeftFront)
-    Column(modifier = Modifier.fillMaxSize().testTag(BipeScreen.LINK_COMPUTER_WARNING.id), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    val phone = model.mode == LinkComputerModel.Mode.PHONE
+    val screen = if (phone) BipeScreen.LINK_PHONE_APPROVE else BipeScreen.LINK_COMPUTER_WARNING
+    Column(modifier = Modifier.fillMaxSize().testTag(screen.id), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustCautionInk, modifier = Modifier.size(48.dp))
-        Text(stringResource(R.string.bipe_link_computer_warning_title), style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary)
-        Text(stringResource(R.string.bipe_link_computer_warning_body), color = colors.inkPrimary)
         Text(
-            stringResource(R.string.bipe_link_computer_warning_scam),
+            stringResource(if (phone) R.string.bipe_app_link_phone_warning_title else R.string.bipe_link_computer_warning_title),
+            style = MaterialTheme.typography.headlineSmall,
+            color = colors.inkPrimary,
+        )
+        Text(stringResource(if (phone) R.string.bipe_app_link_phone_warning_body else R.string.bipe_link_computer_warning_body), color = colors.inkPrimary)
+        // ADR 0059: the time of the request; the model and the place show on the MAS page.
+        val requestedAt = state.requestedAt
+        if (phone && requestedAt != null) {
+            val time = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(requestedAt.atZone(ZoneId.systemDefault()))
+            Text(stringResource(R.string.bipe_app_link_phone_time, time), fontWeight = FontWeight.Bold, color = colors.inkPrimary)
+        }
+        Text(
+            stringResource(if (phone) R.string.bipe_app_link_phone_scam else R.string.bipe_link_computer_warning_scam),
             color = colors.inkPrimary,
             modifier = Modifier.fillMaxWidth().background(colors.trustCautionWash, RoundedCornerShape(12.dp)).padding(12.dp),
         )
@@ -223,9 +241,10 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
     val context = LocalContext.current
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
-    val reason = stringResource(R.string.bipe_link_computer_biometric)
+    val phone = model.mode == LinkComputerModel.Mode.PHONE
+    val reason = stringResource(if (phone) R.string.bipe_app_link_phone_biometric else R.string.bipe_link_computer_biometric)
     Column(
-        modifier = Modifier.fillMaxSize().testTag(BipeScreen.LINK_COMPUTER_APPROVE.id),
+        modifier = Modifier.fillMaxSize().testTag(if (phone) BipeScreen.LINK_PHONE_APPROVE.id else BipeScreen.LINK_COMPUTER_APPROVE.id),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -239,7 +258,7 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
             LinkComputerModel.ApprovePhase.LOADING, LinkComputerModel.ApprovePhase.CONSENT -> {
                 if (state.approvePhase == LinkComputerModel.ApprovePhase.CONSENT) {
                     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(R.string.bipe_link_computer_consent_hint), color = colors.inkPrimary)
+                        Text(stringResource(if (phone) R.string.bipe_app_link_phone_consent_hint else R.string.bipe_link_computer_consent_hint), color = colors.inkPrimary)
                         if (state.placeKnown) {
                             val place = state.place
                             Text(
@@ -262,16 +281,22 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
             }
             LinkComputerModel.ApprovePhase.FINISHING -> {
                 CircularProgressIndicator(color = colors.accentFill)
-                Text(stringResource(R.string.bipe_app_link_computer_finishing), color = colors.inkSecondary)
+                Text(stringResource(if (phone) R.string.bipe_app_link_phone_finishing else R.string.bipe_app_link_computer_finishing), color = colors.inkSecondary)
             }
             LinkComputerModel.ApprovePhase.DONE -> {
                 Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = colors.trustVerifiedInk, modifier = Modifier.size(48.dp))
-                Text(stringResource(R.string.bipe_link_computer_done), style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary, textAlign = TextAlign.Center)
+                Text(stringResource(if (phone) R.string.bipe_app_link_phone_done else R.string.bipe_link_computer_done), style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary, textAlign = TextAlign.Center)
             }
             LinkComputerModel.ApprovePhase.FAILED -> {
-                Text(stringResource(R.string.bipe_link_computer_error_title), style = MaterialTheme.typography.titleMedium, color = colors.trustDangerInk)
-                Text(stringResource(state.approveError?.message ?: R.string.bipe_error_generic), color = colors.inkPrimary, textAlign = TextAlign.Center)
-                Button(onClick = model::retry) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
+                Text(
+                    stringResource(if (phone) R.string.bipe_app_link_phone_error_title else R.string.bipe_link_computer_error_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.trustDangerInk,
+                )
+                Text(stringResource(state.approveError?.message(model.mode) ?: R.string.bipe_error_generic), color = colors.inkPrimary, textAlign = TextAlign.Center)
+                Button(onClick = model::retry) {
+                    Text(stringResource(if (phone) R.string.bipe_app_link_phone_new_code else R.string.bipe_app_link_computer_scan_again))
+                }
             }
         }
     }

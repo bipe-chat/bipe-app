@@ -56,7 +56,7 @@ class RecoveryFlowModel(
     private val scope: CoroutineScope,
     private val onSignedIn: (AccountSession) -> Unit,
 ) {
-    enum class Route { START, PIN, EMAIL, BETA, WAITING }
+    enum class Route { START, PIN, EMAIL, BETA, WAITING, OLD_PHONE }
 
     /** Spec recovery-pin, state factor. */
     enum class Factor { TOKEN, EMAIL_LINK }
@@ -164,10 +164,13 @@ class RecoveryFlowModel(
         val signedIn = sessionStore.loadAll().keys
         token = recoveryTokens.candidate(signedIn)?.let { it.userId to it.token }
         _hasSyncedToken.value = token != null
-        _rows.value = BipeOnboardingRecoveryRow.entries.filter { row -> row.gate == null && (!row.needsSyncedToken || token != null) }
+        // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate.
+        _rows.value = BipeOnboardingRecoveryRow.entries.filter { row ->
+            (row.gate == null || row == BipeOnboardingRecoveryRow.OLD_PHONE) && (!row.needsSyncedToken || token != null)
+        }
     }
 
-    /** Actions chooseToken, chooseEmail and chooseBeta. chooseOldPhone stays hidden until bipe-chat/bipe#203. */
+    /** Actions chooseToken, chooseOldPhone, chooseEmail and chooseBeta. */
     fun choose(row: BipeOnboardingRecoveryRow) {
         when (row) {
             BipeOnboardingRecoveryRow.TOKEN -> openPin(Factor.TOKEN)
@@ -180,7 +183,7 @@ class RecoveryFlowModel(
                 _betaError.value = null
                 _route.value = Route.BETA
             }
-            BipeOnboardingRecoveryRow.OLD_PHONE -> Unit
+            BipeOnboardingRecoveryRow.OLD_PHONE -> _route.value = Route.OLD_PHONE
         }
     }
 
@@ -509,6 +512,9 @@ class RecoveryFlowModel(
     }
 
     // Sign-in
+
+    /** The old phone for recovery-old-phone: builds its model with this flow's store and sign-in. */
+    fun oldPhoneModel(scope: CoroutineScope): OldPhoneModel = OldPhoneModel(context, sessionStore, scope, onSignedIn)
 
     /** Stores the password (this phone only) and the token, signs in, then opens chat-list and encryption-status. */
     private suspend fun signIn(credentials: BipeCredentials) {
