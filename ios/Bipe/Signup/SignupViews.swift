@@ -193,82 +193,72 @@ struct OnboardingWelcomeView: View {
     @ObservedObject var model: SignupFlowModel
 
     var body: some View {
-        // The window decides the layout, never the device (docs/iphone-duo.md): the open iPhone Duo,
-        // iPad and landscape put the hero beside the actions; a tall window stacks them.
+        // The window decides the layout, never the device (docs/iphone-duo.md). A wide window (the open iPhone Duo,
+        // iPad, landscape) puts the cover on the left half and the actions on the right, so the split meets the fold.
+        // A tall window puts the cover on the top half.
         GeometryReader { window in
             if window.size.width >= 600 && window.size.width > window.size.height {
-                // Half and half, so the split meets the fold of the open iPhone Duo.
                 HStack(spacing: 0) {
-                    hero
-                        .padding(16)
-                        .frame(maxWidth: .infinity)
+                    cover(edges: [.top, .bottom, .leading])
+                        .frame(width: window.size.width / 2)
                     actions
-                        .padding(.horizontal, 40)
-                        .padding(.vertical, 24)
-                        .frame(maxWidth: 480)
+                        .frame(maxWidth: 400)
+                        .padding(40)
                         .frame(maxWidth: .infinity)
                 }
             } else {
                 VStack(spacing: 0) {
-                    hero
-                        .frame(height: window.size.height * 0.42)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
+                    cover(edges: [.top, .horizontal])
+                        .frame(height: window.size.height / 2)
                     actions
+                        .frame(maxWidth: 480)
                         .padding(24)
-                        .frame(maxWidth: 560)
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
             }
         }
         .accessibilityIdentifier(BipeScreen.onboardingWelcome.rawValue)
         .task { await model.appear() }
     }
 
-    /// The açaí panel: wordmark, welcome line and title over a faint bubble texture (identity.md: Brazilian in
-    /// texture, warm açaí, never flag colours; amber, green and red stay trust colours).
-    private var hero: some View {
-        ZStack(alignment: .bottomLeading) {
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .fill(LinearGradient(colors: [BipeColor.accentFill, BipeColor.accentFillPressed],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-            BubbleTexture()
-                .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 12) {
-                // The horizontal lockup of artwork-brief.md: mark, then the lowercase wordmark.
-                HStack(spacing: 12) {
-                    BipeMark()
-                        .frame(width: 40, height: 40)
-                        .accessibilityHidden(true)
-                    Text(BipeStrings.appName.lowercased())
-                        .font(.system(size: 52, weight: .heavy, design: .rounded))
-                        .accessibilityAddTraits(.isHeader)
-                }
-                Spacer(minLength: 0)
-                Text(BipeStrings.onboardingWelcome)
-                    .font(.system(.headline, design: .rounded))
-                    .opacity(0.85)
-                Text(title)
-                    .font(.system(.largeTitle, design: .rounded).weight(.bold))
-                    .minimumScaleFactor(0.7)
-                    .fixedSize(horizontal: false, vertical: true)
+    /// The full-bleed açaí cover of the spec: mark and wordmark, the welcome line and the title over a faint
+    /// texture of Bipe marks (identity.md: Brazilian in texture, warm açaí, never flag colours). The colour runs
+    /// under the system bars on `edges`; the text stays in the safe area.
+    private func cover(edges: Edge.Set) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // The horizontal lockup of artwork-brief.md: mark, then the lowercase wordmark.
+            HStack(spacing: 12) {
+                BipeMark()
+                    .frame(width: 40, height: 40)
+                    .accessibilityHidden(true)
+                Text(BipeStrings.appName.lowercased())
+                    .font(.system(size: 52, weight: .heavy, design: .rounded))
+                    .accessibilityAddTraits(.isHeader)
             }
-            .foregroundStyle(BipeColor.inkOnAccent)
-            .padding(28)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            Spacer(minLength: 0)
+            Text(BipeStrings.onboardingWelcome)
+                .font(.system(.headline, design: .rounded))
+                .opacity(0.85)
+            Text(title)
+                .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                .minimumScaleFactor(0.7)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(BipeColor.inkOnAccent)
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background {
+            ZStack {
+                LinearGradient(colors: [BipeColor.accentFill, BipeColor.accentFillPressed],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                BubbleTexture().accessibilityHidden(true)
+            }
+            .ignoresSafeArea(edges: edges)
         }
     }
 
     private var actions: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Spacer(minLength: 0)
-            // The order of linguagem.md section 3: scam check, Brazil, no ads.
-            VStack(alignment: .leading, spacing: 14) {
-                point(.magnifyingGlass, BipeStrings.onboardingPointScam)
-                point(.lockSimple, BipeStrings.onboardingPointBrazil)
-                point(.prohibit, BipeStrings.onboardingPointNoAds)
-            }
+        VStack(alignment: .leading, spacing: 16) {
             Spacer(minLength: 0)
             if model.variant == .loading {
                 ProgressView().frame(maxWidth: .infinity)
@@ -314,25 +304,9 @@ struct OnboardingWelcomeView: View {
             }
         }
     }
-
-    /// The tile of identity.md: 44-point rounded square, açaí wash, accent glyph. Never the seal shape.
-    private func point(_ icon: PhosphorIcon, _ text: String) -> some View {
-        HStack(spacing: 14) {
-            icon.image
-                .resizable()
-                .frame(width: 22, height: 22)
-                .foregroundStyle(BipeColor.accentInk)
-                .frame(width: 44, height: 44)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(BipeColor.accentWash))
-                .accessibilityHidden(true)
-            Text(text)
-                .foregroundStyle(BipeColor.inkPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
 }
 
-/// Bipe marks at low contrast over the hero: the bubble-and-notch motif of identity.md, not a pattern of objects.
+/// Bipe marks at low contrast over the cover: the bubble-and-notch motif of identity.md, not a pattern of objects.
 private struct BubbleTexture: View {
     private struct Bubble {
         let x: CGFloat, y: CGFloat, size: CGFloat, opacity: Double
@@ -341,7 +315,7 @@ private struct BubbleTexture: View {
     /// Positions as fractions of the panel, so the texture follows the window size.
     private let bubbles = [
         Bubble(x: 0.86, y: 0.22, size: 0.50, opacity: 0.12),
-        Bubble(x: 0.34, y: 0.52, size: 0.24, opacity: 0.07),
+        Bubble(x: 0.42, y: 0.36, size: 0.20, opacity: 0.07),
         Bubble(x: 1.00, y: 0.66, size: 0.30, opacity: 0.09),
         Bubble(x: 0.62, y: 0.44, size: 0.10, opacity: 0.12),
     ]

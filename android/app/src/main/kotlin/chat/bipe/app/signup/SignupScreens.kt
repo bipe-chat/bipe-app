@@ -16,13 +16,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -61,9 +67,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.AppConfig
+import chat.bipe.app.common.BipeMarkShape
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeLegalLinks
 import chat.bipe.shared.R
@@ -86,26 +94,28 @@ fun SignupFlowScreen(model: SignupFlowModel, onCancel: ((reachedCreate: Boolean)
         }
     }
     Surface(modifier = Modifier.fillMaxSize(), color = BipeTheme.colors.surfaceBase) {
-        Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-            when (path.lastOrNull()) {
-                null -> Column {
-                    cancelRow()
-                    OnboardingWelcomeScreen(model)
-                }
-                SignupFlowModel.Route.INVITE_CODE -> SignupInviteCodeScreen(model)
-                SignupFlowModel.Route.NAME -> if (model.start != null && path.size == 1) {
-                    Column {
-                        cancelRow()
-                        SignupNameScreen(model)
+        Box(Modifier.fillMaxSize().imePadding()) {
+            when (val route = path.lastOrNull()) {
+                // The welcome cover draws behind the status bar and pads its own content.
+                null -> OnboardingWelcomeScreen(model, onCancel?.let { cancel -> { cancel(model.reachedCreate) } })
+                else -> Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+                    when (route) {
+                        SignupFlowModel.Route.INVITE_CODE -> SignupInviteCodeScreen(model)
+                        SignupFlowModel.Route.NAME -> if (model.start != null && path.size == 1) {
+                            Column {
+                                cancelRow()
+                                SignupNameScreen(model)
+                            }
+                            LaunchedEffect(Unit) { model.appear() }
+                        } else {
+                            SignupNameScreen(model)
+                        }
+                        SignupFlowModel.Route.PIN -> SignupPinScreen(model, confirm = false)
+                        SignupFlowModel.Route.PIN_CONFIRM -> SignupPinScreen(model, confirm = true)
+                        SignupFlowModel.Route.FALLBACK -> SignupFallbackScreen(model)
+                        SignupFlowModel.Route.CREATE -> SignupCreateScreen(model)
                     }
-                    LaunchedEffect(Unit) { model.appear() }
-                } else {
-                    SignupNameScreen(model)
                 }
-                SignupFlowModel.Route.PIN -> SignupPinScreen(model, confirm = false)
-                SignupFlowModel.Route.PIN_CONFIRM -> SignupPinScreen(model, confirm = true)
-                SignupFlowModel.Route.FALLBACK -> SignupFallbackScreen(model)
-                SignupFlowModel.Route.CREATE -> SignupCreateScreen(model)
             }
         }
     }
@@ -197,52 +207,68 @@ private fun BipeField(
 // onboarding-welcome
 
 @Composable
-private fun OnboardingWelcomeScreen(model: SignupFlowModel) {
+private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Unit)?) {
     val colors = BipeTheme.colors
     val variant by model.variant.collectAsState()
     val invite by model.invite.collectAsState()
     val clipboardHasText by model.clipboardHasText.collectAsState()
     val pasteResult by model.pasteResult.collectAsState()
     LaunchedEffect(Unit) { model.appear() }
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp).testTag(BipeScreen.ONBOARDING_WELCOME.id),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Spacer(Modifier.weight(1f))
-        Icon(painterResource(PhosphorIcon.CHAT_CIRCLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(56.dp))
-        Text(stringResource(R.string.bipe_onboarding_welcome), style = MaterialTheme.typography.titleMedium, color = colors.accentInk)
-        val start = model.startVariant
-        val handle = invite?.inviterHandle
-        val title = if (start == BipeOnboardingStart.INVITED && handle != null) {
-            stringResource(start.title, "@$handle")
-        } else {
-            stringResource(start.title)
-        }
-        Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.inkPrimary)
-        // The order of linguagem.md section 3: scam check, Brazil, no ads.
-        listOf(R.string.bipe_onboarding_point_scam, R.string.bipe_onboarding_point_brazil, R.string.bipe_onboarding_point_no_ads).forEach {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.padding(top = 8.dp).size(6.dp).background(colors.accentFill, CircleShape))
-                Text(stringResource(it), color = colors.inkPrimary)
+    val start = model.startVariant
+    val handle = invite?.inviterHandle
+    val title = if (start == BipeOnboardingStart.INVITED && handle != null) {
+        stringResource(start.title, "@$handle")
+    } else {
+        stringResource(start.title)
+    }
+    Column(Modifier.fillMaxSize().testTag(BipeScreen.ONBOARDING_WELCOME.id)) {
+        // The full-bleed açaí cover of the spec: mark and wordmark, welcome line and title. No points list.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .background(Brush.linearGradient(listOf(colors.accentFill, colors.accentFillPressed)))
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (onCancel != null) {
+                TextButton(onClick = onCancel) { Text(stringResource(R.string.bipe_app_cancel), color = colors.inkOnAccent) }
             }
-        }
-        Spacer(Modifier.weight(1f))
-        if (variant == SignupFlowModel.Variant.LOADING) {
-            CircularProgressIndicator(color = colors.accentFill, modifier = Modifier.align(Alignment.CenterHorizontally))
-        } else {
-            val checking by model.checkingInvite.collectAsState()
-            PrimaryButton(stringResource(start.primary.title), busy = checking, onClick = model::primary)
-            if (variant == SignupFlowModel.Variant.INVITE_ONLY && clipboardHasText) {
-                Column(Modifier.clickable(role = Role.Button, onClick = model::pasteInvite)) {
-                    Text(stringResource(R.string.bipe_onboarding_paste_invite), style = MaterialTheme.typography.titleSmall, color = colors.accentInk)
-                    Text(stringResource(R.string.bipe_onboarding_paste_invite_hint), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-                }
-                if (pasteResult == SignupFlowModel.PasteResult.NOT_AN_INVITE) {
-                    FieldFooter(stringResource(R.string.bipe_onboarding_paste_invite_none), isError = true)
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(40.dp).background(colors.inkOnAccent, BipeMarkShape))
+                Text(stringResource(R.string.bipe_app_name).lowercase(), fontSize = 52.sp, fontWeight = FontWeight.ExtraBold, color = colors.inkOnAccent)
             }
-            // haveAccount: recovery-start (bipe-chat/bipe#556).
-            start.text.forEach { TextButtonRow(stringResource(it.title), onClick = model.onHaveAccount) }
+            Spacer(Modifier.weight(1f))
+            Text(stringResource(R.string.bipe_onboarding_welcome), style = MaterialTheme.typography.titleMedium, color = colors.inkOnAccent)
+            Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.inkOnAccent)
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Spacer(Modifier.weight(1f))
+            if (variant == SignupFlowModel.Variant.LOADING) {
+                CircularProgressIndicator(color = colors.accentFill, modifier = Modifier.align(Alignment.CenterHorizontally))
+            } else {
+                val checking by model.checkingInvite.collectAsState()
+                PrimaryButton(stringResource(start.primary.title), busy = checking, onClick = model::primary)
+                if (variant == SignupFlowModel.Variant.INVITE_ONLY && clipboardHasText) {
+                    Column(Modifier.clickable(role = Role.Button, onClick = model::pasteInvite)) {
+                        Text(stringResource(R.string.bipe_onboarding_paste_invite), style = MaterialTheme.typography.titleSmall, color = colors.accentInk)
+                        Text(stringResource(R.string.bipe_onboarding_paste_invite_hint), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+                    }
+                    if (pasteResult == SignupFlowModel.PasteResult.NOT_AN_INVITE) {
+                        FieldFooter(stringResource(R.string.bipe_onboarding_paste_invite_none), isError = true)
+                    }
+                }
+                // haveAccount: recovery-start (bipe-chat/bipe#556).
+                start.text.forEach { TextButtonRow(stringResource(it.title), onClick = model.onHaveAccount) }
+            }
         }
     }
 }
