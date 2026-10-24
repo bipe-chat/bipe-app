@@ -81,7 +81,7 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val recovery = remember(model) {
-            RecoveryFlowModel(context, model.api, model.vault, model.sessionStore, scope, onSignedIn = model::didRecover)
+            RecoveryFlowModel(context, model.api, model.vault, model.recoveryTokens, model.sessionStore, scope, onSignedIn = model::didRecover)
         }
         val link by model.recoveryLink.collectAsState()
         LaunchedEffect(link) {

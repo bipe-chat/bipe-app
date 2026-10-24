@@ -18,6 +18,12 @@ Bipe code is licensed under the GNU Affero General Public License, version 3 onl
 
 > As an additional permission under section 7 of the GNU Affero General Public License version 3, the copyright holders of Bipe code give you permission to convey Bipe code, and works based on it, in object code form through an application store or other distribution service whose terms restrict what recipients may do with the copies they receive (for example, the Apple App Store), even though those terms would otherwise be further restrictions under section 10. This permission applies only if you also give every recipient access to the Corresponding Source under the terms of AGPL-3.0, and you put no other restriction on the rights that AGPL-3.0 grants.
 
+### Google Play libraries in the Android Play build
+
+Bipe ADR 0150 lets the Android Play build use two Google libraries that are not open source. The copyright holders of Bipe code add this permission for them:
+
+> As an additional permission under section 7 of the GNU Affero General Public License version 3, the copyright holders of Bipe code give you permission to combine Bipe code, and works based on it, with Google Block Store (`com.google.android.gms:play-services-auth-blockstore`) and Firebase Cloud Messaging (`com.google.firebase:firebase-messaging`), and with the Google Play services libraries that these two need to run, and to convey the combination, even though the licence of those libraries is not AGPL-3.0. The Corresponding Source of the combination need not include those libraries. This permission covers no other library.
+
 When you convey a copy or a modified version, you may remove this additional permission from it (AGPL-3.0 section 7). If you keep it, keep this file or its text with the code.
 
 ## Contributions

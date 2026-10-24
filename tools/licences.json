@@ -12,6 +12,10 @@
     "EPL-2.0"
   ],
   "testOnlyNote": "ADR 0148 (bipe-chat/bipe): a dependency with \"scope\": \"test\" may have a testOnly licence and may only be on testImplementation lines.",
+  "playOnly": [
+    "LicenseRef-Android-SDK-License"
+  ],
+  "playOnlyNote": "ADR 0150 (bipe-chat/bipe): a dependency with \"scope\": \"play\" may have a playOnly licence and may only be on playImplementation lines (the Play flavour of the Android app). No other closed-source dependency comes in through this exception.",
   "packages": {
     "matrix-rust-components-swift": {
       "ecosystem": "swiftpm",
@@ -187,6 +191,15 @@
       "licence": "Apache-2.0",
       "source": "https://github.com/androidx/media/blob/release/LICENSE",
       "checked": "2026-10-22"
+    },
+    "com.google.android.gms:play-services-auth-blockstore": {
+      "ecosystem": "gradle",
+      "licence": "LicenseRef-Android-SDK-License",
+      "scope": "play",
+      "source": "https://developer.android.com/studio/terms",
+      "checked": "2026-10-24",
+      "unverified": true,
+      "note": "Google Block Store (ADR 0150, Play build only). Closed source, Android Software Development Kit License, as every Google Play services library. Its POM was not readable from the agent session (dl.google.com blocked); the licence name comes from the Play services POMs and ADR 0150. Brings play-services-base, -basement and -tasks under the same licence. Checked 2026-10-24."
     }
   }
 }

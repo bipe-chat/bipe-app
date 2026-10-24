@@ -16,6 +16,10 @@
 // ADR 0148: a dependency marked "scope": "test" may also have a licence in
 // "testOnly" (EPL). It must then appear in Android Gradle files only on
 // testImplementation lines.
+//
+// ADR 0150: a dependency marked "scope": "play" may also have a licence in
+// "playOnly" (Google Play services). It must then appear in Android Gradle files
+// only on playImplementation lines, so the foss flavour stays free of it.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -69,14 +73,20 @@ export function accessor(alias) {
   return `libs.${alias.replace(/[-_]/g, '.')}`;
 }
 
-// Lines of Android Gradle files that name `alias` outside testImplementation.
-export function nonTestUses(root, alias) {
+// The Gradle configuration a scoped dependency may use, and the licences the scope allows.
+const SCOPES = {
+  test: { configuration: 'testImplementation', licences: (table) => table.testOnly ?? [], adr: 'ADR 0148' },
+  play: { configuration: 'playImplementation', licences: (table) => table.playOnly ?? [], adr: 'ADR 0150' },
+};
+
+// Lines of Android Gradle files that name `alias` outside the `configuration` lines.
+export function usesOutside(root, alias, configuration) {
   const name = accessor(alias);
   const pattern = new RegExp(`${name.replace(/\./g, '\\.')}(?![\\w.])`);
   const uses = [];
   for (const file of walk(root, 'android').filter((f) => f.endsWith('.gradle.kts'))) {
     readFileSync(join(root, file), 'utf8').split('\n').forEach((line, i) => {
-      if (pattern.test(line) && !/^\s*testImplementation\(/.test(line)) uses.push(`${file}:${i + 1}`);
+      if (pattern.test(line) && !new RegExp(`^\\s*"?${configuration}"?\\(`).test(line)) uses.push(`${file}:${i + 1}`);
     });
   }
   return uses;
@@ -102,15 +112,15 @@ export function checkLicences(root, table = loadTable()) {
   const warnings = [];
   if (!deps.length) return { notes: ['no dependencies yet'] };
   const allowed = new Set(table.allowed);
-  const testOnly = new Set(table.testOnly ?? []);
   for (const { name, file, alias } of deps) {
     const entry = table.packages[name];
-    const isTest = entry?.scope === 'test';
+    const scope = SCOPES[entry?.scope];
+    const outside = scope && alias ? usesOutside(root, alias, scope.configuration) : [];
     if (!entry) {
       errors.push(`${name} (${file}) is not in tools/licences.json. Add its SPDX licence, source URL and the date you checked it.`);
-    } else if (isTest && alias && nonTestUses(root, alias).length) {
-      errors.push(`${name} has "scope": "test" but ${nonTestUses(root, alias).join(', ')} uses it outside testImplementation (ADR 0148).`);
-    } else if (!allowed.has(entry.licence) && !(isTest && testOnly.has(entry.licence))) {
+    } else if (outside.length) {
+      errors.push(`${name} has "scope": "${entry.scope}" but ${outside.join(', ')} uses it outside ${scope.configuration} (${scope.adr}).`);
+    } else if (!allowed.has(entry.licence) && !(scope && scope.licences(table).includes(entry.licence))) {
       errors.push(`${name} (${file}) has licence ${entry.licence}, which is not allowed. Allowed: ${table.allowed.join(', ')}. Another licence needs an ADR.`);
     } else if (entry.unverified) {
       warnings.push(`${name} (${file}) licence is unverified: ${entry.note ?? entry.source}`);

@@ -111,6 +111,29 @@ test('licences allow an EPL test dependency only on testImplementation lines (AD
   assert.ok(checkLicences(ok, noScope).errors[0].includes('not allowed'));
 });
 
+test('licences allow a Play services dependency only on playImplementation lines (ADR 0150)', () => {
+  const name = 'com.google.android.gms:play-services-auth-blockstore';
+  const table = { allowed: ['MIT'], playOnly: ['LicenseRef-Android-SDK-License'], packages: { [name]: { licence: 'LicenseRef-Android-SDK-License', scope: 'play' } } };
+  const catalog = `[libraries]\nblockstore = { module = "${name}", version = "16" }\n`;
+  const ok = tree({
+    'android/gradle/libs.versions.toml': catalog,
+    'android/app/build.gradle.kts': 'dependencies {\n    "playImplementation"(libs.blockstore)\n}\n',
+  });
+  assert.deepEqual(checkLicences(ok, table).errors, []);
+  const leak = tree({
+    'android/gradle/libs.versions.toml': catalog,
+    'android/app/build.gradle.kts': 'dependencies {\n    implementation(libs.blockstore)\n}\n',
+  });
+  const { errors } = checkLicences(leak, table);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].includes('outside playImplementation'));
+  // A test scope does not open the Play licence, and a Play scope does not open the test licences.
+  const asTest = { ...table, packages: { [name]: { licence: 'LicenseRef-Android-SDK-License', scope: 'test' } } };
+  assert.ok(checkLicences(tree({ 'android/gradle/libs.versions.toml': catalog }), asTest).errors[0].includes('not allowed'));
+  const eplAsPlay = { ...table, testOnly: ['EPL-1.0'], packages: { [name]: { licence: 'EPL-1.0', scope: 'play' } } };
+  assert.ok(checkLicences(ok, eplAsPlay).errors[0].includes('not allowed'));
+});
+
 test('catalog parser reads the three library forms and skips plugins', () => {
   const libs = catalogLibraries(
     '[libraries]\na = "g.a:x:1"\nb = { module = "g.b:y", version.ref = "v" } # c\nc = { group = "g.c", name = "z", version = "2" }\n[plugins]\nd = { id = "p", version = "1" }\n',
