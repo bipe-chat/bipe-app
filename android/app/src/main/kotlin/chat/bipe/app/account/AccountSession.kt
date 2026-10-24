@@ -87,10 +87,13 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
          * (spec account-start notes: the switch from the fork can reuse it).
          */
         suspend fun makeClient(context: Context, userId: String, sessionStore: SessionStore,
-                               homeserverUrl: String = AppConfig.HOMESERVER): Client {
-            val (data, cache) = storePaths(context, userId)
+                               homeserverUrl: String = AppConfig.HOMESERVER): Client =
+            builder(storePaths(context, folderName(userId)), sessionStore).homeserverUrl(homeserverUrl).build()
+
+        /** The settings every client of the app shares; the caller names the server. */
+        fun builder(paths: Pair<File, File>, sessionStore: SessionStore): ClientBuilder {
+            val (data, cache) = paths
             return ClientBuilder()
-                .homeserverUrl(homeserverUrl)
                 .sessionPaths(data.path, cache.path)
                 // Discovery requests /versions during build, blocking offline local restore.
                 .slidingSyncVersionBuilder(SlidingSyncVersionBuilder.NATIVE)
@@ -100,21 +103,22 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 .autoEnableBackups(true)
                 // Old messages decrypt from the key backup once this phone has the backup key (recovery-key-enter).
                 .backupDownloadStrategy(BackupDownloadStrategy.AFTER_DECRYPTION_FAILURE)
-                .build()
         }
 
         /** Deletes the store of an account. A new sign-in needs an empty store: the crypto store belongs to one device. */
-        fun deleteStore(context: Context, userId: String) {
-            val (data, cache) = storePaths(context, userId)
+        fun deleteStore(context: Context, userId: String) = deleteStoreFolder(context, folderName(userId))
+
+        fun deleteStoreFolder(context: Context, folder: String) {
+            val (data, cache) = storePaths(context, folder)
             data.deleteRecursively()
             cache.deleteRecursively()
         }
 
-        private fun folderName(userId: String): String =
+        fun folderName(userId: String): String =
             Base64.encodeToString(userId.toByteArray(), Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
 
-        private fun storePaths(context: Context, userId: String): Pair<File, File> {
-            val folder = folderName(userId)
+        /** The data and cache folders of one store, made when missing. */
+        fun storePaths(context: Context, folder: String): Pair<File, File> {
             val data = File(File(context.noBackupFilesDir, "sessions"), folder).apply { mkdirs() }
             val cache = File(File(context.cacheDir, "sessions"), folder).apply { mkdirs() }
             return data to cache

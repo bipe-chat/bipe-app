@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -57,6 +58,8 @@ import chat.bipe.app.tabs.AccountRows
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.settings.SettingsHost
+import chat.bipe.app.linkcomputer.LinkComputerModel
+import chat.bipe.app.linkcomputer.LinkComputerScreen
 import chat.bipe.app.settings.SettingsRoute
 import chat.bipe.app.settings.SettingsRootSection
 import chat.bipe.app.people.PeopleRoute
@@ -75,6 +78,7 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     val scope = rememberCoroutineScope()
     var openingNotes by remember { mutableStateOf(false) }
     var notesFailed by remember { mutableStateOf(false) }
+    var showsLinkPhone by rememberSaveable { mutableStateOf(false) }
     val notesTitle = stringResource(R.string.bipe_self_chat_title)
     val openNotes: () -> Unit = {
         if (!openingNotes) {
@@ -94,7 +98,10 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     SettingsHost(session, api, invites = tabs.invites(session), onClose = { tabs.selectTab(AppTabsModel.Tab.CONVERSAS) }, onSignedOut = { tabs.start.completeSignOut(session.userId) },
         onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles, trust = trust,
         rootContent = { settings, openGroup, openPeople, openInvites, openRoute ->
-            Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.VOCE.id), color = BipeTheme.colors.surfaceBase) {
+            // Spec voce openLinkPhone: the only way into link-phone-show (ADR 0059).
+            if (showsLinkPhone) {
+                LinkComputerScreen(settings, onClose = { showsLinkPhone = false }, mode = LinkComputerModel.Mode.PHONE)
+            } else Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.VOCE.id), color = BipeTheme.colors.surfaceBase) {
                 LazyColumn(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
                     item { Text(stringResource(R.string.bipe_tab_you), style = MaterialTheme.typography.headlineMedium,
                         color = BipeTheme.colors.inkPrimary, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) }
@@ -128,6 +135,7 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                         item(key = "trust-gap-end") { VoceSectionHeader(null) }
                     }
                     item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
+                    item { VoceRow(PhosphorIcon.DEVICES, stringResource(R.string.bipe_app_link_phone_action), onClick = { showsLinkPhone = true }) }
                     SettingsRootSection(settings, openGroup)
                 }
             }

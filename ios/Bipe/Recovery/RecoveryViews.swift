@@ -31,6 +31,7 @@ struct RecoveryFlowView: View {
                         case .email: RecoveryEmailView(model: model)
                         case .beta: RecoveryBetaView(model: model)
                         case .waiting: RecoveryWaitingView(model: model).navigationBarBackButtonHidden()
+                        case .oldPhone: OldPhoneView(onSignedIn: model.signedInWithOldPhone)
                         }
                     }
                     .background(BipeColor.surfaceBase.ignoresSafeArea())

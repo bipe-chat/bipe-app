@@ -16,6 +16,7 @@ final class RecoveryFlowModel: ObservableObject {
         case email
         case beta
         case waiting
+        case oldPhone
     }
 
     /// Spec recovery-pin, state factor.
@@ -114,12 +115,13 @@ final class RecoveryFlowModel: ObservableObject {
         let signedIn = Set(SessionStore.loadAll().keys)
         token = store.recoveryToken(excluding: signedIn)
         hasSyncedToken = token != nil
+        // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate.
         rows = BipeOnboardingRecoveryRow.allCases.filter { row in
-            row.gate == nil && (!row.needsSyncedToken || hasSyncedToken)
+            (row.gate == nil || row == .oldPhone) && (!row.needsSyncedToken || hasSyncedToken)
         }
     }
 
-    /// Actions chooseToken, chooseEmail and chooseBeta. chooseOldPhone stays hidden until bipe-chat/bipe#203.
+    /// Actions chooseToken, chooseOldPhone, chooseEmail and chooseBeta.
     func choose(_ row: BipeOnboardingRecoveryRow) {
         switch row {
         case .token:
@@ -132,7 +134,7 @@ final class RecoveryFlowModel: ObservableObject {
             betaError = nil
             path.append(.beta)
         case .oldPhone:
-            break
+            path.append(.oldPhone)
         }
     }
 
@@ -439,6 +441,11 @@ final class RecoveryFlowModel: ObservableObject {
     }
 
     // MARK: - Sign-in
+
+    /// recovery-old-phone signed in with the old phone's approval: chat-list, with the history already here.
+    func signedInWithOldPhone(_ session: AccountSession) {
+        onSignedIn(session)
+    }
 
     /// Stores the password (this device only) and the token (synced), signs in, then opens chat-list.
     /// encryption-status then shows the ways to get the message history.

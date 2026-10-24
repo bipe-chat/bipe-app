@@ -20,6 +20,7 @@ struct VoceView: View {
     @State private var path = NavigationPath()
     @State private var openingNotes = false
     @State private var notesFailed = false
+    @State private var showsLinkPhone = false
     private enum Destination: Hashable { case notes(String), invites, trust }
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
@@ -84,6 +85,11 @@ struct VoceView: View {
                         IconLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
                     }
                     .listRowBackground(BipeColor.surfaceRaised)
+                    // Spec voce openLinkPhone: the only way into link-phone-show (ADR 0059).
+                    Button { showsLinkPhone = true } label: {
+                        IconLabel(icon: .devices, text: BipeStrings.appLinkPhoneAction)
+                    }
+                    .listRowBackground(BipeColor.surfaceRaised)
                 }
                 SettingsRootSection(model: settings)
             }
@@ -118,6 +124,9 @@ struct VoceView: View {
             await trust.load(session: chatList.session, api: api, isCompany: isCompany)
         }
         .sheet(isPresented: $showsHandlePick) { HandlePickView(model: handle) }
+        .fullScreenCover(isPresented: $showsLinkPhone) {
+            LinkComputerView(settings: settings, mode: .phone)
+        }
         .alert(BipeStrings.selfChatError, isPresented: $notesFailed) {
             Button(BipeStrings.appRetry, action: openNotes)
             Button(BipeStrings.appCancel, role: .cancel) {}

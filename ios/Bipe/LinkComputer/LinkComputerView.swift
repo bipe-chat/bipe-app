@@ -9,12 +9,13 @@ import UIKit
 
 /// The link-a-computer flow: link-computer-scan, then link-computer-warning, then link-computer-approve.
 /// The only way into it is Settings > Linked devices > Link a computer (ADR 0116, security.md rule 5).
+/// Mode phone: link-phone-show, then link-phone-approve; the only way in is Você > Conectar outro aparelho (ADR 0059).
 struct LinkComputerView: View {
     @StateObject private var model: LinkComputerModel
     @Environment(\.dismiss) private var dismiss
 
-    init(settings: SettingsModel) {
-        _model = StateObject(wrappedValue: LinkComputerModel(settings: settings))
+    init(settings: SettingsModel, mode: LinkComputerModel.Mode = .computer) {
+        _model = StateObject(wrappedValue: LinkComputerModel(settings: settings, mode: mode))
     }
 
     var body: some View {
@@ -22,6 +23,7 @@ struct LinkComputerView: View {
             Group {
                 switch model.step {
                 case .scan: LinkComputerScanView(model: model)
+                case .show: LinkPhoneShowView(model: model)
                 case .warning: LinkComputerWarningView(model: model)
                 case .approve: LinkComputerApproveView(model: model)
                 }
@@ -127,7 +129,7 @@ private struct LinkComputerScanView: View {
             Text(BipeStrings.linkComputerErrorTitle)
                 .font(.headline)
                 .foregroundStyle(BipeColor.trustDangerInk)
-            Text(error.message)
+            Text(error.message(model.mode))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
             Button {
@@ -160,12 +162,18 @@ private struct LinkComputerWarningView: View {
                 .frame(width: 48, height: 48)
                 .foregroundStyle(BipeColor.trustCautionInk)
                 .accessibilityHidden(true)
-            Text(BipeStrings.linkComputerWarningTitle)
+            Text(model.mode == .computer ? BipeStrings.linkComputerWarningTitle : BipeStrings.appLinkPhoneWarningTitle)
                 .font(.title2.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
-            Text(BipeStrings.linkComputerWarningBody)
+            Text(model.mode == .computer ? BipeStrings.linkComputerWarningBody : BipeStrings.appLinkPhoneWarningBody)
                 .foregroundStyle(BipeColor.inkPrimary)
-            Text(BipeStrings.linkComputerWarningScam)
+            // ADR 0059: the time of the request; the model and the place show on the MAS page.
+            if model.mode == .phone, let requestedAt = model.requestedAt {
+                Text(BipeStrings.appLinkPhoneTime(requestedAt.formatted(date: .omitted, time: .shortened)))
+                    .font(.body.bold())
+                    .foregroundStyle(BipeColor.inkPrimary)
+            }
+            Text(model.mode == .computer ? BipeStrings.linkComputerWarningScam : BipeStrings.appLinkPhoneScam)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .foregroundStyle(BipeColor.inkPrimary)
@@ -181,7 +189,7 @@ private struct LinkComputerWarningView: View {
             .disabled(!model.canContinue)
         }
         .padding(16)
-        .accessibilityIdentifier(BipeScreen.linkComputerWarning.rawValue)
+        .accessibilityIdentifier(model.mode == .computer ? BipeScreen.linkComputerWarning.rawValue : BipeScreen.linkPhoneApprove.rawValue)
         .onAppear {
             UINotificationFeedbackGenerator().notificationOccurred(.warning)
             model.warningAppeared()
@@ -219,7 +227,7 @@ private struct LinkComputerApproveView: View {
                 }
             case .finishing:
                 ProgressView()
-                Text(BipeStrings.appLinkComputerFinishing)
+                Text(model.mode == .computer ? BipeStrings.appLinkComputerFinishing : BipeStrings.appLinkPhoneFinishing)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .frame(maxHeight: .infinity)
             case .done:
@@ -228,34 +236,34 @@ private struct LinkComputerApproveView: View {
                     .frame(width: 48, height: 48)
                     .foregroundStyle(BipeColor.trustVerifiedInk)
                     .accessibilityHidden(true)
-                Text(BipeStrings.linkComputerDone)
+                Text(model.mode == .computer ? BipeStrings.linkComputerDone : BipeStrings.appLinkPhoneDone)
                     .font(.title3.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
                 Spacer()
             case .failed:
-                Text(BipeStrings.linkComputerErrorTitle)
+                Text(model.mode == .computer ? BipeStrings.linkComputerErrorTitle : BipeStrings.appLinkPhoneErrorTitle)
                     .font(.headline)
                     .foregroundStyle(BipeColor.trustDangerInk)
-                Text(model.approveError?.message ?? BipeStrings.errorGeneric)
+                Text(model.approveError?.message(model.mode) ?? BipeStrings.errorGeneric)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
                 Button {
                     model.retry()
                 } label: {
-                    Text(BipeStrings.appLinkComputerScanAgain)
+                    Text(model.mode == .computer ? BipeStrings.appLinkComputerScanAgain : BipeStrings.appLinkPhoneNewCode)
                 }
                 .buttonStyle(.borderedProminent)
                 Spacer()
             }
         }
         .padding(16)
-        .accessibilityIdentifier(BipeScreen.linkComputerApprove.rawValue)
+        .accessibilityIdentifier(model.mode == .computer ? BipeScreen.linkComputerApprove.rawValue : BipeScreen.linkPhoneApprove.rawValue)
     }
 
     private var placeHeader: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(BipeStrings.linkComputerConsentHint)
+            Text(model.mode == .computer ? BipeStrings.linkComputerConsentHint : BipeStrings.appLinkPhoneConsentHint)
                 .font(.subheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             if model.placeKnown {
