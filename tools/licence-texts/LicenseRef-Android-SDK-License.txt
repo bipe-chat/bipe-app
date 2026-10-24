@@ -1,0 +1,8 @@
+Google Play services client libraries
+
+Copyright Google LLC.
+
+These libraries are not open source. Google provides them under the Android Software Development Kit License Agreement:
+https://developer.android.com/studio/terms
+
+Bipe uses them in the Android Play build only (Bipe ADR 0150): Block Store keeps the recovery token in the Google account, so a new phone finds it. The Android build without Google Play services does not contain them.

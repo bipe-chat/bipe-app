@@ -10,18 +10,46 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// The Firebase project's client values (not secrets: they ship in every APK). BuildConfig field to Gradle property.
+val firebaseValues = mapOf(
+    "FIREBASE_APP_ID" to "bipeFirebaseAppId",
+    "FIREBASE_PROJECT_ID" to "bipeFirebaseProjectId",
+    "FIREBASE_API_KEY" to "bipeFirebaseApiKey",
+    "FIREBASE_SENDER_ID" to "bipeFirebaseSenderId",
+)
+
 android {
     namespace = "chat.bipe.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "chat.bipe.app.next"
+        // ID set (bipe-chat/bipe#602, docs/client-switch-plan.md step 2): tester builds use chat.bipe.app.next;
+        // -PbipeIdSet=store builds the fork's ID (ADR 0061). CI builds the store set unsigned and never uploads it
+        // before the switch.
+        applicationId = if (findProperty("bipeIdSet") == "store") "chat.bipe.app" else "chat.bipe.app.next"
         minSdk = 26
         targetSdk = 36
         // CI passes the tester version (ADR 0088): the version name of bipe-shared product/version.json and
         // its build plus the run number. Other builds keep these placeholders.
         versionCode = (findProperty("bipeBuildNumber") as String?)?.toInt() ?: 1
         versionName = (findProperty("bipeVersionName") as String?) ?: "0.1.0"
+    }
+
+    // ADR 0150: the play flavour may use Google Block Store; foss has no Google Play services (the build without
+    // Google that ADR 0150 keeps possible). Tester and store builds are play.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+            isDefault = true
+            // FCM (ADR 0150): the Firebase project's client values, from CI repository variables. Empty: no pushes.
+            for ((field, property) in firebaseValues) {
+                buildConfigField("String", field, "\"${(findProperty(property) as String?).orEmpty()}\"")
+            }
+        }
+        create("foss") {
+            dimension = "distribution"
+        }
     }
 
     buildTypes {
@@ -43,6 +71,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     // pt-BR is the default language (res/values), en the second one (res/values-en).
@@ -79,4 +108,8 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.zxing.core)
+    // Recovery token sync (ADR 0059, ADR 0150): src/play/.../BlockStoreRecoveryTokenSync.kt.
+    "playImplementation"(libs.play.services.auth.blockstore)
+    // Push transport (ADR 0150): src/play/.../PushTransports.kt.
+    "playImplementation"(libs.firebase.messaging)
 }

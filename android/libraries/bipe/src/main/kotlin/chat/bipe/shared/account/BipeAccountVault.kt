@@ -46,10 +46,12 @@ data class BipeVaultAccount(
     /** The hidden MAS password (ADR 0059: this device only). */
     @SerialName("password") val password: String? = null,
     /**
-     * The recovery token. Android keeps it here, on this phone only: the synced store (Block Store) is not in bipe-app
-     * yet, its licence needs an ADR (bipe-chat/bipe#554).
+     * The recovery token. Kept here too, so recovery-start finds it after a sign-out even without the synced store.
+     * The Play build also writes it to Block Store ([BipeRecoveryTokens], ADR 0150).
      */
     @SerialName("token") val token: String? = null,
+    /** True once [token] is in the synced store. A new token starts unsynced. */
+    @SerialName("token_synced") val tokenSynced: Boolean = false,
 ) {
     override fun toString(): String = "BipeVaultAccount"
 }
@@ -63,38 +65,81 @@ data class BipeVaultData(
     @SerialName("pending_inviters") val pendingInviters: Map<String, String> = emptyMap(),
     /** A slow recovery that waits for its claim (spec recovery-waiting). On this device only, until the claim ends. */
     @SerialName("pending_recovery") val pendingRecovery: BipeRecoveryStarted? = null,
+    /**
+     * Matrix ID ([LEGACY_OWNER] for the entry from before bipe-chat/bipe#265) to the fingerprint
+     * ([BipeSyncedTokenCodec.fingerprint]) of a token the API rejected (`recovery_invalid`) or a recovery replaced, until
+     * the synced store no longer holds it. recovery-start never offers it again.
+     */
+    @SerialName("revoked_tokens") val revokedTokens: Map<String, String> = emptyMap(),
 ) {
     override fun toString(): String = "BipeVaultData"
+
+    /** New credentials under their Matrix ID; the account becomes the newest. The token is not synced yet. */
+    fun withCredentials(userId: String, password: String, token: String): BipeVaultData =
+        copy(accounts = accounts - userId + (userId to BipeVaultAccount(password, token)))
+
+    /** Marks the token synced, only when the account still has this token. */
+    fun withTokenSynced(userId: String, token: String): BipeVaultData {
+        val account = accounts[userId]?.takeIf { it.token == token } ?: return this
+        return copy(accounts = accounts + (userId to account.copy(tokenSynced = true)))
+    }
+
+    /** [token] is no longer good: it leaves the account and is remembered until the synced store drops it. */
+    fun withRevokedToken(userId: String?, token: String): BipeVaultData {
+        val account = userId?.let(accounts::get)
+        val kept = when {
+            account == null || account.token != token -> accounts
+            account.password == null -> accounts - userId!!
+            else -> accounts + (userId!! to account.copy(token = null, tokenSynced = false))
+        }
+        val owner = userId ?: LEGACY_OWNER
+        return copy(accounts = kept, revokedTokens = revokedTokens + (owner to BipeSyncedTokenCodec.fingerprint(token)))
+    }
+
+    /** The synced store no longer holds the rejected token. [owner] is a key of [revokedTokens]. */
+    fun withoutRevoked(owner: String, fingerprint: String): BipeVaultData =
+        if (revokedTokens[owner] == fingerprint) copy(revokedTokens = revokedTokens - owner) else this
+
+    companion object {
+        /** The key of [revokedTokens] for the entry from before bipe-chat/bipe#265. A Matrix ID is never empty. */
+        const val LEGACY_OWNER = ""
+    }
+}
+
+/** Reads and changes [BipeVaultData]. [BipeAccountVault] on the phone; tests use a copy in memory. */
+interface BipeVaultStore {
+    suspend fun read(): BipeVaultData
+
+    /** Skips the write when the data cannot be read now. */
+    suspend fun update(transform: (BipeVaultData) -> BipeVaultData)
 }
 
 /**
  * Device-only secrets of device-first accounts: one file in `noBackupFilesDir`, encrypted with an Android Keystore key
  * (AES-GCM). Android leaves that folder out of backups and device transfer, and the key cannot leave the phone.
- * Never logged.
+ * Never logged. A file there that this app's key never wrote is the fork's vault: it is set aside, never deleted
+ * ([BipeForkVault]).
  */
-class BipeAccountVault(context: Context) {
+class BipeAccountVault(context: Context) : BipeVaultStore {
     private val file = File(context.noBackupFilesDir, FILE_NAME)
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun read(): BipeVaultData = mutex.withLock { decode() ?: BipeVaultData() }
+    override suspend fun read(): BipeVaultData = mutex.withLock { decode() ?: BipeVaultData() }
 
     /** Skips the write when the file cannot be read now: writing over it would lose the hidden password. */
-    suspend fun update(transform: (BipeVaultData) -> BipeVaultData) = mutex.withLock {
-        val current = decode() ?: return@withLock
-        save(transform(current))
+    override suspend fun update(transform: (BipeVaultData) -> BipeVaultData) {
+        mutex.withLock {
+            val current = decode() ?: return@withLock
+            save(transform(current))
+        }
     }
 
-    /** Keeps new credentials under their Matrix ID and makes the account the newest. */
-    suspend fun store(userId: String, password: String, token: String) = update { data ->
-        data.copy(accounts = data.accounts - userId + (userId to BipeVaultAccount(password, token)))
-    }
-
-    /** After the API rejected the token (`recovery_invalid`): recovery-start shows without the token row. */
-    suspend fun deleteToken(userId: String) = update { data ->
-        val account = data.accounts[userId] ?: return@update data
-        data.copy(accounts = data.accounts + (userId to account.copy(token = null)))
-    }
+    /**
+     * Keeps new credentials under their Matrix ID and makes the account the newest. [BipeRecoveryTokens.syncSoon] then
+     * writes the token to the synced store.
+     */
+    suspend fun store(userId: String, password: String, token: String) = update { it.withCredentials(userId, password, token) }
 
     suspend fun savePendingRecovery(recovery: BipeRecoveryStarted) = update { it.copy(pendingRecovery = recovery) }
 
@@ -115,6 +160,14 @@ class BipeAccountVault(context: Context) {
     /** `null` when the file exists but cannot be read now (a Keystore error that may pass). */
     private suspend fun decode(): BipeVaultData? = withContext(Dispatchers.IO) {
         if (!file.exists()) return@withContext BipeVaultData()
+        // A Keystore that cannot answer now is like any other passing Keystore error: keep the file, write nothing.
+        val ownKey = runCatching { hasOwnKey() }.getOrNull() ?: return@withContext null
+        if (!ownKey) {
+            // This app never wrote the file: on the store ID set it is the fork's vault (same name, its own key,
+            // bipe-chat/bipe#603). Keep it for BipeForkVault and start empty; never delete it as a lost key. When the
+            // move fails, write nothing, so the fork's file is never overwritten.
+            return@withContext if (setAside(file)) BipeVaultData() else null
+        }
         try {
             val sealed = Base64.decode(file.readText(), Base64.NO_WRAP)
             val cipher = Cipher.getInstance(TRANSFORMATION)
@@ -145,6 +198,15 @@ class BipeAccountVault(context: Context) {
             file.delete()
             temp.renameTo(file)
         }
+    }
+
+    private fun hasOwnKey(): Boolean = KeyStore.getInstance(KEYSTORE).apply { load(null) }.containsAlias(KEY_ALIAS)
+
+    /** Moves [foreign] to [BipeForkVault.FILE_NAME], or next to it when an earlier one is there already. */
+    private fun setAside(foreign: File): Boolean {
+        val target = File(foreign.parentFile, BipeForkVault.FILE_NAME)
+        val free = if (!target.exists()) target else File(foreign.parentFile, "${BipeForkVault.FILE_NAME}.${System.currentTimeMillis()}")
+        return foreign.renameTo(free)
     }
 
     private fun key(): SecretKey {

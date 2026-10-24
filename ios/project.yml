@@ -37,6 +37,12 @@ settings:
     # Name under the home screen icon. Tester builds are "Bipe Next" (ADR 0147). At the switch
     # to the fork's IDs (ADR 0061) this becomes "Bipe". All three targets read it.
     BIPE_DISPLAY_NAME: Bipe Next
+    # ID set (bipe-chat/bipe#602, docs/client-switch-plan.md step 2). Tester builds: chat.bipe.app.next.
+    # The store set (the fork's IDs, ADR 0061) passes BIPE_APP_ID=chat.bipe.app BIPE_APP_GROUP=group.chat.bipe
+    # BIPE_DISPLAY_NAME=Bipe on the xcodebuild command line; CI builds it unsigned and never uploads it before the switch.
+    # The extension IDs derive from BIPE_APP_ID (.nse, .share); for the store set that is unverified against the fork.
+    BIPE_APP_ID: chat.bipe.app.next
+    BIPE_APP_GROUP: group.chat.bipe.next
 
 packages:
   MatrixRustSDK:
@@ -62,7 +68,9 @@ targets:
         CFBundleDevelopmentRegion: pt-BR
         CFBundleLocalizations: [pt-BR, en]
         # Credential mutations always name this expanded own group; the fork group is read-only (ADR 0147).
-        BipeOwnedKeychainGroup: $(AppIdentifierPrefix)chat.bipe.app.next
+        BipeOwnedKeychainGroup: $(AppIdentifierPrefix)$(BIPE_APP_ID)
+        BipeAppID: $(BIPE_APP_ID)
+        BipeAppGroup: $(BIPE_APP_GROUP)
         BipeLegacyKeychainReadGroups: [992N457T8D.chat.bipe.app.dev]
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
@@ -89,14 +97,14 @@ targets:
     entitlements:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:
-        com.apple.security.application-groups: [group.chat.bipe.next]
+        com.apple.security.application-groups: [$(BIPE_APP_GROUP)]
         # Pushes through Bipe's Sygnal (spec push-registration). Export for TestFlight and ad hoc
         # signs with the production environment; the tester archive sets it (BIPE_APS_ENVIRONMENT).
         aps-environment: $(BIPE_APS_ENVIRONMENT)
         # The app's own group first, then the fork's group (ADR 0147): the app reads the device
         # account that the fork stored (BipeKit BipeCredentialStore) and never writes there.
         keychain-access-groups:
-          - $(AppIdentifierPrefix)chat.bipe.app.next
+          - $(AppIdentifierPrefix)$(BIPE_APP_ID)
           - 992N457T8D.chat.bipe.app.dev
         # App Attest at sign-up (spec signup-create, ADR 0022). Automatic signing adds the capability.
         com.apple.developer.devicecheck.appattest-environment: production
@@ -104,7 +112,7 @@ targets:
         com.apple.developer.associated-domains: [applinks:bipe.chat, applinks:www.bipe.chat]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next
+        PRODUCT_BUNDLE_IDENTIFIER: $(BIPE_APP_ID)
         PROVISIONING_PROFILE_SPECIFIER: $(BIPE_CI_PROFILE_APP)
         CODE_SIGN_STYLE: $(BIPE_SIGN_STYLE)
         CODE_SIGN_IDENTITY: $(BIPE_SIGN_IDENTITY)
@@ -143,19 +151,21 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: pt-BR
         CFBundleLocalizations: [pt-BR, en]
+        BipeAppID: $(BIPE_APP_ID)
+        BipeAppGroup: $(BIPE_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
     entitlements:
       path: SupportFiles/BipeNotificationService/BipeNotificationService.entitlements
       properties:
-        com.apple.security.application-groups: [group.chat.bipe.next]
+        com.apple.security.application-groups: [$(BIPE_APP_GROUP)]
         # The app's keychain group first, so the extension reads the session the app saved (SessionStore).
         keychain-access-groups:
-          - $(AppIdentifierPrefix)chat.bipe.app.next
+          - $(AppIdentifierPrefix)$(BIPE_APP_ID)
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next.nse
+        PRODUCT_BUNDLE_IDENTIFIER: $(BIPE_APP_ID).nse
         PROVISIONING_PROFILE_SPECIFIER: $(BIPE_CI_PROFILE_NSE)
         CODE_SIGN_STYLE: $(BIPE_SIGN_STYLE)
         CODE_SIGN_IDENTITY: $(BIPE_SIGN_IDENTITY)
@@ -182,6 +192,8 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: pt-BR
         CFBundleLocalizations: [pt-BR, en]
+        BipeAppID: $(BIPE_APP_ID)
+        BipeAppGroup: $(BIPE_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
@@ -193,10 +205,10 @@ targets:
     entitlements:
       path: SupportFiles/BipeShare/BipeShare.entitlements
       properties:
-        com.apple.security.application-groups: [group.chat.bipe.next]
+        com.apple.security.application-groups: [$(BIPE_APP_GROUP)]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.next.share
+        PRODUCT_BUNDLE_IDENTIFIER: $(BIPE_APP_ID).share
         PROVISIONING_PROFILE_SPECIFIER: $(BIPE_CI_PROFILE_SHARE)
         CODE_SIGN_STYLE: $(BIPE_SIGN_STYLE)
         CODE_SIGN_IDENTITY: $(BIPE_SIGN_IDENTITY)

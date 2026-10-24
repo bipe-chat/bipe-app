@@ -24,6 +24,9 @@ truth = "1.4.4"
 compose-material-icons = "1.7.8"
 camerax = "1.4.2"
 zxing = "3.5.3"
+# Play flavour only (ADR 0150).
+play-services-auth-blockstore = "16.4.0"
+firebase-messaging = "24.1.0"
 
 [libraries]
 matrix-rust-sdk = { module = "org.matrix.rustcomponents:sdk-android", version.ref = "matrix-rust-sdk" }
@@ -54,6 +57,9 @@ androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.r
 androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+# Play flavour only (ADR 0150): closed source, "scope": "play" in tools/licences.json, playImplementation lines only.
+play-services-auth-blockstore = { module = "com.google.android.gms:play-services-auth-blockstore", version.ref = "play-services-auth-blockstore" }
+firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebase-messaging" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
