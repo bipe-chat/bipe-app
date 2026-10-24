@@ -193,26 +193,83 @@ struct OnboardingWelcomeView: View {
     @ObservedObject var model: SignupFlowModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Spacer()
-            PhosphorIcon.chatCircle.image
-                .resizable()
-                .frame(width: 56, height: 56)
-                .foregroundStyle(BipeColor.accentInk)
-                .accessibilityHidden(true)
-            Text(BipeStrings.onboardingWelcome)
-                .font(.headline)
-                .foregroundStyle(BipeColor.accentInk)
-            Text(title)
-                .font(.largeTitle.bold())
-                .foregroundStyle(BipeColor.inkPrimary)
-            // The order of linguagem.md section 3: scam check, Brazil, no ads.
-            VStack(alignment: .leading, spacing: 10) {
-                point(BipeStrings.onboardingPointScam)
-                point(BipeStrings.onboardingPointBrazil)
-                point(BipeStrings.onboardingPointNoAds)
+        // The window decides the layout, never the device (docs/iphone-duo.md): the open iPhone Duo,
+        // iPad and landscape put the hero beside the actions; a tall window stacks them.
+        GeometryReader { window in
+            if window.size.width >= 600 && window.size.width > window.size.height {
+                // Half and half, so the split meets the fold of the open iPhone Duo.
+                HStack(spacing: 0) {
+                    hero
+                        .padding(16)
+                        .frame(maxWidth: .infinity)
+                    actions
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 24)
+                        .frame(maxWidth: 480)
+                        .frame(maxWidth: .infinity)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    hero
+                        .frame(height: window.size.height * 0.42)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                    actions
+                        .padding(24)
+                        .frame(maxWidth: 560)
+                }
+                .frame(maxWidth: .infinity)
             }
-            Spacer()
+        }
+        .accessibilityIdentifier(BipeScreen.onboardingWelcome.rawValue)
+        .task { await model.appear() }
+    }
+
+    /// The açaí panel: wordmark, welcome line and title over a faint bubble texture (identity.md: Brazilian in
+    /// texture, warm açaí, never flag colours; amber, green and red stay trust colours).
+    private var hero: some View {
+        ZStack(alignment: .bottomLeading) {
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .fill(LinearGradient(colors: [BipeColor.accentFill, BipeColor.accentFillPressed],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+            BubbleTexture()
+                .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 12) {
+                // The horizontal lockup of artwork-brief.md: mark, then the lowercase wordmark.
+                HStack(spacing: 12) {
+                    BipeMark()
+                        .frame(width: 40, height: 40)
+                        .accessibilityHidden(true)
+                    Text(BipeStrings.appName.lowercased())
+                        .font(.system(size: 52, weight: .heavy, design: .rounded))
+                        .accessibilityAddTraits(.isHeader)
+                }
+                Spacer(minLength: 0)
+                Text(BipeStrings.onboardingWelcome)
+                    .font(.system(.headline, design: .rounded))
+                    .opacity(0.85)
+                Text(title)
+                    .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                    .minimumScaleFactor(0.7)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundStyle(BipeColor.inkOnAccent)
+            .padding(28)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private var actions: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Spacer(minLength: 0)
+            // The order of linguagem.md section 3: scam check, Brazil, no ads.
+            VStack(alignment: .leading, spacing: 14) {
+                point(.magnifyingGlass, BipeStrings.onboardingPointScam)
+                point(.lockSimple, BipeStrings.onboardingPointBrazil)
+                point(.prohibit, BipeStrings.onboardingPointNoAds)
+            }
+            Spacer(minLength: 0)
             if model.variant == .loading {
                 ProgressView().frame(maxWidth: .infinity)
             } else {
@@ -227,9 +284,6 @@ struct OnboardingWelcomeView: View {
                 }
             }
         }
-        .padding(24)
-        .accessibilityIdentifier(BipeScreen.onboardingWelcome.rawValue)
-        .task { await model.appear() }
     }
 
     /// The title of the start variant; invited names the inviter.
@@ -261,10 +315,48 @@ struct OnboardingWelcomeView: View {
         }
     }
 
-    private func point(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Circle().fill(BipeColor.accentFill).frame(width: 6, height: 6).padding(.top, 8)
-            Text(text).foregroundStyle(BipeColor.inkPrimary)
+    /// The tile of identity.md: 44-point rounded square, açaí wash, accent glyph. Never the seal shape.
+    private func point(_ icon: PhosphorIcon, _ text: String) -> some View {
+        HStack(spacing: 14) {
+            icon.image
+                .resizable()
+                .frame(width: 22, height: 22)
+                .foregroundStyle(BipeColor.accentInk)
+                .frame(width: 44, height: 44)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(BipeColor.accentWash))
+                .accessibilityHidden(true)
+            Text(text)
+                .foregroundStyle(BipeColor.inkPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// Bipe marks at low contrast over the hero: the bubble-and-notch motif of identity.md, not a pattern of objects.
+private struct BubbleTexture: View {
+    private struct Bubble {
+        let x: CGFloat, y: CGFloat, size: CGFloat, opacity: Double
+    }
+
+    /// Positions as fractions of the panel, so the texture follows the window size.
+    private let bubbles = [
+        Bubble(x: 0.86, y: 0.22, size: 0.50, opacity: 0.12),
+        Bubble(x: 0.34, y: 0.52, size: 0.24, opacity: 0.07),
+        Bubble(x: 1.00, y: 0.66, size: 0.30, opacity: 0.09),
+        Bubble(x: 0.62, y: 0.44, size: 0.10, opacity: 0.12),
+    ]
+
+    var body: some View {
+        GeometryReader { panel in
+            let side = min(panel.size.width, panel.size.height * 1.4)
+            ForEach(bubbles.indices, id: \.self) { index in
+                let bubble = bubbles[index]
+                // Upright only: the notch stays top-leading, as on the icon.
+                BipeMark()
+                    .fill(BipeColor.inkOnAccent.opacity(bubble.opacity))
+                    .frame(width: side * bubble.size, height: side * bubble.size)
+                    .position(x: panel.size.width * bubble.x, y: panel.size.height * bubble.y)
+            }
         }
     }
 }
