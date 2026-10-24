@@ -22,8 +22,10 @@ object AppConfig {
     const val PUSH_GATEWAY_URL = "https://push.bipe.net.br/_matrix/push/v1/notify"
 
     /**
-     * The Sygnal app ID of this build: the application ID plus `.android.dev` (debug) or `.android.prod`
-     * (tester APK), as bipe/docs/platform-parity.md.
+     * The Sygnal app ID of this build: the application ID without the debug suffix plus `.android.dev` (debug) or
+     * `.android.prod` (tester APK), as bipe/docs/platform-parity.md. The ID set (bipe-chat/bipe#602) picks the
+     * application ID: chat.bipe.app.next for tester builds.
      */
-    fun pusherAppId(isDebug: Boolean): String = if (isDebug) "chat.bipe.app.next.android.dev" else "chat.bipe.app.next.android.prod"
+    fun pusherAppId(packageName: String, isDebug: Boolean): String =
+        packageName.removeSuffix(".debug") + if (isDebug) ".android.dev" else ".android.prod"
 }

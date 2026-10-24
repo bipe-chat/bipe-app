@@ -82,7 +82,7 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
     fun tokenReceived(pushkey: String) {
         val session = session ?: return
         if (_permission.value != Permission.ALLOWED) return
-        val appId = AppConfig.pusherAppId(isDebug)
+        val appId = AppConfig.pusherAppId(context.packageName, isDebug)
         val lang = appLanguage()
         val current = _registration.value
         if (current != null && current.userId == session.userId && current.pushkey == pushkey && current.appId == appId && current.lang == lang) return

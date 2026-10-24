@@ -15,7 +15,10 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "chat.bipe.app.next"
+        // ID set (bipe-chat/bipe#602, docs/client-switch-plan.md step 2): tester builds use chat.bipe.app.next;
+        // -PbipeIdSet=store builds the fork's ID (ADR 0061). CI builds the store set unsigned and never uploads it
+        // before the switch.
+        applicationId = if (findProperty("bipeIdSet") == "store") "chat.bipe.app" else "chat.bipe.app.next"
         minSdk = 26
         targetSdk = 36
         // CI passes the tester version (ADR 0088): the version name of bipe-shared product/version.json and
