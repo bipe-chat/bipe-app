@@ -55,6 +55,7 @@ import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.BipeProfileProblem
 import chat.bipe.shared.BipeProfileRules
+import chat.bipe.shared.BipeNameLookalikes
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
@@ -153,7 +154,9 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit) {
         runCatching { client.avatarUrl() }.getOrNull()?.let { avatarUrl = it }
         isCompany = people.isCompany(people.session.userId)
     }
+    // Spec profile-edit nameProblem: lookalikeEmoji after the shared rules (security rule 8).
     val problem = BipeProfileRules.problem(name, "")
+        ?: if (BipeNameLookalikes.sealLookalike(name) != null) BipeProfileProblem.NAME_LOOKALIKE_EMOJI else null
     val changed = name.trim() != originalName || newPhoto != null || removesPhoto
 
     PeopleScaffold(stringResource(R.string.bipe_settings_profile_name_photo), BipeScreen.PROFILE_EDIT.id, onBack = { if (!saving) onBack() }) {

@@ -111,6 +111,7 @@ struct ChatListView: View {
             }
         }
         .task { await requests.start() }
+        .onReceive(model.$chats) { requests.rememberDmPartners($0) }
         .task { await banner.refresh() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await banner.refresh(); await requests.refreshTrust() } }

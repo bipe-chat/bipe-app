@@ -13,10 +13,12 @@ public enum BipeProfileProblem: String, Sendable, Equatable {
     case bioTooManyLines = "bio_too_many_lines"
     /// Server only: turning the profile on needs a handle.
     case noHandle = "no_handle"
+    /// App only (profile-edit, security rule 8): a mark that looks like the verified seal.
+    case nameLookalikeEmoji = "name_lookalike_emoji"
     
     public var isNameProblem: Bool {
         switch self {
-        case .nameEmpty, .nameTooLong, .nameReserved: true
+        case .nameEmpty, .nameTooLong, .nameReserved, .nameLookalikeEmoji: true
         case .bioTooLong, .bioTooManyLines, .noHandle: false
         }
     }
@@ -29,6 +31,7 @@ public enum BipeProfileProblem: String, Sendable, Equatable {
         case .bioTooLong: BipeStrings.publicProfileBioTooLong(String(BipeRegistries.profileBioMaxLength))
         case .bioTooManyLines: BipeStrings.publicProfileBioTooManyLines(String(BipeRegistries.profileBioMaxLines))
         case .noHandle: BipeStrings.publicProfileNeedsHandle
+        case .nameLookalikeEmoji: BipeStrings.warningNameLookalikeEmoji
         }
     }
 }

@@ -7,6 +7,7 @@ package chat.bipe.app.chatlist
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -58,6 +60,7 @@ import chat.bipe.app.people.PeopleService
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.BipeNameLookalikes
 import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.inviteConnections
@@ -104,6 +107,28 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
     private val _groupInvites = MutableStateFlow<List<ChatRequestSummary>>(emptyList())
     private val _pending = MutableStateFlow<Set<String>>(emptySet())
     private val _error = MutableStateFlow(false)
+
+    private val _dmPartnerNames = MutableStateFlow<Map<String, String>>(emptyMap())
+
+    /** People with a joined DM, peer user ID → the name the chat list shows. Memory only, this account. */
+    val dmPartnerNames: StateFlow<Map<String, String>> = _dmPartnerNames.asStateFlow()
+
+    fun rememberDmPartners(chats: List<ChatSummary>) {
+        val names = LinkedHashMap<String, String>()
+        for (chat in chats) if (chat.isDm) chat.peerUserId?.let { names.putIfAbsent(it, chat.name) }
+        _dmPartnerNames.value = names
+    }
+
+    /**
+     * Spec chat-request contactCollision (security rule 8): the contact name that the inviter's name copies.
+     * A verified inviter shows the seal instead. Contacts: joined DMs and address-book matches, never the inviter.
+     */
+    fun contactCollision(request: ChatRequestSummary, verified: Boolean): String? {
+        if (verified || request.trust == ChatRequestSummary.Trust.EXTERNAL) return null
+        val names = _dmPartnerNames.value.filterKeys { it != request.inviterId }.values +
+            people.contactNames.value.filterKeys { it != request.inviterId }.values
+        return BipeNameLookalikes.contactCollision(request.name, names)
+    }
 
     /** Requests: DM invites, newest first. They never show in chat-list. */
     val requests: StateFlow<List<ChatRequestSummary>> = _requests.asStateFlow()
@@ -411,6 +436,10 @@ fun ChatRequestScreen(
                 val trust = requestTrust(model, request)
                 TrustBlock(trust)
                 RequestNameWarning(model.people, request.inviterId, trust.verifiedName, trust.identityKey)
+                val dmNames by model.dmPartnerNames.collectAsState()
+                val contactNames by model.people.contactNames.collectAsState()
+                remember(request, trust.verifiedName, dmNames, contactNames) { model.contactCollision(request, trust.verifiedName != null) }
+                    ?.let { ContactCollisionCard(it) }
                 if (error) Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
                 if (reported) Text(stringResource(R.string.bipe_dm_reported_and_left), color = colors.inkSecondary, textAlign = TextAlign.Center)
                 val enabled = !isWorking && !reported
@@ -521,5 +550,21 @@ fun GroupInviteRow(model: ChatRequestsModel, invite: ChatRequestSummary, media: 
                 }
             }
         }
+    }
+}
+
+/** Security rule 8: a stranger whose name copies a contact's. Caution, with an icon, not colour alone. */
+@Composable
+private fun ContactCollisionCard(contact: String) {
+    val colors = BipeTheme.colors
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        Modifier.fillMaxWidth().background(colors.trustCautionWash, shape).border(1.dp, colors.trustCautionLine, shape)
+            .padding(16.dp).semantics(mergeDescendants = true) {},
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustCautionInk, modifier = Modifier.size(18.dp))
+        Text(stringResource(R.string.bipe_warning_not_your_contact, contact), color = colors.trustCautionInk)
     }
 }
