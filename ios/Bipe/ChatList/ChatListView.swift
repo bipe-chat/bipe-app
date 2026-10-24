@@ -10,6 +10,13 @@ import SwiftUI
 
 private enum RequestInboxRoute: Hashable { case inbox }
 
+/// The root of the detail column: an action from the list replaces it; screens inside the detail push onto `path`.
+private enum ChatDetail: Hashable {
+    case room(String)
+    case requests
+    case people(PeopleRoute)
+}
+
 /// Spec chat-list, one scope: Conversas or Grupos (ADR 0053).
 struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
@@ -22,9 +29,14 @@ struct ChatListView: View {
     @StateObject private var requests: ChatRequestsModel
     @StateObject private var banner: RemoteBannerModel
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var encryption: EncryptionStatusModel
     @StateObject private var people: PeopleService
-    @State private var path: NavigationPath
+    /// One selection for both layouts. A wide window shows it beside the list; a narrow one pushes it.
+    /// Opening or closing an iPhone Duo keeps the same detail, timeline and path (docs/iphone-duo.md).
+    @State private var detail: ChatDetail?
+    @State private var path = NavigationPath()
+    @State private var compactColumn: NavigationSplitViewColumn
     @State private var showsHandlePick = false
     @State private var openingLink: String?
     /// queue-customer from the counter QR code (https://bipe.chat/@handle?fila).
@@ -56,12 +68,13 @@ struct ChatListView: View {
         _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
         _people = StateObject(wrappedValue: people)
-        _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
+        _detail = State(initialValue: initialRoomId.map(ChatDetail.room))
+        _compactColumn = State(initialValue: initialRoomId == nil ? .sidebar : .detail)
         self.scope = scope
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationSplitView(preferredCompactColumn: $compactColumn) {
             VStack(spacing: 0) {
                 // Spec encryption-status: the banner above the chat list.
                 if scope == .conversas && encryption.showsBanner {
@@ -71,22 +84,7 @@ struct ChatListView: View {
             }
             .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
-            .navigationDestination(for: String.self) { roomId in
-                ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
-                    Task {
-                        if let userId = await people.dmPartner(roomId: roomId) {
-                            path.append(PeopleRoute.person(userId: userId, fromDm: true))
-                        }
-                    }
-                }
-            }
-            .navigationDestination(for: RequestInboxRoute.self) { _ in
-                ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat,
-                                 onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
-            }
-            .navigationDestination(for: PeopleRoute.self) { route in
-                peopleScreen(route)
-            }
+            .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 420)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
@@ -94,16 +92,40 @@ struct ChatListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     if let account {
                         Button(action: onOpenVoce) {
-                            AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: model.media,
-                                       size: 32, userId: account.userId, isCompany: account.isCompany)
+                            // Title and image: the system needs the title in the iPhone Duo side bar and in overflow.
+                            Label {
+                                Text(account.displayName)
+                            } icon: {
+                                AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: model.media,
+                                           size: 32, userId: account.userId, isCompany: account.isCompany)
+                            }
+                            .labelStyle(.iconOnly)
                         }
                         .accessibilityLabel(BipeStrings.appAccountCurrentA11y(account.displayName))
                     }
                 }
             }
+        } detail: {
+            NavigationStack(path: $path) {
+                detailRoot
+                    .navigationDestination(for: String.self) { roomId in
+                        timeline(roomId)
+                    }
+                    .navigationDestination(for: RequestInboxRoute.self) { _ in
+                        requestsScreen
+                    }
+                    .navigationDestination(for: PeopleRoute.self) { route in
+                        peopleScreen(route)
+                    }
+            }
         }
-        .groupHost(session: model.session, api: api, media: model.media, path: $path, creatingGroup: $creatingGroup,
-                   deletingDm: $deletingDm, showingInvites: $showingInvites)
+        .navigationSplitViewStyle(.balanced)
+        .onChange(of: compactColumn) { _, column in
+            // Back from the detail on a narrow window: nothing stays selected underneath.
+            if column == .sidebar && horizontalSizeClass == .compact { closeDetail() }
+        }
+        .groupHost(session: model.session, api: api, media: model.media, openChat: openChat, closeChat: closeDetail,
+                   creatingGroup: $creatingGroup, deletingDm: $deletingDm, showingInvites: $showingInvites)
         .environment(\.openHistoryHelp, encryption.openSheet)
         .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
             EncryptionSheet(route: route, model: encryption, session: model.session)
@@ -140,8 +162,8 @@ struct ChatListView: View {
         }
         .sheet(item: Binding(get: { openingLink.map(HandleLink.init) }, set: { openingLink = $0?.handle })) { link in
             ProfileLinkOpenView(people: people, handle: link.handle,
-                                openPerson: { path.append(PeopleRoute.person(userId: $0, fromDm: false)) },
-                                openOwnLink: { path.append(PeopleRoute.profileLink) })
+                                openPerson: { show(.people(.person(userId: $0, fromDm: false))) },
+                                openOwnLink: { show(.people(.profileLink)) })
         }
         .sheet(item: Binding(get: { openingQueue.map(HandleLink.init) }, set: { openingQueue = $0?.handle })) { link in
             QueueCustomerView(api: model.session.business(api), business: link.handle, close: { _ in openingQueue = nil })
@@ -149,7 +171,7 @@ struct ChatListView: View {
         // person-profile: group-create with the person picked, chat-notifications and dm-delete for the DM.
         .sheet(item: Binding(get: { newGroupWith.map(PeoplePick.init) }, set: { newGroupWith = $0?.people })) { pick in
             GroupCreateView(session: model.session, media: model.media, people: pick.people) { roomId, _ in
-                path = NavigationPath([roomId])
+                openChat(roomId)
             }
         }
         .sheet(item: Binding(get: { notificationsRoom.map(RoomSheetId.init) }, set: { notificationsRoom = $0?.id })) { room in
@@ -163,14 +185,14 @@ struct ChatListView: View {
             }
         }
         .sheet(item: Binding(get: { deletingFromProfile.map(RoomSheetId.init) }, set: { deletingFromProfile = $0?.id })) { room in
-            DmDeleteView(session: model.session, roomId: room.id) { path = NavigationPath() }
+            DmDeleteView(session: model.session, roomId: room.id) { closeDetail() }
         }
         // invite-signed-in: the inviter's chat or profile-link-open, in the Conversas list.
         .onReceive(TabsLinks.shared.$link.compactMap { $0 }) { link in
             guard scope == .conversas else { return }
             TabsLinks.shared.link = nil
             switch link {
-            case .chat(let roomId): path = NavigationPath([roomId])
+            case .chat(let roomId): openChat(roomId)
             case .profile(let handle): openingLink = handle
             }
         }
@@ -179,7 +201,7 @@ struct ChatListView: View {
             guard scope == .conversas else { return }
             switch PeopleLink(url: url) {
             case .handle(let handle): openingLink = handle
-            case .userId(let userId): path.append(PeopleRoute.person(userId: userId, fromDm: false))
+            case .userId(let userId): show(.people(.person(userId: userId, fromDm: false)))
             case .queue(let handle): openingQueue = handle
             case nil: break
             }
@@ -201,9 +223,9 @@ struct ChatListView: View {
                 notifications.roomToOpen = nil
                 showingArchived = false
                 switch target.destination {
-                case .chat: path = opensChat ? NavigationPath([target.roomId]) : NavigationPath()
-                case .requests: path = NavigationPath([RequestInboxRoute.inbox])
-                case .groups, .inbox: path = NavigationPath()
+                case .chat: if opensChat { openChat(target.roomId) } else { closeDetail() }
+                case .requests: show(.requests)
+                case .groups, .inbox: closeDetail()
                 }
             }
         }
@@ -341,12 +363,11 @@ struct ChatListView: View {
         }
         if !showingArchived && scope == .conversas && requests.rowCount > 0 {
             // Action openBox.
-            NavigationLink {
-                ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat, onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
-            } label: {
+            Button { show(.requests) } label: {
                 ChatRequestsRow(count: requests.rowCount)
             }
-            .listRowBackground(BipeColor.surfaceBase)
+            .buttonStyle(.plain)
+            .listRowBackground(rowBackground(.requests))
         }
         ForEach(!showingArchived && scope == .grupos ? requests.visibleGroupInvites : []) { invite in
             GroupInviteRow(model: requests, invite: invite, media: model.media, onOpenChat: openChat)
@@ -384,7 +405,7 @@ struct ChatListView: View {
                 ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
                     .buttonStyle(.plain)
-                    .listRowBackground(BipeColor.surfaceBase)
+                    .listRowBackground(rowBackground(.room(chat.roomId)))
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
                     .contextMenu { rowMenu(chat.roomId) }
                     .accessibilityActions { rowMenu(chat.roomId) }
@@ -428,7 +449,7 @@ struct ChatListView: View {
 
     private func openDetails(_ chat: ChatSummary) {
         if chat.isDm {
-            if let peer = chat.peerUserId { path.append(PeopleRoute.person(userId: peer, fromDm: true)) }
+            if let peer = chat.peerUserId { show(.people(.person(userId: peer, fromDm: true))) }
         } else { groupDetailsRoom = chat.roomId }
     }
 
@@ -470,7 +491,7 @@ struct ChatListView: View {
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.chatsEmptyBody)
                     .foregroundStyle(BipeColor.inkSecondary)
-                Button(BipeStrings.actionStartChat) { path.append(PeopleRoute.contacts) }
+                Button(BipeStrings.actionStartChat) { show(.people(.contacts)) }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -479,9 +500,64 @@ struct ChatListView: View {
         .padding(.vertical, 48)
     }
 
-    /// Action openChat.
+    /// Action openChat. It replaces the detail, from the list or from a screen inside the detail.
     private func openChat(_ roomId: String) {
-        path.append(roomId)
+        show(.room(roomId))
+    }
+
+    private func show(_ next: ChatDetail) {
+        detail = next
+        path = NavigationPath()
+        compactColumn = .detail
+    }
+
+    /// closeChat: back to the list with nothing selected.
+    private func closeDetail() {
+        detail = nil
+        path = NavigationPath()
+        compactColumn = .sidebar
+    }
+
+    /// The selected row stays marked while its detail is beside the list.
+    private func rowBackground(_ row: ChatDetail) -> Color {
+        horizontalSizeClass == .regular && detail == row ? BipeColor.accentWash : BipeColor.surfaceBase
+    }
+
+    @ViewBuilder
+    private var detailRoot: some View {
+        switch detail {
+        case .room(let roomId):
+            // The room id keeps one timeline per chat; the layout change does not replace it.
+            timeline(roomId).id(roomId)
+        case .requests:
+            requestsScreen
+        case .people(let route):
+            peopleScreen(route)
+        case nil:
+            // Wide window with no chat open. The list beside it is the call to action, so no text here.
+            PhosphorIcon.chatCircle.image
+                .resizable()
+                .frame(width: 64, height: 64)
+                .foregroundStyle(BipeColor.inkSecondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(BipeColor.surfaceBase.ignoresSafeArea())
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func timeline(_ roomId: String) -> some View {
+        ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
+            Task {
+                if let userId = await people.dmPartner(roomId: roomId) {
+                    path.append(PeopleRoute.person(userId: userId, fromDm: true))
+                }
+            }
+        }
+    }
+
+    private var requestsScreen: some View {
+        ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat,
+                         onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
     }
 }
 

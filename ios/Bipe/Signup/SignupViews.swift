@@ -46,6 +46,7 @@ struct SignupFlowView: View {
                         case .create: SignupCreateView(model: model).navigationBarBackButtonHidden()
                         }
                     }
+                    .signupColumn()
                     .background(BipeColor.surfaceBase.ignoresSafeArea())
                 }
         }
@@ -69,7 +70,7 @@ extension SignupFlowView {
     /// onboarding-welcome; a sign-up from account-new starts at signup-name (spec account-new notes).
     @ViewBuilder private var root: some View {
         if model.start != nil {
-            SignupNameView(model: model).task { await model.appear() }
+            SignupNameView(model: model).signupColumn().task { await model.appear() }
         } else {
             OnboardingWelcomeView(model: model)
         }
@@ -77,6 +78,14 @@ extension SignupFlowView {
 }
 
 // MARK: - Shared pieces
+
+private extension View {
+    /// A centred column on wide windows (iPad, the open iPhone Duo). The background still fills the window.
+    /// 560 points is a Bipe form-width default, not a device dimension (docs/iphone-duo.md).
+    func signupColumn() -> some View {
+        frame(maxWidth: 560).frame(maxWidth: .infinity)
+    }
+}
 
 /// A sign-up step: title, optional body, content, the one filled button and text buttons under it.
 private struct StepLayout<Content: View>: View {

@@ -13,7 +13,8 @@ private struct GroupHostModifier: ViewModifier {
     let session: AccountSession
     let api: BipeAPIClient
     let media: MediaLoader
-    @Binding var path: NavigationPath
+    let openChat: (String) -> Void
+    let closeChat: () -> Void
     @Binding var creatingGroup: Bool
     @Binding var deletingDm: String?
     @Binding var showingInvites: Bool
@@ -25,12 +26,12 @@ private struct GroupHostModifier: ViewModifier {
         content
             .sheet(isPresented: $showingInvites) {
                 InvitesEntryView(session: session, api: api, media: media) { roomId in
-                    path.append(roomId)
+                    openChat(roomId)
                 }
             }
             .sheet(isPresented: $creatingGroup) {
                 GroupCreateView(session: session, media: media) { roomId, allInvited in
-                    path.append(roomId)
+                    openChat(roomId)
                     if !allInvited {
                         toast = BipeStrings.appGroupCreateInvitesFailed
                     }
@@ -48,12 +49,9 @@ private struct GroupHostModifier: ViewModifier {
                 }
             }
             // Last, so the sheets above get them too.
-            .environment(\.closeChat, { path = NavigationPath() })
-            .environment(\.openOtherChat, { roomId in
-                var next = NavigationPath()
-                next.append(roomId)
-                path = next
-            })
+            .environment(\.closeChat, closeChat)
+            // A link to another chat replaces the detail root, as a row does.
+            .environment(\.openOtherChat, { roomId in openChat(roomId) })
             .environment(\.bipeAPI, api)
     }
 }
@@ -63,9 +61,10 @@ private struct DmSheetId: Identifiable {
 }
 
 extension View {
-    func groupHost(session: AccountSession, api: BipeAPIClient, media: MediaLoader, path: Binding<NavigationPath>,
-                   creatingGroup: Binding<Bool>, deletingDm: Binding<String?>, showingInvites: Binding<Bool>) -> some View {
-        modifier(GroupHostModifier(session: session, api: api, media: media, path: path, creatingGroup: creatingGroup,
+    func groupHost(session: AccountSession, api: BipeAPIClient, media: MediaLoader, openChat: @escaping (String) -> Void,
+                   closeChat: @escaping () -> Void, creatingGroup: Binding<Bool>, deletingDm: Binding<String?>, showingInvites: Binding<Bool>) -> some View {
+        modifier(GroupHostModifier(session: session, api: api, media: media, openChat: openChat, closeChat: closeChat,
+                                   creatingGroup: creatingGroup,
                                    deletingDm: deletingDm, showingInvites: showingInvites))
     }
 }
@@ -80,9 +79,14 @@ struct CreateGroupButton: View {
             Button(BipeStrings.groupsEmptyAction, action: createGroup)
             Button(BipeStrings.invitesTitle, action: invite)
         } label: {
-            PhosphorIcon.plus.image.resizable().frame(width: 22, height: 22)
-                .bipeTapTarget()
+            // Title and image: the system needs the title in the iPhone Duo side bar and in overflow.
+            Label {
+                Text(BipeStrings.groupsEmptyAction)
+            } icon: {
+                PhosphorIcon.plus.image.resizable().frame(width: 22, height: 22)
+            }
+            .labelStyle(.iconOnly)
+            .bipeTapTarget()
         }
-        .accessibilityLabel(BipeStrings.groupsEmptyAction)
     }
 }
