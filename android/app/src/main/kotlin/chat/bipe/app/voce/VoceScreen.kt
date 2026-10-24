@@ -57,6 +57,7 @@ import chat.bipe.app.tabs.AccountRows
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.settings.SettingsHost
+import chat.bipe.app.settings.SettingsRoute
 import chat.bipe.app.settings.SettingsRootSection
 import chat.bipe.app.people.PeopleRoute
 import chat.bipe.shared.generated.BipeSettingsGroup
@@ -86,9 +87,13 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
             }
         }
     }
+    val trust = remember(session) { TrustCardModel(session, api, scope) }
+    val current = state.accounts.firstOrNull { it.isCurrent }
+    LaunchedEffect(trust, current) { trust.update(current) }
+    val trustProfile by trust.profile.collectAsState()
     SettingsHost(session, api, invites = tabs.invites(session), onClose = { tabs.selectTab(AppTabsModel.Tab.CONVERSAS) }, onSignedOut = { tabs.start.completeSignOut(session.userId) },
-        onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles,
-        rootContent = { settings, openGroup, openPeople, openInvites ->
+        onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles, trust = trust,
+        rootContent = { settings, openGroup, openPeople, openInvites, openRoute ->
             Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.VOCE.id), color = BipeTheme.colors.surfaceBase) {
                 LazyColumn(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
                     item { Text(stringResource(R.string.bipe_tab_you), style = MaterialTheme.typography.headlineMedium,
@@ -111,6 +116,16 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                         VoceRow(PhosphorIcon.NOTEPAD, notesTitle, stringResource(R.string.bipe_self_chat_subtitle),
                             tint = BipeTheme.colors.accentInk, enabled = !openingNotes, onClick = openNotes,
                             trailing = if (openingNotes) { { CircularProgressIndicator(Modifier.size(24.dp), color = BipeTheme.colors.accentFill) } } else null)
+                    }
+                    // Perfil de confiança after Anotações (ADR 0112, spec trust-card).
+                    trustProfile?.let { profile ->
+                        item(key = "trust-gap") { VoceSectionHeader(null) }
+                        TrustCardSection(profile, TrustActions(
+                            addName = { openPeople(PeopleRoute.ProfileEdit) },
+                            addPhoto = { openPeople(PeopleRoute.ProfileEdit) },
+                            chooseHandle = { openRoute(SettingsRoute.HandlePick) },
+                        ), openLadder = { openRoute(SettingsRoute.TrustProfile) })
+                        item(key = "trust-gap-end") { VoceSectionHeader(null) }
                     }
                     item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
                     SettingsRootSection(settings, openGroup)

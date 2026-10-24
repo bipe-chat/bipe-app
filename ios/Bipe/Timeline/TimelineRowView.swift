@@ -176,7 +176,8 @@ private struct MessageBubbleRow: View {
                     }
                     content
                     if let warning = details.scamWarning {
-                        ScamWarningCard(kind: warning)
+                        ScamWarningCard(kind: warning, pauseSecondsLeft: { model.pauseSecondsLeft(rowId: row.id, now: $0) })
+                            .onAppear { model.startMoneyPause(rowId: row.id, kind: warning) }
                     }
                     footer
                 }
@@ -266,6 +267,8 @@ private struct MessageTimestamp: View {
 /// Spec scam-warning: a calm caution card. Title then the kind text, one element for screen readers.
 private struct ScamWarningCard: View {
     let kind: ScamWarningKind
+    /// Seconds left of the money pause at a date (0: none).
+    let pauseSecondsLeft: (Date) -> Int
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -281,6 +284,18 @@ private struct ScamWarningCard: View {
                     .font(.caption)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
+                if pauseSecondsLeft(.now) > 0 {
+                    // The number changes once a second, with no animation (reduced motion or not).
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        let left = pauseSecondsLeft(context.date)
+                        if left > 0 {
+                            Text(BipeStrings.pauseCountdown(String(left)))
+                                .font(.caption.monospacedDigit().bold())
+                                .foregroundStyle(BipeColor.trustCautionInk)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                }
             }
         }
         .padding(8)
