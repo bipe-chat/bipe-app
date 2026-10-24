@@ -16,8 +16,12 @@ enum AppConfig {
     /// The public site with the legal pages (PUBLIC_SITE_URL, registries/legal.json).
     static let publicSite = URL(string: "https://bipe.chat")!
 
-    /// The app group of the tester app. The SDK store and caches live there.
-    static let appGroup = "group.chat.bipe.next"
+    /// The bundle ID of the app (project.yml BIPE_APP_ID, bipe-chat/bipe#602): chat.bipe.app.next for tester builds,
+    /// the fork's ID for the store set at the switch. Each target's Info.plist carries it.
+    static let appID = infoValue("BipeAppID", fallback: "chat.bipe.app.next")
+
+    /// The app group (project.yml BIPE_APP_GROUP). The SDK store and caches live there.
+    static let appGroup = infoValue("BipeAppGroup", fallback: "group.chat.bipe.next")
 
     /// The keychain access group in which the fork's tester build keeps the device account (ADR 0147).
     /// The app only reads from it. Team 992N457T8D (bipe/docs/server-migration.md), app ID chat.bipe.app.dev.
@@ -32,8 +36,15 @@ enum AppConfig {
     /// The Sygnal app ID of this build: the bundle ID plus `.ios.dev` for the APNs sandbox (Xcode debug
     /// builds) or `.ios.prod` for production APNs (TestFlight and ad hoc), as bipe/docs/platform-parity.md.
     #if DEBUG
-    static let pusherAppId = "chat.bipe.app.next.ios.dev"
+    static let pusherAppId = appID + ".ios.dev"
     #else
-    static let pusherAppId = "chat.bipe.app.next.ios.prod"
+    static let pusherAppId = appID + ".ios.prod"
     #endif
+
+    /// An expanded Info.plist value; the fallback when the key is missing or unexpanded.
+    private static func infoValue(_ key: String, fallback: String) -> String {
+        guard let value = Bundle.main.object(forInfoDictionaryKey: key) as? String,
+              !value.isEmpty, !value.contains("$(") else { return fallback }
+        return value
+    }
 }

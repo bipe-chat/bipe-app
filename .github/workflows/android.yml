@@ -52,6 +52,9 @@ jobs:
         run: ./gradlew --no-daemon :libraries:bipe:testDebugUnitTest
       - name: Build debug and release
         run: ./gradlew --no-daemon assembleDebug assembleRelease
+      # The store ID set (bipe-chat/bipe#602): the fork's application ID (ADR 0061), never uploaded before the switch.
+      - name: Build release with the store ID set
+        run: ./gradlew --no-daemon assembleRelease -PbipeIdSet=store
       - name: Upload the debug APK
         uses: actions/upload-artifact@v4
         with:
