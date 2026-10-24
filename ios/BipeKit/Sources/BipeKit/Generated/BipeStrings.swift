@@ -1878,6 +1878,96 @@ public enum BipeStrings {
 
     public static var appLinkComputerFinishing: String { NSLocalizedString("bipe_app_link_computer_finishing", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appLinkPhoneAction: String { NSLocalizedString("bipe_app_link_phone_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneTitle: String { NSLocalizedString("bipe_app_link_phone_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneBody: String { NSLocalizedString("bipe_app_link_phone_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneNeverShare: String { NSLocalizedString("bipe_app_link_phone_never_share", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhonePreparing: String { NSLocalizedString("bipe_app_link_phone_preparing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneCopy: String { NSLocalizedString("bipe_app_link_phone_copy", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneCopied: String { NSLocalizedString("bipe_app_link_phone_copied", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneCheckCodeTitle: String { NSLocalizedString("bipe_app_link_phone_check_code_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneCheckCodeBody: String { NSLocalizedString("bipe_app_link_phone_check_code_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appLinkPhoneNeedsPin(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_link_phone_needs_pin", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appLinkPhoneNotSupported: String { NSLocalizedString("bipe_app_link_phone_not_supported", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneErrorTitle: String { NSLocalizedString("bipe_app_link_phone_error_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneExpired: String { NSLocalizedString("bipe_app_link_phone_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneInsecure: String { NSLocalizedString("bipe_app_link_phone_insecure", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneWrongCheckCode: String { NSLocalizedString("bipe_app_link_phone_wrong_check_code", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneNeedsRecoveryKey: String { NSLocalizedString("bipe_app_link_phone_needs_recovery_key", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneNewCode: String { NSLocalizedString("bipe_app_link_phone_new_code", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneWarningTitle: String { NSLocalizedString("bipe_app_link_phone_warning_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneWarningBody: String { NSLocalizedString("bipe_app_link_phone_warning_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneScam: String { NSLocalizedString("bipe_app_link_phone_scam", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appLinkPhoneTime(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_link_phone_time", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appLinkPhoneBiometric: String { NSLocalizedString("bipe_app_link_phone_biometric", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneConsentHint: String { NSLocalizedString("bipe_app_link_phone_consent_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneFinishing: String { NSLocalizedString("bipe_app_link_phone_finishing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkPhoneDone: String { NSLocalizedString("bipe_app_link_phone_done", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneTitle: String { NSLocalizedString("bipe_app_old_phone_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneWhere: String { NSLocalizedString("bipe_app_old_phone_where", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhonePaste: String { NSLocalizedString("bipe_app_old_phone_paste", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhonePasteHint: String { NSLocalizedString("bipe_app_old_phone_paste_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhonePasteSubmit: String { NSLocalizedString("bipe_app_old_phone_paste_submit", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneConnecting: String { NSLocalizedString("bipe_app_old_phone_connecting", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneCheckCodeTitle: String { NSLocalizedString("bipe_app_old_phone_check_code_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneCheckCodeBody: String { NSLocalizedString("bipe_app_old_phone_check_code_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneWaitingTitle: String { NSLocalizedString("bipe_app_old_phone_waiting_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneWaitingBody: String { NSLocalizedString("bipe_app_old_phone_waiting_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneSyncing: String { NSLocalizedString("bipe_app_old_phone_syncing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneErrorTitle: String { NSLocalizedString("bipe_app_old_phone_error_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneNotBipeCode: String { NSLocalizedString("bipe_app_old_phone_not_bipe_code", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneExpired: String { NSLocalizedString("bipe_app_old_phone_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneInsecure: String { NSLocalizedString("bipe_app_old_phone_insecure", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneDeclined: String { NSLocalizedString("bipe_app_old_phone_declined", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneNotSupported: String { NSLocalizedString("bipe_app_old_phone_not_supported", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appOldPhoneStopped: String { NSLocalizedString("bipe_app_old_phone_stopped", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appClose: String { NSLocalizedString("bipe_app_close", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appLockWrong: String { NSLocalizedString("bipe_app_lock_wrong", tableName: "Bipe", bundle: .module, comment: "") }

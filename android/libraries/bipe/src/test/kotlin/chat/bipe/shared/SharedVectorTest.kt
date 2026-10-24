@@ -30,6 +30,22 @@ import java.io.File
 /** Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). iOS runs the same files. */
 class SharedVectorTest {
     @Test
+    fun photoMatch() {
+        val cases = vectors("photo-match.json", "cases")
+        assertWithMessage("photo match vectors").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            fun grid(key: String) = vector.getValue(key).jsonArray.map { row -> row.jsonArray.map { it.jsonPrimitive.content.toInt() } }
+            val hashA = BipePhotoMatch.hash(grid("gridA"))!!
+            val hashB = BipePhotoMatch.hash(grid("gridB"))!!
+            assertWithMessage("photo match $name").that(hashA).isEqualTo(vector.string("hashA"))
+            assertWithMessage("photo match $name").that(hashB).isEqualTo(vector.string("hashB"))
+            assertWithMessage("photo match $name").that(BipePhotoMatch.distance(hashA, hashB)).isEqualTo(vector.getValue("distance").jsonPrimitive.content.toInt())
+            assertWithMessage("photo match $name").that(BipePhotoMatch.matches(hashA, hashB)).isEqualTo(vector.getValue("matches").jsonPrimitive.boolean)
+        }
+    }
+
+    @Test
     fun relationshipNames() {
         val cases = vectors("relationship-names.json", "vectors")
         assertWithMessage("relationship vectors").that(cases).isNotEmpty()

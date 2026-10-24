@@ -121,6 +121,12 @@ enum class BipeScreen(val id: String) {
     /** Link a computer: full-access warning (flow devices). Spec: bipe-shared/product/screens/link-computer-warning.json */
     LINK_COMPUTER_WARNING("link-computer-warning"),
 
+    /** Move to a new phone: approve on the old phone (flow devices). Spec: bipe-shared/product/screens/link-phone-approve.json */
+    LINK_PHONE_APPROVE("link-phone-approve"),
+
+    /** Move to a new phone: show the code on the old phone (flow devices). Spec: bipe-shared/product/screens/link-phone-show.json */
+    LINK_PHONE_SHOW("link-phone-show"),
+
     /** Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json */
     LINKED_DEVICES("linked-devices"),
 
@@ -213,6 +219,9 @@ enum class BipeScreen(val id: String) {
 
     /** Save a recovery key (flow encryption). Spec: bipe-shared/product/screens/recovery-key-save.json */
     RECOVERY_KEY_SAVE("recovery-key-save"),
+
+    /** New phone: scan the code of the old phone (flow recovery). Spec: bipe-shared/product/screens/recovery-old-phone.json */
+    RECOVERY_OLD_PHONE("recovery-old-phone"),
 
     /** Enter PIN to get back in (flow recovery). Spec: bipe-shared/product/screens/recovery-pin.json */
     RECOVERY_PIN("recovery-pin"),
