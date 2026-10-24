@@ -194,23 +194,25 @@ struct OnboardingWelcomeView: View {
     @State private var showsSite = false
 
     var body: some View {
-        // The window decides the layout, never the device (docs/iphone-duo.md). A wide window (the open iPhone Duo,
-        // iPad, landscape) puts the cover on the left half and the actions on the right, so the split meets the fold.
-        // A tall window puts the cover on the top half.
+        // The window decides the layout, never the device (docs/iphone-duo.md).
         GeometryReader { window in
+            let insets = window.safeAreaInsets
             if window.size.width >= 600 && window.size.width > window.size.height {
+                // Wide (the open iPhone Duo, iPad, landscape): the cover is the left half of the whole window, so the
+                // split meets the fold. The window here excludes the safe area, so subtract the leading inset.
+                let half = (window.size.width + insets.leading + insets.trailing) / 2
                 HStack(spacing: 0) {
                     cover(edges: [.top, .bottom, .leading])
-                        .frame(width: window.size.width / 2)
+                        .frame(width: max(0, half - insets.leading))
                     actions
                         .frame(maxWidth: 400)
                         .padding(40)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
+                // Tall: the cover takes everything above the two buttons.
                 VStack(spacing: 0) {
                     cover(edges: [.top, .horizontal])
-                        .frame(height: window.size.height / 2)
                     actions
                         .frame(maxWidth: 480)
                         .padding(24)
@@ -227,9 +229,9 @@ struct OnboardingWelcomeView: View {
         }
     }
 
-    /// The full-bleed açaí cover of the spec: mark and wordmark, the welcome line and the title over a faint
-    /// texture of Bipe marks (identity.md: Brazilian in texture, warm açaí, never flag colours). The colour runs
-    /// under the system bars on `edges`; the text stays in the safe area.
+    /// The full-bleed açaí cover of the spec: what Bipe is. Mark and wordmark, the welcome line, the title and
+    /// learnMore over a faint texture of Bipe marks (identity.md: Brazilian in texture, warm açaí, never flag
+    /// colours). The colour runs under the system bars on `edges`; the text stays in the safe area.
     private func cover(edges: Edge.Set) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             // The horizontal lockup of artwork-brief.md: mark, then the lowercase wordmark.
@@ -241,7 +243,7 @@ struct OnboardingWelcomeView: View {
                     .font(.system(size: 52, weight: .heavy, design: .rounded))
                     .accessibilityAddTraits(.isHeader)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 24)
             Text(BipeStrings.onboardingWelcome)
                 .font(.system(.headline, design: .rounded))
                 .opacity(0.85)
@@ -249,6 +251,19 @@ struct OnboardingWelcomeView: View {
                 .font(.system(.largeTitle, design: .rounded).weight(.bold))
                 .minimumScaleFactor(0.7)
                 .fixedSize(horizontal: false, vertical: true)
+            Button { showsSite = true } label: {
+                HStack(spacing: 4) {
+                    Text(BipeStrings.onboardingLearnMore)
+                    PhosphorIcon.caretRight.image
+                        .resizable()
+                        .frame(width: 14, height: 14)
+                        .accessibilityHidden(true)
+                }
+                .font(.subheadline.weight(.semibold))
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
         .foregroundStyle(BipeColor.inkOnAccent)
         .padding(28)
@@ -263,23 +278,20 @@ struct OnboardingWelcomeView: View {
         }
     }
 
+    /// Two choices of equal width: new here (the variant's filled button) or back to an existing account.
     private var actions: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Spacer(minLength: 0)
+        VStack(spacing: 12) {
             if model.variant == .loading {
-                ProgressView().frame(maxWidth: .infinity)
+                // Keeps the height of the two buttons, so the cover does not jump when the variant arrives.
+                ProgressView().frame(maxWidth: .infinity, minHeight: 112)
             } else {
                 let start = model.startVariant
                 PrimaryButton(title: start.primary.title, busy: model.checkingInvite) { Task { await model.primary() } }
-                if model.variant == .inviteOnly, model.clipboardHasText {
-                    pasteRow
-                }
                 ForEach(start.text, id: \.titleKey) { button in
                     // haveAccount: recovery-start (bipe-chat/bipe#556).
-                    TextButton(title: button.title) { model.onHaveAccount() }
+                    SecondaryButton(title: button.title) { model.onHaveAccount() }
                 }
             }
-            TextButton(title: BipeStrings.onboardingLearnMore) { showsSite = true }
         }
     }
 
@@ -291,24 +303,21 @@ struct OnboardingWelcomeView: View {
         }
         return BipeLocalized.string(start.titleKey)
     }
+}
 
-    private var pasteRow: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Button {
-                Task { await model.pasteInvite() }
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(BipeStrings.onboardingPasteInvite)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(BipeColor.accentInk)
-                    Text(BipeStrings.onboardingPasteInviteHint)
-                        .font(.footnote)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                }
-            }
-            if model.pasteResult == .notAnInvite {
-                FieldFooter(text: BipeStrings.onboardingPasteInviteNone, isError: true)
-            }
+/// The second choice next to a filled button: same size, açaí wash.
+private struct SecondaryButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .foregroundStyle(BipeColor.accentInk)
+                .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.accentWash))
         }
     }
 }
@@ -354,6 +363,14 @@ struct SignupInviteCodeView: View {
                    message: step.bodyKey.map { BipeLocalized.string($0) }) {
             BipeTextField(label: BipeStrings.signupInviteCode, text: model.code, onChange: model.editCode)
                 .textInputAutocapitalization(.characters)
+            // Action pasteCode: the system paste button reads the clipboard only on a tap, with no paste prompt,
+            // and continues at once. A whole invite link or message is fine.
+            PasteButton(payloadType: String.self) { texts in
+                guard let text = texts.first else { return }
+                Task { @MainActor in await model.pasteCode(text) }
+            }
+            .tint(BipeColor.accentFill)
+            .disabled(model.inviteCodePhase == .checking)
             if model.inviteCodePhase == .checking {
                 FieldFooter(text: BipeStrings.appInviteChecking)
             } else if let error = model.inviteCodeError {

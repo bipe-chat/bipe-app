@@ -212,8 +212,6 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
     val colors = BipeTheme.colors
     val variant by model.variant.collectAsState()
     val invite by model.invite.collectAsState()
-    val clipboardHasText by model.clipboardHasText.collectAsState()
-    val pasteResult by model.pasteResult.collectAsState()
     val context = LocalContext.current
     LaunchedEffect(Unit) { model.appear() }
     val start = model.startVariant
@@ -224,7 +222,7 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
         stringResource(start.title)
     }
     Column(Modifier.fillMaxSize().testTag(BipeScreen.ONBOARDING_WELCOME.id)) {
-        // The full-bleed açaí cover of the spec: mark and wordmark, welcome line and title. No points list.
+        // The full-bleed açaí cover of the spec: what Bipe is. It takes everything above the two buttons.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -244,38 +242,54 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
             Spacer(Modifier.weight(1f))
             Text(stringResource(R.string.bipe_onboarding_welcome), style = MaterialTheme.typography.titleMedium, color = colors.inkOnAccent)
             Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.inkOnAccent)
+            // Action learnMore: the site in a Custom Tab, so sign-up stays where it was.
+            Row(
+                modifier = Modifier
+                    .clickable(role = Role.Button) { openPage(context, BipeLegalLinks.homeUrl(AppConfig.PUBLIC_SITE)) }
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.bipe_onboarding_learn_more), style = MaterialTheme.typography.titleSmall, color = colors.inkOnAccent)
+                Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = colors.inkOnAccent, modifier = Modifier.size(14.dp))
+            }
         }
+        // Two choices of equal width: new here (the variant's filled button) or back to an existing account.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                 .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Spacer(Modifier.weight(1f))
             if (variant == SignupFlowModel.Variant.LOADING) {
-                CircularProgressIndicator(color = colors.accentFill, modifier = Modifier.align(Alignment.CenterHorizontally))
+                // Keeps the height of the two buttons, so the cover does not jump when the variant arrives.
+                Box(Modifier.fillMaxWidth().height(112.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = colors.accentFill)
+                }
             } else {
                 val checking by model.checkingInvite.collectAsState()
                 PrimaryButton(stringResource(start.primary.title), busy = checking, onClick = model::primary)
-                if (variant == SignupFlowModel.Variant.INVITE_ONLY && clipboardHasText) {
-                    Column(Modifier.clickable(role = Role.Button, onClick = model::pasteInvite)) {
-                        Text(stringResource(R.string.bipe_onboarding_paste_invite), style = MaterialTheme.typography.titleSmall, color = colors.accentInk)
-                        Text(stringResource(R.string.bipe_onboarding_paste_invite_hint), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-                    }
-                    if (pasteResult == SignupFlowModel.PasteResult.NOT_AN_INVITE) {
-                        FieldFooter(stringResource(R.string.bipe_onboarding_paste_invite_none), isError = true)
-                    }
-                }
                 // haveAccount: recovery-start (bipe-chat/bipe#556).
-                start.text.forEach { TextButtonRow(stringResource(it.title), onClick = model.onHaveAccount) }
-            }
-            // Action learnMore: the site in a Custom Tab, so sign-up stays where it was.
-            TextButtonRow(stringResource(R.string.bipe_onboarding_learn_more)) {
-                openPage(context, BipeLegalLinks.homeUrl(AppConfig.PUBLIC_SITE))
+                start.text.forEach { SecondaryButton(stringResource(it.title), onClick = model.onHaveAccount) }
             }
         }
+    }
+}
+
+/** The second choice next to a filled button: same size, açaí wash. */
+@Composable
+private fun SecondaryButton(title: String, onClick: () -> Unit) {
+    val colors = BipeTheme.colors
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colors.accentWash, RoundedCornerShape(14.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(vertical = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium, color = colors.accentInk)
     }
 }
 
@@ -289,6 +303,8 @@ private fun SignupInviteCodeScreen(model: SignupFlowModel) {
     val step = BipeOnboardingStep.INVITE_CODE
     StepLayout(BipeScreen.SIGNUP_INVITE_CODE, stringResource(step.title), step.body?.let { stringResource(it) }) {
         BipeField(stringResource(R.string.bipe_signup_invite_code), code, model::editCode)
+        // Action pasteCode: reads the clipboard only on this tap and continues at once.
+        TextButtonRow(stringResource(R.string.bipe_onboarding_paste_invite), enabled = phase != SignupFlowModel.InviteCodePhase.CHECKING, onClick = model::pasteCode)
         when {
             phase == SignupFlowModel.InviteCodePhase.CHECKING -> FieldFooter(stringResource(R.string.bipe_app_invite_checking))
             error != null -> FieldFooter(error.orEmpty(), isError = true)

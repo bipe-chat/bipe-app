@@ -109,15 +109,12 @@ class SignupFlowModel(
     // onboarding-welcome
 
     enum class Variant { LOADING, INVITED, INVITE_ONLY, OPEN }
-    enum class PasteResult { NONE, NOT_AN_INVITE }
 
     val variant = MutableStateFlow(Variant.LOADING)
     // The account on screen made the invite: no inviter handle, so signup-name shows no "invited by".
     val invite = MutableStateFlow(start?.let { PendingInvite(it.code, it.inviterHandle.takeUnless { _ -> it.isOwnInvite }, true) })
     private var inviteRequired = true
     private var termsVersion: String? = null
-    val clipboardHasText = MutableStateFlow(false)
-    val pasteResult = MutableStateFlow(PasteResult.NONE)
 
     // signup-invite-code
 
@@ -192,8 +189,6 @@ class SignupFlowModel(
 
     /** Action appear: reads the sign-up mode (at most 3 s, then inviteOnly). */
     fun appear() {
-        val clipboard = context.getSystemService(ClipboardManager::class.java)
-        clipboardHasText.value = clipboard?.hasPrimaryClip() == true
         scope.launch {
             val config: BipeSignupConfig? = withTimeoutOrNull(3_000) { runCatching { api.signupConfig() }.getOrNull() }
             inviteRequired = config?.inviteRequired ?: true
@@ -205,19 +200,6 @@ class SignupFlowModel(
     /** Action openInviteLink: a bipe.chat/convite/<code> link the app was opened with. */
     fun openInviteLink(url: Uri) {
         val found = BipeInviteLink.code(url) ?: return
-        scope.launch { preview(found) }
-    }
-
-    /** Action pasteInvite: reads the clipboard once, after a tap. */
-    fun pasteInvite() {
-        val clipboard = context.getSystemService(ClipboardManager::class.java)
-        val text = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
-        val found = text?.let(BipeInviteLink::normalizedCode)
-        if (found == null) {
-            pasteResult.value = PasteResult.NOT_AN_INVITE
-            return
-        }
-        pasteResult.value = PasteResult.NONE
         scope.launch { preview(found) }
     }
 
@@ -279,6 +261,14 @@ class SignupFlowModel(
         code.value = text
         inviteCodeError.value = null
         inviteCodePhase.value = InviteCodePhase.EDITING
+    }
+
+    /** Action pasteCode: reads the clipboard once, after a tap; the text becomes the code and the screen continues. */
+    fun pasteCode() {
+        val clipboard = context.getSystemService(ClipboardManager::class.java)
+        val text = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString() ?: return
+        editCode(text)
+        submitCode()
     }
 
     /** Action submit: takes the code out of the text and asks the server. */
