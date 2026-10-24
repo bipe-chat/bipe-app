@@ -590,6 +590,17 @@ public enum BipeRegistries {
     public static let profileBioMaxLines = 4
     public static let profilePhotoMaxBytes = 262144
     public static let profilePhotoMaxPixels = 512
+    /// Security rule 8: marks that look like the verified seal; none may sit in a display name (variation selectors removed).
+    public static let sealLookalikeEmoji: [String] = [
+        "💜",
+        "🟣",
+        "🟪",
+        "✅",
+        "☑",
+        "✔",
+        "✓",
+        "🔰",
+    ]
 
     /// Invite codes: the code inside anything a user pastes (registries/invite-codes.json).
     public static let inviteCodePattern = "(?<![A-Z0-9])([A-HJKMNP-Z2-9]{4})[ \\-\\u2010-\\u2014\\u2212]?([A-HJKMNP-Z2-9]{4})[ \\-\\u2010-\\u2014\\u2212]?([A-HJKMNP-Z2-9]{4})(?![A-Z0-9])"
