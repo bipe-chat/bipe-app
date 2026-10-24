@@ -54,6 +54,11 @@ public nonisolated struct BipeTrustProfile: Sendable, Equatable {
         totalCount == 0 ? 0 : Double(completedCount) / Double(totalCount)
     }
     
+    /// `true` when no step that ships today is left to do; steps that are "em breve" do not count (ADR 0112).
+    public var liveStepsDone: Bool {
+        !steps.contains { $0.status == .todo }
+    }
+    
     /// `business` is `GET /v1/me/business`: `nil` when the account has no claim or the claim did not load.
     /// `personBadge` is the level of the account's own badge from `GET /v1/badges`: `nil` without one or until it loads.
     /// `govbrEnabled` makes step 5 live (bipe#544); else it shows "Em breve".

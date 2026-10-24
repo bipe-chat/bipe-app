@@ -78,6 +78,9 @@ import chat.bipe.app.invites.InvitesScreen
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
+import chat.bipe.app.voce.TrustActions
+import chat.bipe.app.voce.TrustCardModel
+import chat.bipe.app.voce.TrustProfileScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
@@ -110,6 +113,7 @@ sealed interface SettingsRoute {
     data object Licences : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
     data object RecoveryKey : SettingsRoute
+    data object TrustProfile : SettingsRoute
 }
 
 /**
@@ -125,7 +129,8 @@ fun SettingsHost(
     onSignedOut: () -> Unit,
     onOpenChat: (String) -> Unit = {},
     onProfileChanged: () -> Unit = {},
-    rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit, (PeopleRoute) -> Unit, () -> Unit) -> Unit)? = null,
+    trust: TrustCardModel? = null,
+    rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit, (PeopleRoute) -> Unit, () -> Unit, (SettingsRoute) -> Unit) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -151,7 +156,7 @@ fun SettingsHost(
     when (val route = stack.lastOrNull()) {
         null -> {
             if (rootContent != null) rootContent(model, openGroup,
-                { stack.add(SettingsRoute.People(it)) }, { stack.add(SettingsRoute.Invites) })
+                { stack.add(SettingsRoute.People(it)) }, { stack.add(SettingsRoute.Invites) }, { stack.add(it) })
             else {
                 SettingsPage(stringResource(R.string.bipe_settings_section), BipeScreen.SETTINGS_ROOT.id, onBack = onClose) {
                     SettingsRootSection(model, openGroup)
@@ -179,6 +184,15 @@ fun SettingsHost(
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
         SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, onClose = pop)
+        SettingsRoute.TrustProfile -> {
+            val profile = trust?.profile?.collectAsState()?.value
+            if (profile == null) LaunchedEffect(Unit) { pop() }
+            else TrustProfileScreen(profile, TrustActions(
+                addName = { stack.add(SettingsRoute.People(PeopleRoute.ProfileEdit)) },
+                addPhoto = { stack.add(SettingsRoute.People(PeopleRoute.ProfileEdit)) },
+                chooseHandle = { stack.add(SettingsRoute.HandlePick) },
+            ), onBack = pop)
+        }
         SettingsRoute.ShowMediaChoice -> ChoiceListScreen(
             title = stringResource(R.string.bipe_chats_show_media),
             options = ShowMedia.entries.map { it.id to stringResource(it.title) },
