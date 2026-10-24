@@ -6,7 +6,7 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
-/// Native long press and visible overflow share current, account-owned row permissions.
+/// Native long press and accessibility actions share current, account-owned row permissions.
 struct MessageContextActions: View {
     @ObservedObject var model: ChatTimelineModel
     let rowId: String
@@ -28,21 +28,6 @@ struct MessageContextActions: View {
                     Label(action.menuTitle, systemImage: action.menuSymbol)
                 }
             }
-        }
-    }
-}
-
-struct MessageOverflowMenu: View {
-    @ObservedObject var model: ChatTimelineModel
-    let rowId: String
-
-    var body: some View {
-        if let row = model.row(rowId), model.showsReactions(row) || !model.actions(for: row).isEmpty {
-            Menu { MessageContextActions(model: model, rowId: rowId) } label: {
-                PhosphorIcon.dotsThree.image.resizable().frame(width: 20, height: 20)
-                    .foregroundStyle(BipeColor.glyphSecondary).frame(width: 44, height: 44)
-            }
-            .accessibilityLabel(BipeStrings.messageActions)
         }
     }
 }

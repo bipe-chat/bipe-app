@@ -134,9 +134,13 @@ fun TimelineRowItem(
         }
         TimelineRow.Kind.UNDECRYPTABLE -> row.message?.let { message ->
             var menu by remember(model, row.id) { mutableStateOf(false) }
+            val menuLabel = stringResource(R.string.bipe_message_actions)
             Column(horizontalAlignment = if (message.isOwn) Alignment.End else Alignment.Start) {
-                Box(Modifier.combinedClickable(onClick = {}, onLongClick = { menu = true })) { UndecryptableRow(message, onHistoryHelp) }
-                MessageOverflowMenu(model, row.id, menu, onOpen = { menu = true }, onDismiss = { menu = false })
+                Box(Modifier.combinedClickable(onClick = {}, onLongClick = { menu = true }, onLongClickLabel = menuLabel)
+                    .semantics { customActions = listOf(CustomAccessibilityAction(menuLabel) { menu = true; true }) }) {
+                    UndecryptableRow(message, onHistoryHelp)
+                }
+                MessageContextMenu(model, row.id, menu, onDismiss = { menu = false })
             }
         }
         TimelineRow.Kind.DELETED -> row.message?.let { DeletedRow(it) }
@@ -292,8 +296,9 @@ private fun MessageBubbleRow(
                     }
                     .semantics {
                         onLongClick { openMenu(); true }
-                        if (details.canReply) {
-                            customActions = listOf(CustomAccessibilityAction(replyLabel) { model.startReply(row.id); true })
+                        customActions = buildList {
+                            add(CustomAccessibilityAction(menuLabel) { openMenu(); true })
+                            if (details.canReply) add(CustomAccessibilityAction(replyLabel) { model.startReply(row.id); true })
                         }
                     },
             ) {
@@ -309,7 +314,7 @@ private fun MessageBubbleRow(
                 MessageFooter(message, details, onFailedTap = onLongPress, modifier = Modifier.align(Alignment.End))
             }
         }
-        MessageOverflowMenu(model, row.id, menu, onOpen = openMenu, onDismiss = { menu = false })
+        MessageContextMenu(model, row.id, menu, onDismiss = { menu = false })
         if (details.reactions.isNotEmpty()) {
             ReactionPills(
                 reactions = details.reactions,

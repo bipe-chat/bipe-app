@@ -32,7 +32,7 @@ struct TimelineRowView: View {
                     UndecryptableRow(message: message)
                         .contentShape(Rectangle())
                         .contextMenu { MessageContextActions(model: model, rowId: row.id) }
-                    MessageOverflowMenu(model: model, rowId: row.id)
+                        .accessibilityAction(named: BipeStrings.messageActions) { model.openActions(rowId: row.id) }
                 }
             }
         case .deleted:
@@ -188,7 +188,6 @@ private struct MessageBubbleRow: View {
             .accessibilityElement(children: .combine)
             .accessibilityAction(named: BipeStrings.appMessageActionReply) { model.startReply(rowId: row.id) }
             .accessibilityAction(named: BipeStrings.messageActions) { model.openActions(rowId: row.id) }
-            MessageOverflowMenu(model: model, rowId: row.id)
             if !details.reactions.isEmpty {
                 ReactionPills(reactions: details.reactions,
                               onToggle: { key in Task { await model.toggleReaction(rowId: row.id, key: key) } },

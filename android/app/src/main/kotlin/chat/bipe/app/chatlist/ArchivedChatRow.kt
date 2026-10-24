@@ -8,12 +8,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -25,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -33,10 +29,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.MediaLoader
-import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 
-/** Swipe archives only; native context/visible overflow menus expose the selected account-owned row commands. */
+/** Swipe archives only; native long-press/accessibility menus expose account-owned row commands. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArchivedChatRow(
@@ -49,6 +44,7 @@ fun ArchivedChatRow(
     val readLabel = stringResource(if (chat.isUnread) R.string.bipe_app_notification_mark_read else R.string.bipe_chat_mark_unread)
     val notificationsLabel = stringResource(R.string.bipe_settings_notifications)
     val detailsLabel = stringResource(R.string.bipe_chat_details)
+    val menuLabel = stringResource(R.string.bipe_chat_actions)
     var menu by remember(ownerId, chat.roomId) { mutableStateOf(false) }
     val swipe = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
         if (value == SwipeToDismissBoxValue.EndToStart) onArchive()
@@ -59,6 +55,7 @@ fun ArchivedChatRow(
         enableDismissFromStartToEnd = false,
         modifier = Modifier.semantics {
             customActions = buildList {
+                add(CustomAccessibilityAction(menuLabel) { menu = true; true })
                 add(CustomAccessibilityAction(action) { onArchive(); true })
                 if (!readPending) add(CustomAccessibilityAction(readLabel) { onRead(); true })
                 add(CustomAccessibilityAction(notificationsLabel) { onNotifications(); true })
@@ -74,9 +71,6 @@ fun ArchivedChatRow(
         Box(Modifier.background(colors.surfaceBase)) {
             ChatRow(chat, media, onLongClick = { menu = true }, actions = {
                 Box {
-                    IconButton(onClick = { menu = true }) {
-                        Icon(painterResource(PhosphorIcon.DOTS_THREE.drawable), contentDescription = stringResource(R.string.bipe_chat_actions), tint = colors.glyphSecondary, modifier = Modifier.size(20.dp))
-                    }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text(action) }, onClick = { menu = false; onArchive() })
                         DropdownMenuItem(text = { Text(readLabel) }, enabled = !readPending, onClick = { menu = false; onRead() })

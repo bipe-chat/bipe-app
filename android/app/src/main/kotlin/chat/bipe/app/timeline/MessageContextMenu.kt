@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -23,9 +22,9 @@ import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeHaptic
 
-/** Native popup anchored to a visible, accessible menu button. The current row is resolved on every update. */
+/** Native long-press popup. The current account-owned row is resolved on every update. */
 @Composable
-fun MessageOverflowMenu(model: ChatTimelineModel, rowId: String, expanded: Boolean, onOpen: () -> Unit, onDismiss: () -> Unit) {
+fun MessageContextMenu(model: ChatTimelineModel, rowId: String, expanded: Boolean, onDismiss: () -> Unit) {
     val rows by model.rows.collectAsState()
     val row = rows.firstOrNull { it.id == rowId } ?: return
     val actions = model.actions(row)
@@ -35,9 +34,6 @@ fun MessageOverflowMenu(model: ChatTimelineModel, rowId: String, expanded: Boole
     val view = LocalView.current
     val colors = BipeTheme.colors
     Box {
-        IconButton(onClick = onOpen) {
-            Icon(painterResource(PhosphorIcon.DOTS_THREE.drawable), contentDescription = stringResource(R.string.bipe_message_actions), tint = colors.glyphSecondary)
-        }
         DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
             if (reactions) {
                 QUICK_REACTIONS.forEach { key ->
