@@ -12,11 +12,15 @@ final class AccountSession {
     let client: Client
     let syncService: SyncService
     let userId: String
+    let roomSubscriptions: BipeRoomSubscriptions
 
     init(client: Client, syncService: SyncService, userId: String) {
         self.client = client
         self.syncService = syncService
         self.userId = userId
+        roomSubscriptions = BipeRoomSubscriptions { ids in
+            try await syncService.roomListService().subscribeToRooms(roomIds: ids)
+        }
     }
 
     /// The process that opens the store. The app and the notification service extension share the store
@@ -75,6 +79,7 @@ final class AccountSession {
 
     /// Signs out on the server and removes this account's session, store and hidden password from this phone.
     func signOut(alreadyLoggedOut: Bool = false) async {
+        await roomSubscriptions.close()
         if !alreadyLoggedOut { try? await client.logout() }
         await syncService.stop()
         SessionStore.delete(userId: userId)

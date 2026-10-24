@@ -67,6 +67,7 @@ final class ChatListModel: ObservableObject {
     let archive: ChatArchiveModel
     private var extraRoomIds: Set<String> = []
     private var rooms: [Room] = []
+    private let subscriptionOwner = UUID().uuidString
     /// One model belongs to one account session. Never replace a known time with an absent preview.
     private var knownActivity: [String: Date] = [:]
     private var listLoaded = false
@@ -105,6 +106,9 @@ final class ChatListModel: ObservableObject {
     deinit {
         handles.forEach { $0.cancel() }
         summaryTask?.cancel()
+        let subscriptions = session.roomSubscriptions
+        let owner = subscriptionOwner
+        Task { await subscriptions.remove(owner: owner) }
     }
 
     /// Subscribes to the room list service: joined chats, newest activity first.
@@ -135,6 +139,9 @@ final class ChatListModel: ObservableObject {
                 rooms.apply(update.vectorDiff)
             }
             refreshSummaries()
+            // Cached rows publish first. The SDK hydrates latest events in the background, even offline.
+            await session.roomSubscriptions.update(owner: subscriptionOwner,
+                roomIDs: rooms.map { $0.id() } + Array(archive.markers.keys))
         }
     }
 
@@ -238,7 +245,7 @@ final class ChatListModel: ObservableObject {
         extraRoomIds.formUnion(archive.markers.keys)
         var rooms = rooms
         let loadedIds = Set(rooms.map { $0.id() })
-        for id in extraRoomIds.subtracting(loadedIds) {
+        for id in extraRoomIds.subtracting(loadedIds).sorted() {
             if let room = try? session.client.getRoom(roomId: id) { rooms.append(room) }
         }
         let userId = session.userId
@@ -255,7 +262,8 @@ final class ChatListModel: ObservableObject {
             guard !Task.isCancelled else { return }
             let dated = retainingKnownActivity(visible)
             archive.reconcile(dated)
-            chats = dated.sorted { ($0.lastActivity ?? .distantPast) > ($1.lastActivity ?? .distantPast) }
+            // The SDK also knows server recency stamps and local echoes. Optional previews cannot replace its order.
+            chats = dated
             updatePhase()
         }
     }
@@ -288,11 +296,11 @@ final class ChatListModel: ObservableObject {
             break
         }
         let peer = info.isDm ? info.heroes.first(where: { $0.userId != ownUserId }) : nil
-        let peerName = peer?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let name = peerName.flatMap { $0.isEmpty ? nil : $0 } ?? peer.map { Person.localpart(of: $0.userId) } ?? BipeStrings.dmNoName
+        let name = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName,
+            peerName: peer?.displayName, peerID: peer?.userId, unnamed: BipeStrings.dmNoName)
         return ChatSummary(roomId: info.id,
-                           name: info.isDm ? name : (info.displayName ?? info.id),
-                           avatarUrl: info.isDm ? peer?.avatarUrl : info.avatarUrl,
+                           name: name,
+                           avatarUrl: info.isDm ? (peer?.avatarUrl ?? info.avatarUrl) : info.avatarUrl,
                            lastMessage: lastMessage,
                            lastActivity: lastActivity,
                            unreadCount: Int(info.numUnreadMessages),

@@ -8,6 +8,12 @@ import android.content.Context
 import android.util.Base64
 import chat.bipe.app.common.AppConfig
 import chat.bipe.shared.account.BipeAccountVault
+import chat.bipe.shared.BipeRoomSubscriptions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.io.File
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
@@ -18,11 +24,18 @@ import uniffi.matrix_sdk.BackupDownloadStrategy
 
 /** A signed-in account: the SDK client and its sync service. */
 class AccountSession(val client: Client, val syncService: SyncService, val userId: String) {
+    val roomSubscriptions = BipeRoomSubscriptions { ids -> syncService.roomListService().subscribeToRooms(ids) }
+    private val subscriptionCleanup = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** Cleanup must outlive a discarded UI scope; a closed account rejects subsequent updates. */
+    fun releaseRoomSubscriptions(owner: String) { subscriptionCleanup.launch { roomSubscriptions.remove(owner) } }
     /** The access token for bipe-api calls (spec handle-pick notes). Read each time: the SDK may refresh it. */
     fun accessToken(): String? = runCatching { client.session().accessToken }.getOrNull()
 
     /** Signs out on the server and removes this account's session, store and hidden password from this phone. */
     suspend fun signOut(context: Context, sessionStore: SessionStore, vault: BipeAccountVault, alreadyLoggedOut: Boolean = false) {
+        roomSubscriptions.close()
+        subscriptionCleanup.cancel()
         if (!alreadyLoggedOut) runCatching { client.logout() }
         syncService.stop()
         sessionStore.delete(userId)

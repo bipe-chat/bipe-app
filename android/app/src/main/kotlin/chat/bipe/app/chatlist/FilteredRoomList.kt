@@ -17,6 +17,7 @@ import org.matrix.rustcomponents.sdk.RoomListEntriesListener
 import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
 import org.matrix.rustcomponents.sdk.RoomListEntriesWithDynamicAdaptersResult
 import org.matrix.rustcomponents.sdk.TaskHandle
+import java.util.UUID
 
 /**
  * One subscription to the room list service with its own filter (RoomList.entriesWithDynamicAdapters), for the lists
@@ -27,9 +28,12 @@ class FilteredRoomList(private val scope: CoroutineScope, private val onChange: 
     private var result: RoomListEntriesWithDynamicAdaptersResult? = null
     private var handle: TaskHandle? = null
     private var job: Job? = null
+    private val subscriptionOwner = UUID.randomUUID().toString()
+    private var session: AccountSession? = null
 
     /** Subscribes once, then sets the filter; a later call only changes the filter. */
     suspend fun start(session: AccountSession, filter: RoomListEntriesDynamicFilterKind) {
+        this.session = session
         result?.let {
             it.controller().setFilter(filter)
             return
@@ -51,6 +55,7 @@ class FilteredRoomList(private val scope: CoroutineScope, private val onChange: 
             for (batch in updates) {
                 batch.forEach { rooms.applyDiff(it.toVectorDiff()) }
                 onChange(rooms.toList())
+                session.roomSubscriptions.update(subscriptionOwner, rooms.map { it.id() })
             }
         }
     }
@@ -62,6 +67,7 @@ class FilteredRoomList(private val scope: CoroutineScope, private val onChange: 
     fun close() {
         handle?.cancel()
         job?.cancel()
+        session?.releaseRoomSubscriptions(subscriptionOwner)
     }
 
     private companion object {
