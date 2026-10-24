@@ -9,6 +9,23 @@ import Testing
 /// Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). Android runs the same files.
 struct SharedVectorTests {
     @Test
+    func photoMatch() throws {
+        let cases = try SharedVectors.array("photo-match.json", key: "cases")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let name = vector["name"] as? String ?? ""
+            let gridA = try #require(vector["gridA"] as? [[NSNumber]]).map { $0.map(\.uint8Value) }
+            let gridB = try #require(vector["gridB"] as? [[NSNumber]]).map { $0.map(\.uint8Value) }
+            let hashA = try #require(BipePhotoMatch.hash(gray: gridA))
+            let hashB = try #require(BipePhotoMatch.hash(gray: gridB))
+            #expect(hashA == vector["hashA"] as? String, "photo match \(name)")
+            #expect(hashB == vector["hashB"] as? String, "photo match \(name)")
+            #expect(BipePhotoMatch.distance(hashA, hashB) == (vector["distance"] as? NSNumber)?.intValue, "photo match \(name)")
+            #expect(BipePhotoMatch.matches(hashA, hashB) == vector["matches"] as? Bool, "photo match \(name)")
+        }
+    }
+
+    @Test
     func relationshipNames() throws {
         let vectors = try SharedVectors.array("relationship-names.json", key: "vectors")
         #expect(!vectors.isEmpty)
