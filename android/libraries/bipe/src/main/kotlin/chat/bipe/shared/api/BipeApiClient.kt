@@ -99,6 +99,18 @@ class BipeApiClient(baseUrl: String) {
     suspend fun account(accessToken: String): BipeAccountStatus =
         send("GET", listOf("v1", "me", "account"), accessToken = accessToken, response = BipeAccountStatus.serializer())
 
+    /** `GET /v1/me/business` (ADR 0042). `null` when the account has no CNPJ claim (404). */
+    suspend fun myBusiness(accessToken: String): BipeBusinessClaim? = try {
+        send("GET", listOf("v1", "me", "business"), accessToken = accessToken, response = BipeBusinessClaim.serializer())
+    } catch (error: BipeApiException) {
+        val status = when (error) {
+            is BipeApiException.Server -> error.statusCode
+            is BipeApiException.UnexpectedResponse -> error.statusCode
+            is BipeApiException.Network -> null
+        }
+        if (status == 404) null else throw error
+    }
+
     /** `POST /v1/me/terms`. Records that the person ticked the box for [termsVersion] (ADR 0113). */
     suspend fun acceptTerms(termsVersion: String, accessToken: String) {
         send<Unit>(

@@ -14,16 +14,19 @@ struct VoceView: View {
     @StateObject private var settings: SettingsModel
     @StateObject private var people: PeopleService
     @StateObject private var handle: HandlePickModel
+    @StateObject private var trust = TrustCardModel()
+    private let api: BipeAPIClient
     @State private var showsHandlePick = false
     @State private var path = NavigationPath()
     @State private var openingNotes = false
     @State private var notesFailed = false
-    private enum Destination: Hashable { case notes(String), invites }
+    private enum Destination: Hashable { case notes(String), invites, trust }
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
         self.chatList = chatList
         self.onNewAccount = onNewAccount
+        self.api = api
         _settings = StateObject(wrappedValue: SettingsModel(session: chatList.session, api: api))
         _people = StateObject(wrappedValue: PeopleService(session: chatList.session, api: api, media: chatList.media))
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: chatList.session))
@@ -71,6 +74,11 @@ struct VoceView: View {
                     .disabled(openingNotes)
                     .listRowBackground(BipeColor.surfaceRaised)
                 }
+                // Perfil de confiança after Anotações (ADR 0112, spec trust-card).
+                if let account = model.accounts.first(where: \.isCurrent) {
+                    TrustCardSection(profile: trust.profile(for: account), actions: trustActions,
+                                     openLadder: { path.append(Destination.trust) })
+                }
                 Section {
                     NavigationLink(value: Destination.invites) {
                         IconLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
@@ -93,6 +101,10 @@ struct VoceView: View {
                 case .invites:
                     InvitesView(model: model.invites(for: chatList.session), people: people,
                                 openChat: { path.append(Destination.notes($0)) })
+                case .trust:
+                    if let account = model.accounts.first(where: \.isCurrent) {
+                        TrustProfileView(profile: trust.profile(for: account), actions: trustActions)
+                    }
                 }
             }
             .navigationDestination(for: PeopleRoute.self) { route in
@@ -101,6 +113,10 @@ struct VoceView: View {
         }
         .accessibilityIdentifier(BipeScreen.voce.rawValue)
         .onAppear { people.start(); Task { await model.refreshProfiles() } }
+        .task(id: model.accounts.first(where: \.isCurrent).map { "\($0.userId)|\($0.isCompany)" }) {
+            let isCompany = model.accounts.first(where: \.isCurrent)?.isCompany ?? false
+            await trust.load(session: chatList.session, api: api, isCompany: isCompany)
+        }
         .sheet(isPresented: $showsHandlePick) { HandlePickView(model: handle) }
         .alert(BipeStrings.selfChatError, isPresented: $notesFailed) {
             Button(BipeStrings.appRetry, action: openNotes)
@@ -131,6 +147,12 @@ struct VoceView: View {
             PersonProfileView(people: people, userId: userId, fromDm: fromDm,
                               routes: PersonProfileRoutes(openChat: { path.append(Destination.notes($0)) }))
         }
+    }
+
+    private var trustActions: TrustActions {
+        TrustActions(addName: { path.append(PeopleRoute.profileEdit) },
+                     addPhoto: { path.append(PeopleRoute.profileEdit) },
+                     chooseHandle: { showsHandlePick = true })
     }
 
     private func openNotes() {
