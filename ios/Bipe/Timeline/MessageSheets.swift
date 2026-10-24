@@ -48,22 +48,28 @@ struct MessageActionsSheet: View {
                 }
             }
             VStack(spacing: 0) {
-                ForEach(model.actions(for: row)) { action in
-                    Button {
-                        model.choose(action, rowId: row.id)
-                    } label: {
-                        HStack(spacing: 14) {
-                            action.menuIcon.image
-                                .resizable()
-                                .frame(width: 22, height: 22)
-                            Text(action.menuTitle)
-                            Spacer()
+                // The money pause counts down in the sheet (spec scam-warning); a periodic redraw keeps the number current.
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    ForEach(model.actions(for: row)) { action in
+                        let paused = action == .copy && model.pauseSecondsLeft(rowId: row.id, now: context.date) > 0
+                        Button {
+                            model.choose(action, rowId: row.id)
+                        } label: {
+                            HStack(spacing: 14) {
+                                action.menuIcon.image
+                                    .resizable()
+                                    .frame(width: 22, height: 22)
+                                Text(model.menuTitle(action, rowId: row.id))
+                                Spacer()
+                            }
+                            .foregroundStyle(action == .delete ? BipeColor.trustDangerInk
+                                             : paused ? BipeColor.inkDisabled : BipeColor.inkPrimary)
+                            .padding(.vertical, 12)
+                            .contentShape(Rectangle())
                         }
-                        .foregroundStyle(action == .delete ? BipeColor.trustDangerInk : BipeColor.inkPrimary)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .disabled(paused)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             Spacer(minLength: 0)

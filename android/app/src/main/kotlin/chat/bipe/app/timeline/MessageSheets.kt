@@ -105,12 +105,19 @@ fun MessageActionsSheet(model: ChatTimelineModel, row: TimelineRow, onCopy: (Str
                 }
             }
             Column {
+                val pauseLeft = rememberPauseSecondsLeft(model, row.id)
                 model.actions(row).forEach { action ->
-                    val tint = if (action == MessageAction.DELETE) colors.trustDangerInk else colors.inkPrimary
+                    // Spec scam-warning money pause: Copiar waits, with the countdown as its label.
+                    val paused = action == MessageAction.COPY && pauseLeft > 0
+                    val tint = when {
+                        action == MessageAction.DELETE -> colors.trustDangerInk
+                        paused -> colors.inkDisabled
+                        else -> colors.inkPrimary
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
+                            .clickable(enabled = !paused) {
                                 if (action == MessageAction.COPY) onHaptic(BipeHaptic.Tap)
                                 model.choose(action, row.id, onCopy)
                             }
@@ -119,7 +126,11 @@ fun MessageActionsSheet(model: ChatTimelineModel, row: TimelineRow, onCopy: (Str
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         Icon(painterResource(actionIcon(action).drawable), contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
-                        Text(stringResource(actionTitle(action)), style = MaterialTheme.typography.bodyLarge, color = tint)
+                        Text(
+                            if (paused) stringResource(R.string.bipe_pause_countdown, pauseLeft.toString()) else stringResource(actionTitle(action)),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = tint,
+                        )
                     }
                 }
             }

@@ -24,6 +24,8 @@ import chat.bipe.app.polls.PollData
 import chat.bipe.shared.R
 import chat.bipe.app.groups.GroupPeople
 import chat.bipe.shared.BipeHandleChangeStore
+import chat.bipe.shared.BipeMoneyPause
+import chat.bipe.shared.ScamWarningKind
 import org.matrix.rustcomponents.sdk.MembershipState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -492,6 +494,21 @@ class ChatTimelineModel(
     fun showsReactions(row: TimelineRow): Boolean =
         row.kind == TimelineRow.Kind.MESSAGE && row.details?.eventId != null && row.message?.sendState == TimelineMessage.SendState.SENT
 
+    private val _moneyPause = MutableStateFlow(BipeMoneyPause())
+    /** Spec scam-warning money pause: one per message while this chat is open. */
+    val moneyPause: StateFlow<BipeMoneyPause> = _moneyPause.asStateFlow()
+
+    /** Spec scam-warning startPause: the first time the card of a money kind shows. Returns `true` when it started. */
+    fun startMoneyPause(rowId: String, kind: ScamWarningKind): Boolean {
+        val before = _moneyPause.value
+        val after = before.started(rowId, kind)
+        _moneyPause.value = after
+        return after != before
+    }
+
+    /** Seconds before Copiar works again on this row (0: no pause). */
+    fun pauseSecondsLeft(rowId: String, nowMs: Long = System.currentTimeMillis()): Int = _moneyPause.value.secondsLeft(rowId, nowMs)
+
     /** Action choose. copy puts the text on the clipboard through the screen. */
     fun choose(action: MessageAction, rowId: String, copy: (String) -> Unit) {
         closeActions()
@@ -500,7 +517,7 @@ class ChatTimelineModel(
         when (action) {
             MessageAction.REPLY -> startReply(rowId)
             MessageAction.EDIT -> startEdit(rowId)
-            MessageAction.COPY -> row(rowId)?.message?.body?.let {
+            MessageAction.COPY -> if (pauseSecondsLeft(rowId) == 0) row(rowId)?.message?.body?.let {
                 copy(it)
                 show(TimelineNotice.COPIED)
             }

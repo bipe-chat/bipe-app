@@ -77,6 +77,7 @@ import chat.bipe.shared.R
 import chat.bipe.shared.line
 import androidx.compose.ui.platform.LocalContext
 import chat.bipe.shared.ScamWarningKind
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import androidx.compose.ui.platform.testTag
 import chat.bipe.shared.generated.BipeHaptic
@@ -310,7 +311,14 @@ private fun MessageBubbleRow(
                     ReplyQuote(reply, Modifier.clickable { model.openOriginal(reply.eventId) })
                 }
                 content()
-                details.scamWarning?.let { ScamWarningCard(it) }
+                details.scamWarning?.let { kind ->
+                    val announcement = stringResource(R.string.bipe_pause_countdown, BipeRegistries.SCAM_MONEY_PAUSE_SECONDS.toString())
+                    LaunchedEffect(row.id, kind) {
+                        // Screen readers hear the countdown once, at the start (spec scam-warning notes).
+                        if (model.startMoneyPause(row.id, kind)) view.announceForAccessibility(announcement)
+                    }
+                    ScamWarningCard(kind, rememberPauseSecondsLeft(model, row.id))
+                }
                 MessageFooter(message, details, onFailedTap = onLongPress, modifier = Modifier.align(Alignment.End))
             }
         }
@@ -334,7 +342,7 @@ private fun MessageBubbleRow(
 
 /** Spec scam-warning: a calm caution card. Title then the kind text, one element for screen readers. */
 @Composable
-private fun ScamWarningCard(kind: ScamWarningKind) {
+private fun ScamWarningCard(kind: ScamWarningKind, pauseSecondsLeft: Int) {
     val colors = BipeTheme.colors
     val shape = RoundedCornerShape(10.dp)
     Row(
@@ -350,6 +358,11 @@ private fun ScamWarningCard(kind: ScamWarningKind) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(stringResource(R.string.bipe_scam_warning_title), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.trustCautionInk)
             Text(stringResource(kind.messageRes), style = MaterialTheme.typography.labelMedium, color = colors.inkPrimary)
+            if (pauseSecondsLeft > 0) {
+                // The number changes once a second, with no animation (reduced motion or not).
+                Text(stringResource(R.string.bipe_pause_countdown, pauseSecondsLeft.toString()), style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold, color = colors.trustCautionInk, modifier = Modifier.clearAndSetSemantics {})
+            }
         }
     }
 }
