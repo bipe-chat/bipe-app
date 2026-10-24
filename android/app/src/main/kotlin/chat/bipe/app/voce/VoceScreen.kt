@@ -4,6 +4,12 @@
 
 package chat.bipe.app.voce
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.ui.graphics.Color
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
@@ -86,37 +92,27 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
             Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.VOCE.id), color = BipeTheme.colors.surfaceBase) {
                 LazyColumn(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
                     item { Text(stringResource(R.string.bipe_tab_you), style = MaterialTheme.typography.headlineMedium,
-                        color = BipeTheme.colors.inkPrimary, modifier = Modifier.padding(16.dp)) }
+                        color = BipeTheme.colors.inkPrimary, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) }
                     item { state.accounts.firstOrNull { it.isCurrent }?.let {
                         VoceHeader(it, media, openProfile = { openGroup(BipeSettingsGroup.PROFILE) },
                             openQr = { openPeople(PeopleRoute.ProfileQr) })
                     } }
+                    // The accounts on this phone (ADR 0112, 0135); Nova conta closes the section while the cap allows.
                     if (state.accounts.size > 1) {
-                        item { Text(stringResource(R.string.bipe_app_account_switcher_title), color = BipeTheme.colors.inkSecondary, modifier = Modifier.padding(16.dp)) }
+                        item { VoceSectionHeader(stringResource(R.string.bipe_app_account_switcher_title)) }
                         item { AccountRows(tabs, media) }
                     }
                     if (state.canAddAccount) item {
-                        TextButton(onClick = onNewAccount, modifier = Modifier.padding(horizontal = 16.dp)) {
-                            Text(stringResource(R.string.bipe_app_account_new))
-                        }
+                        VoceRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_app_account_new), tint = BipeTheme.colors.accentInk,
+                            titleColor = BipeTheme.colors.accentInk, onClick = onNewAccount)
                     }
+                    item { VoceSectionHeader(null) }
                     item {
-                        Row(Modifier.fillMaxWidth().clickable(enabled = !openingNotes, onClick = openNotes).padding(16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(painterResource(PhosphorIcon.NOTEPAD.drawable), contentDescription = null, tint = BipeTheme.colors.glyphPrimary)
-                            Column(Modifier.weight(1f)) {
-                                Text(notesTitle, color = BipeTheme.colors.inkPrimary, style = MaterialTheme.typography.titleMedium)
-                                Text(stringResource(R.string.bipe_self_chat_subtitle), color = BipeTheme.colors.inkSecondary)
-                            }
-                            if (openingNotes) CircularProgressIndicator(Modifier.size(24.dp), color = BipeTheme.colors.accentFill)
-                        }
+                        VoceRow(PhosphorIcon.NOTEPAD, notesTitle, stringResource(R.string.bipe_self_chat_subtitle),
+                            tint = BipeTheme.colors.accentInk, enabled = !openingNotes, onClick = openNotes,
+                            trailing = if (openingNotes) { { CircularProgressIndicator(Modifier.size(24.dp), color = BipeTheme.colors.accentFill) } } else null)
                     }
-                    item {
-                        TextButton(onClick = openInvites, modifier = Modifier.padding(horizontal = 16.dp)) {
-                            Icon(painterResource(PhosphorIcon.USER_PLUS.drawable), contentDescription = null)
-                            Text(stringResource(R.string.bipe_invites_title))
-                        }
-                    }
+                    item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
                     SettingsRootSection(settings, openGroup)
                 }
             }
@@ -136,21 +132,66 @@ private fun VoceHeader(account: AccountSummary, media: MediaLoader, openProfile:
     val context = LocalContext.current
     val shareTitle = stringResource(R.string.bipe_profile_share)
     Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(Modifier.clickable(onClick = openProfile), horizontalAlignment = Alignment.CenterHorizontally) {
-            Avatar(account.displayName, account.avatarUrl, media, size = 88.dp, userId = account.userId, isCompany = account.isCompany)
+        Column(Modifier.clickable(onClick = openProfile), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Avatar(account.displayName, account.avatarUrl, media, size = 96.dp, userId = account.userId, isCompany = account.isCompany)
             Text(account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary)
+            account.handle?.let { Text("@$it", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
         }
-        account.handle?.let { handle ->
-            Text("@$handle", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
-            TextButton(onClick = {
-                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "https://bipe.chat/@$handle")
-                context.startActivity(Intent.createChooser(send, shareTitle))
-            }) { Text(shareTitle) }
+        // QR and Compartilhar perfil side by side, as Material 3 tonal buttons.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FilledTonalButton(onClick = openQr, modifier = Modifier.weight(1f)) {
+                Icon(painterResource(PhosphorIcon.QR_CODE.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.bipe_profile_qr_action))
+            }
+            account.handle?.let { handle ->
+                FilledTonalButton(onClick = {
+                    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "https://bipe.chat/@$handle")
+                    context.startActivity(Intent.createChooser(send, shareTitle))
+                }, modifier = Modifier.weight(1f)) {
+                    Icon(painterResource(PhosphorIcon.SHARE_NETWORK.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(shareTitle)
+                }
+            }
         }
-        TextButton(onClick = openQr) { Text(stringResource(R.string.bipe_profile_qr_action)) }
     }
+}
+
+@Composable
+private fun VoceSectionHeader(title: String?) {
+    if (title == null) {
+        Spacer(Modifier.size(8.dp))
+        return
+    }
+    Text(title, style = MaterialTheme.typography.labelLarge, color = BipeTheme.colors.accentInk,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp))
+}
+
+/** A Material 3 list item with a Phosphor icon, for the rows of Você above Configurações. */
+@Composable
+private fun VoceRow(
+    icon: PhosphorIcon,
+    title: String,
+    subtitle: String? = null,
+    tint: Color = BipeTheme.colors.glyphPrimary,
+    titleColor: Color = BipeTheme.colors.inkPrimary,
+    enabled: Boolean = true,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit,
+) {
+    val colors = BipeTheme.colors
+    ListItem(
+        headlineContent = { Text(title, color = titleColor) },
+        supportingContent = subtitle?.let { text -> @Composable { Text(text, color = colors.inkSecondary) } },
+        leadingContent = { Icon(painterResource(icon.drawable), contentDescription = null, tint = tint) },
+        trailingContent = trailing,
+        colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
+        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
+    )
 }
