@@ -23,19 +23,20 @@ object RecoveryTokenSyncs {
 }
 
 /**
- * Recovery tokens in Google Block Store, one entry per account ([BipeSyncedTokenCodec]). Cloud backup is on, so a new
- * phone signed in to the same Google account finds the token (ADR 0059); Block Store encrypts the backup end to end
- * when the phone has a screen lock. The token alone opens nothing: recovery-pin also needs the PIN.
+ * Recovery tokens in Google Block Store, one entry per account, in the fork's format ([BipeSyncedTokenCodec]). Cloud
+ * backup is on, so a new phone signed in to the same Google account finds the token (ADR 0059); Google encrypts the
+ * backup end to end only when the phone has a screen lock, else Block Store keeps it on the device. The token alone
+ * opens nothing: recovery-pin also needs the PIN.
  */
 private class BlockStoreRecoveryTokenSync(context: Context) : BipeRecoveryTokenSync {
     private val client = Blockstore.getClient(context)
 
     override val isAvailable = true
 
-    override suspend fun store(entry: BipeSyncedToken) {
+    override suspend fun store(userId: String, token: String) {
         val data = StoreBytesData.Builder()
-            .setKey(BipeSyncedTokenCodec.key(entry.userId))
-            .setBytes(BipeSyncedTokenCodec.encode(entry))
+            .setKey(BipeSyncedTokenCodec.key(userId))
+            .setBytes(BipeSyncedTokenCodec.encode(userId, token))
             .setShouldBackupToCloud(true)
             .build()
         client.storeBytes(data).await()
@@ -48,7 +49,7 @@ private class BlockStoreRecoveryTokenSync(context: Context) : BipeRecoveryTokenS
         }
     }
 
-    override suspend fun delete(userId: String) {
+    override suspend fun delete(userId: String?) {
         val request = DeleteBytesRequest.Builder().setKeys(listOf(BipeSyncedTokenCodec.key(userId))).build()
         client.deleteBytes(request).await()
     }

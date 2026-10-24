@@ -28,7 +28,6 @@ class BipeRecoveryTokens(
     private val vault: BipeVaultStore,
     private val sync: BipeRecoveryTokenSync,
     private val scope: CoroutineScope,
-    private val now: () -> Long = System::currentTimeMillis,
     private val timeoutMillis: Long = TIMEOUT_MILLIS,
 ) {
     private val running = Mutex()
@@ -47,7 +46,7 @@ class BipeRecoveryTokens(
         for ((userId, account) in data.accounts) {
             val token = account.token ?: continue
             if (account.tokenSynced) continue
-            if (attempt { sync.store(BipeSyncedToken(userId, token, now())) }) {
+            if (attempt { sync.store(userId, token) }) {
                 vault.update { it.withTokenSynced(userId, token) }
             } else {
                 done = false
@@ -56,11 +55,12 @@ class BipeRecoveryTokens(
         if (data.revokedTokens.isNotEmpty()) {
             val synced = attemptValue { sync.all() }
             if (synced == null) return@withLock false
-            for ((userId, fingerprint) in data.revokedTokens) {
+            for ((owner, fingerprint) in data.revokedTokens) {
+                val userId = owner.takeIf { it != BipeVaultData.LEGACY_OWNER }
                 val entry = synced.firstOrNull { it.userId == userId }
                 // Delete only the rejected token: a newer token of the same account stays.
                 val gone = entry == null || BipeSyncedTokenCodec.fingerprint(entry.token) != fingerprint || attempt { sync.delete(userId) }
-                if (gone) vault.update { it.withoutRevoked(userId, fingerprint) } else done = false
+                if (gone) vault.update { it.withoutRevoked(owner, fingerprint) } else done = false
             }
         }
         done
@@ -68,25 +68,27 @@ class BipeRecoveryTokens(
 
     /**
      * recovery-start, action appear: the token of an account that is not signed in on this phone ([signedIn]), or
-     * `null`. The vault's newest account first, then the newest entry of the synced store.
+     * `null`. The vault's newest account first, then an account's entry in the synced store, then the entry from before
+     * bipe-chat/bipe#265.
      */
     suspend fun candidate(signedIn: Set<String>): BipeSyncedToken? {
         val data = vault.read()
-        fun offered(userId: String, token: String) =
-            userId !in signedIn && data.revokedTokens[userId] != BipeSyncedTokenCodec.fingerprint(token)
+        fun offered(userId: String?, token: String) = (userId == null || userId !in signedIn) &&
+            data.revokedTokens[userId ?: BipeVaultData.LEGACY_OWNER] != BipeSyncedTokenCodec.fingerprint(token)
         data.accounts.entries.lastOrNull { (userId, account) -> account.token?.let { offered(userId, it) } == true }?.let { (userId, account) ->
-            return BipeSyncedToken(userId, account.token!!, 0)
+            return BipeSyncedToken(userId, account.token!!)
         }
         if (!sync.isAvailable) return null
         val synced = attemptValue { sync.all() } ?: return null
-        return synced.filter { offered(it.userId, it.token) }.maxByOrNull { it.savedAt }
+        return synced.filter { offered(it.userId, it.token) }.sortedBy { it.userId == null }.firstOrNull()
     }
 
     /**
-     * The API rejected [token] (`recovery_invalid`): the vault drops it and remembers it at once, so the next
-     * [candidate] skips it; the synced store drops it in the background.
+     * The API rejected [token] (`recovery_invalid`), or a recovery replaced it: the vault drops it and remembers it at
+     * once, so the next [candidate] skips it; the synced store drops it in the background. [userId] `null` is the entry
+     * from before bipe-chat/bipe#265.
      */
-    suspend fun revoke(userId: String, token: String) {
+    suspend fun revoke(userId: String?, token: String) {
         vault.update { it.withRevokedToken(userId, token) }
         syncSoon()
     }

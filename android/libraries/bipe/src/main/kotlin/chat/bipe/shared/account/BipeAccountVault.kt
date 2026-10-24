@@ -66,8 +66,9 @@ data class BipeVaultData(
     /** A slow recovery that waits for its claim (spec recovery-waiting). On this device only, until the claim ends. */
     @SerialName("pending_recovery") val pendingRecovery: BipeRecoveryStarted? = null,
     /**
-     * Matrix ID to the fingerprint ([BipeSyncedTokenCodec.fingerprint]) of a token the API rejected (`recovery_invalid`),
-     * until the synced store no longer holds it. recovery-start never offers it again.
+     * Matrix ID ([LEGACY_OWNER] for the entry from before bipe-chat/bipe#265) to the fingerprint
+     * ([BipeSyncedTokenCodec.fingerprint]) of a token the API rejected (`recovery_invalid`) or a recovery replaced, until
+     * the synced store no longer holds it. recovery-start never offers it again.
      */
     @SerialName("revoked_tokens") val revokedTokens: Map<String, String> = emptyMap(),
 ) {
@@ -83,20 +84,26 @@ data class BipeVaultData(
         return copy(accounts = accounts + (userId to account.copy(tokenSynced = true)))
     }
 
-    /** The API rejected [token]: it leaves the account and is remembered until the synced store drops it. */
-    fun withRevokedToken(userId: String, token: String): BipeVaultData {
-        val account = accounts[userId]
+    /** [token] is no longer good: it leaves the account and is remembered until the synced store drops it. */
+    fun withRevokedToken(userId: String?, token: String): BipeVaultData {
+        val account = userId?.let(accounts::get)
         val kept = when {
             account == null || account.token != token -> accounts
-            account.password == null -> accounts - userId
-            else -> accounts + (userId to account.copy(token = null, tokenSynced = false))
+            account.password == null -> accounts - userId!!
+            else -> accounts + (userId!! to account.copy(token = null, tokenSynced = false))
         }
-        return copy(accounts = kept, revokedTokens = revokedTokens + (userId to BipeSyncedTokenCodec.fingerprint(token)))
+        val owner = userId ?: LEGACY_OWNER
+        return copy(accounts = kept, revokedTokens = revokedTokens + (owner to BipeSyncedTokenCodec.fingerprint(token)))
     }
 
-    /** The synced store no longer holds the rejected token. */
-    fun withoutRevoked(userId: String, fingerprint: String): BipeVaultData =
-        if (revokedTokens[userId] == fingerprint) copy(revokedTokens = revokedTokens - userId) else this
+    /** The synced store no longer holds the rejected token. [owner] is a key of [revokedTokens]. */
+    fun withoutRevoked(owner: String, fingerprint: String): BipeVaultData =
+        if (revokedTokens[owner] == fingerprint) copy(revokedTokens = revokedTokens - owner) else this
+
+    companion object {
+        /** The key of [revokedTokens] for the entry from before bipe-chat/bipe#265. A Matrix ID is never empty. */
+        const val LEGACY_OWNER = ""
+    }
 }
 
 /** Reads and changes [BipeVaultData]. [BipeAccountVault] on the phone; tests use a copy in memory. */

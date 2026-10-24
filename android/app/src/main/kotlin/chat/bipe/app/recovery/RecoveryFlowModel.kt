@@ -124,7 +124,8 @@ class RecoveryFlowModel(
     private val _waitingPhase = MutableStateFlow(WaitingPhase.WAITING)
     val waitingPhase: StateFlow<WaitingPhase> = _waitingPhase.asStateFlow()
 
-    private var token: Pair<String, String>? = null
+    /** The offered token with its Matrix ID (`null`: the fork's entry from before bipe-chat/bipe#265). */
+    private var token: Pair<String?, String>? = null
     private var linkToken: String? = null
     private var newPin = ""
     private var pollJob: Job? = null
@@ -244,9 +245,11 @@ class RecoveryFlowModel(
             try {
                 when (_factor.value) {
                     Factor.TOKEN -> {
-                        val (_, secret) = token ?: throw BipeApiException.Server(BipeApiErrorCode.RECOVERY_INVALID, null, 403)
+                        val (owner, secret) = token ?: throw BipeApiException.Server(BipeApiErrorCode.RECOVERY_INVALID, null, 403)
                         val credentials = api.recoverWithToken(secret, entered)
                         _pin.value = ""
+                        // The account's new token goes under its own key; the entry without an owner is done.
+                        if (owner == null && credentials.recoveryToken != secret) recoveryTokens.revoke(null, secret)
                         signIn(credentials)
                     }
                     Factor.EMAIL_LINK -> {
