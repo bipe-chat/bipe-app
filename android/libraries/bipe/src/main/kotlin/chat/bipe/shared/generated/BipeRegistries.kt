@@ -584,6 +584,11 @@ object BipeRegistries {
         "bankAlert",
     )
 
+    /** Photo match (ADR 0049, registries/photo-match.json): dHash grid size and the largest Hamming distance that matches. */
+    const val PHOTO_MATCH_WIDTH = 9
+    const val PHOTO_MATCH_HEIGHT = 8
+    const val PHOTO_MATCH_MAX_DISTANCE = 6
+
     /** Username (handle) rules. The server is the authority; clients check early for feedback. */
     const val HANDLE_MIN_LENGTH = 3
     const val HANDLE_MAX_LENGTH = 30
