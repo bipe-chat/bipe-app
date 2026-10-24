@@ -13,7 +13,8 @@ struct MoneyPauseTests {
     @Test
     func pixCodeStartsAFiveSecondPause() {
         var pause = BipeMoneyPause()
-        #expect(pause.start(id: "$e", kind: .pixCode, now: start))
+        let started = pause.start(id: "$e", kind: .pixCode, now: start)
+        #expect(started)
         #expect(pause.secondsLeft(id: "$e", now: start) == 5)
         #expect(pause.secondsLeft(id: "$e", now: start.addingTimeInterval(4.2)) == 1)
         #expect(pause.secondsLeft(id: "$e", now: start.addingTimeInterval(5)) == 0)
@@ -23,7 +24,8 @@ struct MoneyPauseTests {
     func runsOncePerMessage() {
         var pause = BipeMoneyPause()
         pause.start(id: "$e", kind: .bankAlert, now: start)
-        #expect(!pause.start(id: "$e", kind: .bankAlert, now: start.addingTimeInterval(10)))
+        let again = pause.start(id: "$e", kind: .bankAlert, now: start.addingTimeInterval(10))
+        #expect(!again)
         #expect(pause.secondsLeft(id: "$e", now: start.addingTimeInterval(10)) == 0)
     }
 
@@ -31,7 +33,8 @@ struct MoneyPauseTests {
     func kindsWithoutMoneyGetNoPause() {
         var pause = BipeMoneyPause()
         for kind in [ScamWarningKind.receipt, .newNumber, .urgency, .pinRequest] {
-            #expect(!pause.start(id: kind.rawValue, kind: kind, now: start))
+            let started = pause.start(id: kind.rawValue, kind: kind, now: start)
+            #expect(!started)
             #expect(pause.secondsLeft(id: kind.rawValue, now: start) == 0)
         }
         #expect(BipeMoneyPause.applies(to: .lookalikeLink))
