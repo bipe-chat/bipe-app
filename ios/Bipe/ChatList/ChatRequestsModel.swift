@@ -5,6 +5,7 @@
 import BipeKit
 import Foundation
 import MatrixRustSDK
+import UIKit
 
 /// Type ChatRequestSummary of spec chat-requests, also used for the group invites of chat-list-filters.
 struct ChatRequestSummary: Identifiable, Equatable {
@@ -71,10 +72,42 @@ final class ChatRequestsModel: ObservableObject {
 
     func rememberDmPartners(_ chats: [ChatSummary]) {
         var names: [String: String] = [:]
+        var avatars: [String: String] = [:]
         for chat in chats where chat.isDm {
-            if let peer = chat.peerUserId, names[peer] == nil { names[peer] = chat.name }
+            guard let peer = chat.peerUserId, names[peer] == nil else { continue }
+            names[peer] = chat.name
+            if let avatar = chat.avatarUrl { avatars[peer] = avatar }
         }
         dmPartnerNames = names
+        dmPartnerAvatars = avatars
+    }
+
+    /// Avatars of people with a joined DM, peer user ID → mxc URL (spec chat-request photoMatch).
+    private var dmPartnerAvatars: [String: String] = [:]
+    /// dHash per avatar mxc URL, memory only (ADR 0049: no image or hash leaves the phone).
+    private var photoHashes: [String: String] = [:]
+    /// At most this many contact avatars are hashed for one request.
+    private static let photoMatchLimit = 200
+
+    /// Spec chat-request photoMatch (ADR 0049): the contact whose avatar matches an unverified inviter's avatar.
+    func photoMatch(for request: ChatRequestSummary) async -> String? {
+        guard case .unverified = trust(for: request), let inviterAvatar = request.avatarUrl,
+              let inviterHash = await photoHash(inviterAvatar) else { return nil }
+        for (peer, avatar) in dmPartnerAvatars.prefix(Self.photoMatchLimit) where peer != request.inviterId && avatar != inviterAvatar {
+            if Task.isCancelled { return nil }
+            if let hash = await photoHash(avatar), BipePhotoMatch.matches(inviterHash, hash) {
+                return dmPartnerNames[peer]
+            }
+        }
+        return nil
+    }
+
+    private func photoHash(_ mxcUrl: String) async -> String? {
+        if let cached = photoHashes[mxcUrl] { return cached }
+        guard let image = await people.media.thumbnail(mxcUrl: mxcUrl, size: 64)?.cgImage,
+              let grid = BipePhotoMatch.grid(of: image), let hash = BipePhotoMatch.hash(gray: grid) else { return nil }
+        photoHashes[mxcUrl] = hash
+        return hash
     }
 
     /// Spec chat-request contactCollision (security rule 8): the contact name that the inviter's name copies.

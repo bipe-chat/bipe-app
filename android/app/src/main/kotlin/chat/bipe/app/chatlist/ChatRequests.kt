@@ -44,6 +44,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -61,6 +62,7 @@ import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeNameLookalikes
+import chat.bipe.shared.BipePhotoMatch
 import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.inviteConnections
@@ -100,6 +102,9 @@ data class ChatRequestSummary(
     enum class Trust { VERIFIED, UNVERIFIED, EXTERNAL }
 }
 
+/** At most this many contact avatars are hashed for one request (spec chat-request photoMatch). */
+private const val PHOTO_MATCH_LIMIT = 200
+
 /** Specs chat-requests and chat-request, and the group invites of chat-list-filters. */
 class ChatRequestsModel(private val context: Context, val session: AccountSession, private val api: BipeApiClient,
                         private val scope: CoroutineScope, val people: PeopleService) {
@@ -115,8 +120,38 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
 
     fun rememberDmPartners(chats: List<ChatSummary>) {
         val names = LinkedHashMap<String, String>()
-        for (chat in chats) if (chat.isDm) chat.peerUserId?.let { names.putIfAbsent(it, chat.name) }
+        val avatars = LinkedHashMap<String, String>()
+        for (chat in chats) if (chat.isDm) chat.peerUserId?.let { peer ->
+            if (names.putIfAbsent(peer, chat.name) == null) chat.avatarUrl?.let { avatars[peer] = it }
+        }
         _dmPartnerNames.value = names
+        dmPartnerAvatars = avatars
+    }
+
+    /** Avatars of people with a joined DM, peer user ID → mxc URL (spec chat-request photoMatch). */
+    @Volatile private var dmPartnerAvatars: Map<String, String> = emptyMap()
+    /** dHash per avatar mxc URL, memory only (ADR 0049: no image or hash leaves the phone). */
+    private val photoHashes = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** Spec chat-request photoMatch (ADR 0049): the contact whose avatar matches an unverified inviter's avatar. */
+    suspend fun photoMatch(request: ChatRequestSummary, verified: Boolean): String? {
+        if (verified || request.trust == ChatRequestSummary.Trust.EXTERNAL) return null
+        val inviterAvatar = request.avatarUrl ?: return null
+        val inviterHash = photoHash(inviterAvatar) ?: return null
+        for ((peer, avatar) in dmPartnerAvatars.entries.take(PHOTO_MATCH_LIMIT)) {
+            if (peer == request.inviterId || avatar == inviterAvatar) continue
+            val hash = photoHash(avatar) ?: continue
+            if (BipePhotoMatch.matches(inviterHash, hash)) return _dmPartnerNames.value[peer]
+        }
+        return null
+    }
+
+    private suspend fun photoHash(mxcUrl: String): String? {
+        photoHashes[mxcUrl]?.let { return it }
+        val image = people.media.thumbnail(mxcUrl, 64) ?: return null
+        val hash = BipePhotoMatch.hash(BipePhotoMatch.grid(image.asAndroidBitmap())) ?: return null
+        photoHashes[mxcUrl] = hash
+        return hash
     }
 
     /**
@@ -439,7 +474,12 @@ fun ChatRequestScreen(
                 val dmNames by model.dmPartnerNames.collectAsState()
                 val contactNames by model.people.contactNames.collectAsState()
                 remember(request, trust.verifiedName, dmNames, contactNames) { model.contactCollision(request, trust.verifiedName != null) }
-                    ?.let { ContactCollisionCard(it) }
+                    ?.let { ContactCollisionCard(stringResource(R.string.bipe_warning_not_your_contact, it)) }
+                // ADR 0049 photo match: the avatar is the same as a contact's.
+                val photoMatch by produceState<String?>(null, request, trust.verifiedName, dmNames) {
+                    value = model.photoMatch(request, trust.verifiedName != null)
+                }
+                photoMatch?.let { ContactCollisionCard(stringResource(R.string.bipe_warning_photo_match, it)) }
                 if (error) Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
                 if (reported) Text(stringResource(R.string.bipe_dm_reported_and_left), color = colors.inkSecondary, textAlign = TextAlign.Center)
                 val enabled = !isWorking && !reported
@@ -555,7 +595,7 @@ fun GroupInviteRow(model: ChatRequestsModel, invite: ChatRequestSummary, media: 
 
 /** Security rule 8: a stranger whose name copies a contact's. Caution, with an icon, not colour alone. */
 @Composable
-private fun ContactCollisionCard(contact: String) {
+private fun ContactCollisionCard(text: String) {
     val colors = BipeTheme.colors
     val shape = RoundedCornerShape(12.dp)
     Row(
@@ -565,6 +605,6 @@ private fun ContactCollisionCard(contact: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustCautionInk, modifier = Modifier.size(18.dp))
-        Text(stringResource(R.string.bipe_warning_not_your_contact, contact), color = colors.trustCautionInk)
+        Text(text, color = colors.trustCautionInk)
     }
 }
