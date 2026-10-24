@@ -577,6 +577,11 @@ public enum BipeRegistries {
         "bankAlert",
     ]
 
+    /// Photo match (ADR 0049, registries/photo-match.json): dHash grid size and the largest Hamming distance that matches.
+    public static let photoMatchWidth = 9
+    public static let photoMatchHeight = 8
+    public static let photoMatchMaxDistance = 6
+
     /// Username (handle) rules. The server is the authority; clients check early for feedback.
     public static let handleMinLength = 3
     public static let handleMaxLength = 30

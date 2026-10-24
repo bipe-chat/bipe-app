@@ -46,6 +46,10 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_warning_not_your_contact", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static func warningPhotoMatch(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_warning_photo_match", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var deviceApprovalNeverForOthers: String { NSLocalizedString("bipe_device_approval_never_for_others", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var badgeVerifiedContact: String { NSLocalizedString("bipe_badge_verified_contact", tableName: "Bipe", bundle: .module, comment: "") }
