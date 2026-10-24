@@ -30,9 +30,10 @@ struct ProfileEditView: View {
     @State private var showsPicker = false
     @Environment(\.dismiss) private var dismiss
 
-    /// nameProblem of the spec: empty, tooLong or reserved, else none.
+    /// nameProblem of the spec: empty, tooLong, reserved or lookalikeEmoji, else none.
     private var nameProblem: BipeProfileProblem? {
         BipePublicProfileRules.profileProblem(name: name, bio: "")
+            ?? (BipeNameLookalikes.sealLookalike(in: name) != nil ? .nameLookalikeEmoji : nil)
     }
 
     private var hasChanges: Bool {

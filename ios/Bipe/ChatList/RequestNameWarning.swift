@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Phosphor
 import SwiftUI
 import UIKit
 
@@ -51,6 +52,20 @@ struct RequestTrustContent: View {
             .padding(16)
             .frame(maxWidth: .infinity)
             .background(RoundedRectangle(cornerRadius: 12).fill(verified ? BipeColor.trustVerifiedWash : BipeColor.trustCautionWash))
+            if let contact = model.contactCollision(for: request) {
+                // Security rule 8: a stranger whose name copies a contact's. Caution, with an icon, not colour alone.
+                Label {
+                    Text(BipeStrings.warningNotYourContact(contact))
+                } icon: {
+                    PhosphorIcon.warningCircle.image.resizable().frame(width: 18, height: 18)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .foregroundStyle(BipeColor.trustCautionInk)
+                .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.trustCautionWash))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(BipeColor.trustCautionLine, lineWidth: 1))
+                .accessibilityElement(children: .combine)
+            }
             if case .verified(let name) = trust, let badge = seals.badge(for: request.inviterId),
                badge.name == name, let saved = people.contactName(for: request.inviterId) {
                 let key = BipeContactNameKey.make(accountId: model.session.userId, peerId: request.inviterId, savedName: saved, verifiedName: name, identityKey: identityKey(badge))

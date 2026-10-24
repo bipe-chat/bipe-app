@@ -139,6 +139,8 @@ fun HomeScreen(
         requests.start()
         onDispose { requests.close(); search.dispose() }
     }
+    // Spec chat-request contactCollision: the joined DMs are contacts (security rule 8).
+    LaunchedEffect(requests, model) { model.chats.collect { requests.rememberDmPartners(it) } }
     val app = context.applicationContext as BipeApplication
     DisposableEffect(encryption) {
         encryption.observe()

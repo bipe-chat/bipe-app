@@ -17,9 +17,12 @@ enum class BipeProfileProblem(val id: String) {
     BIO_TOO_MANY_LINES("bio_too_many_lines"),
 
     /** Server only: a profile cannot be turned on without a handle. */
-    NO_HANDLE("no_handle");
+    NO_HANDLE("no_handle"),
 
-    val isNameProblem: Boolean get() = this == NAME_EMPTY || this == NAME_TOO_LONG || this == NAME_RESERVED
+    /** App only (profile-edit, security rule 8): a mark that looks like the verified seal. */
+    NAME_LOOKALIKE_EMOJI("name_lookalike_emoji");
+
+    val isNameProblem: Boolean get() = this == NAME_EMPTY || this == NAME_TOO_LONG || this == NAME_RESERVED || this == NAME_LOOKALIKE_EMOJI
     val isBioProblem: Boolean get() = this == BIO_TOO_LONG || this == BIO_TOO_MANY_LINES
 
     @get:StringRes
@@ -31,6 +34,7 @@ enum class BipeProfileProblem(val id: String) {
             BIO_TOO_LONG -> R.string.bipe_public_profile_bio_too_long
             BIO_TOO_MANY_LINES -> R.string.bipe_public_profile_bio_too_many_lines
             NO_HANDLE -> R.string.bipe_public_profile_needs_handle
+            NAME_LOOKALIKE_EMOJI -> R.string.bipe_warning_name_lookalike_emoji
         }
 
     /** Format arguments for [messageRes]: the limit from registries/profiles.json. */

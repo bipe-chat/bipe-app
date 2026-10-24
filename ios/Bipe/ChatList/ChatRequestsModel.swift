@@ -66,6 +66,26 @@ final class ChatRequestsModel: ObservableObject {
         return .verified(name: badge.name)
     }
 
+    /// People with a joined DM, peer user ID → the name the chat list shows. Memory only, this account.
+    @Published private(set) var dmPartnerNames: [String: String] = [:]
+
+    func rememberDmPartners(_ chats: [ChatSummary]) {
+        var names: [String: String] = [:]
+        for chat in chats where chat.isDm {
+            if let peer = chat.peerUserId, names[peer] == nil { names[peer] = chat.name }
+        }
+        dmPartnerNames = names
+    }
+
+    /// Spec chat-request contactCollision (security rule 8): the contact name that the inviter's name copies.
+    /// A verified inviter shows the seal instead. Contacts: joined DMs and address-book matches, never the inviter.
+    func contactCollision(for request: ChatRequestSummary) -> String? {
+        guard case .unverified = trust(for: request) else { return nil }
+        var names = dmPartnerNames.filter { $0.key != request.inviterId }.map(\.value)
+        names += people.contactNames.filter { $0.key != request.inviterId }.map(\.value)
+        return BipeNameLookalikes.contactCollision(name: request.name, contactNames: names)
+    }
+
     deinit { trustTask?.cancel(); pairTask?.cancel() }
 
     /// The privacy switch bipe_privacy_requests_hide_photos (settings-group, kept on the phone).
