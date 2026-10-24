@@ -15,6 +15,7 @@ struct RequestTrustContent: View {
     let request: ChatRequestSummary
     @State private var answers: [String: Bool] = [:]
     @State private var foregroundRevision = 0
+    @State private var photoMatchName: String?
 
     init(model: ChatRequestsModel, request: ChatRequestSummary) {
         self.model = model
@@ -31,6 +32,7 @@ struct RequestTrustContent: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             foregroundRevision += 1
         }
+        .task(id: request.id) { photoMatchName = await model.photoMatch(for: request) }
     }
 
     @ViewBuilder
@@ -52,19 +54,13 @@ struct RequestTrustContent: View {
             .padding(16)
             .frame(maxWidth: .infinity)
             .background(RoundedRectangle(cornerRadius: 12).fill(verified ? BipeColor.trustVerifiedWash : BipeColor.trustCautionWash))
+            // Security rule 8: a stranger whose name copies a contact's. Caution, with an icon, not colour alone.
             if let contact = model.contactCollision(for: request) {
-                // Security rule 8: a stranger whose name copies a contact's. Caution, with an icon, not colour alone.
-                Label {
-                    Text(BipeStrings.warningNotYourContact(contact))
-                } icon: {
-                    PhosphorIcon.warningCircle.image.resizable().frame(width: 18, height: 18)
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity)
-                .foregroundStyle(BipeColor.trustCautionInk)
-                .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.trustCautionWash))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(BipeColor.trustCautionLine, lineWidth: 1))
-                .accessibilityElement(children: .combine)
+                CautionLine(text: BipeStrings.warningNotYourContact(contact))
+            }
+            // ADR 0049 photo match: the avatar is the same as a contact's.
+            if let contact = photoMatchName {
+                CautionLine(text: BipeStrings.warningPhotoMatch(contact))
             }
             if case .verified(let name) = trust, let badge = seals.badge(for: request.inviterId),
                badge.name == name, let saved = people.contactName(for: request.inviterId) {
@@ -101,5 +97,24 @@ struct RequestTrustContent: View {
         // The proof key includes this account, the peer and both normalised names. A new identity asks again.
         UserDefaults.standard.set(answer, forKey: key)
         answers[key] = answer
+    }
+}
+
+/// One caution line of the request trust block (trust-ui.md): an icon and words, never colour alone.
+private struct CautionLine: View {
+    let text: String
+
+    var body: some View {
+        Label {
+            Text(text)
+        } icon: {
+            PhosphorIcon.warningCircle.image.resizable().frame(width: 18, height: 18)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .foregroundStyle(BipeColor.trustCautionInk)
+        .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.trustCautionWash))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(BipeColor.trustCautionLine, lineWidth: 1))
+        .accessibilityElement(children: .combine)
     }
 }
