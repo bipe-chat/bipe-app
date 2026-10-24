@@ -117,7 +117,8 @@ interface BipeVaultStore {
 /**
  * Device-only secrets of device-first accounts: one file in `noBackupFilesDir`, encrypted with an Android Keystore key
  * (AES-GCM). Android leaves that folder out of backups and device transfer, and the key cannot leave the phone.
- * Never logged.
+ * Never logged. A file there that this app's key never wrote is the fork's vault: it is set aside, never deleted
+ * ([BipeForkVault]).
  */
 class BipeAccountVault(context: Context) : BipeVaultStore {
     private val file = File(context.noBackupFilesDir, FILE_NAME)
@@ -159,6 +160,14 @@ class BipeAccountVault(context: Context) : BipeVaultStore {
     /** `null` when the file exists but cannot be read now (a Keystore error that may pass). */
     private suspend fun decode(): BipeVaultData? = withContext(Dispatchers.IO) {
         if (!file.exists()) return@withContext BipeVaultData()
+        // A Keystore that cannot answer now is like any other passing Keystore error: keep the file, write nothing.
+        val ownKey = runCatching { hasOwnKey() }.getOrNull() ?: return@withContext null
+        if (!ownKey) {
+            // This app never wrote the file: on the store ID set it is the fork's vault (same name, its own key,
+            // bipe-chat/bipe#603). Keep it for BipeForkVault and start empty; never delete it as a lost key. When the
+            // move fails, write nothing, so the fork's file is never overwritten.
+            return@withContext if (setAside(file)) BipeVaultData() else null
+        }
         try {
             val sealed = Base64.decode(file.readText(), Base64.NO_WRAP)
             val cipher = Cipher.getInstance(TRANSFORMATION)
@@ -189,6 +198,15 @@ class BipeAccountVault(context: Context) : BipeVaultStore {
             file.delete()
             temp.renameTo(file)
         }
+    }
+
+    private fun hasOwnKey(): Boolean = KeyStore.getInstance(KEYSTORE).apply { load(null) }.containsAlias(KEY_ALIAS)
+
+    /** Moves [foreign] to [BipeForkVault.FILE_NAME], or next to it when an earlier one is there already. */
+    private fun setAside(foreign: File): Boolean {
+        val target = File(foreign.parentFile, BipeForkVault.FILE_NAME)
+        val free = if (!target.exists()) target else File(foreign.parentFile, "${BipeForkVault.FILE_NAME}.${System.currentTimeMillis()}")
+        return foreign.renameTo(free)
     }
 
     private fun key(): SecretKey {
