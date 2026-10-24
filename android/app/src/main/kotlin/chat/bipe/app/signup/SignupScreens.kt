@@ -72,6 +72,7 @@ import androidx.compose.ui.window.Dialog
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.common.BipeMarkShape
+import chat.bipe.app.settings.openPage
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeLegalLinks
 import chat.bipe.shared.R
@@ -213,6 +214,7 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
     val invite by model.invite.collectAsState()
     val clipboardHasText by model.clipboardHasText.collectAsState()
     val pasteResult by model.pasteResult.collectAsState()
+    val context = LocalContext.current
     LaunchedEffect(Unit) { model.appear() }
     val start = model.startVariant
     val handle = invite?.inviterHandle
@@ -268,6 +270,10 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
                 }
                 // haveAccount: recovery-start (bipe-chat/bipe#556).
                 start.text.forEach { TextButtonRow(stringResource(it.title), onClick = model.onHaveAccount) }
+            }
+            // Action learnMore: the site in a Custom Tab, so sign-up stays where it was.
+            TextButtonRow(stringResource(R.string.bipe_onboarding_learn_more)) {
+                openPage(context, BipeLegalLinks.homeUrl(AppConfig.PUBLIC_SITE))
             }
         }
     }

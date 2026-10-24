@@ -1007,6 +1007,7 @@
     <string name="bipe_onboarding_join_with_invite">Entrar com o convite</string>
     <string name="bipe_onboarding_have_invite">Tenho um convite</string>
     <string name="bipe_onboarding_have_account">Já tenho conta</string>
+    <string name="bipe_onboarding_learn_more">Saiba mais sobre o Bipe</string>
     <string name="bipe_onboarding_paste_invite_hint">Copiou o link do convite?</string>
     <string name="bipe_onboarding_paste_invite">Colar convite</string>
     <string name="bipe_onboarding_paste_invite_none">O que você copiou não é um convite do Bipe.</string>

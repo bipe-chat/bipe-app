@@ -2298,6 +2298,8 @@ public enum BipeStrings {
 
     public static var onboardingHaveAccount: String { NSLocalizedString("bipe_onboarding_have_account", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var onboardingLearnMore: String { NSLocalizedString("bipe_onboarding_learn_more", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var onboardingPasteInviteHint: String { NSLocalizedString("bipe_onboarding_paste_invite_hint", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var onboardingPasteInvite: String { NSLocalizedString("bipe_onboarding_paste_invite", tableName: "Bipe", bundle: .module, comment: "") }

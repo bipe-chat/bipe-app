@@ -191,6 +191,7 @@ private struct BipeTextField: View {
 
 struct OnboardingWelcomeView: View {
     @ObservedObject var model: SignupFlowModel
+    @State private var showsSite = false
 
     var body: some View {
         // The window decides the layout, never the device (docs/iphone-duo.md). A wide window (the open iPhone Duo,
@@ -219,6 +220,11 @@ struct OnboardingWelcomeView: View {
         }
         .accessibilityIdentifier(BipeScreen.onboardingWelcome.rawValue)
         .task { await model.appear() }
+        // Action learnMore: the site in the in-app browser, so sign-up stays where it was.
+        .sheet(isPresented: $showsSite) {
+            SafariPage(url: BipeLegalLinks.homeURL(site: AppConfig.publicSite))
+                .ignoresSafeArea()
+        }
     }
 
     /// The full-bleed açaí cover of the spec: mark and wordmark, the welcome line and the title over a faint
@@ -273,6 +279,7 @@ struct OnboardingWelcomeView: View {
                     TextButton(title: button.title) { model.onHaveAccount() }
                 }
             }
+            TextButton(title: BipeStrings.onboardingLearnMore) { showsSite = true }
         }
     }
 
