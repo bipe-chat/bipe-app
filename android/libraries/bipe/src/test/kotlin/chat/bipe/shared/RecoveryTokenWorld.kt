@@ -74,6 +74,13 @@ class RecoveryTokenWorld(vault: BipeVaultData = BipeVaultData(), timeoutMillis: 
 
     fun account(userId: String) = data.accounts.getValue(userId)
 
+    /** The whole state in one line, for the scenario table of RecoveryTokensTest. */
+    fun describe(): String {
+        val vault = data.accounts.entries.joinToString(",") { (id, a) -> "${id.take(4)}:${a.token}${if (a.tokenSynced) "+" else ""}" }
+        val store = synced().joinToString(",") { "${it.userId?.take(4)}:${it.token}" }
+        return "vault[$vault] store[$store] revoked[${data.revokedTokens.keys.joinToString(",") { it.take(4) }}]"
+    }
+
     private suspend fun act(mood: StoreMood) {
         when (mood) {
             StoreMood.WORKS -> Unit
