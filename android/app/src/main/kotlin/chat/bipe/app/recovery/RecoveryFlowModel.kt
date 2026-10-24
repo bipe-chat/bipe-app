@@ -12,6 +12,7 @@ import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.account.BipePin
 import chat.bipe.shared.account.BipePinProblem
+import chat.bipe.shared.account.BipeRecoveryTokens
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
@@ -50,6 +51,7 @@ class RecoveryFlowModel(
     private val context: Context,
     private val api: BipeApiClient,
     private val vault: BipeAccountVault,
+    private val recoveryTokens: BipeRecoveryTokens,
     private val sessionStore: SessionStore,
     private val scope: CoroutineScope,
     private val onSignedIn: (AccountSession) -> Unit,
@@ -122,7 +124,8 @@ class RecoveryFlowModel(
     private val _waitingPhase = MutableStateFlow(WaitingPhase.WAITING)
     val waitingPhase: StateFlow<WaitingPhase> = _waitingPhase.asStateFlow()
 
-    private var token: Pair<String, String>? = null
+    /** The offered token with its Matrix ID (`null`: the fork's entry from before bipe-chat/bipe#265). */
+    private var token: Pair<String?, String>? = null
     private var linkToken: String? = null
     private var newPin = ""
     private var pollJob: Job? = null
@@ -153,13 +156,13 @@ class RecoveryFlowModel(
     // recovery-start
 
     /**
-     * Action appear: reads the stored recovery token of an account not signed in on this phone. Android keeps the token
-     * on this phone only until Block Store is in the app (BipeAccountVault), so the row shows after a sign-out.
+     * Action appear: the recovery token of an account not signed in on this phone, from this phone's vault (it stays
+     * after a sign-out) or from the synced store (Block Store in the Play build: a new phone finds it, ADR 0059).
      */
     suspend fun appear() {
         // Every account signed in on this phone (ADR 0086): adding an account never recovers one already here.
         val signedIn = sessionStore.loadAll().keys
-        token = vault.read().accounts.entries.lastOrNull { it.key !in signedIn && it.value.token != null }?.let { it.key to it.value.token!! }
+        token = recoveryTokens.candidate(signedIn)?.let { it.userId to it.token }
         _hasSyncedToken.value = token != null
         _rows.value = BipeOnboardingRecoveryRow.entries.filter { row -> row.gate == null && (!row.needsSyncedToken || token != null) }
     }
@@ -242,9 +245,11 @@ class RecoveryFlowModel(
             try {
                 when (_factor.value) {
                     Factor.TOKEN -> {
-                        val (_, secret) = token ?: throw BipeApiException.Server(BipeApiErrorCode.RECOVERY_INVALID, null, 403)
+                        val (owner, secret) = token ?: throw BipeApiException.Server(BipeApiErrorCode.RECOVERY_INVALID, null, 403)
                         val credentials = api.recoverWithToken(secret, entered)
                         _pin.value = ""
+                        // The account's new token goes under its own key; the entry without an owner is done.
+                        if (owner == null && credentials.recoveryToken != secret) recoveryTokens.revoke(null, secret)
                         signIn(credentials)
                     }
                     Factor.EMAIL_LINK -> {
@@ -323,7 +328,7 @@ class RecoveryFlowModel(
                 // Spec notes: an old or revoked token is deleted; recovery-start shows without the token row.
                 val current = token
                 if (_factor.value == Factor.TOKEN && current != null) {
-                    vault.deleteToken(current.first)
+                    recoveryTokens.revoke(current.first, current.second)
                     appear()
                 }
             }

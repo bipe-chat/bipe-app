@@ -196,11 +196,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build the tester APK
         run: |
-          ./gradlew --no-daemon assembleRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }}
-          mv app/build/outputs/apk/release/*.apk "app/build/outputs/apk/release/Bipe-Next-${{ needs.build-number.outputs.number }}.apk"
+          ./gradlew --no-daemon assemblePlayRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }}
+          mv app/build/outputs/apk/play/release/*.apk "app/build/outputs/apk/play/release/Bipe-Next-${{ needs.build-number.outputs.number }}.apk"
       - name: Keep the tester APK
         uses: actions/upload-artifact@v4
         with:
           name: bipe-next-apk
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/apk/play/release/*.apk
           retention-days: 30

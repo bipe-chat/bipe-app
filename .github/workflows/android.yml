@@ -4,7 +4,9 @@
 
 # Android build (bipe-chat/bipe#549): debug and release APKs. The release APK is
 # debug-signed (bipe-chat/bipe#575). The debug APK is uploaded as bipe-debug-apk; the
-# tester APK of chat.bipe.app.next comes from testflight.yml.
+# tester APK of chat.bipe.app.next comes from testflight.yml. Flavours (ADR 0150): play
+# (Block Store) is the tester and store build; foss has no Google Play services and is
+# built here so it keeps compiling.
 name: android
 
 on:
@@ -50,14 +52,14 @@ jobs:
         env:
           BIPE_SHARED: ${{ github.workspace }}/bipe-shared
         run: ./gradlew --no-daemon :libraries:bipe:testDebugUnitTest
-      - name: Build debug and release
+      - name: Build debug and release (play and foss)
         run: ./gradlew --no-daemon assembleDebug assembleRelease
       # The store ID set (bipe-chat/bipe#602): the fork's application ID (ADR 0061), never uploaded before the switch.
       - name: Build release with the store ID set
-        run: ./gradlew --no-daemon assembleRelease -PbipeIdSet=store
+        run: ./gradlew --no-daemon assemblePlayRelease -PbipeIdSet=store
       - name: Upload the debug APK
         uses: actions/upload-artifact@v4
         with:
           name: bipe-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: android/app/build/outputs/apk/play/debug/*.apk
           retention-days: 14

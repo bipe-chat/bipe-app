@@ -27,6 +27,19 @@ android {
         versionName = (findProperty("bipeVersionName") as String?) ?: "0.1.0"
     }
 
+    // ADR 0150: the play flavour may use Google Block Store; foss has no Google Play services (the build without
+    // Google that ADR 0150 keeps possible). Tester and store builds are play.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+            isDefault = true
+        }
+        create("foss") {
+            dimension = "distribution"
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -82,4 +95,6 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.zxing.core)
+    // Recovery token sync (ADR 0059, ADR 0150): src/play/.../BlockStoreRecoveryTokenSync.kt.
+    "playImplementation"(libs.play.services.auth.blockstore)
 }

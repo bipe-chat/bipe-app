@@ -9,7 +9,9 @@ import android.util.Log
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.BipeApplication
 import chat.bipe.app.common.InviterGreetings
+import chat.bipe.app.recovery.RecoveryTokenSyncs
 import chat.bipe.shared.account.BipeAccountVault
+import chat.bipe.shared.account.BipeRecoveryTokens
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
@@ -45,6 +47,9 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     val api = BipeApiClient(AppConfig.API_BASE_URL)
     val vault = BipeAccountVault(context)
+
+    /** The recovery token in the synced store (Block Store in the Play build, ADR 0150). */
+    val recoveryTokens = BipeRecoveryTokens(vault, RecoveryTokenSyncs.create(context), scope)
     val sessionStore = SessionStore(context)
     private val accountList = AccountList(context)
 
@@ -105,6 +110,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     /** A recovery path signed in (recovery-pin, recovery-waiting or the beta sign-in): chat-list, then encryption-status. */
     fun didRecover(session: AccountSession) {
+        recoveryTokens.syncSoon()
         accountList.merge(listOf(session.userId))
         _showsRecovery.value = false
         show(session)
@@ -191,6 +197,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     /** signup-create made the account and signed in. */
     fun didSignUp(session: AccountSession, outcome: SignupOutcome) {
+        recoveryTokens.syncSoon()
         outcome.inviterUserId?.let { InviterGreetings(context, session.userId).set(it, outcome.inviterHandle) }
         accountList.merge(listOf(session.userId))
         _signupOutcome.value = outcome
@@ -241,6 +248,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     }
 
     private suspend fun open() {
+        // Tokens that did not reach the synced store yet, and tokens from before Block Store was in the app.
+        recoveryTokens.syncSoon()
         val (saved, passwords) = AccountStep.run("read saved accounts") {
             sessionStore.loadAll() to vault.read().accounts.filterValues { it.password != null }.mapValues { it.value.password!! }
         }
@@ -340,6 +349,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         }
         val credentials = response.credentials ?: return null
         AccountStep.run("save signup credential") { vault.store(credentials.userId, credentials.password, credentials.recoveryToken) }
+        recoveryTokens.syncSoon()
         val session = AccountSession.signIn(context, credentials.userId, credentials.password, sessionStore)
         AccountStep.run("remove pending signup") { vault.update { it.copy(pendingSignup = null) } }
         accountList.merge(listOf(session.userId))
