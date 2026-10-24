@@ -10,6 +10,14 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// The Firebase project's client values (not secrets: they ship in every APK). BuildConfig field to Gradle property.
+val firebaseValues = mapOf(
+    "FIREBASE_APP_ID" to "bipeFirebaseAppId",
+    "FIREBASE_PROJECT_ID" to "bipeFirebaseProjectId",
+    "FIREBASE_API_KEY" to "bipeFirebaseApiKey",
+    "FIREBASE_SENDER_ID" to "bipeFirebaseSenderId",
+)
+
 android {
     namespace = "chat.bipe.app"
     compileSdk = 36
@@ -34,6 +42,10 @@ android {
         create("play") {
             dimension = "distribution"
             isDefault = true
+            // FCM (ADR 0150): the Firebase project's client values, from CI repository variables. Empty: no pushes.
+            for ((field, property) in firebaseValues) {
+                buildConfigField("String", field, "\"${(findProperty(property) as String?).orEmpty()}\"")
+            }
         }
         create("foss") {
             dimension = "distribution"
@@ -59,6 +71,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     // pt-BR is the default language (res/values), en the second one (res/values-en).
@@ -97,4 +110,6 @@ dependencies {
     implementation(libs.zxing.core)
     // Recovery token sync (ADR 0059, ADR 0150): src/play/.../BlockStoreRecoveryTokenSync.kt.
     "playImplementation"(libs.play.services.auth.blockstore)
+    // Push transport (ADR 0150): src/play/.../PushTransports.kt.
+    "playImplementation"(libs.firebase.messaging)
 }

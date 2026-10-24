@@ -195,8 +195,16 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
       - name: Build the tester APK
+        # FCM (ADR 0150): the Firebase project's client values, repository variables set by MZ. Unset: no pushes.
+        env:
+          FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
         run: |
-          ./gradlew --no-daemon assemblePlayRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }}
+          ./gradlew --no-daemon assemblePlayRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }} \
+            -PbipeFirebaseAppId="$FIREBASE_APP_ID" -PbipeFirebaseProjectId="$FIREBASE_PROJECT_ID" \
+            -PbipeFirebaseApiKey="$FIREBASE_API_KEY" -PbipeFirebaseSenderId="$FIREBASE_SENDER_ID"
           mv app/build/outputs/apk/play/release/*.apk "app/build/outputs/apk/play/release/Bipe-Next-${{ needs.build-number.outputs.number }}.apk"
       - name: Keep the tester APK
         uses: actions/upload-artifact@v4

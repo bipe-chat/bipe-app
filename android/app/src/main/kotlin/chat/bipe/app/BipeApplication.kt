@@ -10,8 +10,10 @@ import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeNotificationTarget
 import chat.bipe.shared.BipeNotificationOpen
+import chat.bipe.shared.BipePushMessage
 import chat.bipe.app.notifications.PhoneNotifications
 import chat.bipe.app.notifications.PushRegistration
+import chat.bipe.app.notifications.PushTransports
 import kotlinx.coroutines.MainScope
 import chat.bipe.app.pixcheck.PixPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +38,28 @@ class BipeApplication : Application() {
     val pixPreview = MutableStateFlow<PixPreview?>(null)
 
     private var watchingAccounts = false
+
+    override fun onCreate() {
+        super.onCreate()
+        // FCM in the Play flavour (ADR 0150), before a push can wake the process; none in the foss flavour.
+        push.transport = PushTransports.create(this)
+    }
+
+    /**
+     * A data message of the push transport (Sygnal, event_id_only). The random account route names the account on this
+     * phone; a push without an event only changed the unread count (a read on another device, for example).
+     */
+    fun pushDataReceived(data: Map<String, String>) {
+        when (val message = BipePushMessage.parse(data, notifications::accountFor)) {
+            is BipePushMessage.Event -> pushReceived(message.accountUserId, message.roomId, message.eventId)
+            is BipePushMessage.CountChanged -> scope.launch {
+                accountStart.start()
+                val session = accountStart.awaitSession(message.accountUserId) ?: return@launch
+                notifications.countChanged(session)
+            }
+            BipePushMessage.Ignored -> Unit
+        }
+    }
 
     /** accountAvailable of spec pix-check-result, kept for PixCheckActivity, which starts no account. */
     fun watchAccountsForPixCheck() {
