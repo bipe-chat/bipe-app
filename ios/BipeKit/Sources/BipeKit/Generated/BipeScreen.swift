@@ -277,6 +277,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Timeline rows (flow chat). Spec: bipe-shared/product/screens/timeline-rows.json
     case timelineRows = "timeline-rows"
 
+    /// Perfil de confiança card on the Você tab (flow voce). Spec: bipe-shared/product/screens/trust-card.json
+    case trustCard = "trust-card"
+
+    /// Perfil de confiança ladder (flow voce). Spec: bipe-shared/product/screens/trust-profile.json
+    case trustProfile = "trust-profile"
+
     /// Typing indicator (flow chat). Spec: bipe-shared/product/screens/typing-indicator.json
     case typingIndicator = "typing-indicator"
 

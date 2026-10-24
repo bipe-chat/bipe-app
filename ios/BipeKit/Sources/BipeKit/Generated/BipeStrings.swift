@@ -492,6 +492,8 @@ public enum BipeStrings {
 
     public static var trustComingSoon: String { NSLocalizedString("bipe_trust_coming_soon", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var trustStepDone: String { NSLocalizedString("bipe_trust_step_done", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var trustStepCompanyProfileBody: String { NSLocalizedString("bipe_trust_step_company_profile_body", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var trustStepProfileAddCompanyName: String { NSLocalizedString("bipe_trust_step_profile_add_company_name", tableName: "Bipe", bundle: .module, comment: "") }
