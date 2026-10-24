@@ -25,8 +25,9 @@ struct MessageContextActions: View {
             }
             ForEach(model.actions(for: row)) { action in
                 Button(role: action == .delete ? .destructive : nil) { model.choose(action, rowId: rowId) } label: {
-                    Label(action.menuTitle, systemImage: action.menuSymbol)
+                    Label(model.menuTitle(action, rowId: rowId), systemImage: action.menuSymbol)
                 }
+                .disabled(action == .copy && model.pauseSecondsLeft(rowId: rowId) > 0)
             }
         }
     }

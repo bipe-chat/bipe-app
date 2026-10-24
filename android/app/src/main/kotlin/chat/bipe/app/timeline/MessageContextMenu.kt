@@ -33,6 +33,7 @@ fun MessageContextMenu(model: ChatTimelineModel, rowId: String, expanded: Boolea
     val context = LocalContext.current
     val view = LocalView.current
     val colors = BipeTheme.colors
+    val pauseLeft = rememberPauseSecondsLeft(model, rowId)
     Box {
         DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
             if (reactions) {
@@ -42,8 +43,20 @@ fun MessageContextMenu(model: ChatTimelineModel, rowId: String, expanded: Boolea
                 DropdownMenuItem(text = { Text(stringResource(R.string.bipe_app_message_action_more_reactions)) }, onClick = { onDismiss(); model.moreReactions(rowId) })
             }
             actions.forEach { action ->
+                // Spec scam-warning money pause: Copiar waits, with the countdown as its label.
+                val paused = action == MessageAction.COPY && pauseLeft > 0
                 DropdownMenuItem(
-                    text = { Text(stringResource(actionTitle(action)), color = if (action == MessageAction.DELETE) colors.trustDangerInk else colors.inkPrimary) },
+                    enabled = !paused,
+                    text = {
+                        Text(
+                            if (paused) stringResource(R.string.bipe_pause_countdown, pauseLeft.toString()) else stringResource(actionTitle(action)),
+                            color = when {
+                                action == MessageAction.DELETE -> colors.trustDangerInk
+                                paused -> colors.inkDisabled
+                                else -> colors.inkPrimary
+                            },
+                        )
+                    },
                     leadingIcon = { Icon(painterResource(actionIcon(action).drawable), contentDescription = null, tint = colors.glyphSecondary) },
                     onClick = { onDismiss(); model.choose(action, rowId) { copyToClipboard(context, it) } },
                 )

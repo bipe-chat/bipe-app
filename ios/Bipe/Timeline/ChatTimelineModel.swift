@@ -143,6 +143,8 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var inviterHint: BipeInviterGreeting?
     // message-actions
     @Published var actionsRowId: String?
+    /// Spec scam-warning money pause: one per message while this chat is open.
+    @Published private(set) var moneyPause = BipeMoneyPause()
     // message-reply
     @Published private(set) var replyingTo: MessageReply?
     @Published private(set) var replyingToRowId: String?
@@ -462,6 +464,25 @@ final class ChatTimelineModel: ObservableObject {
         row.kind == .message && row.details?.eventId != nil && row.message?.sendState == .sent
     }
 
+    /// Spec scam-warning startPause: the first time the card of a money kind shows.
+    func startMoneyPause(rowId: String, kind: ScamWarningKind) {
+        guard BipeMoneyPause.applies(to: kind), moneyPause.start(id: rowId, kind: kind) else { return }
+        // Screen readers hear the countdown once, at the start (spec scam-warning notes).
+        UIAccessibility.post(notification: .announcement,
+                             argument: BipeStrings.pauseCountdown(String(BipeRegistries.scamMoneyPauseSeconds)))
+    }
+
+    /// Seconds before Copiar works again on this row (0: no pause).
+    func pauseSecondsLeft(rowId: String, now: Date = .now) -> Int {
+        moneyPause.secondsLeft(id: rowId, now: now)
+    }
+
+    /// The menu title of an action: the countdown for a paused copy.
+    func menuTitle(_ action: MessageAction, rowId: String) -> String {
+        let left = action == .copy ? pauseSecondsLeft(rowId: rowId) : 0
+        return left > 0 ? BipeStrings.pauseCountdown(String(left)) : action.menuTitle
+    }
+
     /// Action choose.
     func choose(_ action: MessageAction, rowId: String) {
         actionsRowId = nil
@@ -470,6 +491,7 @@ final class ChatTimelineModel: ObservableObject {
         case .reply: startReply(rowId: rowId)
         case .edit: startEdit(rowId: rowId)
         case .copy:
+            guard pauseSecondsLeft(rowId: rowId) == 0 else { return }
             UIPasteboard.general.string = row(rowId)?.message?.body
             BipeHaptics.play(.tap)
             show(.copied)
