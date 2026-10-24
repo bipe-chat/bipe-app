@@ -115,6 +115,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Link a computer: full-access warning (flow devices). Spec: bipe-shared/product/screens/link-computer-warning.json
     case linkComputerWarning = "link-computer-warning"
 
+    /// Move to a new phone: approve on the old phone (flow devices). Spec: bipe-shared/product/screens/link-phone-approve.json
+    case linkPhoneApprove = "link-phone-approve"
+
+    /// Move to a new phone: show the code on the old phone (flow devices). Spec: bipe-shared/product/screens/link-phone-show.json
+    case linkPhoneShow = "link-phone-show"
+
     /// Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json
     case linkedDevices = "linked-devices"
 
@@ -207,6 +213,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Save a recovery key (flow encryption). Spec: bipe-shared/product/screens/recovery-key-save.json
     case recoveryKeySave = "recovery-key-save"
+
+    /// New phone: scan the code of the old phone (flow recovery). Spec: bipe-shared/product/screens/recovery-old-phone.json
+    case recoveryOldPhone = "recovery-old-phone"
 
     /// Enter PIN to get back in (flow recovery). Spec: bipe-shared/product/screens/recovery-pin.json
     case recoveryPin = "recovery-pin"
