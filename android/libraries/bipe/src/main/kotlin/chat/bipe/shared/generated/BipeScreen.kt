@@ -283,6 +283,12 @@ enum class BipeScreen(val id: String) {
     /** Timeline rows (flow chat). Spec: bipe-shared/product/screens/timeline-rows.json */
     TIMELINE_ROWS("timeline-rows"),
 
+    /** Perfil de confiança card on the Você tab (flow voce). Spec: bipe-shared/product/screens/trust-card.json */
+    TRUST_CARD("trust-card"),
+
+    /** Perfil de confiança ladder (flow voce). Spec: bipe-shared/product/screens/trust-profile.json */
+    TRUST_PROFILE("trust-profile"),
+
     /** Typing indicator (flow chat). Spec: bipe-shared/product/screens/typing-indicator.json */
     TYPING_INDICATOR("typing-indicator"),
 
