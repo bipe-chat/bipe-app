@@ -564,6 +564,19 @@ public enum BipeRegistries {
         "urgency",
     ]
 
+    /// The money pause (security.md rule 9, trust-ui.md): copy and links stay off this many seconds on these kinds.
+    public static let scamMoneyPauseSeconds = 5
+    public static let scamMoneyPauseKinds: Set<String> = [
+        "extortion",
+        "pixCode",
+        "boleto",
+        "remoteApp",
+        "pixKey",
+        "deliveryFee",
+        "lookalikeLink",
+        "bankAlert",
+    ]
+
     /// Username (handle) rules. The server is the authority; clients check early for feedback.
     public static let handleMinLength = 3
     public static let handleMaxLength = 30
