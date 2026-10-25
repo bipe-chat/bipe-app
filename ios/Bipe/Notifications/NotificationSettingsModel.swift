@@ -67,13 +67,25 @@ final class NotificationSettingsModel: ObservableObject {
     @Published var pendingGroupsMode: NotificationMode?
     @Published var showsError = false
     @Published var showsToneError = false
+    /// Spec news: the switch for Novidades do Bipe (ADR 0117). unknown hides it.
+    @Published private(set) var news: NewsSwitch = .unknown
+    @Published private(set) var newsBusy = false
+    @Published var showsNewsError = false
+
+    enum NewsSwitch: Equatable {
+        case unknown
+        case on(roomId: String)
+        case off
+    }
 
     private let session: AccountSession
+    private let api: BipeAPIClient
     private var settings: NotificationSettings?
     private var listener: NotificationSettingsListener?
 
-    init(session: AccountSession) {
+    init(session: AccountSession, api: BipeAPIClient) {
         self.session = session
+        self.api = api
     }
 
     /// Action appear: reads the permission and the push rules, and follows changes from other devices.
@@ -89,6 +101,57 @@ final class NotificationSettingsModel: ObservableObject {
             self.listener = listener
         }
         await load()
+        await loadNews()
+    }
+
+    /// news: on only when the API has the user subscribed and the user is joined to or invited in the room.
+    func loadNews() async {
+        let api = api
+        guard let state = try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }, { (token: String) async throws(BipeAPIError) -> BipeNewsState in
+            try await api.newsState(accessToken: token)
+        }) else {
+            news = .unknown
+            return
+        }
+        news = isInRoom(state) ? .on(roomId: state.roomId ?? "") : .off
+    }
+
+    /// Action setNews. on: PUT, then join the room. off: leave the room, then DELETE. A failure puts the switch back.
+    func setNews(_ isOn: Bool) async {
+        guard !newsBusy, news != .unknown else { return }
+        let old = news
+        newsBusy = true
+        defer { newsBusy = false }
+        let api = api
+        do {
+            if isOn {
+                let state = try await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeNewsState in
+                    try await api.setNews(true, accessToken: token)
+                }
+                guard let roomId = state.roomId else { throw BipeAPIError.unexpectedResponse(statusCode: 200) }
+                if try session.client.getRoom(roomId: roomId)?.membership() != .joined {
+                    _ = try await session.client.joinRoomById(roomId: roomId)
+                }
+                news = .on(roomId: roomId)
+            } else {
+                if case .on(let roomId) = old, let room = try? session.client.getRoom(roomId: roomId) {
+                    try await room.leave()
+                }
+                _ = try await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeNewsState in
+                    try await api.setNews(false, accessToken: token)
+                }
+                news = .off
+            }
+        } catch {
+            news = old
+            showsNewsError = true
+        }
+    }
+
+    private func isInRoom(_ state: BipeNewsState) -> Bool {
+        guard state.subscribed, let roomId = state.roomId,
+              let membership = try? session.client.getRoom(roomId: roomId)?.membership() else { return false }
+        return membership == .joined || membership == .invited
     }
 
     func refreshPhone() async {

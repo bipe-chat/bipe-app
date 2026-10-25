@@ -346,6 +346,8 @@
     <string name="bipe_email_confirmed">Email confirmed.</string>
     <string name="bipe_email_remove">Remove email</string>
     <string name="bipe_email_link_invalid">This link no longer works. Ask for a new one in the app.</string>
+    <string name="bipe_email_send">Send link</string>
+    <string name="bipe_email_change_reason">Confirm it\'s you to change the recovery email.</string>
     <string name="bipe_error_email_unavailable">We cannot send email right now. Try again later.</string>
     <string name="bipe_recovery_title">Get back into your account</string>
     <string name="bipe_recovery_qr">I have my old phone</string>
@@ -748,6 +750,9 @@
     <string name="bipe_settings_privacy">Privacy</string>
     <string name="bipe_settings_account">Your account</string>
     <string name="bipe_settings_notifications">Notifications</string>
+    <string name="bipe_settings_news">Get Bipe news</string>
+    <string name="bipe_settings_news_body">News arrives in the Bipe news chat. Turning this off makes you leave it.</string>
+    <string name="bipe_settings_news_failed">Could not change it now. Try again.</string>
     <string name="bipe_settings_chats">Chats and media</string>
     <string name="bipe_settings_help">Help and about</string>
     <string name="bipe_settings_notifications_on">On</string>
@@ -1030,6 +1035,10 @@
     <string name="bipe_support_room_name">Bipe Support</string>
     <string name="bipe_support_room_topic">A chat with the Bipe team. The team reads what you write here in a support tool. Photos and files stay on the Bipe server.</string>
     <string name="bipe_support_welcome">Hi! This is where you talk to the Bipe team. Tell us what happened or what you want to see in the app. We answer in this chat.</string>
+    <string name="bipe_news_room_name">Bipe news</string>
+    <string name="bipe_news_room_topic">Bipe news. You cannot reply here. For questions, talk to Bipe Support.</string>
+    <string name="bipe_news_welcome">Hi! In this chat Bipe tells you what is new in the app. You cannot reply here. If you no longer want news, leave the chat. To get it again, turn on Get Bipe news in You, Settings, Notifications.</string>
+    <string name="bipe_news_support_line">Questions? Talk to Bipe Support.</string>
     <string name="bipe_support_report_received">We got your problem report. The team will read it and answer in this chat.</string>
     <string name="bipe_support_already_open">You already have a chat with support. Continue here.</string>
     <string name="bipe_app_lock_title">Bipe is locked</string>
