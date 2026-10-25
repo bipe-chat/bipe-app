@@ -758,6 +758,12 @@ public enum BipeRegistries {
     public static let maxPersonalAccounts = 2
     /// Wait between the full-access warning and the biometric check of a web sign-in approval (ADR 0118).
     public static let webLinkCooldownSeconds = 5
+    /// Wait between an account deletion request and the deletion; every signed-in device can cancel (ADR 0140).
+    public static let deletionCooldownHours = 72
+    /// After a deletion, the CPF hash and the badge record stay this long (ADR 0140).
+    public static let deletionVerificationKeepDays = 365
+    /// A released @ stays on hold this long (ADR 0016), also after an account deletion.
+    public static let handleReleaseHoldDays = 90
     /// Recovery reminder card (bipe#531): first show after these days on this phone; each "Agora não" hides it for the
     /// next snooze, and the last snooze repeats.
     public static let recoveryReminderFirstAfterDays = 2
