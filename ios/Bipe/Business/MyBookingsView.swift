@@ -112,7 +112,6 @@ struct MyBookingsView: View {
                 }
             }
             .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
     }
 

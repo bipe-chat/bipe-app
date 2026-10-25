@@ -69,7 +69,6 @@ struct OrderCartSections: View {
         } header: {
             Text(BipeStrings.orderCart)
         }
-        .listRowBackground(BipeColor.surfaceRaised)
         let rest = products.filter { cart.quantity($0.id) == 0 }
         if !rest.isEmpty {
             Section {
@@ -87,7 +86,6 @@ struct OrderCartSections: View {
             } header: {
                 Text(BipeStrings.catalogTitle)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
         }
     }
 }
@@ -110,7 +108,6 @@ struct OrderFulfilmentSections: View {
         } footer: {
             Text(BipeStrings.orderAddressInChat)
         }
-        .listRowBackground(BipeColor.surfaceRaised)
         Section {
             HStack(spacing: 8) {
                 PhosphorIcon.checkCircle.image
@@ -124,12 +121,10 @@ struct OrderFulfilmentSections: View {
         } header: {
             Text(BipeStrings.orderPayment)
         }
-        .listRowBackground(BipeColor.surfaceRaised)
         Section {
             LabeledContent(BipeStrings.orderTotal, value: BusinessText.money(total))
                 .font(.headline)
         }
-        .listRowBackground(BipeColor.surfaceRaised)
     }
 }
 
@@ -206,7 +201,6 @@ struct OrderCustomerView: View {
                     }
                 }
             }
-            .scrollContentBackground(.hidden)
         }
     }
 
@@ -428,11 +422,9 @@ struct OrderOwnerView: View {
                             BusinessStatusLine(text: order.status.text, tint: order.status.tint)
                         }
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
         }
     }
 
@@ -472,7 +464,6 @@ struct OrderOwnerDetailView: View {
                 } header: {
                     Text(customerName)
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
                 Section {
                     if order.status == .sent {
                         Button(BipeStrings.orderAccept) { Task { await act(.accept) } }
@@ -496,10 +487,7 @@ struct OrderOwnerDetailView: View {
                     }
                 }
                 .disabled(working)
-                .listRowBackground(BipeColor.surfaceRaised)
             }
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.orderCardTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -642,7 +630,6 @@ struct OrderOwnerNewView: View {
             } header: {
                 Text(BipeStrings.agendaCustomer)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             OrderCartSections(products: products, cart: $cart)
             OrderFulfilmentSections(fulfilment: $fulfilment, total: cart.total(products))
             if let error {
@@ -651,7 +638,6 @@ struct OrderOwnerNewView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
     }
 
     /// The company's active fixed-price products, from its own catálogo.
@@ -745,18 +731,15 @@ struct OrderSettingsView: View {
             } header: {
                 Text(BipeStrings.orderOpeningDays)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Section {
                 BusinessClockPicker(title: BipeStrings.orderCutoff, clock: $cutoff)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             if let error {
                 Section {
                     Text(error).foregroundStyle(BipeColor.trustDangerInk)
                 }
             }
         }
-        .scrollContentBackground(.hidden)
     }
 
     private func load() async {

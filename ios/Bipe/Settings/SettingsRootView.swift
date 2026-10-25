@@ -32,8 +32,6 @@ struct SettingsHomeView: View {
                 SettingsRootSection(model: model)
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.settingsSection)
             .navigationBarTitleDisplayMode(.inline)
             .settingsDestinations(model: model, onSignedOut: onSignedOut)
@@ -53,7 +51,6 @@ struct SettingsRootSection: View {
                 NavigationLink(value: group == .notifications ? SettingsRoute.notifications : SettingsRoute.group(group)) {
                     row(group)
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
             }
         } header: {
             Text(BipeStrings.settingsSection)

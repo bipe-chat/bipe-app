@@ -103,7 +103,6 @@ struct PersonProfileView: View {
                 safety
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
         }
     }
 

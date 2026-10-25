@@ -370,7 +370,6 @@ struct AgendaBookView: View {
                         }
                     }
                     .disabled(model.working)
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
             } header: {
                 Text(BipeStrings.agendaPickService)
@@ -379,7 +378,6 @@ struct AgendaBookView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
     }
 
     private var personStep: some View {
@@ -390,14 +388,12 @@ struct AgendaBookView: View {
                 } label: {
                     Text(BipeStrings.agendaAnyone).foregroundStyle(BipeColor.inkPrimary)
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
                 ForEach(model.agendas) { agenda in
                     Button {
                         Task { await model.pickAgenda(agenda.id) }
                     } label: {
                         Text(agenda.name).foregroundStyle(BipeColor.inkPrimary)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
             } header: {
                 Text(BipeStrings.agendaPickPerson)
@@ -406,7 +402,6 @@ struct AgendaBookView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
     }
 
     private var timeStep: some View {
@@ -487,17 +482,14 @@ struct AgendaBookView: View {
                         }
                         Text(service.price.displayText).foregroundStyle(BipeColor.inkSecondary)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
                 if let start = model.selectedStart {
                     Text(start.formatted(.dateTime.weekday(.wide).day().month(.wide)) + " · " + BookingText.time(start))
                         .foregroundStyle(BipeColor.inkPrimary)
-                        .listRowBackground(BipeColor.surfaceRaised)
                 }
                 if let name = model.agendaName {
                     Text(BipeStrings.agendaWith(name))
                         .foregroundStyle(BipeColor.inkPrimary)
-                        .listRowBackground(BipeColor.surfaceRaised)
                 }
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
@@ -532,7 +524,6 @@ struct AgendaBookView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
     }
 }
 
