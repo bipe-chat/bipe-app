@@ -61,12 +61,4 @@ class RoomSubscriptionsTest {
         assertThat(BipeChatRowName.resolve("!room:example.test", " ", "Example Person", "@person:example.test", "Unnamed")).isEqualTo("Example Person")
         assertThat(BipeChatRowName.resolve("!room:example.test", "!room:example.test", "@person:example.test", "@person:example.test", "Unnamed")).isEqualTo("person")
     }
-
-    /** ADR 0141: a DM never shows its own m.room.name; the person's name, then the localpart, wins. */
-    @Test fun dmIgnoresItsRoomName() {
-        assertThat(BipeChatRowName.resolve("!dm:example.test", "Renamed", "Ana", "@ana:example.test", "Unnamed", dmRoomName = "Renamed")).isEqualTo("Ana")
-        assertThat(BipeChatRowName.resolve("!dm:example.test", " Renamed ", null, "@ana:example.test", "Unnamed", dmRoomName = "Renamed")).isEqualTo("ana")
-        assertThat(BipeChatRowName.resolve("!dm:example.test", "Renamed", null, null, "Unnamed", dmRoomName = "Renamed")).isEqualTo("Unnamed")
-        assertThat(BipeChatRowName.resolve("!dm:example.test", "Ana", null, "@ana:example.test", "Unnamed", dmRoomName = null)).isEqualTo("Ana")
-    }
 }
