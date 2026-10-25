@@ -327,7 +327,6 @@ struct AgendaOwnerView: View {
                 if model.bookings.isEmpty && !model.loadingDay {
                     Text(BipeStrings.agendaEmptyDay)
                         .foregroundStyle(BipeColor.inkSecondary)
-                        .listRowBackground(BipeColor.surfaceRaised)
                 }
                 ForEach(rows) { row in
                     switch row {
@@ -342,13 +341,11 @@ struct AgendaOwnerView: View {
                                             agenda: model.agendaFilter == nil ? model.agendaName(booking.agendaId) : nil,
                                             customer: model.customerName(booking))
                         }
-                        .listRowBackground(BipeColor.surfaceRaised)
                     }
                 }
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
         .refreshable { await model.load() }
     }
 

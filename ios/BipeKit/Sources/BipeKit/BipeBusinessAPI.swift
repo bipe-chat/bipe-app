@@ -4,7 +4,8 @@
 
 import Foundation
 
-// Business tools: Catálogo and Agenda (ADRs 0099 to 0104). Contract: bipe-shared api/openapi.yaml (tags Catálogo
+// Business tools: Catálogo and Agenda (ADRs 0099 to 0104); Fila virtual, Orçamento and Pedidos are in
+// BipeBusinessToolsAPI.swift (ADRs 0105 to 0107). Contract: bipe-shared api/openapi.yaml (tags Catálogo
 // and Agenda) and api/business-schemas.json. Owner routes (/v1/me/business/...) need the company account's own token.
 // Customer routes (/v1/businesses/{business}/...) take the business handle or, without one, its Matrix ID.
 
@@ -208,9 +209,11 @@ public struct BipeBusinessAPI {
         return bookings.bookings
     }
 
-    // MARK: - Private
+    // MARK: - Request
 
-    private func request<Response: Decodable>(_ method: String,
+    /// One call of the business routes. Internal: the Fila virtual, Orçamento and Pedidos routes
+    /// (BipeBusinessToolsAPI.swift) use it too.
+    func request<Response: Decodable>(_ method: String,
                                               _ path: [String],
                                               query: [URLQueryItem] = [],
                                               json: (any Encodable)? = nil,

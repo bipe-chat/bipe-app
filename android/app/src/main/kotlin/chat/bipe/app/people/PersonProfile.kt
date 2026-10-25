@@ -395,7 +395,7 @@ private fun InviteTargetDialog(targets: List<InviteTarget>, onPick: (InviteTarge
                 Text(stringResource(R.string.bipe_dm_invite_to_group_empty), color = colors.inkSecondary)
             } else {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    targets.forEach { target -> IconRow(PhosphorIcon.USERS_THREE, target.name) { onPick(target) } }
+                    targets.forEach { target -> IconRow(PhosphorIcon.USERS_THREE, target.name, containerColor = colors.surfaceRaised) { onPick(target) } }
                 }
             }
         },

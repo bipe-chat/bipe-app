@@ -52,7 +52,6 @@ struct BlockedListView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                     }
-                    .listRowBackground(BipeColor.surfaceBase)
                 }
                 .listStyle(.plain)
             }

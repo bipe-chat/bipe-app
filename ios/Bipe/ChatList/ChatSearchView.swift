@@ -89,18 +89,15 @@ struct ChatSearchResults: View {
             } else if search.isSearching && search.results.isEmpty {
                 ProgressView()
                     .frame(maxWidth: .infinity)
-                    .listRowBackground(BipeColor.surfaceBase)
             } else if search.results.isEmpty {
                 Text(BipeStrings.appSearchNoResults(search.query))
                     .foregroundStyle(BipeColor.inkSecondary)
-                    .listRowBackground(BipeColor.surfaceBase)
                 if search.offersHandleLookup {
                     Section {
                         Button(BipeStrings.appSearchFindHandle) { onFindHandle(search.query) }
                     } footer: {
                         Text(BipeStrings.startChatSearchByHandle)
                     }
-                    .listRowBackground(BipeColor.surfaceBase)
                 }
             } else {
                 ForEach(search.results) { chat in
@@ -123,12 +120,10 @@ struct ChatSearchResults: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(BipeColor.surfaceBase)
                 }
             }
         }
         .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .accessibilityIdentifier(BipeScreen.chatSearch.rawValue)
     }
 }

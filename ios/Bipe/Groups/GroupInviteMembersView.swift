@@ -33,12 +33,10 @@ struct GroupInviteMembersView: View {
                     } label: {
                         PickRow(pick: match, media: media)
                     }
-                    .listRowBackground(BipeColor.surfaceBase)
                 } else if model.handleNotFound, let handle = GroupInviteLookup.handle(in: model.query) {
                     Text(BipeStrings.startChatHandleNotFound(handle))
                         .font(.footnote)
                         .foregroundStyle(BipeColor.inkSecondary)
-                        .listRowBackground(BipeColor.surfaceBase)
                 }
                 if model.loading {
                     ProgressView().frame(maxWidth: .infinity)
@@ -49,7 +47,6 @@ struct GroupInviteMembersView: View {
                     } label: {
                         PickRow(pick: pick, media: media)
                     }
-                    .listRowBackground(BipeColor.surfaceBase)
                 }
             } header: {
                 Text(BipeStrings.appPeopleContacts)
@@ -64,8 +61,6 @@ struct GroupInviteMembersView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .searchable(text: Binding(get: { model.query }, set: { model.setQuery($0) }), prompt: BipeStrings.appPeopleSearch)
         .navigationTitle(BipeStrings.appGroupAddPeople)
         .navigationBarTitleDisplayMode(.inline)

@@ -101,6 +101,8 @@ private fun grouped(items: List<BipeCatalogItem>): List<Pair<String?, List<BipeC
 /**
  * Spec catalog-view: a business's catálogo for a customer, grouped by category, with an item detail. Descriptions are
  * plain text with no link detection (security rule 10). [bookableServices] are the services Agendar can book.
+ * A fixed-price product the customer can order shows Adicionar ao pedido (spec order-customer add); [onAddToOrder]
+ * takes its ID.
  */
 @Composable
 fun CatalogViewScreen(
@@ -109,6 +111,7 @@ fun CatalogViewScreen(
     bookableServices: Set<String>,
     onBook: (String) -> Unit,
     onClose: () -> Unit,
+    onAddToOrder: ((String) -> Unit)? = null,
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
@@ -152,6 +155,12 @@ fun CatalogViewScreen(
                 onBook(item.id)
             },
             onClose = { selected = null },
+            onAddToOrder = onAddToOrder?.takeIf { isOrderable(item) }?.let { add ->
+                {
+                    selected = null
+                    add(item.id)
+                }
+            },
         )
     }
 }
@@ -204,9 +213,13 @@ private fun Badge(text: String) {
     )
 }
 
+/** Spec order-customer: only an active product with a fixed price and amount_cents, not sold out today, can be ordered. */
+fun isOrderable(item: BipeCatalogItem): Boolean =
+    !item.isService && item.active && !item.soldOutToday && item.price.mode == BipeCatalogPrice.FIXED && item.price.amountCents != null
+
 /** The item detail: photo, kind, price, duration for a service and the plain-text description. */
 @Composable
-private fun CatalogItemDetail(item: BipeCatalogItem, canBook: Boolean, onBook: () -> Unit, onClose: () -> Unit) {
+private fun CatalogItemDetail(item: BipeCatalogItem, canBook: Boolean, onBook: () -> Unit, onClose: () -> Unit, onAddToOrder: (() -> Unit)? = null) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
     AlertDialog(
@@ -230,6 +243,7 @@ private fun CatalogItemDetail(item: BipeCatalogItem, canBook: Boolean, onBook: (
         },
         confirmButton = {
             if (canBook) TextButton(onClick = onBook) { Text(stringResource(R.string.bipe_agenda_book)) }
+            else if (onAddToOrder != null) TextButton(onClick = onAddToOrder) { Text(stringResource(R.string.bipe_order_add)) }
         },
         dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.bipe_app_close)) } },
         containerColor = colors.surfaceRaised,

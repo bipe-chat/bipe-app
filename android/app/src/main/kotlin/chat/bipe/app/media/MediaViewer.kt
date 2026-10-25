@@ -63,6 +63,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -324,7 +326,7 @@ private fun MediaPage(media: MediaMessage, loader: MediaLoader, onTap: () -> Uni
                 modifier = Modifier.fillMaxSize(),
             )
         } else if (image != null) {
-            ZoomableImage(image, onTap)
+            ZoomableImage(image, mediaAccessibilityLabel(media), onTap)
         }
         if (isLoadingFull) {
             CircularProgressIndicator(color = colors.inkPrimary)
@@ -344,7 +346,7 @@ private fun MediaPage(media: MediaMessage, loader: MediaLoader, onTap: () -> Uni
 
 /** Pinch and double tap zoom for a photo; a single tap hides the bars. */
 @Composable
-private fun ZoomableImage(image: LoadedImage, onTap: () -> Unit) {
+private fun ZoomableImage(image: LoadedImage, label: String, onTap: () -> Unit) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }
@@ -373,6 +375,7 @@ private fun ZoomableImage(image: LoadedImage, onTap: () -> Unit) {
         // Pan only while zoomed, so a swipe at scale 1 goes to the pager.
         .transformable(transform, canPan = { scale > 1f })
         .graphicsLayer(scaleX = scale, scaleY = scale, translationX = offsetX, translationY = offsetY)
+        .semantics { contentDescription = label }
     val animated = image.animated
     if (animated != null) {
         AndroidView(

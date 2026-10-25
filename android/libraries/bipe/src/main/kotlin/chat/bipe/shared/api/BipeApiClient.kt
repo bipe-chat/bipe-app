@@ -298,6 +298,23 @@ enum class BipeApiErrorCode(val id: String) {
     OUTSIDE_HORIZON("outside_horizon"),
     AGENDA_NOT_PUBLISHED("agenda_not_published"),
     CANCELLATION_WINDOW_CLOSED("cancellation_window_closed"),
+
+    // Fila virtual, Orçamento and Pedidos (contract business errors, bipe-shared api/business-schemas.json).
+    QUEUE_CLOSED("queue_closed"),
+    ALREADY_IN_QUEUE("already_in_queue"),
+    PLACE_NOT_ACTIVE("place_not_active"),
+    QUOTE_EXPIRED("quote_expired"),
+    QUOTE_VERSION_CHANGED("quote_version_changed"),
+    QUOTE_NOT_OPEN("quote_not_open"),
+    ORDER_ALREADY_OPEN("order_already_open"),
+    ORDER_NOT_OPEN("order_not_open"),
+    ITEM_UNAVAILABLE("item_unavailable"),
+    PRICE_NOT_FIXED("price_not_fixed"),
+    ORDERS_CLOSED("orders_closed"),
+
+    /** Pix needs a verified CNPJ (ADR 0080). The app never offers Pix; the text says to pay on site. */
+    PAYMENT_REQUIRES_VERIFIED_BUSINESS("payment_requires_verified_business"),
+    PIX_CHARGE_UNAVAILABLE("pix_charge_unavailable"),
     ;
 
     companion object {
@@ -356,6 +373,19 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.OUTSIDE_HORIZON -> context.getString(R.string.bipe_agenda_error_outside_horizon)
             BipeApiErrorCode.AGENDA_NOT_PUBLISHED -> context.getString(R.string.bipe_agenda_error_not_published)
             BipeApiErrorCode.CANCELLATION_WINDOW_CLOSED -> context.getString(R.string.bipe_agenda_error_cancel_window)
+            BipeApiErrorCode.QUEUE_CLOSED -> context.getString(R.string.bipe_queue_closed)
+            BipeApiErrorCode.ALREADY_IN_QUEUE -> context.getString(R.string.bipe_queue_error_already_joined)
+            BipeApiErrorCode.PLACE_NOT_ACTIVE -> context.getString(R.string.bipe_queue_error_inactive)
+            BipeApiErrorCode.QUOTE_EXPIRED -> context.getString(R.string.bipe_quote_error_expired)
+            BipeApiErrorCode.QUOTE_VERSION_CHANGED -> context.getString(R.string.bipe_quote_error_version)
+            BipeApiErrorCode.QUOTE_NOT_OPEN -> context.getString(R.string.bipe_quote_error)
+            BipeApiErrorCode.ORDER_ALREADY_OPEN -> context.getString(R.string.bipe_order_error_already_open)
+            BipeApiErrorCode.ORDER_NOT_OPEN -> context.getString(R.string.bipe_order_error)
+            BipeApiErrorCode.ITEM_UNAVAILABLE -> context.getString(R.string.bipe_order_error_item)
+            BipeApiErrorCode.PRICE_NOT_FIXED -> context.getString(R.string.bipe_order_error_price)
+            BipeApiErrorCode.ORDERS_CLOSED -> context.getString(R.string.bipe_order_error_closed)
+            BipeApiErrorCode.PAYMENT_REQUIRES_VERIFIED_BUSINESS, BipeApiErrorCode.PIX_CHARGE_UNAVAILABLE ->
+                context.getString(R.string.bipe_order_error_pix)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID ->
                 context.getString(R.string.bipe_error_generic)
         }
