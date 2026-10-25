@@ -105,7 +105,7 @@ fun AccountMenu(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: ()
     LaunchedEffect(state.showsAccountSwitcher) { if (state.showsAccountSwitcher) tabs.refreshProfiles() }
 }
 
-/** Account photos, names and handles shared by the menu and Você; never Matrix IDs. */
+/** Account photos, names and handles as rows; never Matrix IDs. Unused since Você lost its rows (spec voce, 25 Oct 2026). */
 @Composable
 fun AccountRows(tabs: AppTabsModel, fallbackMedia: MediaLoader) {
     val state by tabs.state.collectAsState()

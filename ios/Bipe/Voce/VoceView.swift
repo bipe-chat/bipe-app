@@ -53,16 +53,12 @@ struct VoceView: View {
                             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
                 }
-                // The accounts on this phone (ADR 0112, 0135); Nova conta closes the section (spec account-new).
+                // Spec voce (MZ decision 25 Oct 2026): no account rows; the Você tab switches (hold, double tap,
+                // VoiceOver action). Nova conta stays here (spec account-new).
                 Section {
-                    if model.accounts.count > 1 {
-                        AccountRows(model: model, fallbackMedia: chatList.media)
-                    }
                     Button(action: onNewAccount) {
                         IconLabel(icon: .plus, text: BipeStrings.appAccountNew, tint: BipeColor.accentInk)
                     }
-                } header: {
-                    if model.accounts.count > 1 { Text(BipeStrings.appAccountSwitcherTitle) }
                 }
                 Section {
                     Button(action: openNotes) {

@@ -20,6 +20,8 @@ struct TabBarGestures: UIViewRepresentable {
     let menu: () -> UIMenu
     /// The same switcher as a view, for the popover when the menu does not show.
     let switcher: () -> AnyView
+    /// Two or more accounts: the Você item gets the VoiceOver action that opens the switcher (spec app-tabs).
+    var showsSwitchAction = false
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -36,6 +38,7 @@ struct TabBarGestures: UIViewRepresentable {
         context.coordinator.onDoubleTap = onDoubleTap
         context.coordinator.menu = menu
         context.coordinator.switcher = switcher
+        context.coordinator.showsSwitchAction = showsSwitchAction
         view.install()
     }
 
@@ -73,6 +76,7 @@ struct TabBarGestures: UIViewRepresentable {
         var onDoubleTap: () -> Void = {}
         var menu: () -> UIMenu = { UIMenu(children: []) }
         var switcher: () -> AnyView = { AnyView(EmptyView()) }
+        var showsSwitchAction = false
         private weak var tabBar: UITabBar?
         private lazy var doubleTap: UITapGestureRecognizer = {
             let recognizer = UITapGestureRecognizer(target: self, action: #selector(didDoubleTap(_:)))
@@ -94,6 +98,7 @@ struct TabBarGestures: UIViewRepresentable {
         private var menuShows = false
 
         func attach(to tabBar: UITabBar) {
+            updateSwitchAction(in: tabBar)
             guard self.tabBar !== tabBar else { return }
             self.tabBar?.removeGestureRecognizer(doubleTap)
             self.tabBar?.removeGestureRecognizer(longPress)
@@ -102,6 +107,18 @@ struct TabBarGestures: UIViewRepresentable {
             tabBar.addGestureRecognizer(longPress)
             tabBar.addInteraction(menuInteraction)
             self.tabBar = tabBar
+        }
+
+        /// VoiceOver cannot hold, and Você has no account rows: the Você item carries a custom action that opens the
+        /// same switcher popover (spec app-tabs). Set again on each update, since the tab bar can rebuild its items.
+        private func updateSwitchAction(in tabBar: UITabBar) {
+            guard let item = voceItem(in: tabBar) else { return }
+            item.accessibilityCustomActions = showsSwitchAction
+                ? [UIAccessibilityCustomAction(name: BipeStrings.a11ySwitchAccount) { [weak self] _ in
+                    self?.presentSwitcher()
+                    return true
+                }]
+                : nil
         }
 
         @objc private func didDoubleTap(_ recognizer: UITapGestureRecognizer) {
