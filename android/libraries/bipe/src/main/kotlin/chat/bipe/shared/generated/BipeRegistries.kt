@@ -772,6 +772,9 @@ object BipeRegistries {
     // After a deletion, the CPF hash and the badge record stay this long (ADR 0140).
     const val DELETION_VERIFICATION_KEEP_DAYS = 365
 
+    // A new phone that waits for approval can send the approval nudge again after this wait (bipe-chat/bipe#628).
+    const val APPROVAL_NUDGE_AGAIN_SECONDS = 30
+
     // A released @ stays on hold this long (ADR 0016), also after an account deletion.
     const val HANDLE_RELEASE_HOLD_DAYS = 90
 

@@ -73,9 +73,15 @@ struct AccountStartView: View {
         .onReceive(notifications.$roomToOpen) { target in
             Task { @MainActor in routeNotification(target) }
         }
+        .onReceive(notifications.$accountToOpen) { userId in
+            Task { @MainActor in routeAccount(userId) }
+        }
         .onReceive(model.$sessions) { _ in
             // Published values arrive before assignment; route after this update.
-            Task { @MainActor in routeNotification(notifications.roomToOpen) }
+            Task { @MainActor in
+                routeNotification(notifications.roomToOpen)
+                routeAccount(notifications.accountToOpen)
+            }
         }
         .task { await model.start() }
         .onChange(of: scenePhase) { _, phase in
@@ -90,6 +96,14 @@ struct AccountStartView: View {
               model.sessions.contains(where: { $0.userId == target.accountUserId }) else { return }
         model.switchAccount(to: target.accountUserId)
         tabs.selectTab(target.destination == .groups ? .grupos : .conversas)
+    }
+
+    /// Approval nudge tap: the owner's conversation list. Its device-verification shows the request when the sync brings it.
+    private func routeAccount(_ userId: String?) {
+        guard let userId, model.sessions.contains(where: { $0.userId == userId }) else { return }
+        notifications.accountToOpen = nil
+        model.switchAccount(to: userId)
+        tabs.selectTab(.conversas)
     }
 }
 

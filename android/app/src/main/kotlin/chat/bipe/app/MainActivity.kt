@@ -60,6 +60,13 @@ class MainActivity : ComponentActivity() {
     private fun readOpenChat(intent: Intent?) {
         if (intent?.action != PhoneNotifications.ACTION_OPEN_CHAT) return
         val app = application as BipeApplication
+        if (intent.getStringExtra(PhoneNotifications.EXTRA_KIND) == PhoneNotifications.KIND_DEVICE_APPROVAL) {
+            app.notifications.approvalAccount(intent)?.let { app.accountToOpen.value = it }
+            intent.removeExtra(PhoneNotifications.EXTRA_KIND)
+            intent.removeExtra(PhoneNotifications.EXTRA_ACCOUNT_ROUTE)
+            intent.removeExtra(PhoneNotifications.EXTRA_ACCOUNT_USER_ID)
+            return
+        }
         val target = app.notifications.target(intent) ?: return
         app.roomToOpen.value = BipeNotificationOpen(target, BipeNotificationDestination.fromKind(intent.getStringExtra(PhoneNotifications.EXTRA_KIND)))
         intent.removeExtra(PhoneNotifications.EXTRA_KIND)

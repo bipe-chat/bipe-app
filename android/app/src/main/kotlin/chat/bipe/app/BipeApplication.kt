@@ -37,6 +37,9 @@ class BipeApplication : Application() {
     /** Action open of a notification: the chat that the home screen opens next. */
     val roomToOpen = MutableStateFlow<BipeNotificationOpen?>(null)
 
+    /** A tap on an approval nudge (bipe-chat/bipe#628): the account whose conversation list the app shows next. */
+    val accountToOpen = MutableStateFlow<String?>(null)
+
     /** Spec pix-check-result, action sendToChat: the preview the home screen offers next. */
     val pixPreview = MutableStateFlow<PixPreview?>(null)
 
@@ -76,6 +79,7 @@ class BipeApplication : Application() {
                 val session = accountStart.awaitSession(message.accountUserId) ?: return@launch
                 notifications.countChanged(session)
             }
+            is BipePushMessage.DeviceApproval -> notifications.deviceApproval(message.accountUserId)
             BipePushMessage.Ignored -> Unit
         }
     }

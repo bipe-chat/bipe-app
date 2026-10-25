@@ -137,6 +137,42 @@ class PhoneNotifications(private val context: Context) {
         manager.notify("unowned", NOTIFICATION_ID, notification)
     }
 
+    /**
+     * Kind deviceApproval (bipe-chat/bipe#628): a new device of [userId] waits for approval. The tap opens that account's
+     * conversation list, where device-verification shows the request when the sync brings it.
+     */
+    @SuppressLint("MissingPermission")
+    fun deviceApproval(userId: String) {
+        if (!manager.areNotificationsEnabled()) return
+        val route = accountRoutes.routeFor(userId)
+        val intent = Intent(context, MainActivity::class.java)
+            .setAction(ACTION_OPEN_CHAT)
+            .setData(Uri.parse("bipe-notification://approval/${accountDigest(userId)}/$route"))
+            .putExtra(EXTRA_ACCOUNT_USER_ID, userId)
+            .putExtra(EXTRA_ACCOUNT_ROUTE, route)
+            .putExtra(EXTRA_KIND, KIND_DEVICE_APPROVAL)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val notification = NotificationCompat.Builder(context, messagesChannel(userId))
+            .setSmallIcon(chat.bipe.app.R.drawable.ic_notification)
+            .addExtras(Bundle().apply { putString(EXTRA_ACCOUNT_USER_ID, userId) })
+            .setContentTitle(context.getString(R.string.bipe_app_verify_incoming_title))
+            .setContentText(context.getString(R.string.bipe_app_verify_nudge_body))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(R.string.bipe_app_verify_nudge_body)))
+            .setContentIntent(PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            .setAutoCancel(true)
+            .setSilent(isQuiet(userId))
+            .build()
+        manager.notify("approval_" + accountDigest(userId), NOTIFICATION_ID, notification)
+    }
+
+    /** The owner of a tapped approval nudge, while its registration lifetime is still live. */
+    fun approvalAccount(intent: Intent): String? {
+        if (intent.getStringExtra(EXTRA_KIND) != KIND_DEVICE_APPROVAL) return null
+        val route = intent.getStringExtra(EXTRA_ACCOUNT_ROUTE) ?: return null
+        val userId = intent.getStringExtra(EXTRA_ACCOUNT_USER_ID) ?: return null
+        return userId.takeIf { accountRoutes.accountFor(route) == it }
+    }
+
     /** The random route of [userId] for its pusher's default_payload (spec push-registration). */
     fun accountRoute(userId: String): String = accountRoutes.routeFor(userId)
 
@@ -436,6 +472,7 @@ class PhoneNotifications(private val context: Context) {
         const val EXTRA_ACCOUNT_ROUTE = "account_route"
         const val EXTRA_KIND = "notification_kind"
         const val EXTRA_ROOM_ID = "room_id"
+        const val KIND_DEVICE_APPROVAL = "deviceApproval"
         private const val OLD_INVITES_CHANNEL = "invites"
         private const val KEY_SOUND = "sound"
         private const val KEY_PREVIEW = "preview"

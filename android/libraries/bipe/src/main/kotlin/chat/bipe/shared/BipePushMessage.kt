@@ -15,6 +15,9 @@ sealed interface BipePushMessage {
     /** No event: the unread count of [accountUserId] changed, for example after a read on another device. */
     data class CountChanged(val accountUserId: String) : BipePushMessage
 
+    /** A new device of [accountUserId] waits for approval (bipe-chat/bipe#628). Nothing to fetch: the sync brings the request. */
+    data class DeviceApproval(val accountUserId: String) : BipePushMessage
+
     /** Nothing this phone can act on. */
     data object Ignored : BipePushMessage
 
@@ -23,8 +26,14 @@ sealed interface BipePushMessage {
         const val EVENT_ID = "event_id"
         const val ACCOUNT_ROUTE = "account_route"
 
+        /** bipe-api adds this to the default_payload of a push that is not a room event (spec notification-service). */
+        const val PUSH_KIND = "bipe_push_kind"
+        const val DEVICE_APPROVAL = "device_approval"
+
         fun parse(data: Map<String, String>, accountFor: (String) -> String?): BipePushMessage {
             val userId = data[ACCOUNT_ROUTE]?.takeIf { it.isNotBlank() }?.let(accountFor)
+            // An approval nudge carries the fixed event ID $device_approval and no room: it never shows as a message.
+            if (data[PUSH_KIND] == DEVICE_APPROVAL) return if (userId != null) DeviceApproval(userId) else Ignored
             val roomId = data[ROOM_ID]?.takeIf { it.isNotBlank() }
             val eventId = data[EVENT_ID]?.takeIf { it.isNotBlank() }
             return when {

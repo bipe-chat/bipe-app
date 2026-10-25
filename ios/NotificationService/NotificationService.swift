@@ -25,6 +25,10 @@ final class NotificationService: UNNotificationServiceExtension {
     ) {
         self.contentHandler = contentHandler
         let userInfo = request.content.userInfo
+        if userInfo[NotificationKeys.pushKind] as? String == NotificationKeys.deviceApprovalPush {
+            deliver(Self.deviceApproval(route: userInfo[NotificationKeys.accountRoute] as? String))
+            return
+        }
         guard let route = userInfo[NotificationKeys.accountRoute] as? String,
               let target = NotificationKeys.pushTarget(userInfo),
               let eventId = userInfo[NotificationKeys.eventId] as? String else {
@@ -154,6 +158,22 @@ final class NotificationService: UNNotificationServiceExtension {
             }
         default: return nil
         }
+    }
+
+    /// Kind deviceApproval (bipe-chat/bipe#628): a new device of the account waits for approval. Nothing to fetch: the
+    /// app's sync brings the request. An unknown route, or an account no longer on this phone, shows nothing.
+    private static func deviceApproval(route: String?) -> UNNotificationContent {
+        guard let route, let userId = NotificationKeys.accountRoutes?.account(for: route),
+              SessionStore.loadForPush(userId: userId) != nil else {
+            return UNMutableNotificationContent()
+        }
+        let content = UNMutableNotificationContent()
+        content.title = BipeStrings.appVerifyIncomingTitle
+        content.body = BipeStrings.appVerifyNudgeBody
+        content.userInfo = [NotificationKeys.accountUserId: userId, NotificationKeys.accountRoute: route,
+                            NotificationKeys.kind: NotificationKeys.deviceApprovalKind]
+        apply(sound: sound(isNoisy: true, userId: userId), to: content, userId: userId)
+        return content
     }
 
     /// Kind fallback: the event could not be fetched or decrypted in time.

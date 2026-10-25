@@ -69,6 +69,16 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
             tabs.selectTab(if (target.destination == BipeNotificationDestination.GROUPS) AppTabsModel.Tab.GRUPOS else AppTabsModel.Tab.CONVERSAS)
         }
     }
+    // Approval nudge tap (bipe-chat/bipe#628): the owner's conversation list; device-verification shows the request there.
+    val accountToOpen by app.accountToOpen.collectAsState()
+    LaunchedEffect(accountToOpen, sessions) {
+        val owner = accountToOpen ?: return@LaunchedEffect
+        if (sessions.any { it.userId == owner }) {
+            app.accountToOpen.value = null
+            model.switchAccount(owner)
+            tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+        }
+    }
     // Spec soft-logout removed: once, as a toast.
     val notice by model.notice.collectAsState()
     val context = LocalContext.current
