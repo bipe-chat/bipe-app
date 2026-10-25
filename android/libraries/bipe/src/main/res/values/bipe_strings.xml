@@ -1183,6 +1183,9 @@
     <string name="bipe_onboarding_paste_invite_hint">Copiou o link do convite?</string>
     <string name="bipe_onboarding_paste_invite">Colar convite</string>
     <string name="bipe_onboarding_paste_invite_none">O que você copiou não é um convite do Bipe.</string>
+    <string name="bipe_onboarding_scan_invite">Ler QR code</string>
+    <string name="bipe_app_invite_scan_title">Leia o QR code do convite</string>
+    <string name="bipe_app_invite_scan_body">Aponte a câmera para o QR code no celular de quem te convidou.</string>
     <string name="bipe_invite_code_title">Código do convite</string>
     <string name="bipe_invite_code_body">Peça o código para quem te chamou para o Bipe.</string>
     <string name="bipe_invite_code_none">Não tem convite?</string>
@@ -1749,4 +1752,5 @@
     <string name="bipe_deletion_customer_name">Conta apagada</string>
     <string name="bipe_mail_notice_deletion_started">Alguém pediu para apagar sua conta do Bipe. Se ninguém cancelar, a conta é apagada em %1$s.\n\nSe não foi você, abra o Bipe num dos seus aparelhos e cancele.</string>
     <string name="bipe_mail_notice_deletion_cancelled">O pedido para apagar sua conta do Bipe foi cancelado. A conta continua como estava.\n\nSe não foi você, abra o Bipe num dos seus aparelhos e confira.</string>
+    <string name="bipe_a11y_switch_account">Trocar de conta</string>
 </resources>
