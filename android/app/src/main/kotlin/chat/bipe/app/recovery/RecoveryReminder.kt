@@ -47,7 +47,7 @@ import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.settings.AppLockModel
 import chat.bipe.app.settings.AppLockPinCheck
 import chat.bipe.app.settings.OwnerCheck
-import chat.bipe.shared.BipeHandle
+import chat.bipe.shared.BipeSignupRules
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeRecoveryReminder
 import chat.bipe.shared.account.setRecoveryEmail
@@ -196,7 +196,7 @@ fun RecoveryEmailAddScreen(
     // Action send: PUT /v1/me/email. The address is never logged.
     fun send() {
         val address = email.trim()
-        if (!BipeHandle.isPlausibleEmail(address)) {
+        if (!BipeSignupRules.isPlausibleEmail(address)) {
             emailInvalid = true
             return
         }
