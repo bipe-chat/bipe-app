@@ -194,6 +194,9 @@ class ChatTimelineModel(
     val isLoadingHistory: StateFlow<Boolean> = _isLoadingHistory.asStateFlow()
     private val _reachedStart = MutableStateFlow(false)
     val reachedStart: StateFlow<Boolean> = _reachedStart.asStateFlow()
+    /** Goes up after each load that did not fail, so the screen asks for the next page while the top is on screen. */
+    private val _historyLoads = MutableStateFlow(0)
+    val historyLoads: StateFlow<Int> = _historyLoads.asStateFlow()
     /** signup-done: the inviter while this chat has no first message (ADR 0034). */
     private val _inviterHint = MutableStateFlow<InviterGreetings.Greeting?>(null)
     val inviterHint: StateFlow<InviterGreetings.Greeting?> = _inviterHint.asStateFlow()
@@ -322,22 +325,42 @@ class ChatTimelineModel(
 
     // chat-timeline
 
-    /** Action loadHistory: back-paginates 20 events. Does nothing at the start or while a load runs. */
+    /**
+     * Action loadHistory: back-paginates 20 events at a time until the rows have HISTORY_FILL more messages,
+     * at most HISTORY_PAGES_PER_LOAD pages. A failed page is tried again. Does nothing at the start or while a load runs.
+     */
     fun loadHistory() {
-        scope.launch { paginate() }
+        scope.launch { paginate(HISTORY_PAGES_PER_LOAD) }
     }
 
-    private suspend fun paginate() {
+    private suspend fun paginate(maxPages: Int) {
         val timeline = timeline ?: return
         if (_reachedStart.value || _isLoadingHistory.value) return
         _isLoadingHistory.value = true
         try {
-            if (runCatching { timeline.paginateBackwards(HISTORY_PAGE) }.getOrDefault(false)) {
-                _reachedStart.value = true
+            val before = _messages.value.size
+            for (page in 1..maxPages) {
+                val hitStart = paginateBackwards(timeline) ?: return
+                if (hitStart) {
+                    _reachedStart.value = true
+                    break
+                }
+                // The new items reach rows through the timeline listener, so this count can lag one page.
+                if (_messages.value.size - before >= HISTORY_FILL) break
             }
+            _historyLoads.update { it + 1 }
         } finally {
             _isLoadingHistory.value = false
         }
+    }
+
+    /** One page back, tried HISTORY_TRIES times. null when every try failed. */
+    private suspend fun paginateBackwards(timeline: Timeline): Boolean? {
+        for (attempt in 1..HISTORY_TRIES) {
+            runCatching { timeline.paginateBackwards(HISTORY_PAGE) }.onSuccess { return it }
+            if (attempt < HISTORY_TRIES) delay(attempt * 1000L)
+        }
+        return null
     }
 
     /** Action editDraft, with typing-indicator draftChanged. */
@@ -571,7 +594,7 @@ class ChatTimelineModel(
                     return@launch
                 }
                 if (page == ORIGINAL_SEARCH_PAGES || _reachedStart.value) return@launch
-                paginate()
+                paginate(maxPages = 1)
                 // The new items reach rows through the timeline listener.
                 delay(300)
             }
@@ -939,6 +962,12 @@ class ChatTimelineModel(
 
     private companion object {
         const val HISTORY_PAGE: UShort = 20u
+        /** One loadHistory pages on until it adds this many message rows (state events give no rows). */
+        const val HISTORY_FILL = 10
+        /** The most pages one loadHistory requests. */
+        const val HISTORY_PAGES_PER_LOAD = 5
+        /** The tries of one page before the load stops: a fresh login can fail the first pages during the first sync. */
+        const val HISTORY_TRIES = 3
         /** Spec message-reply openOriginal: at most 5 pages back. */
         const val ORIGINAL_SEARCH_PAGES = 5
         /** Spec typing-indicator: typing on at most once every 4 seconds. */

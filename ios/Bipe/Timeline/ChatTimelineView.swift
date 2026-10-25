@@ -302,8 +302,9 @@ struct ChatTimelineView: View {
         .font(.footnote)
         .foregroundStyle(BipeColor.inkSecondary)
         .padding(.vertical, 8)
-        // Runs while the top of the list is on screen, again after each page (action loadHistory).
-        .task(id: model.rows.count) {
+        // Runs while the top of the list is on screen, again after each load and each change of the rows
+        // (action loadHistory). After a failed load, the next change of the rows tries again.
+        .task(id: "\(model.rows.count)-\(model.historyLoads)") {
             await model.loadHistory()
         }
     }

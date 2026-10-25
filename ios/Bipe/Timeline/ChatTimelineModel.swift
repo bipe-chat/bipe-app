@@ -115,6 +115,12 @@ final class ChatTimelineModel: ObservableObject {
     }
 
     static let historyPage: UInt16 = 20
+    /// One loadHistory pages on until it adds this many message rows (state events give no rows).
+    static let historyFill = 10
+    /// The most pages one loadHistory requests.
+    static let historyPagesPerLoad = 5
+    /// The tries of one page before the load stops: a fresh login can fail the first pages during the first sync.
+    static let historyTries = 3
     /// Spec message-reactions notes: the quick reactions, in this order.
     static let quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"]
     /// Spec message-reply openOriginal: at most 5 pages back.
@@ -135,6 +141,8 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var rows: [TimelineRow] = []
     @Published private(set) var isLoadingHistory = false
     @Published private(set) var reachedStart = false
+    /// Goes up after each load that did not fail, so the view asks for the next page while the top is on screen.
+    @Published private(set) var historyLoads = 0
     @Published private(set) var isDm = false
     @Published private(set) var isEncrypted = true
     /// A DM or a group that needs an invite, for the show-media setting (spec timeline-media).
@@ -341,14 +349,36 @@ final class ChatTimelineModel: ObservableObject {
 
     // MARK: chat-timeline
 
-    /// Action loadHistory: back-paginates 20 events. Does nothing at the start or while a load runs.
-    func loadHistory() async {
+    /// Action loadHistory: back-paginates 20 events at a time until the rows have historyFill more messages,
+    /// at most maxPages pages. A failed page is tried again. Does nothing at the start or while a load runs.
+    func loadHistory(maxPages: Int = ChatTimelineModel.historyPagesPerLoad) async {
         guard let timeline, !reachedStart, !isLoadingHistory else { return }
         isLoadingHistory = true
         defer { isLoadingHistory = false }
-        if let hitStart = try? await timeline.paginateBackwards(numEvents: Self.historyPage), hitStart {
-            reachedStart = true
+        let before = messages.count
+        for _ in 0..<maxPages {
+            guard let hitStart = await paginateBackwards(timeline) else { return }
+            if hitStart {
+                reachedStart = true
+                break
+            }
+            // The new items reach rows through the timeline listener, so this count can lag one page.
+            if messages.count - before >= Self.historyFill { break }
         }
+        historyLoads += 1
+    }
+
+    /// One page back, tried historyTries times. nil when every try failed.
+    private func paginateBackwards(_ timeline: Timeline) async -> Bool? {
+        for attempt in 1...Self.historyTries {
+            if let hitStart = try? await timeline.paginateBackwards(numEvents: Self.historyPage) {
+                return hitStart
+            }
+            if attempt < Self.historyTries {
+                try? await Task.sleep(for: .seconds(attempt))
+            }
+        }
+        return nil
     }
 
     /// Action editDraft, with typing-indicator draftChanged.
@@ -545,7 +575,7 @@ final class ChatTimelineModel: ObservableObject {
                 return
             }
             guard page < Self.originalSearchPages, !reachedStart else { return }
-            await loadHistory()
+            await loadHistory(maxPages: 1)
             // The new items reach rows through the timeline listener.
             try? await Task.sleep(for: .milliseconds(300))
         }
