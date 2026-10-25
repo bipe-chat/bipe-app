@@ -700,6 +700,10 @@ public enum BipeRegistries {
     public static let phoneMaxInputLength = 64
     public static let phoneInternationalMinDigits = 8
     public static let phoneInternationalMaxDigits = 15
+    /// Yearly confirmation of a linked number (bipe-chat/bipe#470): findable for this many months after the last proof,
+    /// and the apps warn this many days before confirm_by.
+    public static let phoneLinkConfirmMonths = 12
+    public static let phoneLinkConfirmWarnDays = 30
 
     /// Work side opening hours (registries/work-hours.json, bipe-chat/bipe#511).
     public static let workHoursDefaultTimeZone = "America/Sao_Paulo"
@@ -755,6 +759,9 @@ public enum BipeRegistries {
     public static let privacyPath = "/privacidade/"
     public static let enTermsPath = "/en/terms/"
     public static let enPrivacyPath = "/en/privacy/"
+    /// The site home pages that onboarding-welcome learnMore opens.
+    public static let homePath = "/"
+    public static let enHomePath = "/en/"
 
     /// Badge signing keys a release build trusts (ADR 0123; registries/badge-keys.json): kid to raw Ed25519 public key, base64url.
     public static let badgeKeys: [String: String] = [
@@ -763,4 +770,14 @@ public enum BipeRegistries {
 
     /// Cleared DMs (bipe-chat/bipe#464; registries/cleared-chats.json): the global account data event with the markers.
     public static let clearedChatsEventType = "chat.bipe.cleared_chats"
+
+    /// Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit.
+    public static let imageDescriptionField = "chat.bipe.image_description"
+    public static let imageDescriptionMaxLength = 1000
+
+    /// Pix request marks (ADR 0046, bipe-chat/bipe#130; registries/pix-marks.json). Rules: BipePixMarks, test-vectors/pix-marks.json.
+    public static let pixMarkEventType = "chat.bipe.pix_mark"
+    public static let pixMarkRelType = "m.reference"
+    public static let pixE2eIdPattern = "^E[0-9]{8}[A-Za-z0-9]{23}$"
+    public static let pixTxidMaxLength = 25
 }

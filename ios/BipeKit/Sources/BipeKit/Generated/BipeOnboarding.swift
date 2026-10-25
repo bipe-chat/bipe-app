@@ -21,6 +21,10 @@ public enum BipeOnboardingTarget: String, Sendable {
     case handleScreen
     case recoveryEmailAdd
     case dismiss
+    case shareInvite
+    case shareProfile
+    case profileQr
+    case notes
 }
 
 public struct BipeOnboardingButton: Sendable, Equatable {
@@ -176,6 +180,8 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
 public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
     case token
     case oldPhone
+    case apple
+    case google
     case email
     case beta
 
@@ -183,6 +189,8 @@ public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
         switch self {
         case .token: "bipe_pin_enter_title"
         case .oldPhone: "bipe_recovery_qr"
+        case .apple: "bipe_recovery_apple"
+        case .google: "bipe_recovery_google"
         case .email: "bipe_recovery_email"
         case .beta: "bipe_recovery_beta"
         }
@@ -192,6 +200,8 @@ public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
         switch self {
         case .token: "bipe_recovery_token_found"
         case .oldPhone: "bipe_recovery_qr_body"
+        case .apple: "bipe_recovery_linked_body"
+        case .google: "bipe_recovery_linked_body"
         case .email: "bipe_recovery_email_body"
         case .beta: "bipe_recovery_beta_body"
         }
@@ -202,6 +212,8 @@ public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
         switch self {
         case .token: true
         case .oldPhone: false
+        case .apple: false
+        case .google: false
         case .email: false
         case .beta: false
         }
@@ -212,13 +224,66 @@ public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
         switch self {
         case .token: nil
         case .oldPhone: "planned:203"
+        case .apple: nil
+        case .google: nil
         case .email: nil
         case .beta: "flag:developer"
         }
     }
 }
 
+/// Cards at the top of Conversas while it lists at most `BipeOnboarding.firstListMaxChats` chats (bipe-chat/bipe#198).
+public enum BipeOnboardingCard: String, CaseIterable, Sendable {
+    case invite
+    case profile
+    case notes
+
+    public var titleKey: String {
+        switch self {
+        case .invite: "bipe_first_card_invite_title"
+        case .profile: "bipe_first_card_profile_title"
+        case .notes: "bipe_self_chat_title"
+        }
+    }
+
+    public var bodyKey: String? {
+        switch self {
+        case .invite: "bipe_first_card_invite_body"
+        case .profile: "bipe_first_card_profile_body"
+        case .notes: "bipe_first_card_notes_body"
+        }
+    }
+
+    /// The one filled button.
+    public var primary: BipeOnboardingButton {
+        switch self {
+        case .invite: BipeOnboardingButton(titleKey: "bipe_first_card_invite_action", target: .shareInvite)
+        case .profile: BipeOnboardingButton(titleKey: "bipe_app_share", target: .shareProfile)
+        case .notes: BipeOnboardingButton(titleKey: "bipe_first_card_notes_action", target: .notes)
+        }
+    }
+
+    /// Text buttons, in order under the filled button.
+    public var text: [BipeOnboardingButton] {
+        switch self {
+        case .invite: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
+        case .profile: [BipeOnboardingButton(titleKey: "bipe_profile_qr_action", target: .profileQr), BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
+        case .notes: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
+        }
+    }
+
+    /// True when the card shows only while the account has an @.
+    public var needsHandle: Bool {
+        switch self {
+        case .invite: false
+        case .profile: true
+        case .notes: false
+        }
+    }
+}
+
 public enum BipeOnboarding {
+    public static let firstListMaxChats = 3
     public static let waitlistBodyKey = "bipe_waitlist_body"
     public static let waitlistPrimary = BipeOnboardingButton(titleKey: "bipe_waitlist_join", target: .waitlist)
     public static let waitlistDoneKey = "bipe_waitlist_done"

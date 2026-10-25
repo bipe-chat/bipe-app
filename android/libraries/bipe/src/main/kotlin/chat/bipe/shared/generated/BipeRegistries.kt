@@ -708,6 +708,9 @@ object BipeRegistries {
     const val PHONE_MAX_INPUT_LENGTH = 64
     const val PHONE_INTERNATIONAL_MIN_DIGITS = 8
     const val PHONE_INTERNATIONAL_MAX_DIGITS = 15
+    /** Yearly confirmation of a linked number (bipe-chat/bipe#470): months findable, and the warning days before confirm_by. */
+    const val PHONE_LINK_CONFIRM_MONTHS = 12
+    const val PHONE_LINK_CONFIRM_WARN_DAYS = 30
 
     /** Work side opening hours (registries/work-hours.json, bipe-chat/bipe#511). */
     const val WORK_HOURS_DEFAULT_TIME_ZONE = "America/Sao_Paulo"
@@ -759,6 +762,9 @@ object BipeRegistries {
     const val PRIVACY_PATH = "/privacidade/"
     const val EN_TERMS_PATH = "/en/terms/"
     const val EN_PRIVACY_PATH = "/en/privacy/"
+    // The site home pages that onboarding-welcome learnMore opens.
+    const val HOME_PATH = "/"
+    const val EN_HOME_PATH = "/en/"
 
     /** Badge signing keys a release build trusts (ADR 0123; registries/badge-keys.json): kid to raw Ed25519 public key, base64url. */
     val badgeKeys: Map<String, String> = mapOf(
@@ -767,4 +773,14 @@ object BipeRegistries {
 
     /** Cleared DMs (bipe-chat/bipe#464; registries/cleared-chats.json): the global account data event with the markers. */
     const val CLEARED_CHATS_EVENT_TYPE = "chat.bipe.cleared_chats"
+
+    /** Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit. */
+    const val IMAGE_DESCRIPTION_FIELD = "chat.bipe.image_description"
+    const val IMAGE_DESCRIPTION_MAX_LENGTH = 1000
+
+    /** Pix request marks (ADR 0046, bipe-chat/bipe#130; registries/pix-marks.json). Rules: PixMarks, test-vectors/pix-marks.json. */
+    const val PIX_MARK_EVENT_TYPE = "chat.bipe.pix_mark"
+    const val PIX_MARK_REL_TYPE = "m.reference"
+    const val PIX_E2E_ID_PATTERN = "^E[0-9]{8}[A-Za-z0-9]{23}\$"
+    const val PIX_TXID_MAX_LENGTH = 25
 }

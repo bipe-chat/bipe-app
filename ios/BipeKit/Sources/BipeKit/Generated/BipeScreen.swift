@@ -55,6 +55,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json
     case businessChatBar = "business-chat-bar"
 
+    /// My business: claim and verify the company (flow voce). Spec: bipe-shared/product/screens/business-claim.json
+    case businessClaim = "business-claim"
+
     /// Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json
     case businessTools = "business-tools"
 
@@ -69,6 +72,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Archived chats (flow home). Spec: bipe-shared/product/screens/chat-archive.json
     case chatArchive = "chat-archive"
+
+    /// First chat list cards (flow home). Spec: bipe-shared/product/screens/chat-list-cards.json
+    case chatListCards = "chat-list-cards"
 
     /// Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json
     case chatListFilters = "chat-list-filters"
@@ -136,10 +142,10 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
-    /// Create an invite with a first message (flow invites). Spec: bipe-shared/product/screens/invite-note.json
+    /// Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json
     case inviteNote = "invite-note"
 
-    /// Invite as a QR code (flow invites). Spec: bipe-shared/product/screens/invite-qr.json
+    /// Invite card (flow invites). Spec: bipe-shared/product/screens/invite-qr.json
     case inviteQr = "invite-qr"
 
     /// Invite opened on a signed-in phone (flow home). Spec: bipe-shared/product/screens/invite-signed-in.json
@@ -162,6 +168,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Move to a new phone: show the code on the old phone (flow devices). Spec: bipe-shared/product/screens/link-phone-show.json
     case linkPhoneShow = "link-phone-show"
+
+    /// Accounts for Bipe recovery (flow settings). Spec: bipe-shared/product/screens/linked-accounts.json
+    case linkedAccounts = "linked-accounts"
 
     /// Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json
     case linkedDevices = "linked-devices"
@@ -214,6 +223,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json
     case personProfile = "person-profile"
 
+    /// Your number: link state and yearly confirmation (flow settings). Spec: bipe-shared/product/screens/phone-link-status.json
+    case phoneLinkStatus = "phone-link-status"
+
     /// Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json
     case pinChange = "pin-change"
 
@@ -247,6 +259,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json
     case pushRegistration = "push-registration"
 
+    /// Question card (flow chat). Spec: bipe-shared/product/screens/question-card.json
+    case questionCard = "question-card"
+
     /// Fila virtual for the customer (flow business). Spec: bipe-shared/product/screens/queue-customer.json
     case queueCustomer = "queue-customer"
 
@@ -276,6 +291,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Save a recovery key (flow encryption). Spec: bipe-shared/product/screens/recovery-key-save.json
     case recoveryKeySave = "recovery-key-save"
+
+    /// Get back in with a linked account (flow recovery). Spec: bipe-shared/product/screens/recovery-linked.json
+    case recoveryLinked = "recovery-linked"
 
     /// New phone: scan the code of the old phone (flow recovery). Spec: bipe-shared/product/screens/recovery-old-phone.json
     case recoveryOldPhone = "recovery-old-phone"
