@@ -14,7 +14,7 @@ struct WorkView: View {
     private let openChat: (String) -> Void
     @StateObject private var people: PeopleService
     @State private var path = NavigationPath()
-    private enum Destination: Hashable { case agenda, catalogOwner, ordersOwner, quotesOwner, queueOwner }
+    private enum Destination: Hashable { case agenda, catalogOwner, ordersOwner, quotesOwner, queueOwner, brandMarks }
 
     init(chatList: ChatListModel, api: BipeAPIClient, openChat: @escaping (String) -> Void) {
         self.chatList = chatList
@@ -31,7 +31,8 @@ struct WorkView: View {
                                      openCatalog: { path.append(Destination.catalogOwner) },
                                      openOrders: { path.append(Destination.ordersOwner) },
                                      openQuotes: { path.append(Destination.quotesOwner) },
-                                     openQueue: { path.append(Destination.queueOwner) })
+                                     openQueue: { path.append(Destination.queueOwner) },
+                                     openBrandMarks: { path.append(Destination.brandMarks) })
             }
             .listStyle(.insetGrouped)
             .navigationTitle(BipeStrings.tabWork)
@@ -47,6 +48,8 @@ struct WorkView: View {
                     QuoteOwnerView(context: businessOwnerContext)
                 case .queueOwner:
                     QueueOwnerView(context: businessOwnerContext)
+                case .brandMarks:
+                    BrandMarksView(api: chatList.session.business(api), people: people)
                 }
             }
         }

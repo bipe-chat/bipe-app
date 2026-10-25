@@ -984,6 +984,10 @@ public enum BipeAPIErrorCode: String, Sendable {
     case cnpjNotActive = "cnpj_not_active"
     case cnpjTaken = "cnpj_taken"
     case signatureInvalid = "signature_invalid"
+    /// 403. Only a company with a verified claim grants brand marks (ADR 0162).
+    case brandNotVerified = "brand_not_verified"
+    /// 409. The account already holds the most brand marks (ADR 0162); the invite stays open.
+    case brandMarkLimit = "brand_mark_limit"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -1050,6 +1054,8 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .cnpjNotActive: BipeStrings.claimRejected
             case .cnpjTaken: BipeStrings.claimCnpjTaken
             case .signatureInvalid: BipeStrings.claimSignatureInvalid
+            case .brandNotVerified: BipeStrings.brandMarksNotVerified
+            case .brandMarkLimit: BipeStrings.brandMarksLimit
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:
