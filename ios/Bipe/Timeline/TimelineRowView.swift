@@ -241,7 +241,7 @@ private struct MessageBubbleRow: View {
             }
             .onEnded { _ in
                 if swipe >= swipeThreshold { model.startReply(rowId: row.id) }
-                withAnimation(.spring(duration: 0.25)) { swipe = 0 }
+                withBipeAnimation(.spring(duration: 0.25)) { swipe = 0 }
             }
     }
 

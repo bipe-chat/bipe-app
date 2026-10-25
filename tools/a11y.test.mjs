@@ -145,6 +145,20 @@ test('kotlin: a long press needs a label, a swipe a TalkBack action', () => {
   assert.deepEqual(auditKotlin('import androidx.compose.foundation.gestures.detectHorizontalDragGestures'), []);
 });
 
+test('swift: an animation needs a Reduce Motion check', () => {
+  assert.deepEqual(rules(auditSwift('Button(BipeStrings.a) {\n    withAnimation { open.toggle() }\n}')), ['2:motion']);
+  assert.deepEqual(rules(auditSwift('toast\n    .transition(.move(edge: .bottom))')), ['2:motion']);
+  assert.deepEqual(auditSwift('Button(BipeStrings.a) {\n    withBipeAnimation { open.toggle() }\n}'), []);
+  assert.deepEqual(auditSwift('guard !reduceMotion else { return }\nwithAnimation(.linear.repeatForever()) { phase = 1 }'), []);
+});
+
+test('kotlin: an animation needs a Reduce Motion check', () => {
+  assert.deepEqual(rules(auditKotlin('val t = rememberInfiniteTransition(label = "typing")')), ['1:motion']);
+  assert.deepEqual(rules(auditKotlin('listState.animateScrollToItem(0)')), ['1:motion']);
+  assert.deepEqual(auditKotlin('val shown by animateFloatAsState(swipe, animationSpec = bipeMotion(spring<Float>()))'), []);
+  assert.deepEqual(auditKotlin('val reduceMotion = LocalReduceMotion.current\nif (reduceMotion) listState.scrollToItem(0) else listState.animateScrollToItem(0)'), []);
+});
+
 test('the app passes the audit', () => {
   assert.deepEqual(checkA11y(REPO_ROOT).errors, []);
 });

@@ -17,6 +17,8 @@
 // - tap-target: the same controls, outside a toolbar, put .bipeTapTarget() on their label (44 x 44 pt).
 // - text-size: no .font(.system(size: <number>)); use a text style or a @ScaledMetric size.
 // - gesture: .onLongPressGesture and .swipeActions need an .accessibilityAction(s) within 8 lines.
+// - motion: withAnimation, .animation(, repeatForever, .move(edge:) and .symbolEffect( need a Reduce Motion
+//   check within 8 lines; withBipeAnimation, .bipeAnimation and .bipeMove (Common/Motion.swift) have it.
 // Kotlin (android/):
 // - icon-only: IconButton, FilledIconButton, FilledTonalIconButton, OutlinedIconButton,
 //   IconToggleButton and the FloatingActionButton family need a non-null contentDescription or a Text
@@ -29,6 +31,8 @@
 // - gesture: a combinedClickable with onLongClick needs onLongClickLabel; detectHorizontalDragGestures,
 //   SwipeToDismissBox and detectTapGestures(onLongPress =) need customActions, setProgress or onLongClick { }
 //   semantics within 20 lines (or a "// a11y: <why>" comment).
+// - motion: rememberInfiniteTransition, animateScrollTo(Item), animate*AsState and the slide, expand and
+//   shrink transitions need LocalReduceMotion, bipeMotion() or reduceMotion within 12 lines.
 //
 // Limits: this reads the source, it does not build the views.
 // - It does not follow values: a label built in another function or view counts only when that
@@ -184,6 +188,10 @@ export function auditSwift(source) {
   }
   // Text that does not grow with the system text size (bipe-chat/bipe#498).
   for (const m of text.matchAll(/\.font\(\s*\.system\(\s*size:\s*\d/g)) hits.push({ line: lineOf(text, m.index), rule: 'text-size', call: '.font(.system(size:)' });
+  // Reduce Motion (bipe-chat/bipe#496): withBipeAnimation and .bipeAnimation, or a check of the setting.
+  hits.push(
+    ...windowRule(source, text, /\bwithAnimation\b|\.animation\(|\brepeatForever\b|\.move\(edge:|\.symbolEffect\(/, /accessibilityReduceMotion|isReduceMotionEnabled|\breduceMotion\b/, 8, 'motion'),
+  );
   // A long press or a swipe needs an accessibility action next to it (bipe-chat/bipe#499).
   hits.push(...windowRule(source, text, /\.onLongPressGesture\b|\.swipeActions\(/, /\.accessibilityActions?\b/, 8, 'gesture'));
   hits.push(
@@ -263,6 +271,10 @@ export function auditKotlin(source) {
     }
   }
   hits.push(...windowRule(source, text, /\bdetectHorizontalDragGestures\b|\bSwipeToDismissBox\(|\bdetectTapGestures\(.*\bonLongPress\s*=/, /\bcustomActions\b|\bsetProgress\b|\bonLongClick\s*\{/, 20, 'gesture'));
+  // Reduce Motion (bipe-chat/bipe#496): LocalReduceMotion, bipeMotion() or a check of the setting.
+  hits.push(
+    ...windowRule(source, text, /\brememberInfiniteTransition\(|\.animateScrollTo(?:Item)?\(|\banimate\w*AsState\(|\b(?:slideIn|slideOut|expandVertically|expandHorizontally|shrinkVertically|shrinkHorizontally)\w*\(/, /\bLocalReduceMotion\b|\bbipeMotion\(|\breduceMotion\b/, 12, 'motion'),
+  );
   // Text that does not grow with the system font size (bipe-chat/bipe#498).
   for (const m of text.matchAll(/\.dp\.toSp\(\)|fontScale\s*=\s*1(?:\.0)?f/g)) hits.push({ line: lineOf(text, m.index), rule: 'text-size', call: m[0] });
   return hits;
@@ -272,6 +284,7 @@ const ADVICE = {
   'icon-only': 'shows only an icon and has no label. Add an accessibility label from the generated bipe-shared strings.',
   tap: 'is a tap target that VoiceOver does not announce. Add .accessibilityAddTraits(.isButton) or an accessibility action, or use a Button.',
   'tap-target': 'can be smaller than 44 pt / 48 dp to tap. Add .bipeTapTarget() (on the Swift label, first in the Compose chain).',
+  motion: 'animates without a check of Reduce Motion. Use withBipeAnimation or .bipeAnimation (SwiftUI), LocalReduceMotion or bipeMotion() (Compose).',
   gesture: 'is a gesture with no accessible way to do the same. Add an accessibility action (SwiftUI .accessibilityAction, Compose customActions or onLongClickLabel).',
   'text-size': 'does not follow the system text size. Use a text style (SwiftUI .font(.body), @ScaledMetric; Compose typography or sp).',
 };
