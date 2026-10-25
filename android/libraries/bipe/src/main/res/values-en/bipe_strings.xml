@@ -970,6 +970,16 @@
     <string name="bipe_device_confirm_action">Confirm device</string>
     <string name="bipe_keys_confirm_action">Confirm encryption keys</string>
     <string name="bipe_a11y_chat_photo">Chat photo</string>
+    <string name="bipe_a11y_back">Back</string>
+    <string name="bipe_a11y_clear_search">Clear search</string>
+    <string name="bipe_a11y_remove_person">Remove %1$s</string>
+    <string name="bipe_a11y_remove_screenshot">Remove screenshot</string>
+    <string name="bipe_a11y_mention">Mentions you</string>
+    <string name="bipe_a11y_pin_progress">%1$s of %2$s digits</string>
+    <string name="bipe_a11y_pin_delete">Delete the last digit</string>
+    <string name="bipe_a11y_biometrics">Use biometrics</string>
+    <string name="bipe_a11y_open_original">Show the original message</string>
+    <string name="bipe_a11y_show_controls">Show or hide the controls</string>
     <string name="bipe_help_problem_language">Describe the problem in your own words.</string>
     <string name="bipe_chat_message_no_access">You don\'t have access to this message</string>
     <string name="bipe_sticker_label">Sticker</string>
