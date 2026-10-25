@@ -64,6 +64,9 @@ enum class BipeScreen(val id: String) {
     /** Brand mark (flow people). Spec: bipe-shared/product/screens/brand-mark.json */
     BRAND_MARK("brand-mark"),
 
+    /** Reseller marks of a work account (flow business). Spec: bipe-shared/product/screens/brand-marks.json */
+    BRAND_MARKS("brand-marks"),
+
     /** Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json */
     BUSINESS_CHAT_BAR("business-chat-bar"),
 
