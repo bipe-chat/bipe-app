@@ -12,6 +12,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import android.content.ActivityNotFoundException
 import android.content.ClipData
@@ -65,6 +66,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -527,11 +529,15 @@ private fun SectionFooter(section: BipeSettingsSection, group: BipeSettingsGroup
             Text(text, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
         }
         if (group == BipeSettingsGroup.HELP) {
+            // The copy has a TalkBack action too, so it needs no long press (bipe#499).
+            val copyLabel = stringResource(R.string.bipe_a11y_copy_device_id)
             Text(
                 stringResource(R.string.bipe_help_version, appVersion(LocalContext.current)),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.inkSecondary,
-                modifier = Modifier.combinedClickable(onClick = {}, onLongClick = onLongPressVersion),
+                modifier = Modifier
+                    .combinedClickable(onClick = {}, onLongClick = onLongPressVersion, onLongClickLabel = copyLabel)
+                    .semantics { customActions = listOf(CustomAccessibilityAction(copyLabel) { onLongPressVersion(); true }) },
             )
         }
     }

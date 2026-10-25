@@ -133,6 +133,17 @@ struct Waveform: View {
                 seek(value.location.x / max(1, proxy.size.width))
             })
         }
+        // VoiceOver seeks with a swipe up or down, a tenth at a time (bipe#499).
+        .accessibilityElement()
+        .accessibilityLabel(BipeStrings.a11yVoicePosition)
+        .accessibilityValue(progress.formatted(.percent.precision(.fractionLength(0))))
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: seek(min(1, progress + 0.1))
+            case .decrement: seek(max(0, progress - 0.1))
+            @unknown default: break
+            }
+        }
     }
 
     /// Averages the event bars into count values from 0 to 1. Empty draws a flat line.

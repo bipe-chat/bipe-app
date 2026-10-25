@@ -38,9 +38,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -156,6 +159,7 @@ fun VoiceMessageRow(
 fun Waveform(bars: List<Int>, progress: Float, onSeek: (Float) -> Unit, modifier: Modifier = Modifier) {
     val colors = BipeTheme.colors
     val values = resample(bars, BAR_COUNT)
+    val positionLabel = stringResource(R.string.bipe_a11y_voice_position)
     Canvas(
         modifier = modifier
             .pointerInput(Unit) {
@@ -163,6 +167,12 @@ fun Waveform(bars: List<Int>, progress: Float, onSeek: (Float) -> Unit, modifier
             }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures { change, _ -> onSeek(change.position.x / size.width) }
+            }
+            // TalkBack seeks with the volume keys or a swipe up or down, like a slider (bipe#499).
+            .semantics {
+                contentDescription = positionLabel
+                progressBarRangeInfo = ProgressBarRangeInfo(progress.coerceIn(0f, 1f), 0f..1f, steps = 9)
+                setProgress { value -> onSeek(value.coerceIn(0f, 1f)); true }
             },
     ) {
         val gap = 2.dp.toPx()
