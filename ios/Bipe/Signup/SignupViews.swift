@@ -208,7 +208,7 @@ struct OnboardingWelcomeView: View {
                 ProgressView().frame(maxWidth: .infinity)
             } else {
                 let start = model.startVariant
-                PrimaryButton(title: start.primary.title) { model.primary() }
+                PrimaryButton(title: start.primary.title, busy: model.checkingInvite) { Task { await model.primary() } }
                 if model.variant == .inviteOnly, model.clipboardHasText {
                     pasteRow
                 }

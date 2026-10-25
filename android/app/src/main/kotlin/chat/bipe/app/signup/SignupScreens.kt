@@ -230,7 +230,8 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel) {
         if (variant == SignupFlowModel.Variant.LOADING) {
             CircularProgressIndicator(color = colors.accentFill, modifier = Modifier.align(Alignment.CenterHorizontally))
         } else {
-            PrimaryButton(stringResource(start.primary.title), onClick = model::primary)
+            val checking by model.checkingInvite.collectAsState()
+            PrimaryButton(stringResource(start.primary.title), busy = checking, onClick = model::primary)
             if (variant == SignupFlowModel.Variant.INVITE_ONLY && clipboardHasText) {
                 Column(Modifier.clickable(role = Role.Button, onClick = model::pasteInvite)) {
                     Text(stringResource(R.string.bipe_onboarding_paste_invite), style = MaterialTheme.typography.titleSmall, color = colors.accentInk)

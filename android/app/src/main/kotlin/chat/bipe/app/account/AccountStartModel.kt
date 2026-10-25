@@ -110,11 +110,22 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         _showsRecovery.value = show
     }
 
-    /** Routes a link the app was opened with: recovery links to the recovery flow, the rest to onboarding-welcome. */
+    /** invite-signed-in: an invite code from a link opened while an account is on screen. */
+    private val _inviteTap = MutableStateFlow<String?>(null)
+    val inviteTap: StateFlow<String?> = _inviteTap.asStateFlow()
+    fun inviteTapShown() { _inviteTap.value = null }
+
+    /**
+     * Routes a link the app was opened with: recovery links to the recovery flow; an invite on a signed-in phone to
+     * invite-signed-in; the rest to onboarding-welcome.
+     */
     fun openLink(uri: android.net.Uri) {
+        val inviteCode = chat.bipe.shared.BipeInviteLink.code(uri)
         if (chat.bipe.app.recovery.BipeRecoveryLink.token(uri) != null) {
             _recoveryLink.value = uri
             _showsRecovery.value = true
+        } else if (inviteCode != null && _phase.value == Phase.READY) {
+            _inviteTap.value = inviteCode
         } else {
             pendingInviteLink = uri
         }

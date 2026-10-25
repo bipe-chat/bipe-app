@@ -13,13 +13,18 @@ struct PendingInvite: Equatable {
     var isValid: Bool
 }
 
-/// Type SignupStart of spec account-new: a sign-up from the Nova conta window, with the invite the account on screen made.
+/// Type SignupStart of spec account-new: a sign-up from the Nova conta window, with the invite the account on screen made
+/// (inviteId set), or with someone else's invite from a link (invite-signed-in, inviteId nil).
 struct SignupStart: Equatable, Identifiable {
-    var inviteId: String
+    var inviteId: String?
     var code: String
     var accountType: BipeAccountType
+    /// Someone else's invite only: their handle, for "invited by" and signup-done.
+    var inviterHandle: String?
 
-    var id: String { inviteId }
+    var id: String { inviteId ?? code }
+    /// The account on screen made the invite: the sign-up has no inviter.
+    var isOwnInvite: Bool { inviteId != nil }
 }
 
 /// The sign-up flow: onboarding-welcome, signup-invite-code, signup-waitlist, signup-name, signup-pin, signup-fallback
@@ -193,7 +198,7 @@ final class SignupFlowModel: ObservableObject {
         self.onHaveAccount = onHaveAccount
         if let start {
             // The account on screen made the invite: no inviter handle, so signup-name shows no "invited by".
-            invite = PendingInvite(code: start.code, inviterHandle: nil, isValid: true)
+            invite = PendingInvite(code: start.code, inviterHandle: start.isOwnInvite ? nil : start.inviterHandle, isValid: true)
             code = start.code
         }
     }
@@ -237,14 +242,30 @@ final class SignupFlowModel: ObservableObject {
         await preview(code)
     }
 
-    /// Action primary: invited and open go to signup-name, inviteOnly to signup-invite-code.
-    func primary() {
+    /// Action primary: invited and open go to signup-name, inviteOnly to signup-invite-code. A pending invite is
+    /// checked again first (bipe-chat/bipe#460): one that stopped being valid goes to signup-invite-code.
+    func primary() async {
         switch variant {
-        case .invited, .open: go(.name)
+        case .invited, .open:
+            checkingInvite = true
+            defer { checkingInvite = false }
+            if let pending = invite, pending.isValid, let preview = try? await api.invitePreview(code: pending.code), !preview.valid {
+                invite = nil
+                code = pending.code
+                inviteCodePhase = .invalid
+                inviteCodeError = BipeStrings.inviteNoLongerValid
+                updateVariant()
+                go(.inviteCode)
+                return
+            }
+            go(.name)
         case .inviteOnly: go(.inviteCode)
         case .loading: break
         }
     }
+
+    /// true while primary checks the pending invite again.
+    @Published private(set) var checkingInvite = false
 
     var startVariant: BipeOnboardingStart {
         BipeOnboardingStart.variant(invitePending: hasUsableInvite, inviteRequired: inviteRequired)
@@ -554,7 +575,8 @@ final class SignupFlowModel: ObservableObject {
             createPhase = .done
             formPin = ""
             // A sign-up from account-new has no inviter chat and no greeting: the inviter is an account on this phone.
-            let outcome = start != nil ? SignupOutcome() : SignupOutcome(inviterUserId: inviterUserId, inviterHandle: invite?.inviterHandle)
+            let outcome = start?.isOwnInvite == true ? SignupOutcome()
+                : SignupOutcome(inviterUserId: inviterUserId, inviterHandle: invite?.inviterHandle)
             onSignedUp(session, outcome)
         } catch {
             createPhase = .failed

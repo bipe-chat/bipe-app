@@ -144,6 +144,15 @@ struct ChatListView: View {
         .sheet(item: Binding(get: { deletingFromProfile.map(RoomSheetId.init) }, set: { deletingFromProfile = $0?.id })) { room in
             DmDeleteView(session: model.session, roomId: room.id) { path = NavigationPath() }
         }
+        // invite-signed-in: the inviter's chat or profile-link-open, in the Conversas list.
+        .onReceive(TabsLinks.shared.$link.compactMap { $0 }) { link in
+            guard scope == .conversas else { return }
+            TabsLinks.shared.link = nil
+            switch link {
+            case .chat(let roomId): path = NavigationPath([roomId])
+            case .profile(let handle): openingLink = handle
+            }
+        }
         .onOpenURL { url in
             // Both tabs show a chat list; the Conversas one takes profile links.
             guard scope == .conversas else { return }

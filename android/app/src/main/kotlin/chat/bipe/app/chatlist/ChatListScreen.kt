@@ -87,7 +87,9 @@ import chat.bipe.app.pixcheck.PixPreview
 import chat.bipe.app.pixcheck.PixSendScreen
 import chat.bipe.app.recovery.RecoveryAlertModel
 import chat.bipe.app.recovery.RecoveryAlertScreen
+import chat.bipe.app.signup.SignupStart
 import chat.bipe.app.tabs.AccountNewScreen
+import chat.bipe.app.tabs.InviteSignedInScreen
 import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.tabs.AppTabsScreen
@@ -135,6 +137,9 @@ fun HomeScreen(
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
+    // invite-signed-in: a sign-up with someone else's invite from a link.
+    var newAccountPreset by remember { mutableStateOf<SignupStart?>(null) }
+    val inviteTap by tabs.start.inviteTap.collectAsState()
     val termsPhase by terms.phase.collectAsState()
     DisposableEffect(requests) {
         handle.load()
@@ -214,7 +219,28 @@ fun HomeScreen(
             app.pixPreview.value = null
         }
         alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
-        showsNewAccount -> AccountNewScreen(tabs, session, api, onClose = { showsNewAccount = false })
+        showsNewAccount -> AccountNewScreen(tabs, session, api, onClose = { showsNewAccount = false; newAccountPreset = null },
+            preset = newAccountPreset)
+        inviteTap != null -> InviteSignedInScreen(
+            inviteTap!!, session, api, tabs.state.value.accounts.map { it.userId },
+            onClose = tabs.start::inviteTapShown,
+            openChat = { roomId ->
+                tabs.start.inviteTapShown()
+                tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+                peopleStack = emptyList()
+                openRoomId = roomId
+            },
+            openProfile = { handle ->
+                tabs.start.inviteTapShown()
+                tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+                navigation.push(PeopleRoute.ProfileLinkOpen(handle))
+            },
+            newAccount = { start ->
+                tabs.start.inviteTapShown()
+                newAccountPreset = start
+                showsNewAccount = true
+            },
+        )
         showsHandlePick -> {
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
