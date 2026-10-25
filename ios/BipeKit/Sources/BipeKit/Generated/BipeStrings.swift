@@ -714,8 +714,6 @@ public enum BipeStrings {
 
     public static var selfChatError: String { NSLocalizedString("bipe_self_chat_error", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var onboardingWelcome: String { NSLocalizedString("bipe_onboarding_welcome", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static var onboardingTitle: String { NSLocalizedString("bipe_onboarding_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var onboardingPointScam: String { NSLocalizedString("bipe_onboarding_point_scam", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2335,6 +2333,8 @@ public enum BipeStrings {
     public static var onboardingHaveInvite: String { NSLocalizedString("bipe_onboarding_have_invite", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var onboardingHaveAccount: String { NSLocalizedString("bipe_onboarding_have_account", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var onboardingLearnMore: String { NSLocalizedString("bipe_onboarding_learn_more", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var onboardingPasteInviteHint: String { NSLocalizedString("bipe_onboarding_paste_invite_hint", tableName: "Bipe", bundle: .module, comment: "") }
 
