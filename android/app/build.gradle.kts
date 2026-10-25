@@ -106,6 +106,8 @@ dependencies {
     implementation(project(":libraries:phosphor"))
     implementation(libs.matrix.rust.sdk)
     implementation(libs.kotlinx.coroutines.android)
+    // Structure report of the earlier app's data (bipe-chat/bipe#603, account/LegacyData.kt).
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.browser)
