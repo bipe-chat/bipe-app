@@ -30,7 +30,7 @@ android {
         minSdk = 26
         targetSdk = 36
         // Every build passes the version from `node tools/version.mjs --gradle` (ADR 0088): the version name of
-        // bipe-shared product/version.json, its build plus the commit count, and the commit. Else placeholders.
+        // version.json (ADR 0163), its build plus the commit count, and the commit. Else placeholders.
         versionCode = (findProperty("bipeBuildNumber") as String?)?.toInt() ?: 1
         versionName = (findProperty("bipeVersionName") as String?) ?: "0.1.0"
         buildConfigField("String", "BIPE_COMMIT", "\"${(findProperty("bipeCommit") as String?).orEmpty()}\"")

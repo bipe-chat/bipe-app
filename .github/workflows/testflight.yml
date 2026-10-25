@@ -10,7 +10,7 @@
 #   bipe-next-ipa). The job never makes a certificate: automatic signing made a development
 #   certificate on every run until the team reached Apple's limit.
 # - Android: a debug-signed release APK of chat.bipe.app.next (artifact bipe-next-apk).
-# Version (bipe-chat/bipe#584, ADR 0088): the version name of bipe-shared product/version.json;
+# Version (bipe-chat/bipe#584, ADR 0088, ADR 0163): the version name of version.json (Bipe Next's own line);
 # build number: its build plus the number of commits (tools/version.mjs). Both platforms carry the same pair.
 # Install commands: AGENTS.md, "Tester builds".
 name: testflight
