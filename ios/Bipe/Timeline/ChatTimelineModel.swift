@@ -90,6 +90,7 @@ enum TimelineNotice: Equatable {
     case editFailed
     case deleteFailed
     case reported
+    case inviteAgainFailed
 
     var text: String {
         switch self {
@@ -98,6 +99,7 @@ enum TimelineNotice: Equatable {
         case .editFailed: BipeStrings.appMessageEditFailed
         case .deleteFailed: BipeStrings.appMessageDeleteFailed
         case .reported: BipeStrings.appMessageReported
+        case .inviteAgainFailed: BipeStrings.dmInviteAgainFailed
         }
     }
 }
@@ -106,6 +108,12 @@ enum TimelineNotice: Equatable {
 /// message-delete, message-report, read-receipts and typing-indicator (bipe-shared product/screens).
 @MainActor
 final class ChatTimelineModel: ObservableObject {
+    enum PeerAway: Equatable {
+        case none
+        case left
+        case accountGone
+    }
+
     static let historyPage: UInt16 = 20
     /// Spec message-reactions notes: the quick reactions, in this order.
     static let quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"]
@@ -118,6 +126,11 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var roomName = BipeStrings.dmNoName
     @Published private(set) var roomAvatarUrl: String?
     @Published private(set) var peerUserId: String?
+    /// Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone.
+    @Published private(set) var peerAway: PeerAway = .none
+    @Published private(set) var invitingAgain = false
+    /// The person whose profile was checked for accountGone, so the lookup runs once per leave.
+    private var accountGoneChecked: (userId: String, gone: Bool)?
     @Published private(set) var isGroup = false
     @Published private(set) var rows: [TimelineRow] = []
     @Published private(set) var isLoadingHistory = false
@@ -310,6 +323,7 @@ final class ChatTimelineModel: ObservableObject {
             roomName = info.isDm ? name : (info.displayName ?? info.id)
             roomAvatarUrl = info.isDm ? peer?.avatarUrl : info.avatarUrl
             peerUserId = peer?.userId
+            await loadPeerAway(room, peer: peer?.userId)
         }
         if let state = try? await room.latestEncryptionState() {
             facts.isEncrypted = state != .notEncrypted
@@ -774,6 +788,56 @@ final class ChatTimelineModel: ObservableObject {
             }
             typingNames = typingUserIds.map { facts.members[$0]?.name ?? $0 }
             rebuild()
+        }
+    }
+
+    /// peerAway: Room.member of the DM's other person; a leave or ban is left, and a profile that is not found
+    /// (a deactivated account) is accountGone. The profile lookup runs once per leave.
+    private func loadPeerAway(_ room: Room, peer: String?) async {
+        guard let peer, let member = try? await room.member(userId: peer) else {
+            peerAway = .none
+            return
+        }
+        switch member.membership {
+        case .leave, .ban:
+            if accountGoneChecked?.userId != peer {
+                accountGoneChecked = (peer, await Self.accountIsGone(peer, client: session.client))
+            }
+            peerAway = accountGoneChecked?.gone == true ? .accountGone : .left
+        default:
+            accountGoneChecked = nil
+            peerAway = .none
+        }
+    }
+
+    private static func accountIsGone(_ userId: String, client: Client) async -> Bool {
+        do {
+            _ = try await client.getProfile(userId: userId)
+            return false
+        } catch let error as ClientError {
+            if case .MatrixApi(kind: .notFound, code: _, msg: _, details: _) = error { return true }
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// Action inviteAgain of spec chat-timeline: Room.inviteUserById when the user may invite. In a DM created with
+    /// the DM power levels nobody may, so `createDM` makes a new DM; its room id comes back for the screen to open.
+    func inviteAgain(createDM: (String) async throws -> String) async -> String? {
+        guard peerAway == .left, !invitingAgain, let room, let peer = peerUserId else { return nil }
+        invitingAgain = true
+        defer { invitingAgain = false }
+        do {
+            if let powerLevels = try? await room.getPowerLevels(), powerLevels.canOwnUserInvite() {
+                try await room.inviteUserById(userId: peer)
+                await loadPeerAway(room, peer: peer)
+                return nil
+            }
+            return try await createDM(peer)
+        } catch {
+            show(.inviteAgainFailed)
+            return nil
         }
     }
 

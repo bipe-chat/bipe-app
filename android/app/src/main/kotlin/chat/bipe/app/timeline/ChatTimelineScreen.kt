@@ -83,6 +83,7 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.composer.MentionSuggestion
 import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.app.people.PeopleService
+import kotlinx.coroutines.launch
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.groups.DmDeleteSheet
@@ -116,6 +117,8 @@ fun ChatTimelineScreen(
     onOpenInfo: (() -> Unit)? = null,
     /** The account's people service, for the blocked bar of a DM (block-person). null: no bar. */
     people: PeopleService? = null,
+    /** Opens another chat in place of this one (a new DM from inviteAgain). */
+    onOpenChat: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -153,6 +156,8 @@ fun ChatTimelineScreen(
     val isLoadingHistory by model.isLoadingHistory.collectAsState()
     val reachedStart by model.reachedStart.collectAsState()
     val isDm by model.isDm.collectAsState()
+    val peerAway by model.peerAway.collectAsState()
+    val invitingAgain by model.invitingAgain.collectAsState()
     val draft by model.draft.collectAsState()
     val ui by model.ui.collectAsState()
     val inviterHint by model.inviterHint.collectAsState()
@@ -304,25 +309,38 @@ fun ChatTimelineScreen(
                 }
                 inviterHint?.let { hint -> InviterHintRow(hint, roomName) { model.sendGreeting(greeting) } }
                 TypingLine(ui.typingNames)
-                val composerBar: @Composable () -> Unit = { ComposerBar(
-                    draft = draft,
-                    canSend = model.canSend,
-                    ui = ui,
-                    composer = composer,
-                    media = media,
-                    onEdit = model::editDraft,
-                    onSend = {
-                        if (ui.editing == null) view.bipeHaptic(BipeHaptic.Tap)
-                        model.send()
-                    },
-                    onCancelReply = model::cancelReply,
-                    onCancelEdit = model::cancelEdit,
-                    onPickSuggestion = model::pickSuggestion,
-                    onAttach = { attaching = true },
-                    onStickers = { showsStickers = true },
-                    onRecord = { model.startRecording(context.applicationContext) },
-                    onEndRecording = model::endRecording,
-                ) }
+                val composerBar: @Composable () -> Unit = {
+                    // The other person left the DM: the bar stays above the composer, which stays on (ADR 0141).
+                    if (peerAway != PeerAway.NONE) {
+                        DmLeftBar(peerAway, roomName, invitingAgain) {
+                            scope.launch {
+                                val created = model.inviteAgain { peer ->
+                                    people?.createDm(peer) ?: throw IllegalStateException("no people service")
+                                }
+                                created?.let(onOpenChat)
+                            }
+                        }
+                    }
+                    ComposerBar(
+                        draft = draft,
+                        canSend = model.canSend,
+                        ui = ui,
+                        composer = composer,
+                        media = media,
+                        onEdit = model::editDraft,
+                        onSend = {
+                            if (ui.editing == null) view.bipeHaptic(BipeHaptic.Tap)
+                            model.send()
+                        },
+                        onCancelReply = model::cancelReply,
+                        onCancelEdit = model::cancelEdit,
+                        onPickSuggestion = model::pickSuggestion,
+                        onAttach = { attaching = true },
+                        onStickers = { showsStickers = true },
+                        onRecord = { model.startRecording(context.applicationContext) },
+                        onEndRecording = model::endRecording,
+                    )
+                }
                 val peer = peerUserId
                 if (isDm && people != null && peer != null) DmComposerSlot(people, peer, roomName, composerBar) else composerBar()
             }
@@ -434,6 +452,7 @@ private fun noticeText(notice: TimelineNotice): String = when (notice) {
     TimelineNotice.EDIT_FAILED -> stringResource(R.string.bipe_app_message_edit_failed)
     TimelineNotice.DELETE_FAILED -> stringResource(R.string.bipe_app_message_delete_failed)
     TimelineNotice.REPORTED -> stringResource(R.string.bipe_app_message_reported)
+    TimelineNotice.INVITE_AGAIN_FAILED -> stringResource(R.string.bipe_dm_invite_again_failed)
 }
 
 /** Spec typing-indicator: who is typing, above the composer. */

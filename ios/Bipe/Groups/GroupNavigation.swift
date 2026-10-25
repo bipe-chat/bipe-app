@@ -9,6 +9,10 @@ private struct CloseChatKey: EnvironmentKey {
     static let defaultValue: @MainActor () -> Void = {}
 }
 
+private struct OpenOtherChatKey: EnvironmentKey {
+    static let defaultValue: @MainActor (String) -> Void = { _ in }
+}
+
 private struct BipeAPIKey: EnvironmentKey {
     static let defaultValue: BipeAPIClient? = nil
 }
@@ -18,6 +22,12 @@ extension EnvironmentValues {
     var bipeAPI: BipeAPIClient? {
         get { self[BipeAPIKey.self] }
         set { self[BipeAPIKey.self] = newValue }
+    }
+
+    /// Closes the open chat and opens another one (a new DM from chat-timeline inviteAgain).
+    var openOtherChat: @MainActor (String) -> Void {
+        get { self[OpenOtherChatKey.self] }
+        set { self[OpenOtherChatKey.self] = newValue }
     }
 
     /// Closes the open chat and goes back to the chat list (group-leave and dm-delete).

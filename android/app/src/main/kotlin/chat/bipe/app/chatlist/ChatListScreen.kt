@@ -262,6 +262,7 @@ fun HomeScreen(
                         }
                     },
                     people = people,
+                    onOpenChat = { openRoomId = it },
                 )
             } else {
                 AppTabsScreen(

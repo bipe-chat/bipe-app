@@ -7,8 +7,11 @@ package chat.bipe.app.timeline
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,4 +63,34 @@ fun DmComposerSlot(people: PeopleService, peerUserId: String, name: String, comp
         composer()
     }
     if (unblocking) BlockPersonDialog(people, peerUserId, name, onClose = { unblocking = false })
+}
+
+/**
+ * Spec chat-timeline peerAway (ADR 0141): a lasting bar above the composer when the other person of a DM left
+ * (bipe_dm_left with bipe_action_invite_again) or the account is gone (bipe_dm_account_gone, no button).
+ */
+@Composable
+fun DmLeftBar(away: PeerAway, name: String, inviting: Boolean, onInviteAgain: () -> Unit) {
+    val colors = BipeTheme.colors
+    Row(
+        modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            if (away == PeerAway.ACCOUNT_GONE) stringResource(R.string.bipe_dm_account_gone) else stringResource(R.string.bipe_dm_left, name),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.inkSecondary,
+            modifier = Modifier.weight(1f),
+        )
+        if (away == PeerAway.LEFT) {
+            if (inviting) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            } else {
+                TextButton(onClick = onInviteAgain) {
+                    Text(stringResource(R.string.bipe_action_invite_again), color = colors.accentInk, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
 }
