@@ -35,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -80,6 +81,8 @@ import chat.bipe.app.people.PeopleMenu
 import chat.bipe.app.people.PeopleNavigation
 import chat.bipe.app.people.PeopleRoute
 import chat.bipe.app.people.PeopleScreen
+import chat.bipe.app.people.LocalBipeBrandMarks
+import chat.bipe.app.people.BrandMarkCaption
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.Person
 import chat.bipe.app.pixcheck.PixPreview
@@ -235,123 +238,126 @@ fun HomeScreen(
         onDispose { if (app.notifications.visibleRoom == target) app.notifications.visibleRoom = null }
     }
     val roomId = openRoomId
-    when {
-        termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
-        pendingPix != null -> PixSendScreen(pendingPix, model, media) {
-            pendingPix.delete()
-            app.pixPreview.value = null
-        }
-        alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
-        showsNewAccount -> AccountNewScreen(tabs, session, api, onClose = { showsNewAccount = false; newAccountPreset = null },
-            preset = newAccountPreset)
-        inviteTap != null -> InviteSignedInScreen(
-            inviteTap!!, session, api, tabs.state.value.accounts.map { it.userId },
-            onClose = tabs.start::inviteTapShown,
-            openChat = { roomId ->
-                tabs.start.inviteTapShown()
-                tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+    // Spec brand-mark: chat list rows read the session's brand marks.
+    CompositionLocalProvider(LocalBipeBrandMarks provides people.brandMarks) {
+        when {
+            termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
+            pendingPix != null -> PixSendScreen(pendingPix, model, media) {
+                pendingPix.delete()
+                app.pixPreview.value = null
+            }
+            alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
+            showsNewAccount -> AccountNewScreen(tabs, session, api, onClose = { showsNewAccount = false; newAccountPreset = null },
+                preset = newAccountPreset)
+            inviteTap != null -> InviteSignedInScreen(
+                inviteTap!!, session, api, tabs.state.value.accounts.map { it.userId },
+                onClose = tabs.start::inviteTapShown,
+                openChat = { roomId ->
+                    tabs.start.inviteTapShown()
+                    tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+                    peopleStack = emptyList()
+                    openRoomId = roomId
+                },
+                openProfile = { handle ->
+                    tabs.start.inviteTapShown()
+                    tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+                    navigation.push(PeopleRoute.ProfileLinkOpen(handle))
+                },
+                newAccount = { start ->
+                    tabs.start.inviteTapShown()
+                    newAccountPreset = start
+                    showsNewAccount = true
+                },
+            )
+            showsHandlePick -> {
+                BackHandler { showsHandlePick = false }
+                HandlePickScreen(handle, onClose = { showsHandlePick = false })
+            }
+            showsPinReminder -> {
+                BackHandler { showsPinReminder = false }
+                PinReminderScreen(session, api, onResult = pinReminder::checked,
+                    onChangePin = { showsPinReminder = false; showsPinChange = true }, onClose = { showsPinReminder = false })
+            }
+            showsPinChange -> {
+                BackHandler { showsPinChange = false }
+                PinChangeScreen(settings, onClose = { showsPinChange = false })
+            }
+            showsRecoveryEmail -> RecoveryEmailAddScreen(
+                api, session, current = recoveryState.account?.email, pending = recoveryState.account?.emailPending,
+                onSent = recovery::load, onClose = { showsRecoveryEmail = false },
+            )
+            showsRequests -> ChatRequestsScreen(requests, media,
+                onBack = { showsRequests = false },
+                onOpenChat = { showsRequests = false; openRoomId = it },
+                onOpenWhoCanMessage = { showsRequests = false; navigation.push(PeopleRoute.WhoCanMessage) })
+            else -> GroupHost(session, api, media, roomId, foregroundCount, onOpenRoom = {
                 peopleStack = emptyList()
-                openRoomId = roomId
-            },
-            openProfile = { handle ->
-                tabs.start.inviteTapShown()
-                tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
-                navigation.push(PeopleRoute.ProfileLinkOpen(handle))
-            },
-            newAccount = { start ->
-                tabs.start.inviteTapShown()
-                newAccountPreset = start
-                showsNewAccount = true
-            },
-        )
-        showsHandlePick -> {
-            BackHandler { showsHandlePick = false }
-            HandlePickScreen(handle, onClose = { showsHandlePick = false })
-        }
-        showsPinReminder -> {
-            BackHandler { showsPinReminder = false }
-            PinReminderScreen(session, api, onResult = pinReminder::checked,
-                onChangePin = { showsPinReminder = false; showsPinChange = true }, onClose = { showsPinReminder = false })
-        }
-        showsPinChange -> {
-            BackHandler { showsPinChange = false }
-            PinChangeScreen(settings, onClose = { showsPinChange = false })
-        }
-        showsRecoveryEmail -> RecoveryEmailAddScreen(
-            api, session, current = recoveryState.account?.email, pending = recoveryState.account?.emailPending,
-            onSent = recovery::load, onClose = { showsRecoveryEmail = false },
-        )
-        showsRequests -> ChatRequestsScreen(requests, media,
-            onBack = { showsRequests = false },
-            onOpenChat = { showsRequests = false; openRoomId = it },
-            onOpenWhoCanMessage = { showsRequests = false; navigation.push(PeopleRoute.WhoCanMessage) })
-        else -> GroupHost(session, api, media, roomId, foregroundCount, onOpenRoom = {
-            peopleStack = emptyList()
-            openRoomId = it
-        }) { groups ->
-            if (peopleStack.isNotEmpty()) {
-                BackHandler { navigation.pop() }
-                // The people screens reach group-create, chat-notifications, dm-delete and invites through GroupHost.
-                val withGroups = PeopleNavigation(
-                    push = navigation.push,
-                    pop = navigation.pop,
-                    openChat = navigation.openChat,
-                    pickHandle = navigation.pickHandle,
-                    newGroup = { userId ->
-                        scope.launch {
-                            val person = runCatching { people.person(userId) }.getOrNull()
-                            groups.createGroupWith(
-                                listOf(GroupPerson(userId, person?.displayName ?: Person.localpart(userId), person?.avatarUrl, person?.handle)),
-                            )
-                        }
-                    },
-                    notifications = groups.openNotifications,
-                    deleteChat = groups.deleteDm,
-                    invite = groups.openInvites,
-                )
-                PeopleScreen(peopleStack.last(), people, withGroups)
-            } else if (roomId != null) {
-                BackHandler { openRoomId = null }
-                ChatTimelineScreen(
-                    session,
-                    media,
-                    roomId,
-                    onBack = { openRoomId = null },
-                    onHistoryHelp = encryption::openSheet,
-                    onOpenGroupDetails = groups.openGroupDetails,
-                    onOpenInfo = {
-                        scope.launch {
-                            people.dmPartner(roomId)?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
-                        }
-                    },
-                    people = people,
-                    onOpenChat = { openRoomId = it },
-                )
-            } else {
-                AppTabsScreen(
-                    tabs = tabs, chatList = model, media = media, handle = handle,
-                    listOpenRequest = notificationListOpen,
-                    onOpenHandlePick = { showsHandlePick = true },
-                    onOpenChat = { openRoomId = it },
-                    onNewAccount = { showsNewAccount = true },
-                    banner = { HistoryBanner(encryption) },
-                    recoveryCard = {
+                openRoomId = it
+            }) { groups ->
+                if (peopleStack.isNotEmpty()) {
+                    BackHandler { navigation.pop() }
+                    // The people screens reach group-create, chat-notifications, dm-delete and invites through GroupHost.
+                    val withGroups = PeopleNavigation(
+                        push = navigation.push,
+                        pop = navigation.pop,
+                        openChat = navigation.openChat,
+                        pickHandle = navigation.pickHandle,
+                        newGroup = { userId ->
+                            scope.launch {
+                                val person = runCatching { people.person(userId) }.getOrNull()
+                                groups.createGroupWith(
+                                    listOf(GroupPerson(userId, person?.displayName ?: Person.localpart(userId), person?.avatarUrl, person?.handle)),
+                                )
+                            }
+                        },
+                        notifications = groups.openNotifications,
+                        deleteChat = groups.deleteDm,
+                        invite = groups.openInvites,
+                    )
+                    PeopleScreen(peopleStack.last(), people, withGroups)
+                } else if (roomId != null) {
+                    BackHandler { openRoomId = null }
+                    ChatTimelineScreen(
+                        session,
+                        media,
+                        roomId,
+                        onBack = { openRoomId = null },
+                        onHistoryHelp = encryption::openSheet,
+                        onOpenGroupDetails = groups.openGroupDetails,
+                        onOpenInfo = {
+                            scope.launch {
+                                people.dmPartner(roomId)?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
+                            }
+                        },
+                        people = people,
+                        onOpenChat = { openRoomId = it },
+                    )
+                } else {
+                    AppTabsScreen(
+                        tabs = tabs, chatList = model, media = media, handle = handle,
+                        listOpenRequest = notificationListOpen,
+                        onOpenHandlePick = { showsHandlePick = true },
+                        onOpenChat = { openRoomId = it },
+                        onNewAccount = { showsNewAccount = true },
+                        banner = { HistoryBanner(encryption) },
+                        recoveryCard = {
                         if (recovery.showsCard(recoveryState)) RecoveryReminderCard(recovery, syncOff) { showsRecoveryEmail = true }
                         else if (showsPinCard) PinReminderCard(pinReminder) { showsPinReminder = true }
-                    },
-                    onCreateGroup = groups.createGroup,
-                    onDeleteDm = groups.deleteDm,
-                    onChatNotifications = groups.openNotifications,
-                    onChatInfo = { chat ->
-                        if (chat.isDm) chat.peerUserId?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
-                        else groups.openDetailsForRoom(chat.roomId)
-                    },
-                    requests = requests, search = search, remoteBanner = remoteBanner,
-                    onOpenRequests = { showsRequests = true },
-                    onFindHandle = { navigation.push(PeopleRoute.ProfileLinkOpen(it.trim().removePrefix("@"))) },
-                    onInvite = groups.openInvites,
-                    onOpenPeople = navigation.push,
-                )
+                        },
+                        onCreateGroup = groups.createGroup,
+                        onDeleteDm = groups.deleteDm,
+                        onChatNotifications = groups.openNotifications,
+                        onChatInfo = { chat ->
+                            if (chat.isDm) chat.peerUserId?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
+                            else groups.openDetailsForRoom(chat.roomId)
+                        },
+                        requests = requests, search = search, remoteBanner = remoteBanner,
+                        onOpenRequests = { showsRequests = true },
+                        onFindHandle = { navigation.push(PeopleRoute.ProfileLinkOpen(it.trim().removePrefix("@"))) },
+                        onInvite = groups.openInvites,
+                        onOpenPeople = navigation.push,
+                    )
+                }
             }
         }
     }
@@ -563,6 +569,8 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = 
                     )
                 }
             }
+            // Spec brand-mark: a reseller's mark under the name.
+            BrandMarkCaption(chat.peerUserId)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     chat.lastMessage.orEmpty(),

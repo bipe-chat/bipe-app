@@ -304,6 +304,17 @@ public struct BipeAPIClient: Sendable {
         }
     }
     
+    /// `GET /v1/brand-marks/{userId}` (ADR 0162). No auth. Each envelope's JSON, not yet verified, in the server's order.
+    public func brandMarks(userID: String) async throws(BipeAPIError) -> [Data] {
+        let (data, response) = try await exchange(method: "GET", path: ["v1", "brand-marks", userID], rawBody: nil, accessToken: nil)
+        guard response.statusCode == 200,
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let marks = object["marks"] as? [Any] else {
+            throw .unexpectedResponse(statusCode: response.statusCode)
+        }
+        return marks.compactMap { try? JSONSerialization.data(withJSONObject: $0) }
+    }
+    
     /// `GET /v1/accounts/{userId}/type`. No auth. `nil` for an account without a Bipe sign-up, or a type this build does not know.
     public func accountType(userID: String) async throws(BipeAPIError) -> BipeAccountType? {
         let (data, response) = try await exchange(method: "GET", path: ["v1", "accounts", userID, "type"], rawBody: nil, accessToken: nil)

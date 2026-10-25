@@ -141,6 +141,7 @@ struct ChatListView: View {
                 }
             }
         }
+        .environment(\.bipeBrandMarks, people.brandMarks)
         .onAppear { people.start() }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
@@ -592,6 +593,8 @@ struct ChatRow: View {
                             .accessibilityLabel(lastActivity.formatted(date: .complete, time: .shortened))
                     }
                 }
+                // Spec brand-mark: a reseller's mark under the name.
+                BrandMarkCaption(userId: chat.peerUserId)
                 HStack {
                     Text(chat.lastMessage ?? "")
                         .font(.subheadline)

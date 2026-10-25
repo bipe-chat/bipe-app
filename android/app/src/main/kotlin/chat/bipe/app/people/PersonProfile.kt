@@ -360,6 +360,8 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
                 )
             }
         }
+        // Spec brand-mark: next to the reseller's own name, never instead of it.
+        BrandMarkLine(state.person.userId, model.people.brandMarks, model.people.seals)
         state.person.handle?.let { Text("@$it", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
         if (state.reservedNameWarning) {
             MarkLine(PhosphorIcon.WARNING, stringResource(R.string.bipe_warning_reserved_name), colors.trustCautionInk)

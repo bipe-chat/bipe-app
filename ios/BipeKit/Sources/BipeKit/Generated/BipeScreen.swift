@@ -55,6 +55,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Brand mark (flow people). Spec: bipe-shared/product/screens/brand-mark.json
     case brandMark = "brand-mark"
 
+    /// Reseller marks of a work account (flow business). Spec: bipe-shared/product/screens/brand-marks.json
+    case brandMarks = "brand-marks"
+
     /// Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json
     case businessChatBar = "business-chat-bar"
 
