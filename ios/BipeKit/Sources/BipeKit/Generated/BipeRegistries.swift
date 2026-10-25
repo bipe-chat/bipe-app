@@ -780,4 +780,8 @@ public enum BipeRegistries {
     public static let pixMarkRelType = "m.reference"
     public static let pixE2eIdPattern = "^E[0-9]{8}[A-Za-z0-9]{23}$"
     public static let pixTxidMaxLength = 25
+
+    /// Data use (bipe-chat/bipe#242; registries/data-use.json): the budget of a normal day and the default of the data saver switch.
+    public static let dataUseBudgetMegabytesPerDay = 10
+    public static let dataSaverDefault = false
 }

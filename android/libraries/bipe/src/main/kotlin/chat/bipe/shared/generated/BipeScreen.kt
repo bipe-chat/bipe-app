@@ -118,6 +118,9 @@ enum class BipeScreen(val id: String) {
     /** Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json */
     DATA_EXPORT("data-export"),
 
+    /** Data use (flow settings). Spec: bipe-shared/product/screens/data-use.json */
+    DATA_USE("data-use"),
+
     /** Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json */
     DEVICE_VERIFICATION("device-verification"),
 

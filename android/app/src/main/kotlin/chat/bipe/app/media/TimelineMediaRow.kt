@@ -91,7 +91,9 @@ fun TimelineMediaRow(
     // Action appear: loads the thumbnail (or the image) when display may show it.
     LaunchedEffect(media.source, revealed, attempt) {
         if (media.kind == MediaMessage.Kind.FILE) return@LaunchedEffect
-        if (!revealed && !message.isOwn && !currentShowMedia(context).shows(isPrivateRoom)) {
+        // Spec data-use: on mobile data with the data saver, photos and stickers wait for a tap.
+        val savesData = (media.kind == MediaMessage.Kind.IMAGE || media.kind == MediaMessage.Kind.STICKER) && DataUseMeter.savesData(context)
+        if (!revealed && !message.isOwn && (!currentShowMedia(context).shows(isPrivateRoom) || savesData)) {
             display = MediaDisplay.TAP_TO_SHOW
             return@LaunchedEffect
         }
