@@ -28,13 +28,16 @@ struct ChatTimelineView: View {
     private let openInfo: (() -> Void)?
     private let session: AccountSession
     private let roomId: String
+    /// The account's people service, for the blocked bar of a DM (block-person). nil: no bar.
+    private let people: PeopleService?
 
-    init(session: AccountSession, media: MediaLoader, roomId: String, openInfo: (() -> Void)? = nil) {
+    init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil, openInfo: (() -> Void)? = nil) {
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
         self.media = media
         self.openInfo = openInfo
         self.session = session
         self.roomId = roomId
+        self.people = people
     }
 
     var body: some View {
@@ -46,7 +49,11 @@ struct ChatTimelineView: View {
                 }
             }
             TypingLine(names: model.typingNames)
-            ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
+            if model.isDm, let people, let peer = model.peerUserId {
+                DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) { composerBar }
+            } else {
+                composerBar
+            }
         }
         .frame(maxWidth: 760)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -218,6 +225,10 @@ struct ChatTimelineView: View {
                 model.scrolledToTarget()
             }
         }
+    }
+
+    private var composerBar: some View {
+        ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
     }
 
     private var chatTitle: some View {

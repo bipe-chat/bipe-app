@@ -156,7 +156,7 @@ struct AccountSearchView: View {
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
                 .navigationTitle(BipeStrings.appTabSearch)
                 .navigationDestination(for: String.self) { roomId in
-                    ChatTimelineView(session: model.session, media: model.media, roomId: roomId) {
+                    ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
                         Task { if let peer = await people.dmPartner(roomId: roomId) { path.append(Destination.person(peer)) } }
                     }
                 }
