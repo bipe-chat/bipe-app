@@ -76,6 +76,9 @@ enum class BipeScreen(val id: String) {
     /** Archived chats (flow home). Spec: bipe-shared/product/screens/chat-archive.json */
     CHAT_ARCHIVE("chat-archive"),
 
+    /** First chat list cards (flow home). Spec: bipe-shared/product/screens/chat-list-cards.json */
+    CHAT_LIST_CARDS("chat-list-cards"),
+
     /** Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json */
     CHAT_LIST_FILTERS("chat-list-filters"),
 
@@ -142,10 +145,10 @@ enum class BipeScreen(val id: String) {
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
-    /** Create an invite with a first message (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
+    /** Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
     INVITE_NOTE("invite-note"),
 
-    /** Invite as a QR code (flow invites). Spec: bipe-shared/product/screens/invite-qr.json */
+    /** Invite card (flow invites). Spec: bipe-shared/product/screens/invite-qr.json */
     INVITE_QR("invite-qr"),
 
     /** Invite opened on a signed-in phone (flow home). Spec: bipe-shared/product/screens/invite-signed-in.json */
