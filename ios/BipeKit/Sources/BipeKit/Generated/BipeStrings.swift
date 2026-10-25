@@ -294,6 +294,16 @@ public enum BipeStrings {
 
     public static var claimWithdrawConfirm: String { NSLocalizedString("bipe_claim_withdraw_confirm", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var noticeLabel: String { NSLocalizedString("bipe_notice_label", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var noticeLevel: String { NSLocalizedString("bipe_notice_level", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var noticeSafety: String { NSLocalizedString("bipe_notice_safety", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func noticeA11y(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_notice_a11y", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var badgeOfficial: String { NSLocalizedString("bipe_badge_official", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var badgeOfficialA11y: String { NSLocalizedString("bipe_badge_official_a11y", tableName: "Bipe", bundle: .module, comment: "") }
