@@ -13,6 +13,7 @@ struct VoiceMessageRow: View {
     let voice: VoiceMessage
     let loader: MediaLoader
     @ObservedObject var player: VoicePlayer
+    @ObservedObject private var listener = ListenerTranscripts.shared
 
     @State private var transcriptExpanded = false
 
@@ -36,6 +37,8 @@ struct VoiceMessageRow: View {
             }
             if let transcript = voice.transcript {
                 transcriptBlock(transcript)
+            } else if voice.isVoice, !message.isOwn {
+                listenerTranscript
             }
         }
         .frame(maxWidth: 256, alignment: .leading)
@@ -77,6 +80,54 @@ struct VoiceMessageRow: View {
 
             Text(voice.durationLabel)
                 .font(.caption.monospacedDigit())
+                .foregroundStyle(BipeColor.inkSecondary)
+        }
+    }
+
+    /// Spec voice-message, action transcribe and state localTranscript (bipe#500): on a tap, on this phone only.
+    @ViewBuilder
+    private var listenerTranscript: some View {
+        switch listener.state(of: message.id) {
+        case .none, .failed:
+            VStack(alignment: .leading, spacing: 2) {
+                if listener.state(of: message.id) == .failed {
+                    Text(BipeStrings.voiceTranscribeFailed)
+                        .font(.caption)
+                        .foregroundStyle(BipeColor.trustDangerInk)
+                }
+                Button {
+                    let id = message.id
+                    Task { await listener.transcribe(id: id) { try await player.playableFile(voice, loader: loader) } }
+                } label: {
+                    Text(BipeStrings.voiceTranscribe)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BipeColor.accentInk)
+                        .bipeTapTarget()
+                }
+                .buttonStyle(.plain)
+            }
+        case .working:
+            HStack(spacing: 6) {
+                ProgressView()
+                Text(BipeStrings.voiceTranscribing)
+                    .font(.caption)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+            .accessibilityElement(children: .combine)
+        case .ready(let text):
+            VStack(alignment: .leading, spacing: 4) {
+                transcriptBlock(text)
+                Text(BipeStrings.voiceTranscribedHere)
+                    .font(.caption)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+        case .unavailable:
+            Text(BipeStrings.voiceTranscribeUnavailable)
+                .font(.caption)
+                .foregroundStyle(BipeColor.inkSecondary)
+        case .denied:
+            Text(BipeStrings.voiceTranscribeDenied)
+                .font(.caption)
                 .foregroundStyle(BipeColor.inkSecondary)
         }
     }

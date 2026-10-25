@@ -636,7 +636,17 @@ public enum BipeStrings {
 
     public static var voiceTranscriptTitle: String { NSLocalizedString("bipe_voice_transcript_title", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var voiceTranscribe: String { NSLocalizedString("bipe_voice_transcribe", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var voiceTranscribing: String { NSLocalizedString("bipe_voice_transcribing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceTranscribedHere: String { NSLocalizedString("bipe_voice_transcribed_here", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceTranscribeUnavailable: String { NSLocalizedString("bipe_voice_transcribe_unavailable", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceTranscribeFailed: String { NSLocalizedString("bipe_voice_transcribe_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceTranscribeDenied: String { NSLocalizedString("bipe_voice_transcribe_denied", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var voiceTranscriptPlaceholder: String { NSLocalizedString("bipe_voice_transcript_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
 

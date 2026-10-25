@@ -137,6 +137,7 @@ fun TimelineRowItem(
                         state = voiceState,
                         onTogglePlay = { onTogglePlay(message.id, voice) },
                         onSeek = { onSeek(message.id, it) },
+                        loader = media,
                     )
                     else -> Text(message.body.orEmpty(), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
                 }
