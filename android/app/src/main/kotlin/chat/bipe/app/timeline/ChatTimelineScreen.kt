@@ -88,6 +88,7 @@ import chat.bipe.app.composer.MentionSuggestion
 import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.app.people.BrandMarkHeaderLine
 import chat.bipe.app.people.PeopleService
+import chat.bipe.app.people.ProfileNoticeBar
 import chat.bipe.app.people.cvm
 import kotlinx.coroutines.launch
 import chat.bipe.shared.bipeHaptic
@@ -346,6 +347,11 @@ fun ChatTimelineScreen(
                 }
                 inviterHint?.let { hint -> InviterHintRow(hint, roomName) { model.sendGreeting(greeting) } }
                 TypingLine(ui.typingNames)
+                // Spec chat-timeline profileNotice (ADR 0049): 1:1 chats only, amber, above the composer.
+                val noticePeer = peerUserId
+                if (isDm && people != null && noticePeer != null && noticePeer != session.userId) {
+                    ProfileNoticeBar(people, noticePeer, roomName)
+                }
                 val composerBar: @Composable () -> Unit = {
                     // The other person left the DM: the bar stays above the composer, which stays on (ADR 0141).
                     if (peerAway != PeerAway.NONE) {
