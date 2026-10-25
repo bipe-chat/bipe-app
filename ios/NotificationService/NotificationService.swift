@@ -123,9 +123,11 @@ final class NotificationService: UNNotificationServiceExtension {
         return content
     }
 
-    /// The account's sound, and outside a work account's opening hours no sound and no banner (ADR 0138 rule 4):
+    /// The account's Focus criteria and sound, and outside a work account's opening hours no sound and no banner (ADR 0138 rule 4):
     /// interruptionLevel passive keeps the notification in the list only.
     private static func apply(sound: UNNotificationSound?, to content: UNMutableNotificationContent, userId: String) {
+        // bipe-chat/bipe#512: the Focus filter (AccountFocusFilter) matches this against the accounts it allows.
+        content.filterCriteria = userId
         if NotificationPrefs.isQuiet(userId) {
             content.sound = nil
             content.interruptionLevel = .passive

@@ -960,6 +960,11 @@
     <string name="bipe_notifications_account_footer">Estas escolhas valem para a conta %1$s.</string>
     <string name="bipe_notifications_preview">Mostrar o texto da mensagem</string>
     <string name="bipe_notifications_preview_footer">Desligado, a notificação mostra só que chegou uma mensagem.</string>
+    <string name="bipe_focus_filter_title">Contas do Bipe</string>
+    <string name="bipe_focus_filter_description">Escolha quais contas do Bipe podem notificar neste Foco.</string>
+    <string name="bipe_focus_filter_accounts">Contas</string>
+    <string name="bipe_focus_filter_all">Todas as contas</string>
+    <string name="bipe_notifications_account_group">Notificações da conta %1$s</string>
     <string name="bipe_work_hours_title">Horário de atendimento</string>
     <string name="bipe_work_hours_body">Fora desse horário, as mensagens desta conta chegam sem som e sem alerta. Elas ficam na lista de notificações. Sua conta pessoal toca como sempre.</string>
     <string name="bipe_work_hours_enabled">Silenciar fora do horário</string>
