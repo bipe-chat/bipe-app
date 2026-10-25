@@ -266,14 +266,20 @@ struct ChatListView: View {
                 model.toggleUnread(in: scope)
                 BipeHaptics.play(.tick)
             } label: {
-                Text(BipeStrings.appChatListFilterUnread)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(model.unreadScopes.contains(scope) ? BipeColor.inkOnAccent : BipeColor.inkPrimary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(model.unreadScopes.contains(scope) ? BipeColor.accentFill : BipeColor.surfaceRaised))
-                    .frame(minHeight: BipeTapTarget.minimum)
-                    .contentShape(Rectangle())
+                // On shows a check, not only a colour (bipe#497).
+                HStack(spacing: 4) {
+                    if model.unreadScopes.contains(scope) {
+                        PhosphorIcon.check.image.resizable().frame(width: 14, height: 14)
+                    }
+                    Text(BipeStrings.appChatListFilterUnread)
+                }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(model.unreadScopes.contains(scope) ? BipeColor.inkOnAccent : BipeColor.inkPrimary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(model.unreadScopes.contains(scope) ? BipeColor.accentFill : BipeColor.surfaceRaised))
+                .frame(minHeight: BipeTapTarget.minimum)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             // A filter chip: VoiceOver says whether it is on (bipe#495).
@@ -490,6 +496,16 @@ struct ChatRow: View {
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                     if chat.unreadCount > 0 {
+                        if chat.mentionCount > 0 {
+                            // A mention has its own mark, not only a colour (bipe#497). The count's label reads it.
+                            Text(verbatim: "@")
+                                .font(.caption.bold())
+                                .foregroundStyle(BipeColor.inkOnAccent)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Circle().fill(BipeColor.accentFill))
+                                .accessibilityHidden(true)
+                        }
                         let count = chat.unreadCount.formatted()
                         Text(count)
                             .font(.caption.bold())
