@@ -4019,4 +4019,6 @@ public enum BipeStrings {
     }
 
     public static var mailNoticeDeletionCancelled: String { NSLocalizedString("bipe_mail_notice_deletion_cancelled", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11ySwitchAccount: String { NSLocalizedString("bipe_a11y_switch_account", tableName: "Bipe", bundle: .module, comment: "") }
 }

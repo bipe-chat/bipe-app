@@ -1749,4 +1749,5 @@
     <string name="bipe_deletion_customer_name">Conta apagada</string>
     <string name="bipe_mail_notice_deletion_started">Alguém pediu para apagar sua conta do Bipe. Se ninguém cancelar, a conta é apagada em %1$s.\n\nSe não foi você, abra o Bipe num dos seus aparelhos e cancele.</string>
     <string name="bipe_mail_notice_deletion_cancelled">O pedido para apagar sua conta do Bipe foi cancelado. A conta continua como estava.\n\nSe não foi você, abra o Bipe num dos seus aparelhos e confira.</string>
+    <string name="bipe_a11y_switch_account">Trocar de conta</string>
 </resources>

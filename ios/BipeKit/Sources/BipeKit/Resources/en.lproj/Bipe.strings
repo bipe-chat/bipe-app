@@ -1747,3 +1747,4 @@
 "bipe_deletion_customer_name" = "Deleted account";
 "bipe_mail_notice_deletion_started" = "Someone asked to delete your Bipe account. If nobody cancels, the account is deleted on %1$@.\n\nIf it was not you, open Bipe on one of your devices and cancel.";
 "bipe_mail_notice_deletion_cancelled" = "The request to delete your Bipe account was cancelled. The account stays as it was.\n\nIf it was not you, open Bipe on one of your devices and check.";
+"bipe_a11y_switch_account" = "Switch account";
