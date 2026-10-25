@@ -129,7 +129,7 @@ class PhoneNotifications(private val context: Context) {
     fun unownedPush() {
         if (!manager.areNotificationsEnabled()) return
         val notification = NotificationCompat.Builder(context, FALLBACK_CHANNEL)
-            .setSmallIcon(PhosphorIcon.CHAT_CIRCLE.drawable)
+            .setSmallIcon(chat.bipe.app.R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.bipe_app_name))
             .setContentText(context.getString(R.string.bipe_app_notification_new_message))
             .setAutoCancel(true)
@@ -183,7 +183,7 @@ class PhoneNotifications(private val context: Context) {
         if (!owns(target, route)) return
         val text = context.getString(if (isDm) R.string.bipe_dm_inline_reply_failed else R.string.bipe_group_notification_inline_reply_failed)
         val notification = NotificationCompat.Builder(context, messagesChannel(target.accountUserId))
-            .setSmallIcon(PhosphorIcon.CHAT_CIRCLE.drawable)
+            .setSmallIcon(chat.bipe.app.R.drawable.ic_notification)
             .addExtras(metadata(target, route))
             .setContentText(text)
             .setContentIntent(openIntent(target, route, "message"))
@@ -264,7 +264,7 @@ class PhoneNotifications(private val context: Context) {
             NotificationActionReceiver.intent(context, NotificationActionReceiver.ACTION_MARK_READ, target, route, eventId, mutable = false),
         ).build()
         val builder = NotificationCompat.Builder(context, messagesChannel(target.accountUserId))
-            .setSmallIcon(PhosphorIcon.CHAT_CIRCLE.drawable)
+            .setSmallIcon(chat.bipe.app.R.drawable.ic_notification)
             .addExtras(metadata(target, route))
             .setStyle(style)
             .setContentTitle(title)
@@ -284,7 +284,7 @@ class PhoneNotifications(private val context: Context) {
     private fun postSimple(target: BipeNotificationTarget, route: String, title: String, text: String, channel: String, eventId: String? = null, kind: String = "fallback") {
         if (!manager.areNotificationsEnabled()) return
         val notification = NotificationCompat.Builder(context, channel)
-            .setSmallIcon(PhosphorIcon.CHAT_CIRCLE.drawable)
+            .setSmallIcon(chat.bipe.app.R.drawable.ic_notification)
             .addExtras(metadata(target, route))
             .setContentTitle(title)
             .setContentText(text)

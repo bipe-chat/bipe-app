@@ -68,17 +68,10 @@ final class SignupFlowModel: ObservableObject {
         case open
     }
 
-    enum PasteResult: Equatable {
-        case none
-        case notAnInvite
-    }
-
     @Published private(set) var variant: Variant = .loading
     @Published private(set) var invite: PendingInvite?
     @Published private(set) var inviteRequired = true
     @Published private(set) var termsVersion: String?
-    @Published private(set) var clipboardHasText = false
-    @Published private(set) var pasteResult: PasteResult = .none
 
     // MARK: signup-invite-code
 
@@ -214,7 +207,6 @@ final class SignupFlowModel: ObservableObject {
 
     /// Action appear: reads the sign-up mode (at most 3 s, then inviteOnly) and previews a pending invite.
     func appear() async {
-        clipboardHasText = UIPasteboard.general.hasStrings
         let config = await withTaskGroup(of: BipeSignupConfig?.self) { group in
             group.addTask { [api] in try? await api.signupConfig() }
             group.addTask {
@@ -236,15 +228,6 @@ final class SignupFlowModel: ObservableObject {
         await preview(code)
     }
 
-    /// Action pasteInvite: reads the clipboard once, after a tap.
-    func pasteInvite() async {
-        guard let text = UIPasteboard.general.string, let code = BipeInviteLink.normalizedCode(text) else {
-            pasteResult = .notAnInvite
-            return
-        }
-        pasteResult = .none
-        await preview(code)
-    }
 
     /// Action primary: invited and open go to signup-name, inviteOnly to signup-invite-code. A pending invite is
     /// checked again first (bipe-chat/bipe#460): one that stopped being valid goes to signup-invite-code.
@@ -303,6 +286,12 @@ final class SignupFlowModel: ObservableObject {
         code = BipeInviteLink.typedCode(text)
         inviteCodeError = nil
         inviteCodePhase = .editing
+    }
+
+    /// Action pasteCode: the pasted text becomes the code and the screen continues.
+    func pasteCode(_ text: String) async {
+        editCode(text)
+        await submitCode()
     }
 
     /// Action submit: takes the code out of the text and asks the server.
