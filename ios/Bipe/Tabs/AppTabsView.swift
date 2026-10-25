@@ -41,6 +41,19 @@ struct AppTabsView: View {
             }
             .badge(model.gruposAttention)
 
+            // A company account gets the Agenda tab after Grupos (spec agenda-owner, ADR 0103).
+            if model.currentIsCompany {
+                Tab(value: AppTabsModel.Tab.agenda) {
+                    AgendaOwnerView(chatList: chatList, api: api, openChat: { roomId in
+                        model.selectTab(.conversas)
+                        TabsLinks.shared.link = .chat(roomId)
+                    })
+                    .id(session.userId)
+                } label: {
+                    Label(BipeStrings.tabAgenda, systemImage: "calendar")
+                }
+            }
+
             Tab(value: AppTabsModel.Tab.voce) {
                 VoceView(model: model, chatList: chatList, api: api, onNewAccount: { showsNewAccount = true })
             } label: {

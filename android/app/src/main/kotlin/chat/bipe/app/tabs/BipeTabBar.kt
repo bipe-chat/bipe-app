@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material3.Badge
@@ -55,6 +57,13 @@ internal fun BipeTabBar(
             state, AppTabsModel.Tab.GRUPOS, Icons.Outlined.Groups, Icons.Filled.Groups,
             R.string.bipe_tab_groups, state.gruposAttention, onSelect,
         )
+        // A company account gets Agenda after Grupos (ADR 0103, spec app-tabs).
+        if (state.isCompany) {
+            TabItem(
+                state, AppTabsModel.Tab.AGENDA, Icons.Outlined.CalendarMonth, Icons.Filled.CalendarMonth,
+                R.string.bipe_tab_agenda, 0, onSelect,
+            )
+        }
         TabItem(
             state, AppTabsModel.Tab.VOCE, Icons.Outlined.AccountCircle, Icons.Filled.AccountCircle,
             R.string.bipe_tab_you, 0, onSelect,

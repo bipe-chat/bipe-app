@@ -909,6 +909,14 @@ public enum BipeAPIErrorCode: String, Sendable {
     case termsRequired = "terms_required"
     /// 503. The support account is not set up on the server (ADR 0114).
     case supportUnavailable = "support_unavailable"
+    // Business tools (api/business-schemas.json AgendaError). Texts: BipeAPIError.agendaMessage.
+    case slotTaken = "slot_taken"
+    case holdExpired = "hold_expired"
+    case tooManyOpenBookings = "too_many_open_bookings"
+    case outsideNotice = "outside_notice"
+    case outsideHorizon = "outside_horizon"
+    case agendaNotPublished = "agenda_not_published"
+    case cancellationWindowClosed = "cancellation_window_closed"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -963,6 +971,8 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .emailUnavailable: BipeStrings.errorEmailUnavailable
             case .termsRequired: BipeStrings.signupTermsRequired
             case .supportUnavailable: BipeStrings.supportOpenFailed
+            case .slotTaken, .holdExpired, .tooManyOpenBookings, .outsideNotice, .outsideHorizon, .agendaNotPublished,
+                 .cancellationWindowClosed: self.agendaMessage
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

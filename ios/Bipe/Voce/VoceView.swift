@@ -21,7 +21,7 @@ struct VoceView: View {
     @State private var openingNotes = false
     @State private var notesFailed = false
     @State private var showsLinkPhone = false
-    private enum Destination: Hashable { case notes(String), invites, trust }
+    private enum Destination: Hashable { case notes(String), invites, trust, myBookings, catalogOwner }
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
@@ -87,7 +87,22 @@ struct VoceView: View {
                     }
                     .listRowBackground(BipeColor.surfaceRaised)
                 }
+                // Spec business-tools: a company account's tools, before the settings.
+                if model.currentIsCompany {
+                    BusinessToolsSection(api: chatList.session.business(api),
+                                         openAgenda: { model.selectTab(.agenda) },
+                                         openCatalog: { path.append(Destination.catalogOwner) })
+                }
                 SettingsRootSection(model: settings)
+                // Spec settings-root: a personal account has Meus agendamentos after the groups (agenda-my-bookings).
+                if !model.currentIsCompany {
+                    Section {
+                        NavigationLink(value: Destination.myBookings) {
+                            IconLabel(icon: .clock, text: BipeStrings.agendaMyBookings)
+                        }
+                        .listRowBackground(BipeColor.surfaceRaised)
+                    }
+                }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
@@ -107,6 +122,10 @@ struct VoceView: View {
                     if let account = model.accounts.first(where: \.isCurrent) {
                         TrustProfileView(profile: trust.profile(for: account), actions: trustActions)
                     }
+                case .myBookings:
+                    MyBookingsView(people: people, openChat: { path.append(Destination.notes($0)) })
+                case .catalogOwner:
+                    CatalogOwnerView(api: chatList.session.business(api))
                 }
             }
             .navigationDestination(for: PeopleRoute.self) { route in
