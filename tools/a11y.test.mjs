@@ -159,6 +159,11 @@ test('kotlin: an animation needs a Reduce Motion check', () => {
   assert.deepEqual(auditKotlin('val reduceMotion = LocalReduceMotion.current\nif (reduceMotion) listState.scrollToItem(0) else listState.animateScrollToItem(0)'), []);
 });
 
+test('swift: a material needs a solid fallback', () => {
+  assert.deepEqual(rules(auditSwift('bar\n    .background(.ultraThinMaterial)')), ['2:transparency']);
+  assert.deepEqual(auditSwift('bar\n    .bipeMaterial(in: Rectangle())'), []);
+});
+
 test('the app passes the audit', () => {
   assert.deepEqual(checkA11y(REPO_ROOT).errors, []);
 });

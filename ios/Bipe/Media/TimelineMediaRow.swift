@@ -280,11 +280,11 @@ struct TimelineMediaRow: View {
 }
 
 extension View {
-    /// Light ink on a dark blur over media, in light and dark mode.
+    /// Light ink on a dark blur over media, in light and dark mode; solid under Reduce Transparency.
     func mediaScrim<S: Shape>(_ shape: S) -> some View {
         foregroundStyle(BipeColor.inkPrimary)
             .tint(BipeColor.inkPrimary)
-            .background(.ultraThinMaterial, in: shape)
+            .bipeMaterial(in: shape)
             .environment(\.colorScheme, .dark)
     }
 }

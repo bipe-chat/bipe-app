@@ -19,6 +19,8 @@
 // - gesture: .onLongPressGesture and .swipeActions need an .accessibilityAction(s) within 8 lines.
 // - motion: withAnimation, .animation(, repeatForever, .move(edge:) and .symbolEffect( need a Reduce Motion
 //   check within 8 lines; withBipeAnimation, .bipeAnimation and .bipeMove (Common/Motion.swift) have it.
+// - transparency: a material (.ultraThinMaterial and the others) needs an accessibilityReduceTransparency
+//   check within 8 lines; .bipeMaterial(in:) (Common/Contrast.swift) has it.
 // Kotlin (android/):
 // - icon-only: IconButton, FilledIconButton, FilledTonalIconButton, OutlinedIconButton,
 //   IconToggleButton and the FloatingActionButton family need a non-null contentDescription or a Text
@@ -192,6 +194,8 @@ export function auditSwift(source) {
   hits.push(
     ...windowRule(source, text, /\bwithAnimation\b|\.animation\(|\brepeatForever\b|\.move\(edge:|\.symbolEffect\(/, /accessibilityReduceMotion|isReduceMotionEnabled|\breduceMotion\b/, 8, 'motion'),
   );
+  // Reduce Transparency (bipe-chat/bipe#497): .bipeMaterial(in:), or a check of the setting.
+  hits.push(...windowRule(source, text, /\.(?:ultraThin|thin|regular|thick|ultraThick)Material\b/, /accessibilityReduceTransparency/, 8, 'transparency'));
   // A long press or a swipe needs an accessibility action next to it (bipe-chat/bipe#499).
   hits.push(...windowRule(source, text, /\.onLongPressGesture\b|\.swipeActions\(/, /\.accessibilityActions?\b/, 8, 'gesture'));
   hits.push(
@@ -284,6 +288,7 @@ const ADVICE = {
   'icon-only': 'shows only an icon and has no label. Add an accessibility label from the generated bipe-shared strings.',
   tap: 'is a tap target that VoiceOver does not announce. Add .accessibilityAddTraits(.isButton) or an accessibility action, or use a Button.',
   'tap-target': 'can be smaller than 44 pt / 48 dp to tap. Add .bipeTapTarget() (on the Swift label, first in the Compose chain).',
+  transparency: 'is a blur with no solid fallback. Use .bipeMaterial(in:), which is solid under Reduce Transparency.',
   motion: 'animates without a check of Reduce Motion. Use withBipeAnimation or .bipeAnimation (SwiftUI), LocalReduceMotion or bipeMotion() (Compose).',
   gesture: 'is a gesture with no accessible way to do the same. Add an accessibility action (SwiftUI .accessibilityAction, Compose customActions or onLongClickLabel).',
   'text-size': 'does not follow the system text size. Use a text style (SwiftUI .font(.body), @ScaledMetric; Compose typography or sp).',
