@@ -106,7 +106,7 @@ extension View {
             case .support:
                 SupportOpenView(session: model.session, api: model.api)
             case .notifications:
-                NotificationSettingsView(session: model.session)
+                NotificationSettingsView(session: model.session, api: model.api)
             }
         }
     }

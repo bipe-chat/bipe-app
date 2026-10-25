@@ -183,7 +183,7 @@ fun SettingsHost(
             LaunchedEffect(handle) { handle.load() }
             HandlePickScreen(handle, onClose = pop)
         }
-        SettingsRoute.Notifications -> NotificationSettingsScreen(session, onBack = pop)
+        SettingsRoute.Notifications -> NotificationSettingsScreen(session, api, onBack = pop)
         SettingsRoute.Messaging -> MessagingPickerScreen(model, onBack = pop)
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
