@@ -738,6 +738,11 @@ object BipeRegistries {
     // Wait between the full-access warning and the biometric check of a web sign-in approval (ADR 0118).
     const val WEB_LINK_COOLDOWN_SECONDS = 5
 
+    // Recovery reminder card (bipe#531): first show after these days on this phone; each "Agora não" hides it for the
+    // next snooze, and the last snooze repeats.
+    const val RECOVERY_REMINDER_FIRST_AFTER_DAYS = 2
+    val RECOVERY_REMINDER_SNOOZE_DAYS: List<Int> = listOf(7, 14, 30, 60)
+
     // Terms and privacy accepted at sign-up (ADR 0113; registries/legal.json). Paths are on the public site.
     const val LEGAL_VERSION = "2026-10-16"
     const val TERMS_PATH = "/termos/"
