@@ -50,7 +50,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -71,9 +73,12 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -84,6 +89,7 @@ import chat.bipe.app.common.AppConfig
 import chat.bipe.app.common.BipeMarkShape
 import chat.bipe.app.settings.openPage
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeInviteLink
 import chat.bipe.shared.BipeLegalLinks
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeOnboarding
@@ -195,13 +201,26 @@ private fun BipeField(
     onChange: (String) -> Unit,
     keyboardType: KeyboardType = KeyboardType.Text,
     modifier: Modifier = Modifier,
+    isCode: Boolean = false,
+    format: (String) -> String = { it },
 ) {
     val colors = BipeTheme.colors
+    // When format rewrites the text (the invite code adds dashes), or the model sets it, the cursor goes to the end.
+    var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    LaunchedEffect(value) { if (field.text != value) field = TextFieldValue(value, TextRange(value.length)) }
     BasicTextField(
-        value = value,
-        onValueChange = onChange,
+        value = field,
+        onValueChange = {
+            val text = format(it.text)
+            field = if (text == it.text) it else TextFieldValue(text, TextRange(text.length))
+            onChange(text)
+        },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        keyboardOptions = KeyboardOptions(
+            capitalization = if (isCode) KeyboardCapitalization.Characters else KeyboardCapitalization.Unspecified,
+            autoCorrectEnabled = if (isCode) false else null,
+            keyboardType = keyboardType,
+        ),
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.inkPrimary),
         cursorBrush = SolidColor(colors.accentFill),
         modifier = modifier.fillMaxWidth().background(colors.surfaceSunken, RoundedCornerShape(12.dp)).padding(14.dp)
@@ -390,7 +409,7 @@ private fun SignupInviteCodeScreen(model: SignupFlowModel) {
     val error by model.inviteCodeError.collectAsState()
     val step = BipeOnboardingStep.INVITE_CODE
     StepLayout(BipeScreen.SIGNUP_INVITE_CODE, stringResource(step.title), step.body?.let { stringResource(it) }) {
-        BipeField(stringResource(R.string.bipe_signup_invite_code), code, model::editCode)
+        BipeField(stringResource(R.string.bipe_signup_invite_code), code, model::editCode, isCode = true, format = BipeInviteLink::typedCode)
         // Action pasteCode: reads the clipboard only on this tap and continues at once.
         TextButtonRow(stringResource(R.string.bipe_onboarding_paste_invite), enabled = phase != SignupFlowModel.InviteCodePhase.CHECKING, onClick = model::pasteCode)
         when {

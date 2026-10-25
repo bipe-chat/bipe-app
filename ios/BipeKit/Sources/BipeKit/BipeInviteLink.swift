@@ -30,6 +30,16 @@ public nonisolated enum BipeInviteLink {
         let groups = (1...3).compactMap { Range(match.range(at: $0), in: text).map { String(text[$0]) } }
         return groups.count == 3 ? groups.joined(separator: "-") : nil
     }
+
+    /// The code field text while the user types: uppercase, a dash after every 4 characters, at most 12 characters.
+    /// A pasted link or message that holds a code becomes that code.
+    public static func typedCode(_ raw: String) -> String {
+        if let code = normalizedCode(raw) { return code }
+        let characters = Array(raw.uppercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }.prefix(12))
+        return stride(from: 0, to: characters.count, by: 4)
+            .map { String(characters[$0..<min($0 + 4, characters.count)]) }
+            .joined(separator: "-")
+    }
 }
 
 /// A normalised invite code. Prints redacted, because routes and actions get logged.
