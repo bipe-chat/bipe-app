@@ -132,6 +132,26 @@ final class PeopleService: ObservableObject {
         try await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }, request)
     }
 
+    // MARK: - Profile facts (ADR 0049)
+
+    /// Facts read from POST /v1/profile-facts per person, with the time of the read. Memory only, this account.
+    private var profileFactsCache: [String: (read: Date, facts: BipeProfileFacts?)] = [:]
+
+    /// The profile change facts of a person. A read younger than `maxAge` comes from memory.
+    /// nil when the call fails or the API knows nothing: the screens then show nothing.
+    func profileFacts(_ userId: String, maxAge: TimeInterval = 0) async -> BipeProfileFacts? {
+        if let cached = profileFactsCache[userId], Date().timeIntervalSince(cached.read) < maxAge {
+            return cached.facts
+        }
+        let api = api
+        guard let list = try? await withToken({ (token: String) async throws(BipeAPIError) -> [BipeProfileFacts] in
+            try await api.profileFacts(userIDs: [userId], accessToken: token)
+        }) else { return nil }
+        let facts = list.first { $0.userId == userId }
+        profileFactsCache[userId] = (Date(), facts)
+        return facts
+    }
+
     // MARK: - People
 
     /// A person: name and photo from Client.getProfile, the @ from bipe-api. `contactName` wins as the name.

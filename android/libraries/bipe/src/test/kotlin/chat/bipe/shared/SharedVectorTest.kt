@@ -6,6 +6,7 @@ package chat.bipe.shared
 
 import com.google.common.truth.Truth.assertWithMessage
 import chat.bipe.shared.account.BipePin
+import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.shared.clearedchats.ClearedChats
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeDmCandidate
@@ -216,6 +217,25 @@ class SharedVectorTest {
                 is BadgeVerificationResult.Invalid -> result.failure.code
             }
             assertWithMessage("badge ${vector.string("name")}").that(outcome).isEqualTo(vector.string("expect"))
+        }
+    }
+
+    @Test
+    fun profileFacts() {
+        val now = BipeProfileFactLines.parse(load("profile-facts.json").string("now")!!)!!
+        val cases = vectors("profile-facts.json", "vectors")
+        assertWithMessage("profile facts vectors").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            val raw = vector.getValue("facts").jsonObject
+            fun dates(key: String) = raw[key]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+            val facts = BipeProfileFacts("@a:bipe.net.br", raw.string("created_at"), dates("name_changes"), dates("photo_changes"))
+            val result = BipeProfileFactLines.of(facts, now)
+            val expected = vector.getValue("expected").jsonObject
+            val lines = expected.getValue("lines").jsonArray.map { it.jsonObject }
+            assertWithMessage("profile facts notice $name").that(result.notice).isEqualTo(expected.getValue("notice").jsonPrimitive.boolean)
+            assertWithMessage("profile facts lines $name").that(result.lines.map { listOf(it.fact.id, it.count, it.at) })
+                .isEqualTo(lines.map { listOf(it.string("fact"), it.string("count")?.toInt(), BipeProfileFactLines.parse(it.string("at")!!)) })
         }
     }
 

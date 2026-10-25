@@ -138,6 +138,26 @@ internal data class BipeHandleChangesRequest(
 @Serializable
 internal data class BipeHandleChangesResponse(@SerialName("changes") val changes: List<BipeHandleChange>)
 
+/** Contract `ProfileFacts` (ADR 0049). Dates stay strings: a date that does not parse is ignored, as in bipe-shared `profileFactLines`. */
+@Serializable
+data class BipeProfileFacts(
+    @SerialName("user_id") val userId: String,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("name_changes") val nameChanges: List<String> = emptyList(),
+    @SerialName("photo_changes") val photoChanges: List<String> = emptyList(),
+) {
+    companion object {
+        /** The most Matrix IDs per `POST /v1/profile-facts` call. */
+        const val BATCH_SIZE = 100
+    }
+}
+
+@Serializable
+internal data class BipeProfileFactsRequest(@SerialName("user_ids") val userIds: List<String>)
+
+@Serializable
+internal data class BipeProfileFactsResponse(@SerialName("facts") val facts: List<BipeProfileFacts>)
+
 /** `MyHandle`. */
 @Serializable
 data class BipeMyHandle(

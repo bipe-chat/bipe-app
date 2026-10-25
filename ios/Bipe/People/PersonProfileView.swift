@@ -142,6 +142,10 @@ struct PersonProfileView: View {
             }
             BusinessProfileButtons(model: business)
                 .padding(.top, 4)
+            // Spec person-profile profileFacts (ADR 0049): below the header, apart from the trust facts. Not on the own profile.
+            if model.userId != people.session.userId {
+                ProfileFactsLines(people: people, userId: model.userId)
+            }
             if model.reservedNameWarning {
                 MarkLine(icon: .warning, text: BipeStrings.warningReservedName, tint: BipeColor.trustCautionInk)
             }

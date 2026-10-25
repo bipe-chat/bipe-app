@@ -363,6 +363,8 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
         // Spec brand-mark: next to the reseller's own name, never instead of it.
         BrandMarkLine(state.person.userId, model.people.brandMarks, model.people.seals)
         state.person.handle?.let { Text("@$it", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
+        // Spec person-profile profileFacts (ADR 0049): below the header, apart from the trust facts. Not on the own profile.
+        if (model.userId != model.people.session.userId) ProfileFactsLines(model.people, model.userId)
         if (state.reservedNameWarning) {
             MarkLine(PhosphorIcon.WARNING, stringResource(R.string.bipe_warning_reserved_name), colors.trustCautionInk)
         }

@@ -142,6 +142,8 @@ struct ChatRequestView: View {
                         .font(.subheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
+                // Spec chat-request profileFacts (ADR 0049), under the header. Never blocks accept or decline.
+                ProfileFactsLines(people: model.people, userId: request.inviterId)
                 RequestTrustContent(model: model, request: request)
                 if model.error {
                     Text(BipeStrings.errorGeneric)
