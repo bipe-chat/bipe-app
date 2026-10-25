@@ -61,7 +61,6 @@ fun AppTabsScreen(
     listOpenRequest: Int = 0,
 ) {
     val state by tabs.state.collectAsState()
-    val account = state.accounts.firstOrNull { it.isCurrent }
     val session = chatList.session
     val view = LocalView.current
     // Search goes back to the tab it was opened from.
@@ -75,13 +74,12 @@ fun AppTabsScreen(
             when (state.selectedTab) {
                 AppTabsModel.Tab.CONVERSAS ->
                     ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner, recoveryCard = recoveryCard,
+                        banner = banner, recoveryCard = recoveryCard,
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                         requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
                         api = tabs.start.api)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) },
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                         requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
                 // Spec agenda-owner: the company account's Agenda tab.

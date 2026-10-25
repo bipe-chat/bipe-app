@@ -11,6 +11,11 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.SessionStore
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
+import chat.bipe.shared.account.BipeLinkProof
+import chat.bipe.shared.account.BipeLinkProvider
+import chat.bipe.shared.account.linkProviders
+import chat.bipe.shared.account.recoverWithLink
+import chat.bipe.shared.account.startLinkWebFlow
 import chat.bipe.shared.account.BipePin
 import chat.bipe.shared.account.BipePinProblem
 import chat.bipe.shared.account.BipeRecoveryTokens
@@ -43,6 +48,14 @@ object BipeRecoveryLink {
     }
 }
 
+/** The provider of a linked-account row of recovery-start (ADR 0096). */
+val BipeOnboardingRecoveryRow.linkProvider: BipeLinkProvider?
+    get() = when (this) {
+        BipeOnboardingRecoveryRow.APPLE -> BipeLinkProvider.APPLE
+        BipeOnboardingRecoveryRow.GOOGLE -> BipeLinkProvider.GOOGLE
+        else -> null
+    }
+
 /**
  * The way back into an existing account (ADR 0057, ADR 0059): recovery-start, recovery-pin, recovery-email and
  * recovery-waiting (bipe-shared product/screens). account-start shows it from onboarding-welcome ("Já tenho conta")
@@ -59,10 +72,13 @@ class RecoveryFlowModel(
     /** Spec soft-logout needsPin: the account whose token the server refused. */
     val softLogoutUserId: String? = null,
 ) {
-    enum class Route { START, PIN, EMAIL, BETA, WAITING, OLD_PHONE }
+    enum class Route { START, PIN, EMAIL, BETA, WAITING, OLD_PHONE, LINKED }
 
-    /** Spec recovery-pin, state factor. */
-    enum class Factor { TOKEN, EMAIL_LINK }
+    /** Spec recovery-pin, state factor. LINKED: the proof of recovery-linked (ADR 0096). */
+    enum class Factor { TOKEN, EMAIL_LINK, LINKED }
+
+    /** Spec recovery-linked, state phase. */
+    enum class LinkedPhase { SIGNING_IN, FAILED }
 
     /** Spec recovery-pin, state phase. NEW_PIN and NEW_PIN_CONFIRM are the signup-pin steps of forgotPin. */
     enum class PinPhase { EDITING, CHECKING, WRONG, BLOCKED, FAILED, NEW_PIN, NEW_PIN_CONFIRM }
@@ -121,6 +137,17 @@ class RecoveryFlowModel(
     private val _betaError = MutableStateFlow<String?>(null)
     val betaError: StateFlow<String?> = _betaError.asStateFlow()
 
+    // recovery-linked (ADR 0096)
+    private val _linkProvider = MutableStateFlow(BipeLinkProvider.GOOGLE)
+    val linkProvider: StateFlow<BipeLinkProvider> = _linkProvider.asStateFlow()
+    private val _linkedPhase = MutableStateFlow(LinkedPhase.SIGNING_IN)
+    val linkedPhase: StateFlow<LinkedPhase> = _linkedPhase.asStateFlow()
+    private val _linkedError = MutableStateFlow<String?>(null)
+    val linkedError: StateFlow<String?> = _linkedError.asStateFlow()
+    /** The method of the kept recovery, for recovery-waiting. Null for email. */
+    private val _waitingProvider = MutableStateFlow<BipeLinkProvider?>(null)
+    val waitingProvider: StateFlow<BipeLinkProvider?> = _waitingProvider.asStateFlow()
+
     // recovery-waiting
     private val _pending = MutableStateFlow<BipeRecoveryStarted?>(null)
     val pending: StateFlow<BipeRecoveryStarted?> = _pending.asStateFlow()
@@ -130,6 +157,9 @@ class RecoveryFlowModel(
     /** The offered token with its Matrix ID (`null`: the fork's entry from before bipe-chat/bipe#265). */
     private var token: Pair<String?, String>? = null
     private var linkToken: String? = null
+    /** The provider proof of recovery-linked. In memory only; it works once. */
+    private var linkProof: BipeLinkProof? = null
+    private var linkProviders: List<BipeLinkProvider> = emptyList()
     private var newPin = ""
     private var pollJob: Job? = null
 
@@ -167,13 +197,14 @@ class RecoveryFlowModel(
         val signedIn = sessionStore.loadAll().keys
         token = recoveryTokens.candidate(signedIn)?.let { it.userId to it.token }
         _hasSyncedToken.value = token != null
+        // Spec recovery-start linkProviders: Android runs the web flow, so a provider needs the server's web path.
+        linkProviders = runCatching { api.linkProviders().usableOnAndroid }.getOrDefault(emptyList())
         // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate. The beta sign-in
         // shows only in developer builds (spec soft-logout notes).
         _rows.value = BipeOnboardingRecoveryRow.entries.filter { row ->
-            // The Apple and Google rows wait for the linked-account flow (bipe-chat/bipe#307, bipe#308).
-            row != BipeOnboardingRecoveryRow.APPLE && row != BipeOnboardingRecoveryRow.GOOGLE &&
             (row.gate == null || row == BipeOnboardingRecoveryRow.OLD_PHONE || (row.gate == "flag:developer" && BuildConfig.DEBUG)) &&
-                (!row.needsSyncedToken || token != null)
+                (!row.needsSyncedToken || token != null) &&
+                (row.linkProvider == null || row.linkProvider in linkProviders)
         }
         // Spec soft-logout enterPin: straight to recovery-pin when the account's synced token is here.
         if (softLogoutUserId != null && token?.first == softLogoutUserId && _route.value == Route.START) openPin(Factor.TOKEN)
@@ -193,7 +224,42 @@ class RecoveryFlowModel(
                 _route.value = Route.BETA
             }
             BipeOnboardingRecoveryRow.OLD_PHONE -> _route.value = Route.OLD_PHONE
-            BipeOnboardingRecoveryRow.APPLE, BipeOnboardingRecoveryRow.GOOGLE -> Unit
+            BipeOnboardingRecoveryRow.APPLE, BipeOnboardingRecoveryRow.GOOGLE -> chooseLinked(row.linkProvider ?: return)
+        }
+    }
+
+    // recovery-linked
+
+    /** Action chooseLinked: opens recovery-linked and runs its start. */
+    private fun chooseLinked(provider: BipeLinkProvider) {
+        _linkProvider.value = provider
+        _route.value = Route.LINKED
+        startLinked()
+    }
+
+    /** Actions start and retry: the web flow in a Custom Tab, then recovery-pin with factor linked. */
+    fun startLinked() {
+        val provider = _linkProvider.value
+        _linkedPhase.value = LinkedPhase.SIGNING_IN
+        _linkedError.value = null
+        scope.launch {
+            try {
+                val start = api.startLinkWebFlow(provider, LinkWebFlow.appId, accessToken = null)
+                when (val result = LinkWebFlow.run(context, start)) {
+                    is LinkWebFlow.Result.Proof -> {
+                        linkProof = result.proof
+                        openPin(Factor.LINKED)
+                    }
+                    LinkWebFlow.Result.Cancelled -> _route.value = Route.START
+                    LinkWebFlow.Result.Failed -> {
+                        _linkedPhase.value = LinkedPhase.FAILED
+                        _linkedError.value = context.getString(R.string.bipe_recovery_linked_invalid)
+                    }
+                }
+            } catch (error: BipeApiException) {
+                _linkedPhase.value = LinkedPhase.FAILED
+                _linkedError.value = if (error is BipeApiException.Network) context.getString(R.string.bipe_error_network) else error.localizedMessage(context)
+            }
         }
     }
 
@@ -271,6 +337,15 @@ class RecoveryFlowModel(
                         _pin.value = ""
                         startWaiting(started)
                     }
+                    Factor.LINKED -> {
+                        val proof = linkProof ?: throw BipeApiException.Server(BipeApiErrorCode.RECOVERY_INVALID, null, 403)
+                        // The proof works once, whatever the answer.
+                        linkProof = null
+                        val started = api.recoverWithLink(_linkProvider.value, proof, entered)
+                        _pin.value = ""
+                        _waitingProvider.value = _linkProvider.value
+                        startWaiting(started)
+                    }
                 }
             } catch (error: BipeApiException) {
                 _pin.value = ""
@@ -296,6 +371,8 @@ class RecoveryFlowModel(
                 _pinPhase.value = PinPhase.NEW_PIN
             }
             Factor.TOKEN -> choose(BipeOnboardingRecoveryRow.EMAIL)
+            // A linked account never resets the PIN (ADR 0096): recovery-email does.
+            Factor.LINKED -> choose(BipeOnboardingRecoveryRow.EMAIL)
         }
     }
 
@@ -332,11 +409,11 @@ class RecoveryFlowModel(
             }
             BipeApiErrorCode.PIN_BLOCKED -> {
                 _pinPhase.value = PinPhase.BLOCKED
-                _pinError.value = null
+                _pinError.value = if (_factor.value == Factor.LINKED) context.getString(R.string.bipe_recovery_linked_pin_blocked) else null
             }
             BipeApiErrorCode.RECOVERY_INVALID -> {
                 _pinPhase.value = PinPhase.FAILED
-                _pinError.value = error.localizedMessage(context)
+                _pinError.value = if (_factor.value == Factor.LINKED) context.getString(R.string.bipe_recovery_linked_invalid) else error.localizedMessage(context)
                 _recoveryInvalid.value = true
                 // Spec notes: an old or revoked token is deleted; recovery-start shows without the token row.
                 val current = token
@@ -499,6 +576,7 @@ class RecoveryFlowModel(
     /** Action startOver: from cancelled or expired (and after a PIN reset), back to recovery-start. */
     fun startOver() {
         pollJob?.cancel()
+        _waitingProvider.value = null
         _pending.value = null
         _waitingPhase.value = WaitingPhase.WAITING
         _route.value = Route.START

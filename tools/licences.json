@@ -103,6 +103,13 @@
       "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
       "checked": "2026-10-22"
     },
+    "Nunito": {
+      "ecosystem": "font",
+      "licence": "OFL-1.1",
+      "source": "https://github.com/googlefonts/nunito/blob/8c6a9bb9732545b9ed53f29ec5e1ab0ff53c4e6f/OFL.txt",
+      "checked": "2026-10-25",
+      "note": "ADR 0159 (bipe-chat/bipe): SIL OFL 1.1 is allowed for fonts. Android only: fonts/variable/Nunito[wght].ttf at that commit, bundled as android/app/src/main/res/font/nunito.ttf with android/app/fonts/Nunito-OFL.txt. Not a Gradle or SwiftPM dependency, so tools/licences.mjs does not read it."
+    },
     "@phosphor-icons/core": {
       "ecosystem": "vendored",
       "licence": "MIT",

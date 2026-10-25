@@ -39,6 +39,8 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.settings.OwnerCheck
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.account.BipeLinkEvent
+import chat.bipe.shared.account.BipeLinkProvider
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeRecovery
 import chat.bipe.shared.api.BipeRecoveryMethod
@@ -53,7 +55,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Spec recovery-alert (bipe-shared product/screens/recovery-alert.json): on a signed-in phone, a full alert while someone
- * gets back into this account elsewhere, with a cancel; and a notice after a sign-in with the recovery token.
+ * gets back into this account elsewhere, with a cancel; a notice after a sign-in with the recovery token; and a notice
+ * after an Apple or Google account was linked or unlinked (ADR 0096).
  */
 class RecoveryAlertModel(
     context: Context,
@@ -63,12 +66,25 @@ class RecoveryAlertModel(
 ) {
     enum class Phase { SHOWN, CANCELLING, CANCELLED, FAILED }
 
+    /** A recovery notice, or a link notice (state linkNotice) when no recovery needs one. */
+    sealed interface Notice {
+        val id: String
+
+        data class Recovery(val recovery: BipeRecovery) : Notice {
+            override val id: String get() = recovery.id
+        }
+
+        data class Link(val event: BipeLinkEvent) : Notice {
+            override val id: String get() = event.id
+        }
+    }
+
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val dismissedKey = "dismissed.${session.userId}"
     private val sinceKey = "since.${session.userId}"
 
-    private val _notice = MutableStateFlow<BipeRecovery?>(null)
-    val notice: StateFlow<BipeRecovery?> = _notice.asStateFlow()
+    private val _notice = MutableStateFlow<Notice?>(null)
+    val notice: StateFlow<Notice?> = _notice.asStateFlow()
     private val _phase = MutableStateFlow(Phase.SHOWN)
     val phase: StateFlow<Phase> = _phase.asStateFlow()
 
@@ -82,17 +98,22 @@ class RecoveryAlertModel(
             val since = alertsSince()
             val dismissed = dismissedIds()
             // A completed recovery older than this phone's session is this phone's own sign-in, or an old one.
-            _notice.value = status.recoveries
+            val recovery = status.recoveries
                 .filter { hasAlert(it) && it.id !in dismissed }
                 .filter { it.state == BipeRecoveryState.WAITING || it.createdAt.toEpochMilli() > since }
                 .maxByOrNull { it.createdAt }
+            // A link made on this phone was dismissed here when it was made (LinkedAccountsModel.dismissOnThisPhone).
+            val link = status.linkEvents
+                .filter { it.id !in dismissed && it.at.toEpochMilli() > since }
+                .maxByOrNull { it.at }
+            _notice.value = recovery?.let(Notice::Recovery) ?: link?.let(Notice::Link)
             _phase.value = Phase.SHOWN
         }
     }
 
     /** Action cancel: for a waiting recovery, the owner check and then the cancel. */
     fun cancel(confirmOwner: suspend () -> Boolean) {
-        val current = _notice.value ?: return
+        val current = (_notice.value as? Notice.Recovery)?.recovery ?: return
         if (current.state != BipeRecoveryState.WAITING) return
         scope.launch {
             if (!confirmOwner()) return@launch
@@ -134,11 +155,18 @@ class RecoveryAlertModel(
         return now
     }
 
-    private companion object {
-        const val PREFS = "recovery-alert"
+    companion object {
+        private const val PREFS = "recovery-alert"
+
+        /** A link or unlink made on this phone needs no notice here. */
+        fun dismissOnThisPhone(context: Context, userId: String, eventIds: List<String>) {
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val key = "dismissed.$userId"
+            prefs.edit().putStringSet(key, prefs.getStringSet(key, emptySet()).orEmpty() + eventIds).apply()
+        }
 
         /** A waiting recovery can be cancelled; a completed token recovery is a notice only. */
-        fun hasAlert(recovery: BipeRecovery): Boolean = when (recovery.state) {
+        private fun hasAlert(recovery: BipeRecovery): Boolean = when (recovery.state) {
             BipeRecoveryState.WAITING -> true
             BipeRecoveryState.COMPLETED -> recovery.purpose == BipeRecoveryPurpose.ACCESS && recovery.method == BipeRecoveryMethod.TOKEN
             else -> false
@@ -158,9 +186,21 @@ private fun alertMessage(context: Context, recovery: BipeRecovery): String {
         recovery.purpose == BipeRecoveryPurpose.PIN_RESET -> context.getString(R.string.bipe_recovery_alert_pin_reset, date)
         recovery.method == BipeRecoveryMethod.GUARDIAN -> context.getString(R.string.bipe_recovery_alert_guardian, date)
         recovery.method == BipeRecoveryMethod.CPF -> context.getString(R.string.bipe_recovery_alert_cpf, date)
+        recovery.method == BipeRecoveryMethod.APPLE -> context.getString(R.string.bipe_recovery_linked_apple_alert)
+        recovery.method == BipeRecoveryMethod.GOOGLE -> context.getString(R.string.bipe_recovery_linked_google_alert)
         else -> context.getString(R.string.bipe_recovery_alert_email, date)
     }
 }
+
+/** The link notice text (ADR 0096). */
+private fun linkMessage(context: Context, event: BipeLinkEvent): String = context.getString(
+    when (event.provider to event.change) {
+        BipeLinkProvider.APPLE to BipeLinkEvent.Change.LINKED -> R.string.bipe_linked_apple_alert
+        BipeLinkProvider.GOOGLE to BipeLinkEvent.Change.LINKED -> R.string.bipe_linked_google_alert
+        BipeLinkProvider.APPLE to BipeLinkEvent.Change.UNLINKED -> R.string.bipe_unlinked_apple_alert
+        else -> R.string.bipe_unlinked_google_alert
+    },
+)
 
 /** The alert covers the screen while a recovery waits: it is not a banner the person can miss. */
 @Composable
@@ -169,7 +209,8 @@ fun RecoveryAlertScreen(model: RecoveryAlertModel) {
     val colors = BipeTheme.colors
     val notice by model.notice.collectAsState()
     val phase by model.phase.collectAsState()
-    val recovery = notice ?: return
+    val current = notice ?: return
+    val recovery = (current as? RecoveryAlertModel.Notice.Recovery)?.recovery
     val ownerTitle = stringResource(R.string.bipe_recovery_alert_title)
     BackHandler { if (phase == RecoveryAlertModel.Phase.CANCELLED) model.close() }
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.RECOVERY_ALERT.id), color = colors.surfaceBase) {
@@ -187,12 +228,15 @@ fun RecoveryAlertScreen(model: RecoveryAlertModel) {
                 }
                 return@Column
             }
-            Text(alertMessage(context, recovery), color = colors.inkPrimary)
+            Text(
+                if (recovery != null) alertMessage(context, recovery) else linkMessage(context, (current as RecoveryAlertModel.Notice.Link).event),
+                color = colors.inkPrimary,
+            )
             if (phase == RecoveryAlertModel.Phase.FAILED) {
                 Text(stringResource(R.string.bipe_error_network), style = MaterialTheme.typography.bodySmall, color = colors.trustDangerInk)
             }
             Spacer(Modifier.weight(1f))
-            if (recovery.state == BipeRecoveryState.WAITING) {
+            if (recovery?.state == BipeRecoveryState.WAITING) {
                 Button(
                     onClick = { model.cancel { OwnerCheck.owner(context, ownerTitle) } },
                     enabled = phase != RecoveryAlertModel.Phase.CANCELLING,

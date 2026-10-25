@@ -116,6 +116,7 @@ sealed interface SettingsRoute {
     data object AppLockSetup : SettingsRoute
     data object AppLockOff : SettingsRoute
     data object LinkedDevices : SettingsRoute
+    data object LinkedAccounts : SettingsRoute
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
@@ -191,6 +192,7 @@ fun SettingsHost(
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
+        SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
         SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, onClose = pop)
         SettingsRoute.RecoveryEmail -> {
@@ -327,6 +329,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_SIGN_OUT -> showsSignOut = true
             BipeSettingsRow.ACCOUNT_CHANGE_PIN -> onOpen(SettingsRoute.PinChange)
             BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
+            BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS -> onOpen(SettingsRoute.LinkedAccounts)
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
             BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)
@@ -430,8 +433,6 @@ fun SettingsGroupScreen(
 private fun isAvailable(row: BipeSettingsRow, lockOn: Boolean, hasBiometrics: Boolean): Boolean = when (row) {
     // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
     BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK -> lockOn && hasBiometrics
-    // Waits for the linked-account screen (bipe-chat/bipe#307, bipe#308).
-    BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS -> false
     else -> true
 }
 

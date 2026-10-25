@@ -38,7 +38,7 @@ import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 
-/** Spec encryption-status: the quiet banner above the chat list. Shows nothing when it does not apply. */
+/** Spec encryption-status: the quiet banner, the first row of the chat list. Shows nothing when it does not apply. */
 @Composable
 fun HistoryBanner(model: EncryptionStatusModel) {
     val verificationState by model.verificationState.collectAsState()

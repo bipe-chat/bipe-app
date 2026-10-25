@@ -56,12 +56,6 @@ final class ChatListModel: ObservableObject {
 
     @Published private(set) var phase: Phase = .loading
     @Published private(set) var chats: [ChatSummary] = []
-    /// Each tab keeps its own Unread filter without changing the all-chat stream used by tab badges.
-    @Published private(set) var unreadScopes: Set<ChatScope> = []
-    @Published private var unreadChats: [ChatScope: [ChatSummary]] = [:]
-    @Published private var unreadLoading: Set<ChatScope> = []
-    private var unreadLists: [ChatScope: FilteredRoomList] = [:]
-    private var unreadTasks: [ChatScope: Task<Void, Never>] = [:]
 
     let session: AccountSession
     let media: MediaLoader
@@ -72,6 +66,8 @@ final class ChatListModel: ObservableObject {
     private let subscriptionOwner = UUID().uuidString
     /// One model belongs to one account session. Never replace a known time with an absent preview.
     private var knownActivity: [String: Date] = [:]
+    /// Rows without an SDK latest event take their date from the local timeline (bipe-chat/bipe#592).
+    private var rowActivity: RowActivityScanner?
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult?
     private var handles: [TaskHandle] = []
@@ -90,18 +86,18 @@ final class ChatListModel: ObservableObject {
         notes = NotesRoom(session: session)
         clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in
             self?.refreshSummaries()
-            self?.unreadLists.values.forEach { $0.refresh() }
         }
+        rowActivity = RowActivityScanner(client: session.client) { [weak self] in self?.refreshSummaries() }
     }
 
     /// The chats of one scope, in room list order.
     func chats(in scope: ChatScope, archived: Bool = false) -> [ChatSummary] {
-        (unreadScopes.contains(scope) && !archived ? unreadChats[scope, default: []] : chats).filter { $0.scope == scope && archive.contains($0) == archived }
+        chats.filter { $0.scope == scope && archive.contains($0) == archived }
     }
 
     /// The phase of one scope: empty when the list loaded and the scope has no chat.
     func phase(in scope: ChatScope, archived: Bool = false) -> Phase {
-        guard phase != .loading, !(unreadScopes.contains(scope) && !archived && unreadLoading.contains(scope)) else { return .loading }
+        guard phase != .loading else { return .loading }
         return !chats(in: scope, archived: archived).isEmpty ? .loaded : (listLoaded ? .empty : .loading)
     }
 
@@ -138,6 +134,13 @@ final class ChatListModel: ObservableObject {
         }
         for await updates in entriesStream.updates {
             for update in updates {
+                // A room that moved or changed may have newer events than the ones read for its date.
+                switch update {
+                case .set(_, let room), .insert(_, let room), .pushFront(let room), .pushBack(let room):
+                    rowActivity?.invalidate(roomId: room.id())
+                default:
+                    break
+                }
                 rooms.apply(update.vectorDiff)
             }
             refreshSummaries()
@@ -150,43 +153,14 @@ final class ChatListModel: ObservableObject {
     /// Requests stay outside the joined list; badges always observe the unfiltered stream.
     private var filter: RoomListEntriesDynamicFilterKind { .all(filters: [.joined, .nonSpace, .deduplicateVersions]) }
 
-    func toggleUnread(in scope: ChatScope) {
-        if unreadScopes.remove(scope) != nil { return }
-        unreadScopes.insert(scope)
-        guard unreadLists[scope] == nil else { return }
-        unreadLoading.insert(scope)
-        let list = FilteredRoomList { [weak self] rooms in
-            guard let self else { return }
-            self.unreadTasks[scope]?.cancel()
-            self.unreadTasks[scope] = Task { [weak self] in
-                guard let self else { return }
-                var summaries: [ChatSummary] = []
-                for room in rooms where room.id() != self.notes.roomId {
-                    if let summary = await Self.summary(of: room, ownUserId: self.session.userId) { summaries.append(summary) }
-                }
-                guard !Task.isCancelled else { return }
-                let visible = await NativeDmSelection.visible(summaries, session: self.session)
-                guard !Task.isCancelled else { return }
-                let dated = self.retainingKnownActivity(visible)
-                self.archive.reconcile(dated)
-                self.unreadChats[scope] = dated
-                self.unreadLoading.remove(scope)
-            }
-        }
-        unreadLists[scope] = list
-        Task { await list.start(session: session, filter: .all(filters: [.joined, .nonSpace, .deduplicateVersions,
-            .category(expect: scope == .conversas ? .people : .group), .unread])) }
-    }
-
     /// Action loadMore: the next page, when the list scrolls near its end.
     func loadMore(in scope: ChatScope) {
-        if unreadScopes.contains(scope) { unreadLists[scope]?.loadMore() }
-        else { entries?.controller().addOnePage() }
+        entries?.controller().addOnePage()
     }
 
-    /// Resolve actions in this account's all-room or SDK unread stream, never a global current account.
+    /// Resolve actions in this account's room list, never a global current account.
     func currentChat(_ roomId: String) -> ChatSummary? {
-        chats.first { $0.roomId == roomId } ?? unreadChats.values.flatMap { $0 }.first { $0.roomId == roomId }
+        chats.first { $0.roomId == roomId }
     }
 
     /// Marking read is an explicit public receipt, followed by clearing the manual unread flag (ADR 0050).
@@ -204,7 +178,6 @@ final class ChatListModel: ObservableObject {
             try await room.setUnreadFlag(newValue: unread)
             failedReadIntent = nil
             refreshSummaries()
-            unreadLists.values.forEach { $0.refresh() }
         } catch is CancellationError {
             // A discarded view task must not become a retry in a different account.
         } catch {
@@ -270,13 +243,28 @@ final class ChatListModel: ObservableObject {
         }
     }
 
+    /// The row date (BipeRowActivity): the SDK latest event, else the newest event of the local timeline, which
+    /// includes undecryptable events (bipe-chat/bipe#592), else a time known earlier in this account session.
     private func retainingKnownActivity(_ summaries: [ChatSummary]) -> [ChatSummary] {
         summaries.map { summary in
             var summary = summary
-            if let time = summary.lastActivity { knownActivity[summary.roomId] = time }
-            else { summary.lastActivity = knownActivity[summary.roomId] }
+            let sdkLatestMs = summary.lastActivity.map(Self.milliseconds)
+            guard BipeRowActivity.needsLocalTimeline(sdkLatestMs: sdkLatestMs) else {
+                knownActivity[summary.roomId] = summary.lastActivity
+                return summary
+            }
+            let local = rowActivity?.localEvents(roomId: summary.roomId) ?? []
+            let known = knownActivity[summary.roomId].map(Self.milliseconds)
+            if let ms = BipeRowActivity.resolve(sdkLatestMs: sdkLatestMs, localEvents: local, knownMs: known) {
+                summary.lastActivity = Date(milliseconds: ms)
+                knownActivity[summary.roomId] = summary.lastActivity
+            }
             return summary
         }
+    }
+
+    private static func milliseconds(_ date: Date) -> UInt64 {
+        UInt64(max(0, (date.timeIntervalSince1970 * 1000).rounded()))
     }
 
     static func summary(of room: Room, ownUserId: String) async -> ChatSummary? {

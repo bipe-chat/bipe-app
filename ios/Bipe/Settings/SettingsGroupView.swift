@@ -116,8 +116,6 @@ struct SettingsGroupView: View {
         switch row {
         // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
         case .accountBiometricUnlock: model.appLockOn && OwnerCheck.biometricKind != .none
-        // Waits for the linked-account screen (bipe-chat/bipe#307, bipe#308).
-        case .accountLinkedAccounts: false
         default: true
         }
     }
@@ -193,6 +191,12 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title)
             }
+        case .accountLinkedAccounts:
+            NavigationLink {
+                LinkedAccountsView(settings: model)
+            } label: {
+                SettingsRowLabel(title: row.title, value: linkedSummary)
+            }
         case .helpReportProblem:
             NavigationLink {
                 ProblemReportView(model: model)
@@ -246,6 +250,12 @@ struct SettingsGroupView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    /// The linked providers, for the linkedAccounts row (ADR 0096).
+    private var linkedSummary: String? {
+        guard let links = model.account?.links, !links.isEmpty else { return nil }
+        return links.map { $0.provider == .apple ? BipeStrings.linkedApple : BipeStrings.linkedGoogle }.joined(separator: ", ")
     }
 
     /// The current value of a row, formatted (spec settings-group, SettingsRow.value).
