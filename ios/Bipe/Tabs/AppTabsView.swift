@@ -5,8 +5,9 @@
 import BipeKit
 import SwiftUI
 
-/// Spec app-tabs: Conversas · Grupos · Você, then Buscar in the search tab role, which the system draws apart at the
-/// trailing end (ADR 0053, MZ decision 25 Oct 2026). Keep it the last tab.
+/// Spec app-tabs: Conversas · Grupos · Você, then Buscar apart at the trailing end (ADR 0053, MZ decision 25 Oct 2026).
+/// Keep it the last tab. iOS 27 draws a tab apart only with the `.prominent` role; there a `.search` tab only "may" get
+/// that treatment, and on MZ's iPhone it did not. iOS 18 to 26 draw the `.search` role apart.
 /// A company account has Trabalho in place of Grupos, and its groups in Conversas.
 /// The standard tab bar with SF Symbols: the system sets their size, weight and selected state (ADR 0149).
 struct AppTabsView: View {
@@ -21,6 +22,13 @@ struct AppTabsView: View {
     private struct InviteCode: Identifiable {
         let code: String
         var id: String { code }
+    }
+
+    private static var searchRole: TabRole {
+        if #available(iOS 27.0, *) {
+            return .prominent
+        }
+        return .search
     }
 
     var body: some View {
@@ -62,7 +70,7 @@ struct AppTabsView: View {
             // The other-account dot (ADR 0135), as the system tab badge.
             .badge(model.otherAccountUnread ? Text("•") : nil)
 
-            Tab(value: AppTabsModel.Tab.search, role: .search) {
+            Tab(value: AppTabsModel.Tab.search, role: Self.searchRole) {
                 AccountSearchView(model: chatList, api: api)
             } label: {
                 Label(BipeStrings.appTabSearch, systemImage: "magnifyingglass")

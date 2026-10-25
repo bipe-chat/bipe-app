@@ -114,8 +114,24 @@ final class NotificationService: UNNotificationServiceExtension {
         content.threadIdentifier = target.identifier
         content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId, kind: kind)
         content.badge = unreadCount.map { NSNumber(value: $0) }
-        content.sound = sound(isNoisy: item.isNoisy ?? true)
+        // bipe-chat/bipe#511: this account's preview choice; without it, no sender and no text.
+        if !NotificationPrefs.preview(for: target.accountUserId) {
+            content.title = BipeStrings.appName
+            content.body = BipeStrings.appNotificationNewMessage
+        }
+        apply(sound: sound(isNoisy: item.isNoisy ?? true, userId: target.accountUserId), to: content, userId: target.accountUserId)
         return content
+    }
+
+    /// The account's sound, and outside a work account's opening hours no sound and no banner (ADR 0138 rule 4):
+    /// interruptionLevel passive keeps the notification in the list only.
+    private static func apply(sound: UNNotificationSound?, to content: UNMutableNotificationContent, userId: String) {
+        if NotificationPrefs.isQuiet(userId) {
+            content.sound = nil
+            content.interruptionLevel = .passive
+        } else {
+            content.sound = sound
+        }
     }
 
     /// Plain text and media kind/caption from the decrypted event; no attachment fetch or raw filename.
@@ -144,7 +160,11 @@ final class NotificationService: UNNotificationServiceExtension {
         content.title = BipeStrings.appName
         content.body = BipeStrings.appNotificationNewMessage
         content.badge = unreadCount.map { NSNumber(value: $0) }
-        content.sound = sound(isNoisy: true)
+        if let userId = target?.accountUserId {
+            apply(sound: sound(isNoisy: true, userId: userId), to: content, userId: userId)
+        } else {
+            content.sound = .default
+        }
         if let target, let route, let eventId {
             content.threadIdentifier = target.identifier
             content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId, kind: "fallback")
@@ -153,9 +173,9 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     /// The sound of notification-settings. Bipe's soft sound has no asset yet, so soft plays the system sound.
-    private static func sound(isNoisy: Bool) -> UNNotificationSound? {
+    private static func sound(isNoisy: Bool, userId: String) -> UNNotificationSound? {
         guard isNoisy else { return nil }
-        switch NotificationSound.current {
+        switch NotificationSound.current(for: userId) {
         case .phone, .soft: return .default
         case .silent: return nil
         }

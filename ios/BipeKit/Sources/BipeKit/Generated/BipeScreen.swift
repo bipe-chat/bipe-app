@@ -55,6 +55,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json
     case businessChatBar = "business-chat-bar"
 
+    /// My business: claim and verify the company (flow voce). Spec: bipe-shared/product/screens/business-claim.json
+    case businessClaim = "business-claim"
+
     /// Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json
     case businessTools = "business-tools"
 
@@ -393,4 +396,7 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Who can message me (flow settings). Spec: bipe-shared/product/screens/who-can-message.json
     case whoCanMessage = "who-can-message"
+
+    /// Opening hours of a work account (flow settings). Spec: bipe-shared/product/screens/work-hours.json
+    case workHours = "work-hours"
 }

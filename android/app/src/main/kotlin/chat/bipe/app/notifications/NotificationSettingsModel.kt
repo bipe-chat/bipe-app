@@ -5,8 +5,10 @@
 package chat.bipe.app.notifications
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.shared.account.BipeWorkHours
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.isCompany
 import chat.bipe.shared.settings.newsState
 import chat.bipe.shared.settings.setNews
 import kotlin.coroutines.cancellation.CancellationException
@@ -71,11 +73,17 @@ class NotificationSettingsModel(
         val newsRoomId: String? = null,
         val newsBusy: Boolean = false,
         val showsNewsError: Boolean = false,
+        /** Spec notification-settings, state preview (per account on this phone). */
+        val preview: Boolean = true,
+        /** Spec notification-settings, state isCompany: the opening-hours row shows. */
+        val isCompany: Boolean = false,
+        /** The opening hours, for the row's value. Null until read or for a personal account. */
+        val workHours: BipeWorkHours? = null,
     )
 
     enum class News { UNKNOWN, ON, OFF }
 
-    private val _state = MutableStateFlow(State(sound = notifications.sound))
+    private val _state = MutableStateFlow(State(sound = notifications.sound(session.userId), preview = notifications.preview(session.userId)))
     val state: StateFlow<State> = _state.asStateFlow()
 
     /** The system permission is allowed and push-registration has a pusher. */
@@ -100,6 +108,28 @@ class NotificationSettingsModel(
             load(settings)
         }
         scope.launch { loadNews() }
+        scope.launch { loadWorkSide() }
+    }
+
+    /** Reads whether the account is a company and, if so, its opening hours (spec work-hours). */
+    private suspend fun loadWorkSide() {
+        val isCompany = api.isCompany(session.userId)
+        _state.update { it.copy(isCompany = isCompany) }
+        if (isCompany) {
+            val hours = WorkHoursSync.refresh(session, api, notifications)
+            _state.update { it.copy(workHours = hours) }
+        }
+    }
+
+    /** After a save on work-hours. */
+    fun workHoursSaved(hours: BipeWorkHours) {
+        _state.update { it.copy(workHours = hours) }
+    }
+
+    /** Action setPreview. */
+    fun setPreview(isOn: Boolean) {
+        notifications.setPreview(session.userId, isOn)
+        _state.update { it.copy(preview = notifications.preview(session.userId)) }
     }
 
     /** news: on only when the API has the user subscribed and the user is joined to or invited in the room. */
@@ -185,8 +215,8 @@ class NotificationSettingsModel(
 
     /** Action setSound: moves the messages channel to that sound. A failure shows bipe_notifications_tone_error. */
     fun setSound(sound: NotificationSound) {
-        val saved = notifications.setSound(sound)
-        _state.update { it.copy(sound = notifications.sound, showsToneError = !saved) }
+        val saved = notifications.setSound(session.userId, sound)
+        _state.update { it.copy(sound = notifications.sound(session.userId), showsToneError = !saved) }
     }
 
     fun dismissErrors() {
@@ -219,7 +249,8 @@ class NotificationSettingsModel(
                 invites = invites,
                 mentionsMayMiss = mentionsMayMiss,
                 hasOlderChoices = chats != chatsPlain || groups != groupsPlain || hasKeywords,
-                sound = notifications.sound,
+                sound = notifications.sound(session.userId),
+                preview = notifications.preview(session.userId),
                 isLoaded = true,
             )
         }

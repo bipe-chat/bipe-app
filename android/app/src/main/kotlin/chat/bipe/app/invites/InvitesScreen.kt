@@ -9,18 +9,22 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,8 +38,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
@@ -43,6 +51,7 @@ import chat.bipe.app.people.PeopleScaffold
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.Person
 import chat.bipe.app.people.QrCode
+import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeInvite
 import chat.bipe.shared.generated.BipeScreen
@@ -51,86 +60,71 @@ import java.time.Instant
 import java.util.Date
 import kotlinx.coroutines.launch
 
-data class InviteQr(val id: String, val url: String, val name: String? = null) {
-    override fun toString(): String = "InviteQr($id)"
+/** One invite as the card shows it: a new one from create, or a pending one from the list. */
+data class InviteCard(val id: String, val url: String?, val expiresAt: String) {
+    override fun toString(): String = "InviteCard($id)"
 }
 
-/** Spec invites, including the create-note and QR screens. Navigation stays inside the selected account. */
+/** Spec invites: one create button, then two lists. A pending row opens its card; a joined row opens the chat. */
 @Composable
 fun InvitesScreen(model: InvitesModel, people: PeopleService, onBack: () -> Unit, openChat: (String) -> Unit) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     var creating by remember { mutableStateOf(false) }
-    var qr by remember { mutableStateOf<InviteQr?>(null) }
-    var editing by remember { mutableStateOf<BipeInvite?>(null) }
-    var name by remember { mutableStateOf("") }
-    var revoking by remember { mutableStateOf<BipeInvite?>(null) }
+    var card by remember { mutableStateOf<InviteCard?>(null) }
     LaunchedEffect(model) { model.refresh() }
 
-    val code = qr
+    val open = card
     when {
-        code != null -> { InviteQrScreen(code) { qr = null }; return }
-        creating -> { InviteNoteScreen(model, onBack = { creating = false }, showQr = { qr = it }); return }
+        open != null -> { InviteCardScreen(model, open) { card = null }; return }
+        creating -> { InviteCreateScreen(model, onBack = { creating = false }); return }
     }
     BackHandler(onBack = onBack)
     PeopleScaffold(stringResource(R.string.bipe_invites_title), BipeScreen.INVITES.id, onBack) {
-        Button(onClick = { model.beginCreate(); creating = true }, enabled = (state.quota?.available ?: 0) > 0) {
+        Button(onClick = { model.beginCreate(); creating = true }, enabled = (state.quota?.available ?: 0) > 0, modifier = Modifier.fillMaxWidth()) {
+            Icon(painterResource(PhosphorIcon.PLUS.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.bipe_invites_create))
         }
         val available = state.quota?.available
-        if (available != null && available <= 0) {
-            Text(stringResource(R.string.bipe_invites_none_left))
-            state.quota?.nextAvailableAt?.let { Text(stringResource(R.string.bipe_invites_next, dateLabel(it))) }
+        val footer = if (available != null && available <= 0) {
+            listOfNotNull(stringResource(R.string.bipe_invites_none_left),
+                state.quota?.nextAvailableAt?.let { stringResource(R.string.bipe_invites_next, dateLabel(it)) })
         } else {
-            Text(stringResource(R.string.bipe_invites_explainer), color = BipeTheme.colors.inkSecondary)
-            if (available != null && available <= 5) Text(stringResource(R.string.bipe_invites_available, available.toString()))
+            listOfNotNull(stringResource(R.string.bipe_invites_explainer),
+                available?.takeIf { it <= 5 }?.let { stringResource(R.string.bipe_invites_available, it.toString()) })
         }
-        if (state.phase == InvitesModel.Phase.LOADING) CircularProgressIndicator()
+        Text(footer.joinToString(" "), style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary)
+        if (state.phase == InvitesModel.Phase.LOADING) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
         if (state.phase == InvitesModel.Phase.FAILED) {
             Text(stringResource(R.string.bipe_error_network), color = BipeTheme.colors.trustDangerInk)
             TextButton(onClick = { scope.launch { model.refresh() } }) { Text(stringResource(R.string.bipe_app_retry)) }
         }
         state.error?.let { Text(it, color = BipeTheme.colors.trustDangerInk) }
         if (state.phase == InvitesModel.Phase.LOADED && state.pending.isEmpty() && state.joined.isEmpty()) {
-            Text(stringResource(R.string.bipe_invites_empty))
+            Text(stringResource(R.string.bipe_invites_empty), color = BipeTheme.colors.inkSecondary)
         }
         if (state.pending.isNotEmpty()) Text(stringResource(R.string.bipe_invites_pending_header), style = MaterialTheme.typography.titleMedium)
         state.pending.forEach { invite ->
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(invite.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.bipe_invites_status_pending))
-                Text(stringResource(R.string.bipe_invites_expires, dateLabel(invite.expiresAt)), style = MaterialTheme.typography.bodySmall)
-                if (invite.id in state.notes) Text(stringResource(R.string.bipe_invite_note_title), style = MaterialTheme.typography.bodySmall)
-                val link = state.links[invite.id]
-                if (link == null) Text(stringResource(R.string.bipe_invites_other_device), color = BipeTheme.colors.inkSecondary)
-                else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { shareInvite(context, link) }) { Text(stringResource(R.string.bipe_app_share)) }
-                    TextButton(onClick = { qr = InviteQr(invite.id, link, invite.name) }) { Text(stringResource(R.string.bipe_invites_qr_action)) }
-                }
-                Row {
-                    TextButton(onClick = { name = invite.name.orEmpty(); editing = invite }) { Text(stringResource(R.string.bipe_invites_name_action)) }
-                    TextButton(onClick = { revoking = invite }) { Text(stringResource(R.string.bipe_invites_revoke), color = BipeTheme.colors.trustDangerInk) }
-                }
-                HorizontalDivider()
-            }
+            val link = state.links[invite.id]
+            PendingInviteRow(invite, onThisPhone = link != null) { card = InviteCard(invite.id, link, invite.expiresAt) }
         }
         if (state.joined.isNotEmpty()) Text(stringResource(R.string.bipe_invites_joined_header), style = MaterialTheme.typography.titleMedium)
         state.joined.forEach { JoinedInviteRow(it, people, openChat) }
     }
-    editing?.let { invite ->
-        AlertDialog(onDismissRequest = { editing = null }, title = { Text(stringResource(R.string.bipe_invites_name_action)) },
-            text = { Column {
-                OutlinedTextField(name, onValueChange = { name = it }, label = { Text(stringResource(R.string.bipe_invites_name_placeholder)) })
-                Text(stringResource(R.string.bipe_invites_name_footer))
-            } },
-            confirmButton = { TextButton(onClick = { editing = null; scope.launch { model.setName(invite.id, name) } }) { Text(stringResource(R.string.bipe_app_save)) } },
-            dismissButton = { TextButton(onClick = { editing = null }) { Text(stringResource(R.string.bipe_app_cancel)) } })
+}
+
+@Composable
+private fun PendingInviteRow(invite: BipeInvite, onThisPhone: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(invite.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.bipe_invites_link))
+            Text(if (onThisPhone) stringResource(R.string.bipe_invites_expires, dateLabel(invite.expiresAt)) else stringResource(R.string.bipe_invites_other_device),
+                style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary)
+        }
+        Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = BipeTheme.colors.inkSecondary, modifier = Modifier.size(20.dp))
     }
-    revoking?.let { invite ->
-        AlertDialog(onDismissRequest = { revoking = null }, title = { Text(stringResource(R.string.bipe_invites_revoke)) },
-            confirmButton = { TextButton(onClick = { revoking = null; scope.launch { model.revoke(invite) } }) { Text(stringResource(R.string.bipe_invites_revoke)) } },
-            dismissButton = { TextButton(onClick = { revoking = null }) { Text(stringResource(R.string.bipe_app_cancel)) } })
-    }
+    HorizontalDivider()
 }
 
 @Composable
@@ -156,60 +150,97 @@ private fun JoinedInviteRow(invite: BipeInvite, people: PeopleService, openChat:
     }
 }
 
-/** Spec invite-note. A retry after creation never repeats POST /invites. */
+/** Spec invite-note, without the note: ask who it is for, create, then show the card. A retry never repeats POST /invites. */
 @Composable
-private fun InviteNoteScreen(model: InvitesModel, onBack: () -> Unit, showQr: (InviteQr) -> Unit) {
+private fun InviteCreateScreen(model: InvitesModel, onBack: () -> Unit) {
     val state by model.state.collectAsState()
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val defaultNote = stringResource(R.string.bipe_invite_note_default)
+    val focus = remember { FocusRequester() }
     var name by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf(defaultNote) }
     var busy by remember { mutableStateOf(false) }
-    var copied by remember { mutableStateOf(false) }
+    val created = state.created
+    if (created != null && state.error == null) {
+        InviteCardScreen(model, InviteCard(created.id, created.url, created.expiresAt), onBack)
+        return
+    }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     BackHandler { if (!busy) onBack() }
-    PeopleScaffold(stringResource(R.string.bipe_invites_create), BipeScreen.INVITE_NOTE.id, onBack = { if (!busy) onBack() }) {
-        val created = state.created
-        if (created != null) {
-            Text(created.url)
-            Text(stringResource(R.string.bipe_invites_expires, dateLabel(created.expiresAt)))
-            TextButton(onClick = { shareInvite(context, created.url) }) { Text(stringResource(R.string.bipe_app_share)) }
-            TextButton(onClick = {
-                context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(null, created.url))
-                copied = true
-            }) { Text(stringResource(R.string.bipe_app_copy)) }
-            TextButton(onClick = { showQr(InviteQr(created.id, created.url, name)) }) { Text(stringResource(R.string.bipe_invites_qr_action)) }
-        } else {
-            OutlinedTextField(name, onValueChange = { name = it }, enabled = !busy,
-                label = { Text(stringResource(R.string.bipe_invites_name_placeholder)) }, modifier = Modifier.fillMaxWidth())
-            Text(stringResource(R.string.bipe_invites_name_footer), style = MaterialTheme.typography.bodySmall)
-            OutlinedTextField(note, onValueChange = { note = it }, enabled = !busy, minLines = 3,
-                label = { Text(stringResource(R.string.bipe_invite_note_title)) }, modifier = Modifier.fillMaxWidth())
-            Text(stringResource(R.string.bipe_invite_note_footer), style = MaterialTheme.typography.bodySmall)
-        }
+    PeopleScaffold(stringResource(R.string.bipe_invites_name_action), BipeScreen.INVITE_NOTE.id, onBack = { if (!busy) onBack() }) {
+        OutlinedTextField(name, onValueChange = { name = it }, enabled = !busy, singleLine = true,
+            label = { Text(stringResource(R.string.bipe_invites_name_placeholder)) }, modifier = Modifier.fillMaxWidth().focusRequester(focus))
+        Text(stringResource(R.string.bipe_invites_name_footer), style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary)
         state.error?.let { Text(it, color = BipeTheme.colors.trustDangerInk) }
-        if (created == null || state.error != null) Button(enabled = !busy, onClick = {
+        Button(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
             busy = true
-            scope.launch { try { model.create(name, note) } finally { busy = false } }
+            scope.launch { try { model.create(name) } finally { busy = false } }
         }) {
-            if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            if (busy) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)) }
             Text(stringResource(if (busy) R.string.bipe_app_invite_creating else if (created == null) R.string.bipe_invites_create else R.string.bipe_app_retry))
         }
-        if (copied) Text(stringResource(R.string.bipe_app_copied))
     }
 }
 
+/** One invite: the QR code and the link to share, then rename and revoke. A new invite and a pending one look the same. */
 @Composable
-private fun InviteQrScreen(invite: InviteQr, onBack: () -> Unit) {
+private fun InviteCardScreen(model: InvitesModel, card: InviteCard, onBack: () -> Unit) {
+    val state by model.state.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val invite = state.pending.firstOrNull { it.id == card.id }
+    var copied by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var revoking by remember { mutableStateOf(false) }
     BackHandler(onBack = onBack)
-    PeopleScaffold(stringResource(R.string.bipe_invites_qr_title), BipeScreen.INVITE_QR.id, onBack) {
+    val title = invite?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.bipe_invites_link)
+    PeopleScaffold(title, BipeScreen.INVITE_QR.id, onBack) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            invite.name?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.titleMedium) }
-            QrCode(invite.url)
-            Text(stringResource(R.string.bipe_invites_qr_footer))
-            TextButton(onClick = { shareInvite(context, invite.url) }) { Text(stringResource(R.string.bipe_app_share)) }
+            val url = card.url
+            if (url != null) {
+                QrCode(url)
+                Text(stringResource(R.string.bipe_invites_expires, dateLabel(card.expiresAt)), color = BipeTheme.colors.inkSecondary)
+                Button(onClick = { shareInvite(context, url) }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(painterResource(PhosphorIcon.SHARE_NETWORK.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.bipe_app_share))
+                }
+                OutlinedButton(onClick = {
+                    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(null, url))
+                    copied = true
+                }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(painterResource(PhosphorIcon.COPY.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(if (copied) R.string.bipe_app_copied else R.string.bipe_app_copy))
+                }
+                Text(stringResource(R.string.bipe_invites_qr_footer), style = MaterialTheme.typography.bodySmall,
+                    color = BipeTheme.colors.inkSecondary, textAlign = TextAlign.Center)
+            } else {
+                Text(stringResource(R.string.bipe_invites_other_device), color = BipeTheme.colors.inkSecondary)
+            }
+            if (invite != null) {
+                HorizontalDivider()
+                TextButton(onClick = { name = invite.name.orEmpty(); editing = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.bipe_invites_name_action))
+                }
+                TextButton(onClick = { revoking = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.bipe_invites_revoke), color = BipeTheme.colors.trustDangerInk)
+                }
+            }
         }
+    }
+    if (editing && invite != null) {
+        AlertDialog(onDismissRequest = { editing = false }, title = { Text(stringResource(R.string.bipe_invites_name_action)) },
+            text = { Column {
+                OutlinedTextField(name, onValueChange = { name = it }, singleLine = true, label = { Text(stringResource(R.string.bipe_invites_name_placeholder)) })
+                Text(stringResource(R.string.bipe_invites_name_footer))
+            } },
+            confirmButton = { TextButton(onClick = { editing = false; scope.launch { model.setName(invite.id, name) } }) { Text(stringResource(R.string.bipe_app_save)) } },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text(stringResource(R.string.bipe_app_cancel)) } })
+    }
+    if (revoking && invite != null) {
+        AlertDialog(onDismissRequest = { revoking = false }, title = { Text(stringResource(R.string.bipe_invites_revoke)) },
+            confirmButton = { TextButton(onClick = { revoking = false; scope.launch { model.revoke(invite); onBack() } }) { Text(stringResource(R.string.bipe_invites_revoke)) } },
+            dismissButton = { TextButton(onClick = { revoking = false }) { Text(stringResource(R.string.bipe_app_cancel)) } })
     }
 }
 
@@ -219,5 +250,5 @@ private fun shareInvite(context: Context, link: String) {
 }
 
 private fun dateLabel(raw: String): String = runCatching {
-    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date.from(Instant.parse(raw)))
+    DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date.from(Instant.parse(raw)))
 }.getOrDefault(raw)
