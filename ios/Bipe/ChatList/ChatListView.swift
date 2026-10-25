@@ -526,10 +526,9 @@ struct ChatListView: View {
             peopleScreen(route)
         case nil:
             // Wide window with no chat open. The list beside it is the call to action, so no text here.
-            PhosphorIcon.chatCircle.image
-                .resizable()
+            BipeMark()
+                .fill(BipeColor.inkSecondary)
                 .frame(width: 64, height: 64)
-                .foregroundStyle(BipeColor.inkSecondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
                 .accessibilityHidden(true)
