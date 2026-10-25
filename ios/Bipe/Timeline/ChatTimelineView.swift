@@ -59,6 +59,10 @@ struct ChatTimelineView: View {
                 }
             }
             TypingLine(names: model.typingNames)
+            // Spec chat-timeline profileNotice (ADR 0049): 1:1 chats only, amber, above the composer.
+            if model.isDm, let people, let peer = model.peerUserId, peer != session.userId {
+                ProfileNoticeBar(people: people, userId: peer, name: model.roomName)
+            }
             if model.isDm, let people, let peer = model.peerUserId {
                 DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
                     leftBar

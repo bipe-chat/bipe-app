@@ -148,6 +148,16 @@ public struct BipeAPIClient: Sendable {
         try await send(method: "DELETE", path: ["v1", "me", "handle"], body: Empty?.none, accessToken: accessToken)
     }
     
+    // MARK: - Profile facts (ADR 0049)
+    
+    /// `POST /v1/profile-facts`. At most ``BipeProfileFacts/batchSize`` IDs. IDs the API does not know are absent.
+    public func profileFacts(userIDs: [String], accessToken: String) async throws(BipeAPIError) -> [BipeProfileFacts] {
+        let response: ProfileFactsResponse = try await send(method: "POST", path: ["v1", "profile-facts"],
+                                                            body: ProfileFactsRequest(userIds: userIDs),
+                                                            accessToken: accessToken)
+        return response.facts
+    }
+    
     // MARK: - Invites
     
     /// `GET /v1/invites/{code}`. No auth. Validity and the inviter's handle.
@@ -458,6 +468,14 @@ public struct BipeAPIClient: Sendable {
     
     private struct HandleChangesResponse: Decodable {
         let changes: [BipeHandleChange]
+    }
+    
+    private struct ProfileFactsRequest: Encodable {
+        let userIds: [String]
+    }
+    
+    private struct ProfileFactsResponse: Decodable {
+        let facts: [BipeProfileFacts]
     }
     
     private static func formatDate(_ date: Date) -> String {
@@ -989,6 +1007,10 @@ public enum BipeAPIErrorCode: String, Sendable {
     case cnpjNotActive = "cnpj_not_active"
     case cnpjTaken = "cnpj_taken"
     case signatureInvalid = "signature_invalid"
+    /// 403. Only a company with a verified claim grants brand marks (ADR 0162).
+    case brandNotVerified = "brand_not_verified"
+    /// 409. The account already holds the most brand marks (ADR 0162); the invite stays open.
+    case brandMarkLimit = "brand_mark_limit"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -1055,6 +1077,8 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .cnpjNotActive: BipeStrings.claimRejected
             case .cnpjTaken: BipeStrings.claimCnpjTaken
             case .signatureInvalid: BipeStrings.claimSignatureInvalid
+            case .brandNotVerified: BipeStrings.brandMarksNotVerified
+            case .brandMarkLimit: BipeStrings.brandMarksLimit
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

@@ -6,6 +6,12 @@
     <string name="bipe_badge_verified_name">Nome verificado: %1$s</string>
     <string name="bipe_badge_institution">Instituição verificada</string>
     <string name="bipe_badge_suspended">Verificação do nome suspensa</string>
+    <string name="bipe_profile_fact_created">Conta criada há %1$s</string>
+    <string name="bipe_profile_fact_photo_once">Foto alterada há %1$s</string>
+    <string name="bipe_profile_fact_photo_times">Foto alterada %1$s vezes em %2$s dias</string>
+    <string name="bipe_profile_fact_name_once">Nome alterado há %1$s</string>
+    <string name="bipe_profile_fact_name_times">Nome alterado %1$s vezes em %2$s dias</string>
+    <string name="bipe_profile_notice_name_photo">%1$s mudou o nome e a foto há pouco tempo. Antes de mandar dinheiro, confirme com a pessoa por outro meio.</string>
     <string name="bipe_banner_unverified_title">Nome não verificado</string>
     <string name="bipe_banner_unverified_body">Conta criada há %1$s. Não está nos seus contatos.</string>
     <string name="bipe_banner_external">Conta de outro serviço. O Bipe não verifica o nome dessa pessoa.</string>

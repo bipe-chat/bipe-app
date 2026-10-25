@@ -65,7 +65,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** What the business tools section has open. */
-private enum class ToolScreen { AGENDA, CATALOG, ORDERS, QUOTES, QUEUE }
+private enum class ToolScreen { AGENDA, CATALOG, ORDERS, QUOTES, QUEUE, BRAND_MARKS }
 
 /**
  * Spec app-tabs and business-tools: the Trabalho tab of a company account, in the place of Grupos.
@@ -121,6 +121,7 @@ fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpe
         ToolRow(PhosphorIcon.CHECKS, stringResource(R.string.bipe_orders_title), null) { open = ToolScreen.ORDERS }
         ToolRow(PhosphorIcon.HANDSHAKE, stringResource(R.string.bipe_quotes_title), null) { open = ToolScreen.QUOTES }
         ToolRow(PhosphorIcon.USERS_THREE, stringResource(R.string.bipe_queue_title), null) { open = ToolScreen.QUEUE }
+        ToolRow(PhosphorIcon.SEAL_CHECK, stringResource(R.string.bipe_brand_marks_title), null) { open = ToolScreen.BRAND_MARKS }
         Text(stringResource(R.string.bipe_business_tools_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
     }
@@ -135,6 +136,7 @@ fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpe
                 ToolScreen.ORDERS -> OrderOwnerScreen(business, customers, onOpenChat = openCustomerChat, onClose = { open = null })
                 ToolScreen.QUOTES -> QuoteOwnerScreen(business, onOpenChat = openCustomerChat, onClose = { open = null })
                 ToolScreen.QUEUE -> QueueOwnerScreen(business, customers, onClose = { open = null })
+                ToolScreen.BRAND_MARKS -> BrandMarksScreen(business, onClose = { open = null })
             }
         }
     }

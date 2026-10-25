@@ -93,6 +93,15 @@ class BipeApiClient(baseUrl: String) {
         response = BipeHandleChangesResponse.serializer(),
     ).changes
 
+    /** `POST /v1/profile-facts` (ADR 0049). At most [BipeProfileFacts.BATCH_SIZE] IDs. IDs the API does not know are absent. */
+    suspend fun profileFacts(userIds: List<String>, accessToken: String): List<BipeProfileFacts> = send(
+        "POST",
+        listOf("v1", "profile-facts"),
+        body = encode(BipeProfileFactsRequest.serializer(), BipeProfileFactsRequest(userIds)),
+        accessToken = accessToken,
+        response = BipeProfileFactsResponse.serializer(),
+    ).facts
+
     /** `DELETE /v1/me/handle` (ADR 0066). The cooldown stays. */
     suspend fun removeMyHandle(accessToken: String): BipeMyHandle =
         send("DELETE", listOf("v1", "me", "handle"), accessToken = accessToken, response = BipeMyHandle.serializer())
@@ -326,6 +335,12 @@ enum class BipeApiErrorCode(val id: String) {
     CNPJ_NOT_ACTIVE("cnpj_not_active"),
     CNPJ_TAKEN("cnpj_taken"),
     SIGNATURE_INVALID("signature_invalid"),
+
+    /** 403. Only a company with a verified claim grants brand marks (ADR 0162). */
+    BRAND_NOT_VERIFIED("brand_not_verified"),
+
+    /** 409. The account already holds the most brand marks (ADR 0162); the invite stays open. */
+    BRAND_MARK_LIMIT("brand_mark_limit"),
     ;
 
     companion object {
@@ -403,6 +418,8 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.CNPJ_NOT_ACTIVE -> context.getString(R.string.bipe_claim_rejected)
             BipeApiErrorCode.CNPJ_TAKEN -> context.getString(R.string.bipe_claim_cnpj_taken)
             BipeApiErrorCode.SIGNATURE_INVALID -> context.getString(R.string.bipe_claim_signature_invalid)
+            BipeApiErrorCode.BRAND_NOT_VERIFIED -> context.getString(R.string.bipe_brand_marks_not_verified)
+            BipeApiErrorCode.BRAND_MARK_LIMIT -> context.getString(R.string.bipe_brand_marks_limit)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID ->
                 context.getString(R.string.bipe_error_generic)
         }

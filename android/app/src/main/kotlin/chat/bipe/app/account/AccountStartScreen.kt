@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -20,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -119,6 +121,13 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
         RecoveryFlowScreen(recovery, onClose = { model.showRecovery(false) })
         return
     }
+    val legacyKept by model.legacyKept.collectAsState()
+    val startedFresh by model.startedFresh.collectAsState()
+    if (phase == AccountStartModel.Phase.NO_ACCOUNT && legacyKept && !startedFresh) {
+        // Spec account-start legacyKept: never onboarding-welcome as if the phone had no account.
+        LegacyKept(onRecover = model::recoverLegacy, onStartFresh = model::startFresh)
+        return
+    }
     if (phase == AccountStartModel.Phase.NO_ACCOUNT) {
         // Spec account-start: noAccount shows onboarding-welcome.
         val context = LocalContext.current
@@ -190,6 +199,42 @@ private fun StartMessage(
                     Icon(painterResource(PhosphorIcon.ARROW_CLOCKWISE.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(stringResource(R.string.bipe_app_retry))
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Spec account-start legacyKept (bipe-chat/bipe#603): the earlier Bipe app's data is on this phone and was not opened.
+ * Recovery comes first; a new account stays possible, and nothing is deleted.
+ */
+@Composable
+private fun LegacyKept(onRecover: () -> Unit, onStartFresh: () -> Unit) {
+    val colors = BipeTheme.colors
+    Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.ACCOUNT_START.id), color = colors.surfaceBase) {
+        Column(
+            modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(painterResource(PhosphorIcon.LOCK_SIMPLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(56.dp))
+            Text(
+                stringResource(R.string.bipe_app_start_legacy_title),
+                style = MaterialTheme.typography.headlineMedium,
+                color = colors.inkPrimary,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                stringResource(R.string.bipe_app_start_legacy_body),
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.inkSecondary,
+                textAlign = TextAlign.Center,
+            )
+            Button(onClick = onRecover, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.bipe_app_start_legacy_recover))
+            }
+            TextButton(onClick = onStartFresh) {
+                Text(stringResource(R.string.bipe_app_start_legacy_fresh))
             }
         }
     }

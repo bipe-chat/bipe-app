@@ -58,6 +58,7 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.people.PeopleService
+import chat.bipe.app.people.ProfileFactsLines
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -468,6 +469,8 @@ fun ChatRequestScreen(
                 handles[request.inviterId]?.let { handle ->
                     Text("@$handle", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
                 }
+                // Spec chat-request profileFacts (ADR 0049), under the header. Never blocks accept or decline.
+                ProfileFactsLines(model.people, request.inviterId)
                 val trust = requestTrust(model, request)
                 TrustBlock(trust)
                 RequestNameWarning(model.people, request.inviterId, trust.verifiedName, trust.identityKey)
