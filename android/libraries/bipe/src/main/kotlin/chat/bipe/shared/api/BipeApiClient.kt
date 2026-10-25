@@ -286,6 +286,18 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** HTTP 403: the sign-up or the account lacks the current legal version (ADR 0113). */
     TERMS_REQUIRED("terms_required"),
+
+    /** A JPEG the server cannot take (profile or catalogue photo). */
+    PHOTO_INVALID("photo_invalid"),
+
+    // Agenda (contract AgendaError, bipe-shared api/business-schemas.json).
+    SLOT_TAKEN("slot_taken"),
+    HOLD_EXPIRED("hold_expired"),
+    TOO_MANY_OPEN_BOOKINGS("too_many_open_bookings"),
+    OUTSIDE_NOTICE("outside_notice"),
+    OUTSIDE_HORIZON("outside_horizon"),
+    AGENDA_NOT_PUBLISHED("agenda_not_published"),
+    CANCELLATION_WINDOW_CLOSED("cancellation_window_closed"),
     ;
 
     companion object {
@@ -337,7 +349,15 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.TERMS_REQUIRED -> context.getString(R.string.bipe_signup_terms_required)
             BipeApiErrorCode.PROFILE_INVALID ->
                 reason?.let(BipeProfileProblem::fromId)?.localizedMessage(context) ?: context.getString(R.string.bipe_error_generic)
-            BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL -> context.getString(R.string.bipe_error_generic)
+            BipeApiErrorCode.SLOT_TAKEN -> context.getString(R.string.bipe_agenda_error_slot_taken)
+            BipeApiErrorCode.HOLD_EXPIRED -> context.getString(R.string.bipe_agenda_error_hold_expired)
+            BipeApiErrorCode.TOO_MANY_OPEN_BOOKINGS -> context.getString(R.string.bipe_agenda_error_too_many_open)
+            BipeApiErrorCode.OUTSIDE_NOTICE -> context.getString(R.string.bipe_agenda_error_outside_notice)
+            BipeApiErrorCode.OUTSIDE_HORIZON -> context.getString(R.string.bipe_agenda_error_outside_horizon)
+            BipeApiErrorCode.AGENDA_NOT_PUBLISHED -> context.getString(R.string.bipe_agenda_error_not_published)
+            BipeApiErrorCode.CANCELLATION_WINDOW_CLOSED -> context.getString(R.string.bipe_agenda_error_cancel_window)
+            BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID ->
+                context.getString(R.string.bipe_error_generic)
         }
         is Network -> context.getString(R.string.bipe_error_network)
         is UnexpectedResponse -> context.getString(R.string.bipe_error_generic)

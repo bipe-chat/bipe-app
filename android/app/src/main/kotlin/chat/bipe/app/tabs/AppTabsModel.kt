@@ -48,7 +48,8 @@ class AppTabsModel(
     private val scope: CoroutineScope,
     private val undecryptableText: String,
 ) {
-    enum class Tab { CONVERSAS, GRUPOS, VOCE, SEARCH }
+    /** AGENDA shows only for a company account, after Grupos (spec app-tabs, agenda-owner). */
+    enum class Tab { CONVERSAS, GRUPOS, AGENDA, VOCE, SEARCH }
 
     data class State(
         val selectedTab: Tab = Tab.CONVERSAS,
@@ -60,6 +61,8 @@ class AppTabsModel(
         val canAddAccount: Boolean = true,
         /** max_accounts of the account on screen, for bipe_account_cap_reached (spec account-new). */
         val maxPersonalAccounts: Int = BipeRegistries.MAX_PERSONAL_ACCOUNTS,
+        /** The account on screen is a company account (ADR 0132): the Agenda tab and the business tools show. */
+        val isCompany: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
@@ -211,7 +214,11 @@ class AppTabsModel(
         })
         val chats = currentId?.let { latestChats[it] }.orEmpty()
         val limit = currentId?.let { profiles[it]?.limit } ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS
+        val isCompany = accounts.firstOrNull { it.isCurrent }?.isCompany == true
+        val selected = _state.value.selectedTab.takeUnless { it == Tab.AGENDA && !isCompany } ?: Tab.CONVERSAS
         _state.value = _state.value.copy(
+            selectedTab = selected,
+            isCompany = isCompany,
             accounts = accounts,
             conversasUnread = chats.count { it.scope == ChatScope.CONVERSAS && it.isUnread },
             gruposAttention = chats.filter { it.scope == ChatScope.GRUPOS }.sumOf { it.mentionCount },

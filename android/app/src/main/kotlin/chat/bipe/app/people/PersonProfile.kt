@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.business.BusinessProfileButtons
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.phosphor.PhosphorIcon
@@ -247,6 +248,8 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
             }
             PersonProfileModel.Phase.LOADED -> {
                 Header(model, state, isBlocked, onOpenSeal = { showsSeal = true })
+                // Spec business-chat-bar: a company's tools under its name (ADR 0103: Agendar).
+                if (state.isCompany) BusinessProfileButtons(people.session, people.media, userId)
                 RowGroup {
                     IconRow(PhosphorIcon.CHAT_TEXT, stringResource(R.string.bipe_app_person_message), enabled = !state.openingChat) {
                         model.message(routes.openChat)
