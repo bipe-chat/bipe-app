@@ -786,4 +786,8 @@ object BipeRegistries {
     const val PIX_MARK_REL_TYPE = "m.reference"
     const val PIX_E2E_ID_PATTERN = "^E[0-9]{8}[A-Za-z0-9]{23}\$"
     const val PIX_TXID_MAX_LENGTH = 25
+
+    /** Data use (bipe-chat/bipe#242; registries/data-use.json): the budget of a normal day and the default of the data saver switch. */
+    const val DATA_USE_BUDGET_MEGABYTES_PER_DAY = 10
+    const val DATA_SAVER_DEFAULT = false
 }

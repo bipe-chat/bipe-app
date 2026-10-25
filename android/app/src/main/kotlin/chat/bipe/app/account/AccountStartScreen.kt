@@ -5,7 +5,9 @@
 package chat.bipe.app.account
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,9 +35,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import chat.bipe.app.BipeTheme
 import chat.bipe.app.BipeApplication
+import chat.bipe.app.BipeTheme
 import chat.bipe.app.chatlist.HomeScreen
+import chat.bipe.app.common.BipeMarkShape
 import chat.bipe.app.recovery.RecoveryFlowModel
 import chat.bipe.app.recovery.RecoveryFlowScreen
 import chat.bipe.app.signup.SignupDoneScreen
@@ -43,8 +46,8 @@ import chat.bipe.app.signup.SignupFlowModel
 import chat.bipe.app.signup.SignupFlowScreen
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.phosphor.PhosphorIcon
-import chat.bipe.shared.R
 import chat.bipe.shared.BipeNotificationDestination
+import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 
 /** Spec account-start: no login screen (ADR 0057). Shows app-tabs when the current account is ready. */
@@ -147,7 +150,7 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
                 onRetry = model::retry,
             )
             else -> StartMessage(
-                icon = PhosphorIcon.CHAT_CIRCLE,
+                icon = null,
                 title = stringResource(R.string.bipe_app_name),
                 message = stringResource(R.string.bipe_app_start_loading),
                 showsProgress = true,
@@ -158,7 +161,8 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
 
 @Composable
 private fun StartMessage(
-    icon: PhosphorIcon,
+    /** null shows the Bipe mark. */
+    icon: PhosphorIcon?,
     title: String,
     message: String,
     showsProgress: Boolean = false,
@@ -170,7 +174,11 @@ private fun StartMessage(
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(56.dp))
+        if (icon != null) {
+            Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(56.dp))
+        } else {
+            Box(Modifier.size(56.dp).background(colors.accentFill, BipeMarkShape))
+        }
         Text(title, style = MaterialTheme.typography.headlineMedium, color = colors.inkPrimary, textAlign = TextAlign.Center)
         Text(message, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary, textAlign = TextAlign.Center)
         if (showsProgress) {

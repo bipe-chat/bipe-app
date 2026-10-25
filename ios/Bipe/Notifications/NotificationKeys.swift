@@ -50,22 +50,63 @@ enum NotificationKeys {
     }
 }
 
-/// The message sound on this phone (spec notification-settings, state sound). A phone setting, not a push rule.
+/// The message sound of one account on this phone (spec notification-settings, state sound; bipe-chat/bipe#511). A phone
+/// setting, not a push rule.
 enum NotificationSound: String, CaseIterable {
     case phone
     case soft
     case silent
 
-    private static let key = "notificationSound"
+    /// The phone-wide value from before sounds were per account: the start value of every account.
+    private static let legacyKey = "notificationSound"
 
-    /// The app group defaults, so the extension reads what the app saved.
-    private static var defaults: UserDefaults {
+    static func current(for userId: String) -> NotificationSound {
+        let defaults = NotificationPrefs.defaults
+        let value = defaults.string(forKey: NotificationPrefs.key("sound", userId)) ?? defaults.string(forKey: legacyKey)
+        return value.flatMap(NotificationSound.init(rawValue:)) ?? .phone
+    }
+
+    static func set(_ sound: NotificationSound, for userId: String) {
+        NotificationPrefs.defaults.set(sound.rawValue, forKey: NotificationPrefs.key("sound", userId))
+    }
+}
+
+/// Notification settings per account on this phone (bipe-chat/bipe#511), in the app group so the extension reads them.
+enum NotificationPrefs {
+    static var defaults: UserDefaults {
         UserDefaults(suiteName: AppConfig.appGroup) ?? .standard
     }
 
-    static var current: NotificationSound {
-        get { defaults.string(forKey: key).flatMap(NotificationSound.init(rawValue:)) ?? .phone }
-        set { defaults.set(newValue.rawValue, forKey: key) }
+    static func key(_ name: String, _ userId: String) -> String {
+        "notifications.\(name).\(userId)"
+    }
+
+    /// Spec notification-settings, state preview. Default true.
+    static func preview(for userId: String) -> Bool {
+        defaults.object(forKey: key("preview", userId)) as? Bool ?? true
+    }
+
+    static func setPreview(_ isOn: Bool, for userId: String) {
+        defaults.set(isOn, forKey: key("preview", userId))
+    }
+
+    /// The last opening hours read for a work account (spec work-hours notes). `nil`: no hours, the account rings.
+    static func workHours(for userId: String) -> BipeWorkHours? {
+        guard let data = defaults.data(forKey: key("workHours", userId)) else { return nil }
+        return try? JSONDecoder().decode(BipeWorkHours.self, from: data)
+    }
+
+    static func setWorkHours(_ hours: BipeWorkHours?, for userId: String) {
+        if let hours, let data = try? JSONEncoder().encode(hours) {
+            defaults.set(data, forKey: key("workHours", userId))
+        } else {
+            defaults.removeObject(forKey: key("workHours", userId))
+        }
+    }
+
+    /// True when this account's pushes arrive quietly now: a work account outside its opening hours.
+    static func isQuiet(_ userId: String, at date: Date = .now) -> Bool {
+        workHours(for: userId)?.isQuiet(at: date) ?? false
     }
 }
 

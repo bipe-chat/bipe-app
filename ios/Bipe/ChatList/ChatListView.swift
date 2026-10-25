@@ -10,7 +10,14 @@ import SwiftUI
 
 private enum RequestInboxRoute: Hashable { case inbox }
 
-/// Spec chat-list, one scope: Conversas or Grupos (ADR 0053).
+/// The root of the detail column: an action from the list replaces it; screens inside the detail push onto `path`.
+private enum ChatDetail: Hashable {
+    case room(String)
+    case requests
+    case people(PeopleRoute)
+}
+
+/// Spec chat-list, one scope: Conversas or Grupos (ADR 0053), or both in one list for a company account (spec app-tabs).
 struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
     @ObservedObject private var archive: ChatArchiveModel
@@ -22,9 +29,14 @@ struct ChatListView: View {
     @StateObject private var requests: ChatRequestsModel
     @StateObject private var banner: RemoteBannerModel
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var encryption: EncryptionStatusModel
     @StateObject private var people: PeopleService
-    @State private var path: NavigationPath
+    /// One selection for both layouts. A wide window shows it beside the list; a narrow one pushes it.
+    /// A change of window size keeps the same detail, timeline and path.
+    @State private var detail: ChatDetail?
+    @State private var path = NavigationPath()
+    @State private var compactColumn: NavigationSplitViewColumn
     @State private var showsHandlePick = false
     @State private var openingLink: String?
     /// queue-customer from the counter QR code (https://bipe.chat/@handle?fila).
@@ -58,41 +70,45 @@ struct ChatListView: View {
         _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
         _people = StateObject(wrappedValue: people)
+        _detail = State(initialValue: initialRoomId.map(ChatDetail.room))
+        _compactColumn = State(initialValue: initialRoomId == nil ? .sidebar : .detail)
         _cards = StateObject(wrappedValue: FirstListCardsModel(userId: model.session.userId))
-        _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
         self.scope = scope
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
+        NavigationSplitView(preferredCompactColumn: $compactColumn) {
             content
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
-                .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
-                .navigationDestination(for: String.self) { roomId in
-                    ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
-                        Task {
-                            if let userId = await people.dmPartner(roomId: roomId) {
-                                path.append(PeopleRoute.person(userId: userId, fromDm: true))
-                            }
-                        }
-                    }
-                }
-                .navigationDestination(for: RequestInboxRoute.self) { _ in
-                    ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat,
-                                     onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
-                }
-                .navigationDestination(for: PeopleRoute.self) { route in
-                    peopleScreen(route)
-                }
+                .navigationTitle(scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle)
+                .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 420)
                 .toolbar {
                     // No account avatar here: Você shows the current account (MZ decision 25 Oct 2026, spec chat-list).
                     ToolbarItem(placement: .topBarTrailing) {
                         CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
                     }
                 }
+        } detail: {
+            NavigationStack(path: $path) {
+                detailRoot
+                    .navigationDestination(for: String.self) { roomId in
+                        timeline(roomId)
+                    }
+                    .navigationDestination(for: RequestInboxRoute.self) { _ in
+                        requestsScreen
+                    }
+                    .navigationDestination(for: PeopleRoute.self) { route in
+                        peopleScreen(route)
+                    }
+            }
         }
-        .groupHost(session: model.session, api: api, media: model.media, path: $path, creatingGroup: $creatingGroup,
-                   deletingDm: $deletingDm, showingInvites: $showingInvites)
+        .navigationSplitViewStyle(.balanced)
+        .onChange(of: compactColumn) { _, column in
+            // Back from the detail on a narrow window: nothing stays selected underneath.
+            if column == .sidebar && horizontalSizeClass == .compact { closeDetail() }
+        }
+        .groupHost(session: model.session, api: api, media: model.media, openChat: openChat, closeChat: closeDetail,
+                   creatingGroup: $creatingGroup, deletingDm: $deletingDm, showingInvites: $showingInvites)
         .environment(\.openHistoryHelp, encryption.openSheet)
         .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
             EncryptionSheet(route: route, model: encryption, session: model.session)
@@ -100,7 +116,7 @@ struct ChatListView: View {
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
         .task { await encryption.observe() }
         .task {
-            if scope == .conversas {
+            if scope != .grupos {
                 await handle.load()
                 await recovery.load()
             }
@@ -113,7 +129,7 @@ struct ChatListView: View {
                 Task {
                     await banner.refresh()
                     await requests.refreshTrust()
-                    if scope == .conversas { await recovery.load() }
+                    if scope != .grupos { await recovery.load() }
                 }
             }
         }
@@ -132,8 +148,8 @@ struct ChatListView: View {
         }
         .sheet(item: Binding(get: { openingLink.map(HandleLink.init) }, set: { openingLink = $0?.handle })) { link in
             ProfileLinkOpenView(people: people, handle: link.handle,
-                                openPerson: { path.append(PeopleRoute.person(userId: $0, fromDm: false)) },
-                                openOwnLink: { path.append(PeopleRoute.profileLink) })
+                                openPerson: { show(.people(.person(userId: $0, fromDm: false))) },
+                                openOwnLink: { show(.people(.profileLink)) })
         }
         .sheet(item: Binding(get: { openingQueue.map(HandleLink.init) }, set: { openingQueue = $0?.handle })) { link in
             QueueCustomerView(api: model.session.business(api), business: link.handle, close: { _ in openingQueue = nil })
@@ -141,7 +157,7 @@ struct ChatListView: View {
         // person-profile: group-create with the person picked, chat-notifications and dm-delete for the DM.
         .sheet(item: Binding(get: { newGroupWith.map(PeoplePick.init) }, set: { newGroupWith = $0?.people })) { pick in
             GroupCreateView(session: model.session, media: model.media, people: pick.people) { roomId, _ in
-                path = NavigationPath([roomId])
+                openChat(roomId)
             }
         }
         .sheet(item: Binding(get: { notificationsRoom.map(RoomSheetId.init) }, set: { notificationsRoom = $0?.id })) { room in
@@ -155,23 +171,23 @@ struct ChatListView: View {
             }
         }
         .sheet(item: Binding(get: { deletingFromProfile.map(RoomSheetId.init) }, set: { deletingFromProfile = $0?.id })) { room in
-            DmDeleteView(session: model.session, roomId: room.id) { path = NavigationPath() }
+            DmDeleteView(session: model.session, roomId: room.id) { closeDetail() }
         }
         // invite-signed-in: the inviter's chat or profile-link-open, in the Conversas list.
         .onReceive(TabsLinks.shared.$link.compactMap { $0 }) { link in
-            guard scope == .conversas else { return }
+            guard scope != .grupos else { return }
             TabsLinks.shared.link = nil
             switch link {
-            case .chat(let roomId): path = NavigationPath([roomId])
+            case .chat(let roomId): openChat(roomId)
             case .profile(let handle): openingLink = handle
             }
         }
         .onOpenURL { url in
             // Both tabs show a chat list; the Conversas one takes profile links.
-            guard scope == .conversas else { return }
+            guard scope != .grupos else { return }
             switch PeopleLink(url: url) {
             case .handle(let handle): openingLink = handle
-            case .userId(let userId): path.append(PeopleRoute.person(userId: userId, fromDm: false))
+            case .userId(let userId): show(.people(.person(userId: userId, fromDm: false)))
             case .queue(let handle): openingQueue = handle
             case nil: break
             }
@@ -181,7 +197,7 @@ struct ChatListView: View {
             // @Published emits before assignment. Consume after the owner/tab route has settled.
             Task { @MainActor in
                 let destinationScope: ChatScope = target.destination == .groups ? .grupos : .conversas
-                guard scope == destinationScope, target.accountUserId == model.session.userId,
+                guard scope == destinationScope || scope == .todas, target.accountUserId == model.session.userId,
                       notifications.owns(model.session), notifications.roomToOpen == target else { return }
                 var opensChat = false
                 if target.destination == .chat,
@@ -193,9 +209,9 @@ struct ChatListView: View {
                 notifications.roomToOpen = nil
                 showingArchived = false
                 switch target.destination {
-                case .chat: path = opensChat ? NavigationPath([target.roomId]) : NavigationPath()
-                case .requests: path = NavigationPath([RequestInboxRoute.inbox])
-                case .groups, .inbox: path = NavigationPath()
+                case .chat: if opensChat { openChat(target.roomId) } else { closeDetail() }
+                case .requests: show(.requests)
+                case .groups, .inbox: closeDetail()
                 }
             }
         }
@@ -256,11 +272,11 @@ struct ChatListView: View {
     /// One card at a time: the handle card first, then the recovery reminder (spec recovery-reminder).
     @ViewBuilder
     private var handlePrompt: some View {
-        if scope == .conversas && handle.showsPrompt {
+        if scope != .grupos && handle.showsPrompt {
             HandlePromptCard(model: handle) { showsHandlePick = true }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-        } else if scope == .conversas && recovery.showsCard {
+        } else if scope != .grupos && recovery.showsCard {
             RecoveryReminderCard(model: recovery) { showsRecoveryEmail = true }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -280,7 +296,7 @@ struct ChatListView: View {
     /// Spec chat-list-cards: the first-list cards at the top of Conversas.
     @ViewBuilder
     private var firstListCards: some View {
-        if scope == .conversas && !showingArchived {
+        if scope != .grupos && !showingArchived {
             let count = model.chats(in: .conversas, archived: false).count
             ForEach(cards.visible(chatCount: count, handle: handle.currentHandle), id: \.self) { card in
                 FirstListCardView(card: card, handle: handle.currentHandle) { target in run(target, of: card) }
@@ -307,9 +323,9 @@ struct ChatListView: View {
         case .shareProfile:
             if let url = handle.currentHandle.flatMap(BipeProfileLink.url(handle:)) { shareItem = ShareItem(url: url) }
         case .profileQr:
-            path.append(PeopleRoute.profileQr)
+            show(.people(.profileQr))
         case .notes:
-            Task { if let roomId = try? await model.openNotes() { path.append(roomId) } }
+            Task { if let roomId = try? await model.openNotes() { openChat(roomId) } }
         default:
             break
         }
@@ -319,13 +335,13 @@ struct ChatListView: View {
     @ViewBuilder
     private var topRows: some View {
         // Spec encryption-status: the banner is the first row, so it scrolls with the chats (MZ decision 25 Oct 2026).
-        if scope == .conversas && encryption.showsBanner && !showingArchived {
+        if scope != .grupos && encryption.showsBanner && !showingArchived {
             HistoryBanner(model: encryption)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(BipeColor.surfaceRaised)
         }
         firstListCards
-        Button(showingArchived ? (scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups) : BipeStrings.archivedTitle) {
+        Button(showingArchived ? (scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle) : BipeStrings.archivedTitle) {
             showingArchived.toggle()
         }
         if model.readActionFailed {
@@ -341,15 +357,14 @@ struct ChatListView: View {
                 Button(BipeStrings.appRetry) { archive.retry(model.chats) }
             }
         }
-        if !showingArchived && scope == .conversas && requests.rowCount > 0 {
+        if !showingArchived && scope != .grupos && requests.rowCount > 0 {
             // Action openBox.
-            NavigationLink {
-                ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat, onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
-            } label: {
+            Button { show(.requests) } label: {
                 ChatRequestsRow(count: requests.rowCount)
             }
+            .listRowBackground(rowBackground(.requests))
         }
-        ForEach(!showingArchived && scope == .grupos ? requests.visibleGroupInvites : []) { invite in
+        ForEach(!showingArchived && scope != .conversas ? requests.visibleGroupInvites : []) { invite in
             GroupInviteRow(model: requests, invite: invite, media: model.media, onOpenChat: openChat)
         }
         if requests.error {
@@ -381,6 +396,7 @@ struct ChatListView: View {
                 ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
                     .buttonStyle(.plain)
+                    .listRowBackground(rowBackground(.room(chat.roomId)))
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
                     .contextMenu { rowMenu(chat.roomId) }
                     .accessibilityActions { rowMenu(chat.roomId) }
@@ -423,7 +439,7 @@ struct ChatListView: View {
 
     private func openDetails(_ chat: ChatSummary) {
         if chat.isDm {
-            if let peer = chat.peerUserId { path.append(PeopleRoute.person(userId: peer, fromDm: true)) }
+            if let peer = chat.peerUserId { show(.people(.person(userId: peer, fromDm: true))) }
         } else { groupDetailsRoom = chat.roomId }
     }
 
@@ -459,7 +475,7 @@ struct ChatListView: View {
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.chatsEmptyBody)
                     .foregroundStyle(BipeColor.inkSecondary)
-                Button(BipeStrings.actionStartChat) { path.append(PeopleRoute.contacts) }
+                Button(BipeStrings.actionStartChat) { show(.people(.contacts)) }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -468,9 +484,64 @@ struct ChatListView: View {
         .padding(.vertical, 48)
     }
 
-    /// Action openChat.
+    /// Action openChat. It replaces the detail, from the list or from a screen inside the detail.
     private func openChat(_ roomId: String) {
-        path.append(roomId)
+        show(.room(roomId))
+    }
+
+    private func show(_ next: ChatDetail) {
+        detail = next
+        path = NavigationPath()
+        compactColumn = .detail
+    }
+
+    /// closeChat: back to the list with nothing selected.
+    private func closeDetail() {
+        detail = nil
+        path = NavigationPath()
+        compactColumn = .sidebar
+    }
+
+    /// The selected row stays marked while its detail is beside the list.
+    /// nil keeps the standard list row background.
+    private func rowBackground(_ row: ChatDetail) -> Color? {
+        horizontalSizeClass == .regular && detail == row ? BipeColor.accentWash : nil
+    }
+
+    @ViewBuilder
+    private var detailRoot: some View {
+        switch detail {
+        case .room(let roomId):
+            // The room id keeps one timeline per chat; the layout change does not replace it.
+            timeline(roomId).id(roomId)
+        case .requests:
+            requestsScreen
+        case .people(let route):
+            peopleScreen(route)
+        case nil:
+            // Wide window with no chat open. The list beside it is the call to action, so no text here.
+            BipeMark()
+                .fill(BipeColor.inkSecondary)
+                .frame(width: 64, height: 64)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(BipeColor.surfaceBase.ignoresSafeArea())
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func timeline(_ roomId: String) -> some View {
+        ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
+            Task {
+                if let userId = await people.dmPartner(roomId: roomId) {
+                    path.append(PeopleRoute.person(userId: userId, fromDm: true))
+                }
+            }
+        }
+    }
+
+    private var requestsScreen: some View {
+        ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat,
+                         onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
     }
 }
 

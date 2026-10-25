@@ -35,8 +35,8 @@ final class AppTabsModel: ObservableObject {
     enum Tab: String, Hashable {
         case conversas
         case grupos
-        /// Company accounts only (spec agenda-owner, ADR 0103).
-        case agenda
+        /// Company accounts only, in place of Grupos: the business tools (spec app-tabs, business-tools).
+        case trabalho
         case voce
         case search
     }
@@ -46,7 +46,7 @@ final class AppTabsModel: ObservableObject {
     @Published private(set) var conversasUnread = 0
     @Published private(set) var gruposAttention = 0
     @Published private(set) var otherAccountUnread = false
-    /// The current account is a company account: the Agenda tab and the business tools show.
+    /// The current account is a company account: Trabalho replaces Grupos and Conversas holds the groups.
     @Published private(set) var currentIsCompany = false
     @Published private(set) var canAddAccount = true
     /// max_accounts of the account on screen, for bipe_account_cap_reached (spec account-new).
@@ -101,8 +101,16 @@ final class AppTabsModel: ObservableObject {
     }
 
     /// Action selectTab. A tap on Você always opens Você.
+    /// A company account has no Grupos tab and a personal account no Trabalho tab: those go to Conversas.
     func selectTab(_ tab: Tab) {
-        selectedTab = tab
+        selectedTab = Self.available(tab, isCompany: currentIsCompany)
+    }
+
+    private static func available(_ tab: Tab, isCompany: Bool) -> Tab {
+        switch tab {
+        case .grupos where isCompany, .trabalho where !isCompany: .conversas
+        default: tab
+        }
     }
 
     /// Action doubleTapVoce: the next account in accounts, wrapping around, with the switch haptic (ADR 0134).
@@ -252,7 +260,8 @@ final class AppTabsModel: ObservableObject {
         gruposAttention = chats.filter { $0.scope == .grupos }.reduce(0) { $0 + $1.mentionCount }
         otherAccountUnread = accounts.contains { !$0.isCurrent && $0.hasUnread }
         currentIsCompany = currentId.flatMap { profiles[$0]?.isCompany } ?? false
-        if !currentIsCompany && selectedTab == .agenda { selectedTab = .conversas }
+        let tab = Self.available(selectedTab, isCompany: currentIsCompany)
+        if tab != selectedTab { selectedTab = tab }
         let limit = currentId.flatMap { profiles[$0]?.maxAccounts } ?? BipeRegistries.maxPersonalAccounts
         maxPersonalAccounts = limit
         canAddAccount = accounts.filter { !$0.isCompany }.count < limit

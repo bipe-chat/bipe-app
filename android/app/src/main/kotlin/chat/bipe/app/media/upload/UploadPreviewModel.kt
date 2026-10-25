@@ -6,6 +6,7 @@ package chat.bipe.app.media.upload
 
 import android.content.Context
 import android.text.format.Formatter
+import chat.bipe.app.media.DataUseMeter
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.media.BipeImageDescription
 import kotlinx.coroutines.CoroutineScope
@@ -144,6 +145,8 @@ class UploadPreviewModel(
                     extraContentJson = BipeImageDescription.extraContentJson(description),
                 )
                 val thumbnail = media.thumbnail?.let { UploadSource.File(it.path) }
+                // Spec data-use: the upload counts on the network in use now.
+                DataUseMeter.recordSent(media.file.length() + (media.thumbnail?.length() ?: 0L))
                 runCatching {
                     when (val info = media.info) {
                         is PreparedMedia.Info.Image -> timeline.sendImage(params, thumbnail, info.info)

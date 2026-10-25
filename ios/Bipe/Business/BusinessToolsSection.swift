@@ -6,11 +6,11 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
-/// Spec business-tools (bipe-shared product/screens/business-tools.json): on the Você tab of a company account,
+/// Spec business-tools (bipe-shared product/screens/business-tools.json): on the Trabalho tab of a company account,
 /// the business tools, each opening its owner screen.
 struct BusinessToolsSection: View {
     let api: BipeBusinessAPI
-    /// Action openAgenda: selects the Agenda tab.
+    /// Action openAgenda: opens agenda-owner.
     let openAgenda: () -> Void
     /// Action openCatalog: opens catalog-owner.
     let openCatalog: () -> Void

@@ -125,6 +125,8 @@ final class UploadPreviewModel: ObservableObject {
                                           inReplyTo: index == 0 ? replyToEventId : nil,
                                           extraContentJson: BipeImageDescription.extraContentJson(description))
             let thumbnail = media.thumbnail.map { UploadSource.file(filename: $0.path) }
+            // Spec data-use: the upload counts on the network in use now.
+            DataUseMeter.shared.recordSent(Int64(MediaPreparation.fileSize(media.file) + (media.thumbnail.map(MediaPreparation.fileSize) ?? 0)))
             switch media.info {
             case .image(let info):
                 _ = try? timeline.sendImage(params: params, thumbnailSource: thumbnail, imageInfo: info)

@@ -112,6 +112,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json
     case dataExport = "data-export"
 
+    /// Data use (flow settings). Spec: bipe-shared/product/screens/data-use.json
+    case dataUse = "data-use"
+
     /// Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json
     case deviceVerification = "device-verification"
 

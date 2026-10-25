@@ -62,13 +62,15 @@ public nonisolated struct BipeTrustProfile: Sendable, Equatable {
     /// `business` is `GET /v1/me/business`: `nil` when the account has no claim or the claim did not load.
     /// `personBadge` is the level of the account's own badge from `GET /v1/badges`: `nil` without one or until it loads.
     /// `govbrEnabled` makes step 5 live (bipe#544); else it shows "Em breve".
+    /// `claimEnabled` makes the company steps live (business-claim, bipe#249): a step not done is todo, else "Em breve".
     public init(displayName: String?,
                 hasAvatar: Bool,
                 handle: String?,
                 accountType: BipeAccountType = .personal,
                 business: BipeBusinessClaim? = nil,
                 personBadge: BadgeLevel? = nil,
-                govbrEnabled: Bool = false) {
+                govbrEnabled: Bool = false,
+                claimEnabled: Bool = false) {
         var missing: [ProfileItem] = []
         if displayName?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
             missing.append(.displayName)
@@ -85,12 +87,13 @@ public nonisolated struct BipeTrustProfile: Sendable, Equatable {
         let start = [Step(id: .account, status: .done),
                      Step(id: .profile, status: missing.isEmpty ? .done : .todo)]
         if isCompany {
-            // The claim screen is not in the app yet (bipe#249): a step that is not done has nothing to tap.
+            // Without the claim screen (bipe#249) a step that is not done has nothing to tap.
             let cnpjActive = business?.status == .awaitingProof || business?.status == .verified
             let domainVerified = business?.domains.contains { $0.verifiedAt != nil } ?? false
-            steps = start + [Step(id: .cnpj, status: cnpjActive ? .done : .comingSoon),
-                             Step(id: .proof, status: business?.status == .verified ? .done : .comingSoon),
-                             Step(id: .domain, status: domainVerified ? .done : .comingSoon)]
+            let open: Status = claimEnabled ? .todo : .comingSoon
+            steps = start + [Step(id: .cnpj, status: cnpjActive ? .done : open),
+                             Step(id: .proof, status: business?.status == .verified ? .done : open),
+                             Step(id: .domain, status: domainVerified ? .done : open)]
         } else {
             steps = start + [Step(id: .email, status: .comingSoon),
                              Step(id: .pix, status: .comingSoon),

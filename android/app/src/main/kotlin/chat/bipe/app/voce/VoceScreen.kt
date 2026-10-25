@@ -58,7 +58,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.business.BusinessFullScreen
-import chat.bipe.app.business.BusinessToolsSection
 import chat.bipe.app.business.MyBookingsScreen
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.people.PeopleService
@@ -164,10 +163,6 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     }
                     item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
                     item { VoceRow(PhosphorIcon.DEVICES, stringResource(R.string.bipe_app_link_phone_action), onClick = { showsLinkPhone = true }) }
-                    // Spec business-tools: a company account's tools; Agenda selects the Agenda tab.
-                    if (current?.isCompany == true) {
-                        item(key = "business-tools") { BusinessToolsSection(session, tabs.chatList(session), onOpenAgenda = { tabs.selectTab(AppTabsModel.Tab.AGENDA) }, onOpenChat = onOpenChat) }
-                    }
                     SettingsRootSection(settings, openGroup)
                     // Spec settings-root: Meus agendamentos after the groups, for a personal account.
                     if (current != null && !current.isCompany) {

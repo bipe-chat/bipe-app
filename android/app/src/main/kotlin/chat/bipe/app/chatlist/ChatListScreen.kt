@@ -377,7 +377,7 @@ fun ChatListScreen(
     var showingArchived by rememberSaveable(model.session.userId, scope) { mutableStateOf(false) }
     LaunchedEffect(listOpenRequest) { if (listOpenRequest > 0) showingArchived = false }
     val visibleChats = withoutClearedDms(allChats, { it.roomId }, { it.lastActivity })
-    val chats = visibleChats.filter { it.scope == scope && archiveMarkers.containsKey(it.roomId) == showingArchived }
+    val chats = visibleChats.filter { scope.shows(it.scope) && archiveMarkers.containsKey(it.roomId) == showingArchived }
     val phase = model.phase(scope, allPhase, chats)
     val handleState by handle.state.collectAsState()
     val requestList = requests?.requests?.collectAsState()?.value.orEmpty()
@@ -390,7 +390,7 @@ fun ChatListScreen(
         Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
             Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(if (scope == ChatScope.CONVERSAS) R.string.bipe_app_chat_list_title else R.string.bipe_tab_groups),
+                    stringResource(if (scope == ChatScope.GRUPOS) R.string.bipe_tab_groups else R.string.bipe_app_chat_list_title),
                     style = MaterialTheme.typography.headlineMedium,
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(vertical = 8.dp),
@@ -410,9 +410,9 @@ fun ChatListScreen(
             remoteBanner?.let { RemoteBannerCard(it, context) }
             run {
                 if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
-                else if (scope == ChatScope.CONVERSAS) recoveryCard()
+                else if (scope != ChatScope.GRUPOS) recoveryCard()
                 TextButton(onClick = { showingArchived = !showingArchived }) {
-                    Text(stringResource(if (!showingArchived) R.string.bipe_archived_title else if (scope == ChatScope.CONVERSAS) R.string.bipe_app_chat_list_title else R.string.bipe_tab_groups))
+                    Text(stringResource(if (!showingArchived) R.string.bipe_archived_title else if (scope == ChatScope.GRUPOS) R.string.bipe_tab_groups else R.string.bipe_app_chat_list_title))
                 }
                 if (readFailed) Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.bipe_chat_read_error), color = colors.trustDangerInk, modifier = Modifier.weight(1f).padding(16.dp))
@@ -430,7 +430,7 @@ fun ChatListScreen(
                         // Spec encryption-status: the first row, so it scrolls with the chats (MZ decision 25 Oct 2026).
                         if (!showingArchived) item(key = "history-banner") { banner() }
                         // Spec chat-list-cards: the first-list cards at the top of Conversas.
-                        if (!showingArchived && scope == ChatScope.CONVERSAS) {
+                        if (!showingArchived && scope != ChatScope.GRUPOS) {
                             val count = allChats.count { it.scope == ChatScope.CONVERSAS && !archiveMarkers.containsKey(it.roomId) }
                             items(cards.visible(doneCards, count, handleState.currentHandle), key = { "card-${it.name}" }) { card ->
                                 FirstListCard(card, handleState.currentHandle) { target ->
@@ -459,8 +459,8 @@ fun ChatListScreen(
                             }
                         }
                         // The requests row and the group invites (specs chat-requests and chat-list-filters).
-                        if (!showingArchived && scope == ChatScope.CONVERSAS && rowCount > 0) item(key = "requests") { ChatRequestsRow(rowCount, onOpenRequests) }
-                        if (!showingArchived && scope == ChatScope.GRUPOS && requests != null) {
+                        if (!showingArchived && scope != ChatScope.GRUPOS && rowCount > 0) item(key = "requests") { ChatRequestsRow(rowCount, onOpenRequests) }
+                        if (!showingArchived && scope != ChatScope.CONVERSAS && requests != null) {
                             items(invites, key = { "invite-${it.roomId}" }) { invite ->
                                 GroupInviteRow(requests, invite, media, onOpenChat)
                             }
