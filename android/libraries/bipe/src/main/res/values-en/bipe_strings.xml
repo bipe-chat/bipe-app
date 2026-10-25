@@ -30,6 +30,13 @@
     <string name="bipe_badge_company_revoked">This business is no longer verified.</string>
     <string name="bipe_badge_company_revoked_not_active">This business is no longer verified. The CNPJ no longer shows as active at the Receita Federal.</string>
     <string name="bipe_badge_company_suspended">This business\'s seal is suspended until Bipe checks the account again.</string>
+    <string name="bipe_cvm_registered">Registered with CVM as %1$s</string>
+    <string name="bipe_cvm_cancelled">CVM registration cancelled on %1$s.</string>
+    <string name="bipe_cvm_no_registration">No CVM registration.</string>
+    <string name="bipe_cvm_bank_note">A bank can sell CDBs and savings without a CVM registration.</string>
+    <string name="bipe_cvm_stop_order">CVM ordered this company to stop its offers on %1$s.</string>
+    <string name="bipe_cvm_source">Source: CVM, dados.cvm.gov.br</string>
+    <string name="bipe_cvm_stop_order_card">CVM ordered this company to stop its offers on %1$s. Do not invest or pay anything to it before you check the CVM website.</string>
     <string name="bipe_badge_official">Bipe</string>
     <string name="bipe_badge_official_a11y">Official Bipe account</string>
     <string name="bipe_warning_nickname_confirm_title">Is this the person you know?</string>
@@ -295,7 +302,6 @@
     <string name="bipe_self_chat_title">Notes</string>
     <string name="bipe_self_chat_subtitle">Messages only you can see</string>
     <string name="bipe_self_chat_error">Couldn\'t open your notes. Try again.</string>
-    <string name="bipe_onboarding_welcome">A free messaging app.</string>
     <string name="bipe_onboarding_title">Know who you\'re talking to.</string>
     <string name="bipe_onboarding_point_scam">Checks look for scam signals in messages.</string>
     <string name="bipe_onboarding_point_brazil">Data and servers stay in Brazil, under Brazilian law.</string>
@@ -598,6 +604,7 @@
     <string name="bipe_linked_account_unlinked">Account unlinked.</string>
     <string name="bipe_linked_account_error">Could not link this account. Try again.</string>
     <string name="bipe_linked_account_unlink_error">Could not unlink this account. Try again.</string>
+    <string name="bipe_linked_account_taken">This account is already linked to another Bipe account.</string>
     <string name="bipe_recovery_apple">With my Apple account</string>
     <string name="bipe_recovery_google">With my Google account</string>
     <string name="bipe_recovery_linked_body">Use the account you linked to Bipe. Then enter your 8-digit PIN and wait %1$s hours.</string>
@@ -1363,6 +1370,11 @@
     <string name="bipe_app_poll_ended">Poll ended</string>
     <string name="bipe_app_poll_ended_text">The poll ended.</string>
     <string name="bipe_app_poll_vote_error">Couldn\'t vote. Try again.</string>
+    <string name="bipe_app_question_from">Question from %1$s</string>
+    <string name="bipe_app_question_hint">Tap one option to answer.</string>
+    <string name="bipe_app_question_your_answer">Your answer: %1$s</string>
+    <string name="bipe_app_question_change_hint">To change it, tap another option.</string>
+    <string name="bipe_app_question_closed">Question closed</string>
     <string name="bipe_app_group_leave_title">Leave the group?</string>
     <string name="bipe_app_group_leave_body">You stop getting its messages. To come back, someone in the group has to invite you again.</string>
     <string name="bipe_app_group_leave_alone">You\'re the only person in the group. If you leave, the group ends and nobody can join it.</string>
@@ -1407,6 +1419,10 @@
     <string name="bipe_app_media_save_failed">Couldn\'t save. Try again.</string>
     <string name="bipe_app_media_gallery_permission">To save photos and videos, allow Bipe to add to your photos in the phone settings.</string>
     <string name="bipe_app_upload_caption_placeholder">Add a caption</string>
+    <string name="bipe_app_upload_description">Photo description</string>
+    <string name="bipe_app_upload_description_placeholder">Optional. Say what the photo shows.</string>
+    <string name="bipe_app_upload_description_footer">People who use a screen reader hear this description.</string>
+    <string name="bipe_app_media_image_described">Photo, %1$s</string>
     <string name="bipe_app_upload_send">Send</string>
     <string name="bipe_app_upload_preparing">Preparing…</string>
     <string name="bipe_app_upload_too_large">This file is too large. The limit is %1$s.</string>

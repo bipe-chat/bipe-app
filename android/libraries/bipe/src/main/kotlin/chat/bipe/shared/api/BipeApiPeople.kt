@@ -106,7 +106,7 @@ suspend fun BipeApiClient.inviteConnections(accessToken: String): Set<String> =
         .userIds.toSet()
 
 /** Sends a request and returns the status and the body text of any answer. The body may be any content type. */
-private suspend fun BipeApiClient.exchange(
+internal suspend fun BipeApiClient.exchange(
     method: String,
     path: List<String>,
     body: ByteArray? = null,
@@ -148,7 +148,7 @@ private val peopleJson = Json {
     explicitNulls = false
 }
 
-private fun <T> decodePeople(serializer: KSerializer<T>, text: String, status: Int): T = try {
+internal fun <T> decodePeople(serializer: KSerializer<T>, text: String, status: Int): T = try {
     peopleJson.decodeFromString(serializer, text)
 } catch (error: SerializationException) {
     throw BipeApiException.UnexpectedResponse(status, error)
@@ -156,7 +156,7 @@ private fun <T> decodePeople(serializer: KSerializer<T>, text: String, status: I
     throw BipeApiException.UnexpectedResponse(status, error)
 }
 
-private fun serverError(status: Int, text: String): BipeApiException {
+internal fun serverError(status: Int, text: String): BipeApiException {
     val body = runCatching { peopleJson.decodeFromString(PeopleErrorBody.serializer(), text) }.getOrNull()
         ?: return BipeApiException.UnexpectedResponse(status)
     return BipeApiException.Server(

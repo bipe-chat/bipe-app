@@ -42,8 +42,6 @@ struct ChatNotificationsView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.settingsNotifications)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.chatNotifications.rawValue)

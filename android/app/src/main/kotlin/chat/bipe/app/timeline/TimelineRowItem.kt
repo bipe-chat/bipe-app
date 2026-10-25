@@ -89,6 +89,10 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import kotlin.math.roundToInt
+import androidx.compose.runtime.collectAsState
+import chat.bipe.shared.company.BipeCompanySeals
+import chat.bipe.shared.company.BipeCompanySealState
+import chat.bipe.app.polls.QuestionCard
 
 /** One row of spec timeline-rows. */
 @Composable
@@ -107,6 +111,8 @@ fun TimelineRowItem(
     onSeek: (String, Float) -> Unit = { _, _ -> },
     /** Action open of spec timeline-media: the row id for media-viewer. */
     onOpenViewer: (String) -> Unit = {},
+    /** The account's company seals, for the question card (spec question-card). null: no card, the poll card shows. */
+    seals: BipeCompanySeals? = null,
 ) {
     val colors = BipeTheme.colors
     when (row.kind) {
@@ -150,6 +156,16 @@ fun TimelineRowItem(
         TimelineRow.Kind.DELETED -> row.message?.let { DeletedRow(it) }
         TimelineRow.Kind.POLL -> row.message?.let { message ->
             val poll = message.poll ?: return@let
+            // Spec question-card: a company's structured question (bipe#244). Fails closed to the poll card.
+            val sealStates = seals?.states?.collectAsState()
+            val seal = remember(sealStates?.value, message.senderId) { seals?.seal(message.senderId) }
+            if (poll.isQuestionShape && !message.isOwn && seal is BipeCompanySealState.Verified) {
+                Bubble(false) {
+                    QuestionCard(poll, message.senderName, seal, model)
+                    MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))
+                }
+                return@let
+            }
             Box(Modifier.clickable { onOpenPoll(poll.eventId) }) {
                 Bubble(message.isOwn) {
                     if (!message.isOwn && !isDm) {

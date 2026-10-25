@@ -27,13 +27,13 @@ struct ChatListView: View {
     @State private var path: NavigationPath
     @State private var showsHandlePick = false
     @State private var openingLink: String?
+    /// queue-customer from the counter QR code (https://bipe.chat/@handle?fila).
+    @State private var openingQueue: String?
     @State private var newGroupWith: [Person]?
     @State private var notificationsRoom: String?
     @State private var groupDetailsRoom: String?
     @State private var deletingFromProfile: String?
     private let scope: ChatScope
-    private let account: AccountSummary?
-    private let onOpenVoce: () -> Void
     private let api: BipeAPIClient
     @State private var showingInvites = false
     @State private var creatingGroup = false
@@ -41,9 +41,7 @@ struct ChatListView: View {
     @ObservedObject private var cleared = ClearedChatsStore.shared
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
-    init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil, account: AccountSummary? = nil, onOpenVoce: @escaping () -> Void = {}) {
-        self.account = account
-        self.onOpenVoce = onOpenVoce
+    init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil) {
         self.api = api
         _model = ObservedObject(wrappedValue: model)
         _archive = ObservedObject(wrappedValue: model.archive)
@@ -60,45 +58,31 @@ struct ChatListView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 0) {
-                // Spec encryption-status: the banner above the chat list.
-                if scope == .conversas && encryption.showsBanner {
-                    HistoryBanner(model: encryption)
-                }
-                content
-            }
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
-            .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
-            .navigationDestination(for: String.self) { roomId in
-                ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
-                    Task {
-                        if let userId = await people.dmPartner(roomId: roomId) {
-                            path.append(PeopleRoute.person(userId: userId, fromDm: true))
+            content
+                .background(BipeColor.surfaceBase.ignoresSafeArea())
+                .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
+                .navigationDestination(for: String.self) { roomId in
+                    ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
+                        Task {
+                            if let userId = await people.dmPartner(roomId: roomId) {
+                                path.append(PeopleRoute.person(userId: userId, fromDm: true))
+                            }
                         }
                     }
                 }
-            }
-            .navigationDestination(for: RequestInboxRoute.self) { _ in
-                ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat,
-                                 onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
-            }
-            .navigationDestination(for: PeopleRoute.self) { route in
-                peopleScreen(route)
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
+                .navigationDestination(for: RequestInboxRoute.self) { _ in
+                    ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat,
+                                     onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    if let account {
-                        Button(action: onOpenVoce) {
-                            AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: model.media,
-                                       size: 32, userId: account.userId, isCompany: account.isCompany)
-                        }
-                        .accessibilityLabel(BipeStrings.appAccountCurrentA11y(account.displayName))
+                .navigationDestination(for: PeopleRoute.self) { route in
+                    peopleScreen(route)
+                }
+                .toolbar {
+                    // No account avatar here: Você shows the current account (MZ decision 25 Oct 2026, spec chat-list).
+                    ToolbarItem(placement: .topBarTrailing) {
+                        CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
                     }
                 }
-            }
         }
         .groupHost(session: model.session, api: api, media: model.media, path: $path, creatingGroup: $creatingGroup,
                    deletingDm: $deletingDm, showingInvites: $showingInvites)
@@ -141,6 +125,9 @@ struct ChatListView: View {
                                 openPerson: { path.append(PeopleRoute.person(userId: $0, fromDm: false)) },
                                 openOwnLink: { path.append(PeopleRoute.profileLink) })
         }
+        .sheet(item: Binding(get: { openingQueue.map(HandleLink.init) }, set: { openingQueue = $0?.handle })) { link in
+            QueueCustomerView(api: model.session.business(api), business: link.handle, close: { _ in openingQueue = nil })
+        }
         // person-profile: group-create with the person picked, chat-notifications and dm-delete for the DM.
         .sheet(item: Binding(get: { newGroupWith.map(PeoplePick.init) }, set: { newGroupWith = $0?.people })) { pick in
             GroupCreateView(session: model.session, media: model.media, people: pick.people) { roomId, _ in
@@ -175,6 +162,7 @@ struct ChatListView: View {
             switch PeopleLink(url: url) {
             case .handle(let handle): openingLink = handle
             case .userId(let userId): path.append(PeopleRoute.person(userId: userId, fromDm: false))
+            case .queue(let handle): openingQueue = handle
             case nil: break
             }
         }
@@ -275,63 +263,34 @@ struct ChatListView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, banner.state == .hidden ? 0 : 8)
             handlePrompt
-            filterBar
             list
         }
-    }
-
-    /// The only filter chip: Unread (spec chat-list-filters).
-    private var filterBar: some View {
-        HStack {
-            Button {
-                model.toggleUnread(in: scope)
-                BipeHaptics.play(.tick)
-            } label: {
-                // On shows a check, not only a colour (bipe#497).
-                HStack(spacing: 4) {
-                    if model.unreadScopes.contains(scope) {
-                        PhosphorIcon.check.image.resizable().frame(width: 14, height: 14)
-                    }
-                    Text(BipeStrings.appChatListFilterUnread)
-                }
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(model.unreadScopes.contains(scope) ? BipeColor.inkOnAccent : BipeColor.inkPrimary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(Capsule().fill(model.unreadScopes.contains(scope) ? BipeColor.accentFill : BipeColor.surfaceRaised))
-                .frame(minHeight: BipeTapTarget.minimum)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            // A filter chip: VoiceOver says whether it is on (bipe#495).
-            .accessibilityAddTraits(model.unreadScopes.contains(scope) ? .isSelected : [])
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
     }
 
     /// The requests row and the group invites above the chats (specs chat-requests and chat-list-filters).
     @ViewBuilder
     private var topRows: some View {
+        // Spec encryption-status: the banner is the first row, so it scrolls with the chats (MZ decision 25 Oct 2026).
+        if scope == .conversas && encryption.showsBanner && !showingArchived {
+            HistoryBanner(model: encryption)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(BipeColor.surfaceRaised)
+        }
         Button(showingArchived ? (scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups) : BipeStrings.archivedTitle) {
             showingArchived.toggle()
         }
-        .listRowBackground(BipeColor.surfaceBase)
         if model.readActionFailed {
             VStack(alignment: .leading) {
                 Text(BipeStrings.chatReadError).foregroundStyle(BipeColor.trustDangerInk)
                 Button(BipeStrings.appRetry) { Task { await model.retryReadAction() } }
                     .disabled(model.markingRoomId != nil)
             }
-            .listRowBackground(BipeColor.surfaceBase)
         }
         if archive.failed {
             VStack(alignment: .leading) {
                 Text(BipeStrings.archiveError).foregroundStyle(BipeColor.trustDangerInk)
                 Button(BipeStrings.appRetry) { archive.retry(model.chats) }
             }
-            .listRowBackground(BipeColor.surfaceBase)
         }
         if !showingArchived && scope == .conversas && requests.rowCount > 0 {
             // Action openBox.
@@ -340,16 +299,13 @@ struct ChatListView: View {
             } label: {
                 ChatRequestsRow(count: requests.rowCount)
             }
-            .listRowBackground(BipeColor.surfaceBase)
         }
         ForEach(!showingArchived && scope == .grupos ? requests.visibleGroupInvites : []) { invite in
             GroupInviteRow(model: requests, invite: invite, media: model.media, onOpenChat: openChat)
-                .listRowBackground(BipeColor.surfaceBase)
         }
         if requests.error {
             Text(BipeStrings.errorGeneric)
                 .foregroundStyle(BipeColor.trustDangerInk)
-                .listRowBackground(BipeColor.surfaceBase)
         }
     }
 
@@ -366,11 +322,9 @@ struct ChatListView: View {
                     Text(BipeStrings.archivedEmpty).foregroundStyle(BipeColor.inkSecondary)
                 } else { emptyState }
                 moreRows
-                    .listRowBackground(BipeColor.surfaceBase)
                     .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         case .loaded:
             let chats = model.chats(in: scope, archived: showingArchived)
             List {
@@ -378,7 +332,6 @@ struct ChatListView: View {
                 ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
                     .buttonStyle(.plain)
-                    .listRowBackground(BipeColor.surfaceBase)
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
                     .contextMenu { rowMenu(chat.roomId) }
                     .accessibilityActions { rowMenu(chat.roomId) }
@@ -391,7 +344,6 @@ struct ChatListView: View {
                 moreRows
             }
             .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
     }
 
@@ -439,23 +391,14 @@ struct ChatListView: View {
     @ViewBuilder private var moreRows: some View {
         if !showingArchived {
             Button(BipeStrings.chatListMore) { model.loadMore(in: scope) }
-                .listRowBackground(BipeColor.surfaceBase)
         }
     }
 
-    /// The empty messages of chat-list-filters: noUnread turns the filter off on a tap; noChats offers start chat.
+    /// The empty messages of chat-list-filters: noChats offers start chat.
     @ViewBuilder
     private var emptyState: some View {
         VStack(spacing: 12) {
-            if model.unreadScopes.contains(scope) {
-                Button {
-                    model.toggleUnread(in: scope)
-                } label: {
-                    Text(BipeStrings.appChatListNoUnread)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                }
-                .buttonStyle(.plain)
-            } else if scope == .grupos {
+            if scope == .grupos {
                 Text(BipeStrings.groupsEmptyTitle).font(.headline).foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.groupsEmptyBody).foregroundStyle(BipeColor.inkSecondary)
             } else {

@@ -12,17 +12,22 @@ enum PeopleLink: Equatable, Identifiable {
     case handle(String)
     /// https://matrix.to/#/@user:server: open the person directly.
     case userId(String)
+    /// https://bipe.chat/@handle?fila, the counter QR code of Fila virtual: open queue-customer for the handle.
+    case queue(String)
 
     var id: String {
         switch self {
         case .handle(let handle): "handle:\(handle)"
         case .userId(let userId): "user:\(userId)"
+        case .queue(let handle): "queue:\(handle)"
         }
     }
 
     /// `nil` when the URL is not a profile link: the app ignores it.
     init?(url: URL) {
-        if let handle = BipeProfileLink.handle(from: url) {
+        if let handle = BipeProfileLink.queueHandle(from: url) {
+            self = .queue(handle)
+        } else if let handle = BipeProfileLink.handle(from: url) {
             self = .handle(handle)
         } else if let userId = BipeProfileLink.matrixUserID(fromPermalink: url) {
             self = .userId(userId)

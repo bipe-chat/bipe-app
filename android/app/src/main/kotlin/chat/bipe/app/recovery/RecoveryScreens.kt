@@ -21,14 +21,15 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -57,8 +58,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountList
+import chat.bipe.app.common.edgeToEdge
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.account.BipeLinkProvider
 import chat.bipe.shared.generated.BipeOnboardingRecoveryRow
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
@@ -83,6 +86,7 @@ fun RecoveryFlowScreen(model: RecoveryFlowModel, onClose: () -> Unit) {
             RecoveryFlowModel.Route.BETA -> RecoveryBetaScreen(model)
             RecoveryFlowModel.Route.WAITING -> RecoveryWaitingScreen(model)
             RecoveryFlowModel.Route.OLD_PHONE -> OldPhoneScreen(model)
+            RecoveryFlowModel.Route.LINKED -> RecoveryLinkedScreen(model)
         }
     }
 }
@@ -148,22 +152,45 @@ private fun RecoveryStartScreen(model: RecoveryFlowModel, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val rows by model.rows.collectAsState()
     RecoveryStep(BipeScreen.RECOVERY_START, stringResource(R.string.bipe_recovery_title), onBack = onClose) {
-        rows.forEach { row ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(colors.surfaceRaised, RoundedCornerShape(12.dp))
-                    .clickable { model.choose(row) }
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(stringResource(row.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
+        Column(modifier = Modifier.edgeToEdge(24.dp).fillMaxWidth()) {
+            rows.forEachIndexed { index, row ->
+                if (index > 0) HorizontalDivider()
                 val body = if (row == BipeOnboardingRecoveryRow.EMAIL) {
                     stringResource(row.body, BipeRegistries.RECOVERY_DELAY_HOURS_EMAIL.toString())
+                } else if (row.linkProvider != null) {
+                    stringResource(row.body, BipeRegistries.LINKED_RECOVERY_DELAY_HOURS.toString())
                 } else {
                     stringResource(row.body)
                 }
-                Text(body, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
+                ListItem(
+                    headlineContent = { Text(stringResource(row.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary) },
+                    supportingContent = { Text(body, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) },
+                    modifier = Modifier.fillMaxWidth().clickable { model.choose(row) },
+                )
+            }
+        }
+    }
+}
+
+// recovery-linked (ADR 0096)
+
+@Composable
+private fun RecoveryLinkedScreen(model: RecoveryFlowModel) {
+    val provider by model.linkProvider.collectAsState()
+    val phase by model.linkedPhase.collectAsState()
+    val error by model.linkedError.collectAsState()
+    val title = if (provider == BipeLinkProvider.APPLE) R.string.bipe_recovery_apple else R.string.bipe_recovery_google
+    RecoveryStep(
+        BipeScreen.RECOVERY_LINKED,
+        stringResource(title),
+        stringResource(R.string.bipe_recovery_linked_body, BipeRegistries.LINKED_RECOVERY_DELAY_HOURS.toString()),
+        onBack = { model.back() },
+    ) {
+        when (phase) {
+            RecoveryFlowModel.LinkedPhase.SIGNING_IN -> Busy()
+            RecoveryFlowModel.LinkedPhase.FAILED -> {
+                error?.let { Footer(it, isError = true) }
+                FilledButton(stringResource(R.string.bipe_app_retry), onClick = model::startLinked)
             }
         }
     }
@@ -192,7 +219,12 @@ private fun RecoveryPinScreen(model: RecoveryFlowModel) {
         else -> stringResource(if (model.softLogoutUserId != null) R.string.bipe_soft_logout_title else R.string.bipe_pin_enter_title)
     }
     val message = when (phase) {
-        RecoveryFlowModel.PinPhase.BLOCKED -> stringResource(R.string.bipe_pin_blocked_body, BipeRegistries.PIN_MAX_WRONG_TRIES.toString())
+        // A linked account never unblocks the PIN (ADR 0096): bipe_recovery_linked_pin_blocked says so.
+        RecoveryFlowModel.PinPhase.BLOCKED -> if (factor == RecoveryFlowModel.Factor.LINKED) {
+            stringResource(R.string.bipe_recovery_linked_pin_blocked)
+        } else {
+            stringResource(R.string.bipe_pin_blocked_body, BipeRegistries.PIN_MAX_WRONG_TRIES.toString())
+        }
         RecoveryFlowModel.PinPhase.NEW_PIN -> stringResource(R.string.bipe_pin_create_body, BipeRegistries.PIN_LENGTH.toString())
         RecoveryFlowModel.PinPhase.NEW_PIN_CONFIRM -> null
         else -> model.softLogoutUserId?.let { userId ->
@@ -321,6 +353,7 @@ private fun RecoveryWaitingScreen(model: RecoveryFlowModel) {
     val context = LocalContext.current
     val pending by model.pending.collectAsState()
     val phase by model.waitingPhase.collectAsState()
+    val waitingProvider by model.waitingProvider.collectAsState()
     RecoveryStep(BipeScreen.RECOVERY_WAITING, stringResource(R.string.bipe_recovery_waiting_title)) {
         val kept = pending
         when (phase) {
@@ -331,7 +364,11 @@ private fun RecoveryWaitingScreen(model: RecoveryFlowModel) {
                         kept.readyAt.toEpochMilli(),
                         DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH,
                     )
-                    val body = if (kept.purpose == BipeRecoveryPurpose.PIN_RESET) R.string.bipe_recovery_waiting_pin_body else R.string.bipe_recovery_waiting_body
+                    val body = when {
+                        kept.purpose == BipeRecoveryPurpose.PIN_RESET -> R.string.bipe_recovery_waiting_pin_body
+                        waitingProvider != null -> R.string.bipe_recovery_linked_wait
+                        else -> R.string.bipe_recovery_waiting_body
+                    }
                     Text(stringResource(body, date), color = colors.inkPrimary)
                 }
                 if (phase == RecoveryFlowModel.WaitingPhase.CLAIMING) {
@@ -346,7 +383,7 @@ private fun RecoveryWaitingScreen(model: RecoveryFlowModel) {
                 FilledButton(stringResource(R.string.bipe_action_continue), onClick = model::startOver)
             } else {
                 Text(stringResource(R.string.bipe_recovery_ready), color = colors.inkPrimary)
-                Footer(stringResource(R.string.bipe_recovery_history_note))
+                Footer(stringResource(if (waitingProvider != null) R.string.bipe_recovery_linked_history else R.string.bipe_recovery_history_note))
             }
             RecoveryFlowModel.WaitingPhase.CANCELLED -> {
                 Text(stringResource(R.string.bipe_recovery_cancelled), color = colors.inkPrimary)

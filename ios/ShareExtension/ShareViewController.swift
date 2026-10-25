@@ -14,6 +14,7 @@ final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         let model = model
+        RoundedType.applyToBars()
         let host = UIHostingController(rootView: PixCheckView(model: model, accountAvailable: PixHandoff.accountAvailable,
                                                               close: { [weak self] in self?.finish() },
                                                               sendToChat: { [weak self] item in
@@ -22,7 +23,7 @@ final class ShareViewController: UIViewController {
                 model.close()
                 self?.finish()
             }
-        }))
+        }).bipeRoundedType())
         addChild(host)
         host.view.frame = view.bounds
         host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]

@@ -50,6 +50,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -116,6 +120,10 @@ fun UploadPreviewScreen(
             }
             HorizontalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth(), key = { items.getOrNull(it)?.id ?: it }) { page ->
                 items.getOrNull(page)?.let { PickedMediaPage(it, maxUploadLabel) }
+            }
+            val current = items.getOrNull(pager.currentPage)
+            if (current?.kind == PickedMedia.Kind.IMAGE) {
+                ImageDescriptionField(current.description) { model.editDescription(pager.currentPage, it) }
             }
             if (items.size > 1) {
                 val position = listOf(pager.currentPage + 1, items.size).joinToString(" / ")
@@ -246,4 +254,46 @@ private suspend fun preview(item: PickedMedia): ImageBitmap? = withContext(Dispa
         }
         bitmap?.asImageBitmap()
     }.getOrNull()
+}
+
+/** The description of the image on screen (spec upload-preview, bipe-chat/bipe#501). */
+@Composable
+private fun ImageDescriptionField(text: String, onChange: (String) -> Unit) {
+    val colors = BipeTheme.colors
+    val label = stringResource(R.string.bipe_app_upload_description)
+    val footer = stringResource(R.string.bipe_app_upload_description_footer)
+    val placeholder = stringResource(R.string.bipe_app_upload_description_placeholder)
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 8.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = colors.inkSecondary)
+        BasicTextField(
+            value = text,
+            onValueChange = onChange,
+            maxLines = 3,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.inkPrimary),
+            cursorBrush = SolidColor(colors.accentFill),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
+                .background(colors.surfaceSunken, RoundedCornerShape(12.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .semantics {
+                    contentDescription = label
+                    stateDescription = footer
+                },
+            decorationBox = { inner ->
+                Box {
+                    if (text.isEmpty()) {
+                        Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
+                    }
+                    inner()
+                }
+            },
+        )
+        Text(
+            footer,
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.inkSecondary,
+            modifier = Modifier.padding(top = 4.dp).clearAndSetSemantics {},
+        )
+    }
 }

@@ -154,7 +154,6 @@ struct LinkedDevicesView: View {
                         PhosphorIconView(icon: .desktop, size: 22)
                     }
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
             } footer: {
                 Text(BipeStrings.linkedDevicesFooter)
             }
@@ -162,8 +161,6 @@ struct LinkedDevicesView: View {
                 content
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.linkedDevicesTitle)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.linkedDevices.rawValue)
@@ -230,7 +227,6 @@ struct LinkedDevicesView: View {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity)
-                .listRowBackground(BipeColor.surfaceBase)
         case .failed:
             VStack(spacing: 12) {
                 Text(BipeStrings.linkedDevicesError)
@@ -242,12 +238,10 @@ struct LinkedDevicesView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .listRowBackground(BipeColor.surfaceBase)
         case .loaded:
             if devices.devices.isEmpty {
                 Text(BipeStrings.linkedDevicesEmpty)
                     .foregroundStyle(BipeColor.inkSecondary)
-                    .listRowBackground(BipeColor.surfaceBase)
             } else {
                 ForEach(devices.devices) { device in
                     Button {
@@ -269,7 +263,6 @@ struct LinkedDevicesView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
             }
         }

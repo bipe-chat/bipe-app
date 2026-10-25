@@ -69,7 +69,36 @@ struct AccountRows: View {
             }
             .accessibilityAddTraits(account.isCurrent ? .isSelected : [])
             .accessibilityLabel(account.isCurrent ? BipeStrings.appAccountCurrentA11y(account.displayName) : account.displayName)
-            .listRowBackground(BipeColor.surfaceRaised)
         }
+    }
+}
+
+/// Spec account-switcher in the popover a hold on the Você tab opens when the iOS tab bar holds back the native menu:
+/// the same accounts, then Nova conta. A switch or Nova conta closes it.
+struct AccountSwitcherPopover: View {
+    @ObservedObject var model: AppTabsModel
+    let fallbackMedia: MediaLoader
+    let onNewAccount: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            Section {
+                AccountRows(model: model, fallbackMedia: fallbackMedia)
+                Button {
+                    dismiss()
+                    onNewAccount()
+                } label: {
+                    Label { Text(BipeStrings.appAccountNew) } icon: { Image(systemName: "plus") }
+                }
+                .listRowBackground(BipeColor.surfaceRaised)
+            } header: {
+                Text(BipeStrings.appAccountSwitcherTitle)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(BipeColor.surfaceBase)
+        .onChange(of: model.accounts.first(where: \.isCurrent)?.userId) { _, _ in dismiss() }
     }
 }

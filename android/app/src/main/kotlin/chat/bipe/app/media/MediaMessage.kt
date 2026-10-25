@@ -40,6 +40,8 @@ data class MediaMessage(
     val isAnimated: Boolean = false,
     val source: MediaRef,
     val thumbnailSource: MediaRef? = null,
+    /** image only: the sender's description for screen readers (bipe-chat/bipe#501, registries/image-descriptions.json). */
+    val description: String? = null,
 ) {
     enum class Kind { IMAGE, VIDEO, FILE, STICKER }
 

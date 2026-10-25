@@ -369,7 +369,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
             if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.bipe_public_profile_save))
         }
         if (enabled && savedOnce) {
-            IconRow(PhosphorIcon.SHARE_NETWORK, stringResource(R.string.bipe_public_profile_share), onClick = openLink)
+            RowGroup { IconRow(PhosphorIcon.SHARE_NETWORK, stringResource(R.string.bipe_public_profile_share), onClick = openLink) }
         }
     }
 }
@@ -436,7 +436,8 @@ fun QrCode(text: String) {
     }
 }
 
-private fun qrBitmap(text: String): Bitmap? = runCatching {
+/** The QR code of [text], one pixel per module and no margin; also the counter QR code of queue-owner. */
+internal fun qrBitmap(text: String): Bitmap? = runCatching {
     val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 0, 0, mapOf(EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M, EncodeHintType.MARGIN to 0))
     val pixels = IntArray(matrix.width * matrix.height) { index ->
         if (matrix.get(index % matrix.width, index / matrix.width)) android.graphics.Color.BLACK else android.graphics.Color.WHITE

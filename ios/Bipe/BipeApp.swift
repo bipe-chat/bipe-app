@@ -12,12 +12,14 @@ struct BipeApp: App {
     init() {
         // Before any keychain read: the items move into the app-group group (bipe-chat/bipe#531).
         KeychainMove.run()
+        RoundedType.applyToBars()
     }
 
     var body: some Scene {
         WindowGroup {
             AccountStartView()
                 .modifier(AppLockGate())
+                .bipeRoundedType()
         }
     }
 }

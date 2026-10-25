@@ -41,7 +41,6 @@ struct SettingsGroupView: View {
                     Text(BipeStrings.accountCompanyOwner(owner))
                         .font(.subheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
-                        .listRowBackground(BipeColor.surfaceRaised)
                 }
             }
             if group == .account, let warning = model.waysBack?.warning {
@@ -57,7 +56,6 @@ struct SettingsGroupView: View {
                 Section {
                     ForEach(visible.rows, id: \.self) { row in
                         rowView(row)
-                            .listRowBackground(BipeColor.surfaceRaised)
                     }
                 } header: {
                     if let title = section.title {
@@ -68,8 +66,6 @@ struct SettingsGroupView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(group.title)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.settingsGroup.rawValue)
@@ -195,6 +191,12 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title)
             }
+        case .accountLinkedAccounts:
+            NavigationLink {
+                LinkedAccountsView(settings: model)
+            } label: {
+                SettingsRowLabel(title: row.title, value: linkedSummary)
+            }
         case .helpReportProblem:
             NavigationLink {
                 ProblemReportView(model: model)
@@ -248,6 +250,12 @@ struct SettingsGroupView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    /// The linked providers, for the linkedAccounts row (ADR 0096).
+    private var linkedSummary: String? {
+        guard let links = model.account?.links, !links.isEmpty else { return nil }
+        return links.map { $0.provider == .apple ? BipeStrings.linkedApple : BipeStrings.linkedGoogle }.joined(separator: ", ")
     }
 
     /// The current value of a row, formatted (spec settings-group, SettingsRow.value).
@@ -375,11 +383,8 @@ struct ChoiceListView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selection == option.id ? .isSelected : [])
-                .listRowBackground(BipeColor.surfaceRaised)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -459,16 +464,12 @@ private struct MessagingPickerView: View {
                 .buttonStyle(.plain)
                 .disabled(saving)
                 .accessibilityAddTraits(model.whoCanMessage == option ? .isSelected : [])
-                .listRowBackground(BipeColor.surfaceRaised)
             }
             if failed {
                 Text(BipeStrings.errorGeneric)
                     .foregroundStyle(BipeColor.trustDangerInk)
-                    .listRowBackground(BipeColor.surfaceBase)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.messagingTitle)
         .navigationBarTitleDisplayMode(.inline)
     }

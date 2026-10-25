@@ -40,10 +40,13 @@ settings:
     # ID set (bipe-chat/bipe#602, docs/client-switch-plan.md step 2). Tester builds: chat.bipe.app.next.
     # The store set (the fork's IDs, ADR 0061) passes BIPE_APP_ID=chat.bipe.app BIPE_APP_GROUP=group.chat.bipe
     # BIPE_DISPLAY_NAME=Bipe on the xcodebuild command line; CI builds it unsigned and never uploads it before the switch.
-    # The extension IDs derive from BIPE_APP_ID (.nse, .share); for the store set that is unverified against the fork.
+    # The extension IDs derive from BIPE_APP_ID: .nse, and .$(BIPE_SHARE_ID_SUFFIX) for the share extension. The fork's
+    # registered share ID is chat.bipe.app.shareextension (App Store Connect API, 25 Oct 2026), so the store set also
+    # passes BIPE_SHARE_ID_SUFFIX=shareextension.
     # The "Report the store IDs" step of testflight.yml (node tools/asc.mjs store-ids) lists the fork's real IDs.
     BIPE_APP_ID: chat.bipe.app.next
     BIPE_APP_GROUP: group.chat.bipe.next
+    BIPE_SHARE_ID_SUFFIX: share
 
 packages:
   MatrixRustSDK:
@@ -192,6 +195,7 @@ targets:
       - path: ShareExtension
       - path: Bipe/PixCheck
       - path: Bipe/Common/AppConfig.swift
+      - path: Bipe/Common/RoundedType.swift
     info:
       path: SupportFiles/BipeShare/Info.plist
       properties:
@@ -216,7 +220,7 @@ targets:
         com.apple.security.application-groups: [$(BIPE_APP_GROUP)]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(BIPE_APP_ID).share
+        PRODUCT_BUNDLE_IDENTIFIER: $(BIPE_APP_ID).$(BIPE_SHARE_ID_SUFFIX)
         PROVISIONING_PROFILE_SPECIFIER: $(BIPE_CI_PROFILE_SHARE)
         CODE_SIGN_STYLE: $(BIPE_SIGN_STYLE)
         CODE_SIGN_IDENTITY: $(BIPE_SIGN_IDENTITY)

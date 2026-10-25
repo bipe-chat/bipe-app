@@ -20,6 +20,23 @@ extension BipeCompanySealState {
     var isVerified: Bool {
         if case .verified = self { true } else { false }
     }
+
+    /// Spec company-seal cvmLines: the CVM line of a verified seal (ADR 0077), from the signed badge only.
+    var cvm: BipeCvmLines.Result {
+        if case .verified(let payload) = self { BipeCvmLines.lines(payload.cvm) } else { BipeCvmLines.lines(nil) }
+    }
+}
+
+extension BipeCvmLines.Line {
+    var text: String {
+        switch key {
+        case .registered: BipeStrings.cvmRegistered(arg ?? "")
+        case .cancelled: BipeStrings.cvmCancelled(arg ?? "")
+        case .noRegistration: BipeStrings.cvmNoRegistration
+        case .bankNote: BipeStrings.cvmBankNote
+        case .stopOrder: BipeStrings.cvmStopOrder(arg ?? "")
+        }
+    }
 }
 
 /// Spec company-seal: the facts behind a company's seal, and what the seal does not promise (ADR 0042).
@@ -43,6 +60,9 @@ struct CompanySealSheet: View {
                             .foregroundStyle(BipeColor.inkPrimary)
                     }
                 }
+                if case .verified = state, !state.cvm.lines.isEmpty {
+                    cvmSection(state.cvm)
+                }
                 if case .verified(let payload) = state {
                     Section {
                         if let company = payload.company {
@@ -64,8 +84,6 @@ struct CompanySealSheet: View {
                     }
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.appSealTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -76,6 +94,28 @@ struct CompanySealSheet: View {
         }
         .accessibilityIdentifier(BipeScreen.companySeal.rawValue)
         .presentationDetents([.medium, .large])
+    }
+
+    /// cvmDanger: a stop order is red with a filled icon and sits above the other facts. The rest is neutral.
+    private func cvmSection(_ cvm: BipeCvmLines.Result) -> some View {
+        Section {
+            ForEach(Array(cvm.lines.enumerated()), id: \.offset) { _, line in
+                HStack(alignment: .top, spacing: 8) {
+                    if cvm.danger {
+                        PhosphorIcon.warningCircle.image
+                            .resizable()
+                            .frame(width: 18, height: 18)
+                            .foregroundStyle(BipeColor.trustDangerInk)
+                            .accessibilityHidden(true)
+                    }
+                    Text(line.text)
+                        .font(cvm.danger ? .body.bold() : .body)
+                        .foregroundStyle(cvm.danger ? BipeColor.trustDangerInk : BipeColor.inkPrimary)
+                }
+            }
+        } footer: {
+            Text(BipeStrings.cvmSource)
+        }
     }
 
     private func fact(_ label: String, _ value: String) -> some View {
