@@ -1392,6 +1392,8 @@ public enum BipeStrings {
 
     public static var linkedAccountUnlinkError: String { NSLocalizedString("bipe_linked_account_unlink_error", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var linkedAccountTaken: String { NSLocalizedString("bipe_linked_account_taken", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var recoveryApple: String { NSLocalizedString("bipe_recovery_apple", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var recoveryGoogle: String { NSLocalizedString("bipe_recovery_google", tableName: "Bipe", bundle: .module, comment: "") }
@@ -3128,6 +3130,20 @@ public enum BipeStrings {
 
     public static var appPollVoteError: String { NSLocalizedString("bipe_app_poll_vote_error", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func appQuestionFrom(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_question_from", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appQuestionHint: String { NSLocalizedString("bipe_app_question_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appQuestionYourAnswer(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_question_your_answer", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appQuestionChangeHint: String { NSLocalizedString("bipe_app_question_change_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appQuestionClosed: String { NSLocalizedString("bipe_app_question_closed", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appGroupLeaveTitle: String { NSLocalizedString("bipe_app_group_leave_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appGroupLeaveBody: String { NSLocalizedString("bipe_app_group_leave_body", tableName: "Bipe", bundle: .module, comment: "") }
@@ -3221,6 +3237,16 @@ public enum BipeStrings {
     public static var appMediaGalleryPermission: String { NSLocalizedString("bipe_app_media_gallery_permission", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appUploadCaptionPlaceholder: String { NSLocalizedString("bipe_app_upload_caption_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadDescription: String { NSLocalizedString("bipe_app_upload_description", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadDescriptionPlaceholder: String { NSLocalizedString("bipe_app_upload_description_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadDescriptionFooter: String { NSLocalizedString("bipe_app_upload_description_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appMediaImageDescribed(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_media_image_described", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 
     public static var appUploadSend: String { NSLocalizedString("bipe_app_upload_send", tableName: "Bipe", bundle: .module, comment: "") }
 
