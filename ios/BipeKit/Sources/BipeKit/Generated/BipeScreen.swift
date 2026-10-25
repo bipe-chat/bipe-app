@@ -106,6 +106,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Invite as a QR code (flow invites). Spec: bipe-shared/product/screens/invite-qr.json
     case inviteQr = "invite-qr"
 
+    /// Invite opened on a signed-in phone (flow home). Spec: bipe-shared/product/screens/invite-signed-in.json
+    case inviteSignedIn = "invite-signed-in"
+
     /// Invite people to Bipe (flow invites). Spec: bipe-shared/product/screens/invites.json
     case invites = "invites"
 

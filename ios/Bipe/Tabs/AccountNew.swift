@@ -71,7 +71,8 @@ final class AccountNewModel: ObservableObject {
     /// Action cancelSignup: gives the slot back. A failed revoke leaves a pending invite in Convites, nothing worse.
     func revoke(_ start: SignupStart) async {
         try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> Void in
-            try await self.api.revokeInvite(id: start.inviteId, accessToken: token)
+            guard let inviteId = start.inviteId else { return }
+            try await self.api.revokeInvite(id: inviteId, accessToken: token)
         }
     }
 
@@ -91,11 +92,13 @@ struct AccountNewView: View {
     @State private var showsExisting = false
     @State private var recoveryLink: URL?
 
-    init(tabs: AppTabsModel, session: AccountSession, api: BipeAPIClient, close: @escaping () -> Void) {
+    /// preset: a sign-up that already has its invite (invite-signed-in newAccount).
+    init(tabs: AppTabsModel, session: AccountSession, api: BipeAPIClient, preset: SignupStart? = nil, close: @escaping () -> Void) {
         self.tabs = tabs
         self.api = api
         self.close = close
         _model = StateObject(wrappedValue: AccountNewModel(session: session, api: api))
+        _signup = State(initialValue: preset)
     }
 
     var body: some View {
@@ -210,7 +213,7 @@ struct AccountNewView: View {
     /// invite may already hold the new account (ADR 0094), so it stays.
     private func cancel(_ start: SignupStart, reachedCreate: Bool) {
         close()
-        guard !reachedCreate else { return }
+        guard !reachedCreate, start.isOwnInvite else { return }
         Task { await model.revoke(start) }
     }
 }

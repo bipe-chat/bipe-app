@@ -40,11 +40,19 @@ data class PendingInvite(val code: String, val inviterHandle: String?, val isVal
 }
 
 /**
- * Type SignupStart of spec account-new: a sign-up from the Nova conta window, with the invite the account on screen made.
+ * Type SignupStart of spec account-new: a sign-up from the Nova conta window, with the invite the account on screen made
+ * ([inviteId] set), or with someone else's invite from a link (invite-signed-in, [inviteId] null, [inviterHandle] theirs).
  * [isCompany] sends `account_type: company` (ADR 0087).
  */
-data class SignupStart(val inviteId: String, val code: String, val isCompany: Boolean = false) {
-    override fun toString(): String = "SignupStart($inviteId)"
+data class SignupStart(
+    val inviteId: String?,
+    val code: String,
+    val isCompany: Boolean = false,
+    val inviterHandle: String? = null,
+) {
+    /** The account on screen made the invite: the sign-up has no inviter. */
+    val isOwnInvite: Boolean get() = inviteId != null
+    override fun toString(): String = "SignupStart(${inviteId ?: "link"})"
 }
 
 /**
@@ -105,7 +113,7 @@ class SignupFlowModel(
 
     val variant = MutableStateFlow(Variant.LOADING)
     // The account on screen made the invite: no inviter handle, so signup-name shows no "invited by".
-    val invite = MutableStateFlow(start?.let { PendingInvite(it.code, null, true) })
+    val invite = MutableStateFlow(start?.let { PendingInvite(it.code, it.inviterHandle.takeUnless { _ -> it.isOwnInvite }, true) })
     private var inviteRequired = true
     private var termsVersion: String? = null
     val clipboardHasText = MutableStateFlow(false)
@@ -213,10 +221,31 @@ class SignupFlowModel(
         scope.launch { preview(found) }
     }
 
-    /** Action primary: invited and open go to signup-name, inviteOnly to signup-invite-code. */
+    /** true while primary checks the pending invite again. */
+    val checkingInvite = MutableStateFlow(false)
+
+    /**
+     * Action primary: invited and open go to signup-name, inviteOnly to signup-invite-code. A pending invite is checked
+     * again first (bipe-chat/bipe#460): one that stopped being valid goes to signup-invite-code.
+     */
     fun primary() {
         when (variant.value) {
-            Variant.INVITED, Variant.OPEN -> go(Route.NAME)
+            Variant.INVITED, Variant.OPEN -> {
+                val pending = invite.value?.takeIf { it.isValid } ?: return go(Route.NAME)
+                if (checkingInvite.value) return
+                checkingInvite.value = true
+                scope.launch {
+                    val stillValid = runCatching { api.invitePreview(pending.code).valid }.getOrDefault(true)
+                    checkingInvite.value = false
+                    if (stillValid) return@launch go(Route.NAME)
+                    invite.value = null
+                    code.value = pending.code
+                    inviteCodePhase.value = InviteCodePhase.INVALID
+                    inviteCodeError.value = context.getString(R.string.bipe_invite_no_longer_valid)
+                    updateVariant()
+                    go(Route.INVITE_CODE)
+                }
+            }
             Variant.INVITE_ONLY -> go(Route.INVITE_CODE)
             Variant.LOADING -> Unit
         }
@@ -521,7 +550,7 @@ class SignupFlowModel(
             createPhase.value = CreatePhase.DONE
             formPin = ""
             // A sign-up from account-new has no inviter chat and no greeting: the inviter is an account on this phone.
-            onSignedUp(session, if (start != null) SignupOutcome(null, null) else SignupOutcome(inviterUserId, invite.value?.inviterHandle))
+            onSignedUp(session, if (start?.isOwnInvite == true) SignupOutcome(null, null) else SignupOutcome(inviterUserId, invite.value?.inviterHandle))
         } catch (error: Exception) {
             createPhase.value = CreatePhase.FAILED
             createError.value = CreateError.SignInFailed

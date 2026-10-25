@@ -13,6 +13,13 @@ struct AppTabsView: View {
     let api: BipeAPIClient
     let initialRoomId: String?
     @State private var showsNewAccount = false
+    /// invite-signed-in: a bipe.chat/convite link opened on this signed-in phone.
+    @State private var invitedCode: InviteCode?
+    @State private var newAccountStart: SignupStart?
+    private struct InviteCode: Identifiable {
+        let code: String
+        var id: String { code }
+    }
 
     var body: some View {
         let chatList = model.chatList(for: session)
@@ -55,8 +62,35 @@ struct AppTabsView: View {
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
         .modifier(InviteJoinNotice(model: model.invites(for: session)))
-        .sheet(isPresented: $showsNewAccount) {
-            AccountNewView(tabs: model, session: session, api: api) { showsNewAccount = false }
+        .sheet(isPresented: $showsNewAccount, onDismiss: { newAccountStart = nil }) {
+            AccountNewView(tabs: model, session: session, api: api, preset: newAccountStart) { showsNewAccount = false }
+        }
+        .onOpenURL { url in
+            guard let code = BipeInviteLink.code(from: url) else { return }
+            invitedCode = InviteCode(code: code)
+        }
+        .sheet(item: $invitedCode) { invite in
+            InviteSignedInView(code: invite.code, session: session, api: api, accountsOnPhone: model.accounts.map(\.userId),
+                               close: { invitedCode = nil },
+                               openChat: { roomId in
+                                   invitedCode = nil
+                                   model.selectTab(.conversas)
+                                   TabsLinks.shared.link = .chat(roomId)
+                               },
+                               openProfile: { handle in
+                                   invitedCode = nil
+                                   model.selectTab(.conversas)
+                                   TabsLinks.shared.link = .profile(handle)
+                               },
+                               newAccount: { start in
+                                   invitedCode = nil
+                                   newAccountStart = start
+                                   // One sheet at a time: open Nova conta after this one has gone.
+                                   Task {
+                                       try? await Task.sleep(for: .milliseconds(500))
+                                       showsNewAccount = true
+                                   }
+                               })
         }
     }
 }

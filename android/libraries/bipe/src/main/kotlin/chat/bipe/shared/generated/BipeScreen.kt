@@ -112,6 +112,9 @@ enum class BipeScreen(val id: String) {
     /** Invite as a QR code (flow invites). Spec: bipe-shared/product/screens/invite-qr.json */
     INVITE_QR("invite-qr"),
 
+    /** Invite opened on a signed-in phone (flow home). Spec: bipe-shared/product/screens/invite-signed-in.json */
+    INVITE_SIGNED_IN("invite-signed-in"),
+
     /** Invite people to Bipe (flow invites). Spec: bipe-shared/product/screens/invites.json */
     INVITES("invites"),
 

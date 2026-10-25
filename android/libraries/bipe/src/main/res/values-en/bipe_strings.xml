@@ -87,6 +87,11 @@
     <string name="bipe_messaging_contacts">Contacts only</string>
     <string name="bipe_messaging_contacts_body">People in a group or chat with you, people you invited and whoever invited you.</string>
     <string name="bipe_error_invite_invalid">Couldn\'t use this invite. Ask the person who invited you for another.</string>
+    <string name="bipe_invite_signed_in_title">%1$s invited you to Bipe</string>
+    <string name="bipe_invite_signed_in_title_anonymous">You got an invite to Bipe</string>
+    <string name="bipe_invite_signed_in_body">You already have an account on this phone. Talk to this person from it, or make another account with this invite.</string>
+    <string name="bipe_invite_signed_in_chat">Chat</string>
+    <string name="bipe_invite_no_longer_valid">This invite is no longer valid or was already used.</string>
     <string name="bipe_error_email_taken">This email is already on another Bipe account. Use a different email.</string>
     <string name="bipe_error_password_weak">This password is too weak. Pick a longer or less obvious one.</string>
     <string name="bipe_error_handle_cooldown">Wait 30 days between changes to your @.</string>

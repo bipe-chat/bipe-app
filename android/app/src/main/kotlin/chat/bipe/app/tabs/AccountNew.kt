@@ -110,7 +110,8 @@ class AccountNewModel(private val context: Context, private val session: Account
 
     /** Action cancelSignup: gives the slot back. A failed revoke leaves a pending invite in Convites, nothing worse. */
     suspend fun revoke(start: SignupStart) {
-        try { withToken { api.revokeInvite(start.inviteId, it) } }
+        val inviteId = start.inviteId ?: return
+        try { withToken { api.revokeInvite(inviteId, it) } }
         catch (error: CancellationException) { throw error }
         catch (_: Exception) { }
     }
@@ -133,13 +134,20 @@ class AccountNewModel(private val context: Context, private val session: Account
  * account on screen is not a company; signup-create sends Key Attestation (bipe-chat/bipe#92).
  */
 @Composable
-fun AccountNewScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, onClose: () -> Unit) {
+fun AccountNewScreen(
+    tabs: AppTabsModel,
+    session: AccountSession,
+    api: BipeApiClient,
+    onClose: () -> Unit,
+    /** A sign-up that already has its invite (invite-signed-in newAccount). */
+    preset: SignupStart? = null,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val model = remember(session) { AccountNewModel(context, session, api) }
     val state by model.state.collectAsState()
     val tabsState by tabs.state.collectAsState()
-    var signup by remember { mutableStateOf<SignupStart?>(null) }
+    var signup by remember { mutableStateOf(preset) }
     var showsExisting by remember { mutableStateOf(false) }
     LaunchedEffect(model) { model.appear() }
 
@@ -156,7 +164,7 @@ fun AccountNewScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiCl
         // Action cancelSignup: before signup-create the invite goes back to the account on screen.
         val cancel: (Boolean) -> Unit = { reachedCreate ->
             onClose()
-            if (!reachedCreate) scope.launch { model.revoke(start) }
+            if (!reachedCreate && start.isOwnInvite) scope.launch { model.revoke(start) }
         }
         BackHandler { cancel(flow.reachedCreate) }
         SignupFlowScreen(flow, onCancel = cancel)
