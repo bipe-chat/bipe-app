@@ -7,6 +7,9 @@
 
 /// Screen ids of Bipe's own client. iOS and Android use the same ids.
 public enum BipeScreen: String, CaseIterable, Sendable {
+    /// New account (flow home). Spec: bipe-shared/product/screens/account-new.json
+    case accountNew = "account-new"
+
     /// Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json
     case accountStart = "account-start"
 

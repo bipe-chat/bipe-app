@@ -8,7 +8,7 @@ import SwiftUI
 import UIKit
 
 /// Spec account-switcher (ADR 0086, 0135): the native context menu a long press on Você opens. Each account shows its
-/// photo or initial, name and @handle, with the system check on the current one; then Nova conta while the cap allows.
+/// photo or initial, name and @handle, with the system check on the current one; then Nova conta (spec account-new).
 @MainActor
 enum AccountMenu {
     static func make(model: AppTabsModel, onNewAccount: @escaping () -> Void) -> UIMenu {
@@ -21,11 +21,9 @@ enum AccountMenu {
             }
         }
         var children: [UIMenuElement] = [UIMenu(options: .displayInline, children: accounts)]
-        if model.canAddAccount {
-            children.append(UIAction(title: BipeStrings.appAccountNew, image: UIImage(systemName: "plus")) { _ in
-                onNewAccount()
-            })
-        }
+        children.append(UIAction(title: BipeStrings.appAccountNew, image: UIImage(systemName: "plus")) { _ in
+            onNewAccount()
+        })
         return UIMenu(title: BipeStrings.appAccountSwitcherTitle, children: children)
     }
 }

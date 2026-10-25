@@ -109,12 +109,12 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                         VoceHeader(it, media, openProfile = { openGroup(BipeSettingsGroup.PROFILE) },
                             openQr = { openPeople(PeopleRoute.ProfileQr) })
                     } }
-                    // The accounts on this phone (ADR 0112, 0135); Nova conta closes the section while the cap allows.
+                    // The accounts on this phone (ADR 0112, 0135); Nova conta closes the section (spec account-new).
                     if (state.accounts.size > 1) {
                         item { VoceSectionHeader(stringResource(R.string.bipe_app_account_switcher_title)) }
                         item { AccountRows(tabs, media) }
                     }
-                    if (state.canAddAccount) item {
+                    item {
                         VoceRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_app_account_new), tint = BipeTheme.colors.accentInk,
                             titleColor = BipeTheme.colors.accentInk, onClick = onNewAccount)
                     }

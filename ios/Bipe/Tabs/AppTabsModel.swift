@@ -40,6 +40,8 @@ final class AppTabsModel: ObservableObject {
     @Published private(set) var gruposAttention = 0
     @Published private(set) var otherAccountUnread = false
     @Published private(set) var canAddAccount = true
+    /// max_accounts of the account on screen, for bipe_account_cap_reached (spec account-new).
+    @Published private(set) var maxPersonalAccounts = BipeRegistries.maxPersonalAccounts
 
     let start: AccountStartModel
     private var chatLists: [String: ChatListModel] = [:]
@@ -215,6 +217,7 @@ final class AppTabsModel: ObservableObject {
         gruposAttention = chats.filter { $0.scope == .grupos }.reduce(0) { $0 + $1.mentionCount }
         otherAccountUnread = accounts.contains { !$0.isCurrent && $0.hasUnread }
         let limit = currentId.flatMap { profiles[$0]?.maxAccounts } ?? BipeRegistries.maxPersonalAccounts
+        maxPersonalAccounts = limit
         canAddAccount = accounts.filter { !$0.isCompany }.count < limit
     }
 }
