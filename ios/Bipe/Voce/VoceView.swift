@@ -101,7 +101,7 @@ struct VoceView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle(BipeStrings.tabYou)
-            .settingsDestinations(model: settings) {
+            .settingsDestinations(model: settings, onNewAccount: onNewAccount) {
                 Task { await model.start.signOut(userId: chatList.session.userId, alreadyLoggedOut: true) }
             }
             .navigationDestination(for: Destination.self) { destination in

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -88,7 +89,7 @@ internal fun OldPhoneScreen(flow: RecoveryFlowModel) {
                         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
                     }) { Text(stringResource(R.string.bipe_contacts_open_settings_android)) }
                 } else {
-                    QrScanner(onCode = model::codeRead, modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp)))
+                    QrScanner(onCode = model::codeRead, modifier = Modifier.widthIn(max = 320.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp)))
                 }
                 // Rule 5, at the moment of the scan.
                 Text(stringResource(R.string.bipe_recovery_qr_never_from_others), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)

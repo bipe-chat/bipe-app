@@ -95,11 +95,12 @@ private struct SettingsRootRow: View {
 
 extension View {
     /// The destinations of the settings stack.
-    func settingsDestinations(model: SettingsModel, onSignedOut: @escaping () -> Void) -> some View {
+    func settingsDestinations(model: SettingsModel, onNewAccount: (() -> Void)? = nil,
+                              onSignedOut: @escaping () -> Void) -> some View {
         navigationDestination(for: SettingsRoute.self) { route in
             switch route {
             case .group(let group):
-                SettingsGroupView(model: model, group: group, onSignedOut: onSignedOut)
+                SettingsGroupView(model: model, group: group, onSignedOut: onSignedOut, onNewAccount: onNewAccount)
             case .support:
                 SupportOpenView(session: model.session, api: model.api)
             case .notifications:

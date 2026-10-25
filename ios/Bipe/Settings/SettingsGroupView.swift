@@ -13,6 +13,9 @@ struct SettingsGroupView: View {
     @ObservedObject var model: SettingsModel
     let group: BipeSettingsGroup
     let onSignedOut: () -> Void
+    /// Opens account-new, the same flow as the account switcher (ADR 0135). Nil where no tabs host it: the add row
+    /// is then left out.
+    let onNewAccount: (() -> Void)?
 
     @AppStorage(SettingsKeys.hideRequestPhotos) private var hideRequestPhotos = true
     @AppStorage(SettingsKeys.sharePresence) private var sharePresence = true
@@ -28,10 +31,12 @@ struct SettingsGroupView: View {
     @State private var pinCheck: PinCheckRequest?
     @State private var notice: String?
 
-    init(model: SettingsModel, group: BipeSettingsGroup, onSignedOut: @escaping () -> Void) {
+    init(model: SettingsModel, group: BipeSettingsGroup, onSignedOut: @escaping () -> Void,
+         onNewAccount: (() -> Void)? = nil) {
         self.model = model
         self.group = group
         self.onSignedOut = onSignedOut
+        self.onNewAccount = onNewAccount
         _export = StateObject(wrappedValue: DataExportModel(model: model))
     }
 
@@ -131,6 +136,7 @@ struct SettingsGroupView: View {
         case .accountBiometricUnlock: model.appLockOn && OwnerCheck.biometricKind != .none
         // While a deletion waits, the banner (or the alert on the other devices) takes its place.
         case .accountDelete: model.account?.deletion == nil
+        case .accountAdd: onNewAccount != nil
         default: true
         }
     }
@@ -314,6 +320,9 @@ struct SettingsGroupView: View {
             showsRecoveryKey = true
         case .accountEmail:
             showsEmail = true
+        case .accountAdd:
+            // account-new shows the cap on the personal choice when the phone is full, as from the switcher.
+            onNewAccount?()
         case .privacyExport:
             Task { await export.start() }
         case .chatsLanguage:

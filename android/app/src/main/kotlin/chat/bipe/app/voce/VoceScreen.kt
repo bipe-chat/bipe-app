@@ -111,7 +111,7 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     LaunchedEffect(trust, current) { trust.update(current) }
     val trustProfile by trust.profile.collectAsState()
     SettingsHost(session, api, invites = tabs.invites(session), onClose = { tabs.selectTab(AppTabsModel.Tab.CONVERSAS) }, onSignedOut = { tabs.start.completeSignOut(session.userId) },
-        onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles, trust = trust,
+        onNewAccount = onNewAccount, onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles, trust = trust,
         rootContent = { settings, openGroup, openPeople, openInvites, openRoute ->
             // Spec voce openLinkPhone: the only way into link-phone-show (ADR 0059).
             if (showsLinkPhone) {
