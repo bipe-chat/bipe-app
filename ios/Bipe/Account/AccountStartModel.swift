@@ -59,6 +59,20 @@ final class AccountStartModel: ObservableObject {
     @Published var showsRecovery = BipeCredentialStore().pendingRecovery() != nil
     /// A bipe.chat/recuperar link the app was opened with (recovery-email, action openLink).
     @Published var recoveryLink: URL?
+    /// Spec account-start legacyKept: noAccount, and the earlier Bipe app's data is on this phone (bipe-chat/bipe#603).
+    @Published private(set) var legacyKept = false
+    /// Action startFresh: onboarding-welcome for this launch, although legacyKept.
+    @Published private(set) var startedFresh = false
+
+    /// Action recoverLegacy: recovery-start, where the earlier app's synced recovery token gets the account back.
+    func recoverLegacy() {
+        showsRecovery = true
+    }
+
+    /// Action startFresh. The legacy data stays; the next launch checks again.
+    func startFresh() {
+        startedFresh = true
+    }
 
     /// Routes a recovery link to the recovery flow. A signed-in phone ignores it: noAccount alone shows the flow.
     func openLink(_ url: URL) {
@@ -124,6 +138,7 @@ final class AccountStartModel: ObservableObject {
             if let resumed = try await resumePendingSignup() {
                 show(resumed)
             } else {
+                legacyKept = LegacyData.isPresent
                 phase = .noAccount
             }
         } catch {

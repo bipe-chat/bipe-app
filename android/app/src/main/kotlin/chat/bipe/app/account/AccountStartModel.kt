@@ -112,6 +112,24 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         _showsRecovery.value = show
     }
 
+    /** Spec account-start legacyKept: noAccount, and the earlier Bipe app's vault is on this phone (bipe-chat/bipe#603). */
+    private val _legacyKept = MutableStateFlow(false)
+    val legacyKept: StateFlow<Boolean> = _legacyKept.asStateFlow()
+
+    /** Action startFresh: onboarding-welcome for this launch, although legacyKept. */
+    private val _startedFresh = MutableStateFlow(false)
+    val startedFresh: StateFlow<Boolean> = _startedFresh.asStateFlow()
+
+    /** Action recoverLegacy: recovery-start, where the earlier app's Block Store token gets the account back. */
+    fun recoverLegacy() {
+        _showsRecovery.value = true
+    }
+
+    /** Action startFresh. The legacy data stays; the next launch checks again. */
+    fun startFresh() {
+        _startedFresh.value = true
+    }
+
     /** invite-signed-in: an invite code from a link opened while an account is on screen. */
     private val _inviteTap = MutableStateFlow<String?>(null)
     val inviteTap: StateFlow<String?> = _inviteTap.asStateFlow()
@@ -370,6 +388,16 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     private suspend fun open() {
         // Tokens that did not reach the synced store yet, and tokens from before Block Store was in the app.
         recoveryTokens.syncSoon()
+        // The first vault read sets the fork's vault aside; its import waits for the confirmed layout (bipe-chat/bipe#603).
+        // A failed import never stops the start: the fork's file stays, and legacyKept offers recovery.
+        try {
+            vault.read()
+            LegacyData.importForkVault(context, vault)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(AccountStep.TAG, "earlier app's vault not imported now")
+        }
         val (saved, passwords) = AccountStep.run("read saved accounts") {
             sessionStore.loadAll() to vault.read().accounts.filterValues { it.password != null }.mapValues { it.value.password!! }
         }
@@ -399,6 +427,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         } else {
             // A recovery started on this phone opens recovery-waiting instead of onboarding (spec account-start notes).
             if (vault.read().pendingRecovery != null) _showsRecovery.value = true
+            _legacyKept.value = LegacyData.isPresent(context)
             _phase.value = Phase.NO_ACCOUNT
         }
     }

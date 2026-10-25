@@ -45,6 +45,9 @@ struct AccountStartView: View {
                                      link: $model.recoveryLink,
                                      close: { model.showsRecovery = false },
                                      onSignedIn: model.didRecover)
+                } else if model.legacyKept, !model.startedFresh {
+                    // Spec account-start legacyKept: never onboarding-welcome as if the phone had no account.
+                    LegacyKeptView(recover: model.recoverLegacy, startFresh: model.startFresh)
                 } else {
                     // Spec account-start: noAccount shows onboarding-welcome.
                     SignupFlowView(api: model.api,
@@ -200,5 +203,42 @@ private struct StartMessage: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(BipeColor.surfaceBase.ignoresSafeArea())
+    }
+}
+
+/// Spec account-start legacyKept (bipe-chat/bipe#603): the earlier Bipe app's data is on this phone and was not opened.
+/// Recovery comes first; a new account stays possible, and nothing is deleted.
+private struct LegacyKeptView: View {
+    let recover: () -> Void
+    let startFresh: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            PhosphorIcon.lockSimple.image
+                .resizable()
+                .frame(width: 56, height: 56)
+                .foregroundStyle(BipeColor.accentInk)
+                .accessibilityHidden(true)
+            Text(BipeStrings.appStartLegacyTitle)
+                .font(.title.bold())
+                .foregroundStyle(BipeColor.inkPrimary)
+                .multilineTextAlignment(.center)
+            Text(BipeStrings.appStartLegacyBody)
+                .font(.body)
+                .foregroundStyle(BipeColor.inkSecondary)
+                .multilineTextAlignment(.center)
+            Button(action: recover) {
+                Text(BipeStrings.appStartLegacyRecover)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            Button(action: startFresh) {
+                Text(BipeStrings.appStartLegacyFresh)
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

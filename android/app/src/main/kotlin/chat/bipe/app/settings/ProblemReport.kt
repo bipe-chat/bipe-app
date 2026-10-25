@@ -4,6 +4,7 @@
 
 package chat.bipe.app.settings
 
+import chat.bipe.app.account.LegacyData
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -227,7 +228,8 @@ private fun buildReport(context: Context, text: String, screenshots: List<Bitmap
             bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
             BipeReportFile("screenshot-${index + 1}.jpg", "image/jpeg", out.toByteArray())
         },
-        logs = if (includeLogs) appLogFiles(context) else emptyList(),
+        // Spec problem-report notes: legacy-data.json (structure only) when the earlier app's data is here.
+        logs = if (includeLogs) appLogFiles(context).take(19) + listOfNotNull(runCatching { LegacyData.reportFile(context) }.getOrNull()) else emptyList(),
     )
 }
 

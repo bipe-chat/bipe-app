@@ -589,6 +589,12 @@ object BipeRegistries {
     const val PHOTO_MATCH_HEIGHT = 8
     const val PHOTO_MATCH_MAX_DISTANCE = 6
 
+    /** Profile change facts (ADR 0049, registries/profile-facts.json). Lines: test-vectors/profile-facts.json. */
+    const val PROFILE_FACTS_WINDOW_DAYS = 30
+    const val PROFILE_FACTS_NEW_ACCOUNT_DAYS = 30
+    const val PROFILE_FACTS_NOTICE_PAIR_HOURS = 24
+    const val PROFILE_FACTS_NOTICE_DAYS = 7
+
     /** Username (handle) rules. The server is the authority; clients check early for feedback. */
     const val HANDLE_MIN_LENGTH = 3
     const val HANDLE_MAX_LENGTH = 30

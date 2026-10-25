@@ -6,6 +6,12 @@
     <string name="bipe_badge_verified_name">Name verified: %1$s</string>
     <string name="bipe_badge_institution">Verified organisation</string>
     <string name="bipe_badge_suspended">Name verification suspended</string>
+    <string name="bipe_profile_fact_created">Account created %1$s ago</string>
+    <string name="bipe_profile_fact_photo_once">Photo changed %1$s ago</string>
+    <string name="bipe_profile_fact_photo_times">Photo changed %1$s times in %2$s days</string>
+    <string name="bipe_profile_fact_name_once">Name changed %1$s ago</string>
+    <string name="bipe_profile_fact_name_times">Name changed %1$s times in %2$s days</string>
+    <string name="bipe_profile_notice_name_photo">%1$s changed their name and photo recently. Before you send money, check with them another way.</string>
     <string name="bipe_banner_unverified_title">Name not verified</string>
     <string name="bipe_banner_unverified_body">Account created %1$s ago. Not in your contacts.</string>
     <string name="bipe_banner_external">Account from another service. Bipe doesn\'t verify this person\'s name.</string>
@@ -1336,6 +1342,10 @@
     <string name="bipe_app_start_loading">Opening your account…</string>
     <string name="bipe_app_start_no_account_title">No account on this phone</string>
     <string name="bipe_app_start_no_account_body">This test version opens an account that is already on this phone.</string>
+    <string name="bipe_app_start_legacy_title">Your Bipe data is safe</string>
+    <string name="bipe_app_start_legacy_body">This phone has data from the earlier version of Bipe that this version has not opened yet. Nothing was deleted. Sign in to your account to continue. Do not create a new account.</string>
+    <string name="bipe_app_start_legacy_recover">Sign in to my account</string>
+    <string name="bipe_app_start_legacy_fresh">Create a new account anyway</string>
     <string name="bipe_app_start_error">Bipe couldn\'t open your account. Check the internet and try again.</string>
     <string name="bipe_app_retry">Try again</string>
     <string name="bipe_app_chat_list_title">Chats</string>
