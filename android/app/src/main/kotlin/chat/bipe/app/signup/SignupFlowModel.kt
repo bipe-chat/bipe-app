@@ -4,6 +4,10 @@
 
 package chat.bipe.app.signup
 
+import android.widget.Toast
+import chat.bipe.app.settings.LinkedAccountsModel
+import chat.bipe.shared.account.BipeLinkProvider
+import chat.bipe.shared.account.linkProviders
 import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
@@ -157,6 +161,10 @@ class SignupFlowModel(
     val fallbackPhase = MutableStateFlow(FallbackPhase.CHOOSE)
     val fallbackEmail = MutableStateFlow("")
     val fallbackEmailInvalid = MutableStateFlow(false)
+    /** Spec signup-fallback linkProvider: Google on Android when the server runs its web flow (ADR 0096). */
+    val fallbackLinkProvider = MutableStateFlow<BipeLinkProvider?>(null)
+    /** Spec signup-fallback linkChosen: the link runs right after the account exists. */
+    private var linkChosen = false
 
     // signup-create
 
@@ -435,6 +443,22 @@ class SignupFlowModel(
     /** Action skip. */
     fun skipEmail() {
         formEmail = null
+        linkChosen = false
+        create()
+    }
+
+    /** Reads which provider signup-fallback can offer. A server without it hides the button (fail closed). */
+    fun loadFallbackLink() {
+        scope.launch {
+            fallbackLinkProvider.value = runCatching { api.linkProviders().usableOnAndroid }.getOrNull()
+                ?.firstOrNull { it == BipeLinkProvider.GOOGLE }
+        }
+    }
+
+    /** Action linkAccount: makes the account without an e-mail, then runs the link (spec signup-fallback). */
+    fun linkAccount() {
+        formEmail = null
+        linkChosen = fallbackLinkProvider.value != null
         create()
     }
 
@@ -537,6 +561,15 @@ class SignupFlowModel(
         createPhase.value = CreatePhase.SIGNING_IN
         try {
             val session = AccountSession.signIn(context, credentials.userId, credentials.password, sessionStore)
+            // Spec signup-fallback linkAccount: no owner check, the person makes the account now. A failed or cancelled
+            // link does not stop the sign-up; linked-accounts in settings offers it again.
+            val provider = fallbackLinkProvider.value
+            if (linkChosen && provider != null) {
+                linkChosen = false
+                LinkedAccountsModel.runLink(context, api, provider) { session.accessToken() }?.let { error ->
+                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                }
+            }
             createPhase.value = CreatePhase.DONE
             formPin = ""
             // A sign-up from account-new has no inviter chat and no greeting: the inviter is an account on this phone.

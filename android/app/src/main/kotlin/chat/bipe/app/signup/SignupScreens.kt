@@ -258,7 +258,7 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
 }
 
 /**
- * The full-bleed açaí cover of the spec: what Bipe is. Mark and wordmark, the welcome line, the title and learnMore
+ * The full-bleed açaí cover of the spec: what Bipe is. Mark and wordmark, the title and learnMore
  * over a faint texture of Bipe marks (identity.md: Brazilian in texture, warm açaí, never flag colours). The colour runs
  * under the system bars; the text keeps the safe-drawing insets on [sides].
  */
@@ -298,7 +298,6 @@ private fun WelcomeCover(model: SignupFlowModel, onCancel: (() -> Unit)?, sides:
                 )
             }
             Spacer(Modifier.weight(1f))
-            Text(stringResource(R.string.bipe_onboarding_welcome), style = MaterialTheme.typography.titleMedium, color = colors.inkOnAccent.copy(alpha = 0.85f))
             Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.inkOnAccent)
             // Action learnMore: the site in a Custom Tab, so sign-up stays where it was.
             Row(
@@ -554,10 +553,14 @@ private fun SignupFallbackScreen(model: SignupFlowModel) {
     val phase by model.fallbackPhase.collectAsState()
     val email by model.fallbackEmail.collectAsState()
     val invalid by model.fallbackEmailInvalid.collectAsState()
+    val linkProvider by model.fallbackLinkProvider.collectAsState()
+    LaunchedEffect(model) { model.loadFallbackLink() }
     val step = BipeOnboardingStep.FALLBACK
     StepLayout(BipeScreen.SIGNUP_FALLBACK, stringResource(step.title), step.body?.let { stringResource(it) }) {
         if (phase == SignupFlowModel.FallbackPhase.CHOOSE) {
             PrimaryButton(stringResource(step.primary.title), onClick = model::addEmail)
+            // ADR 0096: the platform's own provider next to the e-mail, when the server offers it.
+            if (linkProvider != null) TextButtonRow(stringResource(R.string.bipe_link_google), onClick = model::linkAccount)
         } else {
             BipeField(stringResource(R.string.bipe_signup_email_optional), email, model::editFallbackEmail, KeyboardType.Email)
             FieldFooter(

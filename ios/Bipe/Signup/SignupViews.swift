@@ -231,7 +231,7 @@ struct OnboardingWelcomeView: View {
         }
     }
 
-    /// The full-bleed açaí cover of the spec: what Bipe is. Mark and wordmark, the welcome line, the title and
+    /// The full-bleed açaí cover of the spec: what Bipe is. Mark and wordmark, the title and
     /// learnMore over a faint texture of Bipe marks (identity.md: Brazilian in texture, warm açaí, never flag
     /// colours). The colour runs under the system bars on `edges`; the text stays in the safe area.
     private func cover(edges: Edge.Set) -> some View {
@@ -246,9 +246,6 @@ struct OnboardingWelcomeView: View {
                     .accessibilityAddTraits(.isHeader)
             }
             Spacer(minLength: 24)
-            Text(BipeStrings.onboardingWelcome)
-                .font(.system(.headline, design: .rounded))
-                .opacity(0.85)
             Text(title)
                 .font(.system(.largeTitle, design: .rounded).weight(.bold))
                 .minimumScaleFactor(0.7)
@@ -542,6 +539,10 @@ struct SignupFallbackView: View {
             switch model.fallbackPhase {
             case .choose:
                 PrimaryButton(title: step.primary.title) { model.addEmail() }
+                // ADR 0096: the platform's own provider next to the e-mail, when the server offers it.
+                if model.fallbackLinkProvider == .apple {
+                    TextButton(title: BipeStrings.linkApple) { Task { await model.linkAccount() } }
+                }
                 ForEach(step.text, id: \.titleKey) { button in
                     TextButton(title: button.title) { Task { await model.skipEmail() } }
                 }
@@ -556,6 +557,7 @@ struct SignupFallbackView: View {
                 }
             }
         }
+        .task { await model.loadFallbackLink() }
     }
 }
 

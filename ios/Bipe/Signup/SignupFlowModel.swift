@@ -137,6 +137,10 @@ final class SignupFlowModel: ObservableObject {
     @Published private(set) var fallbackPhase: FallbackPhase = .choose
     @Published private(set) var fallbackEmail = ""
     @Published private(set) var fallbackEmailInvalid = false
+    /// Spec signup-fallback linkProvider: Apple on iOS when the server takes Sign in with Apple (ADR 0096).
+    @Published private(set) var fallbackLinkProvider: BipeLinkProvider?
+    /// Spec signup-fallback linkChosen: the link runs right after the account exists.
+    private var linkChosen = false
 
     // MARK: signup-create
 
@@ -460,6 +464,20 @@ final class SignupFlowModel: ObservableObject {
     /// Action skip.
     func skipEmail() async {
         formEmail = nil
+        linkChosen = false
+        await create()
+    }
+
+    /// Reads which provider signup-fallback can offer. A server without it hides the button (fail closed).
+    func loadFallbackLink() async {
+        let providers = (try? await api.linkProviders().usableOnIOS) ?? []
+        fallbackLinkProvider = providers.contains(.apple) ? .apple : nil
+    }
+
+    /// Action linkAccount: makes the account without an e-mail, then runs the link (spec signup-fallback).
+    func linkAccount() async {
+        formEmail = nil
+        linkChosen = fallbackLinkProvider != nil
         await create()
     }
 
@@ -561,6 +579,12 @@ final class SignupFlowModel: ObservableObject {
         createPhase = .signingIn
         do {
             let session = try await AccountSession.signIn(userId: credentials.userId, password: credentials.password)
+            // Spec signup-fallback linkAccount: no owner check, the person makes the account now. A failed or cancelled
+            // link does not stop the sign-up; linked-accounts in settings offers it again.
+            if linkChosen, let provider = fallbackLinkProvider {
+                linkChosen = false
+                _ = await LinkedAccountsModel.runLink(provider, api: api) { session.accessToken() }
+            }
             createPhase = .done
             formPin = ""
             // A sign-up from account-new has no inviter chat and no greeting: the inviter is an account on this phone.

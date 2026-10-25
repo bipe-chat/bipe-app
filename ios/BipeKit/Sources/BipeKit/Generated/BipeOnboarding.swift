@@ -176,6 +176,8 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
 public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
     case token
     case oldPhone
+    case apple
+    case google
     case email
     case beta
 
@@ -183,6 +185,8 @@ public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
         switch self {
         case .token: "bipe_pin_enter_title"
         case .oldPhone: "bipe_recovery_qr"
+        case .apple: "bipe_recovery_apple"
+        case .google: "bipe_recovery_google"
         case .email: "bipe_recovery_email"
         case .beta: "bipe_recovery_beta"
         }
@@ -192,6 +196,8 @@ public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
         switch self {
         case .token: "bipe_recovery_token_found"
         case .oldPhone: "bipe_recovery_qr_body"
+        case .apple: "bipe_recovery_linked_body"
+        case .google: "bipe_recovery_linked_body"
         case .email: "bipe_recovery_email_body"
         case .beta: "bipe_recovery_beta_body"
         }
@@ -202,6 +208,8 @@ public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
         switch self {
         case .token: true
         case .oldPhone: false
+        case .apple: false
+        case .google: false
         case .email: false
         case .beta: false
         }
@@ -212,6 +220,8 @@ public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
         switch self {
         case .token: nil
         case .oldPhone: "planned:203"
+        case .apple: nil
+        case .google: nil
         case .email: nil
         case .beta: "flag:developer"
         }

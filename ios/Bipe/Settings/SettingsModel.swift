@@ -31,8 +31,7 @@ final class SettingsModel: ObservableObject {
         guard let account else { return nil }
         let token = account.recoveryTokenSet && BipeCredentialStore().recoveryToken(for: session.userId) != nil
         return BipeWaysBack(hasEmail: account.email != nil,
-                            // Linked Apple or Google accounts come with bipe-chat/bipe#307.
-                            hasLinkedAccount: false,
+                            hasLinkedAccount: !(account.links ?? []).isEmpty,
                             hasRecoveryKey: hasRecoveryKey,
                             hasSyncedToken: token)
     }
