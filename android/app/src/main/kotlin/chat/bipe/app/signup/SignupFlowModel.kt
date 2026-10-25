@@ -14,6 +14,7 @@ import chat.bipe.shared.BipeInviteLink
 import chat.bipe.shared.BipeSignupRules
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
+import chat.bipe.shared.account.BipeKeyAttestation
 import chat.bipe.shared.account.BipePin
 import chat.bipe.shared.account.BipePinProblem
 import chat.bipe.shared.api.BipeApiClient
@@ -397,8 +398,8 @@ class SignupFlowModel(
     // signup-create actions
 
     /**
-     * Action start of signup-create: retry key, device check, request, storage, sign-in (spec notes). Android has no
-     * device check yet (Play Integrity, parity attestation): it sends none and the server decides.
+     * Action start of signup-create: retry key, device check, request, storage, sign-in (spec notes). The device check
+     * is Android Key Attestation (bipe-chat/bipe#92); a phone that cannot attest sends none and the server decides.
      */
     fun create() {
         go(Route.CREATE)
@@ -407,6 +408,8 @@ class SignupFlowModel(
             storedCredentials?.let { return@launch signIn(it) }
             val pending = vault.pendingSignup(formPin)
             val accountPin = pending.pin ?: formPin
+            createPhase.value = CreatePhase.ATTESTING
+            val attestation = BipeKeyAttestation.attestation(context, api)
             createPhase.value = CreatePhase.CREATING
             val pendingInvite = invite.value
             val request = BipeSignupRequest(
@@ -417,6 +420,7 @@ class SignupFlowModel(
                 displayName = displayName.value.trim(),
                 signupKey = pending.key,
                 termsVersion = if (termsAccepted.value) acceptedTermsVersion else null,
+                attestation = attestation,
             )
             val response = try {
                 signupRetryingLostAnswers(request)

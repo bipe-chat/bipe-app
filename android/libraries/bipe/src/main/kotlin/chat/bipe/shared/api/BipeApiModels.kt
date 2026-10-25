@@ -33,9 +33,25 @@ data class BipeSignupRequest(
     @SerialName("signup_key") val signupKey: String? = null,
     /** The legal version the person ticked (ADR 0113). */
     @SerialName("terms_version") val termsVersion: String? = null,
+    /** Android Key Attestation (bipe-chat/bipe#92). `null` when the phone cannot attest: the server decides. */
+    @SerialName("attestation") val attestation: BipeAttestation? = null,
 ) {
     override fun toString(): String = "BipeSignupRequest"
 }
+
+/** `Attestation`, Android form: the certificate chain of a new Keystore key, leaf first (ADR 0043). */
+@Serializable
+data class BipeAttestation(
+    /** Standard base64 of each DER certificate. */
+    @SerialName("key_attestation_chain") val keyAttestationChain: List<String>,
+    /** From `POST /v1/attest/challenge`; the key carries its UTF-8 bytes. */
+    @SerialName("challenge") val challenge: String,
+) {
+    override fun toString(): String = "BipeAttestation(${keyAttestationChain.size} certificates)"
+}
+
+@Serializable
+internal data class BipeAttestChallengeResponse(@SerialName("challenge") val challenge: String)
 
 /** `SignupConfig`. An app that cannot read it assumes [inviteRequired] is `true`. */
 @Serializable

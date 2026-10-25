@@ -37,6 +37,10 @@ class BipeApiClient(baseUrl: String) {
     suspend fun signup(request: BipeSignupRequest): BipeSignupResponse =
         send("POST", listOf("v1", "signup"), body = encode(BipeSignupRequest.serializer(), request), response = BipeSignupResponse.serializer())
 
+    /** `POST /v1/attest/challenge`. No auth. A one-time challenge for the sign-up attestation (5 minutes). */
+    suspend fun attestChallenge(): String =
+        send("POST", listOf("v1", "attest", "challenge"), response = BipeAttestChallengeResponse.serializer()).challenge
+
     /** `POST /v1/signup/resume`. No auth. The answer of an earlier sign-up with this key (ADR 0094); `not_found` when none. */
     suspend fun resumeSignup(signupKey: String): BipeSignupResponse = send(
         "POST",
