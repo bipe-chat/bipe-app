@@ -80,6 +80,10 @@
       "licence": "Apache-2.0"
     },
     {
+      "name": "com.android.installreferrer:installreferrer",
+      "licence": "LicenseRef-Android-SDK-License"
+    },
+    {
       "name": "com.google.android.gms:play-services-auth-blockstore",
       "licence": "LicenseRef-Android-SDK-License"
     },

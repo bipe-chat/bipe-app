@@ -228,7 +228,9 @@ struct TimelineMediaRow: View {
     /// Action appear: loads the thumbnail (or the image) when display may show it.
     private func appear() async {
         guard media.kind != .file else { return }
-        guard revealed || ShowMedia.current.shows(inPrivateRoom: isPrivateRoom) || message.isOwn else {
+        // Spec data-use: on mobile data with the data saver, photos and stickers wait for a tap.
+        let savesData = (media.kind == .image || media.kind == .sticker) && DataUseMeter.shared.savesData
+        guard revealed || (ShowMedia.current.shows(inPrivateRoom: isPrivateRoom) && !savesData) || message.isOwn else {
             display = .tapToShow
             return
         }

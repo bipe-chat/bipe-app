@@ -163,6 +163,15 @@ class SharedVectorTest {
     }
 
     @Test
+    fun handleSuggestions() {
+        for (vector in vectors("handle-suggestions.json", "cases")) {
+            val name = vector.string("name")!!
+            val expected = vector["suggestions"]!!.jsonArray.map { it.jsonPrimitive.content }
+            assertWithMessage("suggestions($name)").that(BipeHandle.suggestions(name)).isEqualTo(expected)
+        }
+    }
+
+    @Test
     fun pins() {
         for (vector in vectors("pins.json", "cases")) {
             val input = vector.string("input")!!

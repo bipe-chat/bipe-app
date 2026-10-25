@@ -61,6 +61,9 @@ enum class BipeScreen(val id: String) {
     /** Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json */
     BLOCKED_LIST("blocked-list"),
 
+    /** Brand mark (flow people). Spec: bipe-shared/product/screens/brand-mark.json */
+    BRAND_MARK("brand-mark"),
+
     /** Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json */
     BUSINESS_CHAT_BAR("business-chat-bar"),
 

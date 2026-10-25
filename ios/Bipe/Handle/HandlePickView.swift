@@ -40,6 +40,8 @@ final class HandlePickModel: ObservableObject {
     /// The text shown after save or remove.
     @Published private(set) var doneMessage: String?
     @Published private(set) var promptDismissed: Bool
+    /// Escolha seu @ (bipe-chat/bipe#200): free handles from the display name, while the account has no @.
+    @Published private(set) var suggestions: [String] = []
 
     private let api: BipeAPIClient
     private let session: AccountSession
@@ -57,9 +59,29 @@ final class HandlePickModel: ObservableObject {
         return nextChangeAt > Date()
     }
 
-    /// Prompt card above chat-list: trigger chatListWithoutHandle (registries/onboarding.json prompts.handle).
+    /// Prompt card above chat-list: trigger chatListWithoutHandle (registries/onboarding.json prompts.handle), in the
+    /// prompt slot (bipe-chat/bipe#200).
     var showsPrompt: Bool {
-        loaded && currentHandle == nil && !promptDismissed
+        loaded && currentHandle == nil && !promptDismissed && BipePromptSlot(userID: session.userId).allows(.handle)
+    }
+
+    /// The prompt card showed: it takes the prompt slot.
+    func promptShown() {
+        BipePromptSlot(userID: session.userId).didShow(.handle)
+    }
+
+    /// State suggestions of handle-pick: candidates in order, checked one by one, the first free ones kept.
+    func loadSuggestions() async {
+        guard currentHandle == nil, suggestions.isEmpty,
+              let name = try? await session.client.displayName(), !name.isEmpty else { return }
+        var free: [String] = []
+        for candidate in BipeHandle.suggestions(for: name) {
+            guard free.count < BipeRegistries.handleSuggestionsShown, !Task.isCancelled else { break }
+            if (try? await api.handleAvailability(candidate))?.available == true {
+                free.append(candidate)
+            }
+        }
+        suggestions = free
     }
 
     func load() async {
@@ -220,6 +242,7 @@ struct HandlePromptCard: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.accentWash))
+        .onAppear { model.promptShown() }
     }
 }
 
@@ -245,6 +268,24 @@ struct HandlePickView: View {
                 Text(model.footer)
                     .font(.footnote)
                     .foregroundStyle(model.footerIsProblem ? BipeColor.trustDangerInk : BipeColor.inkSecondary)
+                if model.input.isEmpty, !model.suggestions.isEmpty {
+                    // State suggestions (bipe-chat/bipe#200): a tap fills the field.
+                    Text(BipeStrings.handleSuggestions).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                    HStack(spacing: 8) {
+                        ForEach(model.suggestions, id: \.self) { suggestion in
+                            Button { model.editHandle(suggestion) } label: {
+                                Text(verbatim: "@\(suggestion)")
+                                    .font(.subheadline)
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .foregroundStyle(BipeColor.accentInk)
+                                    .background(Capsule().fill(BipeColor.accentWash))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
                 if let error = model.error {
                     Text(error).font(.footnote).foregroundStyle(BipeColor.trustDangerInk)
                 }
@@ -292,5 +333,6 @@ struct HandlePickView: View {
         }
         .tint(BipeColor.accentFill)
         .accessibilityIdentifier(BipeScreen.handlePick.rawValue)
+        .task { await model.loadSuggestions() }
     }
 }

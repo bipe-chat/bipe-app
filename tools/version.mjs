@@ -2,26 +2,25 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// Version of a build (ADR 0088, bipe-chat/bipe#584), the same on every machine and in CI:
-// - version name: `version` of bipe-shared product/version.json;
+// Version of a build (ADR 0088, ADR 0163, bipe-chat/bipe#584), the same on every machine and in CI:
+// - version name: `version` of version.json at the repo root. Bipe Next is a new app with its own line (1.0.0),
+//   not the fork's bipe-shared product/version.json;
 // - build number: its `build` plus the number of commits in HEAD, so one commit has one number;
 // - commit: the short SHA of HEAD, with "-dirty" when the tree has changes.
 // Builds before this tool took `build` plus the testflight run number. Tags builds/next/<number> mark the
 // commit of each of those builds; a new number must be above the highest tag.
-// version.json comes from ../bipe-shared when that checkout exists, else from bipe-shared main on GitHub.
 // Usage: node tools/version.mjs              prints {"version", "build", "commit"}
 //        node tools/version.mjs --github     writes version, number and commit to $GITHUB_OUTPUT
 //        node tools/version.mjs --xcodebuild prints the xcodebuild build settings
 //        node tools/version.mjs --gradle     prints the Gradle properties
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMain } from './lib.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const VERSION_URL = 'https://raw.githubusercontent.com/bipe-chat/bipe-shared/main/product/version.json';
 export const TAG_PREFIX = 'builds/next/';
 
 const git = (root, ...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8' }).trim();
@@ -33,12 +32,8 @@ export function parseVersionFile(text) {
   return { version: file.version, base: file.build };
 }
 
-async function loadVersionFile(root) {
-  const sibling = join(root, '..', 'bipe-shared', 'product', 'version.json');
-  if (existsSync(sibling)) return parseVersionFile(readFileSync(sibling, 'utf8'));
-  const response = await fetch(VERSION_URL);
-  if (!response.ok) throw new Error(`version.json: HTTP ${response.status} from ${VERSION_URL}`);
-  return parseVersionFile(await response.text());
+function loadVersionFile(root) {
+  return parseVersionFile(readFileSync(join(root, 'version.json'), 'utf8'));
 }
 
 /** The highest build number among the builds/next/<number> tags, or 0. */
@@ -63,7 +58,7 @@ export async function version(root = ROOT) {
   if (git(root, 'rev-parse', '--is-shallow-repository') === 'true') {
     throw new Error('shallow clone: the build number counts commits (actions/checkout needs fetch-depth: 0)');
   }
-  const { version: name, base } = await loadVersionFile(root);
+  const { version: name, base } = loadVersionFile(root);
   const commits = Number(git(root, 'rev-list', '--count', 'HEAD'));
   const tags = git(root, 'tag', '--list', `${TAG_PREFIX}*`).split('\n').filter(Boolean);
   const dirty = git(root, 'status', '--porcelain', '--untracked-files=no') !== '';

@@ -47,6 +47,7 @@ suspend fun MediaLoader.previewImage(media: MediaMessage, maxPixel: Int): Loaded
             else -> null
         }
     }.getOrNull() ?: return null
+    DataUseMeter.recordReceived(bytes.size.toLong(), media.thumbnailSource?.url ?: media.source.url)
     val image = decodeImage(bytes, maxPixel, animated = media.isAnimated && media.thumbnailSource == null) ?: return null
     MediaCache.images.put(key, image)
     return image
@@ -57,6 +58,7 @@ suspend fun MediaLoader.fullImage(media: MediaMessage): LoadedImage? {
     val key = "${media.source.url}#full"
     MediaCache.images.get(key)?.let { return it }
     val bytes = runCatching { client.getMediaContent(media.source.source) }.getOrNull() ?: return null
+    DataUseMeter.recordReceived(bytes.size.toLong(), media.source.url)
     val image = decodeImage(bytes, 4096, animated = media.isAnimated) ?: return null
     MediaCache.images.put(key, image)
     return image
@@ -72,6 +74,7 @@ suspend fun MediaLoader.file(context: Context, ref: MediaRef, filename: String, 
     val dir = File(context.cacheDir, "media").apply { mkdirs() }
     val handle = client.getMediaFile(ref.source, filename, mimeType ?: "application/octet-stream", true, dir.path)
     val file = File(handle.path())
+    DataUseMeter.recordReceived(file.length(), ref.url)
     MediaCache.files[ref.url] = handle to file
     file
 }

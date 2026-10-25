@@ -54,6 +54,30 @@ object BipeHandle {
             else -> null
         }
     }
+
+    /**
+     * Escolha seu @ (bipe-chat/bipe#200): port of `handleSuggestions()` in bipe-shared tools/lib/registries.mjs. Must
+     * match test-vectors/handle-suggestions.json. The caller checks availability in this order.
+     */
+    fun suggestions(displayName: String): List<String> {
+        val words = NameNormalizer.normalize(displayName, emptyMap()).split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+        if (words.isEmpty()) return emptyList()
+        val first = words.first()
+        val last = words.last()
+        val raw = if (words.size > 1) {
+            listOf("$first.$last", "$first$last", "${first}_$last", first, "$last.$first", "$first.${last}1", "$first${last}1")
+        } else {
+            listOf(first, "${first}1", "${first}2", "${first}_")
+        }
+        val result = mutableListOf<String>()
+        for (candidate in raw) {
+            val cut = candidate.take(BipeRegistries.HANDLE_MAX_LENGTH).trimEnd('.')
+            if (cut.length < BipeRegistries.HANDLE_MIN_LENGTH || !pattern.matches(cut) || cut in result) continue
+            result += cut
+            if (result.size == BipeRegistries.HANDLE_SUGGESTION_CANDIDATES) break
+        }
+        return result
+    }
 }
 
 /** The result of checking a typed handle. */
@@ -120,6 +144,15 @@ object BipeInviteLink {
         return match.groupValues.drop(1).joinToString("-")
     }
 
+    /**
+     * The code field text while the user types: uppercase, a dash after every 4 characters, at most 12 characters.
+     * A pasted link or message that holds a code becomes that code.
+     */
+    fun typedCode(raw: String): String {
+        normalizedCode(raw)?.let { return it }
+        return raw.uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }.take(12).chunked(4).joinToString("-")
+    }
+
     /** The code of a `https://bipe.chat/convite/<code>` link. */
     fun code(url: android.net.Uri): String? {
         if (url.scheme != "https" || url.host?.lowercase() !in hosts) return null
@@ -134,6 +167,9 @@ object BipeLegalLinks {
     fun termsUrl(site: String): String = site.trimEnd('/') + if (isEnglish) BipeRegistries.EN_TERMS_PATH else BipeRegistries.TERMS_PATH
 
     fun privacyUrl(site: String): String = site.trimEnd('/') + if (isEnglish) BipeRegistries.EN_PRIVACY_PATH else BipeRegistries.PRIVACY_PATH
+
+    /** The site home page (onboarding-welcome learnMore). */
+    fun homeUrl(site: String): String = site.trimEnd('/') + if (isEnglish) BipeRegistries.EN_HOME_PATH else BipeRegistries.HOME_PATH
 
     private val isEnglish: Boolean get() = BipeApiClient.emailLanguage() == "en"
 }

@@ -80,6 +80,38 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_cvm_registered", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static func brandMarkLabelRevendedora(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_label_revendedora", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func brandMarkLabelRevendedor(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_label_revendedor", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func brandMarkLabelCorretor(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_label_corretor", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func brandMarkLabelRepresentante(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_label_representante", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func brandMarkMore(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_more", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var brandMarkTitle: String { NSLocalizedString("bipe_brand_mark_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarkBody: String { NSLocalizedString("bipe_brand_mark_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarkBrandSeal: String { NSLocalizedString("bipe_brand_mark_brand_seal", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarkBrandUnchecked: String { NSLocalizedString("bipe_brand_mark_brand_unchecked", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func brandMarkEnded(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_ended", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static func cvmCancelled(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_cvm_cancelled", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
@@ -2559,6 +2591,14 @@ public enum BipeStrings {
     public static var handlePromptTitle: String { NSLocalizedString("bipe_handle_prompt_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var handlePromptBody: String { NSLocalizedString("bipe_handle_prompt_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var photoPromptTitle: String { NSLocalizedString("bipe_photo_prompt_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var photoPromptBody: String { NSLocalizedString("bipe_photo_prompt_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var photoPromptAction: String { NSLocalizedString("bipe_photo_prompt_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var handleSuggestions: String { NSLocalizedString("bipe_handle_suggestions", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var handlePromptAction: String { NSLocalizedString("bipe_handle_prompt_action", tableName: "Bipe", bundle: .module, comment: "") }
 

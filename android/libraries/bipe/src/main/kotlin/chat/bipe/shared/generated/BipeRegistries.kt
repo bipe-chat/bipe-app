@@ -592,6 +592,9 @@ object BipeRegistries {
     /** Username (handle) rules. The server is the authority; clients check early for feedback. */
     const val HANDLE_MIN_LENGTH = 3
     const val HANDLE_MAX_LENGTH = 30
+    /** Escolha seu @ (bipe-chat/bipe#200): how many free suggestions show, and how many candidates to check. */
+    const val HANDLE_SUGGESTIONS_SHOWN = 3
+    const val HANDLE_SUGGESTION_CANDIDATES = 8
     const val HANDLE_PATTERN = "^[a-z0-9](?:[a-z0-9_]|\\.(?!\\.))*[a-z0-9_]\$"
 
     /** Owned handles (ADR 0065): only these may be shorter than [HANDLE_MIN_LENGTH], down to [HANDLE_OWNER_MIN_LENGTH]. */
@@ -796,4 +799,9 @@ object BipeRegistries {
     /** Data use (bipe-chat/bipe#242; registries/data-use.json): the budget of a normal day and the default of the data saver switch. */
     const val DATA_USE_BUDGET_MEGABYTES_PER_DAY = 10
     const val DATA_SAVER_DEFAULT = false
+
+    /** Brand marks for resellers (bipe ADR 0162; registries/brand-marks.json). Label ids, string key bipe_brand_mark_label_<id>. */
+    val BRAND_MARK_LABELS: List<String> = listOf("revendedora", "revendedor", "corretor", "representante")
+    const val BRAND_MARK_MAX_PER_ACCOUNT = 3
+    const val BRAND_MARK_RECHECK_MINUTES = 10
 }

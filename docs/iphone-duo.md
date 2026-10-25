@@ -26,13 +26,28 @@ No hardware pixel dimensions are used as layout breakpoints.
 | The PIN pad has an unscrollable stack and fixed 72-point keys. | Make the content scroll when needed. Size keys from the available width, between 44 and 72 points. Cap the form width at 400 points. |
 | Chat info buttons supply an image and an accessibility label. | Supply a `Label` with a title and image, displayed as an icon, so the system also has a title for toolbar presentations. |
 
+## Second pass, 24 October 2026
+
+Lessons carried over from the EST game's Duo work: size decisions read the window and the size class, never `UIScreen.main`; a wide window puts the list and the content side by side; toolbar items carry a title so the system can place them in the Duo side bar.
+
+| Finding on 24 October 2026 | Adjustment |
+| --- | --- |
+| The Conversas and Grupos lists push the chat onto a `NavigationStack`. On the inner display the list or one chat takes the whole window. | One `NavigationSplitView` per list, in every size class. A regular window shows the list and the chat side by side; a compact window collapses to the same push navigation as before. One `ChatDetail` selection (room, requests or a people screen) drives both layouts, so opening or closing the device keeps the chat, its timeline and the detail path. |
+| Rows open screens by appending to one path. | A row, a notification, a profile link, group create and invites replace the detail root. Screens inside a chat (partner profile, who can message) still push onto the detail path. `closeChat` clears the selection. The selected row is marked with `accentWash` while the detail is beside it. |
+| The account avatar and the plus menu had only an image. | Both use a `Label` with a title, shown icon-only, so the side bar and overflow have a title. |
+| The sign-up steps fill the whole inner display: the filled button ran edge to edge. | Center the sign-up steps in a column capped at 560 points. The background still fills the window. |
+| The welcome screen was a thin column of text on white; on the open Duo it floated in empty space. Four actions in three styles competed below it. | A full-bleed açaí cover (accent.fill to accent.fillPressed) with the mark-and-wordmark lockup, the welcome line, the title, a faint texture of Bipe marks and the Learn more link. Below it, two choices of equal width: the filled sign-up button and a tonal "I already have an account" button. Paste moved to the invite-code step. A tall window gives the cover all the height above the buttons. A wide window makes the cover the left half of the whole window, counted with the safe-area insets, so the split meets the fold. The points list moved to the store listing and the site. `BipeMark` (iOS) and `BipeMarkShape` (Android) draw the app-icon shape for any brand use. |
+| The search tab keeps its own `NavigationStack`. | No change in this pass. It stays one column on the open Duo. |
+
+Default chosen: the empty detail column shows only a chat icon, because a sentence would need a new bipe-shared string and the list beside it is the call to action. MZ can overrule.
+
 These changes keep the existing view and model identity during resizing. They add no display-mode branch that replaces the active chat. Runtime continuity still needs validation.
 
 The changes concern iOS platform layout and packaging. Android keeps its current native layout. They do not change the shared screen actions or account rules.
 
 ## Next adaptation work
 
-1. Use `NavigationSplitView` for the chat list and active chat when space permits. Keep one selected room and detail navigation state across collapse and expansion. Cover search results, group creation, notification routes, profile links, close-chat actions and account switching. Do not create a second timeline model for the expanded layout.
+1. Done on 24 October 2026 for Conversas and Grupos (see the second pass). Search and Você still use one column.
 2. Test the partially folded poses. Use division and occlusion regions where content would cross a fold or camera. Keep the composer attached to the keyboard and its conversation region.
 3. Audit custom toolbar content: the account avatar, chat title and menus. Check their vertical representation, overflow titles and the Você tab's double-tap and long-press gestures.
 4. Check sign-up, recovery, QR codes, upload previews, media viewing and recording on short windows and with accessibility text sizes. The PIN change does not establish coverage of the other flows.
