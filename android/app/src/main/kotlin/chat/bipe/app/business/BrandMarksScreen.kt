@@ -20,7 +20,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -186,7 +186,7 @@ fun BrandMarksScreen(business: BusinessApi, onClose: () -> Unit) {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Button(
+            BipeButton(
                 onClick = {
                     val code = BipeBrandMarkCode.extract(codeText)
                     if (code == null) problem = BrandMarksProblem.CODE_INVALID
@@ -213,7 +213,7 @@ fun BrandMarksScreen(business: BusinessApi, onClose: () -> Unit) {
                         Text(brandMarkLine(context, id, name), color = colors.inkPrimary)
                     }
                 }
-                Button(onClick = { run { created = business.withToken { createBrandMarkInvite(label, it) } } }, enabled = !working) {
+                BipeButton(onClick = { run { created = business.withToken { createBrandMarkInvite(label, it) } } }, enabled = !working) {
                     Text(stringResource(R.string.bipe_brand_marks_make_code))
                 }
                 created?.let { invite -> CreatedCode(context, invite) }

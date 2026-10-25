@@ -25,7 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -128,7 +128,7 @@ fun ProblemReportScreen(model: SettingsModel, onBack: () -> Unit, onOpenSupport:
                 Text(stringResource(R.string.bipe_help_report_sent_title), style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary, textAlign = TextAlign.Center)
                 Text(stringResource(R.string.bipe_help_report_sent_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
                 // Action openSupport.
-                Button(onClick = onOpenSupport, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.bipe_settings_support)) }
+                BipeButton(onClick = onOpenSupport, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.bipe_settings_support)) }
                 // Action close.
                 TextButton(onClick = onBack) { Text(stringResource(R.string.bipe_app_close)) }
             }
@@ -196,7 +196,7 @@ fun ProblemReportScreen(model: SettingsModel, onBack: () -> Unit, onOpenSupport:
                     Text(stringResource(error ?: R.string.bipe_app_report_error), color = colors.trustDangerInk)
                 }
                 // Action send: works when the text is not empty after trimming.
-                Button(
+                BipeButton(
                     onClick = ::send,
                     enabled = text.isNotBlank() && phase != ProblemReportPhase.SENDING,
                     modifier = Modifier.fillMaxWidth(),

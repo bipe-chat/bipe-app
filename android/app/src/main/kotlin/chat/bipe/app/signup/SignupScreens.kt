@@ -46,7 +46,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -468,7 +468,7 @@ private fun InviteScanScreen(onText: (String) -> Unit, onCancel: () -> Unit) {
                 null -> CircularProgressIndicator(color = colors.accentFill)
                 false -> {
                     Text(stringResource(R.string.bipe_camera_permission_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
-                    Button(onClick = {
+                    BipeButton(onClick = {
                         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
                     }) { Text(stringResource(R.string.bipe_contacts_open_settings_android)) }
                 }

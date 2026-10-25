@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -141,7 +141,7 @@ fun PinReminderScreen(
             PinReminderPhase.RIGHT -> Text(stringResource(R.string.bipe_pin_reminder_right), color = colors.statusSuccess)
             PinReminderPhase.WRONG -> {
                 Text(stringResource(R.string.bipe_pin_reminder_wrong), color = colors.trustDangerInk)
-                Button(onClick = onChangePin, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.bipe_pin_change_title)) }
+                BipeButton(onClick = onChangePin, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.bipe_pin_change_title)) }
             }
             PinReminderPhase.BLOCKED ->
                 Text(stringResource(R.string.bipe_pin_blocked_body, BipeRegistries.PIN_MAX_WRONG_TRIES.toString()), color = colors.trustDangerInk)

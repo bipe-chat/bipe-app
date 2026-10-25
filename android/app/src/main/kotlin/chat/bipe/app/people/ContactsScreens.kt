@@ -21,10 +21,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -146,11 +146,11 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
         when (permission) {
             ContactsPermission.NOT_ASKED -> {
                 Text(stringResource(R.string.bipe_contacts_intro), color = colors.inkSecondary)
-                Button(onClick = { request.launch(Manifest.permission.READ_CONTACTS) }) { Text(stringResource(R.string.bipe_contacts_allow)) }
+                BipeButton(onClick = { request.launch(Manifest.permission.READ_CONTACTS) }) { Text(stringResource(R.string.bipe_contacts_allow)) }
             }
             ContactsPermission.DENIED -> {
                 Text(stringResource(R.string.bipe_contacts_denied), color = colors.inkSecondary)
-                Button(onClick = {
+                BipeButton(onClick = {
                     context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
                 }) { Text(stringResource(R.string.bipe_contacts_open_settings_android)) }
             }
@@ -179,7 +179,7 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                                     match.person.handle?.let { Text("@$it", style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary) }
                                 }
                             }
-                            OutlinedButton(onClick = {
+                            BipeOutlinedButton(onClick = {
                                 scope.launch {
                                     runCatching { people.openOrCreateDm(match.person.userId) }
                                         .onSuccess(openChat)
@@ -223,7 +223,7 @@ fun ProfileLinkOpenScreen(people: PeopleService, handle: String, openPerson: (St
                 LinkPhase.NOT_FOUND -> Text(stringResource(R.string.bipe_link_handle_not_found, handle), color = colors.inkPrimary, textAlign = TextAlign.Center)
                 LinkPhase.FAILED -> {
                     Text(stringResource(R.string.bipe_error_network), color = colors.inkPrimary, textAlign = TextAlign.Center)
-                    Button(onClick = { attempt++ }) { Text(stringResource(R.string.bipe_app_retry)) }
+                    BipeButton(onClick = { attempt++ }) { Text(stringResource(R.string.bipe_app_retry)) }
                 }
                 LinkPhase.RESOLVING -> {
                     CircularProgressIndicator(color = colors.accentFill)

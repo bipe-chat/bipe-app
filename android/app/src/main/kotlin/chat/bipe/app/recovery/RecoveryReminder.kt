@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -246,7 +246,7 @@ fun RecoveryEmailAddScreen(
                     color = colors.inkPrimary,
                     textAlign = TextAlign.Center,
                 )
-                Button(onClick = onClose) { Text(stringResource(R.string.bipe_app_close)) }
+                BipeButton(onClick = onClose) { Text(stringResource(R.string.bipe_app_close)) }
             }
         }
         else -> Surface(Modifier.fillMaxSize().testTag(BipeScreen.RECOVERY_EMAIL_ADD.id), color = colors.surfaceBase) {
@@ -275,7 +275,7 @@ fun RecoveryEmailAddScreen(
                 if (emailInvalid) Text(stringResource(R.string.bipe_signup_email_invalid), style = MaterialTheme.typography.bodySmall, color = colors.trustDangerInk)
                 if (phase == EmailAddPhase.FAILED) error?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall, color = colors.trustDangerInk) }
                 Text(stringResource(R.string.bipe_email_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-                Button(onClick = ::send, enabled = email.isNotBlank() && phase != EmailAddPhase.SENDING, modifier = Modifier.fillMaxWidth()) {
+                BipeButton(onClick = ::send, enabled = email.isNotBlank() && phase != EmailAddPhase.SENDING, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.bipe_email_send))
                 }
             }

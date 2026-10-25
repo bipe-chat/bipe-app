@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -131,7 +131,7 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
             tag = BipeScreen.PIN_CHANGE.id,
         ) {
             // Action retry: the same PIN while the screen is open.
-            Button(onClick = { savedPin?.let(::save) }) { Text(stringResource(R.string.bipe_app_retry)) }
+            BipeButton(onClick = { savedPin?.let(::save) }) { Text(stringResource(R.string.bipe_app_retry)) }
             TextButton(onClick = onClose) { Text(stringResource(R.string.bipe_app_cancel)) }
         }
         PinChangePhase.DONE -> {

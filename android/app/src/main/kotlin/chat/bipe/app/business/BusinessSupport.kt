@@ -27,7 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -368,7 +368,7 @@ fun <T> PickerField(label: String, value: String, options: List<Pair<T, String>>
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = colors.inkSecondary)
         Box {
-            OutlinedButton(onClick = { open = true }, enabled = enabled && options.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+            BipeOutlinedButton(onClick = { open = true }, enabled = enabled && options.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
                 Text(value, color = colors.inkPrimary, modifier = Modifier.fillMaxWidth())
             }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {

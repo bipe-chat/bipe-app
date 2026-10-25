@@ -30,7 +30,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -273,7 +273,7 @@ private fun StickerImport(packClient: StickerPackClient?, onClose: () -> Unit) {
                 Text(stringResource(R.string.bipe_stickers_import_help), color = colors.inkPrimary)
                 Text(stringResource(R.string.bipe_stickers_import_help_folder_android), color = colors.inkPrimary)
                 Text(stringResource(R.string.bipe_stickers_import_note), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-                Button(
+                BipeButton(
                     onClick = { chooser.launch(arrayOf("application/zip", "image/webp", "image/png")) },
                     colors = ButtonDefaults.buttonColors(containerColor = colors.accentFill, contentColor = colors.inkOnAccent),
                 ) { Text(stringResource(R.string.bipe_stickers_import_action)) }
@@ -341,7 +341,7 @@ private fun StickerFromPhoto(packClient: StickerPackClient?, onClose: () -> Unit
                 }
                 when (phase) {
                     "saved" -> Text(stringResource(R.string.bipe_sticker_saved), color = colors.inkSecondary)
-                    else -> Button(
+                    else -> BipeButton(
                         onClick = onClick@{
                             val made = candidate ?: return@onClick
                             phase = "saving"

@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -264,7 +264,7 @@ fun RecoveryAlertScreen(model: RecoveryAlertModel) {
             if (phase == RecoveryAlertModel.Phase.CANCELLED) {
                 Text(stringResource(if (deletion != null) R.string.bipe_deletion_cancelled else R.string.bipe_recovery_alert_cancelled), color = colors.inkPrimary)
                 Spacer(Modifier.weight(1f))
-                Button(onClick = model::close, modifier = Modifier.fillMaxWidth()) {
+                BipeButton(onClick = model::close, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.bipe_action_continue))
                 }
                 return@Column
@@ -283,7 +283,7 @@ fun RecoveryAlertScreen(model: RecoveryAlertModel) {
             }
             Spacer(Modifier.weight(1f))
             if (deletion != null || recovery?.state == BipeRecoveryState.WAITING) {
-                Button(
+                BipeButton(
                     onClick = { model.cancel { OwnerCheck.owner(context, ownerTitle) } },
                     enabled = phase != RecoveryAlertModel.Phase.CANCELLING,
                     modifier = Modifier.fillMaxWidth(),

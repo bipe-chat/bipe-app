@@ -26,11 +26,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -487,11 +487,11 @@ fun ChatRequestScreen(
                 if (reported) Text(stringResource(R.string.bipe_dm_reported_and_left), color = colors.inkSecondary, textAlign = TextAlign.Center)
                 val enabled = !isWorking && !reported
                 // Action accept.
-                Button(onClick = { act { model.accept(request.roomId)?.let(onOpenChat) } }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                BipeButton(onClick = { act { model.accept(request.roomId)?.let(onOpenChat) } }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.bipe_app_request_accept))
                 }
                 // Action decline.
-                OutlinedButton(onClick = { act { if (model.decline(request.roomId)) onBack() } }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                BipeOutlinedButton(onClick = { act { if (model.decline(request.roomId)) onBack() } }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.bipe_app_request_decline))
                 }
                 // Action askDeclineAndBlock.
@@ -584,11 +584,11 @@ fun GroupInviteRow(model: ChatRequestsModel, invite: ChatRequestSummary, media: 
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Action acceptInvite.
-                Button(onClick = { scope.launch { model.accept(invite.roomId)?.let(onOpenChat) } }) {
+                BipeButton(onClick = { scope.launch { model.accept(invite.roomId)?.let(onOpenChat) } }) {
                     Text(stringResource(R.string.bipe_app_request_accept))
                 }
                 // Action declineInvite.
-                OutlinedButton(onClick = { scope.launch { model.decline(invite.roomId) } }) {
+                BipeOutlinedButton(onClick = { scope.launch { model.decline(invite.roomId) } }) {
                     Text(stringResource(R.string.bipe_app_request_decline))
                 }
             }

@@ -22,14 +22,14 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -436,7 +436,7 @@ private fun TimeStep(model: AgendaBookModel) {
             ) {
                 // Times show in the phone's time zone.
                 selected.slots.forEach { slot ->
-                    OutlinedButton(onClick = { model.pickTime(slot) }) { Text(BusinessText.time(Instant.parse(slot.start))) }
+                    BipeOutlinedButton(onClick = { model.pickTime(slot) }) { Text(BusinessText.time(Instant.parse(slot.start))) }
                 }
             }
         }
@@ -468,7 +468,7 @@ private fun ReviewStep(model: AgendaBookModel, onDone: () -> Unit) {
             color = colors.inkSecondary)
         model.hold?.holdExpiresAt?.let { HoldCountdown(Instant.parse(it)) }
         StepError(model)
-        Button(onClick = { model.confirm(onDone) }, enabled = !model.working, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        BipeButton(onClick = { model.confirm(onDone) }, enabled = !model.working, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
             if (model.working) CircularProgressIndicator(color = colors.inkOnAccent, modifier = Modifier.size(20.dp))
             else Text(
                 stringResource(

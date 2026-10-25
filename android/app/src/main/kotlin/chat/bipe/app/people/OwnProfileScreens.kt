@@ -25,7 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -183,7 +183,7 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit) {
             color = if (problem != null) colors.trustDangerInk else colors.inkSecondary,
         )
         if (failed) Text(stringResource(R.string.bipe_app_save_error), color = colors.trustDangerInk)
-        Button(
+        BipeButton(
             enabled = problem == null && changed && !saving,
             modifier = Modifier.fillMaxWidth(),
             onClick = {
@@ -343,7 +343,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
             error != null -> Text(error.orEmpty(), color = colors.trustDangerInk)
             saved -> Text(stringResource(R.string.bipe_public_profile_saved), color = colors.statusSuccess)
         }
-        Button(
+        BipeButton(
             enabled = problem == null && !saving,
             modifier = Modifier.fillMaxWidth(),
             onClick = {

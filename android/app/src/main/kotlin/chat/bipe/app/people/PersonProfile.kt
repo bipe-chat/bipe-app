@@ -19,7 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -276,7 +276,7 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text(stringResource(R.string.bipe_app_person_not_found), color = colors.inkSecondary, textAlign = TextAlign.Center)
-                Button(onClick = model::appear) { Text(stringResource(R.string.bipe_app_retry)) }
+                BipeButton(onClick = model::appear) { Text(stringResource(R.string.bipe_app_retry)) }
             }
             PersonProfileModel.Phase.LOADED -> {
                 Header(model, state, isBlocked, onOpenSeal = { showsSeal = true })

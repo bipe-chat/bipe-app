@@ -20,10 +20,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -84,7 +84,7 @@ internal fun OldPhoneScreen(flow: RecoveryFlowModel) {
                 Text(stringResource(R.string.bipe_app_old_phone_where), fontWeight = FontWeight.Bold, color = colors.inkPrimary, textAlign = TextAlign.Center)
                 if (state.phase == OldPhoneModel.Phase.CAMERA_DENIED) {
                     Text(stringResource(R.string.bipe_camera_permission_body), color = colors.inkPrimary, textAlign = TextAlign.Center)
-                    OutlinedButton(onClick = {
+                    BipeOutlinedButton(onClick = {
                         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
                     }) { Text(stringResource(R.string.bipe_contacts_open_settings_android)) }
                 } else {
@@ -96,7 +96,7 @@ internal fun OldPhoneScreen(flow: RecoveryFlowModel) {
                 state.error?.let { error ->
                     Text(stringResource(R.string.bipe_app_old_phone_error_title), style = MaterialTheme.typography.titleMedium, color = colors.trustDangerInk)
                     Text(stringResource(error.message), color = colors.inkPrimary, textAlign = TextAlign.Center)
-                    OutlinedButton(onClick = model::scanAgain) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
+                    BipeOutlinedButton(onClick = model::scanAgain) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
                 }
             }
             OldPhoneModel.Phase.CONNECTING -> {
@@ -142,7 +142,7 @@ private fun PasteField(state: OldPhoneModel.State, model: OldPhoneModel) {
             textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = BipeTheme.colors.inkPrimary),
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = model::submitPasted, enabled = state.pasted.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+        BipeButton(onClick = model::submitPasted, enabled = state.pasted.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.bipe_app_old_phone_paste_submit))
         }
     }

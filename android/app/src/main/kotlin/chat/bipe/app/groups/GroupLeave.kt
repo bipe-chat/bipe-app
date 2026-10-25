@@ -11,13 +11,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -121,7 +121,7 @@ fun GroupLeaveSheet(session: AccountSession, roomId: String, onDismiss: () -> Un
                 GroupLeaveModel.Phase.CONFIRM -> Unit
             }
             if (warning == GroupLeaveModel.Warning.LAST_ADMIN) {
-                Button(
+                BipeButton(
                     onClick = onChooseAdmin,
                     enabled = !leaving,
                     colors = ButtonDefaults.buttonColors(containerColor = colors.accentFill, contentColor = colors.inkOnAccent),
@@ -130,7 +130,7 @@ fun GroupLeaveSheet(session: AccountSession, roomId: String, onDismiss: () -> Un
                     Text(stringResource(R.string.bipe_app_group_leave_choose_admin))
                 }
             }
-            OutlinedButton(onClick = { model.leave(onLeft) }, enabled = !leaving, modifier = Modifier.fillMaxWidth()) {
+            BipeOutlinedButton(onClick = { model.leave(onLeft) }, enabled = !leaving, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.bipe_app_group_leave_confirm), color = colors.trustDangerInk)
             }
             TextButton(onClick = onDismiss, enabled = !leaving, modifier = Modifier.fillMaxWidth()) {

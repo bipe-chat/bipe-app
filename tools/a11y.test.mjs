@@ -128,6 +128,8 @@ test('kotlin: a small clickable needs the minimum tap target', () => {
 test('kotlin: text sized in dp or a forced font scale fails', () => {
   assert.deepEqual(rules(auditKotlin('Text(a, fontSize = 16.dp.toSp())')), ['1:text-size']);
   assert.deepEqual(rules(auditKotlin('Density(density.density, fontScale = 1f)')), ['1:text-size']);
+  assert.deepEqual(rules(auditKotlin('Button(onClick = {}) { Text(a) }\nOutlinedButton(onClick = {}) { Text(b) }')), ['1:button-size', '2:button-size']);
+  assert.deepEqual(rules(auditKotlin('BipeButton(onClick = {}) { Text(a) }\nTextButton(onClick = {}) { Text(b) }\nandroidx.compose.material3.Button(onClick) {}')), []);
   assert.deepEqual(auditKotlin('Text(a, fontSize = 16.sp)'), []);
 });
 

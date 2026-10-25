@@ -21,11 +21,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -247,7 +247,7 @@ fun BusinessClaimScreen(session: AccountSession, api: BipeApiClient, onChange: (
             is BusinessClaimModel.Phase.Failed -> item(key = "failed") {
                 Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(stringResource(phase.message), color = colors.inkSecondary)
-                    Button(onClick = model::appear) { Text(stringResource(R.string.bipe_app_retry)) }
+                    BipeButton(onClick = model::appear) { Text(stringResource(R.string.bipe_app_retry)) }
                 }
             }
             BusinessClaimModel.Phase.NoClaim -> item(key = "form") {
@@ -261,7 +261,7 @@ fun BusinessClaimScreen(session: AccountSession, api: BipeApiClient, onChange: (
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false, keyboardType = KeyboardType.Ascii),
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Button(onClick = { model.submitCnpj(cnpjInput) }, enabled = BipeCnpj.normalized(cnpjInput) != null && !state.busy, modifier = Modifier.fillMaxWidth()) {
+                    BipeButton(onClick = { model.submitCnpj(cnpjInput) }, enabled = BipeCnpj.normalized(cnpjInput) != null && !state.busy, modifier = Modifier.fillMaxWidth()) {
                         if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), color = colors.inkOnAccent, strokeWidth = 2.dp)
                         else Text(stringResource(R.string.bipe_claim_submit))
                     }
@@ -279,11 +279,11 @@ fun BusinessClaimScreen(session: AccountSession, api: BipeApiClient, onChange: (
                             Text(stringResource(R.string.bipe_claim_proof_ecnpj_body), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
                             // The exact text to sign: never trimmed or changed.
                             SelectionContainer { Text(challenge, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = colors.inkPrimary) }
-                            OutlinedButton(onClick = { model.copy(context, challenge, BusinessClaimModel.Part.Proof) }) { Text(stringResource(R.string.bipe_claim_copy_text)) }
-                            OutlinedButton(onClick = {
+                            BipeOutlinedButton(onClick = { model.copy(context, challenge, BusinessClaimModel.Part.Proof) }) { Text(stringResource(R.string.bipe_claim_copy_text)) }
+                            BipeOutlinedButton(onClick = {
                                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, challenge), null))
                             }) { Text(stringResource(R.string.bipe_claim_send_text)) }
-                            Button(onClick = { picker.launch(arrayOf("application/pkcs7-signature", "application/x-pkcs7-signature", "application/octet-stream", "*/*")) }, enabled = !state.busy) {
+                            BipeButton(onClick = { picker.launch(arrayOf("application/pkcs7-signature", "application/x-pkcs7-signature", "application/octet-stream", "*/*")) }, enabled = !state.busy) {
                                 if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), color = colors.inkOnAccent, strokeWidth = 2.dp)
                                 else Text(stringResource(R.string.bipe_claim_pick_signature))
                             }
@@ -306,7 +306,7 @@ fun BusinessClaimScreen(session: AccountSession, api: BipeApiClient, onChange: (
                                     } else {
                                         domain.txtName?.let { TxtRow(stringResource(R.string.bipe_claim_domain_txt_name), it) { model.copy(context, it, BusinessClaimModel.Part.Domain(domain.domain)) } }
                                         domain.txtValue?.let { TxtRow(stringResource(R.string.bipe_claim_domain_txt_value), it) { model.copy(context, it, BusinessClaimModel.Part.Domain(domain.domain)) } }
-                                        OutlinedButton(onClick = { model.checkDomain(domain.domain) }, enabled = !state.busy) { Text(stringResource(R.string.bipe_claim_domain_check)) }
+                                        BipeOutlinedButton(onClick = { model.checkDomain(domain.domain) }, enabled = !state.busy) { Text(stringResource(R.string.bipe_claim_domain_check)) }
                                         NoticeLine(state, BusinessClaimModel.Part.Domain(domain.domain))
                                     }
                                 }
@@ -320,7 +320,7 @@ fun BusinessClaimScreen(session: AccountSession, api: BipeApiClient, onChange: (
                                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, keyboardType = KeyboardType.Uri),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
-                                OutlinedButton(onClick = { if (model.addDomain(domainInput)) domainInput = "" }, enabled = domainInput.isNotBlank() && !state.busy) {
+                                BipeOutlinedButton(onClick = { if (model.addDomain(domainInput)) domainInput = "" }, enabled = domainInput.isNotBlank() && !state.busy) {
                                     Text(stringResource(R.string.bipe_claim_domain_add))
                                 }
                                 NoticeLine(state, BusinessClaimModel.Part.Domain(null))
@@ -401,7 +401,7 @@ private fun ReservedNames(names: List<BipeReservedName>, openSupport: () -> Unit
             }
         }
         if (names.any { !it.approved }) {
-            OutlinedButton(onClick = openSupport) { Text(stringResource(R.string.bipe_claim_reserved_request)) }
+            BipeOutlinedButton(onClick = openSupport) { Text(stringResource(R.string.bipe_claim_reserved_request)) }
         }
     }
 }

@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -128,7 +128,7 @@ fun NotificationsPrompt(session: AccountSession, roomId: String, messages: List<
                 )
             }
             // Action allow: the system dialog; either way the sheet closes for good.
-            Button(onClick = {
+            BipeButton(onClick = {
                 isAsking = true
                 askPermission()
             }, enabled = !isAsking, modifier = Modifier.fillMaxWidth()) {

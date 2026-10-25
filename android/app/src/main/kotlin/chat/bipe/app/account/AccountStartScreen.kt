@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -194,7 +194,7 @@ private fun StartMessage(
             CircularProgressIndicator(color = colors.accentFill)
         }
         if (onRetry != null) {
-            Button(onClick = onRetry) {
+            BipeButton(onClick = onRetry) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(painterResource(PhosphorIcon.ARROW_CLOCKWISE.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(stringResource(R.string.bipe_app_retry))
@@ -230,7 +230,7 @@ private fun LegacyKept(onRecover: () -> Unit, onStartFresh: () -> Unit) {
                 color = colors.inkSecondary,
                 textAlign = TextAlign.Center,
             )
-            Button(onClick = onRecover, modifier = Modifier.fillMaxWidth()) {
+            BipeButton(onClick = onRecover, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.bipe_app_start_legacy_recover))
             }
             TextButton(onClick = onStartFresh) {

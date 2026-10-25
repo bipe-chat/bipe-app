@@ -20,12 +20,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -84,7 +84,7 @@ fun InvitesScreen(model: InvitesModel, people: PeopleService, onBack: () -> Unit
     }
     BackHandler(onBack = onBack)
     PeopleScaffold(stringResource(R.string.bipe_invites_title), BipeScreen.INVITES.id, onBack) {
-        Button(onClick = { model.beginCreate(); creating = true }, enabled = (state.quota?.available ?: 0) > 0, modifier = Modifier.fillMaxWidth()) {
+        BipeButton(onClick = { model.beginCreate(); creating = true }, enabled = (state.quota?.available ?: 0) > 0, modifier = Modifier.fillMaxWidth()) {
             Icon(painterResource(PhosphorIcon.PLUS.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.bipe_invites_create))
@@ -173,7 +173,7 @@ private fun InviteCreateScreen(model: InvitesModel, onBack: () -> Unit) {
             label = { Text(stringResource(R.string.bipe_invites_name_placeholder)) }, modifier = Modifier.fillMaxWidth().focusRequester(focus))
         Text(stringResource(R.string.bipe_invites_name_footer), style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary)
         state.error?.let { Text(it, color = BipeTheme.colors.trustDangerInk) }
-        Button(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
+        BipeButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
             busy = true
             scope.launch { try { model.create(name) } finally { busy = false } }
         }) {
@@ -211,12 +211,12 @@ private fun InviteCardScreen(model: InvitesModel, card: InviteCard, onBack: () -
                     }
                 }
                 Text(stringResource(R.string.bipe_invites_expires, dateLabel(card.expiresAt)), color = BipeTheme.colors.inkSecondary)
-                Button(onClick = { shareInvite(context, url) }, modifier = Modifier.fillMaxWidth()) {
+                BipeButton(onClick = { shareInvite(context, url) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(painterResource(PhosphorIcon.SHARE_NETWORK.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.bipe_app_share))
                 }
-                OutlinedButton(onClick = {
+                BipeOutlinedButton(onClick = {
                     context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(null, url))
                     copied = true
                 }, modifier = Modifier.fillMaxWidth()) {
