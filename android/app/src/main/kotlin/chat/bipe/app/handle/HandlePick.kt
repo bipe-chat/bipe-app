@@ -9,6 +9,7 @@ import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,6 +46,8 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.shared.BipeHandle
+import chat.bipe.shared.generated.BipeRegistries
+import chat.bipe.shared.onboarding.BipePromptSlot
 import chat.bipe.shared.BipeHandleAvailabilityChecker
 import chat.bipe.shared.BipeHandleProblem
 import chat.bipe.shared.BipeHandleStatus
@@ -83,16 +86,22 @@ class HandlePickModel(
         /** Read once: the prompt card shows only when the account has no @ yet. */
         val loaded: Boolean = false,
         val promptDismissed: Boolean = false,
+        /** Escolha seu @ (bipe-chat/bipe#200): free handles from the display name, while the account has no @. */
+        val suggestions: List<String> = emptyList(),
+        /** The prompt slot allows the handle prompt (registries/onboarding.json promptSlot). */
+        val slotAllows: Boolean = true,
     ) {
         val inCooldown: Boolean get() = nextChangeAt?.isAfter(Instant.now()) == true
 
         /** Prompt card above chat-list: trigger chatListWithoutHandle (registries/onboarding.json prompts.handle). */
-        val showsPrompt: Boolean get() = loaded && currentHandle == null && !promptDismissed
+        val showsPrompt: Boolean get() = loaded && currentHandle == null && !promptDismissed && slotAllows
     }
 
     private val preferences = context.getSharedPreferences("bipe.handle", Context.MODE_PRIVATE)
     private val promptKey = "prompt.dismissed.${session.userId}"
-    private val _state = MutableStateFlow(State(promptDismissed = preferences.getBoolean(promptKey, false)))
+    private val slot = BipePromptSlot(context, session.userId)
+    private val _state = MutableStateFlow(State(promptDismissed = preferences.getBoolean(promptKey, false),
+        slotAllows = slot.allows(BipeOnboardingPrompt.HANDLE)))
     val state: StateFlow<State> = _state.asStateFlow()
     private val checker = BipeHandleAvailabilityChecker(api, scope)
 
@@ -106,6 +115,23 @@ class HandlePickModel(
                 status = if (mine.handle == null) Status.EMPTY else Status.UNCHANGED,
                 loaded = true,
             )
+        }
+    }
+
+    /** The prompt card showed: it takes the prompt slot. */
+    fun promptShown() = slot.didShow(BipeOnboardingPrompt.HANDLE)
+
+    /** State suggestions of handle-pick: candidates in order, checked one by one, the first free ones kept. */
+    fun loadSuggestions() {
+        if (_state.value.currentHandle != null || _state.value.suggestions.isNotEmpty()) return
+        scope.launch {
+            val name = runCatching { session.client.displayName() }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@launch
+            val free = mutableListOf<String>()
+            for (candidate in BipeHandle.suggestions(name)) {
+                if (free.size >= BipeRegistries.HANDLE_SUGGESTIONS_SHOWN) break
+                if (runCatching { api.handleAvailability(candidate).available }.getOrDefault(false)) free += candidate
+            }
+            _state.value = _state.value.copy(suggestions = free)
         }
     }
 
@@ -221,6 +247,7 @@ class HandlePickModel(
 fun HandlePromptCard(model: HandlePickModel, open: () -> Unit) {
     val colors = BipeTheme.colors
     val prompt = BipeOnboardingPrompt.HANDLE
+    LaunchedEffect(Unit) { model.promptShown() }
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
             .background(colors.accentWash, RoundedCornerShape(14.dp)).padding(14.dp),
@@ -280,6 +307,24 @@ fun HandlePickScreen(model: HandlePickModel, onClose: () -> Unit) {
                 },
             )
             Text(model.footer(state), style = MaterialTheme.typography.bodySmall, color = if (model.isProblem(state.status)) colors.trustDangerInk else colors.inkSecondary)
+            LaunchedEffect(Unit) { model.loadSuggestions() }
+            if (state.input.isEmpty() && state.suggestions.isNotEmpty()) {
+                // State suggestions (bipe-chat/bipe#200): a tap fills the field.
+                Text(stringResource(R.string.bipe_handle_suggestions), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.suggestions.forEach { suggestion ->
+                        Text(
+                            "@$suggestion",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.accentInk,
+                            maxLines = 1,
+                            modifier = Modifier.background(colors.accentWash, RoundedCornerShape(50))
+                                .clickable(role = Role.Button) { model.editHandle(suggestion) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+            }
             state.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.trustDangerInk) }
             if (state.phase == HandlePickModel.Phase.SAVED) {
                 state.doneMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.statusSuccess) }

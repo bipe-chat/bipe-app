@@ -283,7 +283,7 @@ final class SignupFlowModel: ObservableObject {
 
     /// Action editCode.
     func editCode(_ text: String) {
-        code = text
+        code = BipeInviteLink.typedCode(text)
         inviteCodeError = nil
         inviteCodePhase = .editing
     }

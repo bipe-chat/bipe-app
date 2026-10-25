@@ -51,4 +51,15 @@ class InvitesTest {
         assertThat(importOwnedInviteMemory(consumed, previous, setOf("owned"))).isEqualTo(consumed)
     }
 
+    @Test
+    fun typedCodeIsUppercaseWithDashesEveryFourCharacters() {
+        assertThat(BipeInviteLink.typedCode("")).isEqualTo("")
+        assertThat(BipeInviteLink.typedCode("abcd")).isEqualTo("ABCD")
+        assertThat(BipeInviteLink.typedCode("abcde")).isEqualTo("ABCD-E")
+        assertThat(BipeInviteLink.typedCode("ab cd.ef/gh_ij")).isEqualTo("ABCD-EFGH-IJ")
+        assertThat(BipeInviteLink.typedCode("ABCD-")).isEqualTo("ABCD")
+        assertThat(BipeInviteLink.typedCode("abcdefghijklmnop")).isEqualTo("ABCD-EFGH-IJKL")
+        assertThat(BipeInviteLink.typedCode("Entra aí: https://bipe.chat/convite/abcd-efgh-jkmn")).isEqualTo("ABCD-EFGH-JKMN")
+        assertThat(BipeInviteLink.typedCode(BipeInviteLink.typedCode("abcdefgh"))).isEqualTo("ABCD-EFGH")
+    }
 }

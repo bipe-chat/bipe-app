@@ -174,13 +174,14 @@ private struct BipeTextField: View {
     let onChange: (String) -> Void
     var keyboard: UIKeyboardType = .default
     var contentType: UITextContentType?
+    var isCode = false
 
     var body: some View {
         TextField(label, text: Binding(get: { text }, set: onChange))
             .keyboardType(keyboard)
             .textContentType(contentType)
-            .textInputAutocapitalization(keyboard == .emailAddress ? .never : .words)
-            .autocorrectionDisabled(keyboard == .emailAddress)
+            .textInputAutocapitalization(isCode ? .characters : keyboard == .emailAddress ? .never : .words)
+            .autocorrectionDisabled(isCode || keyboard == .emailAddress)
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceSunken))
             .foregroundStyle(BipeColor.inkPrimary)
@@ -360,7 +361,7 @@ struct SignupInviteCodeView: View {
         StepLayout(screen: .signupInviteCode,
                    title: BipeLocalized.string(step.titleKey),
                    message: step.bodyKey.map { BipeLocalized.string($0) }) {
-            BipeTextField(label: BipeStrings.signupInviteCode, text: model.code, onChange: model.editCode)
+            BipeTextField(label: BipeStrings.signupInviteCode, text: model.code, onChange: model.editCode, isCode: true)
                 .textInputAutocapitalization(.characters)
             // Action pasteCode: the system paste button reads the clipboard only on a tap, with no paste prompt,
             // and continues at once. A whole invite link or message is fine.

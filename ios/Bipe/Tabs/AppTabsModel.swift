@@ -20,6 +20,8 @@ struct AccountSummary: Identifiable, Equatable {
     /// For a company account made on this phone: its owner's name, while the owner is on this phone (bipe-chat/bipe#444).
     var ownerName: String?
     var ownerId: String?
+    /// true once the profile (name, photo, @) has loaded.
+    var isLoaded = false
 
     var id: String { userId }
 }
@@ -249,7 +251,8 @@ final class AppTabsModel: ObservableObject {
                                   avatarUrl: profile?.avatarUrl,
                                   isCurrent: userId == currentId,
                                   hasUnread: latestChats[userId]?.contains { $0.isUnread } ?? false,
-                                  isCompany: profile?.isCompany ?? false)
+                                  isCompany: profile?.isCompany ?? false,
+                                  isLoaded: profile != nil)
         }
         accounts = Self.grouped(summaries)
         let chats = currentId.flatMap { latestChats[$0] } ?? []
