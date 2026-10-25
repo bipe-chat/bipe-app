@@ -961,6 +961,14 @@
     <string name="bipe_chats_message_placeholder">Write a message</string>
     <string name="bipe_chats_empty_title">Your conversations start here</string>
     <string name="bipe_chats_empty_body">Ask someone you know for their @ to start a conversation.</string>
+    <string name="bipe_first_card_invite_title">Invite someone</string>
+    <string name="bipe_first_card_invite_body">Bipe is better with your family. Send an invite on WhatsApp or any way you like.</string>
+    <string name="bipe_first_card_invite_action">Invite</string>
+    <string name="bipe_first_card_profile_title">Your @ and your QR</string>
+    <string name="bipe_first_card_profile_body">Send your link bipe.chat/@%1$s, or show the QR code to someone near you.</string>
+    <string name="bipe_first_card_notes_body">Send something to yourself: notes, photos, links.</string>
+    <string name="bipe_first_card_notes_action">Open</string>
+    <string name="bipe_groups_empty_create">Create a group</string>
     <string name="bipe_action_start_chat">New chat</string>
     <string name="bipe_notifications_permission_title">Get notified about new messages</string>
     <string name="bipe_notifications_permission_body">You can change this in this phone\'s settings.</string>

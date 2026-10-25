@@ -4,6 +4,7 @@
 
 package chat.bipe.app.chatlist
 
+import android.content.Intent
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -101,7 +102,9 @@ import chat.bipe.shared.BipeNotificationDestination
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.bipeHaptic
 import androidx.compose.ui.platform.LocalView
+import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.generated.BipeOnboardingTarget
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -342,9 +345,15 @@ fun ChatListScreen(
     onInvite: () -> Unit = {},
     onOpenPeople: (PeopleRoute) -> Unit = {},
     listOpenRequest: Int = 0,
+    /** Spec chat-list-cards shareInvite; `null` outside Conversas. */
+    api: BipeApiClient? = null,
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
+    val cardScope = rememberCoroutineScope()
+    val cards = remember(model.session.userId) { FirstListCardsModel(context, model.session.userId) }
+    val doneCards by cards.done.collectAsState()
+    val notesTitle = stringResource(R.string.bipe_self_chat_title)
     val unreadScopes by model.unreadScopes.collectAsState()
     val unreadChats by model.unreadChats.collectAsState()
     val unreadLoading by model.unreadLoading.collectAsState()
@@ -415,6 +424,35 @@ fun ChatListScreen(
                         CircularProgressIndicator(color = colors.accentFill)
                     }
                     ChatListModel.Phase.EMPTY, ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        // Spec chat-list-cards: the first-list cards at the top of Conversas.
+                        if (!showingArchived && scope == ChatScope.CONVERSAS) {
+                            val count = allChats.count { it.scope == ChatScope.CONVERSAS && !archiveMarkers.containsKey(it.roomId) }
+                            items(cards.visible(doneCards, count, handleState.currentHandle), key = { "card-${it.name}" }) { card ->
+                                FirstListCard(card, handleState.currentHandle) { target ->
+                                    cards.finish(card)
+                                    when (target) {
+                                        BipeOnboardingTarget.SHARE_INVITE -> cardScope.launch {
+                                            val link = api?.let { shareableInvite(it, model.session) }
+                                            if (link != null) {
+                                                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                                                    .putExtra(Intent.EXTRA_TEXT, context.getString(R.string.bipe_invites_share_message, link)), null))
+                                            } else {
+                                                onInvite()
+                                            }
+                                        }
+                                        BipeOnboardingTarget.SHARE_PROFILE -> handleState.currentHandle?.let { BipeProfileLink.url(it) }?.let { link ->
+                                            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                                                .putExtra(Intent.EXTRA_TEXT, link), null))
+                                        }
+                                        BipeOnboardingTarget.PROFILE_QR -> onOpenPeople(PeopleRoute.ProfileQr)
+                                        BipeOnboardingTarget.NOTES -> cardScope.launch {
+                                            runCatching { model.openNotes(notesTitle) }.getOrNull()?.let(onOpenChat)
+                                        }
+                                        else -> Unit
+                                    }
+                                }
+                            }
+                        }
                         // The requests row and the group invites (specs chat-requests and chat-list-filters).
                         if (!showingArchived && scope == ChatScope.CONVERSAS && rowCount > 0) item(key = "requests") { ChatRequestsRow(rowCount, onOpenRequests) }
                         if (!showingArchived && scope == ChatScope.GRUPOS && requests != null) {
@@ -427,7 +465,8 @@ fun ChatListScreen(
                         }
                         if (phase == ChatListModel.Phase.EMPTY) item(key = "empty") {
                             if (showingArchived) Text(stringResource(R.string.bipe_archived_empty), color = colors.inkSecondary, modifier = Modifier.padding(16.dp))
-                            else EmptyState(scope, unreadOnly, onTurnOffUnread = { model.toggleUnread(scope) }, onStartChat = { onOpenPeople(PeopleRoute.Contacts) })
+                            else EmptyState(scope, unreadOnly, onTurnOffUnread = { model.toggleUnread(scope) }, onStartChat = { onOpenPeople(PeopleRoute.Contacts) },
+                                onCreateGroup = onCreateGroup)
                         }
                         items(chats, key = { it.roomId }) { chat ->
                             ArchivedChatRow(
@@ -567,7 +606,7 @@ private fun UnreadChip(isOn: Boolean, onToggle: () -> Unit) {
 
 /** The empty messages of chat-list-filters: noUnread turns the filter off on a tap; noChats offers start chat. */
 @Composable
-private fun EmptyState(scope: ChatScope, unreadOnly: Boolean, onTurnOffUnread: () -> Unit, onStartChat: () -> Unit) {
+private fun EmptyState(scope: ChatScope, unreadOnly: Boolean, onTurnOffUnread: () -> Unit, onStartChat: () -> Unit, onCreateGroup: () -> Unit) {
     val colors = BipeTheme.colors
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
@@ -583,6 +622,8 @@ private fun EmptyState(scope: ChatScope, unreadOnly: Boolean, onTurnOffUnread: (
         } else if (scope == ChatScope.GRUPOS) {
             Text(stringResource(R.string.bipe_groups_empty_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
             Text(stringResource(R.string.bipe_groups_empty_body), color = colors.inkSecondary)
+            // Spec chat-list-cards createGroup.
+            TextButton(onClick = onCreateGroup) { Text(stringResource(R.string.bipe_groups_empty_create)) }
         } else {
             Text(stringResource(R.string.bipe_chats_empty_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
             Text(stringResource(R.string.bipe_chats_empty_body), color = colors.inkSecondary)

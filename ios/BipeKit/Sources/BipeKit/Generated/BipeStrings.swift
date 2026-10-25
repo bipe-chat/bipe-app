@@ -2200,6 +2200,24 @@ public enum BipeStrings {
 
     public static var chatsEmptyBody: String { NSLocalizedString("bipe_chats_empty_body", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var firstCardInviteTitle: String { NSLocalizedString("bipe_first_card_invite_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var firstCardInviteBody: String { NSLocalizedString("bipe_first_card_invite_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var firstCardInviteAction: String { NSLocalizedString("bipe_first_card_invite_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var firstCardProfileTitle: String { NSLocalizedString("bipe_first_card_profile_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func firstCardProfileBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_first_card_profile_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var firstCardNotesBody: String { NSLocalizedString("bipe_first_card_notes_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var firstCardNotesAction: String { NSLocalizedString("bipe_first_card_notes_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupsEmptyCreate: String { NSLocalizedString("bipe_groups_empty_create", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var actionStartChat: String { NSLocalizedString("bipe_action_start_chat", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var notificationsPermissionTitle: String { NSLocalizedString("bipe_notifications_permission_title", tableName: "Bipe", bundle: .module, comment: "") }

@@ -16,7 +16,7 @@ import chat.bipe.shared.R
 
 // First run (bipe-chat/bipe#415). Source: bipe-shared/registries/onboarding.json.
 
-enum class BipeOnboardingTarget { INVITE_CODE, NAME, PIN, FALLBACK, CREATE, RECOVERY, WAITLIST, SYSTEM_PERMISSION, HANDLE_SCREEN, DISMISS }
+enum class BipeOnboardingTarget { INVITE_CODE, NAME, PIN, FALLBACK, CREATE, RECOVERY, WAITLIST, SYSTEM_PERMISSION, HANDLE_SCREEN, DISMISS, SHARE_INVITE, SHARE_PROFILE, PROFILE_QR, NOTES }
 
 data class BipeOnboardingButton(
     @StringRes val title: Int,
@@ -93,7 +93,25 @@ enum class BipeOnboardingRecoveryRow(
     ;
 }
 
+/** Cards at the top of Conversas while it lists at most [BipeOnboarding.FIRST_LIST_MAX_CHATS] chats (bipe-chat/bipe#198). */
+enum class BipeOnboardingCard(
+    @StringRes val title: Int,
+    @StringRes val body: Int,
+    /** The one filled button. */
+    val primary: BipeOnboardingButton,
+    /** Text buttons, in order under the filled button. */
+    val text: List<BipeOnboardingButton>,
+    /** True when the card shows only while the account has an @. */
+    val needsHandle: Boolean,
+) {
+    INVITE(R.string.bipe_first_card_invite_title, R.string.bipe_first_card_invite_body, BipeOnboardingButton(R.string.bipe_first_card_invite_action, BipeOnboardingTarget.SHARE_INVITE), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS)), false),
+    PROFILE(R.string.bipe_first_card_profile_title, R.string.bipe_first_card_profile_body, BipeOnboardingButton(R.string.bipe_app_share, BipeOnboardingTarget.SHARE_PROFILE), listOf(BipeOnboardingButton(R.string.bipe_profile_qr_action, BipeOnboardingTarget.PROFILE_QR), BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS)), true),
+    NOTES(R.string.bipe_self_chat_title, R.string.bipe_first_card_notes_body, BipeOnboardingButton(R.string.bipe_first_card_notes_action, BipeOnboardingTarget.NOTES), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS)), false),
+    ;
+}
+
 object BipeOnboarding {
+    const val FIRST_LIST_MAX_CHATS: Int = 3
     @StringRes val waitlistBody: Int = R.string.bipe_waitlist_body
     val waitlistPrimary: BipeOnboardingButton = BipeOnboardingButton(R.string.bipe_waitlist_join, BipeOnboardingTarget.WAITLIST)
     @StringRes val waitlistDone: Int = R.string.bipe_waitlist_done
