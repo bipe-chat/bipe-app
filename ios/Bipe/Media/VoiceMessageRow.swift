@@ -13,7 +13,12 @@ struct VoiceMessageRow: View {
     let voice: VoiceMessage
     let loader: MediaLoader
     @ObservedObject var player: VoicePlayer
+    /// Expiry and keep state of the account (ADR 0164).
+    @ObservedObject var voiceMedia: VoiceMediaStore
+    /// The scam card shows on this message (spec scam-warning).
+    var hasScamWarning = false
     @ObservedObject private var listener = ListenerTranscripts.shared
+    @ObservedObject private var expiry = VoiceMediaExpiry.shared
 
     @State private var transcriptExpanded = false
 
@@ -29,20 +34,51 @@ struct VoiceMessageRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            playerLine
-            if playback == .failed {
+            if expiry.isExpired(voice) {
+                // State media expired: no player and no waveform; the transcript stays.
+                Text(BipeStrings.voiceExpired)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(BipeColor.inkSecondary)
+            } else {
+                playerLine
+            }
+            if playback == .failed, !expiry.isExpired(voice) {
                 Text(BipeStrings.appMediaFailed)
                     .font(.caption)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
             if let transcript = voice.transcript {
                 transcriptBlock(transcript)
-            } else if voice.isVoice, !message.isOwn {
+            } else if voice.isVoice, !message.isOwn, !expiry.isExpired(voice) {
                 listenerTranscript
+            }
+            switch voiceMedia.kept[voice.source.url] {
+            case .kept?:
+                Text(BipeStrings.voiceKept)
+                    .font(.caption)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            case .scam?:
+                Text(BipeStrings.voiceKeptScam)
+                    .font(.caption)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            case nil:
+                EmptyView()
             }
         }
         .frame(maxWidth: 256, alignment: .leading)
         .accessibilityIdentifier(BipeScreen.voiceMessage.rawValue)
+        .task(id: "\(voice.source.url)|\(message.sendState == .sent)") { await expiryTasks() }
+    }
+
+    /// Actions register and keepScam of spec voice-message (ADR 0164).
+    private func expiryTasks() async {
+        guard voice.isVoice else { return }
+        await voiceMedia.load()
+        if message.isOwn, message.sendState == .sent {
+            await voiceMedia.register(url: voice.source.url, transcript: voice.transcript != nil)
+        } else if !message.isOwn, hasScamWarning {
+            await voiceMedia.keepForScam(url: voice.source.url)
+        }
     }
 
     private var playback: VoicePlayer.Playback {

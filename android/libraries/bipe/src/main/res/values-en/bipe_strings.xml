@@ -358,6 +358,12 @@
     <string name="bipe_voice_transcribe_denied">To transcribe, allow speech recognition for Bipe in the phone settings.</string>
     <string name="bipe_voice_transcript_placeholder">Check the transcript before sending</string>
     <string name="bipe_voice_transcript_unavailable">Couldn\'t transcribe. You can send the audio without text.</string>
+    <string name="bipe_voice_expired">Audio expired</string>
+    <string name="bipe_voice_keep">Keep audio</string>
+    <string name="bipe_voice_unkeep">Stop keeping</string>
+    <string name="bipe_voice_kept">Audio kept. It won\'t expire.</string>
+    <string name="bipe_voice_kept_scam">Bipe kept this audio because of the scam warning, in case you need it for a police report.</string>
+    <string name="bipe_voice_keep_limit">You\'re already keeping %1$s audio messages. To keep this one, stop keeping another.</string>
     <string name="bipe_action_show_more">Show more</string>
     <string name="bipe_action_show_less">Show less</string>
     <string name="bipe_action_stickers">Stickers</string>

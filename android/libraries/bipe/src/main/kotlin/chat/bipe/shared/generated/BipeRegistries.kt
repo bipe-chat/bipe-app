@@ -817,6 +817,11 @@ object BipeRegistries {
     const val BRAND_MARK_MAX_PER_ACCOUNT = 3
     const val BRAND_MARK_RECHECK_MINUTES = 10
 
+    /** Voice message audio expiry (ADR 0164, bipe-chat/bipe#622; registries/voice-media.json). */
+    const val VOICE_MEDIA_TRANSCRIPT_DAYS = 30
+    const val VOICE_MEDIA_NO_TRANSCRIPT_DAYS = 90
+    const val VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT = 200
+
     /** Voice transcript paragraphs (registries/voice-transcript.json). Rule: product/screens/voice-recording.json notes. */
     const val VOICE_TRANSCRIPT_PAUSE_SECONDS: Double = 1.2
     const val VOICE_TRANSCRIPT_MIN_CHARACTERS = 120

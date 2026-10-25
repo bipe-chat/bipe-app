@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +58,9 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.media.voice.ListenerTranscripts
+import chat.bipe.app.media.voice.VoiceMediaExpiry
+import chat.bipe.app.media.voice.VoiceMediaStore
+import chat.bipe.shared.api.BipeKeptMedia
 import chat.bipe.app.timeline.TimelineMessage
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -80,9 +84,28 @@ fun VoiceMessageRow(
     onSeek: (Float) -> Unit,
     /** The media loader, for the listener transcript (bipe#500). null: no Transcrever button. */
     loader: MediaLoader? = null,
+    /** Expiry and keep state of the account (ADR 0164). null: no keep line. */
+    voiceMedia: VoiceMediaStore? = null,
+    /** The scam card shows on this message (spec scam-warning). */
+    hasScamWarning: Boolean = false,
 ) {
     val colors = BipeTheme.colors
     val playback = state.playback(message.id)
+    val expiredMedia by VoiceMediaExpiry.expired.collectAsState()
+    val expired = voice.source.url in expiredMedia
+    val keptReason = voiceMedia?.kept?.collectAsState()?.value?.get(voice.source.url)
+    val isSent = message.sendState == TimelineMessage.SendState.SENT
+    // Actions register and keepScam of spec voice-message (ADR 0164).
+    LaunchedEffect(voice.source.url, isSent, hasScamWarning) {
+        val store = voiceMedia ?: return@LaunchedEffect
+        if (!voice.isVoice) return@LaunchedEffect
+        store.load()
+        if (message.isOwn && isSent) {
+            store.register(voice.source.url, voice.transcript != null)
+        } else if (!message.isOwn && hasScamWarning) {
+            store.keepForScam(voice.source.url)
+        }
+    }
     var transcriptExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
     Column(
         modifier = Modifier.widthIn(max = 256.dp).testTag(BipeScreen.VOICE_MESSAGE.id),
@@ -97,7 +120,10 @@ fun VoiceMessageRow(
                 overflow = TextOverflow.MiddleEllipsis,
             )
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (expired) {
+            // State media expired: no player and no waveform; the transcript stays.
+            Text(stringResource(R.string.bipe_voice_expired), style = MaterialTheme.typography.titleSmall, color = colors.inkSecondary)
+        } else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val playLabel = stringResource(
                 if (playback == VoicePlayer.Playback.PLAYING) R.string.bipe_app_voice_pause else R.string.bipe_app_voice_play,
             )
@@ -130,17 +156,24 @@ fun VoiceMessageRow(
             )
             Text(voice.durationLabel, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
         }
-        if (playback == VoicePlayer.Playback.FAILED) {
+        if (playback == VoicePlayer.Playback.FAILED && !expired) {
             Text(stringResource(R.string.bipe_app_media_failed), style = MaterialTheme.typography.labelSmall, color = colors.trustDangerInk)
         }
         val sender = voice.transcript
-        if (sender == null && voice.isVoice && !message.isOwn && loader != null) {
+        if (sender == null && voice.isVoice && !message.isOwn && loader != null && !expired) {
             ListenerTranscript(message.id, voice, loader) { text ->
                 TranscriptBlock(text, transcriptExpanded) { transcriptExpanded = !transcriptExpanded }
             }
         }
         sender?.let { transcript ->
             TranscriptBlock(transcript, transcriptExpanded) { transcriptExpanded = !transcriptExpanded }
+        }
+        when (keptReason) {
+            BipeKeptMedia.Reason.KEPT ->
+                Text(stringResource(R.string.bipe_voice_kept), style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
+            BipeKeptMedia.Reason.SCAM ->
+                Text(stringResource(R.string.bipe_voice_kept_scam), style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
+            null -> Unit
         }
     }
 }

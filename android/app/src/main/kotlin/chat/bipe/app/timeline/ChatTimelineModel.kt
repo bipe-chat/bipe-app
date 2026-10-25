@@ -17,7 +17,10 @@ import chat.bipe.app.composer.MentionDirectory
 import chat.bipe.app.composer.MentionSuggestion
 import chat.bipe.app.composer.keepDraft
 import chat.bipe.app.composer.newMessageDraft
+import chat.bipe.app.media.voice.VoiceMediaExpiry
+import chat.bipe.app.media.voice.VoiceMediaStore
 import chat.bipe.app.media.voice.VoiceRecordingModel
+import chat.bipe.shared.api.BipeKeptMedia
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.app.media.VoiceMessage
 import chat.bipe.app.polls.PollData
@@ -89,7 +92,7 @@ data class TimelineMessage(
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, EDIT, COPY, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, EDIT, COPY, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -107,7 +110,7 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED }
+enum class TimelineNotice { COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED }
 
 /** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
 enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
@@ -167,6 +170,8 @@ class ChatTimelineModel(
     private val sharesTyping: () -> Boolean,
     /** Spec handle-change-line: the account's handle-change cache. */
     private val handleChanges: BipeHandleChangeStore? = null,
+    /** Expiry and keep state of this account's voice messages (ADR 0164). */
+    val voiceMedia: VoiceMediaStore? = null,
 ) {
     private val _roomName = MutableStateFlow("")
     val roomName: StateFlow<String> = _roomName.asStateFlow()
@@ -545,11 +550,21 @@ class ChatTimelineModel(
                 MessageAction.EDIT -> details.canEdit
                 // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
                 MessageAction.COPY -> !message.body.isNullOrBlank()
+                // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
+                MessageAction.KEEP_AUDIO -> keepable(message, isSent) && message.voice!!.source.url !in kept()
+                MessageAction.UNKEEP_AUDIO -> message.voice?.source?.url?.let { it in kept() } ?: false
                 MessageAction.RETRY -> message.isOwn && message.sendState == TimelineMessage.SendState.FAILED
                 MessageAction.DELETE -> details.canDelete || (message.isOwn && !isSent)
                 MessageAction.REPORT -> !message.isOwn && isSent
             }
         }
+    }
+
+    private fun kept(): Map<String, BipeKeptMedia.Reason> = voiceMedia?.kept?.value ?: emptyMap()
+
+    private fun keepable(message: TimelineMessage, isSent: Boolean): Boolean {
+        val voice = message.voice ?: return false
+        return voiceMedia != null && voice.isVoice && isSent && !VoiceMediaExpiry.isExpired(voice.source.url)
     }
 
     /** Spec message-actions showsReactions: messages that take reactions (message-reactions notes). */
@@ -582,6 +597,21 @@ class ChatTimelineModel(
             MessageAction.COPY -> if (pauseSecondsLeft(rowId) == 0) row(rowId)?.message?.body?.let {
                 copy(it)
                 show(TimelineNotice.COPIED)
+            }
+            MessageAction.KEEP_AUDIO, MessageAction.UNKEEP_AUDIO -> {
+                val store = voiceMedia ?: return
+                val url = current.message?.voice?.source?.url ?: return
+                scope.launch {
+                    if (action == MessageAction.UNKEEP_AUDIO) {
+                        if (!store.unkeep(url)) show(TimelineNotice.KEEP_FAILED)
+                        return@launch
+                    }
+                    when (store.keep(url, BipeKeptMedia.Reason.KEPT)) {
+                        VoiceMediaStore.KeepResult.DONE -> Unit
+                        VoiceMediaStore.KeepResult.LIMIT -> show(TimelineNotice.KEEP_LIMIT)
+                        VoiceMediaStore.KeepResult.FAILED -> show(TimelineNotice.KEEP_FAILED)
+                    }
+                }
             }
             MessageAction.RETRY -> retrySend(rowId)
             MessageAction.DELETE -> askDelete(rowId)

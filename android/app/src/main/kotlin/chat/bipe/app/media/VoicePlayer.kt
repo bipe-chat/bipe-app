@@ -14,6 +14,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.media.MediaPlayer
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.media.voice.VoiceMediaExpiry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -22,6 +23,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.matrix.rustcomponents.sdk.ClientException
+import org.matrix.rustcomponents.sdk.ErrorKind
 
 /** The player of the voice-message rows of one chat. One row plays at a time (action togglePlay). */
 class VoicePlayer(
@@ -101,7 +104,10 @@ class VoicePlayer(
         stop()
         _state.value = _state.value.copy(rowId = id, playback = Playback.LOADING, failedRows = _state.value.failedRows - id)
         load = scope.launch {
-            val file = runCatching { loader.file(context, voice.source, voice.filename, voice.mimeType) }.getOrNull()
+            val download = runCatching { loader.file(context, voice.source, voice.filename, voice.mimeType) }
+            // The media repository answered 404: the server deleted the audio after its time (ADR 0164).
+            download.exceptionOrNull()?.let { if (isGone(it)) VoiceMediaExpiry.markExpired(voice.source.url) }
+            val file = download.getOrNull()
             if (_state.value.rowId != id) return@launch
             val prepared = file?.let { prepare(id, it.path) }
             if (prepared == null) {
@@ -112,6 +118,13 @@ class VoicePlayer(
             player = prepared
             start(prepared)
         }
+    }
+
+    private fun isGone(error: Throwable): Boolean = when (error) {
+        is ClientException.MatrixApi -> error.kind is ErrorKind.NotFound
+        // Media downloads can report the HTTP error as text.
+        is ClientException.Generic -> error.msg.contains("M_NOT_FOUND")
+        else -> false
     }
 
     private fun prepare(id: String, filePath: String): MediaPlayer? = runCatching {

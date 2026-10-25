@@ -141,6 +141,40 @@ class BipeApiClient(baseUrl: String) {
     suspend fun moveToDeviceFirst(accessToken: String): BipeCredentials =
         send("POST", listOf("v1", "me", "device-first"), accessToken = accessToken, response = BipeCredentials.serializer())
 
+    /**
+     * `PUT /v1/me/voice-media/{server}/{mediaId}` (ADR 0164, bipe-chat/bipe#622): the caller's own voice upload, so the
+     * server can expire its audio. 404 when the media is not the caller's upload on this server.
+     */
+    suspend fun registerVoiceMedia(server: String, mediaId: String, transcript: Boolean, accessToken: String) {
+        send<Unit>(
+            "PUT",
+            listOf("v1", "me", "voice-media", server, mediaId),
+            body = encode(BipeVoiceMediaRequest.serializer(), BipeVoiceMediaRequest(transcript)),
+            accessToken = accessToken,
+            response = null,
+        )
+    }
+
+    /** `GET /v1/me/kept-media` (ADR 0164): the voice message audio the caller keeps. */
+    suspend fun keptMedia(accessToken: String): List<BipeKeptMedia> =
+        send("GET", listOf("v1", "me", "kept-media"), accessToken = accessToken, response = BipeKeptMediaList.serializer()).media
+
+    /** `PUT /v1/me/kept-media/{server}/{mediaId}` (ADR 0164). 409 keep_limit at maxKeptPerAccount. */
+    suspend fun keepMedia(server: String, mediaId: String, reason: BipeKeptMedia.Reason, accessToken: String) {
+        send<Unit>(
+            "PUT",
+            listOf("v1", "me", "kept-media", server, mediaId),
+            body = encode(BipeKeepMediaRequest.serializer(), BipeKeepMediaRequest(reason)),
+            accessToken = accessToken,
+            response = null,
+        )
+    }
+
+    /** `DELETE /v1/me/kept-media/{server}/{mediaId}` (ADR 0164). */
+    suspend fun unkeepMedia(server: String, mediaId: String, accessToken: String) {
+        send<Unit>("DELETE", listOf("v1", "me", "kept-media", server, mediaId), accessToken = accessToken, response = null)
+    }
+
     /** `POST /v1/me/recoveries/{id}/cancel`. An old device cancels a waiting recovery. */
     suspend fun cancelRecovery(id: String, accessToken: String) {
         send<Unit>("POST", listOf("v1", "me", "recoveries", id, "cancel"), accessToken = accessToken, response = null)
@@ -361,6 +395,9 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** 409. The account already holds the most brand marks (ADR 0162); the invite stays open. */
     BRAND_MARK_LIMIT("brand_mark_limit"),
+
+    /** 409. The account already keeps maxKeptPerAccount voice audios (ADR 0164). */
+    KEEP_LIMIT("keep_limit"),
     ;
 
     companion object {
@@ -442,6 +479,8 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.SIGNATURE_INVALID -> context.getString(R.string.bipe_claim_signature_invalid)
             BipeApiErrorCode.BRAND_NOT_VERIFIED -> context.getString(R.string.bipe_brand_marks_not_verified)
             BipeApiErrorCode.BRAND_MARK_LIMIT -> context.getString(R.string.bipe_brand_marks_limit)
+            BipeApiErrorCode.KEEP_LIMIT ->
+                context.getString(R.string.bipe_voice_keep_limit, BipeRegistries.VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT.toString())
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID ->
                 context.getString(R.string.bipe_error_generic)
         }

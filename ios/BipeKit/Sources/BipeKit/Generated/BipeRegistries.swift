@@ -811,6 +811,11 @@ public enum BipeRegistries {
     public static let brandMarkMaxPerAccount = 3
     public static let brandMarkRecheckMinutes = 10
 
+    /// Voice message audio expiry (ADR 0164, bipe-chat/bipe#622; registries/voice-media.json).
+    public static let voiceMediaTranscriptDays = 30
+    public static let voiceMediaNoTranscriptDays = 90
+    public static let voiceMediaMaxKeptPerAccount = 200
+
     /// Voice transcript paragraphs (registries/voice-transcript.json). Rule: product/screens/voice-recording.json notes.
     public static let voiceTranscriptPauseSeconds: Double = 1.2
     public static let voiceTranscriptMinCharacters = 120
