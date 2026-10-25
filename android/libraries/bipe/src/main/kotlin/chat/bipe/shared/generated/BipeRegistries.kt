@@ -790,4 +790,9 @@ object BipeRegistries {
     /** Data use (bipe-chat/bipe#242; registries/data-use.json): the budget of a normal day and the default of the data saver switch. */
     const val DATA_USE_BUDGET_MEGABYTES_PER_DAY = 10
     const val DATA_SAVER_DEFAULT = false
+
+    /** Brand marks for resellers (bipe ADR 0162; registries/brand-marks.json). Label ids, string key bipe_brand_mark_label_<id>. */
+    val BRAND_MARK_LABELS: List<String> = listOf("revendedora", "revendedor", "corretor", "representante")
+    const val BRAND_MARK_MAX_PER_ACCOUNT = 3
+    const val BRAND_MARK_RECHECK_MINUTES = 10
 }
