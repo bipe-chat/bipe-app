@@ -16,6 +16,8 @@ import chat.bipe.shared.BipeTrustSources
 import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.isCompany
+import chat.bipe.shared.company.BipeBrandMarks
+import chat.bipe.shared.company.BipeBrandMarksSeen
 import chat.bipe.shared.company.BipeCompanySeals
 import chat.bipe.shared.company.BipeCompanySealsSeen
 import chat.bipe.shared.generated.BipeDmPowerLevels
@@ -92,6 +94,18 @@ class PeopleService(
         masterKey = { userId -> session.client.encryption().userIdentity(userId, true)?.masterKey() },
         seen = BipeCompanySealsSeen(
             lazy { context.applicationContext.getSharedPreferences("bipe_company_seals", Context.MODE_PRIVATE) },
+            session.userId,
+        ),
+    )
+
+    /** Brand marks for resellers (ADR 0162), verified against the same master key as the seal. Fail closed. */
+    val brandMarks = BipeBrandMarks(
+        apiClient = api,
+        serverName = serverName,
+        scope = scope,
+        masterKey = { userId -> session.client.encryption().userIdentity(userId, true)?.masterKey() },
+        seen = BipeBrandMarksSeen(
+            lazy { context.applicationContext.getSharedPreferences("bipe_brand_marks", Context.MODE_PRIVATE) },
             session.userId,
         ),
     )

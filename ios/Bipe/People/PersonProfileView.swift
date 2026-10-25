@@ -132,6 +132,9 @@ struct PersonProfileView: View {
                     .accessibilityLabel(BipeStrings.badgeCompany)
                 }
             }
+            // Spec brand-mark: next to the reseller's own name, never instead of it.
+            BrandMarkLine(userId: model.userId, marks: people.brandMarks)
+                .environment(\.bipeCompanySeals, people.seals)
             if let handle = model.person.handle {
                 Text("@\(handle)")
                     .font(.subheadline)

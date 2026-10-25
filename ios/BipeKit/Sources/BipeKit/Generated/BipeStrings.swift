@@ -96,6 +96,22 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_brand_mark_label_representante", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static func brandMarkMore(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_more", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var brandMarkTitle: String { NSLocalizedString("bipe_brand_mark_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarkBody: String { NSLocalizedString("bipe_brand_mark_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarkBrandSeal: String { NSLocalizedString("bipe_brand_mark_brand_seal", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarkBrandUnchecked: String { NSLocalizedString("bipe_brand_mark_brand_unchecked", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func brandMarkEnded(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_ended", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static func cvmCancelled(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_cvm_cancelled", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }

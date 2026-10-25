@@ -271,9 +271,17 @@ struct ChatTimelineView: View {
     private var chatTitle: some View {
         HStack(spacing: 8) {
             AvatarView(name: model.roomName, mxcUrl: model.roomAvatarUrl, loader: media, size: 32, userId: model.peerUserId)
-            Text(model.roomName).font(.headline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
-            if model.isDm, BipeOfficialAccounts.isOfficial(model.peerUserId) {
-                OfficialBadge()
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Text(model.roomName).font(.headline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
+                    if model.isDm, BipeOfficialAccounts.isOfficial(model.peerUserId) {
+                        OfficialBadge()
+                    }
+                }
+                // Spec brand-mark: a reseller's mark under the title, never instead of the name.
+                if model.isDm {
+                    BrandMarkHeaderLine(userId: model.peerUserId, marks: people?.brandMarks)
+                }
             }
         }
     }

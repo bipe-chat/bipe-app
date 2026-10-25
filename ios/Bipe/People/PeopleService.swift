@@ -42,6 +42,8 @@ final class PeopleService: ObservableObject {
     let handles: BipeHandleResolver
     /// Company accounts and their seals, verified on the device (BipeKit, cached and observable).
     let seals: BipeCompanySeals
+    /// Brand marks for resellers (ADR 0162), bound to the same master key as the seal.
+    let brandMarks: BipeBrandMarks
 
     /// Client.ignoredUsers, kept current by Client.subscribeToIgnoredUsers.
     @Published private(set) var ignoredUsers: Set<String> = []
@@ -75,6 +77,9 @@ final class PeopleService: ObservableObject {
         handles = BipeHandleResolver(apiClient: api, serverName: serverName, accessToken: { session.accessToken() })
         // The account's cross-signing master key from the SDK (UserIdentity.masterKey) binds a cnpj badge.
         seals = BipeCompanySeals(apiClient: api, serverName: serverName, sessionUserID: session.userId) { userId in
+            try await session.client.encryption().userIdentity(userId: userId, fallbackToServer: true)?.masterKey()
+        }
+        brandMarks = BipeBrandMarks(apiClient: api, serverName: serverName, sessionUserID: session.userId) { userId in
             try await session.client.encryption().userIdentity(userId: userId, fallbackToServer: true)?.masterKey()
         }
     }
