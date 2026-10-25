@@ -71,6 +71,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -86,6 +87,7 @@ import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.composer.MentionSuggestion
 import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.app.people.PeopleService
+import chat.bipe.app.people.cvm
 import kotlinx.coroutines.launch
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.BipeOfficialAccounts
@@ -282,6 +284,8 @@ fun ChatTimelineScreen(
                         }
                     }
                 }
+                val cvmPeer = peerUserId
+                if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
                 // Booking cards pinned above the timeline (agenda-booking-card); they are not room events (ADR 0102).
                 business?.Cards()
                 LazyColumn(
@@ -730,5 +734,31 @@ private fun InviterHintRow(hint: InviterGreetings.Greeting, inviterName: String,
                 modifier = Modifier.bipeTapTarget().background(colors.accentFill, CircleShape).clickable(onClick = greet).padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
+    }
+}
+
+/**
+ * Spec chat-timeline: the red caution card in a DM with a company that CVM ordered to stop its offers (ADR 0077).
+ * From the signed badge only; it stays while the badge says so.
+ */
+@Composable
+private fun CvmStopOrderCard(people: PeopleService, userId: String) {
+    val colors = BipeTheme.colors
+    val seals by people.seals.states.collectAsState()
+    val cvm = remember(seals, userId) { people.seals.seal(userId).cvm }
+    val date = cvm.lines.firstOrNull()?.arg
+    if (!cvm.danger || date == null) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .background(colors.trustDangerWash, RoundedCornerShape(12.dp))
+            .border(2.dp, colors.trustDangerLine, RoundedCornerShape(12.dp))
+            .padding(12.dp)
+            .semantics(mergeDescendants = true) {},
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustDangerInk, modifier = Modifier.size(20.dp))
+        Text(stringResource(R.string.bipe_cvm_stop_order_card, date), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = colors.trustDangerInk)
     }
 }

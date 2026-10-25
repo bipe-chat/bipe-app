@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
@@ -53,6 +54,7 @@ import android.content.Context
 import chat.bipe.shared.api.BipeBadgeGoneReason
 import chat.bipe.shared.company.BipeCnpj
 import chat.bipe.shared.company.BipeCompanySealState
+import chat.bipe.shared.company.BipeCvmLines
 import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.settings.BipeWhoCanMessage
 import chat.bipe.shared.settings.setWhoCanMessage
@@ -72,6 +74,18 @@ fun BipeCompanySealState.notice(context: Context): String? = when (this) {
     }
     BipeCompanySealState.Suspended -> context.getString(R.string.bipe_badge_company_suspended)
     is BipeCompanySealState.Verified, BipeCompanySealState.None -> null
+}
+
+/** Spec company-seal cvmLines: the CVM line of a verified seal (ADR 0077), from the signed badge only. */
+val BipeCompanySealState.cvm: BipeCvmLines.Result
+    get() = BipeCvmLines.lines((this as? BipeCompanySealState.Verified)?.payload?.cvm)
+
+fun BipeCvmLines.Line.text(context: Context): String = when (key) {
+    BipeCvmLines.Key.REGISTERED -> context.getString(R.string.bipe_cvm_registered, arg.orEmpty())
+    BipeCvmLines.Key.CANCELLED -> context.getString(R.string.bipe_cvm_cancelled, arg.orEmpty())
+    BipeCvmLines.Key.NO_REGISTRATION -> context.getString(R.string.bipe_cvm_no_registration)
+    BipeCvmLines.Key.BANK_NOTE -> context.getString(R.string.bipe_cvm_bank_note)
+    BipeCvmLines.Key.STOP_ORDER -> context.getString(R.string.bipe_cvm_stop_order, arg.orEmpty())
 }
 
 /** Spec company-seal: the facts behind a company's seal, and what the seal does not promise (ADR 0042). */
@@ -94,6 +108,24 @@ fun CompanySealDialog(state: BipeCompanySealState, onClose: () -> Unit) {
             SelectionContainer {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.testTag(BipeScreen.COMPANY_SEAL.id)) {
                     Text(state.notice(context) ?: stringResource(R.string.bipe_badge_company), style = MaterialTheme.typography.titleSmall, color = colors.inkPrimary)
+                    // cvmDanger: a stop order is red with a filled icon, above the other facts. The rest is neutral.
+                    val cvm = state.cvm
+                    if (cvm.lines.isNotEmpty()) {
+                        cvm.lines.forEach { line ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (cvm.danger) {
+                                    Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustDangerInk, modifier = Modifier.size(18.dp))
+                                }
+                                Text(
+                                    line.text(context),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (cvm.danger) FontWeight.Bold else null,
+                                    color = if (cvm.danger) colors.trustDangerInk else colors.inkPrimary,
+                                )
+                            }
+                        }
+                        Text(stringResource(R.string.bipe_cvm_source), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+                    }
                     verified?.payload?.let { payload ->
                         payload.legalName?.let { Fact(stringResource(R.string.bipe_badge_company_legal_name), it) }
                         payload.tradeName?.let { Fact(stringResource(R.string.bipe_badge_company_trade_name), it) }
