@@ -592,6 +592,9 @@ object BipeRegistries {
     /** Username (handle) rules. The server is the authority; clients check early for feedback. */
     const val HANDLE_MIN_LENGTH = 3
     const val HANDLE_MAX_LENGTH = 30
+    /** Escolha seu @ (bipe-chat/bipe#200): how many free suggestions show, and how many candidates to check. */
+    const val HANDLE_SUGGESTIONS_SHOWN = 3
+    const val HANDLE_SUGGESTION_CANDIDATES = 8
     const val HANDLE_PATTERN = "^[a-z0-9](?:[a-z0-9_]|\\.(?!\\.))*[a-z0-9_]\$"
 
     /** Owned handles (ADR 0065): only these may be shorter than [HANDLE_MIN_LENGTH], down to [HANDLE_OWNER_MIN_LENGTH]. */

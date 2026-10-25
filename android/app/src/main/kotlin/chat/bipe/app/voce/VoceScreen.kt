@@ -4,6 +4,12 @@
 
 package chat.bipe.app.voce
 
+import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.semantics.Role
+import chat.bipe.shared.generated.BipeOnboardingPrompt
+import chat.bipe.shared.onboarding.BipePromptSlot
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FilledTonalButton
@@ -97,6 +103,12 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
             }
         }
     }
+    // Spec voce photoPrompt (bipe-chat/bipe#200).
+    val context = LocalContext.current
+    val photoPrefs = remember { context.getSharedPreferences("bipe_photo_prompt", Context.MODE_PRIVATE) }
+    val photoKey = "dismissed_${session.userId}"
+    var photoPromptDismissed by remember(session) { mutableStateOf(photoPrefs.getBoolean(photoKey, false)) }
+    val photoSlot = remember(session) { BipePromptSlot(context, session.userId) }
     val trust = remember(session) { TrustCardModel(session, api, scope) }
     val current = state.accounts.firstOrNull { it.isCurrent }
     LaunchedEffect(trust, current) { trust.update(current) }
@@ -115,6 +127,16 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                         VoceHeader(it, media, openProfile = { openGroup(BipeSettingsGroup.PROFILE) },
                             openQr = { openPeople(PeopleRoute.ProfileQr) })
                     } }
+                    // Spec voce photoPrompt (bipe-chat/bipe#200): one card while the account has no photo.
+                    val me = state.accounts.firstOrNull { it.isCurrent }
+                    if (me != null && me.isLoaded && me.avatarUrl == null && !photoPromptDismissed &&
+                        photoSlot.allows(BipeOnboardingPrompt.PHOTO)) item(key = "photo-prompt") {
+                        PhotoPromptCard(open = { openPeople(PeopleRoute.ProfileEdit) }, dismiss = {
+                            photoPrefs.edit().putBoolean(photoKey, true).apply()
+                            photoPromptDismissed = true
+                        })
+                        LaunchedEffect(Unit) { photoSlot.didShow(BipeOnboardingPrompt.PHOTO) }
+                    }
                     // The accounts on this phone (ADR 0112, 0135); Nova conta closes the section (spec account-new).
                     if (state.accounts.size > 1) {
                         item { VoceSectionHeader(stringResource(R.string.bipe_app_account_switcher_title)) }
@@ -247,4 +269,36 @@ private fun VoceRow(
         colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
         modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
     )
+}
+
+/** Prompt photo of registries/onboarding.json (trigger voceWithoutPhoto, bipe-chat/bipe#200). */
+@Composable
+private fun PhotoPromptCard(open: () -> Unit, dismiss: () -> Unit) {
+    val colors = BipeTheme.colors
+    val prompt = BipeOnboardingPrompt.PHOTO
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            .background(colors.accentWash, RoundedCornerShape(14.dp)).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(prompt.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
+        prompt.body?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(prompt.primary.title),
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.inkOnAccent,
+                modifier = Modifier.background(colors.accentFill, RoundedCornerShape(50)).clickable(role = Role.Button, onClick = open)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            )
+            prompt.text.forEach {
+                Text(
+                    stringResource(it.title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = colors.accentInk,
+                    modifier = Modifier.clickable(role = Role.Button, onClick = dismiss),
+                )
+            }
+        }
+    }
 }

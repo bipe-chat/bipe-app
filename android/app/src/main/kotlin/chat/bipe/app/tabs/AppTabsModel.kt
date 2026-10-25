@@ -35,6 +35,8 @@ data class AccountSummary(
     /** For a company account made on this phone: its owner, while the owner is on this phone (bipe-chat/bipe#444). */
     val ownerId: String? = null,
     val ownerName: String? = null,
+    /** true once the profile (name, photo, @) has loaded. */
+    val isLoaded: Boolean = false,
 )
 
 /**
@@ -210,6 +212,7 @@ class AppTabsModel(
                 isCurrent = userId == currentId,
                 hasUnread = latestChats[userId].orEmpty().any { it.isUnread },
                 isCompany = profile?.company ?: false,
+                isLoaded = profile != null,
             )
         })
         val chats = currentId?.let { latestChats[it] }.orEmpty()

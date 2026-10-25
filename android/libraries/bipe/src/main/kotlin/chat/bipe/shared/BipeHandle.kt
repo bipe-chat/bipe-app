@@ -54,6 +54,30 @@ object BipeHandle {
             else -> null
         }
     }
+
+    /**
+     * Escolha seu @ (bipe-chat/bipe#200): port of `handleSuggestions()` in bipe-shared tools/lib/registries.mjs. Must
+     * match test-vectors/handle-suggestions.json. The caller checks availability in this order.
+     */
+    fun suggestions(displayName: String): List<String> {
+        val words = NameNormalizer.normalize(displayName, emptyMap()).split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+        if (words.isEmpty()) return emptyList()
+        val first = words.first()
+        val last = words.last()
+        val raw = if (words.size > 1) {
+            listOf("$first.$last", "$first$last", "${first}_$last", first, "$last.$first", "$first.${last}1", "$first${last}1")
+        } else {
+            listOf(first, "${first}1", "${first}2", "${first}_")
+        }
+        val result = mutableListOf<String>()
+        for (candidate in raw) {
+            val cut = candidate.take(BipeRegistries.HANDLE_MAX_LENGTH).trimEnd('.')
+            if (cut.length < BipeRegistries.HANDLE_MIN_LENGTH || !pattern.matches(cut) || cut in result) continue
+            result += cut
+            if (result.size == BipeRegistries.HANDLE_SUGGESTION_CANDIDATES) break
+        }
+        return result
+    }
 }
 
 /** The result of checking a typed handle. */
