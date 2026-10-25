@@ -29,9 +29,12 @@ struct PersonProfileView: View {
     @State private var showsSeal = false
     @State private var inviteTargets: [InviteTarget]?
     @State private var isOpeningChat = false
+    /// Spec business-chat-bar: Agendar and Ver catálogo under the name of a company account.
+    @StateObject private var business: BusinessChatModel
 
     init(people: PeopleService, userId: String, fromDm: Bool, routes: PersonProfileRoutes) {
         _model = StateObject(wrappedValue: PersonProfileModel(people: people, userId: userId, fromDm: fromDm))
+        _business = StateObject(wrappedValue: BusinessChatModel(session: people.session, media: people.media, api: people.api))
         self.people = people
         self.routes = routes
     }
@@ -43,6 +46,10 @@ struct PersonProfileView: View {
             .navigationBarTitleDisplayMode(.inline)
             .accessibilityIdentifier(BipeScreen.personProfile.rawValue)
             .task { await model.appear() }
+            .task(id: model.person.displayName) {
+                await business.load(peerUserId: model.userId, peerName: model.person.displayName, withBookings: false)
+            }
+            .businessChatTools(business)
             .toast($model.notice)
             .sheet(isPresented: $showsBlock) {
                 BlockPersonSheet(people: people, userId: model.userId, name: model.person.displayName)
@@ -128,6 +135,8 @@ struct PersonProfileView: View {
                     .font(.subheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
+            BusinessProfileButtons(model: business)
+                .padding(.top, 4)
             if model.reservedNameWarning {
                 MarkLine(icon: .warning, text: BipeStrings.warningReservedName, tint: BipeColor.trustCautionInk)
             }
