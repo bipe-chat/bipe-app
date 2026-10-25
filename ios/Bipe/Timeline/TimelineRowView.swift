@@ -17,6 +17,7 @@ struct TimelineRowView: View {
     var openPoll: (String) -> Void = { _ in }
     /// Action open of spec timeline-media: the row id for media-viewer.
     var openViewer: (String) -> Void = { _ in }
+    @Environment(\.bipeCompanySeals) private var seals
 
     var body: some View {
         switch row.kind {
@@ -40,7 +41,15 @@ struct TimelineRowView: View {
                 DeletedRow(message: message)
             }
         case .poll:
-            if let message = row.message, let poll = message.poll {
+            if let message = row.message, let poll = message.poll,
+               poll.isQuestionShape, !message.isOwn, case .verified(_)? = seals?.state(for: message.senderId) {
+                // Spec question-card: a company's structured question (bipe#244). Fails closed to the poll card.
+                Bubble(isOwn: false, trailingLast: true) {
+                    QuestionCard(poll: poll, companyId: message.senderId, companyName: message.senderName,
+                                 seal: seals?.state(for: message.senderId) ?? .none, model: model)
+                    MessageTimestamp(sentAt: message.sentAt)
+                }
+            } else if let message = row.message, let poll = message.poll {
                 Button {
                     openPoll(poll.eventId)
                 } label: {

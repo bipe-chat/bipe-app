@@ -47,6 +47,11 @@ struct UploadPreviewView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: model.items.count > 1 ? .always : .never))
 
+            if model.items.indices.contains(page), model.items[page].kind == .image {
+                ImageDescriptionField(text: Binding(get: { model.items.indices.contains(page) ? model.items[page].description : "" },
+                                                    set: { model.editDescription(index: page, text: $0) }))
+            }
+
             HStack(alignment: .bottom, spacing: 8) {
                 TextField(BipeStrings.appUploadCaptionPlaceholder,
                           text: Binding(get: { model.caption }, set: { model.editCaption($0) }),
@@ -92,6 +97,33 @@ struct UploadPreviewView: View {
         .onChange(of: model.isClosed) { _, closed in
             if closed { close() }
         }
+    }
+}
+
+/// The description of the image on screen (spec upload-preview, bipe-chat/bipe#501).
+private struct ImageDescriptionField: View {
+    @Binding var text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(BipeStrings.appUploadDescription)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(BipeColor.inkSecondary)
+            TextField(BipeStrings.appUploadDescriptionPlaceholder, text: $text, axis: .vertical)
+                .lineLimit(1...3)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceSunken))
+                .foregroundStyle(BipeColor.inkPrimary)
+                .accessibilityLabel(BipeStrings.appUploadDescription)
+                .accessibilityHint(BipeStrings.appUploadDescriptionFooter)
+            Text(BipeStrings.appUploadDescriptionFooter)
+                .font(.caption)
+                .foregroundStyle(BipeColor.inkSecondary)
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
     }
 }
 

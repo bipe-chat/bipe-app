@@ -28,6 +28,24 @@ public nonisolated enum BipeProfileLink {
         return components.url
     }
     
+    /// The query item of the counter QR code of Fila virtual: `https://bipe.chat/@handle?fila` (spec queue-customer).
+    public static let queueQueryItem = "fila"
+
+    /// The counter QR code link of a business's queue.
+    public static func queueURL(handle: String) -> URL? {
+        guard let profile = url(handle: handle), var components = URLComponents(url: profile, resolvingAgainstBaseURL: false) else { return nil }
+        components.queryItems = [URLQueryItem(name: queueQueryItem, value: nil)]
+        return components.url
+    }
+
+    /// The handle in a queue link (a profile link with the `fila` query item), or `nil` when the URL is not one.
+    public static func queueHandle(from url: URL) -> String? {
+        guard let handle = handle(from: url),
+              let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+              items.contains(where: { $0.name == queueQueryItem }) else { return nil }
+        return handle
+    }
+
     /// The handle in a profile link, lowercased, or `nil` when the URL is not one.
     public static func handle(from url: URL) -> String? {
         guard url.scheme == "https", isBipeLinkHost(url) else {

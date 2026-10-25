@@ -30,9 +30,11 @@ struct PollData: Equatable {
     var isEnded: Bool
     var canEnd: Bool
     var yourVote: String?
+    /// One choice with 2 to 10 options: the shape of a company's structured question (spec question-card, ADR 0081).
+    var isQuestionShape: Bool
 
-    init(eventId: String, question: String, kind: PollKind, answers: [PollAnswer], votes: [String: [String]],
-         endTime: Timestamp?, isOwnPoll: Bool, ownUserId: String) {
+    init(eventId: String, question: String, kind: PollKind, maxSelections: UInt64 = 1, answers: [PollAnswer],
+         votes: [String: [String]], endTime: Timestamp?, isOwnPoll: Bool, ownUserId: String) {
         let isEnded = endTime != nil
         let resultsVisible = kind == .disclosed || isEnded
         let yourVote = answers.first { votes[$0.id]?.contains(ownUserId) == true }?.id
@@ -43,6 +45,7 @@ struct PollData: Equatable {
         self.resultsVisible = resultsVisible
         self.canEnd = isOwnPoll && !isEnded
         self.yourVote = yourVote
+        isQuestionShape = maxSelections == 1 && (2...10).contains(answers.count)
         options = answers.map { answer in
             let voters = votes[answer.id] ?? []
             return Option(answerId: answer.id,

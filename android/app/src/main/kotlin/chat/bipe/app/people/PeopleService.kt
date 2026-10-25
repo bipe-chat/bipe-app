@@ -12,6 +12,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import chat.bipe.shared.BipeTrustSources
 import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.isCompany
@@ -55,7 +56,8 @@ sealed interface PeopleRoute {
     data object PublicProfile : PeopleRoute
     data object ProfileQr : PeopleRoute
     data object ProfileLink : PeopleRoute
-    data class ProfileLinkOpen(val handle: String) : PeopleRoute
+    /** [queue]: the counter QR link `?fila` of a business opens queue-customer for [handle] (spec queue-customer notes). */
+    data class ProfileLinkOpen(val handle: String, val queue: Boolean = false) : PeopleRoute
     data object Contacts : PeopleRoute
     data object WhoCanMessage : PeopleRoute
     data object BlockedList : PeopleRoute
@@ -174,9 +176,16 @@ class PeopleService(
     suspend fun isCompany(userId: String): Boolean =
         companies[userId] ?: api.isCompany(userId).also { companies[userId] = it }
 
-    /** The person's identity is verified by the user (an in-person QR or emoji check). */
-    suspend fun isConfirmedInPerson(userId: String): Boolean =
-        runCatching { session.client.encryption().userIdentity(userId, false)?.isVerified() }.getOrNull() == true
+    /** The person's cross-signing identity for the trust facts (ADR 0074). null: the SDK could not read it. */
+    suspend fun trustIdentity(userId: String): BipeTrustSources.Identity? = try {
+        session.client.encryption().userIdentity(userId, true)?.let {
+            BipeTrustSources.Identity(it.masterKey(), it.isVerified(), it.hasVerificationViolation())
+        }
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Exception) {
+        null
+    }
 
     /** Client.getDmRoom: the newest DM with the person. */
     suspend fun dmRoomId(userId: String): String? = try { NativeDmSelection.roomId(userId, session) }

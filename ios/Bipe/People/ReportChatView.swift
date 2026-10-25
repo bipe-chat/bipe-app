@@ -74,8 +74,6 @@ struct ReportChatView: View {
                     .disabled(phase == .sending)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .tint(BipeColor.accentFill)
             .navigationTitle(isDm ? BipeStrings.dmReport : BipeStrings.appReportGroup)
             .navigationBarTitleDisplayMode(.inline)

@@ -86,6 +86,22 @@
                 <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/recuperar" />
             </intent-filter>
         </activity>
+        <!-- The end of a linked Apple or Google account web flow (ADR 0096): the Bipe API redirects the Custom Tab to
+             <application id>:/link-done. LinkDoneActivity hands the URL over and closes the tab. The handoff works
+             only with the flow ID this app keeps in memory. -->
+        <activity
+            android:name=".recovery.LinkDoneActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${applicationId}" />
+            </intent-filter>
+        </activity>
         <!-- Spec notification-service: reply and mark as read from a notification. -->
         <receiver
             android:name=".notifications.NotificationActionReceiver"

@@ -80,8 +80,6 @@ struct ProfileLinkView: View {
                     .frame(maxWidth: .infinity)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.appProfileLink)
         .navigationBarTitleDisplayMode(.inline)
         .toast($notice)

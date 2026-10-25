@@ -907,8 +907,34 @@ public enum BipeAPIErrorCode: String, Sendable {
     case emailUnavailable = "email_unavailable"
     /// 403. Reason `missing` or `outdated` (ADR 0113).
     case termsRequired = "terms_required"
+    /// HTTP 409: that Apple or Google account is linked to another Bipe account (ADR 0096).
+    case linkTaken = "link_taken"
+    /// HTTP 503: the server has no configuration for that provider (ADR 0096).
+    case linkUnavailable = "link_unavailable"
     /// 503. The support account is not set up on the server (ADR 0114).
     case supportUnavailable = "support_unavailable"
+    // Business tools (api/business-schemas.json AgendaError). Texts: BipeAPIError.agendaMessage.
+    case slotTaken = "slot_taken"
+    case holdExpired = "hold_expired"
+    case tooManyOpenBookings = "too_many_open_bookings"
+    case outsideNotice = "outside_notice"
+    case outsideHorizon = "outside_horizon"
+    case agendaNotPublished = "agenda_not_published"
+    case cancellationWindowClosed = "cancellation_window_closed"
+    // Fila virtual, Orçamento and Pedidos (BusinessToolError). Texts: queueMessage, quoteMessage, orderMessage.
+    case queueClosed = "queue_closed"
+    case alreadyInQueue = "already_in_queue"
+    case placeNotActive = "place_not_active"
+    case quoteExpired = "quote_expired"
+    case quoteVersionChanged = "quote_version_changed"
+    case quoteNotOpen = "quote_not_open"
+    case orderAlreadyOpen = "order_already_open"
+    case orderNotOpen = "order_not_open"
+    case itemUnavailable = "item_unavailable"
+    case priceNotFixed = "price_not_fixed"
+    case ordersClosed = "orders_closed"
+    case paymentRequiresVerifiedBusiness = "payment_requires_verified_business"
+    case pixChargeUnavailable = "pix_charge_unavailable"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -963,6 +989,14 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .emailUnavailable: BipeStrings.errorEmailUnavailable
             case .termsRequired: BipeStrings.signupTermsRequired
             case .supportUnavailable: BipeStrings.supportOpenFailed
+            case .linkTaken: BipeStrings.linkedAccountTaken
+            case .linkUnavailable: BipeStrings.linkedAccountError
+            case .slotTaken, .holdExpired, .tooManyOpenBookings, .outsideNotice, .outsideHorizon, .agendaNotPublished,
+                 .cancellationWindowClosed: self.agendaMessage
+            case .queueClosed, .alreadyInQueue, .placeNotActive: self.queueMessage
+            case .quoteExpired, .quoteVersionChanged, .quoteNotOpen: self.quoteMessage
+            case .orderAlreadyOpen, .orderNotOpen, .itemUnavailable, .priceNotFixed, .ordersClosed, .paymentRequiresVerifiedBusiness,
+                 .pixChargeUnavailable: self.orderMessage
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

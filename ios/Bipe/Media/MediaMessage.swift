@@ -40,6 +40,8 @@ struct MediaMessage: Equatable {
     var isAnimated = false
     var source: MediaRef
     var thumbnailSource: MediaRef?
+    /// image only: the sender's description for screen readers (bipe-chat/bipe#501, registries/image-descriptions.json).
+    var description: String?
 
     /// Width over height for the row box. Without size: 4:3 (spec timeline-media notes).
     var aspectRatio: CGFloat {
@@ -55,6 +57,12 @@ struct MediaMessage: Equatable {
         case .file: BipeStrings.appMediaFile
         case .sticker: BipeStrings.appMediaSticker
         }
+    }
+
+    /// What VoiceOver reads: the description of an image before the caption (spec timeline-media notes).
+    var accessibilityLabel: String {
+        let base = kind == .image ? description.map(BipeStrings.appMediaImageDescribed) ?? kindLabel : kindLabel
+        return caption?.nilIfBlank.map { "\(base), \($0)" } ?? base
     }
 
     /// image, video and sticker open media-viewer; a file opens the system preview.

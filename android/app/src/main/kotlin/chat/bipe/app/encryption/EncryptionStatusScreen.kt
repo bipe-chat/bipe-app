@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -31,11 +33,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.edgeToEdge
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 
-/** Spec encryption-status: the quiet banner above the chat list. Shows nothing when it does not apply. */
+/** Spec encryption-status: the quiet banner, the first row of the chat list. Shows nothing when it does not apply. */
 @Composable
 fun HistoryBanner(model: EncryptionStatusModel) {
     val verificationState by model.verificationState.collectAsState()
@@ -102,11 +105,17 @@ private fun HistorySheet(model: EncryptionStatusModel) {
     Column(modifier = Modifier.testTag(BipeScreen.ENCRYPTION_STATUS.id), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(stringResource(R.string.bipe_app_history_title), style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary)
         Text(stringResource(R.string.bipe_recovery_history_note), style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
-        if (hasOtherDevices) {
-            HistoryRow(PhosphorIcon.DEVICES, stringResource(R.string.bipe_app_history_approve), model::approveWithDevice)
-        }
-        if (canUseKey) {
-            HistoryRow(PhosphorIcon.KEY, stringResource(R.string.bipe_app_history_use_key), model::useRecoveryKey)
+        if (hasOtherDevices || canUseKey) {
+            // The ways back as a list, edge to edge past the 24 dp side padding of the sheet.
+            Column(modifier = Modifier.edgeToEdge(24.dp).fillMaxWidth()) {
+                if (hasOtherDevices) {
+                    HistoryRow(PhosphorIcon.DEVICES, stringResource(R.string.bipe_app_history_approve), model::approveWithDevice)
+                }
+                if (hasOtherDevices && canUseKey) HorizontalDivider()
+                if (canUseKey) {
+                    HistoryRow(PhosphorIcon.KEY, stringResource(R.string.bipe_app_history_use_key), model::useRecoveryKey)
+                }
+            }
         }
         if (!hasOtherDevices && !canUseKey) {
             Text(stringResource(R.string.bipe_app_history_none), style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
@@ -117,16 +126,10 @@ private fun HistorySheet(model: EncryptionStatusModel) {
 @Composable
 private fun HistoryRow(icon: PhosphorIcon, title: String, onClick: () -> Unit) {
     val colors = BipeTheme.colors
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(colors.surfaceRaised, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(24.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-    }
+    ListItem(
+        headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary) },
+        leadingContent = { Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(24.dp)) },
+        colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    )
 }

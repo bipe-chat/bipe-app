@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 import UniformTypeIdentifiers
@@ -22,6 +23,8 @@ struct PickedMedia: Identifiable, Equatable {
     /// The picked file, copied into the app cache.
     var localURL: URL
     var size: UInt64
+    /// image only: the sender's description for screen readers (bipe-chat/bipe#501).
+    var description = ""
 
     /// The kind from the file type: images and videos go as such, everything else as a file.
     static func kind(of url: URL) -> Kind {
@@ -82,6 +85,12 @@ final class UploadPreviewModel: ObservableObject {
         caption = text
     }
 
+    /// Action editDescription: the description of one image item, cut at the registry limit.
+    func editDescription(index: Int, text: String) {
+        guard items.indices.contains(index), items[index].kind == .image else { return }
+        items[index].description = String(text.prefix(BipeRegistries.imageDescriptionMaxLength))
+    }
+
     /// Action remove: the screen closes when none is left.
     func remove(index: Int) {
         guard items.indices.contains(index) else { return }
@@ -95,25 +104,26 @@ final class UploadPreviewModel: ObservableObject {
     }
 
     /// Action send: each item as an attachment with its thumbnail and info, the caption on the first
-    /// item, as a reply when replyToEventId is set, then closes. The send queue keeps the uploads.
+    /// item, an image's description in its content (bipe-chat/bipe#501), as a reply when replyToEventId is set,
+    /// then closes. The send queue keeps the uploads.
     func send() async {
         guard canSend else { return }
         isPreparing = true
         let caption = caption.nilIfBlank
-        var prepared: [PreparedMedia] = []
+        var prepared: [(media: PreparedMedia, description: String?)] = []
         for item in items {
             if let media = try? await MediaPreparation.prepare(item.localURL, kind: item.kind, quality: quality) {
-                prepared.append(media)
+                prepared.append((media, item.kind == .image ? item.description : nil))
             }
         }
         isPreparing = false
-        for (index, media) in prepared.enumerated() {
+        for (index, (media, description)) in prepared.enumerated() {
             let params = UploadParameters(source: .file(filename: media.file.path),
                                           caption: index == 0 ? caption : nil,
                                           formattedCaption: nil,
                                           mentions: nil,
                                           inReplyTo: index == 0 ? replyToEventId : nil,
-                                          extraContentJson: nil)
+                                          extraContentJson: BipeImageDescription.extraContentJson(description))
             let thumbnail = media.thumbnail.map { UploadSource.file(filename: $0.path) }
             switch media.info {
             case .image(let info):

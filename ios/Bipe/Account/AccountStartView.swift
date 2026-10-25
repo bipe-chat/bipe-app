@@ -100,6 +100,7 @@ private struct SignedInView: View {
     let onSignOut: () -> Void
     @StateObject private var terms: TermsReacceptModel
     @StateObject private var recoveryAlert: RecoveryAlertModel
+    @StateObject private var phoneNotice: PhoneConfirmNoticeModel
     @Environment(\.scenePhase) private var scenePhase
 
     init(session: AccountSession, tabs: AppTabsModel, api: BipeAPIClient, initialRoomId: String?, onSignOut: @escaping () -> Void) {
@@ -110,11 +111,12 @@ private struct SignedInView: View {
         self.onSignOut = onSignOut
         _terms = StateObject(wrappedValue: TermsReacceptModel(api: api, session: session))
         _recoveryAlert = StateObject(wrappedValue: RecoveryAlertModel(api: api, session: session))
+        _phoneNotice = StateObject(wrappedValue: PhoneConfirmNoticeModel(api: api, session: session))
     }
 
     var body: some View {
         AppTabsView(model: tabs, session: session, api: api, initialRoomId: initialRoomId)
-            .fullScreenCover(isPresented: Binding(get: { recoveryAlert.notice != nil }, set: { _ in })) {
+            .fullScreenCover(isPresented: Binding(get: { recoveryAlert.notice != nil || recoveryAlert.linkNotice != nil }, set: { _ in })) {
                 RecoveryAlertView(model: recoveryAlert)
             }
             .fullScreenCover(isPresented: Binding(get: { terms.phase != .hidden }, set: { _ in })) {
@@ -122,6 +124,15 @@ private struct SignedInView: View {
             }
             .task { await terms.check() }
             .task { await recoveryAlert.check() }
+            .task { await phoneNotice.check() }
+            // Spec phone-link-status, checkNotice: one notice per confirm_by.
+            .alert(BipeStrings.phoneConfirmNoticeTitle,
+                   isPresented: Binding(get: { phoneNotice.notice != nil }, set: { if !$0 { phoneNotice.dismiss() } }),
+                   presenting: phoneNotice.notice) { _ in
+                Button(BipeStrings.actionContinue) { phoneNotice.dismiss() }
+            } message: { state in
+                Text(state.summary)
+            }
             // Spec work-hours notes: the phone's copy of a work account's opening hours, for the extension.
             .task { _ = await WorkHoursSync.refresh(session: session, api: api) }
             .onChange(of: scenePhase) { _, phase in
@@ -131,6 +142,7 @@ private struct SignedInView: View {
                         await tabs.refreshProfiles()
                     }
                     Task { await recoveryAlert.check() }
+                    Task { await phoneNotice.check() }
                     Task { _ = await WorkHoursSync.refresh(session: session, api: api) }
                 }
             }

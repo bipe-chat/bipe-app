@@ -116,6 +116,7 @@ sealed interface SettingsRoute {
     data object AppLockSetup : SettingsRoute
     data object AppLockOff : SettingsRoute
     data object LinkedDevices : SettingsRoute
+    data object LinkedAccounts : SettingsRoute
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
@@ -191,6 +192,7 @@ fun SettingsHost(
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
+        SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
         SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, onClose = pop)
         SettingsRoute.RecoveryEmail -> {
@@ -327,6 +329,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_SIGN_OUT -> showsSignOut = true
             BipeSettingsRow.ACCOUNT_CHANGE_PIN -> onOpen(SettingsRoute.PinChange)
             BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
+            BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS -> onOpen(SettingsRoute.LinkedAccounts)
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
             BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)
@@ -401,6 +404,9 @@ fun SettingsGroupScreen(
                             title = title,
                             value = rowValue(context, state, row),
                             footer = footer,
+                            // Spec phone-link-status: the caution colour and mark when the confirmation is near or over.
+                            valueColor = if (row == BipeSettingsRow.PRIVACY_NUMBER && state.phone?.needsAttention == true) BipeTheme.colors.trustCautionInk else null,
+                            showsWarning = row == BipeSettingsRow.PRIVACY_NUMBER && state.phone?.needsAttention == true,
                             titleColor = if (row.kind == BipeSettingsRowKind.DESTRUCTIVE) BipeTheme.colors.trustDangerInk else null,
                             showsChevron = row.kind == BipeSettingsRowKind.LINK || row.kind == BipeSettingsRowKind.CHOICE,
                             onClick = if (row.kind == BipeSettingsRowKind.INFO) null else ({ tap(row) }),
@@ -438,6 +444,7 @@ private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSett
     BipeSettingsRow.PRIVACY_MESSAGING -> state.whoCanMessage?.let { context.getString(it.settingsSummary) }
     BipeSettingsRow.PRIVACY_READ_RECEIPTS -> context.getString(R.string.bipe_privacy_read_receipts_value)
     BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS -> state.waysBack?.summary(context)
+    BipeSettingsRow.PRIVACY_NUMBER -> state.phone?.summary(context)
     BipeSettingsRow.ACCOUNT_EMAIL -> state.account?.let { it.email ?: context.getString(R.string.bipe_account_email_none) }
     BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> context.getString(
         if (state.hasRecoveryKey) R.string.bipe_account_recovery_key_saved else R.string.bipe_account_recovery_key_missing,
