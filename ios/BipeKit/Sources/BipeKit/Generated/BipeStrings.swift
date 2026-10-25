@@ -680,6 +680,20 @@ public enum BipeStrings {
 
     public static var phoneLinked: String { NSLocalizedString("bipe_phone_linked", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func phoneLinkedUntil(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_phone_linked_until", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func phoneConfirmSoon(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_phone_confirm_soon", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var phoneConfirmExpired: String { NSLocalizedString("bipe_phone_confirm_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var phoneConfirmAction: String { NSLocalizedString("bipe_phone_confirm_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var phoneConfirmNoticeTitle: String { NSLocalizedString("bipe_phone_confirm_notice_title", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var tabChats: String { NSLocalizedString("bipe_tab_chats", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var tabAgenda: String { NSLocalizedString("bipe_tab_agenda", tableName: "Bipe", bundle: .module, comment: "") }

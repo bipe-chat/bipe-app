@@ -700,6 +700,10 @@ public enum BipeRegistries {
     public static let phoneMaxInputLength = 64
     public static let phoneInternationalMinDigits = 8
     public static let phoneInternationalMaxDigits = 15
+    /// Yearly confirmation of a linked number (bipe-chat/bipe#470): findable for this many months after the last proof,
+    /// and the apps warn this many days before confirm_by.
+    public static let phoneLinkConfirmMonths = 12
+    public static let phoneLinkConfirmWarnDays = 30
 
     /// Device-first accounts (ADR 0057, ADR 0059; registries/accounts.json). Check PINs with the rule there;
     /// test-vectors/pins.json has the cases. The server is the authority.

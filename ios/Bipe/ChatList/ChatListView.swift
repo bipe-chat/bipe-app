@@ -39,6 +39,12 @@ struct ChatListView: View {
     @State private var creatingGroup = false
     @State private var deletingDm: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
+    @StateObject private var cards: FirstListCardsModel
+    @State private var shareItem: ShareItem?
+    private struct ShareItem: Identifiable {
+        let url: URL
+        var id: URL { url }
+    }
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
     init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil) {
@@ -52,6 +58,7 @@ struct ChatListView: View {
         _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
         _people = StateObject(wrappedValue: people)
+        _cards = StateObject(wrappedValue: FirstListCardsModel(userId: model.session.userId))
         _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
         self.scope = scope
     }
@@ -113,6 +120,9 @@ struct ChatListView: View {
         .onAppear { people.start() }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
+        }
+        .sheet(item: $shareItem) { item in
+            ShareSheet(items: [item.url]).ignoresSafeArea()
         }
         .sheet(isPresented: $showsRecoveryEmail) {
             RecoveryEmailAddView(api: api, session: model.session, current: recovery.account?.email,
@@ -267,6 +277,44 @@ struct ChatListView: View {
         }
     }
 
+    /// Spec chat-list-cards: the first-list cards at the top of Conversas.
+    @ViewBuilder
+    private var firstListCards: some View {
+        if scope != .grupos && !showingArchived {
+            let count = model.chats(in: .conversas, archived: false).count
+            ForEach(cards.visible(chatCount: count, handle: handle.currentHandle), id: \.self) { card in
+                FirstListCardView(card: card, handle: handle.currentHandle) { target in run(target, of: card) }
+                    .listRowBackground(BipeColor.surfaceBase)
+                    .listRowSeparator(.hidden)
+            }
+        }
+    }
+
+    /// The card actions of spec chat-list-cards. Each one, dismiss included, ends the card.
+    private func run(_ target: BipeOnboardingTarget, of card: BipeOnboardingCard) {
+        cards.finish(card)
+        switch target {
+        case .shareInvite:
+            let session = model.session
+            Task {
+                let creator = BipeInviteCreator(apiClient: api, userID: session.userId, accessToken: { session.accessToken() })
+                if case .created(let invite)? = try? await creator.createIfAvailable() {
+                    shareItem = ShareItem(url: invite.url)
+                } else {
+                    showingInvites = true
+                }
+            }
+        case .shareProfile:
+            if let url = handle.currentHandle.flatMap(BipeProfileLink.url(handle:)) { shareItem = ShareItem(url: url) }
+        case .profileQr:
+            path.append(PeopleRoute.profileQr)
+        case .notes:
+            Task { if let roomId = try? await model.openNotes() { path.append(roomId) } }
+        default:
+            break
+        }
+    }
+
     /// The requests row and the group invites above the chats (specs chat-requests and chat-list-filters).
     @ViewBuilder
     private var topRows: some View {
@@ -276,6 +324,7 @@ struct ChatListView: View {
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(BipeColor.surfaceRaised)
         }
+        firstListCards
         Button(showingArchived ? (scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle) : BipeStrings.archivedTitle) {
             showingArchived.toggle()
         }
@@ -401,6 +450,9 @@ struct ChatListView: View {
             if scope == .grupos {
                 Text(BipeStrings.groupsEmptyTitle).font(.headline).foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.groupsEmptyBody).foregroundStyle(BipeColor.inkSecondary)
+                // Spec chat-list-cards createGroup.
+                Button(BipeStrings.groupsEmptyCreate) { creatingGroup = true }
+                    .buttonStyle(.borderedProminent)
             } else {
                 Text(BipeStrings.chatsEmptyTitle)
                     .font(.headline)

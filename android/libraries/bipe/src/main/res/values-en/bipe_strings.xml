@@ -292,6 +292,11 @@
     <string name="bipe_discovery_footer">Your number is never shown to anyone. Only people who already have you in their contacts can find you.</string>
     <string name="bipe_phone_not_linked">Your number isn\'t linked to your account. Your contacts can\'t find you by it yet.</string>
     <string name="bipe_phone_linked">Your number is linked.</string>
+    <string name="bipe_phone_linked_until">Linked until %1$s</string>
+    <string name="bipe_phone_confirm_soon">Confirm your number by %1$s so people who have it can keep finding you.</string>
+    <string name="bipe_phone_confirm_expired">Confirmation expired: nobody finds you by your number.</string>
+    <string name="bipe_phone_confirm_action">Confirm number</string>
+    <string name="bipe_phone_confirm_notice_title">Confirm your number</string>
     <string name="bipe_tab_chats">Chats</string>
     <string name="bipe_tab_agenda">Agenda</string>
     <string name="bipe_tab_work">Work</string>
