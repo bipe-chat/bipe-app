@@ -6,6 +6,8 @@ package chat.bipe.app.media.upload
 
 import android.content.Context
 import android.text.format.Formatter
+import chat.bipe.shared.generated.BipeRegistries
+import chat.bipe.shared.media.BipeImageDescription
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +29,8 @@ data class PickedMedia(
     /** The picked file, copied into the app cache. */
     val localFile: File,
     val size: Long,
+    /** image only: the sender's description for screen readers (bipe-chat/bipe#501). */
+    val description: String = "",
     val id: String = UUID.randomUUID().toString(),
 ) {
     enum class Kind { IMAGE, VIDEO, FILE }
@@ -93,6 +97,15 @@ class UploadPreviewModel(
         _caption.value = text
     }
 
+    /** Action editDescription: the description of one image item, cut at the registry limit. */
+    fun editDescription(index: Int, text: String) {
+        val list = _items.value
+        if (index !in list.indices || list[index].kind != PickedMedia.Kind.IMAGE) return
+        _items.value = list.mapIndexed { i, item ->
+            if (i == index) item.copy(description = text.take(BipeRegistries.IMAGE_DESCRIPTION_MAX_LENGTH)) else item
+        }
+    }
+
     /** Action remove: the screen closes when none is left. */
     fun remove(index: Int) {
         val list = _items.value
@@ -108,7 +121,8 @@ class UploadPreviewModel(
 
     /**
      * Action send: each item as an attachment with its thumbnail and info, the caption on the first
-     * item, as a reply when replyToEventId is set, then closes. The send queue keeps the uploads.
+     * item, an image's description in its content (bipe-chat/bipe#501), as a reply when replyToEventId is set,
+     * then closes. The send queue keeps the uploads.
      */
     fun send() {
         if (!canSend(_items.value, _isPreparing.value)) return
@@ -117,16 +131,17 @@ class UploadPreviewModel(
         scope.launch {
             val prepared = _items.value.mapNotNull { item ->
                 runCatching { MediaPreparation.prepare(context, item.localFile, item.kind, quality) }.getOrNull()
+                    ?.let { it to item.description.takeIf { item.kind == PickedMedia.Kind.IMAGE } }
             }
             _isPreparing.value = false
-            prepared.forEachIndexed { index, media ->
+            prepared.forEachIndexed { index, (media, description) ->
                 val params = UploadParameters(
                     source = UploadSource.File(media.file.path),
                     caption = if (index == 0) caption else null,
                     formattedCaption = null,
                     mentions = null,
                     inReplyTo = if (index == 0) replyToEventId else null,
-                    extraContentJson = null,
+                    extraContentJson = BipeImageDescription.extraContentJson(description),
                 )
                 val thumbnail = media.thumbnail?.let { UploadSource.File(it.path) }
                 runCatching {

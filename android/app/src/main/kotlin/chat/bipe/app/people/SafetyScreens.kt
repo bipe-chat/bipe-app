@@ -20,6 +20,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -322,7 +323,14 @@ fun WhoCanMessageScreen(people: PeopleService, onBack: () -> Unit) {
     PeopleScaffold(stringResource(R.string.bipe_messaging_title), BipeScreen.WHO_CAN_MESSAGE.id, onBack) {
         RowGroup {
             BipeWhoCanMessage.entries.forEach { value ->
-                Row(
+                ListItem(
+                    headlineContent = { Text(stringResource(whoTitle(value)), color = colors.inkPrimary) },
+                    supportingContent = { Text(stringResource(whoBody(value)), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary) },
+                    trailingContent = if (value == current) {
+                        { Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(20.dp)) }
+                    } else {
+                        null
+                    },
                     modifier = Modifier.fillMaxWidth().clickable(enabled = !saving, role = Role.RadioButton) {
                         if (value == current || saving) return@clickable
                         // Shows the new choice at once and puts the old one back on failure.
@@ -335,17 +343,8 @@ fun WhoCanMessageScreen(people: PeopleService, onBack: () -> Unit) {
                                 .onFailure { current = old; failed = true }
                             saving = false
                         }
-                    }.semantics { selected = value == current }.padding(vertical = 12.dp),
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(whoTitle(value)), color = colors.inkPrimary)
-                        Text(stringResource(whoBody(value)), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-                    }
-                    if (value == current) {
-                        Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(20.dp))
-                    }
-                }
+                    }.semantics { selected = value == current },
+                )
             }
         }
         if (failed) Text(stringResource(R.string.bipe_error_network), color = colors.trustDangerInk)

@@ -63,7 +63,6 @@ struct AgendaSettingsView: View {
             } footer: {
                 Text(published ? BipeStrings.agendaPublished : BipeStrings.agendaNotPublished)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Section {
                 LabeledField(title: BipeStrings.agendaMinNotice, text: $minNotice)
                 LabeledField(title: BipeStrings.agendaHorizon, text: $horizon)
@@ -71,26 +70,21 @@ struct AgendaSettingsView: View {
                 LabeledField(title: BipeStrings.agendaCancelWindow, text: $cancelWindow)
                 LabeledField(title: BipeStrings.agendaMaxOpen, text: $maxOpen)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Section {
                 Toggle(BipeStrings.agendaRequestMode, isOn: $requestMode)
             } footer: {
                 Text(BipeStrings.agendaRequestModeFooter)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Section {
                 Button(BipeStrings.agendaSetupHours, action: editSetup)
                 Button(BipeStrings.agendaSetupPeople, action: editSetup)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             if let error {
                 Section {
                     Text(error).foregroundStyle(BipeColor.trustDangerInk)
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.agendaSettingsTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

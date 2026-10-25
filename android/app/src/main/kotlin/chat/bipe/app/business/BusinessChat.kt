@@ -37,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -517,6 +518,7 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
 /**
  * Spec agenda-booking-card: service, person, date, time and status, with Adicionar ao calendário, Remarcar and
  * Cancelar. In owner mode it shows the customer and a tap opens agenda-owner-booking. iOS draws it the same way.
+ * With [inList] it is one row of a list (agenda-my-bookings): flat on the screen surface, edge to edge.
  */
 @Composable
 fun BookingCard(
@@ -527,6 +529,7 @@ fun BookingCard(
     onOpenOwner: () -> Unit,
     onChanged: () -> Unit,
     onOpen: (() -> Unit)? = null,
+    inList: Boolean = false,
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
@@ -539,12 +542,15 @@ fun BookingCard(
         else -> onOpen
     }
     Surface(
-        color = colors.surfaceRaised,
-        shape = RoundedCornerShape(16.dp),
+        color = if (inList) MaterialTheme.colorScheme.surface else colors.surfaceRaised,
+        shape = if (inList) RectangleShape else RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth().testTag(BipeScreen.AGENDA_BOOKING_CARD.id)
             .then(if (click != null) Modifier.clickable(onClick = click) else Modifier),
     ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(
+            Modifier.padding(horizontal = if (inList) 16.dp else 12.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(painterResource(PhosphorIcon.CLOCK.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(16.dp))
                 Text(

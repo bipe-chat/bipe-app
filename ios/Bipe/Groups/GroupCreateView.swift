@@ -87,8 +87,6 @@ struct GroupCreateView: View {
                 }
             }
             .disabled(model.phase == .creating)
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.appGroupCreateTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

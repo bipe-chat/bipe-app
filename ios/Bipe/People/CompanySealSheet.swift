@@ -84,8 +84,6 @@ struct CompanySealSheet: View {
                     }
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.appSealTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

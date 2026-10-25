@@ -337,7 +337,6 @@ struct AgendaSetupView: View {
                         Text(BipeLocalized.string(template.titleKey)).foregroundStyle(BipeColor.inkPrimary)
                     }
                     .disabled(model.saving)
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
             } header: {
                 Text(BipeStrings.agendaPickTemplate)
@@ -349,7 +348,6 @@ struct AgendaSetupView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
     }
 
     private var hoursStep: some View {
@@ -361,7 +359,6 @@ struct AgendaSetupView: View {
                         ForEach(agendas) { agenda in Text(agenda.name).tag(agenda.id) }
                     }
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
             }
             ForEach($model.days) { $day in
                 Section {
@@ -382,7 +379,6 @@ struct AgendaSetupView: View {
                         Text(BipeStrings.agendaClosed).foregroundStyle(BipeColor.inkSecondary)
                     }
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
             }
             Section {
                 continueButton(disabled: !model.hoursAreValid) {
@@ -393,7 +389,6 @@ struct AgendaSetupView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
     }
 
     private var peopleStep: some View {
@@ -409,7 +404,6 @@ struct AgendaSetupView: View {
                     removing = offsets.first.map { agendas[$0] }
                 }
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Section {
                 TextField(BipeStrings.agendaPersonName, text: $newPerson)
                 Button(BipeStrings.agendaAddPerson) {
@@ -419,7 +413,6 @@ struct AgendaSetupView: View {
                 }
                 .disabled(newPerson.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.saving)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Section {
                 continueButton {
                     Task {
@@ -436,7 +429,6 @@ struct AgendaSetupView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
     }
 
     private var servicesStep: some View {
@@ -458,7 +450,6 @@ struct AgendaSetupView: View {
             } footer: {
                 Text(BipeStrings.agendaTemplateHint)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Section {
                 continueButton { model.next() }
             } footer: {
@@ -466,7 +457,6 @@ struct AgendaSetupView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
     }
 
     private var publishStep: some View {
@@ -474,7 +464,6 @@ struct AgendaSetupView: View {
             Section {
                 Text(BipeStrings.agendaTabOffBody).foregroundStyle(BipeColor.inkPrimary)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Section {
                 Button {
                     Task {
@@ -494,7 +483,6 @@ struct AgendaSetupView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
     }
 
     /// The weekday's name in the phone's language, ISO Monday 1 to Sunday 7.

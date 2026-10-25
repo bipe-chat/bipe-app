@@ -153,8 +153,6 @@ struct PollCreateView: View {
                 }
             }
             .disabled(sending)
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.appPollCreateTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -212,8 +210,6 @@ struct PollDetailView: View {
                     ProgressView()
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.appPollTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

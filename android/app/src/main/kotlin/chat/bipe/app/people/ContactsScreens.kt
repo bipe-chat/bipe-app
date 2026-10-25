@@ -198,7 +198,7 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                 TextButton(onClick = ::check, enabled = !checking) { Text(stringResource(R.string.bipe_app_retry)) }
             }
         }
-        invite?.let { IconRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_contacts_invite), onClick = it) }
+        invite?.let { RowGroup { IconRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_contacts_invite), onClick = it) } }
     }
 }
 
