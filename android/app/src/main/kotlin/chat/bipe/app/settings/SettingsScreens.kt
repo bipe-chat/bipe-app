@@ -430,6 +430,8 @@ fun SettingsGroupScreen(
 private fun isAvailable(row: BipeSettingsRow, lockOn: Boolean, hasBiometrics: Boolean): Boolean = when (row) {
     // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
     BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK -> lockOn && hasBiometrics
+    // Waits for the linked-account screen (bipe-chat/bipe#307, bipe#308).
+    BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS -> false
     else -> true
 }
 

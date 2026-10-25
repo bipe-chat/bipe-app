@@ -120,6 +120,8 @@ struct SettingsGroupView: View {
         switch row {
         // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
         case .accountBiometricUnlock: model.appLockOn && OwnerCheck.biometricKind != .none
+        // Waits for the linked-account screen (bipe-chat/bipe#307, bipe#308).
+        case .accountLinkedAccounts: false
         default: true
         }
     }

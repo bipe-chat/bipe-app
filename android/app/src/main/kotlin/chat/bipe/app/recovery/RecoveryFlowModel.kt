@@ -170,6 +170,8 @@ class RecoveryFlowModel(
         // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate. The beta sign-in
         // shows only in developer builds (spec soft-logout notes).
         _rows.value = BipeOnboardingRecoveryRow.entries.filter { row ->
+            // The Apple and Google rows wait for the linked-account flow (bipe-chat/bipe#307, bipe#308).
+            row != BipeOnboardingRecoveryRow.APPLE && row != BipeOnboardingRecoveryRow.GOOGLE &&
             (row.gate == null || row == BipeOnboardingRecoveryRow.OLD_PHONE || (row.gate == "flag:developer" && BuildConfig.DEBUG)) &&
                 (!row.needsSyncedToken || token != null)
         }
@@ -191,6 +193,7 @@ class RecoveryFlowModel(
                 _route.value = Route.BETA
             }
             BipeOnboardingRecoveryRow.OLD_PHONE -> _route.value = Route.OLD_PHONE
+            BipeOnboardingRecoveryRow.APPLE, BipeOnboardingRecoveryRow.GOOGLE -> Unit
         }
     }
 

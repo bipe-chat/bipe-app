@@ -122,6 +122,8 @@ final class RecoveryFlowModel: ObservableObject {
         // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate. The beta sign-in
         // shows only in developer builds (spec soft-logout notes).
         rows = BipeOnboardingRecoveryRow.allCases.filter { row in
+            // The Apple and Google rows wait for the linked-account flow (bipe-chat/bipe#307, bipe#308).
+            !Self.linkedRows.contains(row) &&
             (row.gate == nil || row == .oldPhone || (row.gate == "flag:developer" && AppConfig.isDeveloperBuild))
                 && (!row.needsSyncedToken || hasSyncedToken)
         }
@@ -145,8 +147,12 @@ final class RecoveryFlowModel: ObservableObject {
             path.append(.beta)
         case .oldPhone:
             path.append(.oldPhone)
+        case .apple, .google:
+            break
         }
     }
+
+    private static let linkedRows: Set<BipeOnboardingRecoveryRow> = [.apple, .google]
 
     // MARK: - recovery-pin
 
