@@ -14,6 +14,7 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
 import androidx.annotation.RequiresApi
+import chat.bipe.app.media.DataUseMeter
 import chat.bipe.app.media.upload.MediaPreparation
 import chat.bipe.voice.AndroidBipeVoiceTranscriber
 import chat.bipe.voice.BipeVoiceTranscriber
@@ -226,6 +227,7 @@ class VoiceRecordingModel(
                 AudioInfo(duration = Duration.ofMillis(_duration.value), size = file.length().toULong(), mimetype = "audio/ogg"),
                 _waveform.value.map { it / 1024f },
             )
+            DataUseMeter.recordSent(file.length())
         }
         _isClosed.value = true
     }

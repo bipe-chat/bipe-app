@@ -28,7 +28,9 @@ extension MediaLoader {
         } else {
             data = nil
         }
-        guard let data, let image = Self.decode(data, maxPixel: maxPixel, animated: media.isAnimated) else { return nil }
+        guard let data else { return nil }
+        DataUseMeter.shared.recordReceived(Int64(data.count), url: media.thumbnailSource?.url ?? media.source.url)
+        guard let image = Self.decode(data, maxPixel: maxPixel, animated: media.isAnimated) else { return nil }
         Self.images.setObject(image, forKey: key)
         return image
     }
@@ -39,8 +41,9 @@ extension MediaLoader {
         if let cached = Self.images.object(forKey: key) {
             return cached
         }
-        guard let data = try? await client.getMediaContent(mediaSource: media.source.source),
-              let image = Self.decode(data, maxPixel: 4096, animated: media.isAnimated) else { return nil }
+        guard let data = try? await client.getMediaContent(mediaSource: media.source.source) else { return nil }
+        DataUseMeter.shared.recordReceived(Int64(data.count), url: media.source.url)
+        guard let image = Self.decode(data, maxPixel: 4096, animated: media.isAnimated) else { return nil }
         Self.images.setObject(image, forKey: key)
         return image
     }
@@ -57,6 +60,7 @@ extension MediaLoader {
                                                    useCache: true,
                                                    tempDir: nil)
         let url = URL(fileURLWithPath: try handle.path())
+        DataUseMeter.shared.recordReceived(Int64(MediaPreparation.fileSize(url)), url: ref.url)
         await Self.files.keep(handle, url: url, for: ref.url)
         return url
     }

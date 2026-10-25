@@ -211,6 +211,12 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title, value: ShowMedia(rawValue: showMedia)?.title)
             }
+        case .chatsDataUse:
+            NavigationLink {
+                DataUseView()
+            } label: {
+                SettingsRowLabel(title: row.title)
+            }
         case .helpLicenses:
             NavigationLink {
                 OpenSourceLicencesView()

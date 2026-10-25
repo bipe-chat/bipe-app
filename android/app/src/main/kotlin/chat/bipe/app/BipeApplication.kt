@@ -41,6 +41,8 @@ class BipeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Spec data-use: the media counters follow the network in use.
+        chat.bipe.app.media.DataUseMeter.start(this)
         // FCM in the Play flavour (ADR 0150), before a push can wake the process; none in the foss flavour.
         push.transport = PushTransports.create(this)
     }
