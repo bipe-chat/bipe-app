@@ -4,6 +4,7 @@
 
 package chat.bipe.shared
 
+import chat.bipe.shared.generated.BipeRegistries
 import java.net.URLDecoder
 
 /**
