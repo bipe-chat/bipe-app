@@ -842,6 +842,20 @@ public enum BipeStrings {
 
     public static var voiceTranscriptUnavailable: String { NSLocalizedString("bipe_voice_transcript_unavailable", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var voiceExpired: String { NSLocalizedString("bipe_voice_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceKeep: String { NSLocalizedString("bipe_voice_keep", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceUnkeep: String { NSLocalizedString("bipe_voice_unkeep", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceKept: String { NSLocalizedString("bipe_voice_kept", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceKeptScam: String { NSLocalizedString("bipe_voice_kept_scam", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func voiceKeepLimit(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_voice_keep_limit", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var actionShowMore: String { NSLocalizedString("bipe_action_show_more", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var actionShowLess: String { NSLocalizedString("bipe_action_show_less", tableName: "Bipe", bundle: .module, comment: "") }
