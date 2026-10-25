@@ -71,11 +71,14 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: pt-BR
         CFBundleLocalizations: [pt-BR, en]
-        # Credential mutations always name this expanded own group; the fork group is read-only (ADR 0147).
-        BipeOwnedKeychainGroup: $(AppIdentifierPrefix)$(BIPE_APP_ID)
+        # Credential mutations always name this own group; the other groups are read-only (ADR 0147). Since
+        # bipe-chat/bipe#531 the own group is the app-group keychain group: it has no Team ID, so the items survive the
+        # App Store transfer (bipe/docs/team-transfer-recovery.md). The Team-ID group before it and the fork's group are
+        # read-only, and BipeKeychainMove copies their items into the own group at launch.
+        BipeOwnedKeychainGroup: $(BIPE_APP_GROUP)
         BipeAppID: $(BIPE_APP_ID)
         BipeAppGroup: $(BIPE_APP_GROUP)
-        BipeLegacyKeychainReadGroups: [992N457T8D.chat.bipe.app.dev]
+        BipeLegacyKeychainReadGroups: [$(AppIdentifierPrefix)$(BIPE_APP_ID), 992N457T8D.chat.bipe.app.dev]
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -105,8 +108,9 @@ targets:
         # Pushes through Bipe's Sygnal (spec push-registration). Export for TestFlight and ad hoc
         # signs with the production environment; the tester archive sets it (BIPE_APS_ENVIRONMENT).
         aps-environment: $(BIPE_APS_ENVIRONMENT)
-        # The app's own group first, then the fork's group (ADR 0147): the app reads the device
-        # account that the fork stored (BipeKit BipeCredentialStore) and never writes there.
+        # The Team-ID group, then the fork's group (ADR 0147): the app reads the device account that the fork stored
+        # (BipeKit BipeCredentialStore) and never writes there. The app-group keychain group comes from
+        # com.apple.security.application-groups above; the app writes there (bipe-chat/bipe#531).
         keychain-access-groups:
           - $(AppIdentifierPrefix)$(BIPE_APP_ID)
           - 992N457T8D.chat.bipe.app.dev
@@ -157,6 +161,8 @@ targets:
         CFBundleLocalizations: [pt-BR, en]
         BipeAppID: $(BIPE_APP_ID)
         BipeAppGroup: $(BIPE_APP_GROUP)
+        # SessionStore writes refreshed sessions into the app-group keychain group (bipe-chat/bipe#531).
+        BipeOwnedKeychainGroup: $(BIPE_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
@@ -164,7 +170,8 @@ targets:
       path: SupportFiles/BipeNotificationService/BipeNotificationService.entitlements
       properties:
         com.apple.security.application-groups: [$(BIPE_APP_GROUP)]
-        # The app's keychain group first, so the extension reads the session the app saved (SessionStore).
+        # The app's Team-ID group, for sessions saved before the app-group move; SessionStore reads the app-group
+        # keychain group first (bipe-chat/bipe#531).
         keychain-access-groups:
           - $(AppIdentifierPrefix)$(BIPE_APP_ID)
     settings:
