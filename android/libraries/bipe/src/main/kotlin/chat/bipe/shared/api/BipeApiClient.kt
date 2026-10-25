@@ -287,6 +287,12 @@ enum class BipeApiErrorCode(val id: String) {
     /** HTTP 403: the sign-up or the account lacks the current legal version (ADR 0113). */
     TERMS_REQUIRED("terms_required"),
 
+    /** HTTP 409: that Apple or Google account is linked to another Bipe account (ADR 0096). */
+    LINK_TAKEN("link_taken"),
+
+    /** HTTP 503: the server has no configuration for that provider (ADR 0096). */
+    LINK_UNAVAILABLE("link_unavailable"),
+
     /** A JPEG the server cannot take (profile or catalogue photo). */
     PHOTO_INVALID("photo_invalid"),
 
@@ -366,6 +372,8 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.TERMS_REQUIRED -> context.getString(R.string.bipe_signup_terms_required)
             BipeApiErrorCode.PROFILE_INVALID ->
                 reason?.let(BipeProfileProblem::fromId)?.localizedMessage(context) ?: context.getString(R.string.bipe_error_generic)
+            BipeApiErrorCode.LINK_TAKEN -> context.getString(R.string.bipe_linked_account_taken)
+            BipeApiErrorCode.LINK_UNAVAILABLE -> context.getString(R.string.bipe_linked_account_error)
             BipeApiErrorCode.SLOT_TAKEN -> context.getString(R.string.bipe_agenda_error_slot_taken)
             BipeApiErrorCode.HOLD_EXPIRED -> context.getString(R.string.bipe_agenda_error_hold_expired)
             BipeApiErrorCode.TOO_MANY_OPEN_BOOKINGS -> context.getString(R.string.bipe_agenda_error_too_many_open)

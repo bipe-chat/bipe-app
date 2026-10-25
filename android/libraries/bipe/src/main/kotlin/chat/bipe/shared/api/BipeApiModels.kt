@@ -156,6 +156,10 @@ data class BipeAccountStatus(
     @SerialName("max_accounts") val maxAccounts: Int? = null,
     /** Recoveries that run or ended in the last 7 days (recovery-alert). */
     @SerialName("recoveries") val recoveries: List<BipeRecovery> = emptyList(),
+    /** ADR 0096: the linked Apple and Google accounts (linked-accounts). */
+    @SerialName("links") val links: List<chat.bipe.shared.account.BipeLinkedAccount> = emptyList(),
+    /** ADR 0096: links and unlinks of the last 7 days (recovery-alert link notice). */
+    @SerialName("link_events") val linkEvents: List<chat.bipe.shared.account.BipeLinkEvent> = emptyList(),
 )
 
 @Serializable
@@ -256,6 +260,12 @@ enum class BipeRecoveryMethod {
     @SerialName("email") EMAIL,
     @SerialName("guardian") GUARDIAN,
     @SerialName("cpf") CPF,
+
+    /** A linked Apple account (ADR 0096). */
+    @SerialName("apple") APPLE,
+
+    /** A linked Google account (ADR 0096). */
+    @SerialName("google") GOOGLE,
 }
 
 /** `Recovery`, as GET /v1/me/account lists it for the old devices. */

@@ -191,6 +191,12 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title)
             }
+        case .accountLinkedAccounts:
+            NavigationLink {
+                LinkedAccountsView(settings: model)
+            } label: {
+                SettingsRowLabel(title: row.title, value: linkedSummary)
+            }
         case .helpReportProblem:
             NavigationLink {
                 ProblemReportView(model: model)
@@ -244,6 +250,12 @@ struct SettingsGroupView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    /// The linked providers, for the linkedAccounts row (ADR 0096).
+    private var linkedSummary: String? {
+        guard let links = model.account?.links, !links.isEmpty else { return nil }
+        return links.map { $0.provider == .apple ? BipeStrings.linkedApple : BipeStrings.linkedGoogle }.joined(separator: ", ")
     }
 
     /// The current value of a row, formatted (spec settings-group, SettingsRow.value).
