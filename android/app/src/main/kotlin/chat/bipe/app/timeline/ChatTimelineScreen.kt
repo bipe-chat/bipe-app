@@ -164,6 +164,7 @@ fun ChatTimelineScreen(
     }
     val isLoadingHistory by model.isLoadingHistory.collectAsState()
     val reachedStart by model.reachedStart.collectAsState()
+    val historyLoads by model.historyLoads.collectAsState()
     val isDm by model.isDm.collectAsState()
     val peerAway by model.peerAway.collectAsState()
     val invitingAgain by model.invitingAgain.collectAsState()
@@ -322,8 +323,9 @@ fun ChatTimelineScreen(
                         )
                     }
                     item(key = "history") {
-                        // Composed while the top of the list is on screen, again after each page (action loadHistory).
-                        LaunchedEffect(rows.size) { model.loadHistory() }
+                        // Composed while the top of the list is on screen, again after each load and each change of the rows
+                        // (action loadHistory). After a failed load, the next change of the rows tries again.
+                        LaunchedEffect(rows.size, historyLoads) { model.loadHistory() }
                         if (isLoadingHistory && !reachedStart) {
                             Text(
                                 stringResource(R.string.bipe_app_timeline_loading_history),
