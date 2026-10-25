@@ -294,6 +294,7 @@
     <string name="bipe_phone_linked">Seu número está vinculado.</string>
     <string name="bipe_tab_chats">Conversas</string>
     <string name="bipe_tab_agenda">Agenda</string>
+    <string name="bipe_tab_work">Trabalho</string>
     <string name="bipe_tab_groups">Grupos</string>
     <string name="bipe_tab_you">Você</string>
     <string name="bipe_groups_empty_title">Nenhum grupo ainda</string>

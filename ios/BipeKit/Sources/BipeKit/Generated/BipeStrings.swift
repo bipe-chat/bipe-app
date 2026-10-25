@@ -684,6 +684,8 @@ public enum BipeStrings {
 
     public static var tabAgenda: String { NSLocalizedString("bipe_tab_agenda", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var tabWork: String { NSLocalizedString("bipe_tab_work", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var tabGroups: String { NSLocalizedString("bipe_tab_groups", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var tabYou: String { NSLocalizedString("bipe_tab_you", tableName: "Bipe", bundle: .module, comment: "") }

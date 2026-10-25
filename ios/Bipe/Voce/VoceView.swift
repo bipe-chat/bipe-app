@@ -21,7 +21,7 @@ struct VoceView: View {
     @State private var openingNotes = false
     @State private var notesFailed = false
     @State private var showsLinkPhone = false
-    private enum Destination: Hashable { case notes(String), invites, trust, myBookings, catalogOwner, ordersOwner, quotesOwner, queueOwner }
+    private enum Destination: Hashable { case notes(String), invites, trust, myBookings }
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
@@ -83,15 +83,6 @@ struct VoceView: View {
                         IconLabel(icon: .devices, text: BipeStrings.appLinkPhoneAction)
                     }
                 }
-                // Spec business-tools: a company account's tools, before the settings.
-                if model.currentIsCompany {
-                    BusinessToolsSection(api: chatList.session.business(api),
-                                         openAgenda: { model.selectTab(.agenda) },
-                                         openCatalog: { path.append(Destination.catalogOwner) },
-                                         openOrders: { path.append(Destination.ordersOwner) },
-                                         openQuotes: { path.append(Destination.quotesOwner) },
-                                         openQueue: { path.append(Destination.queueOwner) })
-                }
                 SettingsRootSection(model: settings)
                 // Spec settings-root: a personal account has Meus agendamentos after the groups (agenda-my-bookings).
                 if !model.currentIsCompany {
@@ -120,14 +111,6 @@ struct VoceView: View {
                     }
                 case .myBookings:
                     MyBookingsView(people: people, openChat: { path.append(Destination.notes($0)) })
-                case .catalogOwner:
-                    CatalogOwnerView(api: chatList.session.business(api))
-                case .ordersOwner:
-                    OrderOwnerView(context: businessOwnerContext)
-                case .quotesOwner:
-                    QuoteOwnerView(context: businessOwnerContext)
-                case .queueOwner:
-                    QueueOwnerView(context: businessOwnerContext)
                 }
             }
             .navigationDestination(for: PeopleRoute.self) { route in
@@ -173,17 +156,6 @@ struct VoceView: View {
             PersonProfileView(people: people, userId: userId, fromDm: fromDm,
                               routes: PersonProfileRoutes(openChat: { path.append(Destination.notes($0)) }))
         }
-    }
-
-    /// The owner screens of Pedidos, Orçamentos and Fila virtual: names, the DM partners, and the DM with a customer.
-    private var businessOwnerContext: BusinessOwnerContext {
-        BusinessOwnerContext(api: chatList.session.business(api), people: people,
-                             customers: BusinessCustomer.fromChats(chatList.chats),
-                             openChat: { userId in
-                                 Task {
-                                     if let roomId = try? await people.openOrCreateDM(with: userId) { path.append(Destination.notes(roomId)) }
-                                 }
-                             })
     }
 
     private var trustActions: TrustActions {
