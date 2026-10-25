@@ -17,6 +17,8 @@ struct ChatListView: View {
     @State private var showingArchived = false
     @ObservedObject private var notifications = NotificationActions.shared
     @StateObject private var handle: HandlePickModel
+    @StateObject private var recovery: RecoveryReminderModel
+    @State private var showsRecoveryEmail = false
     @StateObject private var requests: ChatRequestsModel
     @StateObject private var banner: RemoteBannerModel
     @Environment(\.scenePhase) private var scenePhase
@@ -46,6 +48,7 @@ struct ChatListView: View {
         _model = ObservedObject(wrappedValue: model)
         _archive = ObservedObject(wrappedValue: model.archive)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
+        _recovery = StateObject(wrappedValue: RecoveryReminderModel(api: api, session: model.session))
         let people = PeopleService(session: model.session, api: api, media: model.media)
         _requests = StateObject(wrappedValue: ChatRequestsModel(session: model.session, api: api, people: people))
         _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
@@ -108,17 +111,30 @@ struct ChatListView: View {
         .task {
             if scope == .conversas {
                 await handle.load()
+                await recovery.load()
             }
         }
         .task { await requests.start() }
         .onReceive(model.$chats) { requests.rememberDmPartners($0) }
         .task { await banner.refresh() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await banner.refresh(); await requests.refreshTrust() } }
+            if phase == .active {
+                Task {
+                    await banner.refresh()
+                    await requests.refreshTrust()
+                    if scope == .conversas { await recovery.load() }
+                }
+            }
         }
         .onAppear { people.start() }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
+        }
+        .sheet(isPresented: $showsRecoveryEmail) {
+            RecoveryEmailAddView(api: api, session: model.session, current: recovery.account?.email,
+                                 pending: recovery.account?.emailPending) {
+                Task { await recovery.load() }
+            }
         }
         .sheet(item: Binding(get: { openingLink.map(HandleLink.init) }, set: { openingLink = $0?.handle })) { link in
             ProfileLinkOpenView(people: people, handle: link.handle,
@@ -239,10 +255,15 @@ struct ChatListView: View {
         }
     }
 
+    /// One card at a time: the handle card first, then the recovery reminder (spec recovery-reminder).
     @ViewBuilder
     private var handlePrompt: some View {
         if scope == .conversas && handle.showsPrompt {
             HandlePromptCard(model: handle) { showsHandlePick = true }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+        } else if scope == .conversas && recovery.showsCard {
+            RecoveryReminderCard(model: recovery) { showsRecoveryEmail = true }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
         }
@@ -471,6 +492,9 @@ struct ChatRow: View {
                         .font(.headline)
                         .foregroundStyle(BipeColor.inkPrimary)
                         .lineLimit(1)
+                    if chat.isOfficial {
+                        OfficialBadge()
+                    }
                     Spacer(minLength: 8)
                     if let lastActivity = chat.lastActivity {
                         Text(lastActivity, format: Self.timeFormat(for: lastActivity))

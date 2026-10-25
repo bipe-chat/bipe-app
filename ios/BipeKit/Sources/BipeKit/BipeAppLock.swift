@@ -11,11 +11,21 @@ import Security
 /// The app lock PIN and the biometric unlock flag (spec app-lock, ADR 0137). They live in the keychain on this device
 /// only, never synced, never sent. The PIN is kept as a salted PBKDF2 hash and checked on the device; a wrong app lock
 /// PIN never counts against the account.
+///
+/// The lock lives in the app-group keychain group, which survives the App Store transfer (bipe-chat/bipe#531). A lock
+/// saved before that sits in the default group: reads fall back to it, so the app never opens without its lock, and
+/// BipeKeychainMove copies it.
 public struct BipeAppLock: Sendable {
-    private let service: String
+    /// The service the app-group move copies (BipeKeychainMove).
+    public static let defaultService = "chat.bipe.next.applock"
 
-    public init(service: String = "chat.bipe.next.applock") {
+    private let service: String
+    private let accessGroup: String?
+
+    public init(service: String = BipeAppLock.defaultService,
+                accessGroup: String? = Bundle.main.object(forInfoDictionaryKey: "BipeOwnedKeychainGroup") as? String) {
         self.service = service
+        self.accessGroup = accessGroup.flatMap { !$0.isEmpty && !$0.contains("$(") ? $0 : nil }
     }
 
     private struct Stored: Codable {
@@ -52,9 +62,9 @@ public struct BipeAppLock: Sendable {
         write(stored)
     }
 
-    /// Turns the lock off: removes the app lock PIN and biometric unlock.
+    /// Turns the lock off: removes the app lock PIN and biometric unlock, in every group, so no older copy locks again.
     public func remove() {
-        SecItemDelete(query() as CFDictionary)
+        SecItemDelete(query(group: nil) as CFDictionary)
     }
 
     // MARK: - Private
@@ -74,28 +84,38 @@ public struct BipeAppLock: Sendable {
         return Int(status) == kCCSuccess ? derived : nil
     }
 
-    private func query() -> [String: Any] {
-        [
+    /// `group` nil: every group the app reads.
+    private func query(group: String?) -> [String: Any] {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: "lock",
         ]
+        if let group { query[kSecAttrAccessGroup as String] = group }
+        return query
     }
 
+    /// The app-group copy first, then any other copy: a lock in either group keeps the app locked.
     private func read() -> Stored? {
-        var query = query()
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data else { return nil }
-        return try? JSONDecoder().decode(Stored.self, from: data)
+        for group in [accessGroup, nil] {
+            var query = query(group: group)
+            query[kSecReturnData as String] = true
+            query[kSecMatchLimit as String] = kSecMatchLimitOne
+            var result: AnyObject?
+            if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data,
+               let stored = try? JSONDecoder().decode(Stored.self, from: data) {
+                return stored
+            }
+        }
+        return nil
     }
 
+    /// Writes the app-group copy. Without an app group (unexpanded Info.plist) it keeps the default group.
     @discardableResult
     private func write(_ stored: Stored) -> Bool {
         guard let data = try? JSONEncoder().encode(stored) else { return false }
-        SecItemDelete(query() as CFDictionary)
-        var item = query()
+        SecItemDelete(query(group: accessGroup) as CFDictionary)
+        var item = query(group: accessGroup)
         item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         item[kSecValueData as String] = data
         return SecItemAdd(item as CFDictionary, nil) == errSecSuccess

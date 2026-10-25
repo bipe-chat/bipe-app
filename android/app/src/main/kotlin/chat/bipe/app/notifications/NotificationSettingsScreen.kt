@@ -49,15 +49,16 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeScreen
 
 /** Spec notification-settings: the Notifications group of Settings. Every row says its current value. */
 @Composable
-fun NotificationSettingsScreen(session: AccountSession, onBack: () -> Unit) {
+fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBack: () -> Unit) {
     val context = LocalContext.current
     val app = context.applicationContext as BipeApplication
     val scope = rememberCoroutineScope()
-    val model = remember(session) { NotificationSettingsModel(session, app.push, app.notifications, scope) }
+    val model = remember(session) { NotificationSettingsModel(session, api, app.push, app.notifications, scope) }
     val askPermission = rememberNotificationPermission(app.push)
     DisposableEffect(model) {
         model.appear()
@@ -132,6 +133,17 @@ fun NotificationSettingsScreen(session: AccountSession, onBack: () -> Unit) {
                 stateDescription = stringResource(R.string.bipe_notifications_tone_current, soundLabel),
                 onSelect = model::setSound,
             )
+
+            // Spec news (ADR 0117): hidden until the API answered.
+            if (state.news != NotificationSettingsModel.News.UNKNOWN) {
+                SwitchRow(stringResource(R.string.bipe_settings_news), state.news == NotificationSettingsModel.News.ON, !state.newsBusy, model::setNews)
+                Text(
+                    stringResource(R.string.bipe_settings_news_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkSecondary,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
         }
     }
 
@@ -144,8 +156,12 @@ fun NotificationSettingsScreen(session: AccountSession, onBack: () -> Unit) {
             dismissButton = { TextButton(onClick = model::cancelGroupsMode) { Text(stringResource(R.string.bipe_app_cancel)) } },
         )
     }
-    if (state.showsError || state.showsToneError) {
-        val message = if (state.showsToneError) R.string.bipe_notifications_tone_error else R.string.bipe_error_generic
+    if (state.showsError || state.showsToneError || state.showsNewsError) {
+        val message = when {
+            state.showsToneError -> R.string.bipe_notifications_tone_error
+            state.showsNewsError -> R.string.bipe_settings_news_failed
+            else -> R.string.bipe_error_generic
+        }
         AlertDialog(
             onDismissRequest = model::dismissErrors,
             text = { Text(stringResource(message)) },

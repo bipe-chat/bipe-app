@@ -6,12 +6,17 @@ import Foundation
 import MatrixRustSDK
 import Security
 
-/// Keeps the SDK session (tokens, device ID) of every account in the app's own keychain group, on this device only.
-/// One item per account, keyed by Matrix ID (ADR 0086). Never logged. The notification service extension reads it
-/// too: its first keychain access group is the app's (project.yml), so both use the same default group. Also
-/// compiled into the extension.
+/// Keeps the SDK session (tokens, device ID) of every account in the app-group keychain group, on this device only.
+/// One item per account, keyed by Matrix ID (ADR 0086). Never logged. The notification service extension reads and
+/// writes it too. Also compiled into the extension.
+///
+/// The app-group group has no Team ID, so a session survives the App Store transfer (bipe-chat/bipe#531). Sessions
+/// saved before that sit in the default group (the Team-ID group): reads fall back to it, BipeKeychainMove copies them,
+/// and a sign-out deletes every copy.
 enum SessionStore {
-    private static let service = "chat.bipe.next.session"
+    /// The service the app-group move copies (BipeKeychainMove).
+    static let service = "chat.bipe.next.session"
+    private static let ownGroup = AppConfig.appGroup
     /// The single slot of builds before bipe-chat/bipe#577. `loadAll()` moves it under its Matrix ID.
     private static let legacyAccount = "current"
 
@@ -28,20 +33,25 @@ enum SessionStore {
     /// The saved session of every account on this phone, by Matrix ID.
     static func loadAll() -> [String: Session] {
         migrateLegacySlot()
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecReturnData as String: true,
-            kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitAll,
-        ]
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let items = result as? [[String: Any]] else { return [:] }
         var sessions: [String: Session] = [:]
-        for item in items {
-            guard let data = item[kSecValueData as String] as? Data, let session = decode(data) else { continue }
-            sessions[session.userId] = session
+        // The app-group copy wins over an older copy in the default group.
+        for group in [ownGroup, nil] as [String?] {
+            var query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecReturnData as String: true,
+                kSecReturnAttributes as String: true,
+                kSecMatchLimit as String: kSecMatchLimitAll,
+            ]
+            if let group { query[kSecAttrAccessGroup as String] = group }
+            var result: AnyObject?
+            guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+                  let items = result as? [[String: Any]] else { continue }
+            for item in items {
+                guard let data = item[kSecValueData as String] as? Data, let session = decode(data),
+                      sessions[session.userId] == nil else { continue }
+                sessions[session.userId] = session
+            }
         }
         return sessions
     }
@@ -91,41 +101,50 @@ enum SessionStore {
                        slidingSyncVersion: stored.nativeSlidingSync ? .native : .none)
     }
 
+    /// The app-group copy first, then any other group the app reads (the Team-ID group before the move).
     private static func read(account: String) -> Data? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess else { return nil }
-        return result as? Data
+        for group in [ownGroup, nil] as [String?] {
+            var query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: account,
+                kSecReturnData as String: true,
+                kSecMatchLimit as String: kSecMatchLimitOne,
+            ]
+            if let group { query[kSecAttrAccessGroup as String] = group }
+            var result: AnyObject?
+            if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data {
+                return data
+            }
+        }
+        return nil
     }
 
+    /// Replaces the app-group copy only. An older copy in the Team-ID group stays until sign-out; reads prefer this one.
     private static func write(_ data: Data, account: String) {
-        delete(account: account)
-        let item: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-            kSecValueData as String: data,
-        ]
+        SecItemDelete(query(account: account, group: ownGroup) as CFDictionary)
+        var item = query(account: account, group: ownGroup)
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        item[kSecValueData as String] = data
         let status = SecItemAdd(item as CFDictionary, nil)
         if status != errSecSuccess {
             NSLog("Bipe session write failed: \(status)")
         }
     }
 
+    /// Sign-out: every copy, in every group the app reads, so an older copy never signs the account in again.
     private static func delete(account: String) {
-        let query: [String: Any] = [
+        SecItemDelete(query(account: account, group: nil) as CFDictionary)
+    }
+
+    private static func query(account: String, group: String?) -> [String: Any] {
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
         ]
-        SecItemDelete(query as CFDictionary)
+        if let group { query[kSecAttrAccessGroup as String] = group }
+        return query
     }
 }
 
