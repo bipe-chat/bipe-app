@@ -302,7 +302,6 @@
     <string name="bipe_self_chat_title">Anotações</string>
     <string name="bipe_self_chat_subtitle">Mensagens que só você vê</string>
     <string name="bipe_self_chat_error">Não deu para abrir suas anotações. Tente de novo.</string>
-    <string name="bipe_onboarding_welcome">Um app de mensagens gratuito.</string>
     <string name="bipe_onboarding_title">Saiba com quem está falando.</string>
     <string name="bipe_onboarding_point_scam">A checagem procura sinais de golpe nas mensagens.</string>
     <string name="bipe_onboarding_point_brazil">Os dados e os servidores ficam no Brasil, sob a lei brasileira.</string>

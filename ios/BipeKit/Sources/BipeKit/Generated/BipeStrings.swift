@@ -700,8 +700,6 @@ public enum BipeStrings {
 
     public static var selfChatError: String { NSLocalizedString("bipe_self_chat_error", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var onboardingWelcome: String { NSLocalizedString("bipe_onboarding_welcome", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static var onboardingTitle: String { NSLocalizedString("bipe_onboarding_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var onboardingPointScam: String { NSLocalizedString("bipe_onboarding_point_scam", tableName: "Bipe", bundle: .module, comment: "") }
