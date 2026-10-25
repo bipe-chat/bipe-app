@@ -3086,6 +3086,14 @@ public enum BipeStrings {
 
     public static var appStartNoAccountBody: String { NSLocalizedString("bipe_app_start_no_account_body", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appStartLegacyTitle: String { NSLocalizedString("bipe_app_start_legacy_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appStartLegacyBody: String { NSLocalizedString("bipe_app_start_legacy_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appStartLegacyRecover: String { NSLocalizedString("bipe_app_start_legacy_recover", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appStartLegacyFresh: String { NSLocalizedString("bipe_app_start_legacy_fresh", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appStartError: String { NSLocalizedString("bipe_app_start_error", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appRetry: String { NSLocalizedString("bipe_app_retry", tableName: "Bipe", bundle: .module, comment: "") }
