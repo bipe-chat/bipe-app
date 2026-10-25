@@ -105,6 +105,9 @@ test('swift: an icon-only button needs the minimum tap target outside a toolbar'
 
 test('swift: a fixed font size fails, a scaled one passes', () => {
   assert.deepEqual(rules(auditSwift('Text(code)\n    .font(.system(size: 64, weight: .bold))')), ['2:text-size']);
+  assert.deepEqual(rules(auditSwift('Button(t) {}\n    .buttonStyle(.bordered)\n    .controlSize(.small)')), ['2:button-size', '3:button-size']);
+  assert.deepEqual(rules(auditSwift('Button(t) {}\n    .buttonStyle(.borderedProminent)')), ['2:button-size']);
+  assert.deepEqual(rules(auditSwift('Button(t) {}\n    .buttonStyle(.bipeBordered)\n    .controlSize(.large)')), []);
   assert.deepEqual(auditSwift('Text(code)\n    .font(.system(size: codeSize, weight: .bold))'), []);
 });
 
@@ -125,6 +128,8 @@ test('kotlin: a small clickable needs the minimum tap target', () => {
 test('kotlin: text sized in dp or a forced font scale fails', () => {
   assert.deepEqual(rules(auditKotlin('Text(a, fontSize = 16.dp.toSp())')), ['1:text-size']);
   assert.deepEqual(rules(auditKotlin('Density(density.density, fontScale = 1f)')), ['1:text-size']);
+  assert.deepEqual(rules(auditKotlin('Button(onClick = {}) { Text(a) }\nOutlinedButton(onClick = {}) { Text(b) }')), ['1:button-size', '2:button-size']);
+  assert.deepEqual(rules(auditKotlin('BipeButton(onClick = {}) { Text(a) }\nTextButton(onClick = {}) { Text(b) }\nandroidx.compose.material3.Button(onClick) {}')), []);
   assert.deepEqual(auditKotlin('Text(a, fontSize = 16.sp)'), []);
 });
 

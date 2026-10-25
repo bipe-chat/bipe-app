@@ -54,10 +54,10 @@ struct QuoteCardView: View {
             case .customer(let acceptOrder, let acceptBooking, let refuse):
                 if quote.status == .offered {
                     Button(BipeStrings.quoteAcceptOrder, action: acceptOrder)
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bipeProminent)
                     if quote.current?.visitServiceId != nil {
                         Button(BipeStrings.quoteAcceptBooking, action: acceptBooking)
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.bipeBordered)
                     }
                     Button(BipeStrings.quoteDecline, role: .destructive, action: refuse)
                 }
@@ -185,7 +185,7 @@ struct QuoteOwnerView: View {
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.appRetry) { Task { await load() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -209,10 +209,10 @@ struct QuoteOwnerView: View {
                                     Button(BipeStrings.quoteAnswer) {
                                         building = QuoteBuilderTarget(mode: .answer(request), customerId: request.customerId)
                                     }
-                                    .buttonStyle(.borderedProminent)
+                                    .buttonStyle(.bipeProminent)
                                     if let openChat = context.openChat {
                                         Button(BipeStrings.appPersonMessage) { openChat(request.customerId) }
-                                            .buttonStyle(.bordered)
+                                            .buttonStyle(.bipeBordered)
                                     }
                                 }
                             }
@@ -256,11 +256,11 @@ struct QuoteOwnerView: View {
                     Button(BipeStrings.quoteSendRevision) {
                         building = QuoteBuilderTarget(mode: .revise(quote), customerId: quote.customerId)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.bipeBordered)
                 }
                 if let openChat = context.openChat {
                     Button(BipeStrings.appPersonMessage) { openChat(quote.customerId) }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.bipeBordered)
                 }
             }
         }

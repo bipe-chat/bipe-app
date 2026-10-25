@@ -140,7 +140,7 @@ struct RecoveryEmailAddView: View {
                             .foregroundStyle(BipeColor.inkPrimary)
                             .multilineTextAlignment(.center)
                         Button { dismiss() } label: { Text(BipeStrings.appClose) }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.bipeProminent)
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -203,7 +203,7 @@ struct RecoveryEmailAddView: View {
                 Text(BipeStrings.emailSend)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             .disabled(email.isEmpty || phase == .sending)
             Spacer()
         }

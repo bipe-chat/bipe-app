@@ -116,7 +116,7 @@ struct AccountDeleteView: View {
             Button(action: close) {
                 Text(BipeStrings.actionContinue).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             .controlSize(.large)
         }
         .padding(24)
@@ -197,7 +197,7 @@ struct DeletionBanner: View {
             Button(action: onCancel) {
                 Text(BipeStrings.deletionCancel)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.bipeBordered)
             .disabled(isCancelling)
             .accessibilityLabel(BipeStrings.a11yDeletionCancel)
         }

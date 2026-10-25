@@ -19,9 +19,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
+import chat.bipe.app.common.BipeTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -321,12 +321,12 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
             modifier = Modifier.fillMaxWidth().testTag(BipeScreen.BUSINESS_CHAT_BAR.id),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         ) {
-            if (state.canBook) Button(onClick = { sheet = BusinessSheet.Book() }) { Text(stringResource(R.string.bipe_agenda_book)) }
-            if (state.hasCatalog) FilledTonalButton(onClick = { sheet = BusinessSheet.Catalog }) { Text(stringResource(R.string.bipe_catalog_open)) }
-            if (state.canOrder) FilledTonalButton(onClick = { sheet = BusinessSheet.Order }) { Text(stringResource(R.string.bipe_order_make)) }
-            FilledTonalButton(onClick = { sheet = BusinessSheet.RequestQuote }) { Text(stringResource(R.string.bipe_quote_request)) }
+            if (state.canBook) BipeButton(onClick = { sheet = BusinessSheet.Book() }) { Text(stringResource(R.string.bipe_agenda_book)) }
+            if (state.hasCatalog) BipeTonalButton(onClick = { sheet = BusinessSheet.Catalog }) { Text(stringResource(R.string.bipe_catalog_open)) }
+            if (state.canOrder) BipeTonalButton(onClick = { sheet = BusinessSheet.Order }) { Text(stringResource(R.string.bipe_order_make)) }
+            BipeTonalButton(onClick = { sheet = BusinessSheet.RequestQuote }) { Text(stringResource(R.string.bipe_quote_request)) }
             if (state.queueOpen || state.queuePlace != null) {
-                FilledTonalButton(onClick = { sheet = BusinessSheet.Queue }) { Text(stringResource(R.string.bipe_queue_join)) }
+                BipeTonalButton(onClick = { sheet = BusinessSheet.Queue }) { Text(stringResource(R.string.bipe_queue_join)) }
             }
         }
     }

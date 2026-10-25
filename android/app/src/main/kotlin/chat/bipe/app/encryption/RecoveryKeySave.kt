@@ -24,11 +24,11 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -219,7 +219,7 @@ fun RecoveryKeySaveScreen(session: AccountSession, onClose: () -> Unit) {
                     )
                     Text(stringResource(R.string.bipe_account_recovery_key_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                     Spacer(Modifier.weight(1f))
-                    Button(
+                    BipeButton(
                         onClick = { model.create { OwnerCheck.owner(context, ownerTitle) } },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -252,7 +252,7 @@ fun RecoveryKeySaveScreen(session: AccountSession, onClose: () -> Unit) {
                         )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(onClick = {
+                        BipeOutlinedButton(onClick = {
                             model.copy(context)
                             copied = true
                         }) {
@@ -260,12 +260,12 @@ fun RecoveryKeySaveScreen(session: AccountSession, onClose: () -> Unit) {
                             Spacer(Modifier.size(8.dp))
                             Text(stringResource(if (copied) R.string.bipe_app_copied else R.string.bipe_app_copy))
                         }
-                        OutlinedButton(onClick = { model.share(context) }) {
+                        BipeOutlinedButton(onClick = { model.share(context) }) {
                             Text(stringResource(R.string.bipe_app_share))
                         }
                     }
                     Spacer(Modifier.weight(1f))
-                    Button(onClick = model::confirmSaved, modifier = Modifier.fillMaxWidth()) {
+                    BipeButton(onClick = model::confirmSaved, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.bipe_app_recovery_key_saved_action))
                     }
                 }
@@ -276,14 +276,14 @@ fun RecoveryKeySaveScreen(session: AccountSession, onClose: () -> Unit) {
                         Text(stringResource(R.string.bipe_account_recovery_key_saved), color = colors.inkPrimary)
                     }
                     Spacer(Modifier.weight(1f))
-                    Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
+                    BipeButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.bipe_action_continue))
                     }
                 }
                 RecoveryKeySaveModel.Phase.FAILED -> {
                     Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
                     Spacer(Modifier.weight(1f))
-                    Button(onClick = { model.create { OwnerCheck.owner(context, ownerTitle) } }, modifier = Modifier.fillMaxWidth()) {
+                    BipeButton(onClick = { model.create { OwnerCheck.owner(context, ownerTitle) } }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.bipe_app_retry))
                     }
                 }

@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -92,7 +92,7 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
                 ) {
                     Text(stringResource(R.string.bipe_settings_notifications_off), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
                     Text(stringResource(R.string.bipe_notifications_permission_body), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
-                    Button(onClick = {
+                    BipeButton(onClick = {
                         // Action enablePhone: asks once, else opens the app's system settings.
                         if (permission == PushRegistration.Permission.NOT_ASKED) {
                             askPermission()

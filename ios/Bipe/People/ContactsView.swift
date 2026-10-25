@@ -253,8 +253,7 @@ struct ContactsView: View {
                     }
                 }
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .buttonStyle(.bipeBordered)
         }
     }
 }

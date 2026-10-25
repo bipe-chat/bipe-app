@@ -33,14 +33,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -293,7 +293,7 @@ fun AgendaOwnerScreen(session: AccountSession, chatList: ChatListModel, onOpenCh
                 ) {
                     Icon(painterResource(PhosphorIcon.CLOCK.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(48.dp))
                     Text(stringResource(R.string.bipe_agenda_tab_off_body), color = colors.inkPrimary, textAlign = TextAlign.Center)
-                    Button(onClick = { sheet = OwnerSheet.Setup }) { Text(stringResource(R.string.bipe_agenda_activate)) }
+                    BipeButton(onClick = { sheet = OwnerSheet.Setup }) { Text(stringResource(R.string.bipe_agenda_activate)) }
                 }
                 AgendaOwnerModel.Phase.ON -> {
                     DateStrip(model)
@@ -651,7 +651,7 @@ fun AgendaOwnerBookingSheet(
                 Spacer(Modifier.height(8.dp))
                 if (editing) {
                     val customerReady = booking != null || (if (fromChats) customerId != null else customerName.isNotBlank())
-                    Button(
+                    BipeButton(
                         enabled = !saving && serviceId != null && agendaId != null && customerReady,
                         modifier = Modifier.fillMaxWidth(),
                         onClick = {
@@ -670,24 +670,24 @@ fun AgendaOwnerBookingSheet(
                     val now = Instant.now()
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (booking.status == BipeBookingStatus.REQUESTED) {
-                            Button(enabled = !saving, onClick = { perform { business.withToken { ownerBookingAction(booking.booking.id, BipeOwnerBookingAction.ACCEPT, it) } } }) {
+                            BipeButton(enabled = !saving, onClick = { perform { business.withToken { ownerBookingAction(booking.booking.id, BipeOwnerBookingAction.ACCEPT, it) } } }) {
                                 Text(stringResource(R.string.bipe_agenda_accept))
                             }
-                            OutlinedButton(enabled = !saving, onClick = { perform { business.withToken { ownerBookingAction(booking.booking.id, BipeOwnerBookingAction.REFUSE, it) } } }) {
+                            BipeOutlinedButton(enabled = !saving, onClick = { perform { business.withToken { ownerBookingAction(booking.booking.id, BipeOwnerBookingAction.REFUSE, it) } } }) {
                                 Text(stringResource(R.string.bipe_agenda_decline))
                             }
                         }
                         if (booking.status == BipeBookingStatus.REQUESTED || booking.status == BipeBookingStatus.CONFIRMED) {
-                            OutlinedButton(enabled = !saving, onClick = { editing = true }) { Text(stringResource(R.string.bipe_agenda_reschedule)) }
+                            BipeOutlinedButton(enabled = !saving, onClick = { editing = true }) { Text(stringResource(R.string.bipe_agenda_reschedule)) }
                         }
                         // Não veio only after the start.
                         if ((booking.status == BipeBookingStatus.CONFIRMED || booking.status == BipeBookingStatus.DONE) && !booking.start.isAfter(now)) {
-                            OutlinedButton(enabled = !saving, onClick = { perform { business.withToken { ownerBookingAction(booking.booking.id, BipeOwnerBookingAction.NO_SHOW, it) } } }) {
+                            BipeOutlinedButton(enabled = !saving, onClick = { perform { business.withToken { ownerBookingAction(booking.booking.id, BipeOwnerBookingAction.NO_SHOW, it) } } }) {
                                 Text(stringResource(R.string.bipe_agenda_mark_no_show))
                             }
                         }
                         booking.booking.customer.userId?.let { userId ->
-                            OutlinedButton(onClick = { onOpenChat(userId) }) { Text(stringResource(R.string.bipe_app_person_message)) }
+                            BipeOutlinedButton(onClick = { onOpenChat(userId) }) { Text(stringResource(R.string.bipe_app_person_message)) }
                         }
                     }
                     if (booking.status.isOpen) {

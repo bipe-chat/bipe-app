@@ -15,14 +15,14 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -120,7 +120,7 @@ fun SupportOpenScreen(session: AccountSession, api: BipeApiClient, onBack: () ->
                 if (current is SupportOpenModel.Phase.Failed) {
                     Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(48.dp))
                     Text(stringResource(current.message), color = colors.inkPrimary, textAlign = TextAlign.Center)
-                    Button(onClick = model::open) { Text(stringResource(R.string.bipe_app_retry)) }
+                    BipeButton(onClick = model::open) { Text(stringResource(R.string.bipe_app_retry)) }
                     TextButton(onClick = onBack) { Text(stringResource(R.string.bipe_app_cancel)) }
                 } else {
                     CircularProgressIndicator(color = colors.accentFill)
@@ -173,7 +173,7 @@ fun SignOutSheet(model: SettingsModel, onDismiss: () -> Unit, onSignedOut: () ->
             if (waysBack.isEmpty()) {
                 Text(stringResource(R.string.bipe_app_sign_out_no_way_back), color = colors.trustDangerInk)
                 // Action addWayBack: back to Sua conta, at Jeitos de voltar.
-                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                BipeButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.bipe_app_sign_out_add_way))
                 }
             }
@@ -181,7 +181,7 @@ fun SignOutSheet(model: SettingsModel, onDismiss: () -> Unit, onSignedOut: () ->
                 Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
             }
             // Action signOut: Client.logout, then the account's password, session and SDK store leave this phone.
-            OutlinedButton(
+            BipeOutlinedButton(
                 onClick = {
                     signingOut = true
                     failed = false

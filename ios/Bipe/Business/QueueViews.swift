@@ -139,7 +139,7 @@ struct QueueCustomerView: View {
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.appRetry) { Task { await load() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -320,7 +320,7 @@ struct QueueOwnerView: View {
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.appRetry) { Task { await load() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -375,7 +375,7 @@ struct QueueOwnerView: View {
                 HStack(spacing: 8) { actions(place) }
                 VStack(alignment: .leading, spacing: 6) { actions(place) }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.bipeBordered)
             .disabled(working)
         }
         .padding(.vertical, 4)
@@ -617,7 +617,7 @@ private struct QueueQrView: View {
                         } label: {
                             IconLabel(icon: .shareNetwork, text: BipeStrings.appShare)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.bipeBordered)
                     } else if loaded {
                         Text(BipeStrings.publicProfileNeedsHandle)
                             .foregroundStyle(BipeColor.inkSecondary)

@@ -12,7 +12,7 @@ import chat.bipe.shared.generated.BipeOnboardingPrompt
 import chat.bipe.shared.onboarding.BipePromptSlot
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.FilledTonalButton
+import chat.bipe.app.common.BipeTonalButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.ui.graphics.Color
@@ -209,13 +209,13 @@ private fun VoceHeader(account: AccountSummary, media: MediaLoader, openProfile:
         }
         // QR and Compartilhar perfil side by side, as Material 3 tonal buttons.
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            FilledTonalButton(onClick = openQr, modifier = Modifier.weight(1f)) {
+            BipeTonalButton(onClick = openQr, modifier = Modifier.weight(1f)) {
                 Icon(painterResource(PhosphorIcon.QR_CODE.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.bipe_profile_qr_action))
             }
             account.handle?.let { handle ->
-                FilledTonalButton(onClick = {
+                BipeTonalButton(onClick = {
                     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "https://bipe.chat/@$handle")
                     context.startActivity(Intent.createChooser(send, shareTitle))
                 }, modifier = Modifier.weight(1f)) {

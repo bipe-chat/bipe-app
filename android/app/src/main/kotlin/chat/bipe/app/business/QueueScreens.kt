@@ -27,13 +27,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -224,12 +224,12 @@ fun QueueCustomerScreen(business: BusinessApi, route: String, businessName: Stri
                     }
                     notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary, textAlign = TextAlign.Center) }
                     error?.let { Text(it, color = colors.trustDangerInk, textAlign = TextAlign.Center) }
-                    OutlinedButton(enabled = !working, onClick = { confirmLeave = true }) {
+                    BipeOutlinedButton(enabled = !working, onClick = { confirmLeave = true }) {
                         Text(stringResource(R.string.bipe_queue_leave), color = colors.trustDangerInk)
                     }
                 } else if (current.open) {
                     error?.let { Text(it, color = colors.trustDangerInk, textAlign = TextAlign.Center) }
-                    Button(enabled = !working, modifier = Modifier.fillMaxWidth(), onClick = {
+                    BipeButton(enabled = !working, modifier = Modifier.fillMaxWidth(), onClick = {
                         working = true
                         error = null
                         scope.launch {
@@ -393,18 +393,18 @@ fun QueueOwnerScreen(business: BusinessApi, customers: List<Pair<String, String>
                             Text(stringResource(R.string.bipe_queue_waiting_count, waiting.toString()), style = MaterialTheme.typography.bodyMedium,
                                 color = colors.inkSecondary)
                         }
-                        OutlinedButton(enabled = !working, onClick = { perform { business.withToken { setQueueOpen(!current.open, it) } } }) {
+                        BipeOutlinedButton(enabled = !working, onClick = { perform { business.withToken { setQueueOpen(!current.open, it) } } }) {
                             Text(stringResource(if (current.open) R.string.bipe_queue_close else R.string.bipe_queue_open))
                         }
                     }
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Chamar próximo is hidden when nobody waits.
                         if (waiting > 0) {
-                            Button(enabled = !working, onClick = { perform { business.withToken { callNextInQueue(it) } } }) {
+                            BipeButton(enabled = !working, onClick = { perform { business.withToken { callNextInQueue(it) } } }) {
                                 Text(stringResource(R.string.bipe_queue_call_next))
                             }
                         }
-                        OutlinedButton(enabled = !working, onClick = { sheet = QueueOwnerSheet.WalkIn }) { Text(stringResource(R.string.bipe_queue_add_walk_in)) }
+                        BipeOutlinedButton(enabled = !working, onClick = { sheet = QueueOwnerSheet.WalkIn }) { Text(stringResource(R.string.bipe_queue_add_walk_in)) }
                     }
                     error?.let { Text(it, color = colors.trustDangerInk) }
                 }

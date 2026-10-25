@@ -144,7 +144,7 @@ struct ProblemReportView: View {
                 Text(BipeStrings.settingsSupport)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             // Action close.
             Button {
                 dismiss()

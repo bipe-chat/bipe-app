@@ -152,7 +152,7 @@ struct NotificationSettingsView: View {
                 } label: {
                     Text(BipeStrings.notificationsEnable)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bipeProminent)
             }
             .padding(.vertical, 4)
         }

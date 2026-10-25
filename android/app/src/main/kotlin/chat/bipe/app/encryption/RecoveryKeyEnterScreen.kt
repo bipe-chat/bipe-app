@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -99,7 +99,7 @@ fun RecoveryKeyEnterScreen(status: EncryptionStatusModel, close: () -> Unit, noK
             }
             RecoveryKeyEnterModel.Phase.FAILED -> Text(stringResource(R.string.bipe_error_network), color = colors.trustDangerInk)
         }
-        Button(onClick = model::submit, enabled = model.canSubmit(key, phase), modifier = Modifier.fillMaxWidth()) {
+        BipeButton(onClick = model::submit, enabled = model.canSubmit(key, phase), modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.bipe_action_continue))
         }
         TextButton(onClick = noKey, enabled = phase != RecoveryKeyEnterModel.Phase.CHECKING, modifier = Modifier.fillMaxWidth()) {

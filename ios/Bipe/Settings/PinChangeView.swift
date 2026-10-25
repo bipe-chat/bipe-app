@@ -46,7 +46,7 @@ struct PinChangeView: View {
                     } label: {
                         Text(BipeStrings.appRetry)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                     Button {
                         dismiss()
                     } label: {

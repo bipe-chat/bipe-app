@@ -489,7 +489,7 @@ struct ChatListView: View {
                 Text(BipeStrings.groupsEmptyBody).foregroundStyle(BipeColor.inkSecondary)
                 // Spec chat-list-cards createGroup.
                 Button(BipeStrings.groupsEmptyCreate) { creatingGroup = true }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             } else {
                 Text(BipeStrings.chatsEmptyTitle)
                     .font(.headline)
@@ -497,7 +497,7 @@ struct ChatListView: View {
                 Text(BipeStrings.chatsEmptyBody)
                     .foregroundStyle(BipeColor.inkSecondary)
                 Button(BipeStrings.actionStartChat) { show(.people(.contacts)) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
         }
         .multilineTextAlignment(.center)

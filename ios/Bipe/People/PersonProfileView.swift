@@ -86,7 +86,7 @@ struct PersonProfileView: View {
                 Button(BipeStrings.appRetry) {
                     Task { await model.appear() }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

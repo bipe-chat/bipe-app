@@ -32,11 +32,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -137,7 +137,7 @@ private fun ScanContent(state: LinkComputerModel.State, model: LinkComputerModel
                 when (state.scanPhase) {
                     LinkComputerModel.ScanPhase.CAMERA_DENIED -> {
                         Message(stringResource(R.string.bipe_camera_permission_body))
-                        Button(onClick = {
+                        BipeButton(onClick = {
                             context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
                         }) { Text(stringResource(R.string.bipe_contacts_open_settings_android)) }
                     }
@@ -149,7 +149,7 @@ private fun ScanContent(state: LinkComputerModel.State, model: LinkComputerModel
                         state.scanError?.let { error ->
                             Text(stringResource(R.string.bipe_link_computer_error_title), style = MaterialTheme.typography.titleMedium, color = colors.trustDangerInk)
                             Text(stringResource(error.message(model.mode)), color = colors.inkPrimary, textAlign = TextAlign.Center)
-                            OutlinedButton(onClick = model::scanAgain) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
+                            BipeOutlinedButton(onClick = model::scanAgain) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
                         }
                     }
                     LinkComputerModel.ScanPhase.CONNECTING -> {
@@ -209,7 +209,7 @@ private fun WarningContent(state: LinkComputerModel.State, model: LinkComputerMo
             modifier = Modifier.fillMaxWidth().background(colors.trustCautionWash, RoundedCornerShape(12.dp)).padding(12.dp),
         )
         Spacer(Modifier.weight(1f))
-        Button(onClick = model::continueToApprove, enabled = state.canContinue, modifier = Modifier.fillMaxWidth()) {
+        BipeButton(onClick = model::continueToApprove, enabled = state.canContinue, modifier = Modifier.fillMaxWidth()) {
             Text(
                 if (state.canContinue) stringResource(R.string.bipe_link_computer_continue)
                 else stringResource(R.string.bipe_pause_countdown, state.secondsLeft.toString()),
@@ -294,7 +294,7 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
                     color = colors.trustDangerInk,
                 )
                 Text(stringResource(state.approveError?.message(model.mode) ?: R.string.bipe_error_generic), color = colors.inkPrimary, textAlign = TextAlign.Center)
-                Button(onClick = model::retry) {
+                BipeButton(onClick = model::retry) {
                     Text(stringResource(if (phone) R.string.bipe_app_link_phone_new_code else R.string.bipe_app_link_computer_scan_again))
                 }
             }

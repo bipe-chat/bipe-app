@@ -258,7 +258,7 @@ struct AgendaOwnerView: View {
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.appRetry) { Task { await model.load() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -272,7 +272,7 @@ struct AgendaOwnerView: View {
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.agendaActivate) { showsSetup = true }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                     .controlSize(.large)
             }
             .padding(32)

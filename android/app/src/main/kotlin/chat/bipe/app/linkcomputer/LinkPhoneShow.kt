@@ -25,10 +25,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -121,7 +121,7 @@ private fun ShowPhases(state: LinkComputerModel.State, model: LinkComputerModel)
                 )
                 if (canCopyQrCode(context)) {
                     var copied by remember(code) { mutableStateOf(false) }
-                    OutlinedButton(onClick = {
+                    BipeOutlinedButton(onClick = {
                         val clipboard = context.getSystemService(ClipboardManager::class.java)
                         clipboard?.setPrimaryClip(ClipData.newPlainText("Bipe", code))
                         copied = true
@@ -155,7 +155,7 @@ private fun ShowPhases(state: LinkComputerModel.State, model: LinkComputerModel)
                 color = colors.inkPrimary,
                 textAlign = TextAlign.Center,
             )
-            Button(onClick = model::newCode) { Text(stringResource(R.string.bipe_app_link_phone_new_code)) }
+            BipeButton(onClick = model::newCode) { Text(stringResource(R.string.bipe_app_link_phone_new_code)) }
         }
     }
 }

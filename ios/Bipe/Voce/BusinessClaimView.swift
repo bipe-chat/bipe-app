@@ -198,7 +198,7 @@ struct BusinessClaimView: View {
         case .failed(let message):
             VStack(spacing: 16) {
                 Text(message).foregroundStyle(BipeColor.inkSecondary).multilineTextAlignment(.center)
-                Button(BipeStrings.appRetry) { Task { await model.appear() } }.buttonStyle(.borderedProminent)
+                Button(BipeStrings.appRetry) { Task { await model.appear() } }.buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

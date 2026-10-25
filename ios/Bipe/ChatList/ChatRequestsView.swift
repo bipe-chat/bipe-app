@@ -168,7 +168,7 @@ struct ChatRequestView: View {
                     } label: {
                         Text(BipeStrings.appRequestAccept).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                     // Action decline.
                     Button {
                         Task {
@@ -180,7 +180,7 @@ struct ChatRequestView: View {
                     } label: {
                         Text(BipeStrings.appRequestDecline).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.bipeBordered)
                     // Action askDeclineAndBlock.
                     Button(role: .destructive) {
                         confirmBlock = true
@@ -263,14 +263,14 @@ struct GroupInviteRow: View {
                     } label: {
                         Text(BipeStrings.appRequestAccept)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                     // Action declineInvite.
                     Button {
                         Task { await model.decline(invite.roomId) }
                     } label: {
                         Text(BipeStrings.appRequestDecline)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.bipeBordered)
                 }
             }
         }

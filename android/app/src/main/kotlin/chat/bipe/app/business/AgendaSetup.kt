@@ -22,7 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -304,7 +304,7 @@ fun AgendaSetupScreen(business: BusinessApi, startAtHours: Boolean, onClose: () 
         }
         val step = model.step
         if (step != AgendaSetupModel.Step.TEMPLATE) {
-            Button(
+            BipeButton(
                 enabled = !model.saving && (step != AgendaSetupModel.Step.HOURS || (!model.hoursLoading && model.hours.all { it.isValid })),
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 onClick = {

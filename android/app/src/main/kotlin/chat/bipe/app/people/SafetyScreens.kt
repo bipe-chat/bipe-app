@@ -16,13 +16,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -195,7 +195,7 @@ fun BlockedListScreen(people: PeopleService, openPerson: (String) -> Unit, onBac
                             person.handle?.let { Text("@$it", style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary) }
                         }
                     }
-                    OutlinedButton(onClick = { unblocking = person }) { Text(stringResource(R.string.bipe_action_unblock_person)) }
+                    BipeOutlinedButton(onClick = { unblocking = person }) { Text(stringResource(R.string.bipe_action_unblock_person)) }
                 }
             }
         }
@@ -273,7 +273,7 @@ fun ReportChatScreen(people: PeopleService, roomId: String, isDm: Boolean, other
             SwitchRow(stringResource(R.string.bipe_app_report_also_leave), alsoLeave) { alsoLeave = it }
         }
         if (failed) Text(stringResource(R.string.bipe_app_report_chat_error), color = colors.trustDangerInk)
-        Button(
+        BipeButton(
             onClick = ::send,
             enabled = !sending,
             colors = ButtonDefaults.buttonColors(containerColor = colors.trustDangerInk, contentColor = colors.inkOnAccent),

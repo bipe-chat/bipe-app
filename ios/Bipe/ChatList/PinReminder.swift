@@ -116,7 +116,7 @@ struct PinReminderView: View {
                     } label: {
                         Text(BipeStrings.pinChangeTitle).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                     .controlSize(.large)
                 case .blocked:
                     Text(BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries)))

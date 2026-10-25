@@ -101,7 +101,7 @@ struct GroupLeaveView: View {
                 } label: {
                     Text(BipeStrings.appGroupLeaveChooseAdmin).frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bipeProminent)
             }
             Button(role: .destructive) {
                 Task {
@@ -113,7 +113,7 @@ struct GroupLeaveView: View {
             } label: {
                 Text(BipeStrings.appGroupLeaveConfirm).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.bipeBordered)
             .tint(BipeColor.trustDangerInk)
             Button {
                 dismiss()

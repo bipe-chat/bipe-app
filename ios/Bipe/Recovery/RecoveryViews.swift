@@ -93,7 +93,7 @@ private struct FilledButton: View {
         Button(action: action) {
             Text(title).frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.bipeProminent)
         .controlSize(.large)
         .disabled(!enabled)
     }

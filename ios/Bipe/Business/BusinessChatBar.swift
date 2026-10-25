@@ -405,12 +405,12 @@ struct BusinessProfileButtons: View {
                         Button(action: tool.action) {
                             Text(tool.title).frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bipeProminent)
                     } else {
                         Button(action: tool.action) {
                             Text(tool.title).frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.bipeBordered)
                     }
                 }
             }

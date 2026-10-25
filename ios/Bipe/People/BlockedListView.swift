@@ -49,8 +49,7 @@ struct BlockedListView: View {
                         Button(BipeStrings.actionUnblockPerson) {
                             unblocking = person
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                        .buttonStyle(.bipeBordered)
                     }
                 }
                 .listStyle(.plain)

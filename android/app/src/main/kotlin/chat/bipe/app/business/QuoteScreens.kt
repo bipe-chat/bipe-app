@@ -23,7 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -583,7 +583,7 @@ fun QuoteBuilderScreen(
                 )
             }
             error?.let { Text(it, color = colors.trustDangerInk) }
-            Button(onClick = ::send, enabled = !saving && valid, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            BipeButton(onClick = ::send, enabled = !saving && valid, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 if (saving) CircularProgressIndicator(color = colors.inkOnAccent, modifier = Modifier.size(20.dp))
                 else Text(stringResource(if (quote != null) R.string.bipe_quote_send_revision else R.string.bipe_quote_send))
             }

@@ -11,11 +11,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -72,7 +72,7 @@ fun DeviceVerificationScreen(model: DeviceVerificationModel, close: () -> Unit) 
                 }
                 CircularProgressIndicator(color = colors.accentFill)
                 Body(stringResource(R.string.bipe_app_verify_waiting))
-                OutlinedButton(onClick = { model.cancel(); close() }, modifier = Modifier.fillMaxWidth()) {
+                BipeOutlinedButton(onClick = { model.cancel(); close() }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.bipe_app_cancel))
                 }
             }
@@ -87,14 +87,14 @@ fun DeviceVerificationScreen(model: DeviceVerificationModel, close: () -> Unit) 
                 Title(stringResource(R.string.bipe_app_verify_incoming_title))
                 Body(stringResource(R.string.bipe_app_verify_incoming_body, name, time))
                 Body(stringResource(R.string.bipe_device_approval_never_for_others))
-                Button(
+                BipeButton(
                     onClick = { model.accept(confirmOwner) },
                     enabled = phase == DeviceVerificationModel.Phase.INCOMING,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.bipe_app_verify_approve))
                 }
-                OutlinedButton(onClick = model::decline, modifier = Modifier.fillMaxWidth()) {
+                BipeOutlinedButton(onClick = model::decline, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.bipe_app_cancel))
                 }
             }
@@ -105,10 +105,10 @@ fun DeviceVerificationScreen(model: DeviceVerificationModel, close: () -> Unit) 
                     CircularProgressIndicator(color = colors.accentFill)
                     Body(stringResource(R.string.bipe_app_verify_waiting))
                 } else {
-                    Button(onClick = model::match, modifier = Modifier.fillMaxWidth()) {
+                    BipeButton(onClick = model::match, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.bipe_app_verify_match))
                     }
-                    OutlinedButton(onClick = model::noMatch, modifier = Modifier.fillMaxWidth()) {
+                    BipeOutlinedButton(onClick = model::noMatch, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.bipe_app_verify_no_match))
                     }
                 }

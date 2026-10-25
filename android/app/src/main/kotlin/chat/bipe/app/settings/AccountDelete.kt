@@ -16,11 +16,11 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -137,7 +137,7 @@ fun AccountDeleteDialog(model: SettingsModel, onDismiss: () -> Unit) {
                         stringResource(R.string.bipe_deletion_redact_footer),
                         redactMessages,
                     ) { redactMessages = it }
-                    OutlinedButton(
+                    BipeOutlinedButton(
                         onClick = {
                             // Action continue: the device owner check. A phone with no lock cannot check its owner: fail closed.
                             if (!OwnerCheck.canCheckOwner(context)) {
@@ -214,7 +214,7 @@ private fun Message(text: String, icon: PhosphorIcon, onClose: () -> Unit) {
         Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(48.dp))
         Text(text, color = colors.inkPrimary, textAlign = TextAlign.Center)
         Spacer(Modifier.size(8.dp))
-        Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
+        BipeButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.bipe_action_continue))
         }
     }
@@ -233,7 +233,7 @@ fun DeletionBanner(deletion: BipeAccountDeletion, isCancelling: Boolean, onCance
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.trustDangerInk,
             )
-            OutlinedButton(
+            BipeOutlinedButton(
                 onClick = onCancel,
                 enabled = !isCancelling,
                 modifier = Modifier.semantics { contentDescription = cancelLabel },

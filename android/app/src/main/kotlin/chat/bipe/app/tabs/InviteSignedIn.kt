@@ -6,10 +6,10 @@ package chat.bipe.app.tabs
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -113,11 +113,11 @@ fun InviteSignedInScreen(
                 Text(stringResource(R.string.bipe_invite_signed_in_body), color = BipeTheme.colors.inkSecondary)
                 val handle = state.inviterHandle
                 if (state.canChat && handle != null) {
-                    Button(onClick = { openProfile(handle) }, modifier = Modifier.fillMaxWidth()) {
+                    BipeButton(onClick = { openProfile(handle) }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.bipe_invite_signed_in_chat))
                     }
                 }
-                OutlinedButton(
+                BipeOutlinedButton(
                     onClick = { newAccount(SignupStart(inviteId = null, code = model.code, inviterHandle = state.inviterHandle)) },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -127,7 +127,7 @@ fun InviteSignedInScreen(
             InviteSignedInModel.Phase.NOT_VALID -> Text(stringResource(R.string.bipe_invite_no_longer_valid), color = BipeTheme.colors.inkPrimary)
             InviteSignedInModel.Phase.FAILED -> {
                 Text(stringResource(R.string.bipe_error_network), color = BipeTheme.colors.inkPrimary)
-                Button(onClick = { scope.launch { model.appear()?.let(openChat) } }) { Text(stringResource(R.string.bipe_app_retry)) }
+                BipeButton(onClick = { scope.launch { model.appear()?.let(openChat) } }) { Text(stringResource(R.string.bipe_app_retry)) }
             }
         }
     }

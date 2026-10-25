@@ -22,7 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -290,7 +290,7 @@ fun OrderCustomerScreen(
             PaymentOnSite()
             Text(stringResource(R.string.bipe_order_address_in_chat), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
             error?.let { Text(it, color = colors.trustDangerInk) }
-            Button(onClick = ::send, enabled = !sending && lines.isNotEmpty(), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            BipeButton(onClick = ::send, enabled = !sending && lines.isNotEmpty(), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 if (sending) CircularProgressIndicator(color = colors.inkOnAccent, modifier = Modifier.size(20.dp))
                 else Text(stringResource(R.string.bipe_order_send))
             }
@@ -588,11 +588,11 @@ private fun OwnerNewOrderScreen(business: BusinessApi, customers: List<Pair<Stri
             CustomerChoice(customers, enabled = !saving) { customer = it }
             FulfilmentChoice(fulfilment, enabled = !saving) { fulfilment = it }
             error?.let { Text(it, color = colors.trustDangerInk) }
-            Button(
+            BipeButton(
                 enabled = !saving && lines.isNotEmpty() && customer != null,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 onClick = {
-                    val who = customer ?: return@Button
+                    val who = customer ?: return@BipeButton
                     saving = true
                     error = null
                     scope.launch {

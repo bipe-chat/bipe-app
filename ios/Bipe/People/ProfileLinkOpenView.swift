@@ -77,7 +77,7 @@ struct ProfileLinkOpenView: View {
                         .foregroundStyle(BipeColor.inkPrimary)
                         .multilineTextAlignment(.center)
                     Button(BipeStrings.appRetry) { Task { await open() } }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bipeProminent)
                 }
             }
             .padding(24)

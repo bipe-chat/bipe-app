@@ -377,7 +377,7 @@ struct SignupInviteCodeView: View {
             Button { scanning = true } label: {
                 Label { Text(BipeStrings.onboardingScanInvite) } icon: { PhosphorIcon.qrCode.image.resizable().frame(width: 20, height: 20) }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.bipeBordered)
             .tint(BipeColor.accentFill)
             .disabled(model.inviteCodePhase == .checking)
             if model.inviteCodePhase == .checking {
@@ -428,7 +428,7 @@ struct InviteScanSheet: View {
                     } label: {
                         Text(BipeStrings.contactsOpenSettings)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                 case .some(true):
                     Text(BipeStrings.appInviteScanBody)
                         .foregroundStyle(BipeColor.inkSecondary)

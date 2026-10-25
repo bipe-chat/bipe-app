@@ -88,7 +88,7 @@ struct CatalogView: View {
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.appRetry) { Task { await load() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -203,7 +203,7 @@ private struct CatalogItemDetail: View {
                     Button(action: book) {
                         Text(BipeStrings.agendaBook).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                     .controlSize(.large)
                     .padding(.top, 8)
                 }
@@ -211,7 +211,7 @@ private struct CatalogItemDetail: View {
                     Button(action: addToOrder) {
                         Text(BipeStrings.orderAdd).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                     .controlSize(.large)
                     .padding(.top, 8)
                 }
@@ -294,7 +294,7 @@ struct CatalogOwnerView: View {
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.appRetry) { Task { await load() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -304,7 +304,7 @@ struct CatalogOwnerView: View {
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.catalogAddItem) { editing = CatalogEditTarget(item: nil) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
