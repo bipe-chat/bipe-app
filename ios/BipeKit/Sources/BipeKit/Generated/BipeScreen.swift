@@ -205,6 +205,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Open source licences (flow settings). Spec: bipe-shared/product/screens/open-source-licences.json
     case openSourceLicences = "open-source-licences"
 
+    /// Place an order (flow business). Spec: bipe-shared/product/screens/order-customer.json
+    case orderCustomer = "order-customer"
+
+    /// Pedidos for the owner (flow business). Spec: bipe-shared/product/screens/order-owner.json
+    case orderOwner = "order-owner"
+
     /// A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json
     case personProfile = "person-profile"
 
@@ -240,6 +246,18 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json
     case pushRegistration = "push-registration"
+
+    /// Fila virtual for the customer (flow business). Spec: bipe-shared/product/screens/queue-customer.json
+    case queueCustomer = "queue-customer"
+
+    /// Fila virtual for the owner (flow business). Spec: bipe-shared/product/screens/queue-owner.json
+    case queueOwner = "queue-owner"
+
+    /// Quotes for the owner (flow business). Spec: bipe-shared/product/screens/quote-builder.json
+    case quoteBuilder = "quote-builder"
+
+    /// Quote card and request (flow business). Spec: bipe-shared/product/screens/quote-card.json
+    case quoteCard = "quote-card"
 
     /// Read receipts (flow chat). Spec: bipe-shared/product/screens/read-receipts.json
     case readReceipts = "read-receipts"
