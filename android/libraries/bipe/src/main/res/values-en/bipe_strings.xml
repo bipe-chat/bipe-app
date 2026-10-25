@@ -1128,6 +1128,10 @@
     <string name="bipe_remote_banner_dismiss">Close notice</string>
     <string name="bipe_handle_prompt_title">Pick your @</string>
     <string name="bipe_handle_prompt_body">With an @, people can find you on Bipe.</string>
+    <string name="bipe_photo_prompt_title">Add a photo</string>
+    <string name="bipe_photo_prompt_body">With a photo, people know it\'s you.</string>
+    <string name="bipe_photo_prompt_action">Choose a photo</string>
+    <string name="bipe_handle_suggestions">Suggestions</string>
     <string name="bipe_handle_prompt_action">Pick an @</string>
     <string name="bipe_settings_support">Talk to support</string>
     <string name="bipe_support_open_failed">Couldn\'t open support right now. Try again.</string>

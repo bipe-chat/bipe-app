@@ -27,6 +27,7 @@ zxing = "3.5.3"
 # Play flavour only (ADR 0150).
 play-services-auth-blockstore = "16.4.0"
 firebase-messaging = "24.1.0"
+installreferrer = "2.2"
 
 [libraries]
 matrix-rust-sdk = { module = "org.matrix.rustcomponents:sdk-android", version.ref = "matrix-rust-sdk" }
@@ -60,6 +61,7 @@ zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 # Play flavour only (ADR 0150): closed source, "scope": "play" in tools/licences.json, playImplementation lines only.
 play-services-auth-blockstore = { module = "com.google.android.gms:play-services-auth-blockstore", version.ref = "play-services-auth-blockstore" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebase-messaging" }
+installreferrer = { module = "com.android.installreferrer:installreferrer", version.ref = "installreferrer" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

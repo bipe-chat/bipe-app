@@ -127,4 +127,6 @@ dependencies {
     "playImplementation"(libs.play.services.auth.blockstore)
     // Push transport (ADR 0150): src/play/.../PushTransports.kt.
     "playImplementation"(libs.firebase.messaging)
+    // Deferred invite (ADR 0154): src/play/.../InstallReferrers.kt.
+    "playImplementation"(libs.installreferrer)
 }
