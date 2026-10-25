@@ -244,6 +244,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json
     case pinChange = "pin-change"
 
+    /// PIN reminder (flow home). Spec: bipe-shared/product/screens/pin-reminder.json
+    case pinReminder = "pin-reminder"
+
     /// Receive a shared Pix item (flow share). Spec: bipe-shared/product/screens/pix-check-receive.json
     case pixCheckReceive = "pix-check-receive"
 
