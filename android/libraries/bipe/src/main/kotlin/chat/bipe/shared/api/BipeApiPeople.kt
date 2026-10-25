@@ -15,6 +15,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 
 // The Bipe API calls of people and profiles (bipe-chat/bipe#568): handle lookup, account type, badges, public profiles,
 // contact discovery. Contract: bipe-shared/api/openapi.yaml. Same calls as BipeKit BipeAPIClient on iOS.
@@ -52,6 +54,17 @@ suspend fun BipeApiClient.badge(userId: String): BipeBadgeLookup {
         )
         else -> throw BipeApiException.UnexpectedResponse(status)
     }
+}
+
+/**
+ * `GET /v1/brand-marks/{userId}` (ADR 0162). No auth. Each envelope's JSON, not yet verified, in the server's order.
+ */
+suspend fun BipeApiClient.brandMarks(userId: String): List<String> {
+    val (status, text) = exchange("GET", listOf("v1", "brand-marks", userId))
+    if (status != 200) throw BipeApiException.UnexpectedResponse(status)
+    val marks = runCatching { peopleJson.parseToJsonElement(text).jsonObject["marks"]?.jsonArray }.getOrNull()
+        ?: throw BipeApiException.UnexpectedResponse(status)
+    return marks.map { it.toString() }
 }
 
 /** `GET /v1/profiles/{handle}`. No auth. `null` on 404: no such handle, or the profile is off. */
