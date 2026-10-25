@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import SwiftUI
 import UIKit
 
@@ -9,14 +10,16 @@ import UIKit
 /// the enclosing tab bar controller and adds a double tap recognizer and a context menu interaction to it. A long press
 /// (hold) on Você opens the native account menu in place; neither cancels the tab bar's own taps, so a tap on Você
 /// still opens Você. The tab bar of iOS 26 and later has its own press-and-drag gesture, which can hold back the menu
-/// interaction's own press: a long press recognizer that runs at the same time opens the menu then (MZ decision
-/// 25 Oct 2026).
+/// interaction's own press: a long press recognizer that runs at the same time then shows the same switcher as a popover
+/// anchored on the Você item (MZ decision 25 Oct 2026).
 struct TabBarGestures: UIViewRepresentable {
     /// The accessibility label of the Você tab item: it finds the item in the tab bar.
     let voceLabel: String
     let onDoubleTap: () -> Void
     /// The account menu, built when the long press begins so it shows the latest accounts.
     let menu: () -> UIMenu
+    /// The same switcher as a view, for the popover when the menu does not show.
+    let switcher: () -> AnyView
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -32,6 +35,7 @@ struct TabBarGestures: UIViewRepresentable {
         context.coordinator.voceLabel = voceLabel
         context.coordinator.onDoubleTap = onDoubleTap
         context.coordinator.menu = menu
+        context.coordinator.switcher = switcher
         view.install()
     }
 
@@ -63,10 +67,12 @@ struct TabBarGestures: UIViewRepresentable {
         }
     }
 
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate, UIContextMenuInteractionDelegate {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate, UIContextMenuInteractionDelegate,
+                             UIPopoverPresentationControllerDelegate {
         var voceLabel = ""
         var onDoubleTap: () -> Void = {}
         var menu: () -> UIMenu = { UIMenu(children: []) }
+        var switcher: () -> AnyView = { AnyView(EmptyView()) }
         private weak var tabBar: UITabBar?
         private lazy var doubleTap: UITapGestureRecognizer = {
             let recognizer = UITapGestureRecognizer(target: self, action: #selector(didDoubleTap(_:)))
@@ -103,14 +109,35 @@ struct TabBarGestures: UIViewRepresentable {
             onDoubleTap()
         }
 
-        /// Opens the menu when the interaction's own press did not (it shows by then when it works).
+        /// Shows the switcher popover when the interaction's own press did not open the menu (it shows by then).
         @objc private func didLongPress(_ recognizer: UILongPressGestureRecognizer) {
-            guard recognizer.state == .began, let tabBar, isOnVoce(recognizer) else { return }
-            let location = recognizer.location(in: tabBar)
+            guard recognizer.state == .began, isOnVoce(recognizer) else { return }
             DispatchQueue.main.async { [weak self] in
                 guard let self, !self.menuShows else { return }
-                self.menuInteraction.presentMenu(atLocation: location)
+                self.presentSwitcher()
             }
+        }
+
+        private func presentSwitcher() {
+            guard let tabBar, let item = voceItem(in: tabBar), var top = tabBar.window?.rootViewController else { return }
+            while let presented = top.presentedViewController { top = presented }
+            let host = UIHostingController(rootView: switcher())
+            host.modalPresentationStyle = .popover
+            host.preferredContentSize = CGSize(width: 320, height: 360)
+            if let popover = host.popoverPresentationController {
+                popover.sourceView = tabBar
+                popover.sourceRect = item.convert(item.bounds, to: tabBar)
+                popover.permittedArrowDirections = .down
+                popover.delegate = self
+            }
+            BipeHaptic.hold.play()
+            top.present(host, animated: true)
+        }
+
+        /// A popover on iPhone too: the switcher opens in place, on the tab.
+        func adaptivePresentationStyle(for controller: UIPresentationController,
+                                       traitCollection: UITraitCollection) -> UIModalPresentationStyle {
+            .none
         }
 
         func contextMenuInteraction(_ interaction: UIContextMenuInteraction,

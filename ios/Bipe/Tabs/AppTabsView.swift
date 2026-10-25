@@ -69,7 +69,10 @@ struct AppTabsView: View {
         .environmentObject(model)
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
-                                   menu: { AccountMenu.make(model: model) { showsNewAccount = true } }))
+                                   menu: { AccountMenu.make(model: model) { showsNewAccount = true } },
+                                   switcher: { AnyView(AccountSwitcherPopover(model: model, fallbackMedia: chatList.media) {
+                                       showsNewAccount = true
+                                   }) }))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
         .modifier(InviteJoinNotice(model: model.invites(for: session)))
