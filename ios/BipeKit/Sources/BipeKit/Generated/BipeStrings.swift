@@ -20,6 +20,30 @@ public enum BipeStrings {
 
     public static var badgeSuspended: String { NSLocalizedString("bipe_badge_suspended", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func profileFactCreated(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_created", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func profileFactPhotoOnce(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_photo_once", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func profileFactPhotoTimes(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_photo_times", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func profileFactNameOnce(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_name_once", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func profileFactNameTimes(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_name_times", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func profileNoticeNamePhoto(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_notice_name_photo", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var bannerUnverifiedTitle: String { NSLocalizedString("bipe_banner_unverified_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func bannerUnverifiedBody(_ p1: String) -> String {
