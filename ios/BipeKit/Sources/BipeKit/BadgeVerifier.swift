@@ -156,6 +156,8 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
     /// Present only for `cnpj`.
     public let company: BadgeCompany?
     public let binding: BadgeBinding
+    /// `cnpj` only, optional: the CVM register line (ADR 0077). Read leniently: a bad value is no line, never a bad badge.
+    public let cvm: BipeCvmField?
     /// Issued at, Unix seconds.
     public let iat: Int64
     /// Expires at, Unix seconds.
@@ -167,6 +169,7 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
         case tradeName = "trade_name"
         case method
         case checkedMonth = "checked_month"
+        case cvm
     }
     
     public init(from decoder: Decoder) throws {
@@ -177,6 +180,7 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
         cnpj = try container.decodeIfPresent(String.self, forKey: .cnpj)
         iat = try container.decode(Int64.self, forKey: .iat)
         exp = try container.decode(Int64.self, forKey: .exp)
+        cvm = lvl == .cnpj ? ((try? container.decodeIfPresent(BipeCvmField.self, forKey: .cvm)) ?? nil) : nil
         switch lvl {
         case .cnpj:
             let msk = try container.decode(String.self, forKey: .msk)

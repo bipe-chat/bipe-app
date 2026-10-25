@@ -44,7 +44,7 @@ jobs:
         include:
           - configuration: Release
             ids: store
-            settings: BIPE_APP_ID=chat.bipe.app BIPE_APP_GROUP=group.chat.bipe BIPE_DISPLAY_NAME=Bipe
+            settings: BIPE_APP_ID=chat.bipe.app BIPE_APP_GROUP=group.chat.bipe BIPE_SHARE_ID_SUFFIX=shareextension BIPE_DISPLAY_NAME=Bipe
     steps:
       - uses: actions/checkout@v4
       - name: Xcode version

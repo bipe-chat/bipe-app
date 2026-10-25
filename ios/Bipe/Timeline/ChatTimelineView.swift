@@ -19,6 +19,8 @@ struct ChatTimelineView: View {
     @State private var creatingPoll = false
     @State private var openPollId: String?
     @StateObject private var voicePlayer = VoicePlayer()
+    /// Spec business-chat-bar: the tools and booking cards of a DM with a company, or of its customer.
+    @StateObject private var business: BusinessChatModel
     @State private var viewerRowId: String?
     // composer
     @State private var attaching = false
@@ -34,6 +36,7 @@ struct ChatTimelineView: View {
 
     init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil, openInfo: (() -> Void)? = nil) {
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
+        _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
         self.media = media
         self.openInfo = openInfo
         self.session = session
@@ -43,6 +46,11 @@ struct ChatTimelineView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if model.isDm, let people, let peer = model.peerUserId {
+                CvmStopOrderCard(seals: people.seals, userId: peer)
+            }
+            // The open bookings with the business, pinned above the timeline (ADR 0102).
+            BookingCardStack(model: business)
             rowList
             if let hint = model.inviterHint {
                 InviterHintRow(hint: hint, inviterName: model.roomName) {
@@ -103,6 +111,7 @@ struct ChatTimelineView: View {
             if model.isDm {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
+                        BusinessMenuItems(model: business)
                         Button(BipeStrings.dmDeleteAction, role: .destructive) {
                             deletingDm = true
                         }
@@ -128,6 +137,10 @@ struct ChatTimelineView: View {
         }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
+        .businessChatTools(business)
+        .task(id: "\(model.isDm)|\(model.peerUserId ?? "")|\(model.roomName)") {
+            await business.load(peerUserId: model.isDm ? model.peerUserId : nil, peerName: model.roomName)
+        }
         .onDisappear {
             voicePlayer.stop()
             model.close()
@@ -587,5 +600,35 @@ private struct InviterHintRow: View {
         }
         .padding(12)
         .background(BipeColor.accentWash)
+    }
+}
+
+/// Spec chat-timeline: the red caution card in a DM with a company that CVM ordered to stop its offers (ADR 0077).
+/// From the signed badge only; it stays while the badge says so.
+private struct CvmStopOrderCard: View {
+    let seals: BipeCompanySeals
+    let userId: String
+
+    var body: some View {
+        let cvm = seals.state(for: userId).cvm
+        if cvm.danger, let date = cvm.lines.first?.arg {
+            HStack(alignment: .top, spacing: 8) {
+                PhosphorIcon.warningCircle.image
+                    .resizable()
+                    .frame(width: 20, height: 20)
+                    .foregroundStyle(BipeColor.trustDangerInk)
+                    .accessibilityHidden(true)
+                Text(BipeStrings.cvmStopOrderCard(date))
+                    .font(.subheadline.bold())
+                    .foregroundStyle(BipeColor.trustDangerInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.trustDangerWash))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(BipeColor.trustDangerLine, lineWidth: 2))
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .accessibilityElement(children: .combine)
+        }
     }
 }

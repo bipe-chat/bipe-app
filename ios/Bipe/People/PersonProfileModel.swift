@@ -46,8 +46,10 @@ final class PersonProfileModel: ObservableObject {
 
     @Published private(set) var phase: Phase = .loading
     @Published private(set) var person: Person
-    /// UserIdentity.isVerified: confirmed in person.
-    @Published private(set) var confirmedInPerson = false
+    /// The SDK's identity of the person (spec facts). nil while not read, or when the SDK could not read it.
+    @Published private(set) var trustIdentity: BipeTrustSources.Identity?
+    /// The identity read has run at least once: a nil trustIdentity then means lifecycle unknown.
+    @Published private(set) var identityRead = false
     @Published private(set) var bio: String?
     @Published private(set) var dmRoomId: String?
     /// A one-line notice after an action (invite sent, refused, already a member).
@@ -77,7 +79,7 @@ final class PersonProfileModel: ObservableObject {
         }
         phase = .loaded
 
-        confirmedInPerson = await people.isConfirmedInPerson(userId)
+        await readIdentity()
         if let handle = person.handle, let profile = try? await people.api.publicProfile(handle: handle) {
             let text = profile.bio?.trimmingCharacters(in: .whitespacesAndNewlines)
             bio = text?.isEmpty == false ? text : nil
@@ -108,16 +110,39 @@ final class PersonProfileModel: ObservableObject {
         people.seals.state(for: userId)
     }
 
+    /// Action retryFacts (and part of appear): reads the person's identity again.
+    func readIdentity() async {
+        trustIdentity = await people.trustIdentity(userId)
+        identityRead = true
+    }
+
+    /// facts of the spec: identity proof, personal confirmation and changes, apart (ADR 0074, BipeTrustSources).
+    var facts: BipeTrustFacts {
+        let sealSource: BipeTrustSources.Seal = switch seal {
+        case .verified(let payload): .verified(name: payload.name)
+        case .suspended: .suspended
+        case .none, .revoked: .none
+        }
+        return BipeTrustSources.profileFacts(userId: userId, identity: trustIdentity, seal: sealSource)
+    }
+
+    /// The identity read ran and gave nothing: bipe_trust_lifecycle_unknown with bipe_trust_lifecycle_retry_action.
+    var lifecycleUnknown: Bool {
+        identityRead && facts.change == "unknown"
+    }
+
     /// marks of the spec: only marks that verify on this device. verifiedName and nameSuspended have no signer yet.
     var marks: [TrustMark] {
         var marks: [TrustMark] = []
-        switch seal {
-        case .verified: marks.append(TrustMark(kind: .company, text: BipeStrings.badgeCompany))
-        case .revoked: marks.append(TrustMark(kind: .companyRevoked, text: seal.notice ?? BipeStrings.badgeCompanyRevoked))
-        case .suspended: marks.append(TrustMark(kind: .companySuspended, text: BipeStrings.badgeCompanySuspended))
-        case .none: break
+        let facts = facts
+        if case .revoked = seal {
+            marks.append(TrustMark(kind: .companyRevoked, text: seal.notice ?? BipeStrings.badgeCompanyRevoked))
+        } else if facts.identity == "verified" {
+            marks.append(TrustMark(kind: .company, text: BipeStrings.badgeCompany))
+        } else if facts.identity == "suspended" || seal == .suspended {
+            marks.append(TrustMark(kind: .companySuspended, text: BipeStrings.badgeCompanySuspended))
         }
-        if confirmedInPerson {
+        if facts.contact == "confirmed" {
             marks.append(TrustMark(kind: .confirmedInPerson, text: BipeStrings.badgeVerifiedContact))
         }
         return marks

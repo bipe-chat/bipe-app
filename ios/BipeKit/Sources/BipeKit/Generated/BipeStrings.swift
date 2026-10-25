@@ -76,6 +76,28 @@ public enum BipeStrings {
 
     public static var badgeCompanySuspended: String { NSLocalizedString("bipe_badge_company_suspended", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func cvmRegistered(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_cvm_registered", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func cvmCancelled(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_cvm_cancelled", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var cvmNoRegistration: String { NSLocalizedString("bipe_cvm_no_registration", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var cvmBankNote: String { NSLocalizedString("bipe_cvm_bank_note", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func cvmStopOrder(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_cvm_stop_order", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var cvmSource: String { NSLocalizedString("bipe_cvm_source", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func cvmStopOrderCard(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_cvm_stop_order_card", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var badgeOfficial: String { NSLocalizedString("bipe_badge_official", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var badgeOfficialA11y: String { NSLocalizedString("bipe_badge_official_a11y", tableName: "Bipe", bundle: .module, comment: "") }

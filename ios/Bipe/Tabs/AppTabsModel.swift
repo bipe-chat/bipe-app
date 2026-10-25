@@ -33,6 +33,8 @@ final class AppTabsModel: ObservableObject {
     enum Tab: String, Hashable {
         case conversas
         case grupos
+        /// Company accounts only (spec agenda-owner, ADR 0103).
+        case agenda
         case voce
         case search
     }
@@ -42,6 +44,8 @@ final class AppTabsModel: ObservableObject {
     @Published private(set) var conversasUnread = 0
     @Published private(set) var gruposAttention = 0
     @Published private(set) var otherAccountUnread = false
+    /// The current account is a company account: the Agenda tab and the business tools show.
+    @Published private(set) var currentIsCompany = false
     @Published private(set) var canAddAccount = true
     /// max_accounts of the account on screen, for bipe_account_cap_reached (spec account-new).
     @Published private(set) var maxPersonalAccounts = BipeRegistries.maxPersonalAccounts
@@ -244,6 +248,8 @@ final class AppTabsModel: ObservableObject {
         conversasUnread = chats.filter { $0.scope == .conversas && $0.isUnread }.count
         gruposAttention = chats.filter { $0.scope == .grupos }.reduce(0) { $0 + $1.mentionCount }
         otherAccountUnread = accounts.contains { !$0.isCurrent && $0.hasUnread }
+        currentIsCompany = currentId.flatMap { profiles[$0]?.isCompany } ?? false
+        if !currentIsCompany && selectedTab == .agenda { selectedTab = .conversas }
         let limit = currentId.flatMap { profiles[$0]?.maxAccounts } ?? BipeRegistries.maxPersonalAccounts
         maxPersonalAccounts = limit
         canAddAccount = accounts.filter { !$0.isCompany }.count < limit
