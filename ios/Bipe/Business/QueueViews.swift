@@ -154,17 +154,14 @@ struct QueueCustomerView: View {
                     } footer: {
                         if joined { Text(BipeStrings.queueJoined) }
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                     Section {
                         Button(BipeStrings.queueLeave, role: .destructive) { confirmsLeave = true }
                             .disabled(working)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 } else if queue?.open == true {
                     Section {
                         Text(BipeStrings.queueOpenNow).foregroundStyle(BipeColor.inkPrimary)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                     Section {
                         Button {
                             Task { await join() }
@@ -182,7 +179,6 @@ struct QueueCustomerView: View {
                     Section {
                         Text(BipeStrings.queueClosed).foregroundStyle(BipeColor.inkSecondary)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
                 if let error {
                     Section {
@@ -191,7 +187,6 @@ struct QueueCustomerView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .refreshable { await load() }
         }
     }
@@ -348,7 +343,6 @@ struct QueueOwnerView: View {
                     }
                 }
                 .disabled(working)
-                .listRowBackground(BipeColor.surfaceRaised)
                 Section {
                     if places.isEmpty {
                         Text(BipeStrings.queueOwnerEmpty)
@@ -359,10 +353,8 @@ struct QueueOwnerView: View {
                         }
                     }
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .refreshable { await load() }
         }
     }
@@ -504,10 +496,7 @@ private struct QueueWalkInView: View {
                         Text(error).foregroundStyle(BipeColor.trustDangerInk)
                     }
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
             }
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.queueAddWalkIn)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -573,10 +562,7 @@ private struct QueueSettingsView: View {
                         Text(error).foregroundStyle(BipeColor.trustDangerInk)
                     }
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
             }
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.queueSettings)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

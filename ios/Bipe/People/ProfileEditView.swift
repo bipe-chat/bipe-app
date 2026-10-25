@@ -79,8 +79,6 @@ struct ProfileEditView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .tint(BipeColor.accentFill)
         .navigationTitle(BipeStrings.settingsProfileNamePhoto)
         .navigationBarTitleDisplayMode(.inline)

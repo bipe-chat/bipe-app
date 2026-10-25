@@ -51,8 +51,6 @@ struct WhoCanMessageView: View {
             }
             .disabled(saving)
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.messagingTitle)
         .accessibilityIdentifier(BipeScreen.whoCanMessage.rawValue)
         .task { await appear() }

@@ -123,12 +123,9 @@ struct QuoteVersionsView: View {
                     } header: {
                         Text(BipeStrings.quoteVersion(String(version.version)))
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.quotePreviousVersions)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -220,7 +217,6 @@ struct QuoteOwnerView: View {
                                 }
                             }
                             .padding(.vertical, 4)
-                            .listRowBackground(BipeColor.surfaceRaised)
                         }
                     } header: {
                         Text(BipeStrings.quoteRequestsTitle)
@@ -230,7 +226,6 @@ struct QuoteOwnerView: View {
                     Section {
                         ForEach(quotes) { quote in
                             quoteRow(quote)
-                                .listRowBackground(BipeColor.surfaceRaised)
                         }
                     } header: {
                         Text(BipeStrings.quotesTitle)
@@ -238,7 +233,6 @@ struct QuoteOwnerView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
         }
     }
 
@@ -369,7 +363,6 @@ struct QuoteBuilderView: View {
                 } header: {
                     Text(customerName)
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
                 Section {
                     DatePicker(BipeStrings.quoteValidity, selection: $validUntil, in: Date()..., displayedComponents: [.date])
                     Picker(BipeStrings.quoteVisit, selection: $visitServiceId) {
@@ -379,12 +372,10 @@ struct QuoteBuilderView: View {
                         }
                     }
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
                 Section {
                     LabeledContent(BipeStrings.quoteTotal, value: BusinessText.money(previewTotal))
                         .font(.headline)
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
                 Section {
                     Button {
                         Task { await send() }
@@ -405,8 +396,6 @@ struct QuoteBuilderView: View {
                     }
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(isRevision ? BipeStrings.quoteNewVersion : BipeStrings.quoteBuilderTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

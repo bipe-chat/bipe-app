@@ -151,8 +151,7 @@ private fun Visual(media: MediaMessage, display: MediaDisplay, image: LoadedImag
     val isSticker = media.kind == MediaMessage.Kind.STICKER
     val width = if (isSticker) STICKER_WIDTH else MAX_WIDTH
     val height = minOf(width / media.aspectRatio, width * 1.4f)
-    val label = stringResource(media.kindLabel)
-    val description = media.caption?.takeIf { it.isNotBlank() }?.let { "$label, $it" } ?: label
+    val description = mediaAccessibilityLabel(media)
     Box(
         modifier = Modifier
             .size(width, height)
@@ -300,3 +299,11 @@ private fun FileCard(media: MediaMessage, display: MediaDisplay, opening: Boolea
 /** Light ink on a dark veil over media, in light and dark mode. */
 fun Modifier.mediaScrim(shape: Shape): Modifier =
     background(BipeDarkColors.surfaceBase.copy(alpha = 0.6f), shape)
+
+/** What TalkBack reads: the description of an image before the caption (spec timeline-media notes). */
+@Composable
+internal fun mediaAccessibilityLabel(media: MediaMessage): String {
+    val described = media.description?.takeIf { media.kind == MediaMessage.Kind.IMAGE }
+    val base = described?.let { stringResource(R.string.bipe_app_media_image_described, it) } ?: stringResource(media.kindLabel)
+    return media.caption?.takeIf { it.isNotBlank() }?.let { "$base, $it" } ?: base
+}

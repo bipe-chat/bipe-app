@@ -59,8 +59,6 @@ struct GroupMembersView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .searchable(text: Binding(get: { model.query }, set: { model.setQuery($0) }), prompt: BipeStrings.appPeopleSearch)
         .navigationTitle(BipeStrings.appGroupMembersTitle)
         .navigationBarTitleDisplayMode(.inline)

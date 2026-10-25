@@ -11,18 +11,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.edgeToEdge
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import kotlinx.coroutines.delay
@@ -91,17 +93,22 @@ fun PeopleScaffold(
     }
 }
 
-/** A tappable row with a Phosphor icon in front of its text. */
+/** A tappable Material 3 list item with a Phosphor icon in front of its text. [containerColor] matches the surface it sits on. */
 @Composable
-fun IconRow(icon: PhosphorIcon, text: String, tint: Color = BipeTheme.colors.inkPrimary, enabled: Boolean = true, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(painterResource(icon.drawable), contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(14.dp))
-        Text(text, style = MaterialTheme.typography.bodyLarge, color = tint)
-    }
+fun IconRow(
+    icon: PhosphorIcon,
+    text: String,
+    tint: Color = BipeTheme.colors.inkPrimary,
+    enabled: Boolean = true,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    onClick: () -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(text, style = MaterialTheme.typography.bodyLarge, color = tint) },
+        leadingContent = { Icon(painterResource(icon.drawable), contentDescription = null, tint = tint, modifier = Modifier.size(22.dp)) },
+        colors = ListItemDefaults.colors(containerColor = containerColor),
+        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+    )
 }
 
 /** One trust mark or warning under a name. */
@@ -114,11 +121,14 @@ fun MarkLine(icon: PhosphorIcon, text: String, tint: Color, onClick: (() -> Unit
     }
 }
 
-/** A grouped block of rows on a raised surface. */
+/**
+ * A group of list items, edge to edge: it undoes the 16 dp side padding of [PeopleScaffold] so the rows
+ * span the screen like a standard list. A divider separates it from what is above.
+ */
 @Composable
 fun RowGroup(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth().background(BipeTheme.colors.surfaceRaised, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp),
-        content = content,
-    )
+    Column(modifier = Modifier.edgeToEdge(16.dp).fillMaxWidth()) {
+        HorizontalDivider()
+        content()
+    }
 }
