@@ -118,6 +118,7 @@ sealed interface SettingsRoute {
     data object AppLockOff : SettingsRoute
     data object LinkedDevices : SettingsRoute
     data object LinkedAccounts : SettingsRoute
+    data object TheftProtection : SettingsRoute
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
@@ -196,6 +197,7 @@ fun SettingsHost(
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
         SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
+        SettingsRoute.TheftProtection -> TheftProtectionScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
         SettingsRoute.DataUse -> DataUseScreen(onBack = pop)
         SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, onClose = pop)
@@ -348,6 +350,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_CHANGE_PIN -> onOpen(SettingsRoute.PinChange)
             BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
             BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS -> onOpen(SettingsRoute.LinkedAccounts)
+            BipeSettingsRow.ACCOUNT_THEFT_PROTECTION -> onOpen(SettingsRoute.TheftProtection)
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
             BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)

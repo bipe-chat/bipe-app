@@ -25,6 +25,7 @@ import chat.bipe.shared.R
 import chat.bipe.app.groups.GroupPeople
 import chat.bipe.shared.BipeHandleChangeStore
 import chat.bipe.shared.BipeMoneyPause
+import chat.bipe.shared.BipeTheftStatement
 import chat.bipe.shared.ScamWarningKind
 import org.matrix.rustcomponents.sdk.MembershipState
 import kotlinx.coroutines.CancellationException
@@ -176,6 +177,9 @@ class ChatTimelineModel(
     private val _peerAway = MutableStateFlow(PeerAway.NONE)
     val peerAway: StateFlow<PeerAway> = _peerAway.asStateFlow()
     private val _invitingAgain = MutableStateFlow(false)
+    /** Spec chat-timeline theftMark: a valid theft statement for the other person of a DM, else null. */
+    private val _theftMark = MutableStateFlow<BipeTheftStatement?>(null)
+    val theftMark: StateFlow<BipeTheftStatement?> = _theftMark.asStateFlow()
     val invitingAgain: StateFlow<Boolean> = _invitingAgain.asStateFlow()
     /** The person whose profile was checked for ACCOUNT_GONE, so the lookup runs once per leave. */
     private var accountGoneChecked: Pair<String, Boolean>? = null
@@ -253,6 +257,13 @@ class ChatTimelineModel(
             if (_draft.value.isEmpty()) room.newMessageDraft()?.let { _draft.value = it }
             if (!facts.isDm) launch { mentionDirectory.load(room, session.userId) }
             loadHandleChanges(room)
+            // The partner's theft mark when the chat opens, then every checkMinutes while it stays open.
+            launch {
+                while (true) {
+                    checkTheftMark()
+                    delay(TheftMarkChecks.INTERVAL_MILLIS)
+                }
+            }
             val typing = Channel<List<String>>(Channel.CONFLATED)
             typingHandle = room.subscribeToTypingNotifications(object : TypingNotificationsListener {
                 override fun call(typingUserIds: List<String>) {
@@ -312,6 +323,21 @@ class ChatTimelineModel(
         _isDm.value = facts.isDm
         _isPrivateRoom.value = runCatching { room.isPublic() }.getOrNull() != true
     }
+
+    private suspend fun checkTheftMark() {
+        val peer = _peerUserId.value
+        if (!facts.isDm || peer == null) {
+            _theftMark.value = null
+            return
+        }
+        val statement = TheftMarkChecks.statement(peer, session)
+        // The chat may have changed partner while the call ran.
+        if (_peerUserId.value == peer) _theftMark.value = statement
+    }
+
+    /** bipe_theft_message_marker: a message of the marked partner sent from stolen_at minus markedMessageMinutes on. */
+    fun showsTheftMarker(message: TimelineMessage, mark: BipeTheftStatement?): Boolean =
+        mark != null && !message.isOwn && message.senderId == mark.sub && message.sentAt >= mark.markerStartMillis
 
     fun row(id: String?): TimelineRow? = id?.let { rowId -> _rows.value.firstOrNull { it.id == rowId } }
 

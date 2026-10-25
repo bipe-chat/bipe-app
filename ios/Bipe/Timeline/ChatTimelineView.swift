@@ -63,6 +63,9 @@ struct ChatTimelineView: View {
             if model.isDm, let people, let peer = model.peerUserId, peer != session.userId {
                 ProfileNoticeBar(people: people, userId: peer, name: model.roomName)
             }
+            if model.isDm, model.theftMark != nil {
+                TheftMarkBanner(name: model.roomName)
+            }
             if model.isDm, let people, let peer = model.peerUserId {
                 DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
                     leftBar
