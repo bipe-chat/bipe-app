@@ -6,6 +6,17 @@ import BipeKit
 import Foundation
 import MatrixRustSDK
 
+extension BipeOnboardingRecoveryRow {
+    /// The provider of a linked-account row (ADR 0096).
+    var linkProvider: BipeLinkProvider? {
+        switch self {
+        case .apple: .apple
+        case .google: .google
+        default: nil
+        }
+    }
+}
+
 /// The way back into an existing account (ADR 0057, ADR 0059): recovery-start, recovery-pin, recovery-email and
 /// recovery-waiting (bipe-shared product/screens). account-start shows it from onboarding-welcome ("Já tenho conta")
 /// and while a kept recovery waits. Every path gives access only: message history needs encryption-status.
@@ -17,12 +28,21 @@ final class RecoveryFlowModel: ObservableObject {
         case beta
         case waiting
         case oldPhone
+        case linked
     }
 
     /// Spec recovery-pin, state factor.
     enum Factor: Equatable {
         case token
         case emailLink
+        /// The proof of recovery-linked (ADR 0096).
+        case linked
+    }
+
+    /// Spec recovery-linked, state phase.
+    enum LinkedPhase: Equatable {
+        case signingIn
+        case failed
     }
 
     /// Spec recovery-pin, state phase. newPin and newPinConfirm are the signup-pin steps of forgotPin.
@@ -81,6 +101,13 @@ final class RecoveryFlowModel: ObservableObject {
     @Published private(set) var betaBusy = false
     @Published private(set) var betaError: String?
 
+    // recovery-linked (ADR 0096)
+    @Published private(set) var linkProvider: BipeLinkProvider = .apple
+    @Published private(set) var linkedPhase: LinkedPhase = .signingIn
+    @Published private(set) var linkedError: String?
+    /// The provider of the kept recovery, for recovery-waiting. `nil` for e-mail, and after the app restarts.
+    @Published private(set) var waitingProvider: BipeLinkProvider?
+
     // recovery-waiting
     @Published private(set) var pending: BipeRecoveryStarted?
     @Published private(set) var waitingPhase: WaitingPhase = .waiting
@@ -91,6 +118,10 @@ final class RecoveryFlowModel: ObservableObject {
     private let onSignedIn: (AccountSession) -> Void
     private var token: BipeCredentialStore.Item?
     private var linkToken: String?
+    /// The provider proof of recovery-linked. In memory only; it works once.
+    private var linkProof: BipeLinkProof?
+    private var linkProviders: [BipeLinkProvider] = []
+    private var providersTask: Task<Void, Never>?
     private var newPin = ""
     private var pollTask: Task<Void, Never>?
 
@@ -124,6 +155,16 @@ final class RecoveryFlowModel: ObservableObject {
         rows = BipeOnboardingRecoveryRow.allCases.filter { row in
             (row.gate == nil || row == .oldPhone || (row.gate == "flag:developer" && AppConfig.isDeveloperBuild))
                 && (!row.needsSyncedToken || hasSyncedToken)
+                && (row.linkProvider.map { linkProviders.contains($0) } ?? true)
+        }
+        // Spec recovery-start linkProviders: Apple through Sign in with Apple, Google through the web flow. The rows
+        // show once the server answers; a server without them keeps them hidden (fail closed).
+        if providersTask == nil {
+            providersTask = Task { [weak self] in
+                guard let self, let providers = try? await api.linkProviders() else { return }
+                linkProviders = providers.usableOnIOS
+                appear()
+            }
         }
         // Spec soft-logout enterPin: straight to recovery-pin when the account's synced token is here.
         if softLogoutUserId != nil, hasSyncedToken, path.isEmpty {
@@ -145,6 +186,38 @@ final class RecoveryFlowModel: ObservableObject {
             path.append(.beta)
         case .oldPhone:
             path.append(.oldPhone)
+        case .apple, .google:
+            if let provider = row.linkProvider {
+                linkProvider = provider
+                path.append(.linked)
+                Task { await startLinked() }
+            }
+        }
+    }
+
+    // MARK: - recovery-linked
+
+    /// Actions start and retry: the provider sign-in, then recovery-pin with factor linked.
+    func startLinked() async {
+        linkedPhase = .signingIn
+        linkedError = nil
+        do {
+            switch try await LinkSignIn.run(linkProvider, api: api, accessToken: nil) {
+            case .proof(let proof):
+                linkProof = proof
+                if path.last == .linked {
+                    path.removeLast()
+                }
+                openPin(.linked)
+            case .cancelled:
+                path = []
+            case .failed:
+                linkedPhase = .failed
+                linkedError = BipeStrings.recoveryLinkedInvalid
+            }
+        } catch {
+            linkedPhase = .failed
+            linkedError = error == .network ? BipeStrings.errorNetwork : error.localizedMessage
         }
     }
 
@@ -215,6 +288,14 @@ final class RecoveryFlowModel: ObservableObject {
                 let started = try await api.confirmRecoveryEmail(linkToken: linkToken, pin: pin, newPIN: nil)
                 pin = ""
                 startWaiting(started)
+            case .linked:
+                guard let proof = linkProof else { throw BipeAPIError.server(.recoveryInvalid, reason: nil, statusCode: 403) }
+                // The proof works once, whatever the answer.
+                linkProof = nil
+                let started = try await api.recoverWithLink(linkProvider, proof: proof, pin: pin)
+                pin = ""
+                waitingProvider = linkProvider
+                startWaiting(started)
             }
         } catch let error as BipeAPIError {
             pin = ""
@@ -235,7 +316,8 @@ final class RecoveryFlowModel: ObservableObject {
             newPin = ""
             pinError = nil
             pinPhase = .newPin
-        case .token:
+        case .token, .linked:
+            // A linked account never resets the PIN (ADR 0096): recovery-email does.
             choose(.email)
         }
     }
@@ -271,10 +353,10 @@ final class RecoveryFlowModel: ObservableObject {
             pinError = BipeStrings.pinWrong(String(triesLeft ?? 0))
         case .server(.pinBlocked, _, _):
             pinPhase = .blocked
-            pinError = nil
+            pinError = factor == .linked ? BipeStrings.recoveryLinkedPinBlocked : nil
         case .server(.recoveryInvalid, _, _):
             pinPhase = .failed
-            pinError = BipeStrings.errorRecoveryInvalid
+            pinError = factor == .linked ? BipeStrings.recoveryLinkedInvalid : BipeStrings.errorRecoveryInvalid
             // Spec notes: an old or revoked synced token is deleted; recovery-start shows without the token row.
             if factor == .token, let token {
                 store.deleteRecoveryToken(for: token.userID)
@@ -433,6 +515,7 @@ final class RecoveryFlowModel: ObservableObject {
     /// Action startOver: from cancelled or expired (and after a PIN reset), back to recovery-start.
     func startOver() {
         pollTask?.cancel()
+        waitingProvider = nil
         store.deletePendingRecovery()
         pending = nil
         waitingPhase = .waiting

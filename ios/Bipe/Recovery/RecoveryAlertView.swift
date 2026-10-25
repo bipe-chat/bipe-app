@@ -7,7 +7,8 @@ import Phosphor
 import SwiftUI
 
 /// Spec recovery-alert (bipe-shared product/screens/recovery-alert.json): on a signed-in phone, a full alert while
-/// someone gets back into this account elsewhere, with a cancel; and a notice after a sign-in with the synced token.
+/// someone gets back into this account elsewhere, with a cancel; a notice after a sign-in with the synced token; and a
+/// notice after an Apple or Google account was linked or unlinked (state linkNotice, ADR 0096).
 @MainActor
 final class RecoveryAlertModel: ObservableObject {
     enum Phase: Equatable {
@@ -18,6 +19,8 @@ final class RecoveryAlertModel: ObservableObject {
     }
 
     @Published private(set) var notice: BipeRecovery?
+    /// Shown when no recovery needs a notice.
+    @Published private(set) var linkNotice: BipeLinkEvent?
     @Published private(set) var phase: Phase = .shown
 
     private let api: BipeAPIClient
@@ -31,7 +34,7 @@ final class RecoveryAlertModel: ObservableObject {
 
     /// Action check: on launch and on foreground, from GET /v1/me/account.
     func check() async {
-        guard notice == nil || phase == .cancelled else { return }
+        guard (notice == nil && linkNotice == nil) || phase == .cancelled else { return }
         let status = try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeAccountStatus in
             try await self.api.account(accessToken: token)
         }
@@ -43,6 +46,10 @@ final class RecoveryAlertModel: ObservableObject {
             .filter { $0.alertMessage != nil && !dismissed.contains($0.id) }
             .filter { $0.state == .waiting || $0.createdAt > since }
             .max { $0.createdAt < $1.createdAt }
+        // A link made on this phone was dismissed here when it was made (RecoveryAlertModel.dismissOnThisPhone).
+        linkNotice = notice != nil ? nil : (status.linkEvents ?? [])
+            .filter { !dismissed.contains($0.id) && $0.at > since }
+            .max { $0.at < $1.at }
         phase = .shown
     }
 
@@ -64,9 +71,20 @@ final class RecoveryAlertModel: ObservableObject {
 
     /// Action keep: it was me. Dismisses the notice on this phone; the recovery goes on.
     func keep() {
-        guard let notice else { return }
-        dismiss(notice.id)
-        self.notice = nil
+        if let notice {
+            dismiss(notice.id)
+            self.notice = nil
+        } else if let linkNotice {
+            dismiss(linkNotice.id)
+            self.linkNotice = nil
+        }
+    }
+
+    /// A link or unlink made on this phone needs no notice here.
+    static func dismissOnThisPhone(userId: String, eventIds: [String]) {
+        let key = "bipe.recoveryAlert.dismissed.\(userId)"
+        let defaults = UserDefaults.standard
+        defaults.set(Array(Set(defaults.stringArray(forKey: key) ?? []).union(eventIds)), forKey: key)
     }
 
     /// Closes the cancelled message.
@@ -118,7 +136,7 @@ struct RecoveryAlertView: View {
                 Spacer()
                 filled(BipeStrings.actionContinue) { model.close() }
             default:
-                if let message = model.notice?.alertMessage {
+                if let message = model.notice?.alertMessage ?? model.linkNotice?.alertMessage {
                     Text(message)
                         .foregroundStyle(BipeColor.inkPrimary)
                 }
