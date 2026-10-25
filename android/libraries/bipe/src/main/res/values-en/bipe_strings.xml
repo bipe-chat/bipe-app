@@ -6,6 +6,12 @@
     <string name="bipe_badge_verified_name">Name verified: %1$s</string>
     <string name="bipe_badge_institution">Verified organisation</string>
     <string name="bipe_badge_suspended">Name verification suspended</string>
+    <string name="bipe_profile_fact_created">Account created %1$s ago</string>
+    <string name="bipe_profile_fact_photo_once">Photo changed %1$s ago</string>
+    <string name="bipe_profile_fact_photo_times">Photo changed %1$s times in %2$s days</string>
+    <string name="bipe_profile_fact_name_once">Name changed %1$s ago</string>
+    <string name="bipe_profile_fact_name_times">Name changed %1$s times in %2$s days</string>
+    <string name="bipe_profile_notice_name_photo">%1$s changed their name and photo recently. Before you send money, check with them another way.</string>
     <string name="bipe_banner_unverified_title">Name not verified</string>
     <string name="bipe_banner_unverified_body">Account created %1$s ago. Not in your contacts.</string>
     <string name="bipe_banner_external">Account from another service. Bipe doesn\'t verify this person\'s name.</string>
