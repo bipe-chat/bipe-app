@@ -119,6 +119,8 @@ public nonisolated enum BadgeLevel: String, Sendable, Codable {
     case institution
     /// A verified company (ADR 0042), bound to the account's cross-signing master key.
     case cnpj
+    /// A brand's mark on a reseller's work account (ADR 0162), bound to the reseller's master key.
+    case brandMark = "brand-mark"
 }
 
 /// How a company proved control of its CNPJ (ADR 0042).
@@ -132,7 +134,7 @@ public nonisolated enum BadgeCNPJMethod: String, Sendable, Codable {
 public nonisolated enum BadgeBinding: Sendable, Equatable {
     /// Fingerprint of the device key (`dev`): `pix`, `govbr` and `institution`.
     case device(String)
-    /// The account's cross-signing master key (`msk`): `cnpj`.
+    /// The account's cross-signing master key (`msk`): `cnpj` and `brand-mark`.
     case masterKey(String)
 }
 
@@ -145,6 +147,16 @@ public nonisolated struct BadgeCompany: Sendable, Equatable {
     public let checkedMonth: String
 }
 
+/// The fields of a `brand-mark` badge (ADR 0162). `name` and `cnpj` of the payload are the brand's.
+public nonisolated struct BadgeBrandMark: Sendable, Equatable {
+    /// The mark ID (UUID).
+    public let mark: String
+    /// The brand's Matrix user ID.
+    public let brand: String
+    /// One id of `BipeRegistries.brandMarkLabels`.
+    public let label: String
+}
+
 public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
     /// Matrix user ID.
     public let sub: String
@@ -155,6 +167,8 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
     public let cnpj: String?
     /// Present only for `cnpj`.
     public let company: BadgeCompany?
+    /// Present only for `brand-mark`.
+    public let brandMark: BadgeBrandMark?
     public let binding: BadgeBinding
     /// `cnpj` only, optional: the CVM register line (ADR 0077). Read leniently: a bad value is no line, never a bad badge.
     public let cvm: BipeCvmField?
@@ -170,6 +184,7 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
         case method
         case checkedMonth = "checked_month"
         case cvm
+        case mark, brand, label
     }
     
     public init(from decoder: Decoder) throws {
@@ -194,12 +209,26 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
                                        tradeName: container.decodeIfPresent(String.self, forKey: .tradeName),
                                        method: container.decode(BadgeCNPJMethod.self, forKey: .method),
                                        checkedMonth: checkedMonth)
+            brandMark = nil
+            binding = .masterKey(msk)
+        case .brandMark:
+            let msk = try container.decode(String.self, forKey: .msk)
+            let mark = try container.decode(String.self, forKey: .mark)
+            let brand = try container.decode(String.self, forKey: .brand)
+            let label = try container.decode(String.self, forKey: .label)
+            guard let cnpj, cnpj.wholeMatch(of: /[0-9A-Z]{12}[0-9]{2}/) != nil, !msk.isEmpty, !mark.isEmpty, !brand.isEmpty,
+                  !name.isEmpty, BipeRegistries.brandMarkLabels.contains(label), !container.contains(.dev) else {
+                throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "malformed brand-mark badge"))
+            }
+            company = nil
+            brandMark = BadgeBrandMark(mark: mark, brand: brand, label: label)
             binding = .masterKey(msk)
         case .pix, .govbr, .institution:
             if lvl == .institution, cnpj == nil {
                 throw DecodingError.keyNotFound(CodingKeys.cnpj, .init(codingPath: [], debugDescription: "institution badge without cnpj"))
             }
             company = nil
+            brandMark = nil
             binding = try .device(container.decode(String.self, forKey: .dev))
         }
     }
