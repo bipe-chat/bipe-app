@@ -476,6 +476,7 @@ private fun InviteScanScreen(onText: (String) -> Unit, onCancel: () -> Unit) {
                     Text(stringResource(R.string.bipe_app_invite_scan_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
                     QrScanner(
                         onCode = { bytes -> onText(bytes.decodeToString()) },
+                        readText = true,
                         modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp)),
                     )
                 }
