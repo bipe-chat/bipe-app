@@ -29,10 +29,11 @@ android {
         applicationId = if (findProperty("bipeIdSet") == "store") "chat.bipe.app" else "chat.bipe.app.next"
         minSdk = 26
         targetSdk = 36
-        // CI passes the tester version (ADR 0088): the version name of bipe-shared product/version.json and
-        // its build plus the run number. Other builds keep these placeholders.
+        // Every build passes the version from `node tools/version.mjs --gradle` (ADR 0088): the version name of
+        // bipe-shared product/version.json, its build plus the commit count, and the commit. Else placeholders.
         versionCode = (findProperty("bipeBuildNumber") as String?)?.toInt() ?: 1
         versionName = (findProperty("bipeVersionName") as String?) ?: "0.1.0"
+        buildConfigField("String", "BIPE_COMMIT", "\"${(findProperty("bipeCommit") as String?).orEmpty()}\"")
     }
 
     // ADR 0150: the play flavour may use Google Block Store; foss has no Google Play services (the build without

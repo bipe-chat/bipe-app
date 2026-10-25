@@ -577,11 +577,12 @@ private fun SectionFooter(section: BipeSettingsSection, group: BipeSettingsGroup
     }
 }
 
-/** The version name and build, for bipe_help_version. */
+/** The version name, build and commit, for bipe_help_version: "26.10.2 (141) 5481bba" (tools/version.mjs). */
 private fun appVersion(context: Context): String {
     val info = context.packageManager.getPackageInfo(context.packageName, 0)
     val build = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
-    return "${info.versionName} ($build)"
+    val commit = chat.bipe.app.BuildConfig.BIPE_COMMIT
+    return if (commit.isEmpty()) "${info.versionName} ($build)" else "${info.versionName} ($build) $commit"
 }
 
 @Composable

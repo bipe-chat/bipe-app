@@ -20,9 +20,11 @@ options:
 
 settings:
   base:
-    # Placeholders. The tester build sets both from bipe-shared product/version.json (testflight.yml, ADR 0088).
+    # Placeholders. Every build passes the real values from `node tools/version.mjs --xcodebuild` (ADR 0088):
+    # the version name of bipe-shared product/version.json, its build plus the commit count, and the commit.
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
+    BIPE_COMMIT: ""
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"
     # Signing (bipe-chat/bipe#575): automatic, team Centaur Labs (ADR 0061). The tester build
@@ -72,6 +74,7 @@ targets:
         CFBundleDisplayName: $(BIPE_DISPLAY_NAME)
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        BipeCommit: $(BIPE_COMMIT)
         CFBundleDevelopmentRegion: pt-BR
         CFBundleLocalizations: [pt-BR, en]
         # Credential mutations always name this own group; the other groups are read-only (ADR 0147). Since

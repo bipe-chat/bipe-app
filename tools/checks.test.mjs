@@ -522,3 +522,14 @@ test('asc store set never registers a bundle ID or creates the app record', asyn
   assert.ok(calls.every((c) => c.startsWith('GET ')));
   assert.throws(() => idSet('production'), /unknown ID set/);
 });
+
+test('version: build number is the base plus the commit count, above the highest build tag', async () => {
+  const { parseVersionFile, highestTag, buildNumber } = await import('./version.mjs');
+  assert.deepEqual(parseVersionFile('{"version": "26.10.2", "build": 12}'), { version: '26.10.2', base: 12 });
+  assert.throws(() => parseVersionFile('{"version": "26.10", "build": 12}'));
+  assert.throws(() => parseVersionFile('{"version": "26.10.2", "build": 0}'));
+  assert.equal(highestTag(['builds/next/32', 'builds/next/132', 'v1', 'builds/next/x']), 132);
+  assert.equal(highestTag([]), 0);
+  assert.equal(buildNumber({ base: 12, commits: 129, tags: ['builds/next/132'] }), 141);
+  assert.throws(() => buildNumber({ base: 12, commits: 120, tags: ['builds/next/132'] }), /not above/);
+});
