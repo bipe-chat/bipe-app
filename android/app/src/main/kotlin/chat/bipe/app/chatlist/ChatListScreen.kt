@@ -431,8 +431,11 @@ fun ChatListScreen(
 fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = null, actions: @Composable () -> Unit = {}, onClick: () -> Unit) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
+    val menuLabel = stringResource(R.string.bipe_chat_actions)
     Row(
-        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(horizontal = 16.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = menuLabel.takeIf { onLongClick != null })
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Avatar(chat.name, chat.avatarUrl, media, userId = chat.peerUserId)

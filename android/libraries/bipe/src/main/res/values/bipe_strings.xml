@@ -978,6 +978,9 @@
     <string name="bipe_a11y_pin_progress">%1$s de %2$s dígitos</string>
     <string name="bipe_a11y_pin_delete">Apagar o último dígito</string>
     <string name="bipe_a11y_biometrics">Usar a biometria</string>
+    <string name="bipe_a11y_react">Reagir</string>
+    <string name="bipe_a11y_copy_device_id">Copiar o ID do aparelho</string>
+    <string name="bipe_a11y_voice_position">Ponto do áudio</string>
     <string name="bipe_a11y_open_original">Mostrar a mensagem original</string>
     <string name="bipe_a11y_show_controls">Mostrar ou esconder os controles</string>
     <string name="bipe_help_problem_language">Descreva o problema com suas palavras.</string>
