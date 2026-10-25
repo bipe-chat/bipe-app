@@ -49,6 +49,11 @@ private struct GroupHostModifier: ViewModifier {
             }
             // Last, so the sheets above get them too.
             .environment(\.closeChat, { path = NavigationPath() })
+            .environment(\.openOtherChat, { roomId in
+                var next = NavigationPath()
+                next.append(roomId)
+                path = next
+            })
             .environment(\.bipeAPI, api)
     }
 }
