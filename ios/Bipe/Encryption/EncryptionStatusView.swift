@@ -6,7 +6,7 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
-/// Spec encryption-status: the quiet banner above the chat list.
+/// Spec encryption-status: the quiet banner, the first row of the chat list (it scrolls with the chats).
 struct HistoryBanner: View {
     @ObservedObject var model: EncryptionStatusModel
 
