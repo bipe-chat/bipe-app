@@ -7,6 +7,7 @@ package chat.bipe.app.account
 import android.content.Context
 import android.util.Log
 import chat.bipe.app.common.AppConfig
+import chat.bipe.app.settings.DeletionDates
 import chat.bipe.app.BipeApplication
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.recovery.RecoveryTokenSyncs
@@ -227,6 +228,15 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     private suspend fun authError(session: AccountSession, isSoftLogout: Boolean) {
         if (_sessions.value.none { it === session } || session.userId in signingInAgain) return
         val name = accountList.name(session.userId) ?: context.getString(chat.bipe.shared.R.string.bipe_tab_you)
+        // Spec account-delete notes: the session ended after the due time of a deletion, so the server deleted the
+        // account. Remove it from this phone like a sign-out and say so.
+        if (DeletionDates.isPast(context, session.userId)) {
+            Log.i(AccountStep.TAG, "account deleted on the server")
+            removeAccount(session, alreadyLoggedOut = true)
+            DeletionDates.remember(context, session.userId, null)
+            _notice.value = context.getString(chat.bipe.shared.R.string.bipe_deletion_done)
+            return
+        }
         if (!isSoftLogout) {
             // Another device signed this phone out: never sign in again by itself (spec soft-logout notes).
             Log.i(AccountStep.TAG, "soft-logout: device signed out on the server")

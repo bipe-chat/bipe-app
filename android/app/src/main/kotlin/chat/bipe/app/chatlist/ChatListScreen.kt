@@ -142,6 +142,7 @@ fun HomeScreen(
     val encryption = remember(session) { EncryptionStatusModel(session, scope, context.applicationContext) }
     val recoveryAlert = remember(session) { RecoveryAlertModel(context.applicationContext, api, session, scope) }
     val alertNotice by recoveryAlert.notice.collectAsState()
+    val alertDeletion by recoveryAlert.deletion.collectAsState()
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
@@ -227,7 +228,7 @@ fun HomeScreen(
             pendingPix.delete()
             app.pixPreview.value = null
         }
-        alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
+        alertNotice != null || alertDeletion != null -> RecoveryAlertScreen(recoveryAlert)
         showsNewAccount -> AccountNewScreen(tabs, session, api, onClose = { showsNewAccount = false; newAccountPreset = null },
             preset = newAccountPreset)
         inviteTap != null -> InviteSignedInScreen(

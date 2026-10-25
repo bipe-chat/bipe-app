@@ -738,6 +738,12 @@ object BipeRegistries {
     // Wait between an account deletion request and the deletion; every signed-in device can cancel (ADR 0140).
     const val DELETION_COOLDOWN_HOURS = 72
 
+    // After a deletion, the CPF hash and the badge record stay this long (ADR 0140).
+    const val DELETION_VERIFICATION_KEEP_DAYS = 365
+
+    // A released @ stays on hold this long (ADR 0016), also after an account deletion.
+    const val HANDLE_RELEASE_HOLD_DAYS = 90
+
     // Recovery reminder card (bipe#531): first show after these days on this phone; each "Agora não" hides it for the
     // next snooze, and the last snooze repeats.
     const val RECOVERY_REMINDER_FIRST_AFTER_DAYS = 2

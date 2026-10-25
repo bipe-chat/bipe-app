@@ -8,6 +8,8 @@ import SwiftUI
 
 /// Spec recovery-alert (bipe-shared product/screens/recovery-alert.json): on a signed-in phone, a full alert while
 /// someone gets back into this account elsewhere, with a cancel; and a notice after a sign-in with the synced token.
+/// Spec deletion-alert (ADR 0140): the same alert while a deletion asked on another device waits. A recovery alert
+/// goes first.
 @MainActor
 final class RecoveryAlertModel: ObservableObject {
     enum Phase: Equatable {
@@ -18,6 +20,7 @@ final class RecoveryAlertModel: ObservableObject {
     }
 
     @Published private(set) var notice: BipeRecovery?
+    @Published private(set) var deletion: BipeAccountDeletion?
     @Published private(set) var phase: Phase = .shown
 
     private let api: BipeAPIClient
@@ -31,7 +34,7 @@ final class RecoveryAlertModel: ObservableObject {
 
     /// Action check: on launch and on foreground, from GET /v1/me/account.
     func check() async {
-        guard notice == nil || phase == .cancelled else { return }
+        guard (notice == nil && deletion == nil) || phase == .cancelled else { return }
         let status = try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeAccountStatus in
             try await self.api.account(accessToken: token)
         }
@@ -43,11 +46,20 @@ final class RecoveryAlertModel: ObservableObject {
             .filter { $0.alertMessage != nil && !dismissed.contains($0.id) }
             .filter { $0.state == .waiting || $0.createdAt > since }
             .max { $0.createdAt < $1.createdAt }
+        DeletionDate.remember(status.deletion?.dueAt, for: session.userId)
+        deletion = notice == nil ? status.deletion.flatMap { $0.fromThisDevice || dismissed.contains($0.id) ? nil : $0 } : nil
         phase = .shown
     }
 
+    /// Whether the alert covers the screen.
+    var isShown: Bool { notice != nil || deletion != nil }
+
     /// Action cancel: for a waiting recovery, the owner check and then the cancel.
     func cancel() async {
+        if notice == nil, let deletion {
+            await cancelDeletion(deletion)
+            return
+        }
         guard let notice, notice.canBeCancelled else { return }
         guard await OwnerCheck.owner(reason: BipeStrings.recoveryAlertTitle) else { return }
         phase = .cancelling
@@ -62,18 +74,48 @@ final class RecoveryAlertModel: ObservableObject {
         }
     }
 
-    /// Action keep: it was me. Dismisses the notice on this phone; the recovery goes on.
+    /// Spec deletion-alert, action cancel: the owner check, then POST /v1/me/deletions/{id}/cancel. A 404 means the
+    /// request no longer waits. A phone with no passcode cancels without the check: a cancel only keeps the account.
+    private func cancelDeletion(_ deletion: BipeAccountDeletion) async {
+        if OwnerCheck.canCheckOwner {
+            guard await OwnerCheck.owner(reason: BipeStrings.deletionCancelReason) else { return }
+        }
+        phase = .cancelling
+        do {
+            try await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) in
+                try await self.api.cancelDeletion(id: deletion.id, accessToken: token)
+            }
+        } catch {
+            guard case .server(.notFound, _, _) = error else {
+                phase = .failed
+                return
+            }
+        }
+        DeletionDate.remember(nil, for: session.userId)
+        dismiss(deletion.id)
+        phase = .cancelled
+    }
+
+    /// Action keep: it was me. Dismisses the notice on this phone; the recovery or the deletion goes on.
     func keep() {
-        guard let notice else { return }
-        dismiss(notice.id)
-        self.notice = nil
+        if let notice {
+            dismiss(notice.id)
+            self.notice = nil
+        } else if let deletion {
+            dismiss(deletion.id)
+            self.deletion = nil
+        }
     }
 
     /// Closes the cancelled message.
     func close() {
         notice = nil
+        deletion = nil
         phase = .shown
     }
+
+    /// The deletion alert shows when no recovery alert does.
+    var showsDeletion: Bool { notice == nil && deletion != nil }
 
     private var dismissedKey: String { "bipe.recoveryAlert.dismissed.\(session.userId)" }
     private var sinceKey: String { "bipe.recoveryAlert.since.\(session.userId)" }
@@ -108,18 +150,21 @@ struct RecoveryAlertView: View {
                 .frame(width: 48, height: 48)
                 .foregroundStyle(BipeColor.trustCautionInk)
                 .accessibilityHidden(true)
-            Text(BipeStrings.recoveryAlertTitle)
+            Text(model.showsDeletion ? BipeStrings.deletionAlertTitle : BipeStrings.recoveryAlertTitle)
                 .font(.largeTitle.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
             switch model.phase {
             case .cancelled:
-                Text(BipeStrings.recoveryAlertCancelled)
+                Text(model.showsDeletion ? BipeStrings.deletionCancelled : BipeStrings.recoveryAlertCancelled)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer()
                 filled(BipeStrings.actionContinue) { model.close() }
             default:
                 if let message = model.notice?.alertMessage {
                     Text(message)
+                        .foregroundStyle(BipeColor.inkPrimary)
+                } else if let deletion = model.deletion {
+                    Text(BipeStrings.deletionAlertBody(DeletionDate.text(deletion.dueAt)))
                         .foregroundStyle(BipeColor.inkPrimary)
                 }
                 if model.phase == .failed {
@@ -128,7 +173,7 @@ struct RecoveryAlertView: View {
                         .foregroundStyle(BipeColor.trustDangerInk)
                 }
                 Spacer()
-                if model.notice?.canBeCancelled == true {
+                if model.notice?.canBeCancelled == true || model.showsDeletion {
                     filled(BipeStrings.recoveryAlertCancel, enabled: model.phase != .cancelling) {
                         Task { await model.cancel() }
                     }
@@ -147,7 +192,7 @@ struct RecoveryAlertView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .tint(BipeColor.accentFill)
-        .accessibilityIdentifier(BipeScreen.recoveryAlert.rawValue)
+        .accessibilityIdentifier(model.showsDeletion ? BipeScreen.deletionAlert.rawValue : BipeScreen.recoveryAlert.rawValue)
     }
 
     private func filled(_ title: String, enabled: Bool = true, action: @escaping () -> Void) -> some View {

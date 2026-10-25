@@ -50,6 +50,27 @@ public struct BipeAccountStatus: Decodable, Sendable, Equatable {
     /// bipe-chat/bipe#531: a way back the server can check that does not depend on the Apple Team ID (a verified
     /// recovery email). `false` shows the recovery-reminder card. Absent from an older server: no card.
     public let independentRecovery: Bool?
+    /// ADR 0140: the waiting account deletion. Absent when none.
+    public let deletion: BipeAccountDeletion?
+}
+
+/// Contract: `AccountDeletion` (ADR 0140).
+public struct BipeAccountDeletion: Decodable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let createdAt: Date
+    /// When the server deletes the account.
+    public let dueAt: Date
+    public let redactMessages: Bool
+    /// This device asked. `false` on every other device: they show the deletion alert.
+    public let fromThisDevice: Bool
+
+    public init(id: String, createdAt: Date, dueAt: Date, redactMessages: Bool, fromThisDevice: Bool) {
+        self.id = id
+        self.createdAt = createdAt
+        self.dueAt = dueAt
+        self.redactMessages = redactMessages
+        self.fromThisDevice = fromThisDevice
+    }
 }
 
 /// Contract: `Recovery`.

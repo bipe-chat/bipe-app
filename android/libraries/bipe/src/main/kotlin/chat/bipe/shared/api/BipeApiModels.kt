@@ -156,7 +156,31 @@ data class BipeAccountStatus(
     @SerialName("max_accounts") val maxAccounts: Int? = null,
     /** Recoveries that run or ended in the last 7 days (recovery-alert). */
     @SerialName("recoveries") val recoveries: List<BipeRecovery> = emptyList(),
+    /** ADR 0087: `personal` or `company`. Absent from an older server: personal. */
+    @SerialName("account_type") val accountType: String? = null,
+    /** ADR 0140: the waiting account deletion. Absent when none. */
+    @SerialName("deletion") val deletion: BipeAccountDeletion? = null,
 )
+
+/** `AccountDeletion` (ADR 0140). */
+@Serializable
+data class BipeAccountDeletion(
+    @SerialName("id") val id: String,
+    @Serializable(with = InstantSerializer::class) @SerialName("created_at") val createdAt: Instant,
+    /** When the server deletes the account. */
+    @Serializable(with = InstantSerializer::class) @SerialName("due_at") val dueAt: Instant,
+    @SerialName("redact_messages") val redactMessages: Boolean,
+    /** This device asked. `false` on every other device: they show the deletion alert. */
+    @SerialName("from_this_device") val fromThisDevice: Boolean,
+)
+
+@Serializable
+internal data class BipeDeletionRequest(
+    @SerialName("pin") val pin: String,
+    @SerialName("redact_messages") val redactMessages: Boolean,
+) {
+    override fun toString(): String = "BipeDeletionRequest"
+}
 
 @Serializable
 internal data class BipeWaitlistRequest(

@@ -36,10 +36,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.settings.DeletionDates
 import chat.bipe.app.settings.OwnerCheck
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.api.BipeAccountDeletion
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.BipeApiErrorCode
+import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeRecovery
 import chat.bipe.shared.api.BipeRecoveryMethod
 import chat.bipe.shared.api.BipeRecoveryPurpose
@@ -54,6 +58,7 @@ import kotlinx.coroutines.launch
 /**
  * Spec recovery-alert (bipe-shared product/screens/recovery-alert.json): on a signed-in phone, a full alert while someone
  * gets back into this account elsewhere, with a cancel; and a notice after a sign-in with the recovery token.
+ * Spec deletion-alert (ADR 0140): the same alert while a deletion asked on another device waits. A recovery alert goes first.
  */
 class RecoveryAlertModel(
     context: Context,
@@ -69,12 +74,15 @@ class RecoveryAlertModel(
 
     private val _notice = MutableStateFlow<BipeRecovery?>(null)
     val notice: StateFlow<BipeRecovery?> = _notice.asStateFlow()
+    private val _deletion = MutableStateFlow<BipeAccountDeletion?>(null)
+    val deletion: StateFlow<BipeAccountDeletion?> = _deletion.asStateFlow()
+    private val appContext = context.applicationContext
     private val _phase = MutableStateFlow(Phase.SHOWN)
     val phase: StateFlow<Phase> = _phase.asStateFlow()
 
     /** Action check: on launch and on foreground, from GET /v1/me/account. */
     fun check() {
-        if (_notice.value != null && _phase.value != Phase.CANCELLED) return
+        if ((_notice.value != null || _deletion.value != null) && _phase.value != Phase.CANCELLED) return
         scope.launch {
             val status = runCatching {
                 BipeApiClient.withTokenRetry({ session.accessToken() }) { token -> api.account(token) }
@@ -86,12 +94,19 @@ class RecoveryAlertModel(
                 .filter { hasAlert(it) && it.id !in dismissed }
                 .filter { it.state == BipeRecoveryState.WAITING || it.createdAt.toEpochMilli() > since }
                 .maxByOrNull { it.createdAt }
+            DeletionDates.remember(appContext, session.userId, status.deletion?.dueAt)
+            _deletion.value = status.deletion?.takeIf { _notice.value == null && !it.fromThisDevice && it.id !in dismissed }
             _phase.value = Phase.SHOWN
         }
     }
 
     /** Action cancel: for a waiting recovery, the owner check and then the cancel. */
     fun cancel(confirmOwner: suspend () -> Boolean) {
+        val pending = _deletion.value
+        if (_notice.value == null && pending != null) {
+            cancelDeletion(pending, confirmOwner)
+            return
+        }
         val current = _notice.value ?: return
         if (current.state != BipeRecoveryState.WAITING) return
         scope.launch {
@@ -106,16 +121,45 @@ class RecoveryAlertModel(
         }
     }
 
-    /** Action keep: it was me. Dismisses the notice on this phone; the recovery goes on. */
+    /**
+     * Spec deletion-alert, action cancel: the owner check, then POST /v1/me/deletions/{id}/cancel. A 404 means the request
+     * no longer waits. A phone with no lock cancels without the check: a cancel only keeps the account.
+     */
+    private fun cancelDeletion(pending: BipeAccountDeletion, confirmOwner: suspend () -> Boolean) {
+        scope.launch {
+            if (OwnerCheck.canCheckOwner(appContext) && !confirmOwner()) return@launch
+            _phase.value = Phase.CANCELLING
+            val result = runCatching {
+                BipeApiClient.withTokenRetry({ session.accessToken() }) { token -> api.cancelDeletion(pending.id, token) }
+            }
+            val gone = (result.exceptionOrNull() as? BipeApiException.Server)?.code == BipeApiErrorCode.NOT_FOUND
+            _phase.value = if (result.isSuccess || gone) {
+                DeletionDates.remember(appContext, session.userId, null)
+                dismiss(pending.id)
+                Phase.CANCELLED
+            } else {
+                Phase.FAILED
+            }
+        }
+    }
+
+    /** Action keep: it was me. Dismisses the notice on this phone; the recovery or the deletion goes on. */
     fun keep() {
-        val current = _notice.value ?: return
-        dismiss(current.id)
-        _notice.value = null
+        val current = _notice.value
+        if (current != null) {
+            dismiss(current.id)
+            _notice.value = null
+            return
+        }
+        val pending = _deletion.value ?: return
+        dismiss(pending.id)
+        _deletion.value = null
     }
 
     /** Closes the cancelled message. */
     fun close() {
         _notice.value = null
+        _deletion.value = null
         _phase.value = Phase.SHOWN
     }
 
@@ -168,31 +212,41 @@ fun RecoveryAlertScreen(model: RecoveryAlertModel) {
     val context = LocalContext.current
     val colors = BipeTheme.colors
     val notice by model.notice.collectAsState()
+    val pendingDeletion by model.deletion.collectAsState()
     val phase by model.phase.collectAsState()
-    val recovery = notice ?: return
-    val ownerTitle = stringResource(R.string.bipe_recovery_alert_title)
+    val recovery = notice
+    val deletion = pendingDeletion.takeIf { recovery == null }
+    if (recovery == null && deletion == null) return
+    val title = stringResource(if (deletion != null) R.string.bipe_deletion_alert_title else R.string.bipe_recovery_alert_title)
+    val ownerTitle = if (deletion != null) stringResource(R.string.bipe_deletion_cancel_reason) else title
     BackHandler { if (phase == RecoveryAlertModel.Phase.CANCELLED) model.close() }
-    Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.RECOVERY_ALERT.id), color = colors.surfaceBase) {
+    val screen = if (deletion != null) BipeScreen.DELETION_ALERT else BipeScreen.RECOVERY_ALERT
+    Surface(modifier = Modifier.fillMaxSize().testTag(screen.id), color = colors.surfaceBase) {
         Column(
             modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustCautionInk, modifier = Modifier.size(48.dp))
-            Text(stringResource(R.string.bipe_recovery_alert_title), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.inkPrimary)
+            Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.inkPrimary)
             if (phase == RecoveryAlertModel.Phase.CANCELLED) {
-                Text(stringResource(R.string.bipe_recovery_alert_cancelled), color = colors.inkPrimary)
+                Text(stringResource(if (deletion != null) R.string.bipe_deletion_cancelled else R.string.bipe_recovery_alert_cancelled), color = colors.inkPrimary)
                 Spacer(Modifier.weight(1f))
                 Button(onClick = model::close, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.bipe_action_continue))
                 }
                 return@Column
             }
-            Text(alertMessage(context, recovery), color = colors.inkPrimary)
+            val message = if (recovery != null) {
+                alertMessage(context, recovery)
+            } else {
+                stringResource(R.string.bipe_deletion_alert_body, DeletionDates.text(context, deletion!!.dueAt))
+            }
+            Text(message, color = colors.inkPrimary)
             if (phase == RecoveryAlertModel.Phase.FAILED) {
                 Text(stringResource(R.string.bipe_error_network), style = MaterialTheme.typography.bodySmall, color = colors.trustDangerInk)
             }
             Spacer(Modifier.weight(1f))
-            if (recovery.state == BipeRecoveryState.WAITING) {
+            if (deletion != null || recovery?.state == BipeRecoveryState.WAITING) {
                 Button(
                     onClick = { model.cancel { OwnerCheck.owner(context, ownerTitle) } },
                     enabled = phase != RecoveryAlertModel.Phase.CANCELLING,

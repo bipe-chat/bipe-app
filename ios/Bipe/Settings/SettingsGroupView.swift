@@ -20,6 +20,8 @@ struct SettingsGroupView: View {
     @StateObject private var export: DataExportModel
     @State private var page: WebPage?
     @State private var showsSignOut = false
+    @State private var showsDelete = false
+    @State private var cancellingDeletion = false
     @State private var showsRecoveryKey = false
     @State private var showsEmail = false
     @State private var showsLockSetup = false
@@ -41,6 +43,14 @@ struct SettingsGroupView: View {
                     Text(BipeStrings.accountCompanyOwner(owner))
                         .font(.subheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
+                }
+            }
+            // Spec account-delete: the banner while a deletion this phone asked for waits.
+            if group == .account, let deletion = model.account?.deletion, deletion.fromThisDevice {
+                Section {
+                    DeletionBanner(deletion: deletion, isCancelling: cancellingDeletion) {
+                        Task { await cancelDeletion(deletion) }
+                    }
                 }
             }
             if group == .account, let warning = model.waysBack?.warning {
@@ -88,6 +98,9 @@ struct SettingsGroupView: View {
             RecoveryEmailAddView(api: model.api, session: model.session, current: model.account?.email,
                                  pending: model.account?.emailPending) {}
         }
+        .sheet(isPresented: $showsDelete, onDismiss: { Task { await model.load() } }) {
+            AccountDeleteView(model: model)
+        }
         .sheet(isPresented: $showsSignOut) {
             SignOutView(model: model, onSignedOut: onSignedOut)
                 .presentationDetents([.medium, .large])
@@ -116,6 +129,8 @@ struct SettingsGroupView: View {
         switch row {
         // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
         case .accountBiometricUnlock: model.appLockOn && OwnerCheck.biometricKind != .none
+        // While a deletion waits, the banner (or the alert on the other devices) takes its place.
+        case .accountDelete: model.account?.deletion == nil
         default: true
         }
     }
@@ -267,6 +282,8 @@ struct SettingsGroupView: View {
         switch row {
         case .accountSignOut:
             showsSignOut = true
+        case .accountDelete:
+            showsDelete = true
         case .accountRecoveryKey:
             showsRecoveryKey = true
         case .accountEmail:
@@ -281,6 +298,18 @@ struct SettingsGroupView: View {
             // The screens of the other rows come with their own specs (see settings-group notes).
             break
         }
+    }
+
+    /// Spec account-delete, action cancelPending: the owner check, then the cancel. A phone with no passcode cancels
+    /// without the check: a cancel only keeps the account.
+    private func cancelDeletion(_ deletion: BipeAccountDeletion) async {
+        if OwnerCheck.canCheckOwner {
+            guard await OwnerCheck.owner(reason: BipeStrings.deletionCancelReason) else { return }
+        }
+        cancellingDeletion = true
+        let cancelled = await model.cancelDeletion(deletion)
+        cancellingDeletion = false
+        notice = cancelled ? BipeStrings.deletionCancelled : BipeStrings.deletionCancelError
     }
 
     /// Spec app-lock, action turnOff: the owner check, or the app lock PIN on a phone with no passcode.
