@@ -212,6 +212,18 @@ public enum BipeStrings {
 
     public static var errorInviteInvalid: String { NSLocalizedString("bipe_error_invite_invalid", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func inviteSignedInTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_invite_signed_in_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var inviteSignedInTitleAnonymous: String { NSLocalizedString("bipe_invite_signed_in_title_anonymous", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var inviteSignedInBody: String { NSLocalizedString("bipe_invite_signed_in_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var inviteSignedInChat: String { NSLocalizedString("bipe_invite_signed_in_chat", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var inviteNoLongerValid: String { NSLocalizedString("bipe_invite_no_longer_valid", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var errorEmailTaken: String { NSLocalizedString("bipe_error_email_taken", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var errorPasswordWeak: String { NSLocalizedString("bipe_error_password_weak", tableName: "Bipe", bundle: .module, comment: "") }
