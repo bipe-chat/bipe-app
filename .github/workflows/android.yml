@@ -57,6 +57,9 @@ jobs:
       # The store ID set (bipe-chat/bipe#602): the fork's application ID (ADR 0061), never uploaded before the switch.
       - name: Build release with the store ID set
         run: ./gradlew --no-daemon assemblePlayRelease -PbipeIdSet=store
+      # The Play bundle of the store release (bipe-chat/bipe#604), debug-signed here: store-release.yml signs and uploads it.
+      - name: Build the store AAB
+        run: ./gradlew --no-daemon bundlePlayRelease -PbipeIdSet=store
       - name: Upload the debug APK
         uses: actions/upload-artifact@v4
         with:
