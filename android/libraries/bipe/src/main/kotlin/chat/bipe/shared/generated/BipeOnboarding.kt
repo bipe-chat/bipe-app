@@ -16,7 +16,7 @@ import chat.bipe.shared.R
 
 // First run (bipe-chat/bipe#415). Source: bipe-shared/registries/onboarding.json.
 
-enum class BipeOnboardingTarget { INVITE_CODE, NAME, PIN, FALLBACK, CREATE, RECOVERY, WAITLIST, SYSTEM_PERMISSION, HANDLE_SCREEN, RECOVERY_EMAIL_ADD, DISMISS, SHARE_INVITE, SHARE_PROFILE, PROFILE_QR, NOTES, PHOTO_PICKER }
+enum class BipeOnboardingTarget { INVITE_CODE, NAME, PIN, FALLBACK, CREATE, RECOVERY, WAITLIST, SYSTEM_PERMISSION, HANDLE_SCREEN, RECOVERY_EMAIL_ADD, DISMISS, SHARE_INVITE, SHARE_PROFILE, PROFILE_QR, NOTES, PHOTO_PICKER, PIN_CHECK }
 
 data class BipeOnboardingButton(
     @StringRes val title: Int,
@@ -77,6 +77,7 @@ enum class BipeOnboardingPrompt(
     HANDLE(R.string.bipe_handle_prompt_title, R.string.bipe_handle_prompt_body, BipeOnboardingButton(R.string.bipe_handle_prompt_action, BipeOnboardingTarget.HANDLE_SCREEN), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     RECOVERY(R.string.bipe_fallback_title, R.string.bipe_fallback_reminder, BipeOnboardingButton(R.string.bipe_fallback_email, BipeOnboardingTarget.RECOVERY_EMAIL_ADD), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     PHOTO(R.string.bipe_photo_prompt_title, R.string.bipe_photo_prompt_body, BipeOnboardingButton(R.string.bipe_photo_prompt_action, BipeOnboardingTarget.PHOTO_PICKER), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
+    PIN_REMINDER(R.string.bipe_pin_reminder_title, R.string.bipe_pin_reminder_body, BipeOnboardingButton(R.string.bipe_pin_reminder_action, BipeOnboardingTarget.PIN_CHECK), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     ;
 
     /** True when the prompt shares the one prompt slot ([BipeOnboarding.PROMPT_SLOT_HOURS], bipe-chat/bipe#200). */
@@ -86,6 +87,7 @@ enum class BipeOnboardingPrompt(
             HANDLE -> true
             RECOVERY -> false
             PHOTO -> true
+            PIN_REMINDER -> true
         }
 }
 
@@ -127,6 +129,9 @@ object BipeOnboarding {
     const val FIRST_LIST_MAX_CHATS: Int = 3
     /** Hours between two slot prompts on one account (bipe-chat/bipe#200). */
     const val PROMPT_SLOT_HOURS: Int = 24
+    /** Trigger pinReminderDue (bipe-chat/bipe#202): the gap in days after each step, then [PIN_REMINDER_THEN_EVERY_DAYS]. */
+    val PIN_REMINDER_DAYS: List<Int> = listOf(1, 3, 7, 14, 30)
+    const val PIN_REMINDER_THEN_EVERY_DAYS: Int = 60
     @StringRes val waitlistBody: Int = R.string.bipe_waitlist_body
     val waitlistPrimary: BipeOnboardingButton = BipeOnboardingButton(R.string.bipe_waitlist_join, BipeOnboardingTarget.WAITLIST)
     @StringRes val waitlistDone: Int = R.string.bipe_waitlist_done

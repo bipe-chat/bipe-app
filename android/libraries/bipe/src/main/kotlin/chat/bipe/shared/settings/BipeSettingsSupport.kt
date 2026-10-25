@@ -167,6 +167,11 @@ suspend fun BipeApiClient.setPin(pin: String, accessToken: String) {
     send<Unit>("PUT", listOf("v1", "me", "pin"), body = encode(PinRequest.serializer(), PinRequest(pin)), accessToken = accessToken, response = null)
 }
 
+/** `POST /v1/me/pin/check` (spec pin-reminder). A wrong PIN counts against the account; a right one resets the count. */
+suspend fun BipeApiClient.checkPin(pin: String, accessToken: String) {
+    send<Unit>("POST", listOf("v1", "me", "pin", "check"), body = encode(PinRequest.serializer(), PinRequest(pin)), accessToken = accessToken, response = null)
+}
+
 /** The body of GET /v1/me/export as it is, and the file name to save it under. */
 class BipeDataExportBody(val bytes: ByteArray, val filename: String) {
     override fun toString(): String = "BipeDataExportBody($filename)"

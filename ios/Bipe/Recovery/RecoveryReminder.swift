@@ -71,6 +71,12 @@ struct RecoveryReminderCard: View {
                     .font(.subheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
+            // State syncOff (bipe-chat/bipe#202): iCloud off on this phone, so the recovery token is not synced.
+            if FileManager.default.ubiquityIdentityToken == nil {
+                Text(BipeStrings.fallbackSyncOffIos)
+                    .font(.subheadline)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
             HStack {
                 Button(action: addEmail) {
                     Text(prompt.primary.title)
