@@ -489,7 +489,7 @@ test('asc store set signs the fork app with App Store profiles only and changes 
   assert.equal(readFileSync(envFile, 'utf8'), [
     'BIPE_CI_PROFILE_APP=Bipe CI App Store chat.bipe.app',
     'BIPE_CI_PROFILE_NSE=Bipe CI App Store chat.bipe.app.nse',
-    'BIPE_CI_PROFILE_SHARE=Bipe CI App Store chat.bipe.app.share',
+    'BIPE_CI_PROFILE_SHARE=Bipe CI App Store chat.bipe.app.shareextension',
     '',
   ].join('\n'));
 });
