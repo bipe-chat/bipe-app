@@ -39,7 +39,7 @@ struct NotificationsPromptView: View {
                 Text(prompt.primary.title)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             .disabled(isAsking)
             ForEach(prompt.text, id: \.titleKey) { button in
                 Button {

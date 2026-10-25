@@ -51,7 +51,7 @@ struct SignOutView: View {
                         Text(BipeStrings.appSignOutAddWay)
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                 }
                 if phase == .failed {
                     Text(BipeStrings.errorGeneric)
@@ -72,7 +72,7 @@ struct SignOutView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.bipeBordered)
                 .tint(BipeColor.trustDangerInk)
                 .disabled(phase == .signingOut)
                 // Action cancel.

@@ -50,7 +50,7 @@ struct DeviceVerificationView: View {
             } label: {
                 Text(BipeStrings.appVerifyApprove).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             .controlSize(.large)
             .disabled(model.phase == .confirmIdentity)
             Button {
@@ -72,7 +72,7 @@ struct DeviceVerificationView: View {
                 } label: {
                     Text(BipeStrings.appVerifyMatch).frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bipeProminent)
                 .controlSize(.large)
                 Button {
                     Task { await model.noMatch() }

@@ -70,7 +70,7 @@ struct MyBookingsView: View {
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.appRetry) { Task { await load() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

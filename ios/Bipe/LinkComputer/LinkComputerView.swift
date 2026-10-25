@@ -89,7 +89,7 @@ private struct LinkComputerScanView: View {
             } label: {
                 Text(BipeStrings.contactsOpenSettings)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
         case .scanning, .failed:
             Text(BipeStrings.appLinkComputerScanBody)
                 .font(.body)
@@ -141,7 +141,7 @@ private struct LinkComputerScanView: View {
             } label: {
                 Text(BipeStrings.appLinkComputerScanAgain)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.bipeBordered)
         }
     }
 
@@ -189,7 +189,7 @@ private struct LinkComputerWarningView: View {
                 Text(model.canContinue ? BipeStrings.linkComputerContinue : BipeStrings.pauseCountdown(String(model.secondsLeft)))
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             .disabled(!model.canContinue)
         }
         .padding(16)
@@ -257,7 +257,7 @@ private struct LinkComputerApproveView: View {
                 } label: {
                     Text(model.mode == .computer ? BipeStrings.appLinkComputerScanAgain : BipeStrings.appLinkPhoneNewCode)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bipeProminent)
                 Spacer()
             }
         }

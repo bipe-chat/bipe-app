@@ -68,7 +68,7 @@ struct LinkPhoneShowView: View {
                     } label: {
                         Text(copied ? BipeStrings.appLinkPhoneCopied : BipeStrings.appLinkPhoneCopy)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.bipeBordered)
                 }
             }
             Text(BipeStrings.appLinkPhoneNeverShare)
@@ -108,7 +108,7 @@ struct LinkPhoneShowView: View {
             } label: {
                 Text(BipeStrings.appLinkPhoneNewCode)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
         }
     }
 

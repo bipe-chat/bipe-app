@@ -323,7 +323,7 @@ struct AgendaBookView: View {
                 Button(BipeStrings.appRetry) {
                     Task { await model.start(preselectedServiceId: preselectedServiceId) }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -424,7 +424,7 @@ struct AgendaBookView: View {
                                     .font(.body.monospacedDigit())
                                     .frame(maxWidth: .infinity, minHeight: 44)
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.bipeBordered)
                             .disabled(model.working)
                         }
                     }

@@ -16,6 +16,8 @@
 //   comment "// a11y: <why>" on its line or the line before (the gesture has another accessible path).
 // - tap-target: the same controls, outside a toolbar, put .bipeTapTarget() on their label (44 x 44 pt).
 // - text-size: no .font(.system(size: <number>)); use a text style or a @ScaledMetric size.
+// - button-size: no .buttonStyle(.bordered), .buttonStyle(.borderedProminent) and no .controlSize(.small)
+//   or .controlSize(.mini); use .bipeBordered and .bipeProminent (Common/ButtonSize.swift), always large.
 // - gesture: .onLongPressGesture and .swipeActions need an .accessibilityAction(s) within 8 lines.
 // - motion: withAnimation, .animation(, repeatForever, .move(edge:) and .symbolEffect( need a Reduce Motion
 //   check within 8 lines; withBipeAnimation, .bipeAnimation and .bipeMove (Common/Motion.swift) have it.
@@ -190,6 +192,8 @@ export function auditSwift(source) {
   }
   // Text that does not grow with the system text size (bipe-chat/bipe#498).
   for (const m of text.matchAll(/\.font\(\s*\.system\(\s*size:\s*\d/g)) hits.push({ line: lineOf(text, m.index), rule: 'text-size', call: '.font(.system(size:)' });
+  // Buttons never shrink to the height of their text (MZ, 25 October 2026).
+  for (const m of text.matchAll(/\.buttonStyle\(\s*\.bordered(?:Prominent)?\s*\)|\.controlSize\(\s*\.(?:small|mini)\s*\)/g)) hits.push({ line: lineOf(text, m.index), rule: 'button-size', call: m[0] });
   // Reduce Motion (bipe-chat/bipe#496): withBipeAnimation and .bipeAnimation, or a check of the setting.
   hits.push(
     ...windowRule(source, text, /\bwithAnimation\b|\.animation\(|\brepeatForever\b|\.move\(edge:|\.symbolEffect\(/, /accessibilityReduceMotion|isReduceMotionEnabled|\breduceMotion\b/, 8, 'motion'),
@@ -291,6 +295,7 @@ const ADVICE = {
   transparency: 'is a blur with no solid fallback. Use .bipeMaterial(in:), which is solid under Reduce Transparency.',
   motion: 'animates without a check of Reduce Motion. Use withBipeAnimation or .bipeAnimation (SwiftUI), LocalReduceMotion or bipeMotion() (Compose).',
   gesture: 'is a gesture with no accessible way to do the same. Add an accessibility action (SwiftUI .accessibilityAction, Compose customActions or onLongClickLabel).',
+  'button-size': 'makes a button that can be as low as its text. Use .buttonStyle(.bipeBordered) or .buttonStyle(.bipeProminent) (Common/ButtonSize.swift).',
   'text-size': 'does not follow the system text size. Use a text style (SwiftUI .font(.body), @ScaledMetric; Compose typography or sp).',
 };
 

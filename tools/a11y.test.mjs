@@ -105,6 +105,9 @@ test('swift: an icon-only button needs the minimum tap target outside a toolbar'
 
 test('swift: a fixed font size fails, a scaled one passes', () => {
   assert.deepEqual(rules(auditSwift('Text(code)\n    .font(.system(size: 64, weight: .bold))')), ['2:text-size']);
+  assert.deepEqual(rules(auditSwift('Button(t) {}\n    .buttonStyle(.bordered)\n    .controlSize(.small)')), ['2:button-size', '3:button-size']);
+  assert.deepEqual(rules(auditSwift('Button(t) {}\n    .buttonStyle(.borderedProminent)')), ['2:button-size']);
+  assert.deepEqual(rules(auditSwift('Button(t) {}\n    .buttonStyle(.bipeBordered)\n    .controlSize(.large)')), []);
   assert.deepEqual(auditSwift('Text(code)\n    .font(.system(size: codeSize, weight: .bold))'), []);
 });
 

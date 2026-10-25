@@ -100,7 +100,7 @@ struct SupportOpenView: View {
                     } label: {
                         Text(BipeStrings.appRetry)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                     Button(role: .cancel) {
                         dismiss()
                     } label: {

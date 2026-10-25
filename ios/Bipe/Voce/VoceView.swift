@@ -274,7 +274,7 @@ private struct VoceHeader: View {
                     }
                 }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.bipeBordered)
             .controlSize(.large)
             .labelStyle(.titleAndIcon)
         }

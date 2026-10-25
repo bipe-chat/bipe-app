@@ -117,7 +117,7 @@ struct InviteSignedInView: View {
                         Button { openProfile(handle) } label: {
                             Text(BipeStrings.inviteSignedInChat).frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bipeProminent)
                         .controlSize(.large)
                     }
                     Button {
@@ -126,7 +126,7 @@ struct InviteSignedInView: View {
                     } label: {
                         Text(BipeStrings.accountAdd).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.bipeBordered)
                     .controlSize(.large)
                 case .notValid:
                     Text(BipeStrings.inviteNoLongerValid)
@@ -135,7 +135,7 @@ struct InviteSignedInView: View {
                     Text(BipeStrings.errorNetwork)
                         .foregroundStyle(BipeColor.inkPrimary)
                     Button(BipeStrings.appRetry) { Task { await appear() } }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bipeProminent)
                 }
             }
             .padding(24)

@@ -194,7 +194,7 @@ struct AppLockSetupView: View {
                 Text(BipeStrings.appLockBiometricOfferUse(OwnerCheck.biometricWord))
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             // Action skipBiometrics.
             Button {
                 finish()

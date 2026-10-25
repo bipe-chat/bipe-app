@@ -67,7 +67,7 @@ struct BlockPersonSheet: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bipeProminent)
                 .tint(currentMode == .block ? BipeColor.trustDangerInk : BipeColor.accentFill)
                 .controlSize(.large)
                 Button(BipeStrings.appCancel) { dismiss() }

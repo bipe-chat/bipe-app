@@ -160,7 +160,7 @@ struct InviteCreateView: View {
                         }
                         .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                     .controlSize(.large)
                     .disabled(busy)
                     .padding()
@@ -224,12 +224,12 @@ struct InviteCardView: View {
                                 Label { Text(BipeStrings.appShare) } icon: { PhosphorIcon.shareNetwork.image.resizable().frame(width: 20, height: 20) }
                                     .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.bipeProminent)
                             Button { UIPasteboard.general.url = url; copied = true } label: {
                                 Label { Text(copied ? BipeStrings.appCopied : BipeStrings.appCopy) } icon: { PhosphorIcon.copy.image.resizable().frame(width: 20, height: 20) }
                                     .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.bipeBordered)
                         }
                         .controlSize(.large)
                         Text(BipeStrings.invitesQrFooter)

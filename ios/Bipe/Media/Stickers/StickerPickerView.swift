@@ -216,7 +216,7 @@ struct StickerImportView: View {
                         .font(.footnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                     Button(BipeStrings.stickersImportAction) { choosing = true }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bipeProminent)
                         .tint(BipeColor.accentFill)
                 case .importing:
                     HStack(spacing: 8) {
@@ -305,7 +305,7 @@ struct StickerFromPhotoView: View {
                     PhotosPicker(selection: $item, matching: .images) {
                         Text(BipeStrings.stickersFromPhoto)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
                     .tint(BipeColor.accentFill)
                 case .making:
                     ProgressView()
@@ -328,7 +328,7 @@ struct StickerFromPhotoView: View {
                         } label: {
                             if phase == .saving { ProgressView() } else { Text(BipeStrings.actionSaveSticker) }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bipeProminent)
                         .tint(BipeColor.accentFill)
                         .disabled(phase == .saving)
                     }

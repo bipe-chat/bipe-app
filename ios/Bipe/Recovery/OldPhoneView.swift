@@ -56,7 +56,7 @@ struct OldPhoneView: View {
                 } label: {
                     Text(BipeStrings.contactsOpenSettings)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.bipeBordered)
             } else {
                 QRScannerView { model.codeRead($0) }
                     .aspectRatio(1, contentMode: .fit)
@@ -121,7 +121,7 @@ struct OldPhoneView: View {
             } label: {
                 Text(BipeStrings.appOldPhonePasteSubmit).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             .disabled(model.pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
@@ -139,7 +139,7 @@ struct OldPhoneView: View {
             } label: {
                 Text(BipeStrings.appLinkComputerScanAgain)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.bipeBordered)
         }
     }
 

@@ -179,7 +179,7 @@ struct DmDeleteView: View {
             } label: {
                 Text(BipeStrings.dmDeleteConfirm).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             .tint(BipeColor.trustDangerInk)
             Button {
                 dismiss()

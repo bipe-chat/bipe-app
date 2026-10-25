@@ -175,7 +175,7 @@ struct OrderCustomerView: View {
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.appRetry) { Task { await load() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -394,7 +394,7 @@ struct OrderOwnerView: View {
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                 Button(BipeStrings.appRetry) { Task { await load() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bipeProminent)
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -582,7 +582,7 @@ struct OrderOwnerNewView: View {
                             .foregroundStyle(BipeColor.inkSecondary)
                             .multilineTextAlignment(.center)
                         Button(BipeStrings.appRetry) { Task { await load() } }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.bipeProminent)
                     }
                     .padding(24)
                 } else {
@@ -690,7 +690,7 @@ struct OrderSettingsView: View {
                                 .foregroundStyle(BipeColor.inkSecondary)
                                 .multilineTextAlignment(.center)
                             Button(BipeStrings.appRetry) { Task { await load() } }
-                                .buttonStyle(.borderedProminent)
+                                .buttonStyle(.bipeProminent)
                         }
                         .padding(24)
                     } else {

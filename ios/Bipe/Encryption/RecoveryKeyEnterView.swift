@@ -45,7 +45,7 @@ struct RecoveryKeyEnterView: View {
             } label: {
                 Text(BipeStrings.actionContinue).frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             .controlSize(.large)
             .disabled(!model.canSubmit)
             Button(action: noKey) {

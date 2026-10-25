@@ -197,7 +197,7 @@ private struct StartMessage: View {
                         PhosphorIcon.arrowClockwise.image.resizable().frame(width: 18, height: 18)
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bipeProminent)
             }
         }
         .padding(24)
@@ -231,7 +231,7 @@ private struct LegacyKeptView: View {
                 Text(BipeStrings.appStartLegacyRecover)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bipeProminent)
             .controlSize(.large)
             Button(action: startFresh) {
                 Text(BipeStrings.appStartLegacyFresh)

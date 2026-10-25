@@ -205,12 +205,12 @@ struct RecoveryKeySaveView: View {
                         PhosphorIcon.copy.image.resizable().frame(width: 18, height: 18)
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.bipeBordered)
                 if let key = model.recoveryKey {
                     ShareLink(item: key) {
                         Text(BipeStrings.appShare)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.bipeBordered)
                 }
             }
             Spacer()
@@ -238,7 +238,7 @@ struct RecoveryKeySaveView: View {
         Button(action: action) {
             Text(title).frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.bipeProminent)
         .controlSize(.large)
     }
 }
