@@ -284,7 +284,7 @@ class SignupFlowModel(
 
     /** Action editCode. */
     fun editCode(text: String) {
-        code.value = text
+        code.value = BipeInviteLink.typedCode(text)
         inviteCodeError.value = null
         inviteCodePhase.value = InviteCodePhase.EDITING
     }

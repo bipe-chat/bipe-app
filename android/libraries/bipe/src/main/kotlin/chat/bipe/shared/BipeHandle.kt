@@ -120,6 +120,15 @@ object BipeInviteLink {
         return match.groupValues.drop(1).joinToString("-")
     }
 
+    /**
+     * The code field text while the user types: uppercase, a dash after every 4 characters, at most 12 characters.
+     * A pasted link or message that holds a code becomes that code.
+     */
+    fun typedCode(raw: String): String {
+        normalizedCode(raw)?.let { return it }
+        return raw.uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }.take(12).chunked(4).joinToString("-")
+    }
+
     /** The code of a `https://bipe.chat/convite/<code>` link. */
     fun code(url: android.net.Uri): String? {
         if (url.scheme != "https" || url.host?.lowercase() !in hosts) return null
