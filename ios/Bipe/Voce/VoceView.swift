@@ -21,7 +21,7 @@ struct VoceView: View {
     @State private var openingNotes = false
     @State private var notesFailed = false
     @State private var showsLinkPhone = false
-    private enum Destination: Hashable { case notes(String), invites, trust, myBookings }
+    private enum Destination: Hashable { case notes(String), invites, trust, myBookings, claim }
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
@@ -111,6 +111,11 @@ struct VoceView: View {
                     }
                 case .myBookings:
                     MyBookingsView(people: people, openChat: { path.append(Destination.notes($0)) })
+                case .claim:
+                    BusinessClaimView(session: chatList.session, api: api) {
+                        let isCompany = model.accounts.first(where: \.isCurrent)?.isCompany ?? false
+                        Task { await trust.load(session: chatList.session, api: api, isCompany: isCompany) }
+                    }
                 }
             }
             .navigationDestination(for: PeopleRoute.self) { route in
@@ -161,7 +166,8 @@ struct VoceView: View {
     private var trustActions: TrustActions {
         TrustActions(addName: { path.append(PeopleRoute.profileEdit) },
                      addPhoto: { path.append(PeopleRoute.profileEdit) },
-                     chooseHandle: { showsHandlePick = true })
+                     chooseHandle: { showsHandlePick = true },
+                     openClaim: { path.append(Destination.claim) })
     }
 
     private func openNotes() {
