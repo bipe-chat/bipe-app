@@ -43,21 +43,17 @@ struct VoceView: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets())
                 }
-                // The accounts on this phone (ADR 0112, 0135); Nova conta closes the section while the cap allows.
-                if model.accounts.count > 1 || model.canAddAccount {
-                    Section {
-                        if model.accounts.count > 1 {
-                            AccountRows(model: model, fallbackMedia: chatList.media)
-                        }
-                        if model.canAddAccount {
-                            Button(action: onNewAccount) {
-                                IconLabel(icon: .plus, text: BipeStrings.appAccountNew, tint: BipeColor.accentInk)
-                            }
-                            .listRowBackground(BipeColor.surfaceRaised)
-                        }
-                    } header: {
-                        if model.accounts.count > 1 { Text(BipeStrings.appAccountSwitcherTitle) }
+                // The accounts on this phone (ADR 0112, 0135); Nova conta closes the section (spec account-new).
+                Section {
+                    if model.accounts.count > 1 {
+                        AccountRows(model: model, fallbackMedia: chatList.media)
                     }
+                    Button(action: onNewAccount) {
+                        IconLabel(icon: .plus, text: BipeStrings.appAccountNew, tint: BipeColor.accentInk)
+                    }
+                    .listRowBackground(BipeColor.surfaceRaised)
+                } header: {
+                    if model.accounts.count > 1 { Text(BipeStrings.appAccountSwitcherTitle) }
                 }
                 Section {
                     Button(action: openNotes) {

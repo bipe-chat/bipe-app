@@ -297,10 +297,12 @@ final class ChatListModel: ObservableObject {
         }
         let peer = info.isDm ? info.heroes.first(where: { $0.userId != ownUserId }) : nil
         let name = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName,
-            peerName: peer?.displayName, peerID: peer?.userId, unnamed: BipeStrings.dmNoName)
+            peerName: peer?.displayName, peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
+            dmRoomName: info.isDm ? info.rawName : nil)
         return ChatSummary(roomId: info.id,
                            name: name,
-                           avatarUrl: info.isDm ? (peer?.avatarUrl ?? info.avatarUrl) : info.avatarUrl,
+                           // ADR 0141: a DM shows the person's photo, never m.room.avatar.
+                           avatarUrl: info.isDm ? peer?.avatarUrl : info.avatarUrl,
                            lastMessage: lastMessage,
                            lastActivity: lastActivity,
                            unreadCount: Int(info.numUnreadMessages),

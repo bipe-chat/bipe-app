@@ -56,10 +56,7 @@ struct AppTabsView: View {
         .pixHandoff(chatList: chatList)
         .modifier(InviteJoinNotice(model: model.invites(for: session)))
         .sheet(isPresented: $showsNewAccount) {
-            SignupFlowView(api: api, onCancel: { showsNewAccount = false }) { session, outcome in
-                showsNewAccount = false
-                model.start.didSignUp(session, outcome: outcome)
-            }
+            AccountNewView(tabs: model, session: session, api: api) { showsNewAccount = false }
         }
     }
 }

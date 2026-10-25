@@ -122,7 +122,9 @@ private struct NotificationsPromptTrigger: ViewModifier {
     private func check() async {
         guard !isShown, await NotificationsPromptView.shouldShow() else { return }
         if let room = try? session.client.getRoom(roomId: roomId), let info = try? await room.roomInfo(), info.isDm {
-            recipientName = info.displayName
+            // ADR 0141: the person, never the DM's m.room.name.
+            let peer = info.heroes.first { $0.userId != session.userId }
+            recipientName = peer?.displayName?.nilIfBlank ?? peer.map { Person.localpart(of: $0.userId) }
         }
         isShown = true
     }

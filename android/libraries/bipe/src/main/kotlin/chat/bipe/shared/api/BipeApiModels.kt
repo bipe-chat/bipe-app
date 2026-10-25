@@ -35,6 +35,8 @@ data class BipeSignupRequest(
     @SerialName("terms_version") val termsVersion: String? = null,
     /** Android Key Attestation (bipe-chat/bipe#92). `null` when the phone cannot attest: the server decides. */
     @SerialName("attestation") val attestation: BipeAttestation? = null,
+    /** `company` makes a company account, which needs [attestation] (ADR 0087). `null` makes a personal account. */
+    @SerialName("account_type") val accountType: String? = null,
 ) {
     override fun toString(): String = "BipeSignupRequest"
 }

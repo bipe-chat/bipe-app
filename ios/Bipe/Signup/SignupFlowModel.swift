@@ -13,6 +13,15 @@ struct PendingInvite: Equatable {
     var isValid: Bool
 }
 
+/// Type SignupStart of spec account-new: a sign-up from the Nova conta window, with the invite the account on screen made.
+struct SignupStart: Equatable, Identifiable {
+    var inviteId: String
+    var code: String
+    var accountType: BipeAccountType
+
+    var id: String { inviteId }
+}
+
 /// The sign-up flow: onboarding-welcome, signup-invite-code, signup-waitlist, signup-name, signup-pin, signup-fallback
 /// and signup-create (bipe-shared product/screens). The state and action names follow the specs.
 @MainActor
@@ -169,12 +178,28 @@ final class SignupFlowModel: ObservableObject {
     private let onSignedUp: (AccountSession, SignupOutcome) -> Void
     /// Action haveAccount of onboarding-welcome: account-start opens recovery-start.
     let onHaveAccount: () -> Void
+    /// Set for a sign-up from account-new: it starts at signup-name with the invite, and has no inviter.
+    let start: SignupStart?
+    /// true once signup-create ran: a cancel no longer revokes the invite of ``start`` (spec account-new cancelSignup).
+    private(set) var reachedCreate = false
 
-    init(api: BipeAPIClient, onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void, onHaveAccount: @escaping () -> Void = {}) {
+    init(api: BipeAPIClient,
+         start: SignupStart? = nil,
+         onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void,
+         onHaveAccount: @escaping () -> Void = {}) {
         self.api = api
+        self.start = start
         self.onSignedUp = onSignedUp
         self.onHaveAccount = onHaveAccount
+        if let start {
+            // The account on screen made the invite: no inviter handle, so signup-name shows no "invited by".
+            invite = PendingInvite(code: start.code, inviterHandle: nil, isValid: true)
+            code = start.code
+        }
     }
+
+    /// A company sign-up from account-new: signup-name asks for the company name.
+    var isCompany: Bool { start?.accountType == .company }
 
     // MARK: - onboarding-welcome actions
 
@@ -433,6 +458,7 @@ final class SignupFlowModel: ObservableObject {
     /// Action start of signup-create. Spec notes: retry key, attestation, storage, then sign-in.
     func create() async {
         go(.create)
+        reachedCreate = true
         createError = .none
         if let credentials = storedCredentials {
             await signIn(credentials)
@@ -460,7 +486,8 @@ final class SignupFlowModel: ObservableObject {
                                         displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
                                         attestation: attestation,
                                         signupKey: pending.key,
-                                        termsVersion: termsAccepted ? acceptedTermsVersion : nil)
+                                        termsVersion: termsAccepted ? acceptedTermsVersion : nil,
+                                        accountType: isCompany ? .company : nil)
         let response: BipeSignupResponse
         do {
             response = try await signupRetryingLostAnswers(request)
@@ -499,7 +526,7 @@ final class SignupFlowModel: ObservableObject {
         case .termsRequired:
             termsAccepted = false
             showTermsRequired = true
-            path = Array(path.prefix { $0 != .name }) + [.name]
+            path = start != nil ? [] : Array(path.prefix { $0 != .name }) + [.name]
         case .pinWeak:
             resetPin()
             path = Array(path.prefix { $0 != .pin }) + [.pin]
@@ -526,7 +553,9 @@ final class SignupFlowModel: ObservableObject {
             let session = try await AccountSession.signIn(userId: credentials.userId, password: credentials.password)
             createPhase = .done
             formPin = ""
-            onSignedUp(session, SignupOutcome(inviterUserId: inviterUserId, inviterHandle: invite?.inviterHandle))
+            // A sign-up from account-new has no inviter chat and no greeting: the inviter is an account on this phone.
+            let outcome = start != nil ? SignupOutcome() : SignupOutcome(inviterUserId: inviterUserId, inviterHandle: invite?.inviterHandle)
+            onSignedUp(session, outcome)
         } catch {
             createPhase = .failed
             createError = .signInFailed
