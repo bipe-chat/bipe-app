@@ -774,6 +774,8 @@ public enum BipeStrings {
 
     public static var tabAgenda: String { NSLocalizedString("bipe_tab_agenda", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var tabWork: String { NSLocalizedString("bipe_tab_work", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var tabGroups: String { NSLocalizedString("bipe_tab_groups", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var tabYou: String { NSLocalizedString("bipe_tab_you", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2329,6 +2331,48 @@ public enum BipeStrings {
     }
 
     public static var notificationsToneError: String { NSLocalizedString("bipe_notifications_tone_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func notificationsAccountFooter(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_notifications_account_footer", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var notificationsPreview: String { NSLocalizedString("bipe_notifications_preview", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var notificationsPreviewFooter: String { NSLocalizedString("bipe_notifications_preview_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var focusFilterTitle: String { NSLocalizedString("bipe_focus_filter_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var focusFilterDescription: String { NSLocalizedString("bipe_focus_filter_description", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var focusFilterAccounts: String { NSLocalizedString("bipe_focus_filter_accounts", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var focusFilterAll: String { NSLocalizedString("bipe_focus_filter_all", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func notificationsAccountGroup(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_notifications_account_group", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var workHoursTitle: String { NSLocalizedString("bipe_work_hours_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workHoursBody: String { NSLocalizedString("bipe_work_hours_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workHoursEnabled: String { NSLocalizedString("bipe_work_hours_enabled", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workHoursClosed: String { NSLocalizedString("bipe_work_hours_closed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func workHoursRange(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_work_hours_range", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var workHoursOpenNow: String { NSLocalizedString("bipe_work_hours_open_now", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workHoursClosedNow: String { NSLocalizedString("bipe_work_hours_closed_now", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workHoursOpens: String { NSLocalizedString("bipe_work_hours_opens", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workHoursCloses: String { NSLocalizedString("bipe_work_hours_closes", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workHoursSaveError: String { NSLocalizedString("bipe_work_hours_save_error", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var notificationsMismatchTitle: String { NSLocalizedString("bipe_notifications_mismatch_title", tableName: "Bipe", bundle: .module, comment: "") }
 

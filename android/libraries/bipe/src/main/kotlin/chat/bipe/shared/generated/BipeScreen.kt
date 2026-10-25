@@ -405,4 +405,7 @@ enum class BipeScreen(val id: String) {
 
     /** Who can message me (flow settings). Spec: bipe-shared/product/screens/who-can-message.json */
     WHO_CAN_MESSAGE("who-can-message"),
+
+    /** Opening hours of a work account (flow settings). Spec: bipe-shared/product/screens/work-hours.json */
+    WORK_HOURS("work-hours"),
 }

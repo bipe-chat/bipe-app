@@ -85,6 +85,7 @@ import chat.bipe.app.invites.InvitesScreen
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
+import chat.bipe.app.voce.BusinessClaimScreen
 import chat.bipe.app.voce.TrustActions
 import chat.bipe.app.voce.TrustCardModel
 import chat.bipe.app.voce.TrustProfileScreen
@@ -125,6 +126,7 @@ sealed interface SettingsRoute {
     /** Spec recovery-email-add, from the e-mail row of Ways back (bipe-chat/bipe#531). */
     data object RecoveryEmail : SettingsRoute
     data object TrustProfile : SettingsRoute
+    data object BusinessClaim : SettingsRoute
 }
 
 /**
@@ -209,8 +211,15 @@ fun SettingsHost(
                 addName = { stack.add(SettingsRoute.People(PeopleRoute.ProfileEdit)) },
                 addPhoto = { stack.add(SettingsRoute.People(PeopleRoute.ProfileEdit)) },
                 chooseHandle = { stack.add(SettingsRoute.HandlePick) },
+                openClaim = { stack.add(SettingsRoute.BusinessClaim) },
             ), onBack = pop)
         }
+        SettingsRoute.BusinessClaim -> BusinessClaimScreen(
+            session, api,
+            onChange = { trust?.reload() },
+            openSupport = { stack.add(SettingsRoute.Support) },
+            onBack = pop,
+        )
         SettingsRoute.ShowMediaChoice -> ChoiceListScreen(
             title = stringResource(R.string.bipe_chats_show_media),
             options = ShowMedia.entries.map { it.id to stringResource(it.title) },

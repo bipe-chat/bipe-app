@@ -705,6 +705,19 @@ public enum BipeRegistries {
     public static let phoneLinkConfirmMonths = 12
     public static let phoneLinkConfirmWarnDays = 30
 
+    /// Work side opening hours (registries/work-hours.json, bipe-chat/bipe#511).
+    public static let workHoursDefaultTimeZone = "America/Sao_Paulo"
+    public static let workHoursMaxRangesPerDay = 3
+    /// ISO weekday (1 Monday ... 7 Sunday) and its ranges, local HH:MM, half-open.
+    public static let workHoursDefaultDays: [(day: Int, ranges: [(start: String, end: String)])] = [
+        (day: 1, ranges: [(start: "08:00", end: "18:00")]),
+        (day: 2, ranges: [(start: "08:00", end: "18:00")]),
+        (day: 3, ranges: [(start: "08:00", end: "18:00")]),
+        (day: 4, ranges: [(start: "08:00", end: "18:00")]),
+        (day: 5, ranges: [(start: "08:00", end: "18:00")]),
+        (day: 6, ranges: [(start: "08:00", end: "12:00")]),
+    ]
+
     /// Device-first accounts (ADR 0057, ADR 0059; registries/accounts.json). Check PINs with the rule there;
     /// test-vectors/pins.json has the cases. The server is the authority.
     public static let pinLength = 8
