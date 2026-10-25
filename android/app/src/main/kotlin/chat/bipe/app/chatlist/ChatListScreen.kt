@@ -271,6 +271,7 @@ fun HomeScreen(
                             people.dmPartner(roomId)?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
                         }
                     },
+                    people = people,
                 )
             } else {
                 AppTabsScreen(

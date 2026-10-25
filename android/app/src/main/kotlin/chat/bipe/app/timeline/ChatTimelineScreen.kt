@@ -82,6 +82,7 @@ import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.composer.MentionSuggestion
 import chat.bipe.app.notifications.NotificationsPrompt
+import chat.bipe.app.people.PeopleService
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.groups.DmDeleteSheet
@@ -113,6 +114,8 @@ fun ChatTimelineScreen(
     onDmDeleted: () -> Unit = onBack,
     /** Opens the chat's info: person-profile for a DM. */
     onOpenInfo: (() -> Unit)? = null,
+    /** The account's people service, for the blocked bar of a DM (block-person). null: no bar. */
+    people: PeopleService? = null,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -301,7 +304,7 @@ fun ChatTimelineScreen(
                 }
                 inviterHint?.let { hint -> InviterHintRow(hint, roomName) { model.sendGreeting(greeting) } }
                 TypingLine(ui.typingNames)
-                ComposerBar(
+                val composerBar: @Composable () -> Unit = { ComposerBar(
                     draft = draft,
                     canSend = model.canSend,
                     ui = ui,
@@ -319,7 +322,9 @@ fun ChatTimelineScreen(
                     onStickers = { showsStickers = true },
                     onRecord = { model.startRecording(context.applicationContext) },
                     onEndRecording = model::endRecording,
-                )
+                ) }
+                val peer = peerUserId
+                if (isDm && people != null && peer != null) DmComposerSlot(people, peer, roomName, composerBar) else composerBar()
             }
             ui.notice?.let { notice ->
                 Text(

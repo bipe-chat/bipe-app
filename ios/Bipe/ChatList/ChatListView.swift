@@ -67,7 +67,7 @@ struct ChatListView: View {
             .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
             .navigationDestination(for: String.self) { roomId in
-                ChatTimelineView(session: model.session, media: model.media, roomId: roomId) {
+                ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
                     Task {
                         if let userId = await people.dmPartner(roomId: roomId) {
                             path.append(PeopleRoute.person(userId: userId, fromDm: true))

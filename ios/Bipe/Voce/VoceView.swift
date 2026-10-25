@@ -103,7 +103,7 @@ struct VoceView: View {
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {
                 case .notes(let roomId):
-                    ChatTimelineView(session: chatList.session, media: chatList.media, roomId: roomId)
+                    ChatTimelineView(session: chatList.session, media: chatList.media, roomId: roomId, people: people)
                 case .invites:
                     InvitesView(model: model.invites(for: chatList.session), people: people,
                                 openChat: { path.append(Destination.notes($0)) })
