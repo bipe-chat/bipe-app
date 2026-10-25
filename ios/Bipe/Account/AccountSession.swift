@@ -6,6 +6,24 @@ import BipeKit
 import Foundation
 import MatrixRustSDK
 
+/// Passes ClientDelegate.didReceiveAuthError to the main actor (spec soft-logout).
+private final class AuthErrorRelay: ClientDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private var _handler: ((Bool) -> Void)?
+
+    var handler: ((Bool) -> Void)? {
+        get { lock.withLock { _handler } }
+        set { lock.withLock { _handler = newValue } }
+    }
+
+    func didReceiveAuthError(isSoftLogout: Bool) {
+        guard let handler else { return }
+        DispatchQueue.main.async { handler(isSoftLogout) }
+    }
+
+    func onBackgroundTaskErrorReport(taskName: String, error: BackgroundTaskFailureReason) {}
+}
+
 /// A signed-in account: the SDK client and its sync service.
 /// Also compiled into the notification service extension (project.yml): keep it free of app-only types.
 final class AccountSession {
@@ -13,6 +31,13 @@ final class AccountSession {
     let syncService: SyncService
     let userId: String
     let roomSubscriptions: BipeRoomSubscriptions
+    /// Spec soft-logout: the SDK reports a refused token here. Set by account-start.
+    var onAuthError: ((_ isSoftLogout: Bool) -> Void)? {
+        get { authErrors.handler }
+        set { authErrors.handler = newValue }
+    }
+    private let authErrors = AuthErrorRelay()
+    private var authErrorsHandle: TaskHandle?
 
     init(client: Client, syncService: SyncService, userId: String) {
         self.client = client
@@ -61,7 +86,34 @@ final class AccountSession {
             await syncService.start()
             return syncService
         }
-        return AccountSession(client: client, syncService: syncService, userId: try client.userId())
+        let session = AccountSession(client: client, syncService: syncService, userId: try client.userId())
+        session.authErrorsHandle = try? client.setDelegate(delegate: session.authErrors)
+        return session
+    }
+
+    /// Spec soft-logout authError: signs in again with the hidden password on the same store and device ID, so keys
+    /// and history stay. The caller stops this session first.
+    static func signInAgain(after expired: AccountSession, password: String) async throws -> AccountSession {
+        let deviceId = try expired.client.deviceId()
+        let userId = expired.userId
+        let client = try await AccountStep.run("build client") { try await makeClient(userId: userId) }
+        try await AccountStep.run("login") {
+            try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName, deviceId: deviceId)
+        }
+        SessionStore.save(try client.session())
+        return try await start(client)
+    }
+
+    /// Stops the sync and the room subscriptions and keeps everything on this phone (spec soft-logout).
+    func pause() async {
+        await roomSubscriptions.close()
+        await syncService.stop()
+    }
+
+    /// true when the server refused the hidden password (M_FORBIDDEN), not a network or local failure.
+    static func isRefused(_ error: Error) -> Bool {
+        guard let error = error as? ClientError, case .MatrixApi(_, let code, _, _) = error else { return false }
+        return code == "M_FORBIDDEN"
     }
 
     /// true when the account's SDK store folder exists and holds files.

@@ -14,8 +14,10 @@ struct RecoveryFlowView: View {
     private let close: () -> Void
 
     /// close: back to onboarding-welcome. Hidden while a kept recovery waits: the wait ends with the account or startOver.
-    init(api: BipeAPIClient, link: Binding<URL?>, close: @escaping () -> Void, onSignedIn: @escaping (AccountSession) -> Void) {
-        _model = StateObject(wrappedValue: RecoveryFlowModel(api: api, onSignedIn: onSignedIn))
+    /// softLogoutUserId: spec soft-logout needsPin, recovery-pin for that account's synced token.
+    init(api: BipeAPIClient, link: Binding<URL?>, softLogoutUserId: String? = nil, close: @escaping () -> Void,
+         onSignedIn: @escaping (AccountSession) -> Void) {
+        _model = StateObject(wrappedValue: RecoveryFlowModel(api: api, softLogoutUserId: softLogoutUserId, onSignedIn: onSignedIn))
         _link = link
         self.close = close
     }
@@ -217,17 +219,24 @@ private struct RecoveryPinView: View {
         case .blocked: BipeStrings.pinBlockedTitle
         case .newPin: BipeStrings.recoveryNewPinTitle
         case .newPinConfirm: BipeStrings.pinConfirmTitle
-        default: BipeStrings.pinEnterTitle
+        default: model.softLogoutUserId != nil ? BipeStrings.softLogoutTitle : BipeStrings.pinEnterTitle
         }
     }
 
     private var message: String? {
         switch model.pinPhase {
-        case .blocked: BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries))
-        case .newPin: BipeStrings.pinCreateBody(String(BipeRegistries.pinLength))
-        case .newPinConfirm: nil
-        default: model.factor == .token ? BipeStrings.recoveryTokenFound : nil
+        case .blocked: return BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries))
+        case .newPin: return BipeStrings.pinCreateBody(String(BipeRegistries.pinLength))
+        case .newPinConfirm: return nil
+        default:
+            if let userId = model.softLogoutUserId { return BipeStrings.softLogoutBody(Self.name(of: userId)) }
+            return model.factor == .token ? BipeStrings.recoveryTokenFound : nil
         }
+    }
+
+    private static func name(of userId: String) -> String {
+        let label = BipeAccountLabels.label(for: userId)
+        return label == userId ? BipeStrings.tabYou : label
     }
 
     private var errorText: String? {

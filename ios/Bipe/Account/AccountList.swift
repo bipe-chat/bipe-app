@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 
 /// The accounts on this phone in the order they were added, and the one used last (spec account-start notes,
@@ -44,5 +45,29 @@ enum AccountList {
         if current == userId {
             current = nil
         }
+        UserDefaults.standard.removeObject(forKey: ownerKey(userId))
+    }
+
+    // MARK: Company owners (bipe-chat/bipe#444)
+
+    /// The personal account that made this company account on this phone. A phone-side grouping only (ADR 0138):
+    /// the API never learns it.
+    static func owner(of companyId: String) -> String? {
+        UserDefaults.standard.string(forKey: ownerKey(companyId))
+    }
+
+    static func setOwner(_ ownerId: String, of companyId: String) {
+        UserDefaults.standard.set(ownerId, forKey: ownerKey(companyId))
+    }
+
+    /// The owner's name, for the company's Sua conta: only while the owner is on this phone and its name is known.
+    static func ownerName(of companyId: String) -> String? {
+        guard let owner = owner(of: companyId), order.contains(owner) else { return nil }
+        let name = BipeAccountLabels.label(for: owner)
+        return name == owner ? nil : name
+    }
+
+    private static func ownerKey(_ userId: String) -> String {
+        "bipe.accounts.owner.\(userId)"
     }
 }

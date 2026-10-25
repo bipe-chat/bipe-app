@@ -12,15 +12,22 @@ import UIKit
 @MainActor
 enum AccountMenu {
     static func make(model: AppTabsModel, onNewAccount: @escaping () -> Void) -> UIMenu {
-        let accounts = model.accounts.map { account in
-            UIAction(title: account.displayName,
-                     subtitle: account.handle.map { "@\($0)" },
-                     image: model.menuAvatar(of: account),
-                     state: account.isCurrent ? .on : .off) { _ in
+        // One inline group per owner and its company accounts (bipe-chat/bipe#444).
+        var groups: [[UIAction]] = []
+        for account in model.accounts {
+            let action = UIAction(title: account.displayName,
+                                  subtitle: account.ownerName.map(BipeStrings.accountCompanyOwner) ?? account.handle.map { "@\($0)" },
+                                  image: model.menuAvatar(of: account),
+                                  state: account.isCurrent ? .on : .off) { _ in
                 model.switchAccount(to: account.userId)
             }
+            if account.ownerId != nil, !groups.isEmpty {
+                groups[groups.count - 1].append(action)
+            } else {
+                groups.append([action])
+            }
         }
-        var children: [UIMenuElement] = [UIMenu(options: .displayInline, children: accounts)]
+        var children: [UIMenuElement] = groups.map { UIMenu(options: .displayInline, children: $0) }
         children.append(UIAction(title: BipeStrings.appAccountNew, image: UIImage(systemName: "plus")) { _ in
             onNewAccount()
         })
@@ -41,7 +48,9 @@ struct AccountRows: View {
                                userId: account.userId, isCompany: account.isCompany)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(account.displayName).foregroundStyle(BipeColor.inkPrimary)
-                        if let handle = account.handle {
+                        if let owner = account.ownerName {
+                            Text(BipeStrings.accountCompanyOwner(owner)).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                        } else if let handle = account.handle {
                             Text(verbatim: "@\(handle)").font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                         }
                     }
@@ -55,6 +64,8 @@ struct AccountRows: View {
                     }
                 }
                 .padding(.vertical, 4)
+                // A company account sits under its owner (bipe-chat/bipe#444).
+                .padding(.leading, account.ownerId == nil ? 0 : 24)
             }
             .accessibilityAddTraits(account.isCurrent ? .isSelected : [])
             .accessibilityLabel(account.isCurrent ? BipeStrings.appAccountCurrentA11y(account.displayName) : account.displayName)

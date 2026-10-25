@@ -78,7 +78,7 @@ enum class BipeOnboardingPrompt(
     ;
 }
 
-/** Rows of "Já tenho conta", in screen order. gate: "planned:<issue>" = hidden until that issue ships. */
+/** Rows of "Já tenho conta", in screen order. gate: "planned:<issue>" = hidden until that issue ships; "flag:developer" = developer builds only. */
 enum class BipeOnboardingRecoveryRow(
     @StringRes val title: Int,
     @StringRes val body: Int,
@@ -89,7 +89,7 @@ enum class BipeOnboardingRecoveryRow(
     TOKEN(R.string.bipe_pin_enter_title, R.string.bipe_recovery_token_found, true, null),
     OLD_PHONE(R.string.bipe_recovery_qr, R.string.bipe_recovery_qr_body, false, "planned:203"),
     EMAIL(R.string.bipe_recovery_email, R.string.bipe_recovery_email_body, false, null),
-    BETA(R.string.bipe_recovery_beta, R.string.bipe_recovery_beta_body, false, null),
+    BETA(R.string.bipe_recovery_beta, R.string.bipe_recovery_beta_body, false, "flag:developer"),
     ;
 }
 

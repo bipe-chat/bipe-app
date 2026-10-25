@@ -4,6 +4,7 @@
 
 package chat.bipe.app.tabs
 
+import chat.bipe.app.account.AccountList
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.AccountStartModel
 import chat.bipe.app.chatlist.ChatListModel
@@ -31,6 +32,9 @@ data class AccountSummary(
     val isCurrent: Boolean,
     val hasUnread: Boolean,
     val isCompany: Boolean = false,
+    /** For a company account made on this phone: its owner, while the owner is on this phone (bipe-chat/bipe#444). */
+    val ownerId: String? = null,
+    val ownerName: String? = null,
 )
 
 /**
@@ -70,6 +74,7 @@ class AppTabsModel(
     private val mediaLoaders = mutableMapOf<String, MediaLoader>()
     private var sessionIds: List<String> = emptyList()
     private var currentId: String? = null
+    private val accountList = AccountList(start.appContext)
 
     init {
         scope.launch {
@@ -145,7 +150,9 @@ class AppTabsModel(
     private fun sessionsChanged(sessions: List<AccountSession>, userId: String?) {
         sessionIds = sessions.map { it.userId }
         currentId = userId
-        (chatLists.keys - sessionIds.toSet()).forEach { gone ->
+        // A session replaced after soft-logout (same account, new client) gets new models too.
+        val byId = sessions.associateBy { it.userId }
+        chatLists.filter { (id, list) -> byId[id] !== list.session }.keys.forEach { gone ->
             chatLists.remove(gone)?.close()
             listJobs.remove(gone)?.cancel()
             latestChats.remove(gone)
@@ -166,13 +173,31 @@ class AppTabsModel(
         val loader = mediaLoaders[session.userId] ?: return
         val company = loader.isCompany(session.userId)
         if (session.userId !in sessionIds) return
+        accountList.rememberName(session.userId, displayName)
         profiles[session.userId] = Profile(displayName, avatarUrl, mine?.handle, company,
             (status?.maxAccounts ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS).coerceAtLeast(1))
         refresh()
     }
 
+    /**
+     * Spec account-switcher notes: each owner with its company accounts right after it; a company whose owner is not on
+     * this phone keeps its own place.
+     */
+    private fun grouped(summaries: List<AccountSummary>): List<AccountSummary> {
+        val withOwners = summaries.map { summary ->
+            val owner = accountList.owner(summary.userId)?.let { id -> summaries.firstOrNull { it.userId == id && !it.isCompany } }
+            if (owner == null) summary else summary.copy(ownerId = owner.userId, ownerName = owner.displayName.ifBlank { null })
+        }
+        val result = mutableListOf<AccountSummary>()
+        withOwners.filter { it.ownerId == null }.forEach { summary ->
+            result += summary
+            result += withOwners.filter { it.ownerId == summary.userId }
+        }
+        return result + withOwners.filter { summary -> result.none { it.userId == summary.userId } }
+    }
+
     private fun refresh() {
-        val accounts = sessionIds.map { userId ->
+        val accounts = grouped(sessionIds.map { userId ->
             val profile = profiles[userId]
             AccountSummary(
                 userId = userId,
@@ -183,7 +208,7 @@ class AppTabsModel(
                 hasUnread = latestChats[userId].orEmpty().any { it.isUnread },
                 isCompany = profile?.company ?: false,
             )
-        }
+        })
         val chats = currentId?.let { latestChats[it] }.orEmpty()
         val limit = currentId?.let { profiles[it]?.limit } ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS
         _state.value = _state.value.copy(

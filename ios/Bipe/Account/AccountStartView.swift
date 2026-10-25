@@ -33,7 +33,8 @@ struct AccountStartView: View {
                         SignedInView(session: session, tabs: tabs, api: model.api, initialRoomId: model.initialRoomId) {
                             Task { await model.signOut() }
                         }
-                        .id(session.userId)
+                        // A quiet sign-in after soft-logout replaces the session: build the tabs again too.
+                        .id(ObjectIdentifier(session))
                     }
                 }
             case .opening:
@@ -59,6 +60,12 @@ struct AccountStartView: View {
         }
         .accessibilityIdentifier(BipeScreen.accountStart.rawValue)
         .tint(BipeColor.accentFill)
+        .toast($model.notice)
+        // Spec soft-logout needsPin: recovery-pin for that account, "Digite sua senha para continuar".
+        .fullScreenCover(item: Binding(get: { model.needsPin.map(SoftLogoutTarget.init) }, set: { if $0 == nil { model.needsPin = nil } })) { target in
+            RecoveryFlowView(api: model.api, link: .constant(nil), softLogoutUserId: target.userId,
+                             close: { model.needsPin = nil }, onSignedIn: model.didEnterPin)
+        }
         .onOpenURL { model.openLink($0) }
         .onReceive(notifications.$roomToOpen) { target in
             Task { @MainActor in routeNotification(target) }
@@ -125,6 +132,11 @@ private struct SignedInView: View {
                 }
             }
     }
+}
+
+private struct SoftLogoutTarget: Identifiable {
+    let userId: String
+    var id: String { userId }
 }
 
 private struct StartMessage: View {
