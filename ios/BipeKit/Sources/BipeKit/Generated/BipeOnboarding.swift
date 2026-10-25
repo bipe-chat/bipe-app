@@ -19,6 +19,7 @@ public enum BipeOnboardingTarget: String, Sendable {
     case waitlist
     case systemPermission
     case handleScreen
+    case recoveryEmailAdd
     case dismiss
     case shareInvite
     case shareProfile
@@ -138,11 +139,13 @@ public enum BipeOnboardingStep: String, CaseIterable, Sendable {
 public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
     case notifications
     case handle
+    case recovery
 
     public var titleKey: String {
         switch self {
         case .notifications: "bipe_notifications_prompt_title"
         case .handle: "bipe_handle_prompt_title"
+        case .recovery: "bipe_fallback_title"
         }
     }
 
@@ -150,6 +153,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         switch self {
         case .notifications: "bipe_notifications_prompt_body"
         case .handle: "bipe_handle_prompt_body"
+        case .recovery: "bipe_fallback_reminder"
         }
     }
 
@@ -158,6 +162,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         switch self {
         case .notifications: BipeOnboardingButton(titleKey: "bipe_notifications_prompt_allow", target: .systemPermission)
         case .handle: BipeOnboardingButton(titleKey: "bipe_handle_prompt_action", target: .handleScreen)
+        case .recovery: BipeOnboardingButton(titleKey: "bipe_fallback_email", target: .recoveryEmailAdd)
         }
     }
 
@@ -166,6 +171,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         switch self {
         case .notifications: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
         case .handle: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
+        case .recovery: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
         }
     }
 }

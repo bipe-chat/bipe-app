@@ -16,6 +16,27 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Account switcher (flow home). Spec: bipe-shared/product/screens/account-switcher.json
     case accountSwitcher = "account-switcher"
 
+    /// Book a time (flow business). Spec: bipe-shared/product/screens/agenda-book.json
+    case agendaBook = "agenda-book"
+
+    /// Booking card (flow business). Spec: bipe-shared/product/screens/agenda-booking-card.json
+    case agendaBookingCard = "agenda-booking-card"
+
+    /// My bookings (flow settings). Spec: bipe-shared/product/screens/agenda-my-bookings.json
+    case agendaMyBookings = "agenda-my-bookings"
+
+    /// Booking sheet for the owner (flow business). Spec: bipe-shared/product/screens/agenda-owner-booking.json
+    case agendaOwnerBooking = "agenda-owner-booking"
+
+    /// Agenda tab (flow business). Spec: bipe-shared/product/screens/agenda-owner.json
+    case agendaOwner = "agenda-owner"
+
+    /// Agenda settings (flow business). Spec: bipe-shared/product/screens/agenda-settings.json
+    case agendaSettings = "agenda-settings"
+
+    /// Set up the agenda (flow business). Spec: bipe-shared/product/screens/agenda-setup.json
+    case agendaSetup = "agenda-setup"
+
     /// App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json
     case appLock = "app-lock"
 
@@ -30,6 +51,21 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json
     case blockedList = "blocked-list"
+
+    /// Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json
+    case businessChatBar = "business-chat-bar"
+
+    /// Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json
+    case businessTools = "business-tools"
+
+    /// Edit a catalogue item (flow business). Spec: bipe-shared/product/screens/catalog-item-edit.json
+    case catalogItemEdit = "catalog-item-edit"
+
+    /// Catálogo for the owner (flow business). Spec: bipe-shared/product/screens/catalog-owner.json
+    case catalogOwner = "catalog-owner"
+
+    /// Catálogo (flow business). Spec: bipe-shared/product/screens/catalog-view.json
+    case catalogView = "catalog-view"
 
     /// Archived chats (flow home). Spec: bipe-shared/product/screens/chat-archive.json
     case chatArchive = "chat-archive"
@@ -172,6 +208,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Open source licences (flow settings). Spec: bipe-shared/product/screens/open-source-licences.json
     case openSourceLicences = "open-source-licences"
 
+    /// Place an order (flow business). Spec: bipe-shared/product/screens/order-customer.json
+    case orderCustomer = "order-customer"
+
+    /// Pedidos for the owner (flow business). Spec: bipe-shared/product/screens/order-owner.json
+    case orderOwner = "order-owner"
+
     /// A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json
     case personProfile = "person-profile"
 
@@ -208,11 +250,26 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json
     case pushRegistration = "push-registration"
 
+    /// Fila virtual for the customer (flow business). Spec: bipe-shared/product/screens/queue-customer.json
+    case queueCustomer = "queue-customer"
+
+    /// Fila virtual for the owner (flow business). Spec: bipe-shared/product/screens/queue-owner.json
+    case queueOwner = "queue-owner"
+
+    /// Quotes for the owner (flow business). Spec: bipe-shared/product/screens/quote-builder.json
+    case quoteBuilder = "quote-builder"
+
+    /// Quote card and request (flow business). Spec: bipe-shared/product/screens/quote-card.json
+    case quoteCard = "quote-card"
+
     /// Read receipts (flow chat). Spec: bipe-shared/product/screens/read-receipts.json
     case readReceipts = "read-receipts"
 
     /// Account moving to a new device (flow recovery). Spec: bipe-shared/product/screens/recovery-alert.json
     case recoveryAlert = "recovery-alert"
+
+    /// Add or change the recovery e-mail (flow settings). Spec: bipe-shared/product/screens/recovery-email-add.json
+    case recoveryEmailAdd = "recovery-email-add"
 
     /// Recovery by e-mail (flow recovery). Spec: bipe-shared/product/screens/recovery-email.json
     case recoveryEmail = "recovery-email"
@@ -228,6 +285,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Enter PIN to get back in (flow recovery). Spec: bipe-shared/product/screens/recovery-pin.json
     case recoveryPin = "recovery-pin"
+
+    /// Recovery reminder card (flow home). Spec: bipe-shared/product/screens/recovery-reminder.json
+    case recoveryReminder = "recovery-reminder"
 
     /// Get back into your account (flow recovery). Spec: bipe-shared/product/screens/recovery-start.json
     case recoveryStart = "recovery-start"

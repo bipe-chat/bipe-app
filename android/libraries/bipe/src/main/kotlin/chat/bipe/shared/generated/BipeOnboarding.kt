@@ -16,7 +16,7 @@ import chat.bipe.shared.R
 
 // First run (bipe-chat/bipe#415). Source: bipe-shared/registries/onboarding.json.
 
-enum class BipeOnboardingTarget { INVITE_CODE, NAME, PIN, FALLBACK, CREATE, RECOVERY, WAITLIST, SYSTEM_PERMISSION, HANDLE_SCREEN, DISMISS, SHARE_INVITE, SHARE_PROFILE, PROFILE_QR, NOTES }
+enum class BipeOnboardingTarget { INVITE_CODE, NAME, PIN, FALLBACK, CREATE, RECOVERY, WAITLIST, SYSTEM_PERMISSION, HANDLE_SCREEN, RECOVERY_EMAIL_ADD, DISMISS, SHARE_INVITE, SHARE_PROFILE, PROFILE_QR, NOTES }
 
 data class BipeOnboardingButton(
     @StringRes val title: Int,
@@ -75,6 +75,7 @@ enum class BipeOnboardingPrompt(
 ) {
     NOTIFICATIONS(R.string.bipe_notifications_prompt_title, R.string.bipe_notifications_prompt_body, BipeOnboardingButton(R.string.bipe_notifications_prompt_allow, BipeOnboardingTarget.SYSTEM_PERMISSION), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     HANDLE(R.string.bipe_handle_prompt_title, R.string.bipe_handle_prompt_body, BipeOnboardingButton(R.string.bipe_handle_prompt_action, BipeOnboardingTarget.HANDLE_SCREEN), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
+    RECOVERY(R.string.bipe_fallback_title, R.string.bipe_fallback_reminder, BipeOnboardingButton(R.string.bipe_fallback_email, BipeOnboardingTarget.RECOVERY_EMAIL_ADD), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     ;
 }
 
