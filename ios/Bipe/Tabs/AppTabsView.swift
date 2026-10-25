@@ -8,6 +8,7 @@ import SwiftUI
 /// Spec app-tabs: Conversas · Grupos · Você, then Buscar apart at the trailing end (ADR 0053, MZ decision 25 Oct 2026).
 /// Keep it the last tab. iOS 27 draws a tab apart only with the `.prominent` role; there a `.search` tab only "may" get
 /// that treatment, and on MZ's iPhone it did not. iOS 18 to 26 draw the `.search` role apart.
+/// A company account has Trabalho in place of Grupos, and its groups in Conversas.
 /// The standard tab bar with SF Symbols: the system sets their size, weight and selected state (ADR 0149).
 struct AppTabsView: View {
     @ObservedObject var model: AppTabsModel
@@ -34,30 +35,31 @@ struct AppTabsView: View {
         let chatList = model.chatList(for: session)
         TabView(selection: Binding(get: { model.selectedTab }, set: { model.selectTab($0) })) {
             Tab(value: AppTabsModel.Tab.conversas) {
-                ChatListView(model: chatList, scope: .conversas, api: api, initialRoomId: initialRoomId)
+                ChatListView(model: chatList, scope: model.currentIsCompany ? .todas : .conversas, api: api,
+                             initialRoomId: initialRoomId)
             } label: {
                 Label(BipeStrings.tabChats, systemImage: "bubble.left.and.bubble.right")
             }
-            .badge(model.conversasUnread)
+            .badge(model.currentIsCompany ? model.conversasUnread + model.gruposAttention : model.conversasUnread)
 
-            Tab(value: AppTabsModel.Tab.grupos) {
-                ChatListView(model: chatList, scope: .grupos, api: api)
-            } label: {
-                Label(BipeStrings.tabGroups, systemImage: "person.3")
-            }
-            .badge(model.gruposAttention)
-
-            // A company account gets the Agenda tab after Grupos (spec agenda-owner, ADR 0103).
+            // A company account has Trabalho in the place of Grupos (spec app-tabs, business-tools).
             if model.currentIsCompany {
-                Tab(value: AppTabsModel.Tab.agenda) {
-                    AgendaOwnerView(chatList: chatList, api: api, openChat: { roomId in
+                Tab(value: AppTabsModel.Tab.trabalho) {
+                    WorkView(chatList: chatList, api: api, openChat: { roomId in
                         model.selectTab(.conversas)
                         TabsLinks.shared.link = .chat(roomId)
                     })
                     .id(session.userId)
                 } label: {
-                    Label(BipeStrings.tabAgenda, systemImage: "calendar")
+                    Label(BipeStrings.tabWork, systemImage: "briefcase")
                 }
+            } else {
+                Tab(value: AppTabsModel.Tab.grupos) {
+                    ChatListView(model: chatList, scope: .grupos, api: api)
+                } label: {
+                    Label(BipeStrings.tabGroups, systemImage: "person.3")
+                }
+                .badge(model.gruposAttention)
             }
 
             Tab(value: AppTabsModel.Tab.voce) {

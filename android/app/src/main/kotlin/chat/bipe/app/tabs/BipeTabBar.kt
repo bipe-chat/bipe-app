@@ -11,11 +11,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material3.Badge
@@ -49,19 +49,21 @@ internal fun BipeTabBar(
     voceMenu: @Composable () -> Unit = {},
 ) {
     NavigationBar {
+        // A company account has its groups in Conversas (spec app-tabs).
         TabItem(
             state, AppTabsModel.Tab.CONVERSAS, Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble,
-            R.string.bipe_tab_chats, state.conversasUnread, onSelect,
+            R.string.bipe_tab_chats, if (state.isCompany) state.conversasUnread + state.gruposAttention else state.conversasUnread, onSelect,
         )
-        TabItem(
-            state, AppTabsModel.Tab.GRUPOS, Icons.Outlined.Groups, Icons.Filled.Groups,
-            R.string.bipe_tab_groups, state.gruposAttention, onSelect,
-        )
-        // A company account gets Agenda after Grupos (ADR 0103, spec app-tabs).
+        // A company account has Trabalho in the place of Grupos (spec app-tabs, business-tools).
         if (state.isCompany) {
             TabItem(
-                state, AppTabsModel.Tab.AGENDA, Icons.Outlined.CalendarMonth, Icons.Filled.CalendarMonth,
-                R.string.bipe_tab_agenda, 0, onSelect,
+                state, AppTabsModel.Tab.TRABALHO, Icons.Outlined.Work, Icons.Filled.Work,
+                R.string.bipe_tab_work, 0, onSelect,
+            )
+        } else {
+            TabItem(
+                state, AppTabsModel.Tab.GRUPOS, Icons.Outlined.Groups, Icons.Filled.Groups,
+                R.string.bipe_tab_groups, state.gruposAttention, onSelect,
             )
         }
         TabItem(
