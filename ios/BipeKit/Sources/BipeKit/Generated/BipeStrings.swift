@@ -2570,6 +2570,14 @@ public enum BipeStrings {
 
     public static var handlePromptBody: String { NSLocalizedString("bipe_handle_prompt_body", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var photoPromptTitle: String { NSLocalizedString("bipe_photo_prompt_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var photoPromptBody: String { NSLocalizedString("bipe_photo_prompt_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var photoPromptAction: String { NSLocalizedString("bipe_photo_prompt_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var handleSuggestions: String { NSLocalizedString("bipe_handle_suggestions", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var handlePromptAction: String { NSLocalizedString("bipe_handle_prompt_action", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var settingsSupport: String { NSLocalizedString("bipe_settings_support", tableName: "Bipe", bundle: .module, comment: "") }

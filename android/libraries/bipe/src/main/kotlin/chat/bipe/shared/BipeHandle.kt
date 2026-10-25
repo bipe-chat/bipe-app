@@ -135,5 +135,8 @@ object BipeLegalLinks {
 
     fun privacyUrl(site: String): String = site.trimEnd('/') + if (isEnglish) BipeRegistries.EN_PRIVACY_PATH else BipeRegistries.PRIVACY_PATH
 
+    /** The site home page (onboarding-welcome learnMore). */
+    fun homeUrl(site: String): String = site.trimEnd('/') + if (isEnglish) BipeRegistries.EN_HOME_PATH else BipeRegistries.HOME_PATH
+
     private val isEnglish: Boolean get() = BipeApiClient.emailLanguage() == "en"
 }

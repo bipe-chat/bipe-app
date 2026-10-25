@@ -21,7 +21,7 @@ options:
 settings:
   base:
     # Placeholders. Every build passes the real values from `node tools/version.mjs --xcodebuild` (ADR 0088):
-    # the version name of bipe-shared product/version.json, its build plus the commit count, and the commit.
+    # the version name of version.json (ADR 0163), its build plus the commit count, and the commit.
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     BIPE_COMMIT: ""

@@ -73,10 +73,9 @@ struct SignupDoneView: View {
     var body: some View {
         VStack(spacing: 16) {
             Spacer()
-            PhosphorIcon.chatCircle.image
-                .resizable()
+            BipeMark()
+                .fill(BipeColor.accentFill)
                 .frame(width: 56, height: 56)
-                .foregroundStyle(BipeColor.accentInk)
                 .accessibilityHidden(true)
             Text(BipeLocalized.string(BipeOnboarding.createdKey))
                 .font(.title2.bold())

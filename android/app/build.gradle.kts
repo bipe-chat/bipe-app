@@ -30,7 +30,7 @@ android {
         minSdk = 26
         targetSdk = 36
         // Every build passes the version from `node tools/version.mjs --gradle` (ADR 0088): the version name of
-        // bipe-shared product/version.json, its build plus the commit count, and the commit. Else placeholders.
+        // version.json (ADR 0163), its build plus the commit count, and the commit. Else placeholders.
         versionCode = (findProperty("bipeBuildNumber") as String?)?.toInt() ?: 1
         versionName = (findProperty("bipeVersionName") as String?) ?: "0.1.0"
         buildConfigField("String", "BIPE_COMMIT", "\"${(findProperty("bipeCommit") as String?).orEmpty()}\"")
@@ -127,4 +127,6 @@ dependencies {
     "playImplementation"(libs.play.services.auth.blockstore)
     // Push transport (ADR 0150): src/play/.../PushTransports.kt.
     "playImplementation"(libs.firebase.messaging)
+    // Deferred invite (ADR 0154): src/play/.../InstallReferrers.kt.
+    "playImplementation"(libs.installreferrer)
 }

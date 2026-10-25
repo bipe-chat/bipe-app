@@ -16,7 +16,7 @@ import chat.bipe.shared.R
 
 // First run (bipe-chat/bipe#415). Source: bipe-shared/registries/onboarding.json.
 
-enum class BipeOnboardingTarget { INVITE_CODE, NAME, PIN, FALLBACK, CREATE, RECOVERY, WAITLIST, SYSTEM_PERMISSION, HANDLE_SCREEN, RECOVERY_EMAIL_ADD, DISMISS, SHARE_INVITE, SHARE_PROFILE, PROFILE_QR, NOTES }
+enum class BipeOnboardingTarget { INVITE_CODE, NAME, PIN, FALLBACK, CREATE, RECOVERY, WAITLIST, SYSTEM_PERMISSION, HANDLE_SCREEN, RECOVERY_EMAIL_ADD, DISMISS, SHARE_INVITE, SHARE_PROFILE, PROFILE_QR, NOTES, PHOTO_PICKER }
 
 data class BipeOnboardingButton(
     @StringRes val title: Int,
@@ -76,7 +76,17 @@ enum class BipeOnboardingPrompt(
     NOTIFICATIONS(R.string.bipe_notifications_prompt_title, R.string.bipe_notifications_prompt_body, BipeOnboardingButton(R.string.bipe_notifications_prompt_allow, BipeOnboardingTarget.SYSTEM_PERMISSION), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     HANDLE(R.string.bipe_handle_prompt_title, R.string.bipe_handle_prompt_body, BipeOnboardingButton(R.string.bipe_handle_prompt_action, BipeOnboardingTarget.HANDLE_SCREEN), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     RECOVERY(R.string.bipe_fallback_title, R.string.bipe_fallback_reminder, BipeOnboardingButton(R.string.bipe_fallback_email, BipeOnboardingTarget.RECOVERY_EMAIL_ADD), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
+    PHOTO(R.string.bipe_photo_prompt_title, R.string.bipe_photo_prompt_body, BipeOnboardingButton(R.string.bipe_photo_prompt_action, BipeOnboardingTarget.PHOTO_PICKER), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     ;
+
+    /** True when the prompt shares the one prompt slot ([BipeOnboarding.PROMPT_SLOT_HOURS], bipe-chat/bipe#200). */
+    val usesSlot: Boolean
+        get() = when (this) {
+            NOTIFICATIONS -> false
+            HANDLE -> true
+            RECOVERY -> false
+            PHOTO -> true
+        }
 }
 
 /** Rows of "Já tenho conta", in screen order. gate: "planned:<issue>" = hidden until that issue ships; "flag:developer" = developer builds only. */
@@ -115,6 +125,8 @@ enum class BipeOnboardingCard(
 
 object BipeOnboarding {
     const val FIRST_LIST_MAX_CHATS: Int = 3
+    /** Hours between two slot prompts on one account (bipe-chat/bipe#200). */
+    const val PROMPT_SLOT_HOURS: Int = 24
     @StringRes val waitlistBody: Int = R.string.bipe_waitlist_body
     val waitlistPrimary: BipeOnboardingButton = BipeOnboardingButton(R.string.bipe_waitlist_join, BipeOnboardingTarget.WAITLIST)
     @StringRes val waitlistDone: Int = R.string.bipe_waitlist_done
