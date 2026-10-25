@@ -193,10 +193,10 @@ struct MediaViewer: View {
     }
 
     private func show(_ text: String) {
-        withAnimation { notice = text }
+        withBipeAnimation { notice = text }
         Task {
             try? await Task.sleep(for: .seconds(2))
-            withAnimation { if notice == text { notice = nil } }
+            withBipeAnimation { if notice == text { notice = nil } }
         }
     }
 }

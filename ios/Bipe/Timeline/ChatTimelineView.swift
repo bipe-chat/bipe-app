@@ -221,12 +221,12 @@ struct ChatTimelineView: View {
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: model.rows.last?.id) { _, lastId in
                 if let lastId {
-                    withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
+                    withBipeAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
                 }
             }
             .onChange(of: model.scrollTarget) { _, target in
                 guard let target else { return }
-                withAnimation { proxy.scrollTo(target, anchor: .center) }
+                withBipeAnimation { proxy.scrollTo(target, anchor: .center) }
                 model.scrolledToTarget()
             }
         }
@@ -330,6 +330,7 @@ private struct TypingLine: View {
 /// The calm three dots of the typing line.
 private struct TypingDots: View {
     @State private var phase = 0.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 3) {
@@ -342,6 +343,8 @@ private struct TypingDots: View {
         }
         .accessibilityHidden(true)
         .onAppear {
+            // Reduce Motion: the dots stay still (bipe#496).
+            guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: false)) {
                 phase = .pi * 2
             }

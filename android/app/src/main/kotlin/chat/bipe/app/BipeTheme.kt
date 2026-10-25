@@ -16,6 +16,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
+import chat.bipe.app.common.LocalReduceMotion
+import chat.bipe.app.common.reduceMotion
 import chat.bipe.shared.generated.BipeColors
 import chat.bipe.shared.generated.BipeDarkColors
 import chat.bipe.shared.generated.BipeDarkHighContrastColors
@@ -73,7 +75,8 @@ fun BipeTheme(content: @Composable () -> Unit) {
             error = colors.trustDangerInk,
         )
     }
-    CompositionLocalProvider(LocalBipeColors provides colors) {
+    val reduceMotion = reduceMotion(LocalContext.current)
+    CompositionLocalProvider(LocalBipeColors provides colors, LocalReduceMotion provides reduceMotion) {
         MaterialTheme(colorScheme = scheme, content = content)
     }
 }
