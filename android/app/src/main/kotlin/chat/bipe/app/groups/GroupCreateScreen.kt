@@ -184,7 +184,12 @@ fun GroupCreateScreen(
                             modifier = Modifier.weight(1f),
                         )
                         IconButton(onClick = { model.removePerson(person.userId) }, enabled = !creating) {
-                            Icon(painterResource(PhosphorIcon.X.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(18.dp))
+                            Icon(
+                                painterResource(PhosphorIcon.X.drawable),
+                                contentDescription = stringResource(R.string.bipe_a11y_remove_person, person.displayName),
+                                tint = colors.glyphSecondary,
+                                modifier = Modifier.size(18.dp),
+                            )
                         }
                     }
                 }

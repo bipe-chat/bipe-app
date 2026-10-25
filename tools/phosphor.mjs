@@ -68,8 +68,15 @@ public enum PhosphorIcon: String, CaseIterable, Sendable {
 ${cases}
 
     /// The icon as a template image. Set its colour with foregroundStyle.
+    /// Decorative: VoiceOver skips it and never reads the file name. A control that shows only an icon
+    /// sets its own accessibilityLabel (tools/a11y.mjs, bipe-chat/bipe#495).
     public var image: Image {
-        Image(rawValue, bundle: .module)
+        Image(decorative: rawValue, bundle: .module)
+    }
+
+    /// The icon as an image that VoiceOver reads with this label, for an icon that says something on its own.
+    public func labelledImage(_ label: String) -> Image {
+        Image(rawValue, bundle: .module, label: Text(label))
     }
 }
 `;

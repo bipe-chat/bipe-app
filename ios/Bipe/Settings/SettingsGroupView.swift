@@ -355,6 +355,7 @@ struct ChoiceListView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(selection == option.id ? .isSelected : [])
                 .listRowBackground(BipeColor.surfaceRaised)
             }
         }
@@ -438,6 +439,7 @@ private struct MessagingPickerView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(saving)
+                .accessibilityAddTraits(model.whoCanMessage == option ? .isSelected : [])
                 .listRowBackground(BipeColor.surfaceRaised)
             }
             if failed {

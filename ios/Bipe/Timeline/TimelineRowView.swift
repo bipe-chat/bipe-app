@@ -171,6 +171,7 @@ private struct MessageBubbleRow: View {
                     }
                     if let reply = details.reply {
                         ReplyQuote(reply: reply)
+                            // a11y: the row has the action "Show the original message" for VoiceOver.
                             .onTapGesture { Task { await model.openOriginal(eventId: reply.eventId) } }
                             .task { await model.loadReply(rowId: row.id) }
                     }
@@ -189,6 +190,11 @@ private struct MessageBubbleRow: View {
             .accessibilityElement(children: .combine)
             .accessibilityAction(named: BipeStrings.appMessageActionReply) { model.startReply(rowId: row.id) }
             .accessibilityAction(named: BipeStrings.messageActions) { model.openActions(rowId: row.id) }
+            .accessibilityActions {
+                if let reply = details.reply {
+                    Button(BipeStrings.a11yOpenOriginal) { Task { await model.openOriginal(eventId: reply.eventId) } }
+                }
+            }
             if !details.reactions.isEmpty {
                 ReactionPills(reactions: details.reactions,
                               onToggle: { key in Task { await model.toggleReaction(rowId: row.id, key: key) } },
@@ -196,6 +202,7 @@ private struct MessageBubbleRow: View {
             }
             if let receipt = details.receipt, !isDm, !receipt.readers.isEmpty {
                 ReaderAvatars(readers: receipt.readers, media: media)
+                    // a11y: ReaderAvatars is one button for VoiceOver, with its own label.
                     .onTapGesture { model.openReaders(rowId: row.id) }
             }
         }

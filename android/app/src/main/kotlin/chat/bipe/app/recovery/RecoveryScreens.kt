@@ -49,6 +49,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -199,6 +201,7 @@ private fun RecoveryPinScreen(model: RecoveryFlowModel) {
             FilledButton(stringResource(R.string.bipe_pin_forgot), onClick = model::forgotPin)
             return@RecoveryStep
         }
+        val progress = stringResource(R.string.bipe_a11y_pin_progress, pin.length.toString(), BipeRegistries.PIN_LENGTH.toString())
         // The system digit keyboard brings delete and paste. The field stays one dot wide; the dots show the count.
         BasicTextField(
             value = pin,
@@ -207,7 +210,8 @@ private fun RecoveryPinScreen(model: RecoveryFlowModel) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             textStyle = MaterialTheme.typography.bodySmall.copy(color = colors.surfaceBase),
             cursorBrush = SolidColor(colors.surfaceBase),
-            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            // TalkBack reads how many digits are in; the dots show it by colour only (bipe#495).
+            modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics { stateDescription = progress },
             decorationBox = { inner ->
                 Box {
                     Box(Modifier.size(1.dp)) { inner() }

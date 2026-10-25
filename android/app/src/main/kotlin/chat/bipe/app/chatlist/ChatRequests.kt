@@ -391,7 +391,7 @@ fun ChatRequestsScreen(
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
+                    Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = stringResource(R.string.bipe_a11y_back), tint = colors.glyphPrimary)
                 }
                 Text(stringResource(R.string.bipe_requests_title), style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary)
             }
@@ -456,7 +456,7 @@ fun ChatRequestScreen(
     Surface(Modifier.fillMaxSize().testTag(BipeScreen.CHAT_REQUEST.id), color = colors.surfaceBase) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             IconButton(onClick = onBack) {
-                Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
+                Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = stringResource(R.string.bipe_a11y_back), tint = colors.glyphPrimary)
             }
             Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),

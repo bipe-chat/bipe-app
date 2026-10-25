@@ -32,6 +32,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
@@ -68,7 +71,8 @@ fun PinPad(
             if (message != null) {
                 Text(message, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary, textAlign = TextAlign.Center)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            val progress = stringResource(R.string.bipe_a11y_pin_progress, pin.length.toString(), BipeRegistries.PIN_LENGTH.toString())
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.clearAndSetSemantics { contentDescription = progress }) {
                 repeat(BipeRegistries.PIN_LENGTH) { index ->
                     Box(
                         Modifier.size(12.dp).clip(CircleShape)
@@ -91,12 +95,12 @@ fun PinPad(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 if (onBiometrics != null) {
-                    IconKey(PhosphorIcon.FINGERPRINT, enabled = !isBusy, onClick = onBiometrics)
+                    IconKey(PhosphorIcon.FINGERPRINT, stringResource(R.string.bipe_a11y_biometrics), enabled = !isBusy, onClick = onBiometrics)
                 } else {
                     Spacer(Modifier.size(72.dp))
                 }
                 DigitKey("0", enabled = !isBusy) { onDigit("0") }
-                IconKey(PhosphorIcon.BACKSPACE, enabled = !isBusy, onClick = onDelete)
+                IconKey(PhosphorIcon.BACKSPACE, stringResource(R.string.bipe_a11y_pin_delete), enabled = !isBusy, onClick = onDelete)
             }
         }
     }
@@ -114,12 +118,12 @@ private fun DigitKey(digit: String, enabled: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun IconKey(icon: PhosphorIcon, enabled: Boolean, onClick: () -> Unit) {
+private fun IconKey(icon: PhosphorIcon, label: String, enabled: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier.size(72.dp).clip(CircleShape).clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(painterResource(icon.drawable), contentDescription = null, tint = BipeTheme.colors.glyphPrimary, modifier = Modifier.size(28.dp))
+        Icon(painterResource(icon.drawable), contentDescription = label, tint = BipeTheme.colors.glyphPrimary, modifier = Modifier.size(28.dp))
     }
 }
 

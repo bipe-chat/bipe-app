@@ -4,6 +4,7 @@
 
 package chat.bipe.app.settings
 
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -64,6 +65,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.notifications.NotificationSettingsScreen
 import chat.bipe.app.BipeTheme
@@ -235,7 +238,7 @@ fun SettingsPage(title: String, tag: String, onBack: () -> Unit, content: LazyLi
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
+                        Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = stringResource(R.string.bipe_a11y_back), tint = colors.glyphPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.surfaceBase, titleContentColor = colors.inkPrimary),
@@ -456,7 +459,7 @@ fun ChoiceListScreen(title: String, options: List<Pair<String, String>>, key: St
         items(options, key = { it.first }) { (id, label) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    SettingsRowItem(title = label, onClick = {
+                    SettingsRowItem(title = label, selected = selection == id, onClick = {
                         selection = id
                         prefs.edit().putString(key, id).apply()
                         view.bipeHaptic(BipeHaptic.Tick)
@@ -563,6 +566,7 @@ fun SettingsRowItem(
     valueColor: Color? = null,
     showsWarning: Boolean = false,
     showsChevron: Boolean = false,
+    selected: Boolean? = null,
     onClick: (() -> Unit)?,
 ) {
     val colors = BipeTheme.colors
@@ -595,7 +599,13 @@ fun SettingsRowItem(
         supportingContent = supporting,
         trailingContent = chevron,
         colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
-        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+        modifier = when {
+            // A choice row: TalkBack reads it as a radio button and says whether it is the chosen one (bipe#495).
+            selected != null && onClick != null -> Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            selected != null -> Modifier.semantics { this.selected = selected == true }
+            onClick != null -> Modifier.clickable(onClick = onClick)
+            else -> Modifier
+        },
     )
 }
 
@@ -639,6 +649,7 @@ private fun MessagingPickerScreen(model: SettingsModel, onBack: () -> Unit) {
                     SettingsRowItem(
                         title = stringResource(title),
                         footer = stringResource(body),
+                        selected = state.whoCanMessage == option,
                         onClick = if (saving) null else ({
                             saving = true
                             scope.launch {

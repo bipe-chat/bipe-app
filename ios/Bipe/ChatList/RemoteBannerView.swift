@@ -85,6 +85,10 @@ struct RemoteBannerView: View {
                             .foregroundStyle(BipeColor.accentInk)
                     }
                 }
+                // VoiceOver reads the text as one button that opens the banner (bipe#495).
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { open(banner) }
                 Spacer(minLength: 0)
                 if model.state == .notice {
                     // Action dismiss.
@@ -104,17 +108,21 @@ struct RemoteBannerView: View {
             .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.trustCautionWash))
             .contentShape(Rectangle())
             // Action open.
-            .onTapGesture {
-                switch model.state {
-                case .update(let store): openURL(store)
-                case .notice: page = WebPage(url: banner.link)
-                case .hidden: break
-                }
-            }
+            // a11y: the text above is the button for VoiceOver.
+            .onTapGesture { open(banner) }
             .sheet(item: $page) { page in
                 SafariPage(url: page.url).ignoresSafeArea()
             }
             .accessibilityIdentifier(BipeScreen.remoteBanner.rawValue)
+        }
+    }
+
+    /// Action open: the store for an update, the banner's page for a notice.
+    private func open(_ banner: BipeRemoteBanner) {
+        switch model.state {
+        case .update(let store): openURL(store)
+        case .notice: page = WebPage(url: banner.link)
+        case .hidden: break
         }
     }
 }

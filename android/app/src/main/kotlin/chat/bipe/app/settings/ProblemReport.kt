@@ -165,7 +165,7 @@ fun ProblemReportScreen(model: SettingsModel, onBack: () -> Unit, onOpenSupport:
                         Spacer(Modifier.weight(1f))
                         // Action removeScreenshot.
                         IconButton(onClick = { screenshots.removeAt(index) }) {
-                            Icon(painterResource(PhosphorIcon.X.drawable), contentDescription = null, tint = colors.glyphSecondary)
+                            Icon(painterResource(PhosphorIcon.X.drawable), contentDescription = stringResource(R.string.bipe_a11y_remove_screenshot), tint = colors.glyphSecondary)
                         }
                     }
                 }

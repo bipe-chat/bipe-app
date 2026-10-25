@@ -23,10 +23,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -45,7 +47,11 @@ fun GroupTopBar(
     ) {
         if (onBack != null) {
             IconButton(onClick = onBack) {
-                Icon(painterResource(backIcon.drawable), contentDescription = null, tint = colors.glyphPrimary)
+                Icon(
+                    painterResource(backIcon.drawable),
+                    contentDescription = stringResource(if (backIcon == PhosphorIcon.X) R.string.bipe_app_close else R.string.bipe_a11y_back),
+                    tint = colors.glyphPrimary,
+                )
             }
         } else {
             Spacer(Modifier.width(16.dp))

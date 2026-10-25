@@ -166,7 +166,7 @@ internal fun Header(title: String, onBack: () -> Unit) {
     val colors = BipeTheme.colors
     Row(modifier = Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) {
-            Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = null, tint = colors.glyphPrimary)
+            Icon(painterResource(PhosphorIcon.CARET_LEFT.drawable), contentDescription = stringResource(R.string.bipe_a11y_back), tint = colors.glyphPrimary)
         }
         Text(title, style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary)
     }
