@@ -130,6 +130,8 @@ struct SettingsGroupView: View {
                 // Action longPressVersion: copies the Matrix device ID, which never shows as text (ADR 0112).
                 Text(BipeStrings.helpVersion(AppVersion.display))
                     .onLongPressGesture { copyDeviceId() }
+                    // The copy without the long press (bipe#499).
+                    .accessibilityAction(named: BipeStrings.a11yCopyDeviceId) { copyDeviceId() }
             }
         } else if let footer = section.footer {
             Text(footer)

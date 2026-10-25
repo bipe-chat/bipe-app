@@ -128,6 +128,23 @@ test('kotlin: text sized in dp or a forced font scale fails', () => {
   assert.deepEqual(auditKotlin('Text(a, fontSize = 16.sp)'), []);
 });
 
+test('swift: a long press or swipe actions need an accessibility action', () => {
+  assert.deepEqual(rules(auditSwift('Text(version)\n    .onLongPressGesture { copy() }')), ['2:gesture']);
+  assert.deepEqual(auditSwift('Text(version)\n    .onLongPressGesture { copy() }\n    .accessibilityAction(named: BipeStrings.a11yCopyDeviceId) { copy() }'), []);
+  assert.deepEqual(rules(auditSwift('row\n    .swipeActions(edge: .trailing) { archive }')), ['2:gesture']);
+  assert.deepEqual(auditSwift('row\n    .swipeActions(edge: .trailing) { archive }\n    .accessibilityActions { menu }'), []);
+});
+
+test('kotlin: a long press needs a label, a swipe a TalkBack action', () => {
+  assert.deepEqual(rules(auditKotlin('Modifier.combinedClickable(onClick = {}, onLongClick = copy)')), ['1:gesture']);
+  assert.deepEqual(auditKotlin('Modifier.combinedClickable(onClick = {}, onLongClick = copy, onLongClickLabel = label)'), []);
+  assert.deepEqual(auditKotlin('Modifier.combinedClickable(onClick = open, onLongClick = null)'), []);
+  assert.deepEqual(rules(auditKotlin('Modifier.pointerInput(Unit) {\n    detectHorizontalDragGestures { _, _ -> }\n}')), ['2:gesture']);
+  assert.deepEqual(auditKotlin('Modifier.pointerInput(Unit) {\n    detectHorizontalDragGestures { _, _ -> }\n}.semantics { customActions = actions }'), []);
+  assert.deepEqual(rules(auditKotlin('detectTapGestures(onTap = { a() }, onLongPress = { b() })')), ['1:gesture']);
+  assert.deepEqual(auditKotlin('import androidx.compose.foundation.gestures.detectHorizontalDragGestures'), []);
+});
+
 test('the app passes the audit', () => {
   assert.deepEqual(checkA11y(REPO_ROOT).errors, []);
 });

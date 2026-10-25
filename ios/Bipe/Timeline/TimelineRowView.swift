@@ -191,6 +191,10 @@ private struct MessageBubbleRow: View {
             .accessibilityAction(named: BipeStrings.appMessageActionReply) { model.startReply(rowId: row.id) }
             .accessibilityAction(named: BipeStrings.messageActions) { model.openActions(rowId: row.id) }
             .accessibilityActions {
+                // React without the long press menu (bipe#499).
+                if model.showsReactions(row) {
+                    Button(BipeStrings.a11yReact) { model.moreReactions(rowId: row.id) }
+                }
                 if let reply = details.reply {
                     Button(BipeStrings.a11yOpenOriginal) { Task { await model.openOriginal(eventId: reply.eventId) } }
                 }

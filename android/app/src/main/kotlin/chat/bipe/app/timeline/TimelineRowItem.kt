@@ -257,6 +257,7 @@ private fun MessageBubbleRow(
     var swipe by remember(row.id) { mutableFloatStateOf(0f) }
     val shownSwipe by animateFloatAsState(swipe, label = "swipe")
     val replyLabel = stringResource(R.string.bipe_app_message_action_reply)
+    val reactLabel = stringResource(R.string.bipe_a11y_react)
     val menuLabel = stringResource(R.string.bipe_message_actions)
     var menu by remember(model, row.id) { mutableStateOf(false) }
     val openMenu = { menu = true; view.bipeHaptic(BipeHaptic.Hold) }
@@ -301,6 +302,8 @@ private fun MessageBubbleRow(
                         customActions = buildList {
                             add(CustomAccessibilityAction(menuLabel) { openMenu(); true })
                             if (details.canReply) add(CustomAccessibilityAction(replyLabel) { model.startReply(row.id); true })
+                            // React without the long press menu (bipe#499).
+                            if (model.showsReactions(row)) add(CustomAccessibilityAction(reactLabel) { model.moreReactions(row.id); true })
                         }
                     },
             ) {

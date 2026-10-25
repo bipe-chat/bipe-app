@@ -16,6 +16,7 @@
 //   comment "// a11y: <why>" on its line or the line before (the gesture has another accessible path).
 // - tap-target: the same controls, outside a toolbar, put .bipeTapTarget() on their label (44 x 44 pt).
 // - text-size: no .font(.system(size: <number>)); use a text style or a @ScaledMetric size.
+// - gesture: .onLongPressGesture and .swipeActions need an .accessibilityAction(s) within 8 lines.
 // Kotlin (android/):
 // - icon-only: IconButton, FilledIconButton, FilledTonalIconButton, OutlinedIconButton,
 //   IconToggleButton and the FloatingActionButton family need a non-null contentDescription or a Text
@@ -25,6 +26,9 @@
 // - tap-target: a click modifier (clickable, combinedClickable, toggleable, selectable) in a chain with
 //   size, width or height below 48.dp needs bipeTapTarget() or minimumInteractiveComponentSize().
 // - text-size: no .dp.toSp() and no forced fontScale = 1f.
+// - gesture: a combinedClickable with onLongClick needs onLongClickLabel; detectHorizontalDragGestures,
+//   SwipeToDismissBox and detectTapGestures(onLongPress =) need customActions, setProgress or onLongClick { }
+//   semantics within 20 lines (or a "// a11y: <why>" comment).
 //
 // Limits: this reads the source, it does not build the views.
 // - It does not follow values: a label built in another function or view counts only when that
@@ -180,14 +184,26 @@ export function auditSwift(source) {
   }
   // Text that does not grow with the system text size (bipe-chat/bipe#498).
   for (const m of text.matchAll(/\.font\(\s*\.system\(\s*size:\s*\d/g)) hits.push({ line: lineOf(text, m.index), rule: 'text-size', call: '.font(.system(size:)' });
+  // A long press or a swipe needs an accessibility action next to it (bipe-chat/bipe#499).
+  hits.push(...windowRule(source, text, /\.onLongPressGesture\b|\.swipeActions\(/, /\.accessibilityActions?\b/, 8, 'gesture'));
+  hits.push(
+    ...windowRule(source, text, /\.onTapGesture\b/, /\.accessibilityAddTraits\(\s*\.isButton|\.accessibilityAction\b|\.accessibilityHidden\(\s*true|\.accessibilityElement\(/, 8, 'tap'),
+  );
+  return hits;
+}
+
+// Lines that match `trigger` need a line that matches `answer` within `size` lines before or after,
+// or a comment "// a11y: <why>" on the line or the line before.
+function windowRule(source, text, trigger, answer, size, rule) {
   const lines = text.split('\n');
   const raw = source.split('\n');
+  const hits = [];
   lines.forEach((line, i) => {
-    if (!/\.onTapGesture\b/.test(line)) return;
+    const m = trigger.exec(line);
+    if (!m || /^\s*import\s/.test(line)) return;
     if (/\/\/ a11y:/.test(raw[i]) || /\/\/ a11y:/.test(raw[i - 1] ?? '')) return;
-    const window = lines.slice(Math.max(0, i - 8), i + 9).join('\n');
-    if (/\.accessibilityAddTraits\(\s*\.isButton|\.accessibilityAction\b|\.accessibilityHidden\(\s*true|\.accessibilityElement\(/.test(window)) return;
-    hits.push({ line: i + 1, rule: 'tap', call: 'onTapGesture' });
+    if (answer.test(lines.slice(Math.max(0, i - size), i + size + 1).join('\n'))) return;
+    hits.push({ line: i + 1, rule, call: m[0].replace(/^\./, '').replace(/\($/, '') });
   });
   return hits;
 }
@@ -239,6 +255,14 @@ export function auditKotlin(source) {
       hits.push({ line: lineOf(text, m.index), rule: 'tap-target', call: m[1] });
     }
   }
+  // A long press needs a label, and a swipe or a long press gesture a TalkBack action (bipe-chat/bipe#499).
+  for (const m of text.matchAll(/(?<!\w)combinedClickable(?=\s*\()/g)) {
+    const call = callExtent(text, m.index, 'combinedClickable'.length);
+    if (call && /\bonLongClick\s*=\s*(?!null\b)\S/.test(call.args) && !/\bonLongClickLabel\s*=/.test(call.args)) {
+      hits.push({ line: lineOf(text, m.index), rule: 'gesture', call: 'combinedClickable' });
+    }
+  }
+  hits.push(...windowRule(source, text, /\bdetectHorizontalDragGestures\b|\bSwipeToDismissBox\(|\bdetectTapGestures\(.*\bonLongPress\s*=/, /\bcustomActions\b|\bsetProgress\b|\bonLongClick\s*\{/, 20, 'gesture'));
   // Text that does not grow with the system font size (bipe-chat/bipe#498).
   for (const m of text.matchAll(/\.dp\.toSp\(\)|fontScale\s*=\s*1(?:\.0)?f/g)) hits.push({ line: lineOf(text, m.index), rule: 'text-size', call: m[0] });
   return hits;
@@ -248,6 +272,7 @@ const ADVICE = {
   'icon-only': 'shows only an icon and has no label. Add an accessibility label from the generated bipe-shared strings.',
   tap: 'is a tap target that VoiceOver does not announce. Add .accessibilityAddTraits(.isButton) or an accessibility action, or use a Button.',
   'tap-target': 'can be smaller than 44 pt / 48 dp to tap. Add .bipeTapTarget() (on the Swift label, first in the Compose chain).',
+  gesture: 'is a gesture with no accessible way to do the same. Add an accessibility action (SwiftUI .accessibilityAction, Compose customActions or onLongClickLabel).',
   'text-size': 'does not follow the system text size. Use a text style (SwiftUI .font(.body), @ScaledMetric; Compose typography or sp).',
 };
 
