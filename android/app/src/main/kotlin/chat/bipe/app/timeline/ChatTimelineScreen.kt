@@ -80,6 +80,7 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.composer.MentionSuggestion
 import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.app.people.PeopleService
@@ -604,6 +605,7 @@ private fun ComposerBar(
                         contentDescription = stringResource(R.string.bipe_action_stickers),
                         tint = colors.glyphSecondary,
                         modifier = Modifier
+                            .bipeTapTarget()
                             .padding(vertical = 8.dp)
                             .size(28.dp)
                             .clip(CircleShape)
@@ -687,7 +689,7 @@ private fun InviterHintRow(hint: InviterGreetings.Greeting, inviterName: String,
                 stringResource(R.string.bipe_inviter_hint_action),
                 style = MaterialTheme.typography.titleSmall,
                 color = colors.inkOnAccent,
-                modifier = Modifier.background(colors.accentFill, CircleShape).clickable(onClick = greet).padding(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.bipeTapTarget().background(colors.accentFill, CircleShape).clickable(onClick = greet).padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
     }

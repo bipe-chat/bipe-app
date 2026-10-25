@@ -12,6 +12,8 @@ import UIKit
 struct LinkPhoneShowView: View {
     @ObservedObject var model: LinkComputerModel
     @State private var copied = false
+    /// Grows with the system text size (bipe-chat/bipe#498).
+    @ScaledMetric(relativeTo: .largeTitle) private var codeSize: CGFloat = 48
     @FocusState private var checkCodeFocused: Bool
 
     var body: some View {
@@ -81,9 +83,9 @@ struct LinkPhoneShowView: View {
             TextField("", text: Binding(get: { model.typedCheckCode }, set: { model.editCheckCode($0) }))
                 .keyboardType(.numberPad)
                 .textContentType(.oneTimeCode)
-                .font(.system(size: 48, weight: .bold, design: .monospaced))
+                .font(.system(size: codeSize, weight: .bold, design: .monospaced))
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 160)
+                .frame(maxWidth: 160 * codeSize / 48)
                 .padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceRaised))
                 .focused($checkCodeFocused)

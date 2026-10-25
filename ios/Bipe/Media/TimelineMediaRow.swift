@@ -166,6 +166,7 @@ struct TimelineMediaRow: View {
             }
             .frame(width: 44, height: 44)
             .mediaScrim(Circle())
+            .bipeTapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(BipeStrings.appCancel)

@@ -72,6 +72,7 @@ struct ProblemReportView: View {
                                 .resizable()
                                 .frame(width: 18, height: 18)
                                 .foregroundStyle(BipeColor.glyphSecondary)
+                                .bipeTapTarget()
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(BipeStrings.a11yRemoveScreenshot)

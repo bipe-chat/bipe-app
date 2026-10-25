@@ -41,6 +41,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.settings.openPage
 import chat.bipe.phosphor.PhosphorIcon
@@ -145,7 +146,7 @@ fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (S
                     Text(stringResource(R.string.bipe_app_search_no_results, state.query), color = colors.inkSecondary)
                     if (state.offersHandleLookup) {
                         Text(stringResource(R.string.bipe_app_search_find_handle), color = colors.accentInk,
-                            modifier = Modifier.clickable { onFindHandle(state.query) })
+                            modifier = Modifier.bipeTapTarget().clickable { onFindHandle(state.query) })
                         Text(stringResource(R.string.bipe_start_chat_search_by_handle), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                     }
                 }

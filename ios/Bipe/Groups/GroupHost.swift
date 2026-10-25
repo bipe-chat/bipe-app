@@ -76,6 +76,7 @@ struct CreateGroupButton: View {
             Button(BipeStrings.invitesTitle, action: invite)
         } label: {
             PhosphorIcon.plus.image.resizable().frame(width: 22, height: 22)
+                .bipeTapTarget()
         }
         .accessibilityLabel(BipeStrings.groupsEmptyAction)
     }

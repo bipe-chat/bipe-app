@@ -117,6 +117,7 @@ struct PersonProfileView: View {
                             .resizable()
                             .frame(width: 22, height: 22)
                             .foregroundStyle(BipeColor.trustVerifiedInk)
+                            .bipeTapTarget()
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(BipeStrings.badgeCompany)

@@ -121,6 +121,7 @@ struct PollCreateView: View {
                                 } label: {
                                     PhosphorIcon.x.image.resizable().frame(width: 16, height: 16)
                                         .foregroundStyle(BipeColor.glyphSecondary)
+                                        .bipeTapTarget()
                                 }
                                 .buttonStyle(.borderless)
                                 .accessibilityLabel(BipeStrings.appPollRemoveOption)
