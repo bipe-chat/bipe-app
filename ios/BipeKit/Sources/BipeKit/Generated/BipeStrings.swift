@@ -76,6 +76,10 @@ public enum BipeStrings {
 
     public static var badgeCompanySuspended: String { NSLocalizedString("bipe_badge_company_suspended", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var badgeOfficial: String { NSLocalizedString("bipe_badge_official", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var badgeOfficialA11y: String { NSLocalizedString("bipe_badge_official_a11y", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var warningNicknameConfirmTitle: String { NSLocalizedString("bipe_warning_nickname_confirm_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func warningNicknameConfirmBody(_ p1: String, _ p2: String) -> String {
@@ -791,6 +795,10 @@ public enum BipeStrings {
     public static var emailRemove: String { NSLocalizedString("bipe_email_remove", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var emailLinkInvalid: String { NSLocalizedString("bipe_email_link_invalid", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var emailSend: String { NSLocalizedString("bipe_email_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var emailChangeReason: String { NSLocalizedString("bipe_email_change_reason", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var errorEmailUnavailable: String { NSLocalizedString("bipe_error_email_unavailable", tableName: "Bipe", bundle: .module, comment: "") }
 

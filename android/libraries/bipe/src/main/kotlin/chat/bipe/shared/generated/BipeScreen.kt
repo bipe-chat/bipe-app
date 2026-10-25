@@ -217,6 +217,9 @@ enum class BipeScreen(val id: String) {
     /** Account moving to a new device (flow recovery). Spec: bipe-shared/product/screens/recovery-alert.json */
     RECOVERY_ALERT("recovery-alert"),
 
+    /** Add or change the recovery e-mail (flow settings). Spec: bipe-shared/product/screens/recovery-email-add.json */
+    RECOVERY_EMAIL_ADD("recovery-email-add"),
+
     /** Recovery by e-mail (flow recovery). Spec: bipe-shared/product/screens/recovery-email.json */
     RECOVERY_EMAIL("recovery-email"),
 
@@ -231,6 +234,9 @@ enum class BipeScreen(val id: String) {
 
     /** Enter PIN to get back in (flow recovery). Spec: bipe-shared/product/screens/recovery-pin.json */
     RECOVERY_PIN("recovery-pin"),
+
+    /** Recovery reminder card (flow home). Spec: bipe-shared/product/screens/recovery-reminder.json */
+    RECOVERY_REMINDER("recovery-reminder"),
 
     /** Get back into your account (flow recovery). Spec: bipe-shared/product/screens/recovery-start.json */
     RECOVERY_START("recovery-start"),
