@@ -206,6 +206,17 @@ struct InviteCardView: View {
                 VStack(spacing: 20) {
                     if let url = card.url {
                         QRCodeImage(text: url.absoluteString).frame(maxWidth: 240, maxHeight: 240)
+                        // State code: the other person can read it and type it on signup-invite-code.
+                        if let code = BipeInviteLink.normalizedCode(url.absoluteString) {
+                            VStack(spacing: 4) {
+                                Text(BipeStrings.signupInviteCode)
+                                    .font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                                Text(verbatim: code)
+                                    .font(.title2.weight(.semibold).monospaced())
+                                    .foregroundStyle(BipeColor.inkPrimary)
+                                    .textSelection(.enabled)
+                            }
+                        }
                         Text(BipeStrings.invitesExpires(card.expiresAt.formatted(date: .abbreviated, time: .omitted)))
                             .font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                         VStack(spacing: 12) {

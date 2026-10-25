@@ -2726,6 +2726,12 @@ public enum BipeStrings {
 
     public static var onboardingPasteInviteNone: String { NSLocalizedString("bipe_onboarding_paste_invite_none", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var onboardingScanInvite: String { NSLocalizedString("bipe_onboarding_scan_invite", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appInviteScanTitle: String { NSLocalizedString("bipe_app_invite_scan_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appInviteScanBody: String { NSLocalizedString("bipe_app_invite_scan_body", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var inviteCodeTitle: String { NSLocalizedString("bipe_invite_code_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var inviteCodeBody: String { NSLocalizedString("bipe_invite_code_body", tableName: "Bipe", bundle: .module, comment: "") }
@@ -4019,4 +4025,6 @@ public enum BipeStrings {
     }
 
     public static var mailNoticeDeletionCancelled: String { NSLocalizedString("bipe_mail_notice_deletion_cancelled", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11ySwitchAccount: String { NSLocalizedString("bipe_a11y_switch_account", tableName: "Bipe", bundle: .module, comment: "") }
 }

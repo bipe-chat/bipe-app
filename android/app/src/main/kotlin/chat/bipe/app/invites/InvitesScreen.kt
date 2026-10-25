@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,6 +44,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
@@ -52,6 +54,7 @@ import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.Person
 import chat.bipe.app.people.QrCode
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeInviteLink
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeInvite
 import chat.bipe.shared.generated.BipeScreen
@@ -198,6 +201,15 @@ private fun InviteCardScreen(model: InvitesModel, card: InviteCard, onBack: () -
             val url = card.url
             if (url != null) {
                 QrCode(url)
+                // State code: the other person can read it and type it on signup-invite-code.
+                BipeInviteLink.normalizedCode(url)?.let { code ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(stringResource(R.string.bipe_signup_invite_code), style = MaterialTheme.typography.bodyMedium, color = BipeTheme.colors.inkSecondary)
+                        SelectionContainer {
+                            Text(code, style = MaterialTheme.typography.headlineSmall, fontFamily = FontFamily.Monospace, color = BipeTheme.colors.inkPrimary)
+                        }
+                    }
+                }
                 Text(stringResource(R.string.bipe_invites_expires, dateLabel(card.expiresAt)), color = BipeTheme.colors.inkSecondary)
                 Button(onClick = { shareInvite(context, url) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(painterResource(PhosphorIcon.SHARE_NETWORK.drawable), contentDescription = null, modifier = Modifier.size(18.dp))

@@ -1181,6 +1181,9 @@
 "bipe_onboarding_paste_invite_hint" = "Copied the invite link?";
 "bipe_onboarding_paste_invite" = "Paste invite";
 "bipe_onboarding_paste_invite_none" = "What you copied is not a Bipe invite.";
+"bipe_onboarding_scan_invite" = "Scan QR code";
+"bipe_app_invite_scan_title" = "Scan the invite QR code";
+"bipe_app_invite_scan_body" = "Point the camera at the QR code on the phone of the person who invited you.";
 "bipe_invite_code_title" = "Invite code";
 "bipe_invite_code_body" = "Ask the person who invited you for the code.";
 "bipe_invite_code_none" = "No invite?";
@@ -1747,3 +1750,4 @@
 "bipe_deletion_customer_name" = "Deleted account";
 "bipe_mail_notice_deletion_started" = "Someone asked to delete your Bipe account. If nobody cancels, the account is deleted on %1$@.\n\nIf it was not you, open Bipe on one of your devices and cancel.";
 "bipe_mail_notice_deletion_cancelled" = "The request to delete your Bipe account was cancelled. The account stays as it was.\n\nIf it was not you, open Bipe on one of your devices and check.";
+"bipe_a11y_switch_account" = "Switch account";
