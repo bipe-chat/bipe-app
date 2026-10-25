@@ -265,7 +265,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountAppLock: nil
         case .accountBiometricUnlock: nil
         case .accountEmail: nil
-        case .accountLinkedAccounts: "planned:307"
+        case .accountLinkedAccounts: nil
         case .accountRecoveryKey: nil
         case .accountThisDevice: nil
         case .accountLinkedDevices: nil

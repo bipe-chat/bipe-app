@@ -49,7 +49,7 @@ enum class BipeSettingsRow(
     ACCOUNT_APP_LOCK("account.appLock", BipeSettingsRowKind.SWITCH, R.string.bipe_account_app_lock, null, null, null, null),
     ACCOUNT_BIOMETRIC_UNLOCK("account.biometricUnlock", BipeSettingsRowKind.SWITCH, R.string.bipe_account_biometric_unlock, null, null, null, null),
     ACCOUNT_EMAIL("account.email", BipeSettingsRowKind.LINK, R.string.bipe_email_title, null, null, null, null),
-    ACCOUNT_LINKED_ACCOUNTS("account.linkedAccounts", BipeSettingsRowKind.LINK, R.string.bipe_linked_accounts_title, null, "planned:307", null, null),
+    ACCOUNT_LINKED_ACCOUNTS("account.linkedAccounts", BipeSettingsRowKind.LINK, R.string.bipe_linked_accounts_title, null, null, null, null),
     ACCOUNT_RECOVERY_KEY("account.recoveryKey", BipeSettingsRowKind.LINK, R.string.bipe_account_recovery_key, R.string.bipe_account_recovery_key_footer, null, null, null),
     ACCOUNT_THIS_DEVICE("account.thisDevice", BipeSettingsRowKind.INFO, R.string.bipe_account_this_device, null, null, null, null),
     ACCOUNT_LINKED_DEVICES("account.linkedDevices", BipeSettingsRowKind.LINK, R.string.bipe_linked_devices_title, null, null, null, null),

@@ -605,6 +605,7 @@
     <string name="bipe_linked_account_unlinked">Account unlinked.</string>
     <string name="bipe_linked_account_error">Could not link this account. Try again.</string>
     <string name="bipe_linked_account_unlink_error">Could not unlink this account. Try again.</string>
+    <string name="bipe_linked_account_taken">This account is already linked to another Bipe account.</string>
     <string name="bipe_recovery_apple">With my Apple account</string>
     <string name="bipe_recovery_google">With my Google account</string>
     <string name="bipe_recovery_linked_body">Use the account you linked to Bipe. Then enter your 8-digit PIN and wait %1$s hours.</string>
@@ -1357,6 +1358,11 @@
     <string name="bipe_app_poll_ended">Poll ended</string>
     <string name="bipe_app_poll_ended_text">The poll ended.</string>
     <string name="bipe_app_poll_vote_error">Couldn\'t vote. Try again.</string>
+    <string name="bipe_app_question_from">Question from %1$s</string>
+    <string name="bipe_app_question_hint">Tap one option to answer.</string>
+    <string name="bipe_app_question_your_answer">Your answer: %1$s</string>
+    <string name="bipe_app_question_change_hint">To change it, tap another option.</string>
+    <string name="bipe_app_question_closed">Question closed</string>
     <string name="bipe_app_group_leave_title">Leave the group?</string>
     <string name="bipe_app_group_leave_body">You stop getting its messages. To come back, someone in the group has to invite you again.</string>
     <string name="bipe_app_group_leave_alone">You\'re the only person in the group. If you leave, the group ends and nobody can join it.</string>

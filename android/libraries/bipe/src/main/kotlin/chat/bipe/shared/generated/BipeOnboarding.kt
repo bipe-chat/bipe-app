@@ -89,6 +89,8 @@ enum class BipeOnboardingRecoveryRow(
 ) {
     TOKEN(R.string.bipe_pin_enter_title, R.string.bipe_recovery_token_found, true, null),
     OLD_PHONE(R.string.bipe_recovery_qr, R.string.bipe_recovery_qr_body, false, "planned:203"),
+    APPLE(R.string.bipe_recovery_apple, R.string.bipe_recovery_linked_body, false, null),
+    GOOGLE(R.string.bipe_recovery_google, R.string.bipe_recovery_linked_body, false, null),
     EMAIL(R.string.bipe_recovery_email, R.string.bipe_recovery_email_body, false, null),
     BETA(R.string.bipe_recovery_beta, R.string.bipe_recovery_beta_body, false, "flag:developer"),
     ;
