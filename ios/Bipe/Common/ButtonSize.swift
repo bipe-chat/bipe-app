@@ -12,10 +12,12 @@ struct BipeBorderedButtonStyle: PrimitiveButtonStyle {
 
     @ViewBuilder
     func makeBody(configuration: Configuration) -> some View {
+        // The system styles by type name: `.bipeProminent` here is this style again and recursed until the stack
+        // overflowed at launch (build 180).
         if prominent {
-            Button(configuration).buttonStyle(.bipeProminent).controlSize(.large)
+            Button(configuration).buttonStyle(BorderedProminentButtonStyle()).controlSize(.large)
         } else {
-            Button(configuration).buttonStyle(.bipeBordered).controlSize(.large)
+            Button(configuration).buttonStyle(BorderedButtonStyle()).controlSize(.large)
         }
     }
 }
