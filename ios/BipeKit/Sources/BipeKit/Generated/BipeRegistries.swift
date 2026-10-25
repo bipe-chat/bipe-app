@@ -582,6 +582,12 @@ public enum BipeRegistries {
     public static let photoMatchHeight = 8
     public static let photoMatchMaxDistance = 6
 
+    /// Profile change facts (ADR 0049, registries/profile-facts.json). Lines: test-vectors/profile-facts.json.
+    public static let profileFactsWindowDays = 30
+    public static let profileFactsNewAccountDays = 30
+    public static let profileFactsNoticePairHours = 24
+    public static let profileFactsNoticeDays = 7
+
     /// Username (handle) rules. The server is the authority; clients check early for feedback.
     public static let handleMinLength = 3
     public static let handleMaxLength = 30

@@ -93,6 +93,15 @@ class BipeApiClient(baseUrl: String) {
         response = BipeHandleChangesResponse.serializer(),
     ).changes
 
+    /** `POST /v1/profile-facts` (ADR 0049). At most [BipeProfileFacts.BATCH_SIZE] IDs. IDs the API does not know are absent. */
+    suspend fun profileFacts(userIds: List<String>, accessToken: String): List<BipeProfileFacts> = send(
+        "POST",
+        listOf("v1", "profile-facts"),
+        body = encode(BipeProfileFactsRequest.serializer(), BipeProfileFactsRequest(userIds)),
+        accessToken = accessToken,
+        response = BipeProfileFactsResponse.serializer(),
+    ).facts
+
     /** `DELETE /v1/me/handle` (ADR 0066). The cooldown stays. */
     suspend fun removeMyHandle(accessToken: String): BipeMyHandle =
         send("DELETE", listOf("v1", "me", "handle"), accessToken = accessToken, response = BipeMyHandle.serializer())
