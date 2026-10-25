@@ -26,6 +26,11 @@ struct ChatListView: View {
     @StateObject private var handle: HandlePickModel
     @StateObject private var recovery: RecoveryReminderModel
     @State private var showsRecoveryEmail = false
+    // Spec pin-reminder (bipe-chat/bipe#202).
+    @StateObject private var pinReminder: PinReminderModel
+    @StateObject private var settings: SettingsModel
+    @State private var showsPinReminder = false
+    @State private var showsPinChange = false
     @StateObject private var requests: ChatRequestsModel
     @StateObject private var banner: RemoteBannerModel
     @Environment(\.scenePhase) private var scenePhase
@@ -65,6 +70,8 @@ struct ChatListView: View {
         _archive = ObservedObject(wrappedValue: model.archive)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
         _recovery = StateObject(wrappedValue: RecoveryReminderModel(api: api, session: model.session))
+        _pinReminder = StateObject(wrappedValue: PinReminderModel(session: model.session))
+        _settings = StateObject(wrappedValue: SettingsModel(session: model.session, api: api))
         let people = PeopleService(session: model.session, api: api, media: model.media)
         _requests = StateObject(wrappedValue: ChatRequestsModel(session: model.session, api: api, people: people))
         _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
@@ -130,6 +137,7 @@ struct ChatListView: View {
                     await banner.refresh()
                     await requests.refreshTrust()
                     if scope != .grupos { await recovery.load() }
+                    pinReminder.refresh()
                 }
             }
         }
@@ -140,6 +148,13 @@ struct ChatListView: View {
         }
         .sheet(item: $shareItem) { item in
             ShareSheet(items: [item.url]).ignoresSafeArea()
+        }
+        .sheet(isPresented: $showsPinReminder) {
+            PinReminderView(session: model.session, api: api, onResult: { pinReminder.checked($0) },
+                            changePin: { Task { try? await Task.sleep(for: .milliseconds(500)); showsPinChange = true } })
+        }
+        .sheet(isPresented: $showsPinChange) {
+            NavigationStack { PinChangeView(model: settings) }
         }
         .sheet(isPresented: $showsRecoveryEmail) {
             RecoveryEmailAddView(api: api, session: model.session, current: recovery.account?.email,
@@ -270,7 +285,8 @@ struct ChatListView: View {
         }
     }
 
-    /// One card at a time: the handle card first, then the recovery reminder (spec recovery-reminder).
+    /// One card at a time: the handle card first, then the recovery reminder (spec recovery-reminder), then the PIN
+    /// reminder (spec pin-reminder).
     @ViewBuilder
     private var handlePrompt: some View {
         if scope != .grupos && handle.showsPrompt {
@@ -279,6 +295,10 @@ struct ChatListView: View {
                 .padding(.vertical, 8)
         } else if scope != .grupos && recovery.showsCard {
             RecoveryReminderCard(model: recovery) { showsRecoveryEmail = true }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+        } else if scope != .grupos && pinReminder.showsCard {
+            PinReminderCard(model: pinReminder) { showsPinReminder = true }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
         }

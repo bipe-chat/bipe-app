@@ -107,6 +107,7 @@ import chat.bipe.app.polls.PollCreateScreen
 import chat.bipe.app.polls.PollDetailScreen
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BadgePayload
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
@@ -164,6 +165,7 @@ fun ChatTimelineScreen(
     }
     val isLoadingHistory by model.isLoadingHistory.collectAsState()
     val reachedStart by model.reachedStart.collectAsState()
+    val historyLoads by model.historyLoads.collectAsState()
     val isDm by model.isDm.collectAsState()
     val peerAway by model.peerAway.collectAsState()
     val theftMark by model.theftMark.collectAsState()
@@ -293,6 +295,7 @@ fun ChatTimelineScreen(
                         }
                     }
                 }
+                val sealInstitutions = people?.seals?.institutions?.collectAsState()
                 val cvmPeer = peerUserId
                 if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
                 // Booking cards pinned above the timeline (agenda-booking-card); they are not room events (ADR 0102).
@@ -304,6 +307,11 @@ fun ChatTimelineScreen(
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
+                    // A text message from a verified institution shows as a notice card (bipe#245). Badges only.
+                    val institutionOf: (TimelineRow) -> BadgePayload? = { row ->
+                        sealInstitutions?.value // read in composition, so a badge that arrives redraws the row
+                        row.message?.takeUnless { it.isOwn }?.let { message -> people?.seals?.institution(message.senderId) }
+                    }
                     items(newestFirst, key = { it.id }) { row ->
                         TimelineRowItem(
                             row = row,
@@ -320,11 +328,13 @@ fun ChatTimelineScreen(
                             onSeek = voicePlayer::seek,
                             onOpenViewer = { viewerRowId = it },
                             seals = people?.seals,
+                            institution = institutionOf(row),
                         )
                     }
                     item(key = "history") {
-                        // Composed while the top of the list is on screen, again after each page (action loadHistory).
-                        LaunchedEffect(rows.size) { model.loadHistory() }
+                        // Composed while the top of the list is on screen, again after each load and each change of the rows
+                        // (action loadHistory). After a failed load, the next change of the rows tries again.
+                        LaunchedEffect(rows.size, historyLoads) { model.loadHistory() }
                         if (isLoadingHistory && !reachedStart) {
                             Text(
                                 stringResource(R.string.bipe_app_timeline_loading_history),

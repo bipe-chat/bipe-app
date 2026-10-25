@@ -35,6 +35,12 @@ class BipeRecoveryTokens(
     /** Runs [syncPending] in [scope]. */
     fun syncSoon(): Job = scope.launch { syncPending() }
 
+    /** False when this build has no synced store. */
+    val isAvailable: Boolean get() = sync.isAvailable
+
+    /** True when the synced store backs tokens up off this phone (spec recovery-reminder syncOff). */
+    suspend fun isBackedUp(): Boolean = sync.isBackedUp()
+
     /**
      * Writes every unsynced token to the synced store and removes the rejected ones. True when nothing is left to do;
      * false when a step failed and waits for the next run.

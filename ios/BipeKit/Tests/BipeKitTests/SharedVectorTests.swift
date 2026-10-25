@@ -150,6 +150,17 @@ struct SharedVectorTests {
     }
 
     @Test
+    func pinReminderSchedule() throws {
+        for vector in try SharedVectors.array("onboarding-schedule.json", key: "pinReminder") {
+            let step = try #require(vector["step"] as? Int)
+            let result = try #require((vector["result"] as? String).flatMap(BipeOnboardingSchedule.PinResult.init(rawValue:)))
+            let next = BipeOnboardingSchedule.pinReminderNext(step: step, result: result)
+            #expect(next.step == vector["nextStep"] as? Int, "pinReminderNext(\(step), \(result)) step")
+            #expect(next.gapDays == vector["gapDays"] as? Int, "pinReminderNext(\(step), \(result)) gapDays")
+        }
+    }
+
+    @Test
     func inviteCodes() throws {
         for vector in try SharedVectors.array("invite-codes.json", key: "vectors") {
             let input = try #require(vector["input"] as? String)

@@ -146,6 +146,23 @@ class BipeApiClient(baseUrl: String) {
         send<Unit>("POST", listOf("v1", "me", "recoveries", id, "cancel"), accessToken = accessToken, response = null)
     }
 
+    /**
+     * `POST /v1/me/deletion` (ADR 0140). The app checks the device owner first; the server checks the senha and deletes
+     * the account after [BipeRegistries.DELETION_COOLDOWN_HOURS]. `deletion_pending` when a request already waits.
+     */
+    suspend fun requestDeletion(pin: String, redactMessages: Boolean, accessToken: String): BipeAccountDeletion = send(
+        "POST",
+        listOf("v1", "me", "deletion"),
+        body = encode(BipeDeletionRequest.serializer(), BipeDeletionRequest(pin, redactMessages)),
+        accessToken = accessToken,
+        response = BipeAccountDeletion.serializer(),
+    )
+
+    /** `POST /v1/me/deletions/{id}/cancel` (ADR 0140). Any signed-in device, until `due_at`; `not_found` when it no longer waits. */
+    suspend fun cancelDeletion(id: String, accessToken: String) {
+        send<Unit>("POST", listOf("v1", "me", "deletions", id, "cancel"), accessToken = accessToken, response = null)
+    }
+
     /** `POST /v1/recovery/token`. No auth. The synced token, then the PIN. New credentials, once. */
     suspend fun recoverWithToken(token: String, pin: String): BipeCredentials = send(
         "POST",
@@ -287,6 +304,7 @@ enum class BipeApiErrorCode(val id: String) {
     PIN_WEAK("pin_weak"),
     PIN_WRONG("pin_wrong"),
     PIN_BLOCKED("pin_blocked"),
+    PIN_NOT_SET("pin_not_set"),
     RECOVERY_INVALID("recovery_invalid"),
     EMAIL_UNAVAILABLE("email_unavailable"),
 
@@ -301,6 +319,8 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** HTTP 503: the server has no configuration for that provider (ADR 0096). */
     LINK_UNAVAILABLE("link_unavailable"),
+    /** HTTP 409: an account deletion already waits (ADR 0140). */
+    DELETION_PENDING("deletion_pending"),
 
     /** A JPEG the server cannot take (profile or catalogue photo). */
     PHOTO_INVALID("photo_invalid"),
@@ -387,6 +407,8 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.PIN_WEAK -> (reason?.let(BipePinProblem::fromId) ?: BipePinProblem.SEQUENCE).localizedMessage(context)
             BipeApiErrorCode.PIN_WRONG -> context.getString(R.string.bipe_pin_wrong, (triesLeft ?: 0).toString())
             BipeApiErrorCode.PIN_BLOCKED -> context.getString(R.string.bipe_pin_blocked_body, BipeRegistries.PIN_MAX_WRONG_TRIES.toString())
+            BipeApiErrorCode.PIN_NOT_SET -> context.getString(R.string.bipe_deletion_pin_not_set)
+            BipeApiErrorCode.DELETION_PENDING -> context.getString(R.string.bipe_deletion_error)
             BipeApiErrorCode.RECOVERY_INVALID -> context.getString(R.string.bipe_error_recovery_invalid)
             BipeApiErrorCode.EMAIL_UNAVAILABLE -> context.getString(R.string.bipe_error_email_unavailable)
             BipeApiErrorCode.TERMS_REQUIRED -> context.getString(R.string.bipe_signup_terms_required)

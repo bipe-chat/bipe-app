@@ -7,6 +7,9 @@
 
 /// Screen ids of Bipe's own client. iOS and Android use the same ids.
 public enum BipeScreen: String, CaseIterable, Sendable {
+    /// Delete the account (flow settings). Spec: bipe-shared/product/screens/account-delete.json
+    case accountDelete = "account-delete"
+
     /// New account (flow home). Spec: bipe-shared/product/screens/account-new.json
     case accountNew = "account-new"
 
@@ -120,6 +123,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Data use (flow settings). Spec: bipe-shared/product/screens/data-use.json
     case dataUse = "data-use"
+
+    /// Account deletion asked on another device (flow settings). Spec: bipe-shared/product/screens/deletion-alert.json
+    case deletionAlert = "deletion-alert"
 
     /// Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json
     case deviceVerification = "device-verification"
@@ -237,6 +243,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json
     case pinChange = "pin-change"
+
+    /// PIN reminder (flow home). Spec: bipe-shared/product/screens/pin-reminder.json
+    case pinReminder = "pin-reminder"
 
     /// Receive a shared Pix item (flow share). Spec: bipe-shared/product/screens/pix-check-receive.json
     case pixCheckReceive = "pix-check-receive"
