@@ -30,6 +30,8 @@
     <string name="bipe_badge_company_revoked">Esta empresa não está mais verificada.</string>
     <string name="bipe_badge_company_revoked_not_active">Esta empresa não está mais verificada. O CNPJ não aparece ativo na Receita.</string>
     <string name="bipe_badge_company_suspended">O selo desta empresa está suspenso até o Bipe conferir a conta de novo.</string>
+    <string name="bipe_badge_official">Bipe</string>
+    <string name="bipe_badge_official_a11y">Conta oficial do Bipe</string>
     <string name="bipe_warning_nickname_confirm_title">É a pessoa que você conhece?</string>
     <string name="bipe_warning_nickname_confirm_body">Você salvou este contato como %1$s. A conta está verificada como %2$s. É a mesma pessoa?</string>
     <string name="bipe_action_nickname_confirm_yes">Sim, é a mesma pessoa</string>
@@ -344,6 +346,8 @@
     <string name="bipe_email_confirmed">E-mail confirmado.</string>
     <string name="bipe_email_remove">Remover e-mail</string>
     <string name="bipe_email_link_invalid">Esse link não vale mais. Peça outro no app.</string>
+    <string name="bipe_email_send">Mandar link</string>
+    <string name="bipe_email_change_reason">Confirme que é você para mudar o e-mail de recuperação.</string>
     <string name="bipe_error_email_unavailable">A gente não está conseguindo mandar e-mail agora. Tente de novo mais tarde.</string>
     <string name="bipe_recovery_title">Voltar para sua conta</string>
     <string name="bipe_recovery_qr">Estou com o celular antigo</string>
@@ -746,6 +750,9 @@
     <string name="bipe_settings_privacy">Privacidade</string>
     <string name="bipe_settings_account">Sua conta</string>
     <string name="bipe_settings_notifications">Notificações</string>
+    <string name="bipe_settings_news">Receber novidades do Bipe</string>
+    <string name="bipe_settings_news_body">As novidades chegam na conversa Novidades do Bipe. Desligar faz você sair dela.</string>
+    <string name="bipe_settings_news_failed">Não deu para mudar agora. Tente de novo.</string>
     <string name="bipe_settings_chats">Conversas e mídia</string>
     <string name="bipe_settings_help">Ajuda e sobre</string>
     <string name="bipe_settings_notifications_on">Ligadas</string>
@@ -1028,6 +1035,10 @@
     <string name="bipe_support_room_name">Suporte Bipe</string>
     <string name="bipe_support_room_topic">Conversa com a equipe do Bipe. A equipe lê o que você escreve aqui numa ferramenta de atendimento. Fotos e arquivos ficam no servidor do Bipe.</string>
     <string name="bipe_support_welcome">Oi! Aqui você fala com a equipe do Bipe. Conte o que aconteceu ou o que você quer ver no app. A gente responde nesta conversa.</string>
+    <string name="bipe_news_room_name">Novidades do Bipe</string>
+    <string name="bipe_news_room_topic">Novidades do Bipe. Não dá para responder aqui. Para tirar dúvidas, fale com o Suporte Bipe.</string>
+    <string name="bipe_news_welcome">Oi! Nesta conversa o Bipe conta as novidades do app. Não dá para responder aqui. Se não quiser mais receber, saia da conversa. Para voltar, ligue Receber novidades do Bipe em Você, Configurações, Notificações.</string>
+    <string name="bipe_news_support_line">Dúvidas? Fale com o Suporte Bipe.</string>
     <string name="bipe_support_report_received">Recebemos seu relato de problema. A equipe vai ler e responde nesta conversa.</string>
     <string name="bipe_support_already_open">Você já tem uma conversa com o suporte. Continue por aqui.</string>
     <string name="bipe_app_lock_title">Bipe bloqueado</string>
