@@ -376,6 +376,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json
     case termsReaccept = "terms-reaccept"
 
+    /// Theft protection (flow settings). Spec: bipe-shared/product/screens/theft-protection.json
+    case theftProtection = "theft-protection"
+
     /// Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json
     case timelineMedia = "timeline-media"
 

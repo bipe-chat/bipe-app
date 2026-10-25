@@ -595,6 +595,12 @@ object BipeRegistries {
     const val PROFILE_FACTS_NOTICE_PAIR_HOURS = 24
     const val PROFILE_FACTS_NOTICE_DAYS = 7
 
+    /** Theft protection (ADR 0044, ADR 0051, registries/theft-protection.json). Statement: docs/theft-mark.md. */
+    const val THEFT_MAX_GUARDIANS = 3
+    const val THEFT_MARKED_MESSAGE_MINUTES = 60
+    const val THEFT_STATEMENT_LIFE_HOURS = 24
+    const val THEFT_CHECK_MINUTES = 15
+
     /** Username (handle) rules. The server is the authority; clients check early for feedback. */
     const val HANDLE_MIN_LENGTH = 3
     const val HANDLE_MAX_LENGTH = 30
