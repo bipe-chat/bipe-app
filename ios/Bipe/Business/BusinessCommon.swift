@@ -174,3 +174,222 @@ struct CatalogPhoto: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
+
+// MARK: - Pedidos, Orçamentos and Fila virtual (ADRs 0105 to 0107)
+
+/// What the owner screens of Pedidos, Orçamentos and Fila virtual need besides the API: names of customers, the
+/// company's DM partners for the pickers, and the DM with a customer.
+struct BusinessOwnerContext {
+    let api: BipeBusinessAPI
+    let people: PeopleService
+    /// The company's DM partners: an owner-entered order or a walk-in can name one.
+    let customers: [BusinessCustomer]
+    /// Opens the DM with the signed-in customer (action openChat); nil inside that DM.
+    let openChat: ((String) -> Void)?
+
+    /// The customer's name: the DM name, else the profile name, else the ID's localpart. Never the Matrix ID.
+    @MainActor func name(of userId: String) async -> String {
+        if let known = customers.first(where: { $0.userId == userId }) { return known.name }
+        return (try? await people.person(userId))?.displayName ?? Person.localpart(of: userId)
+    }
+
+    /// The names of these signed-in customers that `known` does not have yet.
+    @MainActor func names(for userIds: [String], known: [String: String]) async -> [String: String] {
+        var names = known
+        for userId in Set(userIds) where names[userId] == nil {
+            names[userId] = await name(of: userId)
+        }
+        return names
+    }
+}
+
+/// How the records of Pedidos, Orçamentos and Fila virtual read on screen. Amounts are BRL centavos from the API.
+enum BusinessText {
+    static func money(_ cents: Int) -> String {
+        BipeMoney.text(cents: cents)
+    }
+
+    /// A quantity with up to two decimals in the phone's locale, without grouping: `2`, `2,5`.
+    static func quantity(_ quantity: Double) -> String {
+        quantity.formatted(.number.precision(.fractionLength(0...2)).grouping(.never))
+    }
+
+    /// bipe_order_line: `2 × Pão de queijo`.
+    static func line(_ line: BipeOrderLine) -> String {
+        BipeStrings.orderLine(quantity(line.quantity), line.name)
+    }
+
+    /// bipe_queue_wait with bipe_queue_wait_range, or bipe_queue_wait_unknown: never zero (spec queue-customer notes).
+    static func wait(_ wait: BipeQueueWait?) -> String {
+        guard let wait else { return BipeStrings.queueWaitUnknown }
+        return BipeStrings.queueWait(BipeStrings.queueWaitRange(String(wait.minMinutes), String(wait.maxMinutes)))
+    }
+
+    /// The date and time of a record in the phone's time zone: `sáb., 25 de out. · 14:00`.
+    static func when(_ date: Date) -> String {
+        date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)) + " · " + BookingText.time(date)
+    }
+
+    /// The customer of an order or a place: the typed name, or the signed-in customer's name.
+    static func customer(_ customer: BipeBookingCustomer, names: [String: String]) -> String {
+        customer.name ?? customer.userId.map { names[$0] ?? Person.localpart(of: $0) } ?? ""
+    }
+}
+
+extension BipeFulfilment {
+    var text: String {
+        switch self {
+        case .pickup: BipeStrings.orderPickup
+        case .delivery: BipeStrings.orderDelivery
+        }
+    }
+}
+
+extension BipeOrderStatus {
+    var text: String {
+        switch self {
+        case .sent: BipeStrings.orderStatusSent
+        case .accepted: BipeStrings.orderStatusAccepted
+        case .refused: BipeStrings.orderStatusRefused
+        case .ready: BipeStrings.orderStatusReady
+        case .done: BipeStrings.orderStatusDone
+        case .cancelled: BipeStrings.orderStatusCancelled
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .accepted, .ready, .done: BipeColor.trustVerifiedInk
+        case .sent: BipeColor.trustCautionInk
+        case .refused, .cancelled: BipeColor.inkSecondary
+        }
+    }
+}
+
+extension BipeOrderRefuseReason {
+    var text: String {
+        switch self {
+        case .unavailable: BipeStrings.orderRefuseUnavailable
+        case .closed: BipeStrings.orderRefuseClosed
+        case .cannotDeliver: BipeStrings.orderRefuseCannotDeliver
+        case .cannotFulfil: BipeStrings.orderRefuseCannotFulfil
+        }
+    }
+}
+
+extension BipeQuoteStatus {
+    var text: String {
+        switch self {
+        case .offered: BipeStrings.quoteStatusOffered
+        case .accepted: BipeStrings.quoteStatusAccepted
+        case .refused: BipeStrings.quoteStatusRefused
+        case .expired: BipeStrings.quoteStatusExpired
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .accepted: BipeColor.trustVerifiedInk
+        case .offered: BipeColor.trustCautionInk
+        case .refused, .expired: BipeColor.inkSecondary
+        }
+    }
+}
+
+extension BipeQueuePlaceStatus {
+    var text: String {
+        switch self {
+        case .waiting: BipeStrings.queueStatusWaiting
+        case .called: BipeStrings.queueCalled
+        case .served: BipeStrings.queueStatusServed
+        case .noShow: BipeStrings.queueStatusNoShow
+        case .left: BipeStrings.queueStatusLeft
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .called: BipeColor.trustVerifiedInk
+        case .waiting: BipeColor.trustCautionInk
+        case .served, .noShow, .left: BipeColor.inkSecondary
+        }
+    }
+}
+
+/// The frame of the cards pinned above the timeline (agenda-booking-card, order, quote and queue cards).
+struct BusinessCardFrame: ViewModifier {
+    let screen: BipeScreen
+
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.surfaceRaised))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(BipeColor.lineSubtle))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(screen.rawValue)
+    }
+}
+
+extension View {
+    func businessCard(_ screen: BipeScreen) -> some View {
+        modifier(BusinessCardFrame(screen: screen))
+    }
+}
+
+/// A status line: the text in its tint. The state is in the words, never in the colour alone.
+struct BusinessStatusLine: View {
+    let text: String
+    let tint: Color
+
+    var body: some View {
+        Text(text)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(tint)
+    }
+}
+
+/// A local wall time `HH:MM`, picked with the system time picker. The wall time has no time zone of its own.
+struct BusinessClockPicker: View {
+    let title: String
+    @Binding var clock: String
+
+    private static let utc = TimeZone(identifier: "UTC")!
+
+    var body: some View {
+        DatePicker(title, selection: Binding(get: { date }, set: { clock = Self.clock(of: $0) }), displayedComponents: [.hourAndMinute])
+            .environment(\.timeZone, Self.utc)
+    }
+
+    private var date: Date {
+        Date(timeIntervalSince1970: TimeInterval(AgendaSetupModel.minutes(clock) * 60))
+    }
+
+    private static func clock(of date: Date) -> String {
+        let parts = BusinessDay.calendar(utc).dateComponents([.hour, .minute], from: date)
+        return AgendaSetupModel.clock((parts.hour ?? 0) * 60 + (parts.minute ?? 0))
+    }
+}
+
+/// A reload every 30 seconds while the view shows (spec queue-customer and queue-owner load and refresh).
+struct BusinessRefreshLoop: ViewModifier {
+    let active: Bool
+    let reload: () async -> Void
+
+    func body(content: Content) -> some View {
+        content.task(id: active) {
+            guard active else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                if Task.isCancelled { return }
+                await reload()
+            }
+        }
+    }
+}
+
+extension View {
+    func refreshEvery30Seconds(while active: Bool, _ reload: @escaping () async -> Void) -> some View {
+        modifier(BusinessRefreshLoop(active: active, reload: reload))
+    }
+}

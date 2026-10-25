@@ -23,6 +23,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.business.QUEUE_LINK_QUERY
+import chat.bipe.app.business.QueueLinkScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.R
@@ -35,9 +37,13 @@ object PeopleLinks {
     private val _pending = MutableStateFlow<PeopleRoute?>(null)
     val pending: StateFlow<PeopleRoute?> = _pending.asStateFlow()
 
-    /** Takes [uri] when it is a profile link (bipe.chat/@handle or a matrix.to user link). */
+    /**
+     * Takes [uri] when it is a profile link (bipe.chat/@handle or a matrix.to user link). A business's counter QR link,
+     * bipe.chat/@handle?fila, opens queue-customer.
+     */
     fun offer(uri: Uri): Boolean {
-        val route = BipeProfileLink.handle(uri.toString())?.let { PeopleRoute.ProfileLinkOpen(it) }
+        val queue = runCatching { QUEUE_LINK_QUERY in uri.queryParameterNames }.getOrDefault(false)
+        val route = BipeProfileLink.handle(uri.toString())?.let { PeopleRoute.ProfileLinkOpen(it, queue) }
             ?: BipeProfileLink.matrixUserId(uri.toString())?.let { PeopleRoute.PersonProfile(it, fromDm = false) }
             ?: return false
         _pending.value = route
@@ -91,7 +97,9 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
         )
         PeopleRoute.ProfileQr -> ProfileLinkScreen(people, pickHandle = navigation.pickHandle, onBack = navigation.pop, showQr = true)
         PeopleRoute.ProfileLink -> ProfileLinkScreen(people, pickHandle = navigation.pickHandle, onBack = navigation.pop)
-        is PeopleRoute.ProfileLinkOpen -> ProfileLinkOpenScreen(
+        is PeopleRoute.ProfileLinkOpen -> if (route.queue) {
+            QueueLinkScreen(people.session, route.handle, onClose = navigation.pop)
+        } else ProfileLinkOpenScreen(
             people,
             route.handle,
             openPerson = { userId ->

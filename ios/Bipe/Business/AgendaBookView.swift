@@ -45,14 +45,19 @@ final class AgendaBookModel: ObservableObject {
     let business: String
     /// The booking that Remarcar moves; the review step calls move instead of hold and confirm.
     let moving: BipeBooking?
+    /// quote-card acceptBooking: the review step calls quote accept with target booking instead of hold and
+    /// confirm. Returns the error text, or nil when the quote is accepted.
+    let acceptQuote: (@MainActor (_ serviceId: String, _ agendaId: String?, _ start: Date) async -> String?)?
     private let api: BipeBusinessAPI
     private var today: String
     private var timeZoneKnown = false
 
-    init(api: BipeBusinessAPI, business: String, moving: BipeBooking?) {
+    init(api: BipeBusinessAPI, business: String, moving: BipeBooking?,
+         acceptQuote: (@MainActor (_ serviceId: String, _ agendaId: String?, _ start: Date) async -> String?)? = nil) {
         self.api = api
         self.business = business
         self.moving = moving
+        self.acceptQuote = acceptQuote
         let today = BusinessDay.string(Date(), in: .current)
         self.today = today
         weekStart = today
@@ -60,15 +65,18 @@ final class AgendaBookModel: ObservableObject {
 
     var canGoBackAWeek: Bool { weekStart > today }
 
-    /// Back is hidden on the first step; Remarcar keeps the booking's service.
+    /// Back is hidden on the first step; Remarcar and a quote's visit keep their service.
     var canGoBack: Bool {
         switch step {
         case .service: false
-        case .person: moving == nil
-        case .time: moving == nil || agendas.count > 1
+        case .person: keepsService == false
+        case .time: keepsService == false || agendas.count > 1
         case .review: true
         }
     }
+
+    /// Remarcar and a quote's visit book one known service.
+    private var keepsService: Bool { moving != nil || acceptQuote != nil }
 
     var selectedSlots: [BipeSlot] {
         week.first { $0.date == selectedDay }?.slots ?? []
@@ -89,6 +97,8 @@ final class AgendaBookModel: ObservableObject {
         phase = .loading
         do {
             services = try await api.services(business: business)
+            // A quote's visit books its service only.
+            if acceptQuote != nil, let id = preselectedServiceId { services = services.filter { $0.id == id } }
             phase = .loaded
         } catch {
             self.error = (error as? BipeAPIError)?.agendaMessage
@@ -158,12 +168,12 @@ final class AgendaBookModel: ObservableObject {
         }
     }
 
-    /// Action pickTime: holds the time and goes to review. Remarcar goes to review without a hold.
+    /// Action pickTime: holds the time and goes to review. Remarcar and a quote's visit go to review without a hold.
     func pickTime(_ slot: BipeSlot) async {
         guard let service = selectedService, !working else { return }
         error = nil
         selectedStart = slot.start
-        if moving != nil {
+        if keepsService {
             step = .review
             return
         }
@@ -185,6 +195,14 @@ final class AgendaBookModel: ObservableObject {
         error = nil
         working = true
         defer { working = false }
+        if let acceptQuote {
+            guard let service = selectedService, let start = selectedStart else { return false }
+            if let message = await acceptQuote(service.id, selectedAgenda, start) {
+                error = message
+                return false
+            }
+            return true
+        }
         do {
             if let moving, let start = selectedStart {
                 _ = try await api.move(business: business, bookingId: moving.id, agendaId: selectedAgenda, start: start)
@@ -245,8 +263,10 @@ struct AgendaBookView: View {
     /// Closes the flow; the text is the result to show (bipe_agenda_booked), or nil.
     private let close: (String?) -> Void
 
-    init(api: BipeBusinessAPI, business: String, preselectedServiceId: String?, moving: BipeBooking?, close: @escaping (String?) -> Void) {
-        _model = StateObject(wrappedValue: AgendaBookModel(api: api, business: business, moving: moving))
+    init(api: BipeBusinessAPI, business: String, preselectedServiceId: String?, moving: BipeBooking?,
+         acceptQuote: (@MainActor (_ serviceId: String, _ agendaId: String?, _ start: Date) async -> String?)? = nil,
+         close: @escaping (String?) -> Void) {
+        _model = StateObject(wrappedValue: AgendaBookModel(api: api, business: business, moving: moving, acceptQuote: acceptQuote))
         self.preselectedServiceId = preselectedServiceId
         self.close = close
     }
@@ -275,9 +295,15 @@ struct AgendaBookView: View {
         .task { await model.start(preselectedServiceId: preselectedServiceId) }
     }
 
+    private var confirmTitle: String {
+        if model.acceptQuote != nil { return BipeStrings.quoteAcceptBooking }
+        return model.moving == nil ? BipeStrings.agendaConfirm : BipeStrings.agendaReschedule
+    }
+
     private var title: String {
         switch model.step {
-        case .service: model.moving == nil ? BipeStrings.agendaBook : BipeStrings.agendaReschedule
+        case .service: model.acceptQuote != nil ? BipeStrings.quoteAcceptBooking
+            : (model.moving == nil ? BipeStrings.agendaBook : BipeStrings.agendaReschedule)
         case .person: BipeStrings.agendaPickPerson
         case .time: BipeStrings.agendaPickTime
         case .review: BipeStrings.agendaReviewTitle
@@ -496,7 +522,7 @@ struct AgendaBookView: View {
                     HStack {
                         Spacer()
                         if model.working { ProgressView() } else {
-                            Text(model.moving == nil ? BipeStrings.agendaConfirm : BipeStrings.agendaReschedule).bold()
+                            Text(confirmTitle).bold()
                         }
                         Spacer()
                     }

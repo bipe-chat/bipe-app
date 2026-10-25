@@ -27,6 +27,8 @@ struct ChatListView: View {
     @State private var path: NavigationPath
     @State private var showsHandlePick = false
     @State private var openingLink: String?
+    /// queue-customer from the counter QR code (https://bipe.chat/@handle?fila).
+    @State private var openingQueue: String?
     @State private var newGroupWith: [Person]?
     @State private var notificationsRoom: String?
     @State private var groupDetailsRoom: String?
@@ -141,6 +143,9 @@ struct ChatListView: View {
                                 openPerson: { path.append(PeopleRoute.person(userId: $0, fromDm: false)) },
                                 openOwnLink: { path.append(PeopleRoute.profileLink) })
         }
+        .sheet(item: Binding(get: { openingQueue.map(HandleLink.init) }, set: { openingQueue = $0?.handle })) { link in
+            QueueCustomerView(api: model.session.business(api), business: link.handle, close: { _ in openingQueue = nil })
+        }
         // person-profile: group-create with the person picked, chat-notifications and dm-delete for the DM.
         .sheet(item: Binding(get: { newGroupWith.map(PeoplePick.init) }, set: { newGroupWith = $0?.people })) { pick in
             GroupCreateView(session: model.session, media: model.media, people: pick.people) { roomId, _ in
@@ -175,6 +180,7 @@ struct ChatListView: View {
             switch PeopleLink(url: url) {
             case .handle(let handle): openingLink = handle
             case .userId(let userId): path.append(PeopleRoute.person(userId: userId, fromDm: false))
+            case .queue(let handle): openingQueue = handle
             case nil: break
             }
         }
