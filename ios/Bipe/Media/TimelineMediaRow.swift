@@ -75,7 +75,7 @@ struct TimelineMediaRow: View {
             .contentShape(Rectangle())
             .onTapGesture(perform: tap)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(media.caption?.nilIfBlank.map { "\(media.kindLabel), \($0)" } ?? media.kindLabel)
+            .accessibilityLabel(media.accessibilityLabel)
             .accessibilityAddTraits(.isButton)
             .task(id: "\(media.source.url)#\(revealed)") { await appear() }
     }
