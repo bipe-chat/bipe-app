@@ -214,6 +214,12 @@ enum class BipeScreen(val id: String) {
     /** Open source licences (flow settings). Spec: bipe-shared/product/screens/open-source-licences.json */
     OPEN_SOURCE_LICENCES("open-source-licences"),
 
+    /** Place an order (flow business). Spec: bipe-shared/product/screens/order-customer.json */
+    ORDER_CUSTOMER("order-customer"),
+
+    /** Pedidos for the owner (flow business). Spec: bipe-shared/product/screens/order-owner.json */
+    ORDER_OWNER("order-owner"),
+
     /** A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json */
     PERSON_PROFILE("person-profile"),
 
@@ -249,6 +255,18 @@ enum class BipeScreen(val id: String) {
 
     /** Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json */
     PUSH_REGISTRATION("push-registration"),
+
+    /** Fila virtual for the customer (flow business). Spec: bipe-shared/product/screens/queue-customer.json */
+    QUEUE_CUSTOMER("queue-customer"),
+
+    /** Fila virtual for the owner (flow business). Spec: bipe-shared/product/screens/queue-owner.json */
+    QUEUE_OWNER("queue-owner"),
+
+    /** Quotes for the owner (flow business). Spec: bipe-shared/product/screens/quote-builder.json */
+    QUOTE_BUILDER("quote-builder"),
+
+    /** Quote card and request (flow business). Spec: bipe-shared/product/screens/quote-card.json */
+    QUOTE_CARD("quote-card"),
 
     /** Read receipts (flow chat). Spec: bipe-shared/product/screens/read-receipts.json */
     READ_RECEIPTS("read-receipts"),
