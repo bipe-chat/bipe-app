@@ -122,7 +122,6 @@ private fun RowScope.TabItem(
  * A double tap and a long press on the Você item (ADR 0135). NavigationBarItem has only onClick, so this watches the
  * touches in the initial pass and never consumes them: a tap still opens Você through the item itself.
  */
-@Composable
 /**
  * Spec app-tabs: TalkBack cannot hold, and Você has no account rows, so the Você item carries a custom action that
  * opens the account menu like a hold. Only with two or more accounts ([label] null otherwise).
@@ -130,6 +129,7 @@ private fun RowScope.TabItem(
 private fun Modifier.voceSwitchAction(label: String?, open: () -> Unit): Modifier =
     if (label == null) this else semantics { customActions = listOf(CustomAccessibilityAction(label) { open(); true }) }
 
+@Composable
 private fun Modifier.voceGestures(onDoubleTap: () -> Unit, onLongPress: () -> Unit): Modifier {
     val doubleTap by rememberUpdatedState(onDoubleTap)
     val longPress by rememberUpdatedState(onLongPress)
