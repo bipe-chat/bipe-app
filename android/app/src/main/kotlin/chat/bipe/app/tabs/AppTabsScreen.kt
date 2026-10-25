@@ -48,6 +48,8 @@ fun AppTabsScreen(
     onFindHandle: (String) -> Unit,
     /** Spec encryption-status: the banner above Conversas. */
     banner: @Composable () -> Unit = {},
+    /** Spec recovery-reminder: the card above Conversas. */
+    recoveryCard: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
     onChatNotifications: (String) -> Unit = {},
@@ -72,7 +74,7 @@ fun AppTabsScreen(
             when (state.selectedTab) {
                 AppTabsModel.Tab.CONVERSAS ->
                     ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner,
+                        account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) }, banner = banner, recoveryCard = recoveryCard,
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                         requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
                 AppTabsModel.Tab.GRUPOS ->

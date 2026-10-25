@@ -155,6 +155,95 @@ struct CredentialStoreTests {
     }
 }
 
+/// The app-group move before the App Store transfer (bipe-chat/bipe#531). Synthetic records only.
+struct KeychainMoveTests {
+    private let user = "@fixture:example.test"
+    private let other = "@other:example.test"
+    private let appGroup = "group.test"
+    private let team = "TEAM.test"
+    private let fork = "FORK.test"
+    private let password = "chat.bipe.account.password"
+    private let token = "chat.bipe.account.recovery-token"
+    private let excluded = "chat.bipe.account.password.excluded"
+
+    private func move(_ fake: FakeCredentialKeychain) -> BipeKeychainMove {
+        BipeKeychainMove(target: appGroup, sources: [team, fork], services: BipeCredentialStore.keychainServices, keychain: fake)
+    }
+
+    @Test func copiesEveryItemKeepsSourcesAndProtection() {
+        let fake = FakeCredentialKeychain()
+        fake.seed(group: team, service: password, account: user, value: "team fixture")
+        fake.seed(group: team, service: token, account: user, value: "token fixture", synchronizable: true)
+        fake.seed(group: fork, service: password, account: other, value: "fork fixture")
+        let result = move(fake).run()
+        #expect(result == BipeKeychainMove.Result(done: true, copied: 3))
+        #expect(fake.value(appGroup, password, user) == "team fixture")
+        #expect(fake.value(appGroup, password, other) == "fork fixture")
+        #expect(fake.record(appGroup, password, user)?[kSecAttrSynchronizable as String] as? Bool == false)
+        #expect(fake.record(appGroup, password, user)?[kSecAttrAccessible as String] as? String == kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String)
+        #expect(fake.record(appGroup, token, user)?[kSecAttrSynchronizable as String] as? Bool == true)
+        #expect(fake.value(team, password, user) == "team fixture")
+        #expect(fake.value(fork, password, other) == "fork fixture")
+        #expect(fake.deletes.isEmpty)
+        #expect(fake.mutations.allSatisfy { $0[kSecAttrAccessGroup as String] as? String == appGroup })
+        // The marker makes the next launch a no-op.
+        #expect(move(fake).isDone)
+        #expect(move(fake).run() == BipeKeychainMove.Result(done: true, copied: 0))
+    }
+
+    @Test func neverReplacesATargetItemAndTheTeamGroupWinsOverTheFork() {
+        let fake = FakeCredentialKeychain()
+        fake.seed(group: appGroup, service: password, account: user, value: "newer fixture")
+        fake.seed(group: team, service: password, account: user, value: "older fixture")
+        fake.seed(group: team, service: password, account: other, value: "team fixture")
+        fake.seed(group: fork, service: password, account: other, value: "fork fixture")
+        #expect(move(fake).run().done)
+        #expect(fake.value(appGroup, password, user) == "newer fixture")
+        #expect(fake.value(appGroup, password, other) == "team fixture")
+    }
+
+    @Test func aSignedOutAccountStaysSignedOutAfterTheMove() {
+        let fake = FakeCredentialKeychain()
+        fake.seed(group: team, service: excluded, account: user, value: "")
+        fake.seed(group: fork, service: password, account: user, value: "fork fixture")
+        #expect(move(fake).run().done)
+        let store = BipeCredentialStore(ownedAccessGroup: appGroup, legacyReadGroups: [team, fork], keychain: fake)
+        #expect(store.password(for: user) == nil)
+        #expect(store.passwordsWithCreationDates().isEmpty)
+    }
+
+    @Test func aLegacyMarkerHidesOnlyLegacyCopies() {
+        let fake = FakeCredentialKeychain()
+        fake.seed(group: team, service: excluded, account: user, value: "")
+        fake.seed(group: fork, service: password, account: user, value: "fork fixture")
+        let store = BipeCredentialStore(ownedAccessGroup: appGroup, legacyReadGroups: [team, fork], keychain: fake)
+        #expect(store.password(for: user) == nil)
+        #expect(store.save(BipeCredentials(userId: user, password: "new fixture", recoveryToken: "token fixture")))
+        #expect(store.password(for: user)?.secret == "new fixture")
+    }
+
+    @Test func aFailedCopyIsNotDoneAndLeavesNoMarker() {
+        let fake = FakeCredentialKeychain()
+        fake.seed(group: team, service: password, account: user, value: "team fixture")
+        fake.addStatus = errSecNotAvailable
+        let result = move(fake).run()
+        #expect(!result.done)
+        #expect(!move(fake).isDone)
+        #expect(fake.value(team, password, user) == "team fixture")
+        #expect(fake.deletes.isEmpty)
+    }
+
+    @Test func noTargetGroupMovesNothing() {
+        for group in [nil, "", "$(BIPE_APP_GROUP)"] as [String?] {
+            let fake = FakeCredentialKeychain()
+            fake.seed(group: team, service: password, account: user, value: "team fixture")
+            let result = BipeKeychainMove(target: group, sources: [team], services: BipeCredentialStore.keychainServices, keychain: fake).run()
+            #expect(!result.done)
+            #expect(fake.mutations.isEmpty)
+        }
+    }
+}
+
 /// Each test owns one fake and uses it synchronously. The Sendable conformance matches the injected boundary.
 private final class FakeCredentialKeychain: CredentialKeychain, @unchecked Sendable {
     private var items: [[String: Any]] = []
@@ -163,10 +252,10 @@ private final class FakeCredentialKeychain: CredentialKeychain, @unchecked Senda
     var addStatus: OSStatus = errSecSuccess
     var updateStatus: OSStatus? = nil
 
-    func seed(group: String, service: String, account: String, value: String, at: TimeInterval = 1) {
+    func seed(group: String, service: String, account: String, value: String, at: TimeInterval = 1, synchronizable: Bool = false) {
         items.append([kSecClass as String: kSecClassGenericPassword, kSecAttrAccessGroup as String: group,
                       kSecAttrService as String: service, kSecAttrAccount as String: account,
-                      kSecValueData as String: Data(value.utf8),
+                      kSecValueData as String: Data(value.utf8), kSecAttrSynchronizable as String: synchronizable,
                       kSecAttrCreationDate as String: Date(timeIntervalSince1970: at),
                       kSecAttrModificationDate as String: Date(timeIntervalSince1970: at)])
     }
