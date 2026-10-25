@@ -56,11 +56,10 @@ struct PollOptionLine: View {
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer(minLength: 8)
                 if option.isYourVote {
-                    PhosphorIcon.check.image
+                    PhosphorIcon.check.labelledImage(BipeStrings.appPollYourVote)
                         .resizable()
                         .frame(width: 14, height: 14)
                         .foregroundStyle(BipeColor.accentInk)
-                        .accessibilityLabel(BipeStrings.appPollYourVote)
                 }
                 if let count = option.voteCount {
                     Text(count.formatted())

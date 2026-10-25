@@ -189,11 +189,10 @@ struct ChatListView: View {
             Button { path.append(PeopleRoute.whoCanMessage) } label: { IconLabel(icon: .chatText, text: BipeStrings.messagingTitle) }
             Button { path.append(PeopleRoute.blockedList) } label: { IconLabel(icon: .prohibit, text: BipeStrings.privacyBlocked) }
         } label: {
-            PhosphorIcon.userCircle.image
+            PhosphorIcon.userCircle.labelledImage(BipeStrings.settingsPublicProfile)
                 .resizable()
                 .frame(width: 26, height: 26)
                 .foregroundStyle(BipeColor.accentInk)
-                .accessibilityLabel(BipeStrings.settingsPublicProfile)
         }
     }
 
@@ -266,6 +265,8 @@ struct ChatListView: View {
                     .background(Capsule().fill(model.unreadScopes.contains(scope) ? BipeColor.accentFill : BipeColor.surfaceRaised))
             }
             .buttonStyle(.plain)
+            // A filter chip: VoiceOver says whether it is on (bipe#495).
+            .accessibilityAddTraits(model.unreadScopes.contains(scope) ? .isSelected : [])
             Spacer()
         }
         .padding(.horizontal, 16)
@@ -472,11 +473,10 @@ struct ChatRow: View {
                     Spacer(minLength: 8)
                     // Spec chat-notifications: a muted chat keeps its badge, without sound or notification.
                     if chat.isMuted {
-                        PhosphorIcon.bellSlash.image
+                        PhosphorIcon.bellSlash.labelledImage(BipeStrings.appNotificationModeOff)
                             .resizable()
                             .frame(width: 16, height: 16)
                             .foregroundStyle(BipeColor.inkSecondary)
-                            .accessibilityLabel(BipeStrings.appNotificationModeOff)
                     }
                     if chat.unreadCount > 0 {
                         let count = chat.unreadCount.formatted()
@@ -486,7 +486,10 @@ struct ChatRow: View {
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
                             .background(Capsule().fill(BipeColor.accentFill))
-                            .accessibilityLabel(BipeStrings.appChatListUnread(count))
+                            // A mention is read with the count; the badge shows it by colour only (bipe#495).
+                            .accessibilityLabel(chat.mentionCount > 0
+                                ? BipeStrings.appChatListUnread(count) + ", " + BipeStrings.a11yMention
+                                : BipeStrings.appChatListUnread(count))
                     } else if chat.isMarkedUnread {
                         Circle().fill(BipeColor.accentFill).frame(width: 8, height: 8)
                             .accessibilityLabel(BipeStrings.chatUnreadState)

@@ -44,6 +44,7 @@ struct MediaViewer: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .ignoresSafeArea()
             .onTapGesture { chromeHidden.toggle() }
+            .accessibilityAction(named: BipeStrings.a11yShowControls) { chromeHidden.toggle() }
             .gesture(DragGesture(minimumDistance: 40).onEnded { value in
                 // Swipe down closes (action close).
                 if value.translation.height > 120, abs(value.translation.width) < 80 {
@@ -226,6 +227,8 @@ private struct MediaPage: View {
                     .padding(12)
                     .mediaScrim(RoundedRectangle(cornerRadius: 10))
                     .onTapGesture { Task { await load() } }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint(BipeStrings.appRetry)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

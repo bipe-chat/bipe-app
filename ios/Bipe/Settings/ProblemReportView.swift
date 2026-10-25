@@ -74,6 +74,7 @@ struct ProblemReportView: View {
                                 .foregroundStyle(BipeColor.glyphSecondary)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(BipeStrings.a11yRemoveScreenshot)
                     }
                 }
                 // Action addScreenshot: the system photo picker, one image. Never takes a screenshot by itself.

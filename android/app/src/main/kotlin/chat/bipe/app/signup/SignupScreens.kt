@@ -372,6 +372,7 @@ private fun SignupPinScreen(model: SignupFlowModel, confirm: Boolean) {
         stringResource(if (confirm) R.string.bipe_pin_confirm_title else R.string.bipe_pin_create_title),
         if (confirm) null else stringResource(R.string.bipe_pin_create_body, BipeRegistries.PIN_LENGTH.toString()),
     ) {
+        val progress = stringResource(R.string.bipe_a11y_pin_progress, pin.length.toString(), BipeRegistries.PIN_LENGTH.toString())
         // The system digit keyboard (spec: the fallback of the number pad). It brings delete and paste.
         BasicTextField(
             value = pin,
@@ -379,7 +380,8 @@ private fun SignupPinScreen(model: SignupFlowModel, confirm: Boolean) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             textStyle = MaterialTheme.typography.bodySmall.copy(color = colors.surfaceBase),
             cursorBrush = SolidColor(colors.surfaceBase),
-            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+            // TalkBack reads how many digits are in; the dots show it by colour only (bipe#495).
+            modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics { stateDescription = progress },
             decorationBox = { inner ->
                 Box {
                     // The field itself stays one dot wide: the row of dots shows how many digits are in.

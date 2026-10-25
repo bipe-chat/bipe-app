@@ -57,7 +57,8 @@ struct PinPadView: View {
                 }
             }
             .accessibilityElement()
-            .accessibilityValue(Text(pin.count.formatted()))
+            .accessibilityLabel(title)
+            .accessibilityValue(BipeStrings.a11yPinProgress(String(pin.count), String(BipeRegistries.pinLength)))
             Group {
                 if isBusy {
                     ProgressView()
@@ -86,12 +87,12 @@ struct PinPadView: View {
             }
             HStack(spacing: 24) {
                 if let onBiometrics {
-                    iconKey(.fingerprint, size: size, action: onBiometrics)
+                    iconKey(.fingerprint, label: BipeStrings.a11yBiometrics, size: size, action: onBiometrics)
                 } else {
                     Color.clear.frame(width: size, height: size)
                 }
                 key("0", size: size)
-                iconKey(.backspace, size: size, action: onDelete)
+                iconKey(.backspace, label: BipeStrings.a11yPinDelete, size: size, action: onDelete)
             }
         }
         .disabled(isBusy)
@@ -110,7 +111,7 @@ struct PinPadView: View {
         .buttonStyle(.plain)
     }
 
-    private func iconKey(_ icon: PhosphorIcon, size: CGFloat, action: @escaping () -> Void) -> some View {
+    private func iconKey(_ icon: PhosphorIcon, label: String, size: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             icon.image
                 .resizable()
@@ -119,6 +120,7 @@ struct PinPadView: View {
                 .frame(width: size, height: size)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
