@@ -16,6 +16,27 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Account switcher (flow home). Spec: bipe-shared/product/screens/account-switcher.json
     case accountSwitcher = "account-switcher"
 
+    /// Book a time (flow business). Spec: bipe-shared/product/screens/agenda-book.json
+    case agendaBook = "agenda-book"
+
+    /// Booking card (flow business). Spec: bipe-shared/product/screens/agenda-booking-card.json
+    case agendaBookingCard = "agenda-booking-card"
+
+    /// My bookings (flow settings). Spec: bipe-shared/product/screens/agenda-my-bookings.json
+    case agendaMyBookings = "agenda-my-bookings"
+
+    /// Booking sheet for the owner (flow business). Spec: bipe-shared/product/screens/agenda-owner-booking.json
+    case agendaOwnerBooking = "agenda-owner-booking"
+
+    /// Agenda tab (flow business). Spec: bipe-shared/product/screens/agenda-owner.json
+    case agendaOwner = "agenda-owner"
+
+    /// Agenda settings (flow business). Spec: bipe-shared/product/screens/agenda-settings.json
+    case agendaSettings = "agenda-settings"
+
+    /// Set up the agenda (flow business). Spec: bipe-shared/product/screens/agenda-setup.json
+    case agendaSetup = "agenda-setup"
+
     /// App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json
     case appLock = "app-lock"
 
@@ -30,6 +51,21 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json
     case blockedList = "blocked-list"
+
+    /// Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json
+    case businessChatBar = "business-chat-bar"
+
+    /// Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json
+    case businessTools = "business-tools"
+
+    /// Edit a catalogue item (flow business). Spec: bipe-shared/product/screens/catalog-item-edit.json
+    case catalogItemEdit = "catalog-item-edit"
+
+    /// Catálogo for the owner (flow business). Spec: bipe-shared/product/screens/catalog-owner.json
+    case catalogOwner = "catalog-owner"
+
+    /// Catálogo (flow business). Spec: bipe-shared/product/screens/catalog-view.json
+    case catalogView = "catalog-view"
 
     /// Archived chats (flow home). Spec: bipe-shared/product/screens/chat-archive.json
     case chatArchive = "chat-archive"
