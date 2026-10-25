@@ -76,7 +76,8 @@ fun AppTabsScreen(
                     ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         banner = banner, recoveryCard = recoveryCard,
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
-                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
+                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
+                        api = tabs.start.api)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,

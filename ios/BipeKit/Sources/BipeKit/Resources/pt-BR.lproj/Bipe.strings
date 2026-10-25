@@ -290,6 +290,11 @@
 "bipe_discovery_footer" = "Ninguém vê o seu número. Só quem já salvou seu número consegue te achar.";
 "bipe_phone_not_linked" = "Seu número não está ligado à conta. Por enquanto, seus contatos não podem te encontrar por ele.";
 "bipe_phone_linked" = "Seu número está vinculado.";
+"bipe_phone_linked_until" = "Vinculado até %1$@";
+"bipe_phone_confirm_soon" = "Confirme seu número até %1$@ para quem tem seu número continuar te encontrando.";
+"bipe_phone_confirm_expired" = "Confirmação vencida: ninguém te acha pelo número.";
+"bipe_phone_confirm_action" = "Confirmar número";
+"bipe_phone_confirm_notice_title" = "Confirme seu número";
 "bipe_tab_chats" = "Conversas";
 "bipe_tab_agenda" = "Agenda";
 "bipe_tab_groups" = "Grupos";
@@ -973,6 +978,14 @@
 "bipe_chats_message_placeholder" = "Escreva uma mensagem";
 "bipe_chats_empty_title" = "Suas conversas começam aqui";
 "bipe_chats_empty_body" = "Peça o @ de alguém que você conhece para começar a conversar.";
+"bipe_first_card_invite_title" = "Convide alguém";
+"bipe_first_card_invite_body" = "O Bipe fica melhor com a sua família. Mande um convite pelo WhatsApp ou como preferir.";
+"bipe_first_card_invite_action" = "Convidar";
+"bipe_first_card_profile_title" = "Seu @ e seu QR";
+"bipe_first_card_profile_body" = "Mande seu link bipe.chat/@%1$@ ou mostre o QR para quem estiver perto.";
+"bipe_first_card_notes_body" = "Mande algo para você mesmo: notas, fotos, links.";
+"bipe_first_card_notes_action" = "Abrir";
+"bipe_groups_empty_create" = "Criar grupo";
 "bipe_action_start_chat" = "Nova conversa";
 "bipe_notifications_permission_title" = "Receba avisos de novas mensagens";
 "bipe_notifications_permission_body" = "Você pode mudar isso nas configurações deste celular.";
