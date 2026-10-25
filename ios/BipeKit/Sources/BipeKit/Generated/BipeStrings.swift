@@ -2236,6 +2236,12 @@ public enum BipeStrings {
 
     public static var a11yBiometrics: String { NSLocalizedString("bipe_a11y_biometrics", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var a11yReact: String { NSLocalizedString("bipe_a11y_react", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yCopyDeviceId: String { NSLocalizedString("bipe_a11y_copy_device_id", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yVoicePosition: String { NSLocalizedString("bipe_a11y_voice_position", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var a11yOpenOriginal: String { NSLocalizedString("bipe_a11y_open_original", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var a11yShowControls: String { NSLocalizedString("bipe_a11y_show_controls", tableName: "Bipe", bundle: .module, comment: "") }

@@ -980,6 +980,9 @@
     <string name="bipe_a11y_pin_progress">%1$s of %2$s digits</string>
     <string name="bipe_a11y_pin_delete">Delete the last digit</string>
     <string name="bipe_a11y_biometrics">Use biometrics</string>
+    <string name="bipe_a11y_react">React</string>
+    <string name="bipe_a11y_copy_device_id">Copy device ID</string>
+    <string name="bipe_a11y_voice_position">Playback position</string>
     <string name="bipe_a11y_open_original">Show the original message</string>
     <string name="bipe_a11y_show_controls">Show or hide the controls</string>
     <string name="bipe_help_problem_language">Describe the problem in your own words.</string>
