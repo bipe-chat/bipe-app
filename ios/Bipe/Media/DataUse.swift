@@ -42,9 +42,9 @@ final class DataUseMeter: @unchecked Sendable {
         counted = defaults.stringArray(forKey: Self.countedKey) ?? []
         monitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
-            lock.withLock {
-                isCellular = path.usesInterfaceType(.cellular)
-                isConstrained = path.isConstrained
+            self.lock.withLock {
+                self.isCellular = path.usesInterfaceType(.cellular)
+                self.isConstrained = path.isConstrained
             }
         }
         monitor.start(queue: DispatchQueue(label: "chat.bipe.dataUse"))
