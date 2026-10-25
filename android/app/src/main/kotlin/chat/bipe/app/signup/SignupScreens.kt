@@ -225,8 +225,9 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
         if (maxWidth >= 600.dp && maxWidth > maxHeight) {
             // Wide (a tablet, a foldable, landscape): the cover is the left half of the whole window, so the
             // split meets the fold. This box draws edge to edge, so half its width is half the window.
+            val half = maxWidth / 2
             Row(Modifier.fillMaxSize()) {
-                WelcomeCover(model, onCancel, WindowInsetsSides.Vertical + WindowInsetsSides.Start, Modifier.fillMaxHeight().width(maxWidth / 2))
+                WelcomeCover(model, onCancel, WindowInsetsSides.Vertical + WindowInsetsSides.Start, Modifier.fillMaxHeight().width(half))
                 Box(
                     modifier = Modifier
                         .weight(1f)
