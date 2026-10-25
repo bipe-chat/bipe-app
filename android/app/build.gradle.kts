@@ -52,15 +52,29 @@ android {
         }
     }
 
+    // Play upload key (bipe-chat/bipe#604): store-release.yml passes the keystore path with -PbipeUploadStoreFile and
+    // the passwords and alias as ORG_GRADLE_PROJECT_* variables from secrets, so they never show on a command line.
+    val uploadStoreFile = findProperty("bipeUploadStoreFile") as String?
+    signingConfigs {
+        if (uploadStoreFile != null) {
+            create("upload") {
+                storeFile = file(uploadStoreFile)
+                storePassword = findProperty("bipeUploadStorePassword") as String?
+                keyAlias = findProperty("bipeUploadKeyAlias") as String?
+                keyPassword = findProperty("bipeUploadKeyPassword") as String?
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
         }
         release {
             isMinifyEnabled = false
-            // Tester APK for side-loading (bipe-chat/bipe#575): debug signing is enough.
-            // Store signing comes at the switch.
-            signingConfig = signingConfigs.getByName("debug")
+            // Tester APK for side-loading (bipe-chat/bipe#575): debug signing is enough. The store release signs with
+            // the Play upload key when it is given; Play then signs again with the app signing key.
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
     }
 

@@ -17,7 +17,7 @@ import { checkStrings, findLiterals, isUserText } from './strings.mjs';
 import { provenanceLine } from './provenance.mjs';
 import { evaluate, flatNames, matchedTokens, parseCsv, tokenCounts } from './similarity.mjs';
 import { checkSdkVersion, projectPin, resolvedPin, catalogPin } from './sdk-version.mjs';
-import { exact, token, sameSerial, profileName, exportOptions, signing, certificates, storeIds } from './asc.mjs';
+import { exact, token, sameSerial, profileName, exportOptions, signing, certificates, storeIds, prepare, idSet, STORE } from './asc.mjs';
 import { generateKeyPairSync, verify } from 'node:crypto';
 
 function tree(files) {
@@ -462,4 +462,63 @@ test('asc store-ids reads the fork store app only and changes nothing', async ()
   } finally {
     console.log = log;
   }
+});
+
+test('asc store set signs the fork app with App Store profiles only and changes no bundle ID', async () => {
+  const cert = { id: 'C', attributes: { serialNumber: '105A9943', certificateType: 'DISTRIBUTION' } };
+  const { call, calls } = fakeAsc({ certs: [cert], devices: [] });
+  const home = mkdtempSync(join(tmpdir(), 'bipe-asc-home-'));
+  const outDir = mkdtempSync(join(tmpdir(), 'bipe-asc-out-'));
+  const envFile = join(outDir, 'env');
+  writeFileSync(envFile, '');
+  const log = console.log;
+  console.log = () => {};
+  try {
+    await signing(call, '105A9943', { home, outDir, env: { GITHUB_ENV: envFile }, set: idSet('store') });
+  } finally {
+    console.log = log;
+  }
+  const writes = calls.filter((c) => c.method !== 'GET');
+  assert.ok(writes.every((c) => c.path.startsWith('/v1/profiles')), 'only profiles change');
+  assert.ok(!calls.some((c) => c.path.startsWith('/v1/devices')));
+  const made = writes.filter((c) => c.method === 'POST').map((c) => c.body.data.attributes);
+  assert.deepEqual(made.map((a) => a.profileType), ['IOS_APP_STORE', 'IOS_APP_STORE', 'IOS_APP_STORE']);
+  assert.deepEqual(made.map((a) => a.name), STORE.bundleIds.map((b) => `Bipe CI App Store ${b.identifier}`));
+  assert.match(readFileSync(join(outDir, 'upload.plist'), 'utf8'), /<key>chat\.bipe\.app\.nse<\/key><string>Bipe CI App Store chat\.bipe\.app\.nse<\/string>/);
+  assert.throws(() => readFileSync(join(outDir, 'adhoc.plist')));
+  assert.equal(readFileSync(envFile, 'utf8'), [
+    'BIPE_CI_PROFILE_APP=Bipe CI App Store chat.bipe.app',
+    'BIPE_CI_PROFILE_NSE=Bipe CI App Store chat.bipe.app.nse',
+    'BIPE_CI_PROFILE_SHARE=Bipe CI App Store chat.bipe.app.share',
+    '',
+  ].join('\n'));
+});
+
+test('asc store set never registers a bundle ID or creates the app record', async () => {
+  const calls = [];
+  const call = async (method, path) => {
+    calls.push(`${method} ${path}`);
+    if (path.startsWith('/v1/bundleIds?')) return { data: [] };
+    throw new Error(`unexpected ${method} ${path}`);
+  };
+  await assert.rejects(prepare(call, idSet('store')), /no bundle ID chat\.bipe\.app in team/);
+  assert.ok(calls.every((c) => c.startsWith('GET ')));
+  const withIds = async (method, path) => {
+    calls.push(`${method} ${path}`);
+    if (path.startsWith('/v1/bundleIds?')) {
+      const identifier = decodeURIComponent(path.match(/identifier\]=([^&]+)/)[1]);
+      return { data: [{ id: `B-${identifier}`, attributes: { identifier } }] };
+    }
+    if (path.startsWith('/v1/apps?')) return { data: [] };
+    throw new Error(`unexpected ${method} ${path}`);
+  };
+  const log = console.log;
+  console.log = () => {};
+  try {
+    await assert.rejects(prepare(withIds, idSet('store')), /no App Store Connect app for chat\.bipe\.app/);
+  } finally {
+    console.log = log;
+  }
+  assert.ok(calls.every((c) => c.startsWith('GET ')));
+  assert.throws(() => idSet('production'), /unknown ID set/);
 });
