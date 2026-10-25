@@ -9,6 +9,7 @@ import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.previewText
 import chat.bipe.app.common.toVectorDiff
+import chat.bipe.shared.BipeOfficialAccounts
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -58,6 +59,10 @@ data class ChatSummary(
     /** ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test. */
     val scope: ChatScope
         get() = if (isDm) ChatScope.CONVERSAS else ChatScope.GRUPOS
+
+    /** Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only. */
+    val isOfficial: Boolean
+        get() = isDm && BipeOfficialAccounts.isOfficial(peerUserId)
 }
 
 /** State scope of spec chat-list. */

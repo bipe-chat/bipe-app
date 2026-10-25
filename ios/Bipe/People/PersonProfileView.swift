@@ -109,6 +109,9 @@ struct PersonProfileView: View {
                     .font(.title2.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
+                if model.isOfficial {
+                    OfficialBadge(font: .footnote)
+                }
                 if model.seal.isVerified {
                     Button {
                         showsSeal = true

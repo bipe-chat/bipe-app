@@ -123,9 +123,14 @@ final class PersonProfileModel: ObservableObject {
         return marks
     }
 
-    /// reservedNameWarning of the spec. A company whose verified seal names it does not get the warning.
+    /// isOfficial of the spec: the exact user ID is an official Bipe account (ADR 0117).
+    var isOfficial: Bool {
+        BipeOfficialAccounts.isOfficial(userId)
+    }
+
+    /// reservedNameWarning of the spec. An official account, or a company whose verified seal names it, does not get the warning.
     var reservedNameWarning: Bool {
-        NameNormalizer.reservedCategory(for: person.displayName) != nil && !seal.isVerified
+        NameNormalizer.reservedCategory(for: person.displayName) != nil && !isOfficial && !seal.isVerified
     }
 
     /// The profile link (action share), only when the person has an @.
