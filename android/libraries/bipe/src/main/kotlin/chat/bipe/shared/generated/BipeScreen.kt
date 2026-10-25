@@ -22,6 +22,27 @@ enum class BipeScreen(val id: String) {
     /** Account switcher (flow home). Spec: bipe-shared/product/screens/account-switcher.json */
     ACCOUNT_SWITCHER("account-switcher"),
 
+    /** Book a time (flow business). Spec: bipe-shared/product/screens/agenda-book.json */
+    AGENDA_BOOK("agenda-book"),
+
+    /** Booking card (flow business). Spec: bipe-shared/product/screens/agenda-booking-card.json */
+    AGENDA_BOOKING_CARD("agenda-booking-card"),
+
+    /** My bookings (flow settings). Spec: bipe-shared/product/screens/agenda-my-bookings.json */
+    AGENDA_MY_BOOKINGS("agenda-my-bookings"),
+
+    /** Booking sheet for the owner (flow business). Spec: bipe-shared/product/screens/agenda-owner-booking.json */
+    AGENDA_OWNER_BOOKING("agenda-owner-booking"),
+
+    /** Agenda tab (flow business). Spec: bipe-shared/product/screens/agenda-owner.json */
+    AGENDA_OWNER("agenda-owner"),
+
+    /** Agenda settings (flow business). Spec: bipe-shared/product/screens/agenda-settings.json */
+    AGENDA_SETTINGS("agenda-settings"),
+
+    /** Set up the agenda (flow business). Spec: bipe-shared/product/screens/agenda-setup.json */
+    AGENDA_SETUP("agenda-setup"),
+
     /** App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json */
     APP_LOCK("app-lock"),
 
@@ -36,6 +57,21 @@ enum class BipeScreen(val id: String) {
 
     /** Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json */
     BLOCKED_LIST("blocked-list"),
+
+    /** Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json */
+    BUSINESS_CHAT_BAR("business-chat-bar"),
+
+    /** Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json */
+    BUSINESS_TOOLS("business-tools"),
+
+    /** Edit a catalogue item (flow business). Spec: bipe-shared/product/screens/catalog-item-edit.json */
+    CATALOG_ITEM_EDIT("catalog-item-edit"),
+
+    /** Catálogo for the owner (flow business). Spec: bipe-shared/product/screens/catalog-owner.json */
+    CATALOG_OWNER("catalog-owner"),
+
+    /** Catálogo (flow business). Spec: bipe-shared/product/screens/catalog-view.json */
+    CATALOG_VIEW("catalog-view"),
 
     /** Archived chats (flow home). Spec: bipe-shared/product/screens/chat-archive.json */
     CHAT_ARCHIVE("chat-archive"),
