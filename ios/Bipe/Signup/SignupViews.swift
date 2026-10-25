@@ -46,6 +46,7 @@ struct SignupFlowView: View {
                         case .create: SignupCreateView(model: model).navigationBarBackButtonHidden()
                         }
                     }
+                    .signupColumn()
                     .background(BipeColor.surfaceBase.ignoresSafeArea())
                 }
         }
@@ -69,7 +70,7 @@ extension SignupFlowView {
     /// onboarding-welcome; a sign-up from account-new starts at signup-name (spec account-new notes).
     @ViewBuilder private var root: some View {
         if model.start != nil {
-            SignupNameView(model: model).task { await model.appear() }
+            SignupNameView(model: model).signupColumn().task { await model.appear() }
         } else {
             OnboardingWelcomeView(model: model)
         }
@@ -77,6 +78,14 @@ extension SignupFlowView {
 }
 
 // MARK: - Shared pieces
+
+private extension View {
+    /// A centred column on wide windows. The background still fills the window.
+    /// 560 points is a Bipe form-width default, not a device dimension.
+    func signupColumn() -> some View {
+        frame(maxWidth: 560).frame(maxWidth: .infinity)
+    }
+}
 
 /// A sign-up step: title, optional body, content, the one filled button and text buttons under it.
 private struct StepLayout<Content: View>: View {
@@ -182,42 +191,107 @@ private struct BipeTextField: View {
 
 struct OnboardingWelcomeView: View {
     @ObservedObject var model: SignupFlowModel
+    @State private var showsSite = false
+    /// The wordmark follows the system text size.
+    @ScaledMetric(relativeTo: .largeTitle) private var wordmarkSize: CGFloat = 52
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Spacer()
-            PhosphorIcon.chatCircle.image
-                .resizable()
-                .frame(width: 56, height: 56)
-                .foregroundStyle(BipeColor.accentInk)
-                .accessibilityHidden(true)
-            Text(title)
-                .font(.largeTitle.bold())
-                .foregroundStyle(BipeColor.inkPrimary)
-            // The order of linguagem.md section 3: scam check, Brazil, no ads.
-            VStack(alignment: .leading, spacing: 10) {
-                point(BipeStrings.onboardingPointScam)
-                point(BipeStrings.onboardingPointBrazil)
-                point(BipeStrings.onboardingPointNoAds)
-            }
-            Spacer()
-            if model.variant == .loading {
-                ProgressView().frame(maxWidth: .infinity)
-            } else {
-                let start = model.startVariant
-                PrimaryButton(title: start.primary.title, busy: model.checkingInvite) { Task { await model.primary() } }
-                if model.variant == .inviteOnly, model.clipboardHasText {
-                    pasteRow
+        // The window decides the layout, never the device.
+        GeometryReader { window in
+            let insets = window.safeAreaInsets
+            if window.size.width >= 600 && window.size.width > window.size.height {
+                // Wide (iPad, a foldable, landscape): the cover is the left half of the whole window, so the
+                // split meets the fold. The window here excludes the safe area, so subtract the leading inset.
+                let half = (window.size.width + insets.leading + insets.trailing) / 2
+                HStack(spacing: 0) {
+                    cover(edges: [.top, .bottom, .leading])
+                        .frame(width: max(0, half - insets.leading))
+                    actions
+                        .frame(maxWidth: 400)
+                        .padding(40)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                ForEach(start.text, id: \.titleKey) { button in
-                    // haveAccount: recovery-start (bipe-chat/bipe#556).
-                    TextButton(title: button.title) { model.onHaveAccount() }
+            } else {
+                // Tall: the cover takes everything above the two buttons.
+                VStack(spacing: 0) {
+                    cover(edges: [.top, .horizontal])
+                    actions
+                        .frame(maxWidth: 480)
+                        .padding(24)
+                        .frame(maxWidth: .infinity)
                 }
             }
         }
-        .padding(24)
         .accessibilityIdentifier(BipeScreen.onboardingWelcome.rawValue)
         .task { await model.appear() }
+        // Action learnMore: the site in the in-app browser, so sign-up stays where it was.
+        .sheet(isPresented: $showsSite) {
+            SafariPage(url: BipeLegalLinks.homeURL(site: AppConfig.publicSite))
+                .ignoresSafeArea()
+        }
+    }
+
+    /// The full-bleed açaí cover of the spec: what Bipe is. Mark and wordmark, the title and
+    /// learnMore over a faint texture of Bipe marks (identity.md: Brazilian in texture, warm açaí, never flag
+    /// colours). The colour runs under the system bars on `edges`; the text stays in the safe area.
+    private func cover(edges: Edge.Set) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // The horizontal lockup of artwork-brief.md: mark, then the lowercase wordmark.
+            HStack(spacing: 12) {
+                BipeMark()
+                    .frame(width: 40, height: 40)
+                    .accessibilityHidden(true)
+                Text(BipeStrings.appName.lowercased())
+                    .font(.system(size: wordmarkSize, weight: .heavy, design: .rounded))
+                    .accessibilityAddTraits(.isHeader)
+            }
+            Spacer(minLength: 24)
+            Text(title)
+                .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                .minimumScaleFactor(0.7)
+                .fixedSize(horizontal: false, vertical: true)
+            Button { showsSite = true } label: {
+                HStack(spacing: 4) {
+                    Text(BipeStrings.onboardingLearnMore)
+                    PhosphorIcon.caretRight.image
+                        .resizable()
+                        .frame(width: 14, height: 14)
+                        .accessibilityHidden(true)
+                }
+                .font(.subheadline.weight(.semibold))
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .foregroundStyle(BipeColor.inkOnAccent)
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background {
+            ZStack {
+                LinearGradient(colors: [BipeColor.accentFill, BipeColor.accentFillPressed],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                BubbleTexture().accessibilityHidden(true)
+            }
+            .ignoresSafeArea(edges: edges)
+        }
+    }
+
+    /// Two choices of equal width: new here (the variant's filled button) or back to an existing account.
+    private var actions: some View {
+        VStack(spacing: 12) {
+            if model.variant == .loading {
+                // Keeps the height of the two buttons, so the cover does not jump when the variant arrives.
+                ProgressView().frame(maxWidth: .infinity, minHeight: 112)
+            } else {
+                let start = model.startVariant
+                PrimaryButton(title: start.primary.title, busy: model.checkingInvite) { Task { await model.primary() } }
+                ForEach(start.text, id: \.titleKey) { button in
+                    // haveAccount: recovery-start (bipe-chat/bipe#556).
+                    SecondaryButton(title: button.title) { model.onHaveAccount() }
+                }
+            }
+        }
     }
 
     /// The title of the start variant; invited names the inviter.
@@ -228,31 +302,50 @@ struct OnboardingWelcomeView: View {
         }
         return BipeLocalized.string(start.titleKey)
     }
+}
 
-    private var pasteRow: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Button {
-                Task { await model.pasteInvite() }
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(BipeStrings.onboardingPasteInvite)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(BipeColor.accentInk)
-                    Text(BipeStrings.onboardingPasteInviteHint)
-                        .font(.footnote)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                }
-            }
-            if model.pasteResult == .notAnInvite {
-                FieldFooter(text: BipeStrings.onboardingPasteInviteNone, isError: true)
-            }
+/// The second choice next to a filled button: same size, açaí wash.
+private struct SecondaryButton: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .foregroundStyle(BipeColor.accentInk)
+                .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.accentWash))
         }
     }
+}
 
-    private func point(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Circle().fill(BipeColor.accentFill).frame(width: 6, height: 6).padding(.top, 8)
-            Text(text).foregroundStyle(BipeColor.inkPrimary)
+/// Bipe marks at low contrast over the cover: the bubble-and-notch motif of identity.md, not a pattern of objects.
+private struct BubbleTexture: View {
+    private struct Bubble {
+        let x: CGFloat, y: CGFloat, size: CGFloat, opacity: Double
+    }
+
+    /// Positions as fractions of the panel, so the texture follows the window size.
+    private let bubbles = [
+        Bubble(x: 0.86, y: 0.22, size: 0.50, opacity: 0.12),
+        Bubble(x: 0.42, y: 0.36, size: 0.20, opacity: 0.07),
+        Bubble(x: 1.00, y: 0.66, size: 0.30, opacity: 0.09),
+        Bubble(x: 0.62, y: 0.44, size: 0.10, opacity: 0.12),
+    ]
+
+    var body: some View {
+        GeometryReader { panel in
+            let side = min(panel.size.width, panel.size.height * 1.4)
+            ForEach(bubbles.indices, id: \.self) { index in
+                let bubble = bubbles[index]
+                // Upright only: the notch stays top-leading, as on the icon.
+                BipeMark()
+                    .fill(BipeColor.inkOnAccent.opacity(bubble.opacity))
+                    .frame(width: side * bubble.size, height: side * bubble.size)
+                    .position(x: panel.size.width * bubble.x, y: panel.size.height * bubble.y)
+            }
         }
     }
 }
@@ -269,6 +362,14 @@ struct SignupInviteCodeView: View {
                    message: step.bodyKey.map { BipeLocalized.string($0) }) {
             BipeTextField(label: BipeStrings.signupInviteCode, text: model.code, onChange: model.editCode)
                 .textInputAutocapitalization(.characters)
+            // Action pasteCode: the system paste button reads the clipboard only on a tap, with no paste prompt,
+            // and continues at once. A whole invite link or message is fine.
+            PasteButton(payloadType: String.self) { texts in
+                guard let text = texts.first else { return }
+                Task { @MainActor in await model.pasteCode(text) }
+            }
+            .tint(BipeColor.accentFill)
+            .disabled(model.inviteCodePhase == .checking)
             if model.inviteCodePhase == .checking {
                 FieldFooter(text: BipeStrings.appInviteChecking)
             } else if let error = model.inviteCodeError {

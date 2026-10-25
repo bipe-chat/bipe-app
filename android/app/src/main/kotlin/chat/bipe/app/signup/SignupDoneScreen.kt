@@ -4,15 +4,16 @@
 
 package chat.bipe.app.signup
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,7 +26,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.SignupOutcome
-import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.app.common.BipeMarkShape
 import chat.bipe.shared.generated.BipeOnboarding
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.CoroutineScope
@@ -113,7 +113,7 @@ fun SignupDoneScreen(session: AccountSession, outcome: SignupOutcome, onContinue
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         ) {
-            Icon(painterResource(PhosphorIcon.CHAT_CIRCLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(56.dp))
+            Box(Modifier.size(56.dp).background(colors.accentFill, BipeMarkShape))
             Text(
                 stringResource(BipeOnboarding.created),
                 style = MaterialTheme.typography.headlineSmall,

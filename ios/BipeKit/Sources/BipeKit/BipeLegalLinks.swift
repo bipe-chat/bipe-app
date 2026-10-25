@@ -17,6 +17,11 @@ public enum BipeLegalLinks {
         site.appending(path: isEnglish ? BipeRegistries.enPrivacyPath : BipeRegistries.privacyPath)
     }
     
+    /// The site home page (onboarding-welcome learnMore).
+    public static func homeURL(site: URL) -> URL {
+        site.appending(path: isEnglish ? BipeRegistries.enHomePath : BipeRegistries.homePath)
+    }
+
     private static var isEnglish: Bool {
         BipeAPIClient.emailLanguage == "en"
     }
