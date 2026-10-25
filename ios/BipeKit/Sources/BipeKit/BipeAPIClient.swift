@@ -156,6 +156,16 @@ public struct BipeAPIClient: Sendable {
         try await send(method: "DELETE", path: ["v1", "me", "handle"], body: Empty?.none, accessToken: accessToken)
     }
     
+    // MARK: - Profile facts (ADR 0049)
+    
+    /// `POST /v1/profile-facts`. At most ``BipeProfileFacts/batchSize`` IDs. IDs the API does not know are absent.
+    public func profileFacts(userIDs: [String], accessToken: String) async throws(BipeAPIError) -> [BipeProfileFacts] {
+        let response: ProfileFactsResponse = try await send(method: "POST", path: ["v1", "profile-facts"],
+                                                            body: ProfileFactsRequest(userIds: userIDs),
+                                                            accessToken: accessToken)
+        return response.facts
+    }
+    
     // MARK: - Invites
     
     /// `GET /v1/invites/{code}`. No auth. Validity and the inviter's handle.
@@ -471,6 +481,14 @@ public struct BipeAPIClient: Sendable {
     
     private struct HandleChangesResponse: Decodable {
         let changes: [BipeHandleChange]
+    }
+    
+    private struct ProfileFactsRequest: Encodable {
+        let userIds: [String]
+    }
+    
+    private struct ProfileFactsResponse: Decodable {
+        let facts: [BipeProfileFacts]
     }
     
     private static func formatDate(_ date: Date) -> String {

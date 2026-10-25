@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import chat.bipe.shared.BipeTrustSources
 import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.shared.api.isCompany
 import chat.bipe.shared.company.BipeBrandMarks
 import chat.bipe.shared.company.BipeBrandMarksSeen
@@ -128,6 +129,28 @@ class PeopleService(
 
     private fun canReadContacts(): Boolean =
         ContextCompat.checkSelfPermission(appContext, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+
+    /** Facts read from POST /v1/profile-facts per person, with the read time in ms (ADR 0049). Memory only, this account. */
+    private val profileFactsCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, BipeProfileFacts?>>()
+
+    /**
+     * The profile change facts of a person (ADR 0049). A read younger than [maxAgeMs] comes from memory.
+     * `null` when the call fails or the API knows nothing: the screens then show nothing.
+     */
+    suspend fun profileFacts(userId: String, maxAgeMs: Long = 0): BipeProfileFacts? {
+        val now = System.currentTimeMillis()
+        profileFactsCache[userId]?.let { (read, facts) -> if (now - read < maxAgeMs) return facts }
+        val list = try {
+            BipeApiClient.withTokenRetry({ session.accessToken() }) { token -> api.profileFacts(listOf(userId), token) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            return null
+        }
+        val facts = list.firstOrNull { it.userId == userId }
+        profileFactsCache[userId] = System.currentTimeMillis() to facts
+        return facts
+    }
 
     private val companies = mutableMapOf<String, Boolean>()
     private var ignoredHandle: TaskHandle? = null
