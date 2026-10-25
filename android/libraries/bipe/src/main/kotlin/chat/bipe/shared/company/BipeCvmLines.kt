@@ -4,6 +4,7 @@
 
 package chat.bipe.shared.company
 
+import chat.bipe.shared.BadgePayload
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -40,6 +41,9 @@ object BipeCvmLines {
         val m = DATE.matchEntire(text) ?: return null
         return "${m.groupValues[3]}/${m.groupValues[2]}/${m.groupValues[1]}"
     }
+
+    /** The CVM lines of a verified badge, or none. The app module does not see the JSON types, so it calls this. */
+    fun forBadge(payload: BadgePayload?): Result = lines(payload?.cvm)
 
     fun lines(field: JsonElement?): Result {
         val obj = field as? JsonObject ?: return Result.NONE

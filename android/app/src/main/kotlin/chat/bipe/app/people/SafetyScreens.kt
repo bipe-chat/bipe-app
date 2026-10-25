@@ -78,7 +78,7 @@ fun BipeCompanySealState.notice(context: Context): String? = when (this) {
 
 /** Spec company-seal cvmLines: the CVM line of a verified seal (ADR 0077), from the signed badge only. */
 val BipeCompanySealState.cvm: BipeCvmLines.Result
-    get() = BipeCvmLines.lines((this as? BipeCompanySealState.Verified)?.payload?.cvm)
+    get() = BipeCvmLines.forBadge((this as? BipeCompanySealState.Verified)?.payload)
 
 fun BipeCvmLines.Line.text(context: Context): String = when (key) {
     BipeCvmLines.Key.REGISTERED -> context.getString(R.string.bipe_cvm_registered, arg.orEmpty())
