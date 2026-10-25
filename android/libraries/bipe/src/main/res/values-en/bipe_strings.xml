@@ -30,6 +30,8 @@
     <string name="bipe_badge_company_revoked">This business is no longer verified.</string>
     <string name="bipe_badge_company_revoked_not_active">This business is no longer verified. The CNPJ no longer shows as active at the Receita Federal.</string>
     <string name="bipe_badge_company_suspended">This business\'s seal is suspended until Bipe checks the account again.</string>
+    <string name="bipe_badge_official">Bipe</string>
+    <string name="bipe_badge_official_a11y">Official Bipe account</string>
     <string name="bipe_warning_nickname_confirm_title">Is this the person you know?</string>
     <string name="bipe_warning_nickname_confirm_body">You saved this contact as %1$s. The account is verified as %2$s. Is it the same person?</string>
     <string name="bipe_action_nickname_confirm_yes">Yes, same person</string>
@@ -344,6 +346,8 @@
     <string name="bipe_email_confirmed">Email confirmed.</string>
     <string name="bipe_email_remove">Remove email</string>
     <string name="bipe_email_link_invalid">This link no longer works. Ask for a new one in the app.</string>
+    <string name="bipe_email_send">Send link</string>
+    <string name="bipe_email_change_reason">Confirm it\'s you to change the recovery email.</string>
     <string name="bipe_error_email_unavailable">We cannot send email right now. Try again later.</string>
     <string name="bipe_recovery_title">Get back into your account</string>
     <string name="bipe_recovery_qr">I have my old phone</string>

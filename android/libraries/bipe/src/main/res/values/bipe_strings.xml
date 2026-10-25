@@ -30,6 +30,8 @@
     <string name="bipe_badge_company_revoked">Esta empresa não está mais verificada.</string>
     <string name="bipe_badge_company_revoked_not_active">Esta empresa não está mais verificada. O CNPJ não aparece ativo na Receita.</string>
     <string name="bipe_badge_company_suspended">O selo desta empresa está suspenso até o Bipe conferir a conta de novo.</string>
+    <string name="bipe_badge_official">Bipe</string>
+    <string name="bipe_badge_official_a11y">Conta oficial do Bipe</string>
     <string name="bipe_warning_nickname_confirm_title">É a pessoa que você conhece?</string>
     <string name="bipe_warning_nickname_confirm_body">Você salvou este contato como %1$s. A conta está verificada como %2$s. É a mesma pessoa?</string>
     <string name="bipe_action_nickname_confirm_yes">Sim, é a mesma pessoa</string>
@@ -344,6 +346,8 @@
     <string name="bipe_email_confirmed">E-mail confirmado.</string>
     <string name="bipe_email_remove">Remover e-mail</string>
     <string name="bipe_email_link_invalid">Esse link não vale mais. Peça outro no app.</string>
+    <string name="bipe_email_send">Mandar link</string>
+    <string name="bipe_email_change_reason">Confirme que é você para mudar o e-mail de recuperação.</string>
     <string name="bipe_error_email_unavailable">A gente não está conseguindo mandar e-mail agora. Tente de novo mais tarde.</string>
     <string name="bipe_recovery_title">Voltar para sua conta</string>
     <string name="bipe_recovery_qr">Estou com o celular antigo</string>

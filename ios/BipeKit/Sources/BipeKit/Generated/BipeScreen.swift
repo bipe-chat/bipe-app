@@ -247,6 +247,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Account moving to a new device (flow recovery). Spec: bipe-shared/product/screens/recovery-alert.json
     case recoveryAlert = "recovery-alert"
 
+    /// Add or change the recovery e-mail (flow settings). Spec: bipe-shared/product/screens/recovery-email-add.json
+    case recoveryEmailAdd = "recovery-email-add"
+
     /// Recovery by e-mail (flow recovery). Spec: bipe-shared/product/screens/recovery-email.json
     case recoveryEmail = "recovery-email"
 
@@ -261,6 +264,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Enter PIN to get back in (flow recovery). Spec: bipe-shared/product/screens/recovery-pin.json
     case recoveryPin = "recovery-pin"
+
+    /// Recovery reminder card (flow home). Spec: bipe-shared/product/screens/recovery-reminder.json
+    case recoveryReminder = "recovery-reminder"
 
     /// Get back into your account (flow recovery). Spec: bipe-shared/product/screens/recovery-start.json
     case recoveryStart = "recovery-start"

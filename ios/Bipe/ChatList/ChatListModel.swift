@@ -33,6 +33,8 @@ struct ChatSummary: Identifiable, Equatable {
 
     /// ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test.
     var scope: ChatScope { isDm ? .conversas : .grupos }
+    /// Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only.
+    var isOfficial: Bool { isDm && BipeOfficialAccounts.isOfficial(peerUserId) }
 }
 
 /// State scope of spec chat-list.
