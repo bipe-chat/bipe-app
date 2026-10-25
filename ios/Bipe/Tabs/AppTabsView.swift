@@ -5,7 +5,8 @@
 import BipeKit
 import SwiftUI
 
-/// Spec app-tabs: Conversas · Grupos · Você, and search in the search tab role (ADR 0053).
+/// Spec app-tabs: Conversas · Grupos · Você, then Buscar in the search tab role, which the system draws apart at the
+/// trailing end (ADR 0053, MZ decision 25 Oct 2026). Keep it the last tab.
 /// The standard tab bar with SF Symbols: the system sets their size, weight and selected state (ADR 0149).
 struct AppTabsView: View {
     @ObservedObject var model: AppTabsModel
@@ -23,19 +24,16 @@ struct AppTabsView: View {
 
     var body: some View {
         let chatList = model.chatList(for: session)
-        let account = model.accounts.first(where: \.isCurrent)
         TabView(selection: Binding(get: { model.selectedTab }, set: { model.selectTab($0) })) {
             Tab(value: AppTabsModel.Tab.conversas) {
-                ChatListView(model: chatList, scope: .conversas, api: api, initialRoomId: initialRoomId,
-                             account: account, onOpenVoce: { model.selectTab(.voce) })
+                ChatListView(model: chatList, scope: .conversas, api: api, initialRoomId: initialRoomId)
             } label: {
                 Label(BipeStrings.tabChats, systemImage: "bubble.left.and.bubble.right")
             }
             .badge(model.conversasUnread)
 
             Tab(value: AppTabsModel.Tab.grupos) {
-                ChatListView(model: chatList, scope: .grupos, api: api, account: account,
-                             onOpenVoce: { model.selectTab(.voce) })
+                ChatListView(model: chatList, scope: .grupos, api: api)
             } label: {
                 Label(BipeStrings.tabGroups, systemImage: "person.3")
             }

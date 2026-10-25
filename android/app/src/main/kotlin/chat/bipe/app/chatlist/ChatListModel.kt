@@ -10,6 +10,7 @@ import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.previewText
 import chat.bipe.app.common.toVectorDiff
 import chat.bipe.shared.BipeOfficialAccounts
+import chat.bipe.shared.BipeRowActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -23,7 +24,6 @@ import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 import org.matrix.rustcomponents.sdk.RoomListEntriesListener
 import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
-import org.matrix.rustcomponents.sdk.RoomListFilterCategory
 import org.matrix.rustcomponents.sdk.RoomListEntriesWithDynamicAdaptersResult
 import org.matrix.rustcomponents.sdk.RoomListLoadingState
 import org.matrix.rustcomponents.sdk.RoomListLoadingStateListener
@@ -85,18 +85,13 @@ class ChatListModel(
     val phase: StateFlow<Phase> = _phase.asStateFlow()
     private val _chats = MutableStateFlow<List<ChatSummary>>(emptyList())
     val chats: StateFlow<List<ChatSummary>> = _chats.asStateFlow()
-    private val _unreadScopes = MutableStateFlow<Set<ChatScope>>(emptySet())
-    val unreadScopes = _unreadScopes.asStateFlow()
-    private val _unreadChats = MutableStateFlow<Map<ChatScope, List<ChatSummary>>>(emptyMap())
-    val unreadChats = _unreadChats.asStateFlow()
-    private val _unreadLoading = MutableStateFlow<Set<ChatScope>>(emptySet())
-    val unreadLoading = _unreadLoading.asStateFlow()
-    private val unreadLists = mutableMapOf<ChatScope, FilteredRoomList>()
 
     private val rooms = mutableListOf<Room>()
     private val subscriptionOwner = UUID.randomUUID().toString()
     /** One model belongs to one account session; absent previews must not erase a known time. */
     private val knownActivity = mutableMapOf<String, Long>()
+    /** Rows without an SDK latest event take their date from the local timeline (bipe-chat/bipe#592). */
+    private val rowActivity = RowActivityScanner(session.client, scope) { refreshSummaries() }
     private val extraRoomIds = mutableSetOf<String>()
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult? = null
@@ -109,10 +104,7 @@ class ChatListModel(
     private var failedReadIntent: Pair<String, Boolean>? = null
     private var started = false
     private val clearChanges = scope.launch {
-        ClearedChatsStore.revision.collect {
-            refreshSummaries()
-            unreadLists.values.forEach { it.refresh() }
-        }
+        ClearedChatsStore.revision.collect { refreshSummaries() }
     }
 
     /** Subscribes to the room list service: joined chats, newest activity first. */
@@ -149,7 +141,17 @@ class ChatListModel(
                 for (state in loading) onLoadingState(state)
             }
             for (batch in updates) {
-                batch.forEach { rooms.applyDiff(it.toVectorDiff()) }
+                batch.forEach { update ->
+                    // A room that moved or changed may have newer events than the ones read for its date.
+                    when (update) {
+                        is RoomListEntriesUpdate.Set -> rowActivity.invalidate(update.value.id())
+                        is RoomListEntriesUpdate.Insert -> rowActivity.invalidate(update.value.id())
+                        is RoomListEntriesUpdate.PushFront -> rowActivity.invalidate(update.value.id())
+                        is RoomListEntriesUpdate.PushBack -> rowActivity.invalidate(update.value.id())
+                        else -> Unit
+                    }
+                    rooms.applyDiff(update.toVectorDiff())
+                }
                 refreshSummaries()
                 // Publish cached rows first; subscription enables SDK latest-event calculation and online catchup.
                 session.roomSubscriptions.update(subscriptionOwner, rooms.map { it.id() } + archive.markers.value.keys)
@@ -157,32 +159,11 @@ class ChatListModel(
         }
     }
 
-    /** Badges keep the unfiltered joined stream while each tab has its own unread subscription. */
+    /** Badges and both tabs use this one unfiltered joined stream. */
     private fun filter(): RoomListEntriesDynamicFilterKind = RoomListEntriesDynamicFilterKind.All(listOf(
         RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace,
         RoomListEntriesDynamicFilterKind.DeduplicateVersions,
     ))
-
-    fun toggleUnread(tab: ChatScope) {
-        if (tab in _unreadScopes.value) { _unreadScopes.value -= tab; return }
-        _unreadScopes.value += tab
-        if (unreadLists.containsKey(tab)) return
-        _unreadLoading.value += tab
-        val list = FilteredRoomList(scope) { found ->
-            val summaries = found.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
-            val visible = retainingKnownActivity(NativeDmSelection.visible(summaries, session))
-            archive.reconcile(visible)
-            _unreadChats.value += (tab to visible)
-            _unreadLoading.value -= tab
-        }
-        unreadLists[tab] = list
-        scope.launch { list.start(session, RoomListEntriesDynamicFilterKind.All(listOf(
-            RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace,
-            RoomListEntriesDynamicFilterKind.DeduplicateVersions,
-            RoomListEntriesDynamicFilterKind.Category(if (tab == ChatScope.CONVERSAS) RoomListFilterCategory.PEOPLE else RoomListFilterCategory.GROUP),
-            RoomListEntriesDynamicFilterKind.Unread,
-        ))) }
-    }
 
     /** The phase of one scope: empty when the list loaded and the scope has no chat. */
     fun phase(scope: ChatScope, phase: Phase, chats: List<ChatSummary>): Phase = when {
@@ -193,14 +174,13 @@ class ChatListModel(
     }
 
     /** Action loadMore: the next page, when the list scrolls near its end. */
+    @Suppress("UNUSED_PARAMETER")
     fun loadMore(tab: ChatScope) {
-        if (tab in _unreadScopes.value) unreadLists[tab]?.loadMore()
-        else entries?.controller()?.addOnePage()
+        entries?.controller()?.addOnePage()
     }
 
-    /** Resolve actions in the immutable owner's all-room or SDK unread stream. */
+    /** Resolve actions in the immutable owner's room list. */
     fun currentChat(roomId: String): ChatSummary? = _chats.value.firstOrNull { it.roomId == roomId }
-        ?: _unreadChats.value.values.flatten().firstOrNull { it.roomId == roomId }
 
     /** Explicit public receipt first, then the manual unread flag. No optimistic fake count or startup gate. */
     fun setUnread(roomId: String, unread: Boolean) {
@@ -217,7 +197,6 @@ class ChatListModel(
                 room.setUnreadFlag(unread)
                 failedReadIntent = null
                 refreshSummaries()
-                unreadLists.values.forEach { it.refresh() }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -238,7 +217,7 @@ class ChatListModel(
 
     fun close() {
         clearChanges.cancel()
-        unreadLists.values.forEach { it.close() }
+        rowActivity.close()
         handles.forEach { it.cancel() }
         summaryJob?.cancel()
         session.releaseRoomSubscriptions(subscriptionOwner)
@@ -273,9 +252,19 @@ class ChatListModel(
         }
     }
 
+    /**
+     * The row date (BipeRowActivity): the SDK latest event, else the newest event of the local timeline, which includes
+     * undecryptable events (bipe-chat/bipe#592), else a time known earlier in this account session.
+     */
     private fun retainingKnownActivity(summaries: List<ChatSummary>): List<ChatSummary> = summaries.map { summary ->
-        summary.lastActivity?.let { knownActivity[summary.roomId] = it }
-        summary.copy(lastActivity = summary.lastActivity ?: knownActivity[summary.roomId])
+        if (!BipeRowActivity.needsLocalTimeline(summary.lastActivity)) {
+            summary.lastActivity?.let { knownActivity[summary.roomId] = it }
+            return@map summary
+        }
+        val local = rowActivity.localEvents(summary.roomId).orEmpty()
+        val time = BipeRowActivity.resolve(summary.lastActivity, local, knownActivity[summary.roomId])
+        time?.let { knownActivity[summary.roomId] = it }
+        summary.copy(lastActivity = time)
     }
 
     suspend fun summary(room: Room): ChatSummary? {

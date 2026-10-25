@@ -7,7 +7,10 @@ import UIKit
 
 /// Double tap and long press on the Você tab (ADR 0135). SwiftUI `Tab` has neither, so this finds the `UITabBar` of
 /// the enclosing tab bar controller and adds a double tap recognizer and a context menu interaction to it. A long press
-/// on Você opens the native account menu; neither cancels the tab bar's own taps, so a tap on Você still opens Você.
+/// (hold) on Você opens the native account menu in place; neither cancels the tab bar's own taps, so a tap on Você
+/// still opens Você. The tab bar of iOS 26 and later has its own press-and-drag gesture, which can hold back the menu
+/// interaction's own press: a long press recognizer that runs at the same time opens the menu then (MZ decision
+/// 25 Oct 2026).
 struct TabBarGestures: UIViewRepresentable {
     /// The accessibility label of the Você tab item: it finds the item in the tab bar.
     let voceLabel: String
@@ -73,13 +76,24 @@ struct TabBarGestures: UIViewRepresentable {
             recognizer.delegate = self
             return recognizer
         }()
+        private lazy var longPress: UILongPressGestureRecognizer = {
+            let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(didLongPress(_:)))
+            recognizer.minimumPressDuration = 0.5
+            recognizer.cancelsTouchesInView = false
+            recognizer.delaysTouchesEnded = false
+            recognizer.delegate = self
+            return recognizer
+        }()
         private lazy var menuInteraction = UIContextMenuInteraction(delegate: self)
+        private var menuShows = false
 
         func attach(to tabBar: UITabBar) {
             guard self.tabBar !== tabBar else { return }
             self.tabBar?.removeGestureRecognizer(doubleTap)
+            self.tabBar?.removeGestureRecognizer(longPress)
             self.tabBar?.removeInteraction(menuInteraction)
             tabBar.addGestureRecognizer(doubleTap)
+            tabBar.addGestureRecognizer(longPress)
             tabBar.addInteraction(menuInteraction)
             self.tabBar = tabBar
         }
@@ -87,6 +101,28 @@ struct TabBarGestures: UIViewRepresentable {
         @objc private func didDoubleTap(_ recognizer: UITapGestureRecognizer) {
             guard recognizer.state == .ended, isOnVoce(recognizer) else { return }
             onDoubleTap()
+        }
+
+        /// Opens the menu when the interaction's own press did not (it shows by then when it works).
+        @objc private func didLongPress(_ recognizer: UILongPressGestureRecognizer) {
+            guard recognizer.state == .began, let tabBar, isOnVoce(recognizer) else { return }
+            let location = recognizer.location(in: tabBar)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, !self.menuShows else { return }
+                self.menuInteraction.presentMenu(atLocation: location)
+            }
+        }
+
+        func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
+                                    willDisplayMenuFor configuration: UIContextMenuConfiguration,
+                                    animator: (any UIContextMenuInteractionAnimating)?) {
+            menuShows = true
+        }
+
+        func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
+                                    willEndFor configuration: UIContextMenuConfiguration,
+                                    animator: (any UIContextMenuInteractionAnimating)?) {
+            menuShows = false
         }
 
         func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
@@ -120,18 +156,27 @@ struct TabBarGestures: UIViewRepresentable {
             return item.convert(item.bounds, to: tabBar).contains(recognizer.location(in: tabBar))
         }
 
-        /// The Você item: the view whose accessibility label is the tab's title.
+        /// The Você item: the view whose accessibility label is the tab's title. Else the item that holds the title
+        /// label: the largest view above that label that is narrower than half the tab bar.
         private func voceItem(in tabBar: UITabBar) -> UIView? {
             var stack: [UIView] = [tabBar]
+            var title: UIView?
             while !stack.isEmpty {
                 let view = stack.removeFirst()
                 if view !== tabBar, view.isAccessibilityElement,
                    let label = view.accessibilityLabel, label.hasPrefix(voceLabel) {
                     return view
                 }
+                if title == nil, let label = view as? UILabel, label.text == voceLabel {
+                    title = label
+                }
                 stack.append(contentsOf: view.subviews)
             }
-            return nil
+            guard var item = title else { return nil }
+            while let parent = item.superview, parent !== tabBar, parent.bounds.width < tabBar.bounds.width / 2 {
+                item = parent
+            }
+            return item
         }
     }
 }
