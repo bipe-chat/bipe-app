@@ -23,6 +23,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import chat.bipe.shared.onboarding.BipeOnboardingSchedule
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
 import org.junit.Test
@@ -173,6 +174,17 @@ class SharedVectorTest {
     }
 
     @Test
+    fun pinReminderSchedule() {
+        for (vector in vectors("onboarding-schedule.json", "pinReminder")) {
+            val step = vector.string("step")!!.toInt()
+            val result = BipeOnboardingSchedule.PinResult.entries.first { it.id == vector.string("result") }
+            val next = BipeOnboardingSchedule.pinReminderNext(step, result)
+            assertWithMessage("pinReminderNext($step, ${result.id}) step").that(next.step).isEqualTo(vector.string("nextStep")!!.toInt())
+            assertWithMessage("pinReminderNext($step, ${result.id}) gapDays").that(next.gapDays).isEqualTo(vector.string("gapDays")!!.toInt())
+        }
+    }
+
+    @Test
     fun pins() {
         for (vector in vectors("pins.json", "cases")) {
             val input = vector.string("input")!!
@@ -236,6 +248,26 @@ class SharedVectorTest {
             assertWithMessage("profile facts notice $name").that(result.notice).isEqualTo(expected.getValue("notice").jsonPrimitive.boolean)
             assertWithMessage("profile facts lines $name").that(result.lines.map { listOf(it.fact.id, it.count, it.at) })
                 .isEqualTo(lines.map { listOf(it.string("fact"), it.string("count")?.toInt(), BipeProfileFactLines.parse(it.string("at")!!)) })
+        }
+    }
+
+    @Test
+    fun theftMarks() {
+        val file = load("theft-marks.json")
+        val nowMillis = file.getValue("now").jsonPrimitive.long * 1000
+        val keys = file.getValue("publicKeys").jsonObject.mapValues { (_, key) -> Base64Url.decode(key.jsonPrimitive.content)!! }
+        val verifier = BipeTheftMarkVerifier(keys)
+        val cases = file.getValue("vectors").jsonArray.map { it.jsonObject }
+        assertWithMessage("theft mark vectors").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            val expected = vector.getValue("expected").jsonObject
+            when (val result = verifier.verify(vector.getValue("envelope").toString(), vector.string("subject")!!, nowMillis)) {
+                is BipeTheftMarkResult.Valid -> assertWithMessage("theft mark $name").that(result.statement.stolenAt)
+                    .isEqualTo(expected["stolenAt"]?.jsonPrimitive?.longOrNull)
+                is BipeTheftMarkResult.Invalid -> assertWithMessage("theft mark $name").that(result.failure.code)
+                    .isEqualTo(expected.string("error"))
+            }
         }
     }
 

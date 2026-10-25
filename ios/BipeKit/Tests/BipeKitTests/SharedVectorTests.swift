@@ -150,6 +150,17 @@ struct SharedVectorTests {
     }
 
     @Test
+    func pinReminderSchedule() throws {
+        for vector in try SharedVectors.array("onboarding-schedule.json", key: "pinReminder") {
+            let step = try #require(vector["step"] as? Int)
+            let result = try #require((vector["result"] as? String).flatMap(BipeOnboardingSchedule.PinResult.init(rawValue:)))
+            let next = BipeOnboardingSchedule.pinReminderNext(step: step, result: result)
+            #expect(next.step == vector["nextStep"] as? Int, "pinReminderNext(\(step), \(result)) step")
+            #expect(next.gapDays == vector["gapDays"] as? Int, "pinReminderNext(\(step), \(result)) gapDays")
+        }
+    }
+
+    @Test
     func inviteCodes() throws {
         for vector in try SharedVectors.array("invite-codes.json", key: "vectors") {
             let input = try #require(vector["input"] as? String)
@@ -218,6 +229,28 @@ struct SharedVectorTests {
         }
     }
     
+    @Test
+    func theftMarks() throws {
+        let file = try SharedVectors.object("theft-marks.json")
+        let now = try Date(timeIntervalSince1970: #require(file["now"] as? Double))
+        let keys = try #require(file["publicKeys"] as? [String: String])
+        let verifier = try BipeTheftMarkVerifier(trustedKeys: keys.mapValues { try #require(Data(base64URL: $0)) })
+        let vectors = try #require(file["vectors"] as? [[String: Any]])
+        #expect(!vectors.isEmpty)
+        for vector in vectors {
+            let name = try #require(vector["name"] as? String)
+            let envelope = try JSONSerialization.data(withJSONObject: #require(vector["envelope"]))
+            let result = try verifier.verify(envelopeJSON: envelope, subject: #require(vector["subject"] as? String), now: now)
+            let expected = try #require(vector["expected"] as? [String: Any])
+            switch result {
+            case .valid(let statement):
+                #expect(statement.stolenAt == (expected["stolenAt"] as? NSNumber)?.int64Value, "theft mark \(name)")
+            case .invalid(let failure):
+                #expect(failure.rawValue == expected["error"] as? String, "theft mark \(name)")
+            }
+        }
+    }
+
     @Test
     func clearedChats() throws {
         let file = try SharedVectors.object("cleared-chats.json")

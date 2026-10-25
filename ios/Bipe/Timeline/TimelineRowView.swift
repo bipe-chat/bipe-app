@@ -216,6 +216,9 @@ private struct MessageBubbleRow: View {
                     Button(BipeStrings.a11yOpenOriginal) { Task { await model.openOriginal(eventId: reply.eventId) } }
                 }
             }
+            if model.showsTheftMarker(message) {
+                TheftMessageMarker()
+            }
             if !details.reactions.isEmpty {
                 ReactionPills(reactions: details.reactions,
                               onToggle: { key in Task { await model.toggleReaction(rowId: row.id, key: key) } },

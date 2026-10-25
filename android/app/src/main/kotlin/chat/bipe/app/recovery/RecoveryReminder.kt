@@ -125,7 +125,7 @@ class RecoveryReminderModel(
 
 /** The card (registries/onboarding.json prompts.recovery). Same shape as the handle prompt card. */
 @Composable
-fun RecoveryReminderCard(model: RecoveryReminderModel, addEmail: () -> Unit) {
+fun RecoveryReminderCard(model: RecoveryReminderModel, syncOff: Boolean = false, addEmail: () -> Unit) {
     val colors = BipeTheme.colors
     val prompt = BipeOnboardingPrompt.RECOVERY
     Column(
@@ -135,6 +135,8 @@ fun RecoveryReminderCard(model: RecoveryReminderModel, addEmail: () -> Unit) {
     ) {
         Text(stringResource(prompt.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
         prompt.body?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
+        // State syncOff (bipe-chat/bipe#202): the synced store does not back the recovery token up from this phone.
+        if (syncOff) Text(stringResource(R.string.bipe_fallback_sync_off_android), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 stringResource(prompt.primary.title),

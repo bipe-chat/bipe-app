@@ -115,6 +115,12 @@ final class ChatTimelineModel: ObservableObject {
     }
 
     static let historyPage: UInt16 = 20
+    /// One loadHistory pages on until it adds this many message rows (state events give no rows).
+    static let historyFill = 10
+    /// The most pages one loadHistory requests.
+    static let historyPagesPerLoad = 5
+    /// The tries of one page before the load stops: a fresh login can fail the first pages during the first sync.
+    static let historyTries = 3
     /// Spec message-reactions notes: the quick reactions, in this order.
     static let quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"]
     /// Spec message-reply openOriginal: at most 5 pages back.
@@ -129,12 +135,17 @@ final class ChatTimelineModel: ObservableObject {
     /// Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone.
     @Published private(set) var peerAway: PeerAway = .none
     @Published private(set) var invitingAgain = false
+    /// Spec chat-timeline theftMark: a valid theft statement for the other person of a DM, else nil.
+    @Published private(set) var theftMark: BipeTheftStatement?
+    private var theftTask: Task<Void, Never>?
     /// The person whose profile was checked for accountGone, so the lookup runs once per leave.
     private var accountGoneChecked: (userId: String, gone: Bool)?
     @Published private(set) var isGroup = false
     @Published private(set) var rows: [TimelineRow] = []
     @Published private(set) var isLoadingHistory = false
     @Published private(set) var reachedStart = false
+    /// Goes up after each load that did not fail, so the view asks for the next page while the top is on screen.
+    @Published private(set) var historyLoads = 0
     @Published private(set) var isDm = false
     @Published private(set) var isEncrypted = true
     /// A DM or a group that needs an invite, for the show-media setting (spec timeline-media).
@@ -209,6 +220,7 @@ final class ChatTimelineModel: ObservableObject {
         handle?.cancel()
         typingHandle?.cancel()
         handleChangesTask?.cancel()
+        theftTask?.cancel()
     }
 
     /// Spec typing-indicator sharesTyping: the presence setting (bipe_privacy_presence). On unless turned off.
@@ -264,6 +276,7 @@ final class ChatTimelineModel: ObservableObject {
             }
         }
         await loadHandleChanges(room)
+        watchTheftMark()
         let typing = TypingStream()
         typingHandle = room.subscribeToTypingNotifications(listener: typing)
         Task { [weak self] in
@@ -341,14 +354,36 @@ final class ChatTimelineModel: ObservableObject {
 
     // MARK: chat-timeline
 
-    /// Action loadHistory: back-paginates 20 events. Does nothing at the start or while a load runs.
-    func loadHistory() async {
+    /// Action loadHistory: back-paginates 20 events at a time until the rows have historyFill more messages,
+    /// at most maxPages pages. A failed page is tried again. Does nothing at the start or while a load runs.
+    func loadHistory(maxPages: Int = ChatTimelineModel.historyPagesPerLoad) async {
         guard let timeline, !reachedStart, !isLoadingHistory else { return }
         isLoadingHistory = true
         defer { isLoadingHistory = false }
-        if let hitStart = try? await timeline.paginateBackwards(numEvents: Self.historyPage), hitStart {
-            reachedStart = true
+        let before = messages.count
+        for _ in 0..<maxPages {
+            guard let hitStart = await paginateBackwards(timeline) else { return }
+            if hitStart {
+                reachedStart = true
+                break
+            }
+            // The new items reach rows through the timeline listener, so this count can lag one page.
+            if messages.count - before >= Self.historyFill { break }
         }
+        historyLoads += 1
+    }
+
+    /// One page back, tried historyTries times. nil when every try failed.
+    private func paginateBackwards(_ timeline: Timeline) async -> Bool? {
+        for attempt in 1...Self.historyTries {
+            if let hitStart = try? await timeline.paginateBackwards(numEvents: Self.historyPage) {
+                return hitStart
+            }
+            if attempt < Self.historyTries {
+                try? await Task.sleep(for: .seconds(attempt))
+            }
+        }
+        return nil
     }
 
     /// Action editDraft, with typing-indicator draftChanged.
@@ -545,7 +580,7 @@ final class ChatTimelineModel: ObservableObject {
                 return
             }
             guard page < Self.originalSearchPages, !reachedStart else { return }
-            await loadHistory()
+            await loadHistory(maxPages: 1)
             // The new items reach rows through the timeline listener.
             try? await Task.sleep(for: .milliseconds(300))
         }
@@ -731,6 +766,37 @@ final class ChatTimelineModel: ObservableObject {
 
     private func item(_ rowId: String) -> TimelineItem? {
         items.first { $0.uniqueId().id == rowId }
+    }
+
+    // MARK: theftMark
+
+    /// Asks for the DM partner's theft mark when the chat opens, then every checkMinutes while it stays open.
+    private func watchTheftMark() {
+        theftTask?.cancel()
+        theftTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.checkTheftMark()
+                try? await Task.sleep(for: .seconds(TheftMarkChecks.interval))
+            }
+        }
+    }
+
+    private func checkTheftMark() async {
+        guard isDm, let peer = peerUserId else {
+            theftMark = nil
+            return
+        }
+        let statement = await TheftMarkChecks.statement(for: peer, session: session)
+        // The chat may have changed partner while the call ran.
+        if peerUserId == peer {
+            theftMark = statement
+        }
+    }
+
+    /// bipe_theft_message_marker: a message of the marked partner sent from stolen_at minus markedMessageMinutes on.
+    func showsTheftMarker(_ message: TimelineMessage) -> Bool {
+        guard let theftMark, !message.isOwn, message.senderId == theftMark.sub else { return false }
+        return message.sentAt >= theftMark.markerStart
     }
 
     // MARK: handle-change-line

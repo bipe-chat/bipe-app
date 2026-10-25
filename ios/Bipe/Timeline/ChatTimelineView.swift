@@ -63,6 +63,9 @@ struct ChatTimelineView: View {
             if model.isDm, let people, let peer = model.peerUserId, peer != session.userId {
                 ProfileNoticeBar(people: people, userId: peer, name: model.roomName)
             }
+            if model.isDm, model.theftMark != nil {
+                TheftMarkBanner(name: model.roomName)
+            }
             if model.isDm, let people, let peer = model.peerUserId {
                 DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
                     leftBar
@@ -302,8 +305,9 @@ struct ChatTimelineView: View {
         .font(.footnote)
         .foregroundStyle(BipeColor.inkSecondary)
         .padding(.vertical, 8)
-        // Runs while the top of the list is on screen, again after each page (action loadHistory).
-        .task(id: model.rows.count) {
+        // Runs while the top of the list is on screen, again after each load and each change of the rows
+        // (action loadHistory). After a failed load, the next change of the rows tries again.
+        .task(id: "\(model.rows.count)-\(model.historyLoads)") {
             await model.loadHistory()
         }
     }

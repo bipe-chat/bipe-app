@@ -44,6 +44,66 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_profile_notice_name_photo", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var theftTitle: String { NSLocalizedString("bipe_theft_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftIntro: String { NSLocalizedString("bipe_theft_intro", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftGuardiansSection: String { NSLocalizedString("bipe_theft_guardians_section", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftGuardiansFooter: String { NSLocalizedString("bipe_theft_guardians_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftAddGuardian: String { NSLocalizedString("bipe_theft_add_guardian", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftRemoveGuardian: String { NSLocalizedString("bipe_theft_remove_guardian", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftGuardiansFull: String { NSLocalizedString("bipe_theft_guardians_full", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftPickerTitle: String { NSLocalizedString("bipe_theft_picker_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftPickerEmpty: String { NSLocalizedString("bipe_theft_picker_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftGuardingSection: String { NSLocalizedString("bipe_theft_guarding_section", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftGuardingEmpty: String { NSLocalizedString("bipe_theft_guarding_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftMarkAction: String { NSLocalizedString("bipe_theft_mark_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func theftMarkConfirmTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_theft_mark_confirm_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func theftMarkConfirmBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_theft_mark_confirm_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func theftMarkedAt(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_theft_marked_at", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var theftClearAction: String { NSLocalizedString("bipe_theft_clear_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func theftClearConfirmTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_theft_clear_confirm_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func theftClearConfirmBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_theft_clear_confirm_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func theftLastMark(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_theft_last_mark", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var theftError: String { NSLocalizedString("bipe_theft_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var theftBannerTitle: String { NSLocalizedString("bipe_theft_banner_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func theftBannerBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_theft_banner_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var theftMessageMarker: String { NSLocalizedString("bipe_theft_message_marker", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var bannerUnverifiedTitle: String { NSLocalizedString("bipe_banner_unverified_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func bannerUnverifiedBody(_ p1: String) -> String {

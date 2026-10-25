@@ -25,6 +25,7 @@ import chat.bipe.shared.R
 import chat.bipe.app.groups.GroupPeople
 import chat.bipe.shared.BipeHandleChangeStore
 import chat.bipe.shared.BipeMoneyPause
+import chat.bipe.shared.BipeTheftStatement
 import chat.bipe.shared.ScamWarningKind
 import org.matrix.rustcomponents.sdk.MembershipState
 import kotlinx.coroutines.CancellationException
@@ -176,6 +177,9 @@ class ChatTimelineModel(
     private val _peerAway = MutableStateFlow(PeerAway.NONE)
     val peerAway: StateFlow<PeerAway> = _peerAway.asStateFlow()
     private val _invitingAgain = MutableStateFlow(false)
+    /** Spec chat-timeline theftMark: a valid theft statement for the other person of a DM, else null. */
+    private val _theftMark = MutableStateFlow<BipeTheftStatement?>(null)
+    val theftMark: StateFlow<BipeTheftStatement?> = _theftMark.asStateFlow()
     val invitingAgain: StateFlow<Boolean> = _invitingAgain.asStateFlow()
     /** The person whose profile was checked for ACCOUNT_GONE, so the lookup runs once per leave. */
     private var accountGoneChecked: Pair<String, Boolean>? = null
@@ -194,6 +198,9 @@ class ChatTimelineModel(
     val isLoadingHistory: StateFlow<Boolean> = _isLoadingHistory.asStateFlow()
     private val _reachedStart = MutableStateFlow(false)
     val reachedStart: StateFlow<Boolean> = _reachedStart.asStateFlow()
+    /** Goes up after each load that did not fail, so the screen asks for the next page while the top is on screen. */
+    private val _historyLoads = MutableStateFlow(0)
+    val historyLoads: StateFlow<Int> = _historyLoads.asStateFlow()
     /** signup-done: the inviter while this chat has no first message (ADR 0034). */
     private val _inviterHint = MutableStateFlow<InviterGreetings.Greeting?>(null)
     val inviterHint: StateFlow<InviterGreetings.Greeting?> = _inviterHint.asStateFlow()
@@ -250,6 +257,13 @@ class ChatTimelineModel(
             if (_draft.value.isEmpty()) room.newMessageDraft()?.let { _draft.value = it }
             if (!facts.isDm) launch { mentionDirectory.load(room, session.userId) }
             loadHandleChanges(room)
+            // The partner's theft mark when the chat opens, then every checkMinutes while it stays open.
+            launch {
+                while (true) {
+                    checkTheftMark()
+                    delay(TheftMarkChecks.INTERVAL_MILLIS)
+                }
+            }
             val typing = Channel<List<String>>(Channel.CONFLATED)
             typingHandle = room.subscribeToTypingNotifications(object : TypingNotificationsListener {
                 override fun call(typingUserIds: List<String>) {
@@ -310,6 +324,21 @@ class ChatTimelineModel(
         _isPrivateRoom.value = runCatching { room.isPublic() }.getOrNull() != true
     }
 
+    private suspend fun checkTheftMark() {
+        val peer = _peerUserId.value
+        if (!facts.isDm || peer == null) {
+            _theftMark.value = null
+            return
+        }
+        val statement = TheftMarkChecks.statement(peer, session)
+        // The chat may have changed partner while the call ran.
+        if (_peerUserId.value == peer) _theftMark.value = statement
+    }
+
+    /** bipe_theft_message_marker: a message of the marked partner sent from stolen_at minus markedMessageMinutes on. */
+    fun showsTheftMarker(message: TimelineMessage, mark: BipeTheftStatement?): Boolean =
+        mark != null && !message.isOwn && message.senderId == mark.sub && message.sentAt >= mark.markerStartMillis
+
     fun row(id: String?): TimelineRow? = id?.let { rowId -> _rows.value.firstOrNull { it.id == rowId } }
 
     val canSend: Boolean
@@ -322,22 +351,42 @@ class ChatTimelineModel(
 
     // chat-timeline
 
-    /** Action loadHistory: back-paginates 20 events. Does nothing at the start or while a load runs. */
+    /**
+     * Action loadHistory: back-paginates 20 events at a time until the rows have HISTORY_FILL more messages,
+     * at most HISTORY_PAGES_PER_LOAD pages. A failed page is tried again. Does nothing at the start or while a load runs.
+     */
     fun loadHistory() {
-        scope.launch { paginate() }
+        scope.launch { paginate(HISTORY_PAGES_PER_LOAD) }
     }
 
-    private suspend fun paginate() {
+    private suspend fun paginate(maxPages: Int) {
         val timeline = timeline ?: return
         if (_reachedStart.value || _isLoadingHistory.value) return
         _isLoadingHistory.value = true
         try {
-            if (runCatching { timeline.paginateBackwards(HISTORY_PAGE) }.getOrDefault(false)) {
-                _reachedStart.value = true
+            val before = _messages.value.size
+            for (page in 1..maxPages) {
+                val hitStart = paginateBackwards(timeline) ?: return
+                if (hitStart) {
+                    _reachedStart.value = true
+                    break
+                }
+                // The new items reach rows through the timeline listener, so this count can lag one page.
+                if (_messages.value.size - before >= HISTORY_FILL) break
             }
+            _historyLoads.update { it + 1 }
         } finally {
             _isLoadingHistory.value = false
         }
+    }
+
+    /** One page back, tried HISTORY_TRIES times. null when every try failed. */
+    private suspend fun paginateBackwards(timeline: Timeline): Boolean? {
+        for (attempt in 1..HISTORY_TRIES) {
+            runCatching { timeline.paginateBackwards(HISTORY_PAGE) }.onSuccess { return it }
+            if (attempt < HISTORY_TRIES) delay(attempt * 1000L)
+        }
+        return null
     }
 
     /** Action editDraft, with typing-indicator draftChanged. */
@@ -571,7 +620,7 @@ class ChatTimelineModel(
                     return@launch
                 }
                 if (page == ORIGINAL_SEARCH_PAGES || _reachedStart.value) return@launch
-                paginate()
+                paginate(maxPages = 1)
                 // The new items reach rows through the timeline listener.
                 delay(300)
             }
@@ -939,6 +988,12 @@ class ChatTimelineModel(
 
     private companion object {
         const val HISTORY_PAGE: UShort = 20u
+        /** One loadHistory pages on until it adds this many message rows (state events give no rows). */
+        const val HISTORY_FILL = 10
+        /** The most pages one loadHistory requests. */
+        const val HISTORY_PAGES_PER_LOAD = 5
+        /** The tries of one page before the load stops: a fresh login can fail the first pages during the first sync. */
+        const val HISTORY_TRIES = 3
         /** Spec message-reply openOriginal: at most 5 pages back. */
         const val ORIGINAL_SEARCH_PAGES = 5
         /** Spec typing-indicator: typing on at most once every 4 seconds. */

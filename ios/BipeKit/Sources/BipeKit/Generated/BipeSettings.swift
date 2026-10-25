@@ -46,7 +46,7 @@ public enum BipeSettingsGroup: String, CaseIterable, Sendable {
         switch self {
         case .profile: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: nil, rows: [.profileNamePhoto, .profileHandle, .profilePublicProfile])]
         case .privacy: [BipeSettingsSection(key: "talk", titleKey: "bipe_privacy_who_can_talk", footerKey: nil, rows: [.privacyMessaging, .privacyRequestPhotos, .privacyBlocked]), BipeSettingsSection(key: "find", titleKey: "bipe_privacy_who_can_find", footerKey: nil, rows: [.privacyNumber, .privacyDiscovery, .privacyContacts]), BipeSettingsSection(key: "see", titleKey: "bipe_privacy_what_others_see", footerKey: nil, rows: [.privacyPresence, .privacyReadReceipts, .privacyWhoCanRead]), BipeSettingsSection(key: "data", titleKey: "bipe_privacy_your_data", footerKey: nil, rows: [.privacyExport, .privacyWhatBipeKeeps])]
-        case .account: [BipeSettingsSection(key: "status", titleKey: "bipe_fallback_title", footerKey: nil, rows: [.accountWaysBackStatus]), BipeSettingsSection(key: "pin", titleKey: "bipe_account_pin_section", footerKey: "bipe_account_pin_footer", rows: [.accountChangePin, .accountAppLock, .accountBiometricUnlock]), BipeSettingsSection(key: "waysBack", titleKey: "bipe_account_ways_back", footerKey: nil, rows: [.accountEmail, .accountLinkedAccounts, .accountRecoveryKey]), BipeSettingsSection(key: "devices", titleKey: "bipe_account_devices", footerKey: nil, rows: [.accountThisDevice, .accountLinkedDevices]), BipeSettingsSection(key: "accounts", titleKey: "bipe_account_on_device", footerKey: nil, rows: [.accountAdd]), BipeSettingsSection(key: "leave", titleKey: nil, footerKey: nil, rows: [.accountSignOut, .accountDelete])]
+        case .account: [BipeSettingsSection(key: "status", titleKey: "bipe_fallback_title", footerKey: nil, rows: [.accountWaysBackStatus]), BipeSettingsSection(key: "pin", titleKey: "bipe_account_pin_section", footerKey: "bipe_account_pin_footer", rows: [.accountChangePin, .accountAppLock, .accountBiometricUnlock]), BipeSettingsSection(key: "waysBack", titleKey: "bipe_account_ways_back", footerKey: nil, rows: [.accountEmail, .accountLinkedAccounts, .accountRecoveryKey]), BipeSettingsSection(key: "theft", titleKey: "bipe_theft_title", footerKey: nil, rows: [.accountTheftProtection]), BipeSettingsSection(key: "devices", titleKey: "bipe_account_devices", footerKey: nil, rows: [.accountThisDevice, .accountLinkedDevices]), BipeSettingsSection(key: "accounts", titleKey: "bipe_account_on_device", footerKey: nil, rows: [.accountAdd]), BipeSettingsSection(key: "leave", titleKey: nil, footerKey: nil, rows: [.accountSignOut, .accountDelete])]
         case .notifications: []
         case .chats: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: nil, rows: [.chatsAppearance, .chatsLanguage, .chatsMediaQuality, .chatsShowMedia, .chatsDataUse, .chatsLiveLocation])]
         case .help: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: "bipe_about_steward", rows: [.helpSupport, .helpDocs, .helpTerms, .helpPrivacy, .helpReportProblem, .helpLicenses])]
@@ -96,6 +96,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
     case accountEmail = "account.email"
     case accountLinkedAccounts = "account.linkedAccounts"
     case accountRecoveryKey = "account.recoveryKey"
+    case accountTheftProtection = "account.theftProtection"
     case accountThisDevice = "account.thisDevice"
     case accountLinkedDevices = "account.linkedDevices"
     case accountAdd = "account.add"
@@ -137,6 +138,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountEmail: .link
         case .accountLinkedAccounts: .link
         case .accountRecoveryKey: .link
+        case .accountTheftProtection: .link
         case .accountThisDevice: .info
         case .accountLinkedDevices: .link
         case .accountAdd: .action
@@ -183,6 +185,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountEmail: "bipe_email_title"
         case .accountLinkedAccounts: "bipe_linked_accounts_title"
         case .accountRecoveryKey: "bipe_account_recovery_key"
+        case .accountTheftProtection: "bipe_theft_title"
         case .accountThisDevice: "bipe_account_this_device"
         case .accountLinkedDevices: "bipe_linked_devices_title"
         case .accountAdd: "bipe_account_add"
@@ -226,6 +229,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountEmail: nil
         case .accountLinkedAccounts: nil
         case .accountRecoveryKey: NSLocalizedString("bipe_account_recovery_key_footer", tableName: "Bipe", bundle: .module, comment: "")
+        case .accountTheftProtection: nil
         case .accountThisDevice: nil
         case .accountLinkedDevices: nil
         case .accountAdd: nil
@@ -271,6 +275,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountEmail: nil
         case .accountLinkedAccounts: nil
         case .accountRecoveryKey: nil
+        case .accountTheftProtection: nil
         case .accountThisDevice: nil
         case .accountLinkedDevices: nil
         case .accountAdd: nil
