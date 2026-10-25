@@ -337,6 +337,7 @@
     <string name="bipe_phone_confirm_notice_title">Confirm your number</string>
     <string name="bipe_tab_chats">Chats</string>
     <string name="bipe_tab_agenda">Agenda</string>
+    <string name="bipe_tab_work">Work</string>
     <string name="bipe_tab_groups">Groups</string>
     <string name="bipe_tab_you">You</string>
     <string name="bipe_groups_empty_title">No groups yet</string>
