@@ -102,6 +102,19 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "recoveries", id, "cancel"], body: Empty?.none, accessToken: accessToken)
     }
     
+    /// `POST /v1/me/deletion` (ADR 0140). The app checks the device owner first; the server checks the senha and deletes
+    /// the account after ``BipeRegistries/deletionCooldownHours``. `deletion_pending` when a request already waits.
+    public func requestDeletion(pin: String, redactMessages: Bool, accessToken: String) async throws(BipeAPIError) -> BipeAccountDeletion {
+        try await send(method: "POST", path: ["v1", "me", "deletion"],
+                       body: DeletionRequest(pin: pin, redactMessages: redactMessages), accessToken: accessToken)
+    }
+
+    /// `POST /v1/me/deletions/{id}/cancel` (ADR 0140). Any signed-in device of the account, until `due_at`.
+    /// `not_found` when the request no longer waits.
+    public func cancelDeletion(id: String, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "POST", path: ["v1", "me", "deletions", id, "cancel"], body: Empty?.none, accessToken: accessToken)
+    }
+
     /// `POST /v1/recovery/token`. No auth. The synced token, then the PIN. Returns new credentials once.
     public func recoverWithToken(_ token: String, pin: String) async throws(BipeAPIError) -> BipeCredentials {
         try await send(method: "POST", path: ["v1", "recovery", "token"], body: TokenRecoveryRequest(recoveryToken: token, pin: pin))
@@ -426,6 +439,11 @@ public struct BipeAPIClient: Sendable {
     
     private struct PINRequest: Encodable {
         let pin: String
+    }
+
+    private struct DeletionRequest: Encodable {
+        let pin: String
+        let redactMessages: Bool
     }
     
     private struct RecoveryTokenResponse: Decodable {
@@ -975,6 +993,8 @@ public enum BipeAPIErrorCode: String, Sendable {
     case linkUnavailable = "link_unavailable"
     /// 503. The support account is not set up on the server (ADR 0114).
     case supportUnavailable = "support_unavailable"
+    /// 409. An account deletion already waits (ADR 0140).
+    case deletionPending = "deletion_pending"
     // Business tools (api/business-schemas.json AgendaError). Texts: BipeAPIError.agendaMessage.
     case slotTaken = "slot_taken"
     case holdExpired = "hold_expired"
@@ -1060,6 +1080,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .emailUnavailable: BipeStrings.errorEmailUnavailable
             case .termsRequired: BipeStrings.signupTermsRequired
             case .supportUnavailable: BipeStrings.supportOpenFailed
+            case .deletionPending: BipeStrings.deletionError
             case .linkTaken: BipeStrings.linkedAccountTaken
             case .linkUnavailable: BipeStrings.linkedAccountError
             case .slotTaken, .holdExpired, .tooManyOpenBookings, .outsideNotice, .outsideHorizon, .agendaNotPublished,
