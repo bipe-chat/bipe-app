@@ -82,8 +82,9 @@ class BadgeVerifier(trustedKeys: Map<String, ByteArray>) {
         if (nowMillis >= payload.exp * 1000) return invalid(BadgeVerificationFailure.EXPIRED)
         if (nowMillis < payload.iat * 1000) return invalid(BadgeVerificationFailure.NOT_YET_VALID)
         if (payload.sub != sender) return invalid(BadgeVerificationFailure.SUBJECT_MISMATCH)
-        if (payload.lvl == BadgeLevel.CNPJ || payload.lvl == BadgeLevel.INSTITUTION) {
-            // A company or institution badge binds to the account, so any of its devices may send. No known master key fails closed.
+        if (payload.lvl == BadgeLevel.CNPJ || payload.lvl == BadgeLevel.INSTITUTION || payload.lvl == BadgeLevel.BRAND_MARK) {
+            // A company badge, an institution badge or a brand mark binds to the account, so any of its devices may send.
+            // No known master key fails closed.
             if (senderMasterKey == null || payload.msk != senderMasterKey) return invalid(BadgeVerificationFailure.MASTER_KEY_MISMATCH)
         } else if (payload.dev != senderDevice) {
             return invalid(BadgeVerificationFailure.DEVICE_MISMATCH)
@@ -123,6 +124,9 @@ enum class BadgeLevel {
 
     /** A verified company (ADR 0042), bound to the account's cross-signing master key. */
     @SerialName("cnpj") CNPJ,
+
+    /** A brand's mark on a reseller's work account (ADR 0162), bound to the reseller's master key. */
+    @SerialName("brand-mark") BRAND_MARK,
 }
 
 /** How a company proved control of its CNPJ (ADR 0042). */
@@ -144,8 +148,12 @@ data class BadgePayload(
     val cnpj: String? = null,
     /** Fingerprint of the device key the badge is bound to. `pix` and `govbr` only. */
     val dev: String? = null,
-    /** The account's cross-signing master key the badge is bound to. `cnpj` and `institution` only. */
+    /** The account's cross-signing master key the badge is bound to. `cnpj`, `institution` and `brand-mark` only. */
     val msk: String? = null,
+    /** `brand-mark` only: the mark ID, the brand's Matrix user ID and the label id of registries/brand-marks.json. */
+    val mark: String? = null,
+    val brand: String? = null,
+    val label: String? = null,
     @SerialName("legal_name") val legalName: String? = null,
     @SerialName("trade_name") val tradeName: String? = null,
     val method: BadgeCnpjMethod? = null,
@@ -165,6 +173,8 @@ data class BadgePayload(
         BadgeLevel.CNPJ -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !legalName.isNullOrEmpty() && !msk.isNullOrEmpty() &&
             method != null && checkedMonth != null && MONTH_PATTERN.matches(checkedMonth)
         BadgeLevel.INSTITUTION -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !msk.isNullOrEmpty() && domainList() != null
+        BadgeLevel.BRAND_MARK -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !msk.isNullOrEmpty() && dev == null && name.isNotEmpty() &&
+            !mark.isNullOrEmpty() && !brand.isNullOrEmpty() && label != null && label in BipeRegistries.BRAND_MARK_LABELS
         BadgeLevel.PIX, BadgeLevel.GOVBR -> dev != null
     }
 
