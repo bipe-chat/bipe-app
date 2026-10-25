@@ -268,6 +268,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json
     case signupWaitlist = "signup-waitlist"
 
+    /// Session expired (flow launch). Spec: bipe-shared/product/screens/soft-logout.json
+    case softLogout = "soft-logout"
+
     /// Make a sticker from a photo (flow chat). Spec: bipe-shared/product/screens/sticker-from-photo.json
     case stickerFromPhoto = "sticker-from-photo"
 

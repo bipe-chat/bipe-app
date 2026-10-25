@@ -94,8 +94,12 @@ final class RecoveryFlowModel: ObservableObject {
     private var newPin = ""
     private var pollTask: Task<Void, Never>?
 
-    init(api: BipeAPIClient, onSignedIn: @escaping (AccountSession) -> Void) {
+    /// Spec soft-logout needsPin: the account whose token the server refused.
+    let softLogoutUserId: String?
+
+    init(api: BipeAPIClient, softLogoutUserId: String? = nil, onSignedIn: @escaping (AccountSession) -> Void) {
         self.api = api
+        self.softLogoutUserId = softLogoutUserId
         self.onSignedIn = onSignedIn
         pending = store.pendingRecovery()
         if pending != nil {
@@ -113,11 +117,17 @@ final class RecoveryFlowModel: ObservableObject {
     func appear() {
         // Every account signed in on this phone (ADR 0086): adding an account never recovers one already here.
         let signedIn = Set(SessionStore.loadAll().keys)
-        token = store.recoveryToken(excluding: signedIn)
+        token = softLogoutUserId.flatMap(store.recoveryToken(for:)) ?? store.recoveryToken(excluding: signedIn)
         hasSyncedToken = token != nil
-        // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate.
+        // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate. The beta sign-in
+        // shows only in developer builds (spec soft-logout notes).
         rows = BipeOnboardingRecoveryRow.allCases.filter { row in
-            (row.gate == nil || row == .oldPhone) && (!row.needsSyncedToken || hasSyncedToken)
+            (row.gate == nil || row == .oldPhone || (row.gate == "flag:developer" && AppConfig.isDeveloperBuild))
+                && (!row.needsSyncedToken || hasSyncedToken)
+        }
+        // Spec soft-logout enterPin: straight to recovery-pin when the account's synced token is here.
+        if softLogoutUserId != nil, hasSyncedToken, path.isEmpty {
+            openPin(.token)
         }
     }
 

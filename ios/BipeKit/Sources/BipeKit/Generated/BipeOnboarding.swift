@@ -201,13 +201,13 @@ public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
         }
     }
 
-    /// "planned:<issue>" when the row stays hidden until that issue ships.
+    /// "planned:<issue>" when the row stays hidden until that issue ships; "flag:developer" for developer builds only.
     public var gate: String? {
         switch self {
         case .token: nil
         case .oldPhone: "planned:203"
         case .email: nil
-        case .beta: nil
+        case .beta: "flag:developer"
         }
     }
 }

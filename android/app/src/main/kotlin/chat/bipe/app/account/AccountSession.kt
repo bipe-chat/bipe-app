@@ -17,10 +17,14 @@ import kotlinx.coroutines.launch
 import java.io.File
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
+import org.matrix.rustcomponents.sdk.ClientDelegate
+import org.matrix.rustcomponents.sdk.ClientException
 import org.matrix.rustcomponents.sdk.Session
 import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
 import org.matrix.rustcomponents.sdk.SyncService
+import org.matrix.rustcomponents.sdk.TaskHandle
 import uniffi.matrix_sdk.BackupDownloadStrategy
+import uniffi.matrix_sdk_common.BackgroundTaskFailureReason
 
 /** A signed-in account: the SDK client and its sync service. */
 class AccountSession(val client: Client, val syncService: SyncService, val userId: String) {
@@ -29,6 +33,25 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
 
     /** Cleanup must outlive a discarded UI scope; a closed account rejects subsequent updates. */
     fun releaseRoomSubscriptions(owner: String) { subscriptionCleanup.launch { roomSubscriptions.remove(owner) } }
+    /** Spec soft-logout: the SDK reports a refused token here. Set by account-start; called on a background thread. */
+    @Volatile var onAuthError: ((isSoftLogout: Boolean) -> Unit)? = null
+    private var authErrorsHandle: TaskHandle? = null
+
+    private fun watchAuthErrors() {
+        authErrorsHandle = runCatching {
+            client.setDelegate(object : ClientDelegate {
+                override fun didReceiveAuthError(isSoftLogout: Boolean) { onAuthError?.invoke(isSoftLogout) }
+                override fun onBackgroundTaskErrorReport(taskName: String, error: BackgroundTaskFailureReason) {}
+            })
+        }.getOrNull()
+    }
+
+    /** Stops the sync and the room subscriptions and keeps everything on this phone (spec soft-logout). */
+    suspend fun pause() {
+        roomSubscriptions.close()
+        syncService.stop()
+    }
+
     /** The access token for bipe-api calls (spec handle-pick notes). Read each time: the SDK may refresh it. */
     fun accessToken(): String? = runCatching { client.session().accessToken }.getOrNull()
 
@@ -60,6 +83,21 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
             return start(client)
         }
 
+        /**
+         * Spec soft-logout authError: signs in again with the hidden password on the same store and device ID, so keys
+         * and history stay. The caller pauses the expired session first.
+         */
+        suspend fun signInAgain(context: Context, expired: AccountSession, password: String, sessionStore: SessionStore): AccountSession {
+            val deviceId = expired.client.deviceId()
+            val client = AccountStep.run("build client") { makeClient(context, expired.userId, sessionStore) }
+            AccountStep.run("login") { client.login(expired.userId, password, AppConfig.DEVICE_NAME, deviceId) }
+            sessionStore.save(client.session())
+            return start(client)
+        }
+
+        /** true when the server refused the hidden password (M_FORBIDDEN), not a network or local failure. */
+        fun isRefused(error: Throwable): Boolean = (error as? ClientException.MatrixApi)?.code == "M_FORBIDDEN"
+
         /** Restores a saved session and starts the sync. Every step has a time limit ([AccountStep]). */
         suspend fun restore(context: Context, saved: Session, sessionStore: SessionStore): AccountSession {
             // A session without its SDK store cannot restore.
@@ -75,7 +113,7 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 // Initial sync/reachability responses must never gate local readiness.
                 client.syncService().withOfflineMode().finish().also { it.start() }
             }
-            return AccountSession(client, syncService, client.userId())
+            return AccountSession(client, syncService, client.userId()).also { it.watchAuthErrors() }
         }
 
         /** true when the account's SDK store folder exists and holds files. */

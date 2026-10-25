@@ -56,6 +56,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.account.AccountList
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeOnboardingRecoveryRow
@@ -188,13 +189,16 @@ private fun RecoveryPinScreen(model: RecoveryFlowModel) {
         RecoveryFlowModel.PinPhase.BLOCKED -> stringResource(R.string.bipe_pin_blocked_title)
         RecoveryFlowModel.PinPhase.NEW_PIN -> stringResource(R.string.bipe_recovery_new_pin_title)
         RecoveryFlowModel.PinPhase.NEW_PIN_CONFIRM -> stringResource(R.string.bipe_pin_confirm_title)
-        else -> stringResource(R.string.bipe_pin_enter_title)
+        else -> stringResource(if (model.softLogoutUserId != null) R.string.bipe_soft_logout_title else R.string.bipe_pin_enter_title)
     }
     val message = when (phase) {
         RecoveryFlowModel.PinPhase.BLOCKED -> stringResource(R.string.bipe_pin_blocked_body, BipeRegistries.PIN_MAX_WRONG_TRIES.toString())
         RecoveryFlowModel.PinPhase.NEW_PIN -> stringResource(R.string.bipe_pin_create_body, BipeRegistries.PIN_LENGTH.toString())
         RecoveryFlowModel.PinPhase.NEW_PIN_CONFIRM -> null
-        else -> if (factor == RecoveryFlowModel.Factor.TOKEN) stringResource(R.string.bipe_recovery_token_found) else null
+        else -> model.softLogoutUserId?.let { userId ->
+            val name = AccountList(LocalContext.current).name(userId) ?: stringResource(R.string.bipe_tab_you)
+            stringResource(R.string.bipe_soft_logout_body, name)
+        } ?: if (factor == RecoveryFlowModel.Factor.TOKEN) stringResource(R.string.bipe_recovery_token_found) else null
     }
     RecoveryStep(BipeScreen.RECOVERY_PIN, title, message, onBack = { model.back() }) {
         if (phase == RecoveryFlowModel.PinPhase.BLOCKED) {

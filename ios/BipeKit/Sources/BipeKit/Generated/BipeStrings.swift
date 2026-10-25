@@ -2002,6 +2002,16 @@ public enum BipeStrings {
 
     public static var appSignOutTitle: String { NSLocalizedString("bipe_app_sign_out_title", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var softLogoutTitle: String { NSLocalizedString("bipe_soft_logout_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func softLogoutBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_soft_logout_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func softLogoutRemoved(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_soft_logout_removed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static func appSignOutBody(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_app_sign_out_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }

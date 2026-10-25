@@ -4,6 +4,7 @@
 
 package chat.bipe.app.account
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -63,6 +64,27 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
             tabs.selectTab(if (target.destination == BipeNotificationDestination.GROUPS) AppTabsModel.Tab.GRUPOS else AppTabsModel.Tab.CONVERSAS)
         }
     }
+    // Spec soft-logout removed: once, as a toast.
+    val notice by model.notice.collectAsState()
+    val context = LocalContext.current
+    LaunchedEffect(notice) {
+        notice?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            model.noticeShown()
+        }
+    }
+    // Spec soft-logout needsPin: recovery-pin for that account, "Digite sua senha para continuar".
+    val needsPin by model.needsPin.collectAsState()
+    val pinFor = needsPin
+    if (phase == AccountStartModel.Phase.READY && pinFor != null) {
+        val scope = rememberCoroutineScope()
+        val recovery = remember(pinFor) {
+            RecoveryFlowModel(context, model.api, model.vault, model.recoveryTokens, model.sessionStore, scope,
+                onSignedIn = model::didEnterPin, softLogoutUserId = pinFor)
+        }
+        RecoveryFlowScreen(recovery, onClose = model::dismissPin)
+        return
+    }
     val session = sessions.firstOrNull { it.userId == userId }
     if (phase == AccountStartModel.Phase.READY && session != null) {
         val signedUp = outcome
@@ -70,7 +92,8 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
             SignupDoneScreen(session, signedUp, onContinue = model::finishSignup)
         } else {
             // One screen per account: a switch builds the tabs again for the new account.
-            key(session.userId) {
+            // A quiet sign-in after soft-logout replaces the session: build the tabs again too.
+            key(session) {
                 HomeScreen(session, tabs, model.api, model.initialRoomId, foregroundCount, onSignOut = model::signOut)
             }
         }

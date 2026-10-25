@@ -6,6 +6,7 @@ package chat.bipe.app.recovery
 
 import android.content.Context
 import android.net.Uri
+import chat.bipe.app.BuildConfig
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.SessionStore
 import chat.bipe.shared.R
@@ -55,6 +56,8 @@ class RecoveryFlowModel(
     private val sessionStore: SessionStore,
     private val scope: CoroutineScope,
     private val onSignedIn: (AccountSession) -> Unit,
+    /** Spec soft-logout needsPin: the account whose token the server refused. */
+    val softLogoutUserId: String? = null,
 ) {
     enum class Route { START, PIN, EMAIL, BETA, WAITING, OLD_PHONE }
 
@@ -164,10 +167,14 @@ class RecoveryFlowModel(
         val signedIn = sessionStore.loadAll().keys
         token = recoveryTokens.candidate(signedIn)?.let { it.userId to it.token }
         _hasSyncedToken.value = token != null
-        // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate.
+        // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate. The beta sign-in
+        // shows only in developer builds (spec soft-logout notes).
         _rows.value = BipeOnboardingRecoveryRow.entries.filter { row ->
-            (row.gate == null || row == BipeOnboardingRecoveryRow.OLD_PHONE) && (!row.needsSyncedToken || token != null)
+            (row.gate == null || row == BipeOnboardingRecoveryRow.OLD_PHONE || (row.gate == "flag:developer" && BuildConfig.DEBUG)) &&
+                (!row.needsSyncedToken || token != null)
         }
+        // Spec soft-logout enterPin: straight to recovery-pin when the account's synced token is here.
+        if (softLogoutUserId != null && token?.first == softLogoutUserId && _route.value == Route.START) openPin(Factor.TOKEN)
     }
 
     /** Actions chooseToken, chooseOldPhone, chooseEmail and chooseBeta. */

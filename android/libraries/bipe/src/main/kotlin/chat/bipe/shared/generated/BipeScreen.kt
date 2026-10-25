@@ -274,6 +274,9 @@ enum class BipeScreen(val id: String) {
     /** Waitlist (flow signup). Spec: bipe-shared/product/screens/signup-waitlist.json */
     SIGNUP_WAITLIST("signup-waitlist"),
 
+    /** Session expired (flow launch). Spec: bipe-shared/product/screens/soft-logout.json */
+    SOFT_LOGOUT("soft-logout"),
+
     /** Make a sticker from a photo (flow chat). Spec: bipe-shared/product/screens/sticker-from-photo.json */
     STICKER_FROM_PHOTO("sticker-from-photo"),
 

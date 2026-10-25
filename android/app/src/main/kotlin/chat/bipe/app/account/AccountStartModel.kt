@@ -90,6 +90,22 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     private val _recoveryLink = MutableStateFlow<android.net.Uri?>(null)
     val recoveryLink: StateFlow<android.net.Uri?> = _recoveryLink.asStateFlow()
 
+    /**
+     * Spec soft-logout needsPin: the account whose token the server refused and that the hidden password cannot bring
+     * back. The app shows recovery-pin for it.
+     */
+    private val _needsPin = MutableStateFlow<String?>(null)
+    val needsPin: StateFlow<String?> = _needsPin.asStateFlow()
+
+    /** Spec soft-logout removed: shown once. */
+    private val _notice = MutableStateFlow<String?>(null)
+    val notice: StateFlow<String?> = _notice.asStateFlow()
+    fun noticeShown() { _notice.value = null }
+
+    private val signingInAgain = mutableSetOf<String>()
+    /** Accounts whose quiet sign-in failed for a reason other than a refused password. */
+    private val pendingAuthErrors = mutableSetOf<String>()
+
     fun showRecovery(show: Boolean) {
         _showsRecovery.value = show
     }
@@ -183,7 +199,87 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     fun resume() {
         _foregroundCount.value += 1
         (context.applicationContext as BipeApplication).push.appBecameActive()
-        _sessions.value.forEach { session -> scope.launch { session.syncService.start() } }
+        _sessions.value.forEach { session ->
+            scope.launch {
+                if (pendingAuthErrors.remove(session.userId)) authError(session, isSoftLogout = true) else session.syncService.start()
+            }
+        }
+    }
+
+    // soft-logout
+
+    private fun watchAuthErrors(session: AccountSession) {
+        session.onAuthError = { isSoftLogout -> scope.launch { authError(session, isSoftLogout) } }
+    }
+
+    /** Action authError of spec soft-logout. Runs on the model's scope (main thread). */
+    private suspend fun authError(session: AccountSession, isSoftLogout: Boolean) {
+        if (_sessions.value.none { it === session } || session.userId in signingInAgain) return
+        val name = accountList.name(session.userId) ?: context.getString(chat.bipe.shared.R.string.bipe_tab_you)
+        if (!isSoftLogout) {
+            // Another device signed this phone out: never sign in again by itself (spec soft-logout notes).
+            Log.i(AccountStep.TAG, "soft-logout: device signed out on the server")
+            removeAccount(session, alreadyLoggedOut = true)
+            _notice.value = context.getString(chat.bipe.shared.R.string.bipe_soft_logout_removed, name)
+            return
+        }
+        signingInAgain += session.userId
+        try {
+            val password = vault.read().accounts[session.userId]?.password
+            if (password == null) {
+                askForPin(session)
+                return
+            }
+            Log.i(AccountStep.TAG, "soft-logout: signing in again")
+            session.pause()
+            try {
+                replace(session, AccountSession.signInAgain(context, session, password, sessionStore))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (AccountSession.isRefused(e)) {
+                    askForPin(session)
+                } else {
+                    // Offline or a local failure: keep everything and try again on the next foreground.
+                    Log.w(AccountStep.TAG, "soft-logout: sign-in failed, kept for later")
+                    pendingAuthErrors += session.userId
+                    session.syncService.start()
+                }
+            }
+        } finally {
+            signingInAgain -= session.userId
+        }
+    }
+
+    /** Spec soft-logout needsPin. Only the refused saved session goes, so recovery-start offers the synced token. */
+    private suspend fun askForPin(session: AccountSession) {
+        Log.i(AccountStep.TAG, "soft-logout: PIN needed")
+        session.pause()
+        sessionStore.delete(session.userId)
+        _needsPin.value = session.userId
+    }
+
+    /** Action later of spec soft-logout: the next foreground or start asks again. */
+    fun dismissPin() {
+        _needsPin.value?.let { pendingAuthErrors += it }
+        _needsPin.value = null
+    }
+
+    /** A good PIN brought the account back (recovery-pin submit from needsPin). */
+    fun didEnterPin(fresh: AccountSession) {
+        _needsPin.value = null
+        recoveryTokens.syncSoon()
+        val old = _sessions.value.firstOrNull { it.userId == fresh.userId }
+        if (old != null) replace(old, fresh) else didRecover(fresh)
+    }
+
+    private fun replace(old: AccountSession, fresh: AccountSession) {
+        if (_sessions.value.none { it === old }) return
+        val app = context.applicationContext as BipeApplication
+        app.notifications.detach(old.userId)
+        watchAuthErrors(fresh)
+        _sessions.value = _sessions.value.map { if (it === old) fresh else it }
+        if (_userId.value == fresh.userId) app.push.attach(fresh)
     }
 
     /** app-tabs switchAccount: makes that account current and saves the choice for the next start. */
@@ -295,6 +391,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     private fun add(session: AccountSession) {
         if (_sessions.value.any { it.userId == session.userId }) return
         val order = accountList.order
+        watchAuthErrors(session)
         _sessions.value = (_sessions.value + session).sortedBy { order.indexOf(it.userId).let { i -> if (i < 0) Int.MAX_VALUE else i } }
     }
 
