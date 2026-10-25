@@ -1764,6 +1764,14 @@ public enum BipeStrings {
 
     public static var accountNewCompanyBody: String { NSLocalizedString("bipe_account_new_company_body", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func accountCompanyOwner(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_account_company_owner", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func accountNewCompanyOwner(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_account_new_company_owner", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var accountNewExisting: String { NSLocalizedString("bipe_account_new_existing", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var accountNewExistingBody: String { NSLocalizedString("bipe_account_new_existing_body", tableName: "Bipe", bundle: .module, comment: "") }
