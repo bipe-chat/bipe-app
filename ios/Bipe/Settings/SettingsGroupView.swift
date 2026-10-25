@@ -197,6 +197,12 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title, value: linkedSummary)
             }
+        case .accountTheftProtection:
+            NavigationLink {
+                TheftProtectionView(settings: model)
+            } label: {
+                SettingsRowLabel(title: row.title)
+            }
         case .helpReportProblem:
             NavigationLink {
                 ProblemReportView(model: model)

@@ -347,6 +347,8 @@ private fun MessageBubbleRow(
             }
         }
         MessageContextMenu(model, row.id, menu, onDismiss = { menu = false })
+        val theftMark by model.theftMark.collectAsState()
+        if (model.showsTheftMarker(message, theftMark)) TheftMessageMarker()
         if (details.reactions.isNotEmpty()) {
             ReactionPills(
                 reactions = details.reactions,

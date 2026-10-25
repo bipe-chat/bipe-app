@@ -166,6 +166,7 @@ fun ChatTimelineScreen(
     val reachedStart by model.reachedStart.collectAsState()
     val isDm by model.isDm.collectAsState()
     val peerAway by model.peerAway.collectAsState()
+    val theftMark by model.theftMark.collectAsState()
     val invitingAgain by model.invitingAgain.collectAsState()
     val draft by model.draft.collectAsState()
     val ui by model.ui.collectAsState()
@@ -344,6 +345,7 @@ fun ChatTimelineScreen(
                 if (isDm && people != null && noticePeer != null && noticePeer != session.userId) {
                     ProfileNoticeBar(people, noticePeer, roomName)
                 }
+                if (isDm && theftMark != null) TheftMarkBanner(roomName)
                 val composerBar: @Composable () -> Unit = {
                     // The other person left the DM: the bar stays above the composer, which stays on (ADR 0141).
                     if (peerAway != PeerAway.NONE) {

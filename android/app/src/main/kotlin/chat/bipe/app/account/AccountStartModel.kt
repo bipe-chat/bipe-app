@@ -435,6 +435,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         if (_sessions.value.any { it.userId == session.userId }) return
         val order = accountList.order
         watchAuthErrors(session)
+        scope.launch { PhoneReport.report(context, session, api) }
         _sessions.value = (_sessions.value + session).sortedBy { order.indexOf(it.userId).let { i -> if (i < 0) Int.MAX_VALUE else i } }
     }
 

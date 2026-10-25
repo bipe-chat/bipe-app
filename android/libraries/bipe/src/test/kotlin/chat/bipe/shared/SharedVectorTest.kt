@@ -240,6 +240,26 @@ class SharedVectorTest {
     }
 
     @Test
+    fun theftMarks() {
+        val file = load("theft-marks.json")
+        val nowMillis = file.getValue("now").jsonPrimitive.long * 1000
+        val keys = file.getValue("publicKeys").jsonObject.mapValues { (_, key) -> Base64Url.decode(key.jsonPrimitive.content)!! }
+        val verifier = BipeTheftMarkVerifier(keys)
+        val cases = file.getValue("vectors").jsonArray.map { it.jsonObject }
+        assertWithMessage("theft mark vectors").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            val expected = vector.getValue("expected").jsonObject
+            when (val result = verifier.verify(vector.getValue("envelope").toString(), vector.string("subject")!!, nowMillis)) {
+                is BipeTheftMarkResult.Valid -> assertWithMessage("theft mark $name").that(result.statement.stolenAt)
+                    .isEqualTo(expected["stolenAt"]?.jsonPrimitive?.longOrNull)
+                is BipeTheftMarkResult.Invalid -> assertWithMessage("theft mark $name").that(result.failure.code)
+                    .isEqualTo(expected.string("error"))
+            }
+        }
+    }
+
+    @Test
     fun clearedChats() {
         val file = load("cleared-chats.json")
         assertWithMessage("cleared-chats event type").that(file.string("event_type")).isEqualTo(BipeRegistries.CLEARED_CHATS_EVENT_TYPE)
