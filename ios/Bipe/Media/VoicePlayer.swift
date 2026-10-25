@@ -150,8 +150,8 @@ final class VoicePlayer: NSObject, ObservableObject {
         }
     }
 
-    /// The downloaded file, decoded to PCM first when it is Ogg Opus.
-    private func playableFile(_ voice: VoiceMessage, loader: MediaLoader) async throws -> URL {
+    /// The downloaded file, decoded to PCM first when it is Ogg Opus. The listener transcript reads it too (bipe#500).
+    func playableFile(_ voice: VoiceMessage, loader: MediaLoader) async throws -> URL {
         let file = try await loader.file(voice.source, filename: voice.filename, mimeType: voice.mimeType)
         guard OggOpusDecoder.isOgg(file) else { return file }
         let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]

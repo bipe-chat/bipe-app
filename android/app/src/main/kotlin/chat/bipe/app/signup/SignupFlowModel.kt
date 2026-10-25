@@ -203,6 +203,14 @@ class SignupFlowModel(
             termsVersion = config?.termsVersion
             updateVariant()
         }
+        // bipeinstallreferrer (ADR 0154): after a Play install from bipe.chat/convite/<code>, the code comes on its own.
+        // A link the app was opened with, or a paste, wins.
+        if (start == null && invite.value == null) {
+            scope.launch {
+                val found = InstallReferrerInvite(context).code() ?: return@launch
+                if (invite.value == null) preview(found)
+            }
+        }
     }
 
     /** Action openInviteLink: a bipe.chat/convite/<code> link the app was opened with. */

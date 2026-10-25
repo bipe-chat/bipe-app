@@ -4,6 +4,10 @@
 
 package chat.bipe.app.media
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -35,6 +40,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -48,11 +54,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
+import chat.bipe.app.media.voice.ListenerTranscripts
 import chat.bipe.app.timeline.TimelineMessage
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
+import androidx.core.content.ContextCompat
 
 /** Over this many characters the transcript folds to 3 lines (same rule as the forks). */
 private const val FOLD_LENGTH = 140
@@ -69,6 +78,8 @@ fun VoiceMessageRow(
     state: VoicePlayer.State,
     onTogglePlay: () -> Unit,
     onSeek: (Float) -> Unit,
+    /** The media loader, for the listener transcript (bipe#500). null: no Transcrever button. */
+    loader: MediaLoader? = null,
 ) {
     val colors = BipeTheme.colors
     val playback = state.playback(message.id)
@@ -122,35 +133,93 @@ fun VoiceMessageRow(
         if (playback == VoicePlayer.Playback.FAILED) {
             Text(stringResource(R.string.bipe_app_media_failed), style = MaterialTheme.typography.labelSmall, color = colors.trustDangerInk)
         }
-        voice.transcript?.let { transcript ->
-            // The transcript block of ADR 0023: the title, then the text in 3 lines; show more or less over 140 characters.
-            val folds = transcript.length > FOLD_LENGTH
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    stringResource(R.string.bipe_voice_transcript_title),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = colors.inkSecondary,
-                )
-                Text(
-                    transcript,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkPrimary,
-                    maxLines = if (folds && !transcriptExpanded) 3 else Int.MAX_VALUE,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (folds) {
-                    // Action toggleTranscript.
-                    Text(
-                        stringResource(if (transcriptExpanded) R.string.bipe_action_show_less else R.string.bipe_action_show_more),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.accentInk,
-                        modifier = Modifier.bipeTapTarget().clickable(role = Role.Button) { transcriptExpanded = !transcriptExpanded },
-                    )
-                }
+        val sender = voice.transcript
+        if (sender == null && voice.isVoice && !message.isOwn && loader != null) {
+            ListenerTranscript(message.id, voice, loader) { text ->
+                TranscriptBlock(text, transcriptExpanded) { transcriptExpanded = !transcriptExpanded }
             }
         }
+        sender?.let { transcript ->
+            TranscriptBlock(transcript, transcriptExpanded) { transcriptExpanded = !transcriptExpanded }
+        }
+    }
+}
+
+/** The transcript block of ADR 0023: the title, then the text in 3 lines; show more or less over 140 characters. */
+@Composable
+private fun TranscriptBlock(transcript: String, transcriptExpanded: Boolean, onToggle: () -> Unit) {
+    val colors = BipeTheme.colors
+    val folds = transcript.length > FOLD_LENGTH
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            stringResource(R.string.bipe_voice_transcript_title),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = colors.inkSecondary,
+        )
+        Text(
+            transcript,
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.inkPrimary,
+            maxLines = if (folds && !transcriptExpanded) 3 else Int.MAX_VALUE,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (folds) {
+            // Action toggleTranscript.
+            Text(
+                stringResource(if (transcriptExpanded) R.string.bipe_action_show_less else R.string.bipe_action_show_more),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.accentInk,
+                modifier = Modifier.bipeTapTarget().clickable(role = Role.Button, onClick = onToggle),
+            )
+        }
+    }
+}
+
+/** Spec voice-message, action transcribe and state localTranscript (bipe#500): on a tap, on this phone only. */
+@Composable
+private fun ListenerTranscript(id: String, voice: VoiceMessage, loader: MediaLoader, block: @Composable (String) -> Unit) {
+    val colors = BipeTheme.colors
+    val context = LocalContext.current
+    val states by ListenerTranscripts.states.collectAsState()
+    val start = { ListenerTranscripts.transcribe(context, id) { loader.file(context, voice.source, voice.filename, voice.mimeType) } }
+    // The on-device recogniser needs the microphone permission, even for a file.
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) start() else ListenerTranscripts.denied(id)
+    }
+    val caption = MaterialTheme.typography.labelSmall
+    when (val state = states[id] ?: ListenerTranscripts.State.None) {
+        ListenerTranscripts.State.None, ListenerTranscripts.State.Failed -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (state == ListenerTranscripts.State.Failed) {
+                Text(stringResource(R.string.bipe_voice_transcribe_failed), style = caption, color = colors.trustDangerInk)
+            }
+            Text(
+                stringResource(R.string.bipe_voice_transcribe),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.accentInk,
+                modifier = Modifier.bipeTapTarget().clickable(role = Role.Button) {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        start()
+                    } else {
+                        permission.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                },
+            )
+        }
+        ListenerTranscripts.State.Working -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            CircularProgressIndicator(color = colors.accentFill, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+            Text(stringResource(R.string.bipe_voice_transcribing), style = caption, color = colors.inkSecondary)
+        }
+        is ListenerTranscripts.State.Ready -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            block(state.text)
+            Text(stringResource(R.string.bipe_voice_transcribed_here), style = caption, color = colors.inkSecondary)
+        }
+        ListenerTranscripts.State.Unavailable ->
+            Text(stringResource(R.string.bipe_voice_transcribe_unavailable), style = caption, color = colors.inkSecondary)
+        ListenerTranscripts.State.Denied ->
+            Text(stringResource(R.string.bipe_voice_transcribe_denied), style = caption, color = colors.inkSecondary)
     }
 }
 
