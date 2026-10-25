@@ -135,7 +135,9 @@ final class AppTabsModel: ObservableObject {
     private func sessionsChanged(_ sessions: [AccountSession], current: String?) {
         sessionIds = sessions.map(\.userId)
         currentId = current
-        for userId in chatLists.keys where !sessionIds.contains(userId) {
+        // A session replaced after soft-logout (same account, new client) gets new models too.
+        let byId = Dictionary(uniqueKeysWithValues: sessions.map { ($0.userId, $0) })
+        for userId in chatLists.keys where byId[userId] == nil || chatLists[userId]?.session !== byId[userId] {
             chatLists[userId] = nil
             listCancellables[userId] = nil
             latestChats[userId] = nil

@@ -35,6 +35,13 @@ enum AppConfig {
 
     /// The Sygnal app ID of this build: the bundle ID plus `.ios.dev` for the APNs sandbox (Xcode debug
     /// builds) or `.ios.prod` for production APNs (TestFlight and ad hoc), as bipe/docs/platform-parity.md.
+    /// Xcode debug builds. Developer-only paths (the beta sign-in of recovery-start) show only here.
+    #if DEBUG
+    static let isDeveloperBuild = true
+    #else
+    static let isDeveloperBuild = false
+    #endif
+
     #if DEBUG
     static let pusherAppId = appID + ".ios.dev"
     #else

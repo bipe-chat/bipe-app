@@ -42,6 +42,13 @@ final class AccountStartModel: ObservableObject {
         didSet { PixHandoff.accountAvailable = !sessions.isEmpty }
     }
 
+    /// Spec soft-logout needsPin: the account whose token the server refused and that the hidden password cannot
+    /// bring back. The app shows recovery-pin for it.
+    @Published var needsPin: String?
+    /// Spec soft-logout removed: shown once.
+    @Published var notice: String?
+    private var signingInAgain: Set<String> = []
+
     /// The current account.
     var session: AccountSession? {
         sessions.first { $0.userId == userId }
@@ -133,7 +140,11 @@ final class AccountStartModel: ObservableObject {
     /// Starts the sync again when the app comes back to the foreground.
     func resume() async {
         for session in sessions {
-            await session.syncService.start()
+            if pendingAuthErrors.remove(session.userId) != nil {
+                await authError(session, isSoftLogout: true)
+            } else {
+                await session.syncService.start()
+            }
         }
         await PushRegistration.shared.appBecameActive()
     }
@@ -212,9 +223,91 @@ final class AccountStartModel: ObservableObject {
     private func add(_ session: AccountSession) {
         guard !sessions.contains(where: { $0.userId == session.userId }) else { return }
         let order = AccountList.order
+        watchAuthErrors(session)
         NotificationActions.shared.attach(session)
         sessions.append(session)
         sessions.sort { (order.firstIndex(of: $0.userId) ?? .max) < (order.firstIndex(of: $1.userId) ?? .max) }
+    }
+
+    // MARK: - soft-logout
+
+    private func watchAuthErrors(_ session: AccountSession) {
+        session.onAuthError = { [weak self, weak session] isSoftLogout in
+            guard let self, let session else { return }
+            Task { await self.authError(session, isSoftLogout: isSoftLogout) }
+        }
+    }
+
+    /// Action authError of spec soft-logout.
+    func authError(_ session: AccountSession, isSoftLogout: Bool) async {
+        guard sessions.contains(where: { $0 === session }), !signingInAgain.contains(session.userId) else { return }
+        let name = Self.name(of: session.userId)
+        guard isSoftLogout else {
+            // Another device signed this phone out: never sign in again by itself (spec soft-logout notes).
+            AccountStep.log.notice("soft-logout: device signed out on the server")
+            await signOut(userId: session.userId, alreadyLoggedOut: true)
+            notice = BipeStrings.softLogoutRemoved(name)
+            return
+        }
+        signingInAgain.insert(session.userId)
+        defer { signingInAgain.remove(session.userId) }
+        guard let password = DeviceCredential.all().first(where: { $0.userId == session.userId })?.password else {
+            await askForPin(session)
+            return
+        }
+        AccountStep.log.notice("soft-logout: signing in again")
+        await session.pause()
+        do {
+            let fresh = try await AccountSession.signInAgain(after: session, password: password)
+            replace(session, with: fresh)
+        } catch {
+            if AccountSession.isRefused(error) {
+                await askForPin(session)
+            } else {
+                // Offline or a local failure: keep everything and try again on the next foreground.
+                AccountStep.log.error("soft-logout: sign-in failed, kept for later")
+                pendingAuthErrors.insert(session.userId)
+                await session.syncService.start()
+            }
+        }
+    }
+
+    /// Accounts whose quiet sign-in failed for a reason other than a refused password.
+    private var pendingAuthErrors: Set<String> = []
+
+    /// Spec soft-logout needsPin. Only the refused saved session goes, so recovery-start offers the synced token.
+    private func askForPin(_ session: AccountSession) async {
+        AccountStep.log.notice("soft-logout: PIN needed")
+        await session.pause()
+        SessionStore.delete(userId: session.userId)
+        needsPin = session.userId
+    }
+
+    /// A good PIN brought the account back (recovery-pin submit from needsPin).
+    func didEnterPin(_ fresh: AccountSession) {
+        needsPin = nil
+        if let old = sessions.first(where: { $0.userId == fresh.userId }) {
+            replace(old, with: fresh)
+        } else {
+            didRecover(fresh)
+        }
+    }
+
+    private func replace(_ old: AccountSession, with fresh: AccountSession) {
+        guard let index = sessions.firstIndex(where: { $0 === old }) else { return }
+        NotificationActions.shared.detach(userId: old.userId)
+        watchAuthErrors(fresh)
+        NotificationActions.shared.attach(fresh)
+        sessions[index] = fresh
+        if attachedUserId == fresh.userId {
+            attachedUserId = nil
+            attachServices(fresh)
+        }
+    }
+
+    private static func name(of userId: String) -> String {
+        let label = BipeAccountLabels.label(for: userId)
+        return label == userId ? BipeStrings.tabYou : label
     }
 
     /// Restores the account's saved session; when there is none, or it no longer works, signs in with the device

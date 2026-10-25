@@ -150,7 +150,9 @@ class AppTabsModel(
     private fun sessionsChanged(sessions: List<AccountSession>, userId: String?) {
         sessionIds = sessions.map { it.userId }
         currentId = userId
-        (chatLists.keys - sessionIds.toSet()).forEach { gone ->
+        // A session replaced after soft-logout (same account, new client) gets new models too.
+        val byId = sessions.associateBy { it.userId }
+        chatLists.filter { (id, list) -> byId[id] !== list.session }.keys.forEach { gone ->
             chatLists.remove(gone)?.close()
             listJobs.remove(gone)?.cancel()
             latestChats.remove(gone)

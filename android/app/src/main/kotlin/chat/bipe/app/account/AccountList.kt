@@ -71,8 +71,11 @@ class AccountList(context: Context) {
     /** The owner's name: only while the owner is on this phone and its name is known. */
     fun ownerName(companyId: String): String? {
         val owner = owner(companyId)?.takeIf { it in order } ?: return null
-        return prefs.getString(NAME + owner, null)
+        return name(owner)
     }
+
+    /** The name the account showed last, else `null`; never the Matrix ID. */
+    fun name(userId: String): String? = prefs.getString(NAME + userId, null)
 
     private companion object {
         const val ORDER = "order"
