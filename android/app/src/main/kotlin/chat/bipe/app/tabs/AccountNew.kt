@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.account.AccountList
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.people.PeopleScaffold
 import chat.bipe.app.recovery.RecoveryFlowModel
@@ -146,6 +147,8 @@ fun AccountNewScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiCl
     if (start != null) {
         val flow = remember(start) {
             SignupFlowModel(context, api, tabs.start.vault, tabs.start.sessionStore, scope, onSignedUp = { created, outcome ->
+                // The account on screen owns the new company account, on this phone only (bipe-chat/bipe#444).
+                if (start.isCompany) AccountList(context).setOwner(session.userId, created.userId)
                 onClose()
                 tabs.start.didSignUp(created, outcome)
             }, start = start)
@@ -183,11 +186,12 @@ fun AccountNewScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiCl
         ) {
             scope.launch { model.choose(isCompany = false)?.let { signup = it } }
         }
-        if (current?.isCompany == false) {
+        if (current != null && !current.isCompany) {
             ChoiceRow(
                 PhosphorIcon.HANDSHAKE,
                 stringResource(R.string.bipe_account_new_company),
-                stringResource(R.string.bipe_account_new_company_body),
+                stringResource(R.string.bipe_account_new_company_body) + " " +
+                    stringResource(R.string.bipe_account_new_company_owner, current.displayName),
                 enabled = invitesLeft && !state.busy,
             ) {
                 scope.launch { model.choose(isCompany = true)?.let { signup = it } }

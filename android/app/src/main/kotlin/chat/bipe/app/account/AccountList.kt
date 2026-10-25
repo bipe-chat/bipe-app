@@ -51,10 +51,33 @@ class AccountList(context: Context) {
     fun remove(userId: String) {
         order = order - userId
         if (current == userId) current = null
+        prefs.edit().remove(OWNER + userId).apply()
+    }
+
+    // Company owners (bipe-chat/bipe#444)
+
+    /** The personal account that made this company account on this phone. A phone-side grouping only (ADR 0138). */
+    fun owner(companyId: String): String? = prefs.getString(OWNER + companyId, null)
+
+    fun setOwner(ownerId: String, companyId: String) {
+        prefs.edit().putString(OWNER + companyId, ownerId).apply()
+    }
+
+    /** The name each account showed last, so the company's Sua conta can name its owner. */
+    fun rememberName(userId: String, name: String) {
+        if (name.isNotBlank()) prefs.edit().putString(NAME + userId, name).apply()
+    }
+
+    /** The owner's name: only while the owner is on this phone and its name is known. */
+    fun ownerName(companyId: String): String? {
+        val owner = owner(companyId)?.takeIf { it in order } ?: return null
+        return prefs.getString(NAME + owner, null)
     }
 
     private companion object {
         const val ORDER = "order"
         const val CURRENT = "current"
+        const val OWNER = "owner_"
+        const val NAME = "name_"
     }
 }

@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.notifications.NotificationSettingsScreen
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.encryption.RecoveryKeySaveScreen
+import chat.bipe.app.account.AccountList
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.PeopleRoute
@@ -327,6 +328,14 @@ fun SettingsGroupScreen(
     }
 
     SettingsPage(stringResource(group.title), BipeScreen.SETTINGS_GROUP.id, onBack) {
+        // The company account's owner on this phone (spec settings-group notes, bipe-chat/bipe#444).
+        val owner = if (group == BipeSettingsGroup.ACCOUNT) AccountList(context).ownerName(model.session.userId) else null
+        if (owner != null) {
+            item(key = "company-owner") {
+                Text(stringResource(R.string.bipe_account_company_owner, owner), color = BipeTheme.colors.inkSecondary,
+                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+        }
         val warning = state.waysBack?.warning
         if (group == BipeSettingsGroup.ACCOUNT && warning != null) {
             item(key = "ways-back-warning") { StatusCard(stringResource(warning)) }

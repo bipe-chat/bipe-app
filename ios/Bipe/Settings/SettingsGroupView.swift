@@ -34,6 +34,15 @@ struct SettingsGroupView: View {
 
     var body: some View {
         List {
+            // The company account's owner on this phone (spec settings-group notes, bipe-chat/bipe#444).
+            if group == .account, let owner = AccountList.ownerName(of: model.session.userId) {
+                Section {
+                    Text(BipeStrings.accountCompanyOwner(owner))
+                        .font(.subheadline)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                        .listRowBackground(BipeColor.surfaceRaised)
+                }
+            }
             if group == .account, let warning = model.waysBack?.warning {
                 Section {
                     Text(warning)
