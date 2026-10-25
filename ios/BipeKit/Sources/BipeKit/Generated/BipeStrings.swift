@@ -20,6 +20,30 @@ public enum BipeStrings {
 
     public static var badgeSuspended: String { NSLocalizedString("bipe_badge_suspended", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func profileFactCreated(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_created", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func profileFactPhotoOnce(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_photo_once", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func profileFactPhotoTimes(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_photo_times", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func profileFactNameOnce(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_name_once", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func profileFactNameTimes(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_name_times", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func profileNoticeNamePhoto(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_notice_name_photo", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var bannerUnverifiedTitle: String { NSLocalizedString("bipe_banner_unverified_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func bannerUnverifiedBody(_ p1: String) -> String {
@@ -110,6 +134,70 @@ public enum BipeStrings {
 
     public static func brandMarkEnded(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_brand_mark_ended", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var brandMarksTitle: String { NSLocalizedString("bipe_brand_marks_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksHeldHeader: String { NSLocalizedString("bipe_brand_marks_held_header", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksHeldEmpty: String { NSLocalizedString("bipe_brand_marks_held_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksHeldFooter: String { NSLocalizedString("bipe_brand_marks_held_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksRemove: String { NSLocalizedString("bipe_brand_marks_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func brandMarksRemoveConfirm(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_marks_remove_confirm", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var brandMarksCodeField: String { NSLocalizedString("bipe_brand_marks_code_field", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksCheck: String { NSLocalizedString("bipe_brand_marks_check", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksCodeInvalid: String { NSLocalizedString("bipe_brand_marks_code_invalid", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func brandMarksOfferTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_marks_offer_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var brandMarksBrandSees: String { NSLocalizedString("bipe_brand_marks_brand_sees", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksBrandNotSees: String { NSLocalizedString("bipe_brand_marks_brand_not_sees", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksAccept: String { NSLocalizedString("bipe_brand_marks_accept", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksRefuse: String { NSLocalizedString("bipe_brand_marks_refuse", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksLimit: String { NSLocalizedString("bipe_brand_marks_limit", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksAlreadyHeld: String { NSLocalizedString("bipe_brand_marks_already_held", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksOwnBrand: String { NSLocalizedString("bipe_brand_marks_own_brand", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksFailed: String { NSLocalizedString("bipe_brand_marks_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksGrantHeader: String { NSLocalizedString("bipe_brand_marks_grant_header", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksGrantFooter: String { NSLocalizedString("bipe_brand_marks_grant_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksNotVerified: String { NSLocalizedString("bipe_brand_marks_not_verified", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksMakeCode: String { NSLocalizedString("bipe_brand_marks_make_code", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func brandMarksCodeReady(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_marks_code_ready", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var brandMarksOpenCodes: String { NSLocalizedString("bipe_brand_marks_open_codes", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksCancelCode: String { NSLocalizedString("bipe_brand_marks_cancel_code", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksGrantedHeader: String { NSLocalizedString("bipe_brand_marks_granted_header", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarksEnd: String { NSLocalizedString("bipe_brand_marks_end", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func brandMarksEndConfirm(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_marks_end_confirm", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
     public static func cvmCancelled(_ p1: String) -> String {
