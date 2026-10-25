@@ -171,7 +171,8 @@ struct ProblemReportView: View {
                     BipeProblemReport.File(name: "screenshot-\(index + 1).jpg", contentType: "image/jpeg", data: $0)
                 }
             },
-            logs: includeLogs ? AppLogs.compressedFiles() : [])
+            // Spec problem-report notes: legacy-data.json (structure only) when the earlier app's data is here.
+            logs: includeLogs ? Array(AppLogs.compressedFiles().prefix(19)) + [LegacyData.reportFile()].compactMap { $0 } : [])
         let api = model.api
         do {
             try await model.authorized { (token: String) async throws(BipeAPIError) in
