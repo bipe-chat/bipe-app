@@ -145,10 +145,10 @@ enum class BipeScreen(val id: String) {
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
-    /** Create an invite with a first message (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
+    /** Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
     INVITE_NOTE("invite-note"),
 
-    /** Invite as a QR code (flow invites). Spec: bipe-shared/product/screens/invite-qr.json */
+    /** Invite card (flow invites). Spec: bipe-shared/product/screens/invite-qr.json */
     INVITE_QR("invite-qr"),
 
     /** Invite opened on a signed-in phone (flow home). Spec: bipe-shared/product/screens/invite-signed-in.json */

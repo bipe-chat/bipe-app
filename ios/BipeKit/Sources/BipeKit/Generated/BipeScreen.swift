@@ -139,10 +139,10 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
-    /// Create an invite with a first message (flow invites). Spec: bipe-shared/product/screens/invite-note.json
+    /// Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json
     case inviteNote = "invite-note"
 
-    /// Invite as a QR code (flow invites). Spec: bipe-shared/product/screens/invite-qr.json
+    /// Invite card (flow invites). Spec: bipe-shared/product/screens/invite-qr.json
     case inviteQr = "invite-qr"
 
     /// Invite opened on a signed-in phone (flow home). Spec: bipe-shared/product/screens/invite-signed-in.json
