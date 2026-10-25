@@ -82,7 +82,7 @@ public nonisolated struct BadgeVerifier: Sendable {
         }
         switch payload.binding {
         case .masterKey(let msk):
-            // A company badge binds to the account, so any of its devices may send. No known master key fails closed.
+            // A company or institution badge binds to the account, so any of its devices may send. No known master key fails closed.
             guard let senderMasterKey, msk == senderMasterKey else {
                 return .invalid(.masterKeyMismatch)
             }
@@ -130,9 +130,9 @@ public nonisolated enum BadgeCNPJMethod: String, Sendable, Codable {
 
 /// What a badge is bound to (badge-attestation.md, step 7).
 public nonisolated enum BadgeBinding: Sendable, Equatable {
-    /// Fingerprint of the device key (`dev`): `pix`, `govbr` and `institution`.
+    /// Fingerprint of the device key (`dev`): `pix` and `govbr`.
     case device(String)
-    /// The account's cross-signing master key (`msk`): `cnpj`.
+    /// The account's cross-signing master key (`msk`): `cnpj` and `institution`.
     case masterKey(String)
 }
 
@@ -155,6 +155,8 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
     public let cnpj: String?
     /// Present only for `cnpj`.
     public let company: BadgeCompany?
+    /// `institution` only: the verified link domains (ADR 0036), lower case. Empty: no clickable link.
+    public let domains: [String]
     public let binding: BadgeBinding
     /// `cnpj` only, optional: the CVM register line (ADR 0077). Read leniently: a bad value is no line, never a bad badge.
     public let cvm: BipeCvmField?
@@ -170,6 +172,7 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
         case method
         case checkedMonth = "checked_month"
         case cvm
+        case domains
     }
     
     public init(from decoder: Decoder) throws {
@@ -195,11 +198,20 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
                                        method: container.decode(BadgeCNPJMethod.self, forKey: .method),
                                        checkedMonth: checkedMonth)
             binding = .masterKey(msk)
-        case .pix, .govbr, .institution:
-            if lvl == .institution, cnpj == nil {
-                throw DecodingError.keyNotFound(CodingKeys.cnpj, .init(codingPath: [], debugDescription: "institution badge without cnpj"))
+            domains = []
+        case .institution:
+            let msk = try container.decode(String.self, forKey: .msk)
+            let domains = try container.decodeIfPresent([String].self, forKey: .domains) ?? []
+            guard let cnpj, cnpj.wholeMatch(of: /[0-9A-Z]{12}[0-9]{2}/) != nil, !msk.isEmpty,
+                  domains.allSatisfy(BipeNoticeLinks.isDomain) else {
+                throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "malformed institution badge"))
             }
             company = nil
+            self.domains = domains
+            binding = .masterKey(msk)
+        case .pix, .govbr:
+            company = nil
+            domains = []
             binding = try .device(container.decode(String.self, forKey: .dev))
         }
     }

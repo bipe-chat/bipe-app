@@ -174,6 +174,16 @@ public enum BipeStrings {
 
     public static var claimWithdrawConfirm: String { NSLocalizedString("bipe_claim_withdraw_confirm", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var noticeLabel: String { NSLocalizedString("bipe_notice_label", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var noticeLevel: String { NSLocalizedString("bipe_notice_level", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var noticeSafety: String { NSLocalizedString("bipe_notice_safety", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func noticeA11y(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_notice_a11y", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var badgeOfficial: String { NSLocalizedString("bipe_badge_official", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var badgeOfficialA11y: String { NSLocalizedString("bipe_badge_official_a11y", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2309,6 +2319,18 @@ public enum BipeStrings {
     public static var notificationsPreview: String { NSLocalizedString("bipe_notifications_preview", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var notificationsPreviewFooter: String { NSLocalizedString("bipe_notifications_preview_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var focusFilterTitle: String { NSLocalizedString("bipe_focus_filter_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var focusFilterDescription: String { NSLocalizedString("bipe_focus_filter_description", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var focusFilterAccounts: String { NSLocalizedString("bipe_focus_filter_accounts", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var focusFilterAll: String { NSLocalizedString("bipe_focus_filter_all", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func notificationsAccountGroup(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_notifications_account_group", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 
     public static var workHoursTitle: String { NSLocalizedString("bipe_work_hours_title", tableName: "Bipe", bundle: .module, comment: "") }
 
