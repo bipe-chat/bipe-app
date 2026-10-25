@@ -23,9 +23,17 @@ struct TimelineRowView: View {
         switch row.kind {
         case .message:
             if let message = row.message, let details = row.details {
-                MessageBubbleRow(row: row, message: message, details: details, isDm: isDm,
-                                 isHighlighted: isHighlighted, model: model, media: media,
-                                 voicePlayer: voicePlayer, openViewer: openViewer)
+                if !message.isOwn, message.media == nil, message.voice == nil,
+                   let institution = seals?.institution(for: message.senderId) {
+                    NoticeCard(message: message, institution: institution)
+                        .contentShape(Rectangle())
+                        .contextMenu { MessageContextActions(model: model, rowId: row.id) }
+                        .accessibilityAction(named: BipeStrings.messageActions) { model.openActions(rowId: row.id) }
+                } else {
+                    MessageBubbleRow(row: row, message: message, details: details, isDm: isDm,
+                                     isHighlighted: isHighlighted, model: model, media: media,
+                                     voicePlayer: voicePlayer, openViewer: openViewer)
+                }
             }
         case .undecryptable:
             if let message = row.message {

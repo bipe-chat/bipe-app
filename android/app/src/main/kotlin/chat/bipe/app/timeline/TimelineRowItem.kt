@@ -76,6 +76,7 @@ import chat.bipe.app.media.VoicePlayer
 import chat.bipe.app.polls.PollCard
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BadgePayload
 import chat.bipe.shared.R
 import chat.bipe.shared.line
 import androidx.compose.ui.platform.LocalContext
@@ -113,12 +114,23 @@ fun TimelineRowItem(
     onOpenViewer: (String) -> Unit = {},
     /** The account's company seals, for the question card (spec question-card). null: no card, the poll card shows. */
     seals: BipeCompanySeals? = null,
+    /** The verified institution badge of the sender (bipe#245): a text message shows as a notice card. */
+    institution: BadgePayload? = null,
 ) {
     val colors = BipeTheme.colors
     when (row.kind) {
         TimelineRow.Kind.MESSAGE -> {
             val message = row.message ?: return
             val details = row.details ?: return
+            if (institution != null && !message.isOwn && message.media == null && message.voice == null) {
+                var menu by remember(model, row.id) { mutableStateOf(false) }
+                val menuLabel = stringResource(R.string.bipe_message_actions)
+                Column(Modifier.semantics { customActions = listOf(CustomAccessibilityAction(menuLabel) { menu = true; true }) }) {
+                    NoticeCard(message, institution, menuLabel, onLongPress = { menu = true })
+                    MessageContextMenu(model, row.id, menu, onDismiss = { menu = false })
+                }
+                return
+            }
             MessageBubbleRow(row, message, details, isDm, isHighlighted, model, media, onLongPress) {
                 val mediaMessage = message.media
                 val voice = message.voice
