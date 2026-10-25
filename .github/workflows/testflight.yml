@@ -76,6 +76,11 @@ jobs:
         # Report only (bipe-chat/bipe#585): MZ revokes the ones the old runs made.
         continue-on-error: true
         run: node tools/asc.mjs certificates
+      - name: Report the store IDs
+        # Read only (bipe-chat/bipe#602, #604): the fork's bundle IDs and capabilities, its "Bipe"
+        # record, last build number and versions, in the job summary. Never changes anything.
+        continue-on-error: true
+        run: node tools/asc.mjs store-ids
       - name: Import the distribution certificate
         env:
           DIST_CERT_P12: ${{ secrets.DIST_CERT_P12 }}

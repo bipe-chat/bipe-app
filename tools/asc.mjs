@@ -15,6 +15,10 @@
 //                                        export options (bipe-chat/bipe#585).
 //   node tools/asc.mjs certificates      Lists the team's development certificates. Never
 //                                        revokes one.
+//   node tools/asc.mjs store-ids         Read only (bipe-chat/bipe#602, #604): the bundle IDs
+//                                        of the fork's store app (chat.bipe.app and its
+//                                        extensions) with their capabilities, its App Store
+//                                        Connect record, its last build number and version.
 // Environment: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH (path of the .p8 key).
 // The script never prints the key or the token.
 
@@ -312,6 +316,62 @@ export async function certificates(call) {
   return dev;
 }
 
+// The fork's store app (ADR 0061). Its extension IDs must come from App Store Connect or MZ,
+// never from the fork's project files (clean room, bipe-chat/bipe#602).
+export const STORE_BUNDLE_ID = 'chat.bipe.app';
+
+// Read only: GET requests, nothing registered or changed. The report goes to the log and the job summary.
+export async function storeIds(call, { summary = process.env.GITHUB_STEP_SUMMARY } = {}) {
+  const list = await call('GET', `/v1/bundleIds?filter[identifier]=${STORE_BUNDLE_ID}&limit=200`);
+  // The filter matches by prefix: keep the store ID and its own children, never the Bipe Next IDs.
+  const ids = list.data
+    .filter((r) => r.attributes?.identifier === STORE_BUNDLE_ID
+      || (r.attributes?.identifier?.startsWith(`${STORE_BUNDLE_ID}.`) && !r.attributes.identifier.startsWith(`${BUNDLE_ID}`)))
+    .sort((a, b) => a.attributes.identifier.localeCompare(b.attributes.identifier));
+  const bundleIds = [];
+  for (const row of ids) {
+    const caps = await call('GET', `/v1/bundleIds/${row.id}/bundleIdCapabilities`);
+    bundleIds.push({
+      identifier: row.attributes.identifier,
+      name: row.attributes.name,
+      capabilities: caps.data.map((c) => c.attributes.capabilityType).sort(),
+    });
+  }
+  const apps = await call('GET', `/v1/apps?filter[bundleId]=${STORE_BUNDLE_ID}`);
+  const app = exact(apps.data, 'bundleId', STORE_BUNDLE_ID);
+  let lastBuild = null;
+  let versions = [];
+  if (app) {
+    const builds = await call('GET', `/v1/builds?filter[app]=${app.id}&sort=-uploadedDate&limit=200`);
+    const numbers = builds.data.map((b) => b.attributes?.version).filter((v) => /^\d+$/.test(v ?? '')).map(Number);
+    lastBuild = numbers.length ? Math.max(...numbers) : null;
+    const v = await call('GET', `/v1/apps/${app.id}/appStoreVersions?limit=10`);
+    versions = v.data.map((r) => `${r.attributes.versionString} (${r.attributes.appStoreState ?? r.attributes.appVersionState ?? 'unknown'})`);
+  }
+  const report = {
+    bundleIds,
+    app: app ? { id: app.id, name: app.attributes.name, sku: app.attributes.sku } : null,
+    lastBuild,
+    versions,
+  };
+  const lines = [
+    `## Store IDs (${STORE_BUNDLE_ID})`,
+    '',
+    ...(bundleIds.length
+      ? bundleIds.map((b) => `- \`${b.identifier}\` (${b.name}): ${b.capabilities.join(', ') || 'no capabilities'}`)
+      : [`- No bundle ID ${STORE_BUNDLE_ID} in team ${TEAM_ID}`]),
+    '',
+    report.app ? `App Store Connect record: ${report.app.name} (${report.app.id}, SKU ${report.app.sku})` : 'App Store Connect record: none',
+    `Last build number: ${lastBuild ?? 'none'}. The first new-client build must be higher (docs/client-switch-plan.md step 4).`,
+    `Versions: ${versions.join(', ') || 'none'}`,
+    '',
+    'App groups and keychain groups have no App Store Connect API: confirm them in Certificates, Identifiers & Profiles.',
+  ];
+  console.log(lines.join('\n'));
+  if (summary) appendFileSync(summary, `${lines.join('\n')}\n`);
+  return report;
+}
+
 async function main([cmd, arg]) {
   const call = client();
   if (cmd === 'prepare') {
@@ -332,7 +392,11 @@ async function main([cmd, arg]) {
     await certificates(call);
     return 0;
   }
-  console.error('usage: node tools/asc.mjs prepare | distribute <build-number> | signing <serial> | certificates');
+  if (cmd === 'store-ids') {
+    await storeIds(call);
+    return 0;
+  }
+  console.error('usage: node tools/asc.mjs prepare | distribute <build-number> | signing <serial> | certificates | store-ids');
   return 2;
 }
 
