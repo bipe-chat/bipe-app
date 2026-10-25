@@ -82,7 +82,8 @@ struct AppTabsView: View {
                                    menu: { AccountMenu.make(model: model) { showsNewAccount = true } },
                                    switcher: { AnyView(AccountSwitcherPopover(model: model, fallbackMedia: chatList.media) {
                                        showsNewAccount = true
-                                   }) }))
+                                   }) },
+                                   showsSwitchAction: model.accounts.count > 1))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
         .modifier(InviteJoinNotice(model: model.invites(for: session)))

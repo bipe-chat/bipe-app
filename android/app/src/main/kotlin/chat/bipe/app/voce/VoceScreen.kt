@@ -63,7 +63,6 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.tabs.AccountSummary
-import chat.bipe.app.tabs.AccountRows
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.settings.SettingsHost
@@ -135,11 +134,8 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                         })
                         LaunchedEffect(Unit) { photoSlot.didShow(BipeOnboardingPrompt.PHOTO) }
                     }
-                    // The accounts on this phone (ADR 0112, 0135); Nova conta closes the section (spec account-new).
-                    if (state.accounts.size > 1) {
-                        item { VoceSectionHeader(stringResource(R.string.bipe_app_account_switcher_title)) }
-                        item { AccountRows(tabs, media) }
-                    }
+                    // Spec voce (MZ decision 25 Oct 2026): no account rows; the Você tab switches (hold, double tap,
+                    // TalkBack action). Nova conta stays here (spec account-new).
                     item {
                         VoceRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_app_account_new), tint = BipeTheme.colors.accentInk,
                             titleColor = BipeTheme.colors.accentInk, onClick = onNewAccount)
