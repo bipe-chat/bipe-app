@@ -56,7 +56,8 @@ sealed interface PeopleRoute {
     data object PublicProfile : PeopleRoute
     data object ProfileQr : PeopleRoute
     data object ProfileLink : PeopleRoute
-    data class ProfileLinkOpen(val handle: String) : PeopleRoute
+    /** [queue]: the counter QR link `?fila` of a business opens queue-customer for [handle] (spec queue-customer notes). */
+    data class ProfileLinkOpen(val handle: String, val queue: Boolean = false) : PeopleRoute
     data object Contacts : PeopleRoute
     data object WhoCanMessage : PeopleRoute
     data object BlockedList : PeopleRoute

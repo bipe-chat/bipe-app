@@ -14,6 +14,12 @@ struct BusinessToolsSection: View {
     let openAgenda: () -> Void
     /// Action openCatalog: opens catalog-owner.
     let openCatalog: () -> Void
+    /// Action openOrders: opens order-owner.
+    let openOrders: () -> Void
+    /// Action openQuotes: opens quote-builder.
+    let openQuotes: () -> Void
+    /// Action openQueue: opens queue-owner.
+    let openQueue: () -> Void
 
     /// nil before activation (agenda_off) or while unknown.
     @State private var published: Bool?
@@ -29,6 +35,18 @@ struct BusinessToolsSection: View {
             .listRowBackground(BipeColor.surfaceRaised)
             Button(action: openCatalog) {
                 BusinessToolLabel(icon: .image, title: BipeStrings.catalogTitle, subtitle: nil)
+            }
+            .listRowBackground(BipeColor.surfaceRaised)
+            Button(action: openOrders) {
+                BusinessToolLabel(icon: .notepad, title: BipeStrings.ordersTitle, subtitle: nil)
+            }
+            .listRowBackground(BipeColor.surfaceRaised)
+            Button(action: openQuotes) {
+                BusinessToolLabel(icon: .file, title: BipeStrings.quotesTitle, subtitle: nil)
+            }
+            .listRowBackground(BipeColor.surfaceRaised)
+            Button(action: openQueue) {
+                BusinessToolLabel(icon: .usersThree, title: BipeStrings.queueTitle, subtitle: nil)
             }
             .listRowBackground(BipeColor.surfaceRaised)
         } header: {

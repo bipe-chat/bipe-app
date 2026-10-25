@@ -43,6 +43,8 @@ struct CatalogView: View {
     /// The business takes bookings: a service shows Agendar.
     let canBook: Bool
     let book: (String) -> Void
+    /// order-customer add: Adicionar ao pedido on an active fixed-price product. nil when the business takes no orders.
+    var addToOrder: ((String) -> Void)? = nil
     let close: () -> Void
 
     @State private var items: [BipeCatalogItem] = []
@@ -65,7 +67,10 @@ struct CatalogView: View {
                     CatalogItemDetail(item: item, canBook: canBook && item.kind == .service, book: {
                         selected = nil
                         book(item.id)
-                    })
+                    }, addToOrder: addToOrder != nil && item.isOrderable && !item.soldOutToday ? {
+                        selected = nil
+                        addToOrder?(item.id)
+                    } : nil)
                     .presentationDetents([.medium, .large])
                 }
         }
@@ -166,6 +171,8 @@ private struct CatalogItemDetail: View {
     let item: BipeCatalogItem
     let canBook: Bool
     let book: () -> Void
+    /// Adicionar ao pedido (order-customer add); nil hides it.
+    var addToOrder: (() -> Void)? = nil
 
     var body: some View {
         ScrollView {
@@ -197,6 +204,14 @@ private struct CatalogItemDetail: View {
                 if canBook {
                     Button(action: book) {
                         Text(BipeStrings.agendaBook).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.top, 8)
+                }
+                if let addToOrder {
+                    Button(action: addToOrder) {
+                        Text(BipeStrings.orderAdd).frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)

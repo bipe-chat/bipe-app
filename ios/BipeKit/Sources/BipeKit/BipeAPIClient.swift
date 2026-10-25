@@ -917,6 +917,20 @@ public enum BipeAPIErrorCode: String, Sendable {
     case outsideHorizon = "outside_horizon"
     case agendaNotPublished = "agenda_not_published"
     case cancellationWindowClosed = "cancellation_window_closed"
+    // Fila virtual, Orçamento and Pedidos (BusinessToolError). Texts: queueMessage, quoteMessage, orderMessage.
+    case queueClosed = "queue_closed"
+    case alreadyInQueue = "already_in_queue"
+    case placeNotActive = "place_not_active"
+    case quoteExpired = "quote_expired"
+    case quoteVersionChanged = "quote_version_changed"
+    case quoteNotOpen = "quote_not_open"
+    case orderAlreadyOpen = "order_already_open"
+    case orderNotOpen = "order_not_open"
+    case itemUnavailable = "item_unavailable"
+    case priceNotFixed = "price_not_fixed"
+    case ordersClosed = "orders_closed"
+    case paymentRequiresVerifiedBusiness = "payment_requires_verified_business"
+    case pixChargeUnavailable = "pix_charge_unavailable"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -973,6 +987,10 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .supportUnavailable: BipeStrings.supportOpenFailed
             case .slotTaken, .holdExpired, .tooManyOpenBookings, .outsideNotice, .outsideHorizon, .agendaNotPublished,
                  .cancellationWindowClosed: self.agendaMessage
+            case .queueClosed, .alreadyInQueue, .placeNotActive: self.queueMessage
+            case .quoteExpired, .quoteVersionChanged, .quoteNotOpen: self.quoteMessage
+            case .orderAlreadyOpen, .orderNotOpen, .itemUnavailable, .priceNotFixed, .ordersClosed, .paymentRequiresVerifiedBusiness,
+                 .pixChargeUnavailable: self.orderMessage
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

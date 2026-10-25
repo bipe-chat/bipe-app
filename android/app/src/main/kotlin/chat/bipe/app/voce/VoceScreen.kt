@@ -144,7 +144,7 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     item { VoceRow(PhosphorIcon.DEVICES, stringResource(R.string.bipe_app_link_phone_action), onClick = { showsLinkPhone = true }) }
                     // Spec business-tools: a company account's tools; Agenda selects the Agenda tab.
                     if (current?.isCompany == true) {
-                        item(key = "business-tools") { BusinessToolsSection(session, onOpenAgenda = { tabs.selectTab(AppTabsModel.Tab.AGENDA) }) }
+                        item(key = "business-tools") { BusinessToolsSection(session, tabs.chatList(session), onOpenAgenda = { tabs.selectTab(AppTabsModel.Tab.AGENDA) }, onOpenChat = onOpenChat) }
                     }
                     SettingsRootSection(settings, openGroup)
                     // Spec settings-root: Meus agendamentos after the groups, for a personal account.

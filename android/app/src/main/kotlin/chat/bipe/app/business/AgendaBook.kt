@@ -85,7 +85,9 @@ private const val DEFAULT_CANCEL_WINDOW_MINUTES = 120
 
 /**
  * Spec agenda-book: service, then person (skipped with one), then a day on a week strip and a free time, then review
- * with the hold. [moving] reschedules that booking: the review calls move instead of hold and confirm.
+ * with the hold. [moving] reschedules that booking: the review calls move instead of hold and confirm. [quoteAccept]
+ * books the visit of a quote (spec quote-card acceptBooking): no hold, and the review calls it with the service, the
+ * agenda and the start instead of confirm.
  */
 class AgendaBookModel(
     private val context: Context,
@@ -93,6 +95,7 @@ class AgendaBookModel(
     val route: String,
     private val scope: CoroutineScope,
     val moving: BipeBooking?,
+    val quoteAccept: (suspend (serviceId: String, agendaId: String, start: String) -> Unit)? = null,
 ) {
     enum class Step { SERVICE, PERSON, TIME, REVIEW }
 
@@ -113,6 +116,9 @@ class AgendaBookModel(
     var error by mutableStateOf<String?>(null)
     private var weekJob: Job? = null
 
+    /** The service is fixed (a move or a quote visit): back from the first step closes the flow. */
+    private val fixedService: Boolean get() = moving != null || quoteAccept != null
+
     /** Today in the business time zone once the first week told it, else the phone's. */
     val today: LocalDate get() = LocalDate.now(week?.timeZone?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: ZoneId.systemDefault())
 
@@ -124,7 +130,7 @@ class AgendaBookModel(
                 services = business.api.publicServices(route)
                 loading = false
                 val preselected = preselectedServiceId?.let { id -> services.firstOrNull { it.id == id } }
-                if (preselected != null) pickService(preselected) else if (moving != null) loadFailed = true
+                if (preselected != null) pickService(preselected) else if (fixedService) loadFailed = true
             } catch (error: CancellationException) {
                 throw error
             } catch (failure: Exception) {
@@ -193,7 +199,7 @@ class AgendaBookModel(
         val agenda = agendaId ?: return
         error = null
         slot = picked
-        if (moving != null) {
+        if (moving != null || quoteAccept != null) {
             step = Step.REVIEW
             return
         }
@@ -213,7 +219,7 @@ class AgendaBookModel(
         }
     }
 
-    /** Action confirm: confirm the hold, or move the booking. hold_expired goes back to time. */
+    /** Action confirm: confirm the hold, move the booking, or accept the quote with this time. hold_expired goes back to time. */
     fun confirm(onDone: () -> Unit) {
         val picked = slot ?: return
         val agenda = agendaId ?: return
@@ -222,7 +228,11 @@ class AgendaBookModel(
         scope.launch {
             try {
                 val moving = moving
-                if (moving != null) {
+                val quoteAccept = quoteAccept
+                val service = service
+                if (quoteAccept != null && service != null) {
+                    quoteAccept(service.id, agenda, picked.start)
+                } else if (moving != null) {
                     business.withToken { moveBooking(route, moving.id, agenda, picked.start, it) }
                 } else {
                     val held = hold ?: return@launch
@@ -249,10 +259,10 @@ class AgendaBookModel(
         error = null
         when (step) {
             Step.SERVICE -> close()
-            Step.PERSON -> if (moving != null) close() else step = Step.SERVICE
+            Step.PERSON -> if (fixedService) close() else step = Step.SERVICE
             Step.TIME -> step = when {
                 agendas.size > 1 -> Step.PERSON
-                moving != null -> return close()
+                fixedService -> return close()
                 else -> Step.SERVICE
             }
             Step.REVIEW -> {
@@ -272,12 +282,13 @@ fun AgendaBookScreen(
     route: String,
     preselectedServiceId: String? = null,
     moving: BipeBooking? = null,
+    quoteAccept: (suspend (serviceId: String, agendaId: String, start: String) -> Unit)? = null,
     onClose: (Boolean) -> Unit,
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val model = remember(route, moving?.id) { AgendaBookModel(context, business, route, scope, moving) }
+    val model = remember(route, moving?.id) { AgendaBookModel(context, business, route, scope, moving, quoteAccept) }
     LaunchedEffect(model) { model.start(preselectedServiceId) }
     BackHandler { model.back { onClose(false) } }
     Column(Modifier.fillMaxSize().testTag(BipeScreen.AGENDA_BOOK.id)) {
@@ -459,7 +470,15 @@ private fun ReviewStep(model: AgendaBookModel, onDone: () -> Unit) {
         StepError(model)
         Button(onClick = { model.confirm(onDone) }, enabled = !model.working, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
             if (model.working) CircularProgressIndicator(color = colors.inkOnAccent, modifier = Modifier.size(20.dp))
-            else Text(stringResource(if (model.moving != null) R.string.bipe_agenda_reschedule else R.string.bipe_agenda_confirm))
+            else Text(
+                stringResource(
+                    when {
+                        model.quoteAccept != null -> R.string.bipe_quote_accept_booking
+                        model.moving != null -> R.string.bipe_agenda_reschedule
+                        else -> R.string.bipe_agenda_confirm
+                    },
+                ),
+            )
         }
     }
 }
