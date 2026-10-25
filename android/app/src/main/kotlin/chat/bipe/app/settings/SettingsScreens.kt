@@ -85,6 +85,7 @@ import chat.bipe.app.invites.InvitesScreen
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
+import chat.bipe.app.voce.BusinessClaimScreen
 import chat.bipe.app.voce.TrustActions
 import chat.bipe.app.voce.TrustCardModel
 import chat.bipe.app.voce.TrustProfileScreen
@@ -124,6 +125,7 @@ sealed interface SettingsRoute {
     /** Spec recovery-email-add, from the e-mail row of Ways back (bipe-chat/bipe#531). */
     data object RecoveryEmail : SettingsRoute
     data object TrustProfile : SettingsRoute
+    data object BusinessClaim : SettingsRoute
 }
 
 /**
@@ -207,8 +209,15 @@ fun SettingsHost(
                 addName = { stack.add(SettingsRoute.People(PeopleRoute.ProfileEdit)) },
                 addPhoto = { stack.add(SettingsRoute.People(PeopleRoute.ProfileEdit)) },
                 chooseHandle = { stack.add(SettingsRoute.HandlePick) },
+                openClaim = { stack.add(SettingsRoute.BusinessClaim) },
             ), onBack = pop)
         }
+        SettingsRoute.BusinessClaim -> BusinessClaimScreen(
+            session, api,
+            onChange = { trust?.reload() },
+            openSupport = { stack.add(SettingsRoute.Support) },
+            onBack = pop,
+        )
         SettingsRoute.ShowMediaChoice -> ChoiceListScreen(
             title = stringResource(R.string.bipe_chats_show_media),
             options = ShowMedia.entries.map { it.id to stringResource(it.title) },
@@ -427,6 +436,9 @@ fun SettingsGroupScreen(
                             title = title,
                             value = rowValue(context, state, row),
                             footer = footer,
+                            // Spec phone-link-status: the caution colour and mark when the confirmation is near or over.
+                            valueColor = if (row == BipeSettingsRow.PRIVACY_NUMBER && state.phone?.needsAttention == true) BipeTheme.colors.trustCautionInk else null,
+                            showsWarning = row == BipeSettingsRow.PRIVACY_NUMBER && state.phone?.needsAttention == true,
                             titleColor = if (row.kind == BipeSettingsRowKind.DESTRUCTIVE) BipeTheme.colors.trustDangerInk else null,
                             showsChevron = row.kind == BipeSettingsRowKind.LINK || row.kind == BipeSettingsRowKind.CHOICE,
                             onClick = if (row.kind == BipeSettingsRowKind.INFO) null else ({ tap(row) }),
@@ -472,6 +484,7 @@ private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSett
     BipeSettingsRow.PRIVACY_MESSAGING -> state.whoCanMessage?.let { context.getString(it.settingsSummary) }
     BipeSettingsRow.PRIVACY_READ_RECEIPTS -> context.getString(R.string.bipe_privacy_read_receipts_value)
     BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS -> state.waysBack?.summary(context)
+    BipeSettingsRow.PRIVACY_NUMBER -> state.phone?.summary(context)
     BipeSettingsRow.ACCOUNT_EMAIL -> state.account?.let { it.email ?: context.getString(R.string.bipe_account_email_none) }
     BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> context.getString(
         if (state.hasRecoveryKey) R.string.bipe_account_recovery_key_saved else R.string.bipe_account_recovery_key_missing,
@@ -595,11 +608,12 @@ private fun SectionFooter(section: BipeSettingsSection, group: BipeSettingsGroup
     }
 }
 
-/** The version name and build, for bipe_help_version. */
+/** The version name, build and commit, for bipe_help_version: "26.10.2 (141) 5481bba" (tools/version.mjs). */
 private fun appVersion(context: Context): String {
     val info = context.packageManager.getPackageInfo(context.packageName, 0)
     val build = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
-    return "${info.versionName} ($build)"
+    val commit = chat.bipe.app.BuildConfig.BIPE_COMMIT
+    return if (commit.isEmpty()) "${info.versionName} ($build)" else "${info.versionName} ($build) $commit"
 }
 
 @Composable

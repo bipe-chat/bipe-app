@@ -241,7 +241,8 @@ struct SettingsGroupView: View {
                 Toggle(isOn: .constant(false)) { SettingsRowLabel(title: row.title, footer: row.footer) }
                     .disabled(true)
             case .info:
-                SettingsRowLabel(title: row.title, value: value(of: row), footer: row.footer)
+                SettingsRowLabel(title: row.title, value: value(of: row), footer: row.footer,
+                                 isWarning: row == .privacyNumber && model.phone?.needsAttention == true)
             default:
                 Button {
                     tap(row)
@@ -278,6 +279,7 @@ struct SettingsGroupView: View {
         switch row {
         case .privacyReadReceipts: BipeStrings.privacyReadReceiptsValue
         case .accountWaysBackStatus: model.waysBack?.summary
+        case .privacyNumber: model.phone?.summary
         case .accountEmail: model.account.map { $0.email ?? BipeStrings.accountEmailNone }
         case .accountRecoveryKey: model.hasRecoveryKey ? BipeStrings.accountRecoveryKeySaved : BipeStrings.accountRecoveryKeyMissing
         case .accountThisDevice: UIDevice.current.model
@@ -426,12 +428,13 @@ enum AppVersion {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
     }
 
-    /// The version name and build, for bipe_help_version.
+    /// The version name, build and commit, for bipe_help_version: "26.10.2 (141) 5481bba" (tools/version.mjs).
     static var display: String {
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? ""
         let build = info?["CFBundleVersion"] as? String ?? ""
-        return "\(version) (\(build))"
+        let commit = info?["BipeCommit"] as? String ?? ""
+        return commit.isEmpty ? "\(version) (\(build))" : "\(version) (\(build)) \(commit)"
     }
 
     /// "pt" or "en", for the url rows of registries/settings.json.
@@ -445,15 +448,26 @@ struct SettingsRowLabel: View {
     var value: String?
     var footer: String?
     var isDestructive = false
+    /// The caution colour and mark on the value (spec phone-link-status).
+    var isWarning = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .foregroundStyle(isDestructive ? BipeColor.trustDangerInk : BipeColor.inkPrimary)
             if let value {
-                Text(value)
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    if isWarning {
+                        PhosphorIcon.warningCircle.image
+                            .resizable()
+                            .frame(width: 14, height: 14)
+                            .foregroundStyle(BipeColor.trustCautionInk)
+                            .accessibilityHidden(true)
+                    }
+                    Text(value)
+                        .font(.subheadline)
+                        .foregroundStyle(isWarning ? BipeColor.trustCautionInk : BipeColor.inkSecondary)
+                }
             }
             if let footer {
                 Text(footer)

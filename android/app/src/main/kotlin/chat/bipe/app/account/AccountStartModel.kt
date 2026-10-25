@@ -13,6 +13,7 @@ import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.recovery.RecoveryTokenSyncs
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.account.BipeRecoveryTokens
+import chat.bipe.app.notifications.WorkHoursSync
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
@@ -215,6 +216,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             scope.launch {
                 if (pendingAuthErrors.remove(session.userId)) authError(session, isSoftLogout = true) else session.syncService.start()
             }
+            // bipe-chat/bipe#511: this phone's copy of the account's opening hours, for quiet pushes.
+            scope.launch { WorkHoursSync.refresh(session, api, (context.applicationContext as BipeApplication).notifications) }
         }
     }
 
@@ -449,7 +452,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(AccountStep.TAG, "sign-in failed: ${e.javaClass.simpleName}")
+            Log.w(AccountStep.TAG, "sign-in failed: ${e.javaClass.simpleName}: ${e.message}")
             null
         }
     }

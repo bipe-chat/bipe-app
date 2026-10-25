@@ -153,7 +153,7 @@ final class AgendaOwnerModel: ObservableObject {
     }
 }
 
-/// The Agenda tab of a company account (ADR 0103), after Grupos.
+/// The Agenda of a company account (ADR 0103), opened from Trabalho inside its navigation stack.
 struct AgendaOwnerView: View {
     @StateObject private var model: AgendaOwnerModel
     private let chatList: ChatListModel
@@ -175,78 +175,76 @@ struct AgendaOwnerView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            content
-                .background(BipeColor.surfaceBase.ignoresSafeArea())
-                .navigationTitle(BipeStrings.tabAgenda)
-                .toolbar {
-                    if model.phase == .on {
-                        ToolbarItem(placement: .primaryAction) { menu }
-                    }
-                }
-                .navigationDestination(isPresented: $showsSettings) {
-                    if let state = model.state {
-                        AgendaSettingsView(api: model.api, state: state, editSetup: {
-                            showsSettings = false
-                            showsSetup = true
-                        }, changed: { Task { await model.load() } })
-                    }
-                }
-        }
-        .accessibilityIdentifier(BipeScreen.agendaOwner.rawValue)
-        .task { await model.load() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await model.load() } }
-        }
-        .toast($model.notice)
-        .fullScreenCover(isPresented: $showsSetup) {
-            AgendaSetupView(api: model.api, startsAtHours: model.state != nil) { message in
-                showsSetup = false
-                if let message { model.notice = message }
-                Task { await model.load() }
-            }
-        }
-        .sheet(item: $openBooking) { target in
-            AgendaOwnerBookingView(api: model.api, mode: target.mode, state: model.state,
-                                   customers: BusinessCustomer.fromChats(chatList.chats),
-                                   customerName: target.customerName,
-                                   openChat: { userId in
-                                       openBooking = nil
-                                       Task {
-                                           if let roomId = try? await model.people.openOrCreateDM(with: userId) { openChat(roomId) }
-                                       }
-                                   },
-                                   close: { message in
-                                       openBooking = nil
-                                       if let message { model.notice = message }
-                                       Task { await model.loadDay() }
-                                   })
-        }
-        .sheet(isPresented: $showsBlock) {
-            AgendaBlockSheet(model: model) { showsBlock = false }
-        }
-        .alert(BipeStrings.agendaCloseToday, isPresented: $confirmsClose) {
-            Button(BipeStrings.agendaCloseToday, role: .destructive) {
-                Task {
-                    guard let customers = await model.closeToday() else { return }
-                    await model.loadDay()
-                    if !customers.isEmpty {
-                        closeMessage = CloseMessage(customers: customers, text: BipeStrings.agendaCloseTodayMessage)
-                    }
+        content
+            .background(BipeColor.surfaceBase.ignoresSafeArea())
+            .navigationTitle(BipeStrings.tabAgenda)
+            .toolbar {
+                if model.phase == .on {
+                    ToolbarItem(placement: .primaryAction) { menu }
                 }
             }
-            Button(BipeStrings.appCancel, role: .cancel) {}
-        } message: {
-            Text(BipeStrings.agendaCloseTodayBody)
-        }
-        .sheet(item: $closeMessage) { message in
-            CloseTodayMessageSheet(message: message) { text in
-                closeMessage = nil
-                Task { await model.send(text, to: message.customers) }
-            } cancel: {
-                closeMessage = nil
+            .navigationDestination(isPresented: $showsSettings) {
+                if let state = model.state {
+                    AgendaSettingsView(api: model.api, state: state, editSetup: {
+                        showsSettings = false
+                        showsSetup = true
+                    }, changed: { Task { await model.load() } })
+                }
             }
-        }
+            .accessibilityIdentifier(BipeScreen.agendaOwner.rawValue)
+            .task { await model.load() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await model.load() } }
+            }
+            .toast($model.notice)
+            .fullScreenCover(isPresented: $showsSetup) {
+                AgendaSetupView(api: model.api, startsAtHours: model.state != nil) { message in
+                    showsSetup = false
+                    if let message { model.notice = message }
+                    Task { await model.load() }
+                }
+            }
+            .sheet(item: $openBooking) { target in
+                AgendaOwnerBookingView(api: model.api, mode: target.mode, state: model.state,
+                                       customers: BusinessCustomer.fromChats(chatList.chats),
+                                       customerName: target.customerName,
+                                       openChat: { userId in
+                                           openBooking = nil
+                                           Task {
+                                               if let roomId = try? await model.people.openOrCreateDM(with: userId) { openChat(roomId) }
+                                           }
+                                       },
+                                       close: { message in
+                                           openBooking = nil
+                                           if let message { model.notice = message }
+                                           Task { await model.loadDay() }
+                                       })
+            }
+            .sheet(isPresented: $showsBlock) {
+                AgendaBlockSheet(model: model) { showsBlock = false }
+            }
+            .alert(BipeStrings.agendaCloseToday, isPresented: $confirmsClose) {
+                Button(BipeStrings.agendaCloseToday, role: .destructive) {
+                    Task {
+                        guard let customers = await model.closeToday() else { return }
+                        await model.loadDay()
+                        if !customers.isEmpty {
+                            closeMessage = CloseMessage(customers: customers, text: BipeStrings.agendaCloseTodayMessage)
+                        }
+                    }
+                }
+                Button(BipeStrings.appCancel, role: .cancel) {}
+            } message: {
+                Text(BipeStrings.agendaCloseTodayBody)
+            }
+            .sheet(item: $closeMessage) { message in
+                CloseTodayMessageSheet(message: message) { text in
+                    closeMessage = nil
+                    Task { await model.send(text, to: message.customers) }
+                } cancel: {
+                    closeMessage = nil
+                }
+            }
     }
 
     @ViewBuilder

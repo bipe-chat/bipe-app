@@ -106,7 +106,7 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
     }
 
     /** Retries keep the result of POST, then repeat only local persistence and the idempotent naming request. */
-    suspend fun create(name: String, note: String) {
+    suspend fun create(name: String) {
         if (creating) return
         currentCoroutineContext().ensureActive()
         creating = true
@@ -115,7 +115,7 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
             val created = _state.value.created ?: withToken { api.createInvite(it) }.also {
                 _state.value = _state.value.copy(created = it)
             }
-            memory.saveCreated(created.id, created.url, note)
+            memory.saveCreated(created.id, created.url, note = "")
             if (name.isNotBlank()) withToken { api.nameInvite(created.id, name.trim(), it) }
             refresh()
         } catch (error: CancellationException) { throw error }

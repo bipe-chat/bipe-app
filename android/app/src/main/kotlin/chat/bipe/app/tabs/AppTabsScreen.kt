@@ -17,7 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
-import chat.bipe.app.business.AgendaOwnerScreen
+import chat.bipe.app.business.WorkScreen
 import chat.bipe.app.chatlist.ChatRequestsModel
 import chat.bipe.app.chatlist.ChatSearchModel
 import chat.bipe.app.chatlist.RemoteBannerModel
@@ -73,16 +73,17 @@ fun AppTabsScreen(
         Box(modifier = Modifier.weight(1f)) {
             when (state.selectedTab) {
                 AppTabsModel.Tab.CONVERSAS ->
-                    ChatListScreen(chatList, ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
+                    ChatListScreen(chatList, if (state.isCompany) ChatScope.TODAS else ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         banner = banner, recoveryCard = recoveryCard,
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
-                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
+                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
+                        api = tabs.start.api)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                         requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
-                // Spec agenda-owner: the company account's Agenda tab.
-                AppTabsModel.Tab.AGENDA -> AgendaOwnerScreen(session, chatList, onOpenChat)
+                // Spec business-tools: the company account's Trabalho tab, in the place of Grupos.
+                AppTabsModel.Tab.TRABALHO -> WorkScreen(session, chatList, onOpenChat)
                 AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }

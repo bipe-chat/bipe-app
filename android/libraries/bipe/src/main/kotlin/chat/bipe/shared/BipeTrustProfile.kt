@@ -48,6 +48,7 @@ data class BipeTrustProfile(
          * [business] is `GET /v1/me/business`: `null` when the account has no claim or the claim did not load.
          * [personBadge] is the level of the account's own badge from `GET /v1/badges`: `null` without one or until it loads.
          * [govbrEnabled] makes step 5 live (bipe#545); else it shows "Em breve".
+         * [claimEnabled] makes the company steps live (business-claim, bipe#249): a step not done is todo, else "Em breve".
          */
         fun create(
             displayName: String?,
@@ -57,6 +58,7 @@ data class BipeTrustProfile(
             business: BipeBusinessClaim? = null,
             personBadge: BadgeLevel? = null,
             govbrEnabled: Boolean = false,
+            claimEnabled: Boolean = false,
         ): BipeTrustProfile {
             val missing = buildList {
                 if (displayName.isNullOrBlank()) add(ProfileItem.DISPLAY_NAME)
@@ -68,13 +70,14 @@ data class BipeTrustProfile(
                 Step(StepId.PROFILE, if (missing.isEmpty()) Status.DONE else Status.TODO),
             )
             val rest = if (isCompany) {
-                // The claim screen is not in the app yet (bipe#249): a step that is not done has nothing to tap.
+                // Without the claim screen (bipe#249) a step that is not done has nothing to tap.
                 val cnpjActive = business?.status == "awaiting_proof" || business?.status == "verified"
                 val domainVerified = business?.domains.orEmpty().any { it.verifiedAt != null }
+                val open = if (claimEnabled) Status.TODO else Status.COMING_SOON
                 listOf(
-                    Step(StepId.CNPJ, if (cnpjActive) Status.DONE else Status.COMING_SOON),
-                    Step(StepId.PROOF, if (business?.status == "verified") Status.DONE else Status.COMING_SOON),
-                    Step(StepId.DOMAIN, if (domainVerified) Status.DONE else Status.COMING_SOON),
+                    Step(StepId.CNPJ, if (cnpjActive) Status.DONE else open),
+                    Step(StepId.PROOF, if (business?.status == "verified") Status.DONE else open),
+                    Step(StepId.DOMAIN, if (domainVerified) Status.DONE else open),
                 )
             } else {
                 listOf(

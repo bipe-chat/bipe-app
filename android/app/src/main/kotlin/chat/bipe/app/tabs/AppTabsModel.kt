@@ -48,8 +48,8 @@ class AppTabsModel(
     private val scope: CoroutineScope,
     private val undecryptableText: String,
 ) {
-    /** AGENDA shows only for a company account, after Grupos (spec app-tabs, agenda-owner). */
-    enum class Tab { CONVERSAS, GRUPOS, AGENDA, VOCE, SEARCH }
+    /** A company account has TRABALHO in the place of GRUPOS (spec app-tabs, business-tools). */
+    enum class Tab { CONVERSAS, GRUPOS, TRABALHO, VOCE, SEARCH }
 
     data class State(
         val selectedTab: Tab = Tab.CONVERSAS,
@@ -109,8 +109,14 @@ class AppTabsModel(
     }
 
     /** Action selectTab. A tap on Você always opens Você. */
+    /** A company account has no Grupos tab and a personal account no Trabalho tab: those go to Conversas. */
     fun selectTab(tab: Tab) {
-        _state.value = _state.value.copy(selectedTab = tab)
+        _state.value = _state.value.copy(selectedTab = available(tab, _state.value.isCompany))
+    }
+
+    private fun available(tab: Tab, isCompany: Boolean): Tab = when {
+        (tab == Tab.GRUPOS && isCompany) || (tab == Tab.TRABALHO && !isCompany) -> Tab.CONVERSAS
+        else -> tab
     }
 
     /**
@@ -215,7 +221,7 @@ class AppTabsModel(
         val chats = currentId?.let { latestChats[it] }.orEmpty()
         val limit = currentId?.let { profiles[it]?.limit } ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS
         val isCompany = accounts.firstOrNull { it.isCurrent }?.isCompany == true
-        val selected = _state.value.selectedTab.takeUnless { it == Tab.AGENDA && !isCompany } ?: Tab.CONVERSAS
+        val selected = available(_state.value.selectedTab, isCompany)
         _state.value = _state.value.copy(
             selectedTab = selected,
             isCompany = isCompany,

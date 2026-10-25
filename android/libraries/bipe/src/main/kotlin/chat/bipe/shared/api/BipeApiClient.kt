@@ -341,6 +341,11 @@ enum class BipeApiErrorCode(val id: String) {
     /** Pix needs a verified CNPJ (ADR 0080). The app never offers Pix; the text says to pay on site. */
     PAYMENT_REQUIRES_VERIFIED_BUSINESS("payment_requires_verified_business"),
     PIX_CHARGE_UNAVAILABLE("pix_charge_unavailable"),
+    /** Business claims (ADR 0042, business-claim). */
+    CNPJ_INVALID("cnpj_invalid"),
+    CNPJ_NOT_ACTIVE("cnpj_not_active"),
+    CNPJ_TAKEN("cnpj_taken"),
+    SIGNATURE_INVALID("signature_invalid"),
     ;
 
     companion object {
@@ -416,6 +421,10 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.ORDERS_CLOSED -> context.getString(R.string.bipe_order_error_closed)
             BipeApiErrorCode.PAYMENT_REQUIRES_VERIFIED_BUSINESS, BipeApiErrorCode.PIX_CHARGE_UNAVAILABLE ->
                 context.getString(R.string.bipe_order_error_pix)
+            BipeApiErrorCode.CNPJ_INVALID -> context.getString(R.string.bipe_claim_cnpj_invalid)
+            BipeApiErrorCode.CNPJ_NOT_ACTIVE -> context.getString(R.string.bipe_claim_rejected)
+            BipeApiErrorCode.CNPJ_TAKEN -> context.getString(R.string.bipe_claim_cnpj_taken)
+            BipeApiErrorCode.SIGNATURE_INVALID -> context.getString(R.string.bipe_claim_signature_invalid)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID ->
                 context.getString(R.string.bipe_error_generic)
         }

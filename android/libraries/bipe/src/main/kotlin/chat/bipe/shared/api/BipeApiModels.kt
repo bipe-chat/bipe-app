@@ -220,19 +220,43 @@ internal object InstantSerializer : KSerializer<Instant> {
 
 // Moved from libraries/bipe (BipeApiModels.kt) for BipeTrustProfile.
 
-/** Contract: `BusinessClaim` (ADR 0042). Only the parts the trust card reads. */
+/** Contract: `BusinessClaim` (ADR 0042). The trust card and business-claim read it. */
 @Serializable
 data class BipeBusinessClaim(
     /** `registry_pending`, `awaiting_proof`, `verified`, `rejected` or `revoked`. */
     @SerialName("status") val status: String,
     @SerialName("domains") val domains: List<BipeBusinessDomain> = emptyList(),
+    /** 14 characters, digits and uppercase letters. */
+    @SerialName("cnpj") val cnpj: String? = null,
+    /** Why the claim is rejected or revoked, for example `not_active`, `staff`. */
+    @SerialName("reason") val reason: String? = null,
+    @SerialName("registry") val registry: BipeCnpjRegistryRecord? = null,
+    /** The exact text to sign with the e-CNPJ, while the status is `awaiting_proof`. */
+    @SerialName("challenge") val challenge: String? = null,
+    @SerialName("reserved_names") val reservedNames: List<BipeReservedName> = emptyList(),
 )
 
 @Serializable
 data class BipeBusinessDomain(
     @SerialName("domain") val domain: String,
     @Serializable(with = InstantSerializer::class) @SerialName("verified_at") val verifiedAt: Instant? = null,
+    /** Where to publish the TXT record, for example `_bipe.example.com.br`. */
+    @SerialName("txt_name") val txtName: String? = null,
+    @SerialName("txt_value") val txtValue: String? = null,
 )
+
+/** Contract: `CnpjRegistryRecord`, what Bipe's copy of the Receita Federal data says. */
+@Serializable
+data class BipeCnpjRegistryRecord(
+    @SerialName("active") val active: Boolean,
+    @SerialName("legal_name") val legalName: String,
+    @SerialName("trade_name") val tradeName: String? = null,
+    /** The Receita Federal release, YYYY-MM. */
+    @SerialName("checked_month") val checkedMonth: String,
+)
+
+@Serializable
+data class BipeReservedName(@SerialName("name") val name: String, @SerialName("approved") val approved: Boolean)
 
 // Recovery (ADR 0057, ADR 0059). Contract: bipe-shared/api/openapi.yaml, schemas RecoveryStarted and RecoveryClaim.
 
