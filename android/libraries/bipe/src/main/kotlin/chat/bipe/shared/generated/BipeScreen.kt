@@ -256,6 +256,9 @@ enum class BipeScreen(val id: String) {
     /** Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json */
     PUSH_REGISTRATION("push-registration"),
 
+    /** Question card (flow chat). Spec: bipe-shared/product/screens/question-card.json */
+    QUESTION_CARD("question-card"),
+
     /** Fila virtual for the customer (flow business). Spec: bipe-shared/product/screens/queue-customer.json */
     QUEUE_CUSTOMER("queue-customer"),
 

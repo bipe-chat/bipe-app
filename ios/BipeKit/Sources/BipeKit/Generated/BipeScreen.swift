@@ -250,6 +250,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json
     case pushRegistration = "push-registration"
 
+    /// Question card (flow chat). Spec: bipe-shared/product/screens/question-card.json
+    case questionCard = "question-card"
+
     /// Fila virtual for the customer (flow business). Spec: bipe-shared/product/screens/queue-customer.json
     case queueCustomer = "queue-customer"
 
