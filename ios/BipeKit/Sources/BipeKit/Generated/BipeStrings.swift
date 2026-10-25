@@ -700,8 +700,6 @@ public enum BipeStrings {
 
     public static var selfChatError: String { NSLocalizedString("bipe_self_chat_error", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var onboardingWelcome: String { NSLocalizedString("bipe_onboarding_welcome", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static var onboardingTitle: String { NSLocalizedString("bipe_onboarding_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var onboardingPointScam: String { NSLocalizedString("bipe_onboarding_point_scam", tableName: "Bipe", bundle: .module, comment: "") }
@@ -3109,6 +3107,20 @@ public enum BipeStrings {
     public static var appPollEndedText: String { NSLocalizedString("bipe_app_poll_ended_text", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appPollVoteError: String { NSLocalizedString("bipe_app_poll_vote_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appQuestionFrom(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_question_from", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appQuestionHint: String { NSLocalizedString("bipe_app_question_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appQuestionYourAnswer(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_question_your_answer", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appQuestionChangeHint: String { NSLocalizedString("bipe_app_question_change_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appQuestionClosed: String { NSLocalizedString("bipe_app_question_closed", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appGroupLeaveTitle: String { NSLocalizedString("bipe_app_group_leave_title", tableName: "Bipe", bundle: .module, comment: "") }
 

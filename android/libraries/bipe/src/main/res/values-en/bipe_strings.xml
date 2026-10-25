@@ -302,7 +302,6 @@
     <string name="bipe_self_chat_title">Notes</string>
     <string name="bipe_self_chat_subtitle">Messages only you can see</string>
     <string name="bipe_self_chat_error">Couldn\'t open your notes. Try again.</string>
-    <string name="bipe_onboarding_welcome">A free messaging app.</string>
     <string name="bipe_onboarding_title">Know who you\'re talking to.</string>
     <string name="bipe_onboarding_point_scam">Checks look for scam signals in messages.</string>
     <string name="bipe_onboarding_point_brazil">Data and servers stay in Brazil, under Brazilian law.</string>
@@ -1357,6 +1356,11 @@
     <string name="bipe_app_poll_ended">Poll ended</string>
     <string name="bipe_app_poll_ended_text">The poll ended.</string>
     <string name="bipe_app_poll_vote_error">Couldn\'t vote. Try again.</string>
+    <string name="bipe_app_question_from">Question from %1$s</string>
+    <string name="bipe_app_question_hint">Tap one option to answer.</string>
+    <string name="bipe_app_question_your_answer">Your answer: %1$s</string>
+    <string name="bipe_app_question_change_hint">To change it, tap another option.</string>
+    <string name="bipe_app_question_closed">Question closed</string>
     <string name="bipe_app_group_leave_title">Leave the group?</string>
     <string name="bipe_app_group_leave_body">You stop getting its messages. To come back, someone in the group has to invite you again.</string>
     <string name="bipe_app_group_leave_alone">You\'re the only person in the group. If you leave, the group ends and nobody can join it.</string>
