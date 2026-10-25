@@ -49,6 +49,11 @@ private struct GroupHostModifier: ViewModifier {
             }
             // Last, so the sheets above get them too.
             .environment(\.closeChat, { path = NavigationPath() })
+            .environment(\.openOtherChat, { roomId in
+                var next = NavigationPath()
+                next.append(roomId)
+                path = next
+            })
             .environment(\.bipeAPI, api)
     }
 }
@@ -76,6 +81,7 @@ struct CreateGroupButton: View {
             Button(BipeStrings.invitesTitle, action: invite)
         } label: {
             PhosphorIcon.plus.image.resizable().frame(width: 22, height: 22)
+                .bipeTapTarget()
         }
         .accessibilityLabel(BipeStrings.groupsEmptyAction)
     }

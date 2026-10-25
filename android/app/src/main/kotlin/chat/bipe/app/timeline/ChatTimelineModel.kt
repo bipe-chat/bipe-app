@@ -27,6 +27,9 @@ import chat.bipe.shared.BipeHandleChangeStore
 import chat.bipe.shared.BipeMoneyPause
 import chat.bipe.shared.ScamWarningKind
 import org.matrix.rustcomponents.sdk.MembershipState
+import kotlinx.coroutines.CancellationException
+import org.matrix.rustcomponents.sdk.ErrorKind
+import org.matrix.rustcomponents.sdk.ClientException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -103,7 +106,10 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED }
+enum class TimelineNotice { COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED }
+
+/** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
+enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
 
 /** The interaction state of the message specs: one value, so the screen reads it in one place. */
 data class TimelineInteractions(
@@ -167,6 +173,12 @@ class ChatTimelineModel(
     val roomAvatarUrl = _roomAvatarUrl.asStateFlow()
     private val _peerUserId = MutableStateFlow<String?>(null)
     val peerUserId = _peerUserId.asStateFlow()
+    private val _peerAway = MutableStateFlow(PeerAway.NONE)
+    val peerAway: StateFlow<PeerAway> = _peerAway.asStateFlow()
+    private val _invitingAgain = MutableStateFlow(false)
+    val invitingAgain: StateFlow<Boolean> = _invitingAgain.asStateFlow()
+    /** The person whose profile was checked for ACCOUNT_GONE, so the lookup runs once per leave. */
+    private var accountGoneChecked: Pair<String, Boolean>? = null
     private val _isGroup = MutableStateFlow(false)
     val isGroup = _isGroup.asStateFlow()
     private val _composer = MutableStateFlow(ComposerState())
@@ -280,6 +292,7 @@ class ChatTimelineModel(
             _roomName.value = if (info.isDm) peerName else info.displayName ?: info.id
             _roomAvatarUrl.value = if (info.isDm) peer?.avatarUrl else info.avatarUrl
             _peerUserId.value = peer?.userId
+            loadPeerAway(room, peer?.userId)
         }
         runCatching { room.latestEncryptionState() }.getOrNull()?.let { state ->
             facts = facts.copy(isEncrypted = state != EncryptionState.NOT_ENCRYPTED)
@@ -852,6 +865,66 @@ class ChatTimelineModel(
             facts = facts.copy(members = facts.members + loaded)
             updateTypingNames()
             rebuild()
+        }
+    }
+
+    /**
+     * peerAway: Room.member of the DM's other person; a leave or ban is LEFT, and a profile that is not found
+     * (a deactivated account) is ACCOUNT_GONE. The profile lookup runs once per leave.
+     */
+    private suspend fun loadPeerAway(room: Room, peer: String?) {
+        val member = peer?.let { runCatching { room.member(it) }.getOrNull() }
+        if (peer == null || member == null) {
+            _peerAway.value = PeerAway.NONE
+            return
+        }
+        when (member.membership) {
+            is MembershipState.Leave, is MembershipState.Ban -> {
+                if (accountGoneChecked?.first != peer) accountGoneChecked = peer to accountIsGone(peer)
+                _peerAway.value = if (accountGoneChecked?.second == true) PeerAway.ACCOUNT_GONE else PeerAway.LEFT
+            }
+            else -> {
+                accountGoneChecked = null
+                _peerAway.value = PeerAway.NONE
+            }
+        }
+    }
+
+    private suspend fun accountIsGone(userId: String): Boolean = try {
+        session.client.getProfile(userId)
+        false
+    } catch (error: ClientException.MatrixApi) {
+        error.kind is ErrorKind.NotFound
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        false
+    }
+
+    /**
+     * Action inviteAgain of spec chat-timeline: Room.inviteUserById when the user may invite. In a DM created with
+     * the DM power levels nobody may, so [createDm] makes a new DM; its room id comes back for the screen to open.
+     */
+    suspend fun inviteAgain(createDm: suspend (String) -> String): String? {
+        val room = room ?: return null
+        val peer = _peerUserId.value ?: return null
+        if (_peerAway.value != PeerAway.LEFT || _invitingAgain.value) return null
+        _invitingAgain.value = true
+        return try {
+            if (runCatching { room.getPowerLevels().canOwnUserInvite() }.getOrDefault(false)) {
+                room.inviteUserById(peer)
+                loadPeerAway(room, peer)
+                null
+            } else {
+                createDm(peer)
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            show(TimelineNotice.INVITE_AGAIN_FAILED)
+            null
+        } finally {
+            _invitingAgain.value = false
         }
     }
 

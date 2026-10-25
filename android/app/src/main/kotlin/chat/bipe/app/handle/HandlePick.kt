@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.shared.BipeHandle
 import chat.bipe.shared.BipeHandleAvailabilityChecker
 import chat.bipe.shared.BipeHandleProblem
@@ -232,7 +233,7 @@ fun HandlePromptCard(model: HandlePickModel, open: () -> Unit) {
                 stringResource(prompt.primary.title),
                 style = MaterialTheme.typography.titleSmall,
                 color = colors.inkOnAccent,
-                modifier = Modifier.background(colors.accentFill, RoundedCornerShape(50)).clickable(role = Role.Button, onClick = open)
+                modifier = Modifier.bipeTapTarget().background(colors.accentFill, RoundedCornerShape(50)).clickable(role = Role.Button, onClick = open)
                     .padding(horizontal = 14.dp, vertical = 8.dp),
             )
             prompt.text.forEach {
@@ -240,7 +241,7 @@ fun HandlePromptCard(model: HandlePickModel, open: () -> Unit) {
                     stringResource(it.title),
                     style = MaterialTheme.typography.titleSmall,
                     color = colors.accentInk,
-                    modifier = Modifier.clickable(role = Role.Button, onClick = model::dismissPrompt),
+                    modifier = Modifier.bipeTapTarget().clickable(role = Role.Button, onClick = model::dismissPrompt),
                 )
             }
         }
@@ -256,7 +257,7 @@ fun HandlePickScreen(model: HandlePickModel, onClose: () -> Unit) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.bipe_signup_handle), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = colors.inkPrimary, modifier = Modifier.weight(1f))
-                Text(stringResource(R.string.bipe_app_close), color = colors.accentInk, modifier = Modifier.clickable(role = Role.Button, onClick = onClose).padding(8.dp))
+                Text(stringResource(R.string.bipe_app_close), color = colors.accentInk, modifier = Modifier.bipeTapTarget().clickable(role = Role.Button, onClick = onClose).padding(8.dp))
             }
             val placeholder = stringResource(R.string.bipe_handle_placeholder)
             BasicTextField(

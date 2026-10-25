@@ -15,6 +15,7 @@ struct ChatTimelineView: View {
     @State private var deletingDm = false
     @ObservedObject private var cleared = ClearedChatsStore.shared
     @Environment(\.closeChat) private var closeChat
+    @Environment(\.openOtherChat) private var openOtherChat
     @State private var creatingPoll = false
     @State private var openPollId: String?
     @StateObject private var voicePlayer = VoicePlayer()
@@ -50,8 +51,12 @@ struct ChatTimelineView: View {
             }
             TypingLine(names: model.typingNames)
             if model.isDm, let people, let peer = model.peerUserId {
-                DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) { composerBar }
+                DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
+                    leftBar
+                    composerBar
+                }
             } else {
+                leftBar
                 composerBar
             }
         }
@@ -223,6 +228,24 @@ struct ChatTimelineView: View {
                 guard let target else { return }
                 withAnimation { proxy.scrollTo(target, anchor: .center) }
                 model.scrolledToTarget()
+            }
+        }
+    }
+
+    /// The other person left the DM: the bar stays above the composer, which stays on (ADR 0141).
+    @ViewBuilder
+    private var leftBar: some View {
+        if model.peerAway != .none {
+            DmLeftBar(away: model.peerAway, name: model.roomName, inviting: model.invitingAgain) {
+                Task {
+                    let people = people
+                    if let roomId = await model.inviteAgain(createDM: { peer in
+                        guard let people else { throw CancellationError() }
+                        return try await people.createDM(with: peer)
+                    }) {
+                        openOtherChat(roomId)
+                    }
+                }
             }
         }
     }
@@ -407,6 +430,7 @@ private struct ComposerBar: View {
                             .frame(width: 20, height: 20)
                             .foregroundStyle(BipeColor.glyphSecondary)
                             .padding(.vertical, 8)
+                            .bipeTapTarget()
                     }
                     .accessibilityLabel(BipeStrings.actionStickers)
                 }
@@ -424,6 +448,7 @@ private struct ComposerBar: View {
                         .padding(9)
                         .foregroundStyle(model.canSend ? BipeColor.inkOnAccent : BipeColor.inkDisabled)
                         .background(Circle().fill(model.canSend ? BipeColor.accentFill : BipeColor.surfaceSunken))
+                        .bipeTapTarget()
                 }
                 .disabled(!model.canSend)
                 .accessibilityLabel(model.editing == nil ? BipeStrings.appTimelineSend : BipeStrings.appMessageSaveEdit)
@@ -438,6 +463,7 @@ private struct ComposerBar: View {
                         .padding(9)
                         .foregroundStyle(BipeColor.inkOnAccent)
                         .background(Circle().fill(BipeColor.accentFill))
+                        .bipeTapTarget()
                 }
                 .accessibilityLabel(BipeStrings.appComposerRecord)
             }
@@ -486,6 +512,7 @@ private struct ComposerBar: View {
                 .frame(width: 22, height: 22)
                 .padding(9)
                 .foregroundStyle(BipeColor.glyphPrimary)
+                .bipeTapTarget()
         }
         .accessibilityLabel(label)
     }
@@ -515,6 +542,7 @@ private struct ComposerBar: View {
                     .frame(width: 16, height: 16)
                     .foregroundStyle(BipeColor.glyphSecondary)
                     .padding(6)
+                    .bipeTapTarget()
             }
             .accessibilityLabel(BipeStrings.appCancel)
         }

@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
+import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.NameNormalizer
@@ -319,7 +320,7 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
                     painterResource(PhosphorIcon.SEAL_CHECK.drawable),
                     contentDescription = stringResource(R.string.bipe_badge_company),
                     tint = colors.trustVerifiedInk,
-                    modifier = Modifier.size(22.dp).clickable(role = Role.Button, onClick = onOpenSeal),
+                    modifier = Modifier.bipeTapTarget().size(22.dp).clickable(role = Role.Button, onClick = onOpenSeal),
                 )
             }
         }

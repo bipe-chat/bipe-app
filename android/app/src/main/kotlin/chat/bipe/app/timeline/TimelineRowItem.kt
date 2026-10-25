@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.app.media.TimelineMediaRow
 import chat.bipe.app.media.VoiceMessage
@@ -396,7 +397,7 @@ private fun MessageFooter(message: TimelineMessage, details: MessageDetails, onF
                 if (receipt.showsLabel) Text(label, style = style, color = colors.inkSecondary, modifier = Modifier.clearAndSetSemantics {})
             }
             MessageReceipt.Tick.FAILED -> Row(
-                modifier = Modifier.clickable(onClick = onFailedTap),
+                modifier = Modifier.bipeTapTarget().clickable(onClick = onFailedTap),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -520,7 +521,7 @@ private fun UndecryptableRow(message: TimelineMessage, onHistoryHelp: () -> Unit
                 stringResource(R.string.bipe_app_utd_help),
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.accentInk,
-                modifier = Modifier.clickable(onClick = onHistoryHelp),
+                modifier = Modifier.bipeTapTarget().clickable(onClick = onHistoryHelp),
             )
         }
         MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))

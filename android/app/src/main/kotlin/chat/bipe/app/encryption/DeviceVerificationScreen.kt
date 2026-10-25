@@ -25,13 +25,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import chat.bipe.app.BipeTheme
@@ -139,8 +139,10 @@ private fun Body(text: String) {
 /** The 7 SAS symbols in rows of 4: the symbol large, its label small (spec notes). */
 @Composable
 private fun SymbolGrid(symbols: List<VerificationSymbol>) {
+    // Two per row at large font sizes, so that every name shows in full (bipe#498).
+    val perRow = if (LocalDensity.current.fontScale >= 1.5f) 2 else 4
     Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-        symbols.chunked(4).forEach { row ->
+        symbols.chunked(perRow).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 row.forEach { symbol ->
                     Column(
@@ -153,12 +155,11 @@ private fun SymbolGrid(symbols: List<VerificationSymbol>) {
                             symbol.label,
                             style = MaterialTheme.typography.labelSmall,
                             color = BipeTheme.colors.inkSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
                         )
                     }
                 }
-                repeat(4 - row.size) {
+                repeat(perRow - row.size) {
                     Column(Modifier.weight(1f)) {}
                 }
             }

@@ -90,6 +90,7 @@ struct VoiceRecordingView: View {
                 .padding(9)
                 .foregroundStyle(BipeColor.inkOnAccent)
                 .background(Circle().fill(BipeColor.accentFill))
+                .bipeTapTarget()
             }
             .disabled(model.phase == .sending)
             .accessibilityLabel(BipeStrings.appTimelineSend)
@@ -155,6 +156,7 @@ struct VoiceRecordingView: View {
                 .foregroundStyle(tint)
                 .padding(10)
                 .background(Circle().fill(fill ?? BipeColor.surfaceSunken))
+                .bipeTapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

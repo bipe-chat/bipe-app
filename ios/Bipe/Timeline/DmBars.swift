@@ -40,3 +40,34 @@ struct DmComposerSlot<Composer: View>: View {
         }
     }
 }
+
+/// Spec chat-timeline peerAway (ADR 0141): a lasting bar above the composer when the other person of a DM left
+/// (bipe_dm_left with bipe_action_invite_again) or the account is gone (bipe_dm_account_gone, no button).
+struct DmLeftBar: View {
+    let away: ChatTimelineModel.PeerAway
+    let name: String
+    let inviting: Bool
+    let inviteAgain: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(away == .accountGone ? BipeStrings.dmAccountGone : BipeStrings.dmLeft(name))
+                .font(.footnote)
+                .foregroundStyle(BipeColor.inkSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if away == .left {
+                if inviting {
+                    ProgressView()
+                } else {
+                    Button(BipeStrings.actionInviteAgain, action: inviteAgain)
+                        .font(.subheadline.weight(.semibold))
+                        .tint(BipeColor.accentInk)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(BipeColor.surfaceRaised)
+        .accessibilityElement(children: .contain)
+    }
+}

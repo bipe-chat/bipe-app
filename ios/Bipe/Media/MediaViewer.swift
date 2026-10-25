@@ -94,6 +94,7 @@ struct MediaViewer: View {
                         .resizable()
                         .frame(width: 22, height: 22)
                         .padding(10)
+                        .bipeTapTarget()
                 }
                 .accessibilityLabel(BipeStrings.appClose)
                 if let current {
@@ -144,6 +145,7 @@ struct MediaViewer: View {
                 .frame(width: 24, height: 24)
                 .padding(8)
                 .foregroundStyle(BipeColor.inkPrimary)
+                .bipeTapTarget()
         }
         .disabled(isWorking)
         .accessibilityLabel(label)

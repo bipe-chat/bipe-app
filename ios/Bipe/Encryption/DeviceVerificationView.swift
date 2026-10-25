@@ -139,18 +139,21 @@ private struct BodyText: View {
 /// The 7 SAS symbols: the symbol large, its label small (spec notes).
 private struct SymbolGrid: View {
     let symbols: [VerificationSymbol]
+    /// Grows with the system text size (bipe-chat/bipe#498).
+    @ScaledMetric(relativeTo: .largeTitle) private var symbolSize: CGFloat = 40
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 16) {
+        // Two columns at the accessibility text sizes, so that every name shows in full.
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: typeSize.isAccessibilitySize ? 2 : 4), spacing: 16) {
             ForEach(symbols) { symbol in
                 VStack(spacing: 4) {
                     Text(symbol.symbol)
-                        .font(.system(size: 40))
+                        .font(.system(size: symbolSize))
                     Text(symbol.label)
                         .font(.caption)
                         .foregroundStyle(BipeColor.inkSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .multilineTextAlignment(.center)
                 }
                 .accessibilityElement(children: .combine)
             }

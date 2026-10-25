@@ -63,6 +63,7 @@ struct VoiceMessageRow: View {
                     }
                 }
                 .frame(width: 40, height: 40)
+                .bipeTapTarget()
             }
             .buttonStyle(.plain)
             .accessibilityLabel(playback == .playing ? BipeStrings.appVoicePause : BipeStrings.appVoicePlay)
