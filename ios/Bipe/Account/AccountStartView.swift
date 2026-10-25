@@ -38,7 +38,7 @@ struct AccountStartView: View {
                     }
                 }
             case .opening:
-                StartMessage(icon: .chatCircle, title: BipeStrings.appName, message: BipeStrings.appStartLoading, showsProgress: true)
+                StartMessage(icon: nil, title: BipeStrings.appName, message: BipeStrings.appStartLoading, showsProgress: true)
             case .noAccount:
                 if model.showsRecovery {
                     RecoveryFlowView(api: model.api,
@@ -140,7 +140,8 @@ private struct SoftLogoutTarget: Identifiable {
 }
 
 private struct StartMessage: View {
-    let icon: PhosphorIcon
+    /// nil shows the Bipe mark.
+    let icon: PhosphorIcon?
     let title: String
     let message: String
     var showsProgress = false
@@ -148,11 +149,17 @@ private struct StartMessage: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            icon.image
-                .resizable()
-                .frame(width: 56, height: 56)
-                .foregroundStyle(BipeColor.accentInk)
-                .accessibilityHidden(true)
+            Group {
+                if let icon {
+                    icon.image
+                        .resizable()
+                        .foregroundStyle(BipeColor.accentInk)
+                } else {
+                    BipeMark().fill(BipeColor.accentFill)
+                }
+            }
+            .frame(width: 56, height: 56)
+            .accessibilityHidden(true)
             Text(title)
                 .font(.title.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
