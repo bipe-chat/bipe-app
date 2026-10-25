@@ -735,6 +735,9 @@ object BipeRegistries {
     // Wait between the full-access warning and the biometric check of a web sign-in approval (ADR 0118).
     const val WEB_LINK_COOLDOWN_SECONDS = 5
 
+    // Wait between an account deletion request and the deletion; every signed-in device can cancel (ADR 0140).
+    const val DELETION_COOLDOWN_HOURS = 72
+
     // Recovery reminder card (bipe#531): first show after these days on this phone; each "Agora não" hides it for the
     // next snooze, and the last snooze repeats.
     const val RECOVERY_REMINDER_FIRST_AFTER_DAYS = 2
