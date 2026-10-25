@@ -369,7 +369,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
             if (saving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.bipe_public_profile_save))
         }
         if (enabled && savedOnce) {
-            IconRow(PhosphorIcon.SHARE_NETWORK, stringResource(R.string.bipe_public_profile_share), onClick = openLink)
+            RowGroup { IconRow(PhosphorIcon.SHARE_NETWORK, stringResource(R.string.bipe_public_profile_share), onClick = openLink) }
         }
     }
 }

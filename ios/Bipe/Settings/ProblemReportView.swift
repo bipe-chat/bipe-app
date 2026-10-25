@@ -89,7 +89,6 @@ struct ProblemReportView: View {
                     }
                 }
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Section {
                 Toggle(isOn: $includeLogs) {
                     Text(BipeStrings.appReportLogs)
@@ -97,11 +96,9 @@ struct ProblemReportView: View {
             } footer: {
                 Text(BipeStrings.appReportLogsFooter)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             if case .failed(let message) = phase {
                 Text(message)
                     .foregroundStyle(BipeColor.trustDangerInk)
-                    .listRowBackground(BipeColor.surfaceBase)
             }
             Section {
                 Button {
@@ -119,9 +116,7 @@ struct ProblemReportView: View {
                 }
                 .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || phase == .sending)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
         }
-        .scrollContentBackground(.hidden)
         .onChange(of: picked) { _, item in
             guard let item else { return }
             Task {

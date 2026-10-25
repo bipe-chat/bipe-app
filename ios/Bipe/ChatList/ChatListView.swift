@@ -34,18 +34,20 @@ struct ChatListView: View {
     @State private var groupDetailsRoom: String?
     @State private var deletingFromProfile: String?
     private let scope: ChatScope
-    private let account: AccountSummary?
-    private let onOpenVoce: () -> Void
     private let api: BipeAPIClient
     @State private var showingInvites = false
     @State private var creatingGroup = false
     @State private var deletingDm: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
+    @StateObject private var cards: FirstListCardsModel
+    @State private var shareItem: ShareItem?
+    private struct ShareItem: Identifiable {
+        let url: URL
+        var id: URL { url }
+    }
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
-    init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil, account: AccountSummary? = nil, onOpenVoce: @escaping () -> Void = {}) {
-        self.account = account
-        self.onOpenVoce = onOpenVoce
+    init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil) {
         self.api = api
         _model = ObservedObject(wrappedValue: model)
         _archive = ObservedObject(wrappedValue: model.archive)
@@ -56,51 +58,38 @@ struct ChatListView: View {
         _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
         _people = StateObject(wrappedValue: people)
+        _cards = StateObject(wrappedValue: FirstListCardsModel(userId: model.session.userId))
         _path = State(initialValue: NavigationPath(initialRoomId.map { [$0] } ?? []))
         self.scope = scope
     }
 
     var body: some View {
         NavigationStack(path: $path) {
-            VStack(spacing: 0) {
-                // Spec encryption-status: the banner above the chat list.
-                if scope == .conversas && encryption.showsBanner {
-                    HistoryBanner(model: encryption)
-                }
-                content
-            }
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
-            .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
-            .navigationDestination(for: String.self) { roomId in
-                ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
-                    Task {
-                        if let userId = await people.dmPartner(roomId: roomId) {
-                            path.append(PeopleRoute.person(userId: userId, fromDm: true))
+            content
+                .background(BipeColor.surfaceBase.ignoresSafeArea())
+                .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
+                .navigationDestination(for: String.self) { roomId in
+                    ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
+                        Task {
+                            if let userId = await people.dmPartner(roomId: roomId) {
+                                path.append(PeopleRoute.person(userId: userId, fromDm: true))
+                            }
                         }
                     }
                 }
-            }
-            .navigationDestination(for: RequestInboxRoute.self) { _ in
-                ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat,
-                                 onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
-            }
-            .navigationDestination(for: PeopleRoute.self) { route in
-                peopleScreen(route)
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
+                .navigationDestination(for: RequestInboxRoute.self) { _ in
+                    ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat,
+                                     onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    if let account {
-                        Button(action: onOpenVoce) {
-                            AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: model.media,
-                                       size: 32, userId: account.userId, isCompany: account.isCompany)
-                        }
-                        .accessibilityLabel(BipeStrings.appAccountCurrentA11y(account.displayName))
+                .navigationDestination(for: PeopleRoute.self) { route in
+                    peopleScreen(route)
+                }
+                .toolbar {
+                    // No account avatar here: Você shows the current account (MZ decision 25 Oct 2026, spec chat-list).
+                    ToolbarItem(placement: .topBarTrailing) {
+                        CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
                     }
                 }
-            }
         }
         .groupHost(session: model.session, api: api, media: model.media, path: $path, creatingGroup: $creatingGroup,
                    deletingDm: $deletingDm, showingInvites: $showingInvites)
@@ -131,6 +120,9 @@ struct ChatListView: View {
         .onAppear { people.start() }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
+        }
+        .sheet(item: $shareItem) { item in
+            ShareSheet(items: [item.url]).ignoresSafeArea()
         }
         .sheet(isPresented: $showsRecoveryEmail) {
             RecoveryEmailAddView(api: api, session: model.session, current: recovery.account?.email,
@@ -281,63 +273,73 @@ struct ChatListView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, banner.state == .hidden ? 0 : 8)
             handlePrompt
-            filterBar
             list
         }
     }
 
-    /// The only filter chip: Unread (spec chat-list-filters).
-    private var filterBar: some View {
-        HStack {
-            Button {
-                model.toggleUnread(in: scope)
-                BipeHaptics.play(.tick)
-            } label: {
-                // On shows a check, not only a colour (bipe#497).
-                HStack(spacing: 4) {
-                    if model.unreadScopes.contains(scope) {
-                        PhosphorIcon.check.image.resizable().frame(width: 14, height: 14)
-                    }
-                    Text(BipeStrings.appChatListFilterUnread)
-                }
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(model.unreadScopes.contains(scope) ? BipeColor.inkOnAccent : BipeColor.inkPrimary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(Capsule().fill(model.unreadScopes.contains(scope) ? BipeColor.accentFill : BipeColor.surfaceRaised))
-                .frame(minHeight: BipeTapTarget.minimum)
-                .contentShape(Rectangle())
+    /// Spec chat-list-cards: the first-list cards at the top of Conversas.
+    @ViewBuilder
+    private var firstListCards: some View {
+        if scope == .conversas && !showingArchived {
+            let count = model.chats(in: .conversas, archived: false).count
+            ForEach(cards.visible(chatCount: count, handle: handle.currentHandle), id: \.self) { card in
+                FirstListCardView(card: card, handle: handle.currentHandle) { target in run(target, of: card) }
+                    .listRowBackground(BipeColor.surfaceBase)
+                    .listRowSeparator(.hidden)
             }
-            .buttonStyle(.plain)
-            // A filter chip: VoiceOver says whether it is on (bipe#495).
-            .accessibilityAddTraits(model.unreadScopes.contains(scope) ? .isSelected : [])
-            Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
+    }
+
+    /// The card actions of spec chat-list-cards. Each one, dismiss included, ends the card.
+    private func run(_ target: BipeOnboardingTarget, of card: BipeOnboardingCard) {
+        cards.finish(card)
+        switch target {
+        case .shareInvite:
+            let session = model.session
+            Task {
+                let creator = BipeInviteCreator(apiClient: api, userID: session.userId, accessToken: { session.accessToken() })
+                if case .created(let invite)? = try? await creator.createIfAvailable() {
+                    shareItem = ShareItem(url: invite.url)
+                } else {
+                    showingInvites = true
+                }
+            }
+        case .shareProfile:
+            if let url = handle.currentHandle.flatMap(BipeProfileLink.url(handle:)) { shareItem = ShareItem(url: url) }
+        case .profileQr:
+            path.append(PeopleRoute.profileQr)
+        case .notes:
+            Task { if let roomId = try? await model.openNotes() { path.append(roomId) } }
+        default:
+            break
+        }
     }
 
     /// The requests row and the group invites above the chats (specs chat-requests and chat-list-filters).
     @ViewBuilder
     private var topRows: some View {
+        // Spec encryption-status: the banner is the first row, so it scrolls with the chats (MZ decision 25 Oct 2026).
+        if scope == .conversas && encryption.showsBanner && !showingArchived {
+            HistoryBanner(model: encryption)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(BipeColor.surfaceRaised)
+        }
+        firstListCards
         Button(showingArchived ? (scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups) : BipeStrings.archivedTitle) {
             showingArchived.toggle()
         }
-        .listRowBackground(BipeColor.surfaceBase)
         if model.readActionFailed {
             VStack(alignment: .leading) {
                 Text(BipeStrings.chatReadError).foregroundStyle(BipeColor.trustDangerInk)
                 Button(BipeStrings.appRetry) { Task { await model.retryReadAction() } }
                     .disabled(model.markingRoomId != nil)
             }
-            .listRowBackground(BipeColor.surfaceBase)
         }
         if archive.failed {
             VStack(alignment: .leading) {
                 Text(BipeStrings.archiveError).foregroundStyle(BipeColor.trustDangerInk)
                 Button(BipeStrings.appRetry) { archive.retry(model.chats) }
             }
-            .listRowBackground(BipeColor.surfaceBase)
         }
         if !showingArchived && scope == .conversas && requests.rowCount > 0 {
             // Action openBox.
@@ -346,16 +348,13 @@ struct ChatListView: View {
             } label: {
                 ChatRequestsRow(count: requests.rowCount)
             }
-            .listRowBackground(BipeColor.surfaceBase)
         }
         ForEach(!showingArchived && scope == .grupos ? requests.visibleGroupInvites : []) { invite in
             GroupInviteRow(model: requests, invite: invite, media: model.media, onOpenChat: openChat)
-                .listRowBackground(BipeColor.surfaceBase)
         }
         if requests.error {
             Text(BipeStrings.errorGeneric)
                 .foregroundStyle(BipeColor.trustDangerInk)
-                .listRowBackground(BipeColor.surfaceBase)
         }
     }
 
@@ -372,11 +371,9 @@ struct ChatListView: View {
                     Text(BipeStrings.archivedEmpty).foregroundStyle(BipeColor.inkSecondary)
                 } else { emptyState }
                 moreRows
-                    .listRowBackground(BipeColor.surfaceBase)
                     .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         case .loaded:
             let chats = model.chats(in: scope, archived: showingArchived)
             List {
@@ -384,7 +381,6 @@ struct ChatListView: View {
                 ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
                     .buttonStyle(.plain)
-                    .listRowBackground(BipeColor.surfaceBase)
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
                     .contextMenu { rowMenu(chat.roomId) }
                     .accessibilityActions { rowMenu(chat.roomId) }
@@ -397,7 +393,6 @@ struct ChatListView: View {
                 moreRows
             }
             .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
     }
 
@@ -445,25 +440,19 @@ struct ChatListView: View {
     @ViewBuilder private var moreRows: some View {
         if !showingArchived {
             Button(BipeStrings.chatListMore) { model.loadMore(in: scope) }
-                .listRowBackground(BipeColor.surfaceBase)
         }
     }
 
-    /// The empty messages of chat-list-filters: noUnread turns the filter off on a tap; noChats offers start chat.
+    /// The empty messages of chat-list-filters: noChats offers start chat.
     @ViewBuilder
     private var emptyState: some View {
         VStack(spacing: 12) {
-            if model.unreadScopes.contains(scope) {
-                Button {
-                    model.toggleUnread(in: scope)
-                } label: {
-                    Text(BipeStrings.appChatListNoUnread)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                }
-                .buttonStyle(.plain)
-            } else if scope == .grupos {
+            if scope == .grupos {
                 Text(BipeStrings.groupsEmptyTitle).font(.headline).foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.groupsEmptyBody).foregroundStyle(BipeColor.inkSecondary)
+                // Spec chat-list-cards createGroup.
+                Button(BipeStrings.groupsEmptyCreate) { creatingGroup = true }
+                    .buttonStyle(.borderedProminent)
             } else {
                 Text(BipeStrings.chatsEmptyTitle)
                     .font(.headline)

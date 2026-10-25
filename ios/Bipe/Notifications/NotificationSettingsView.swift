@@ -72,8 +72,6 @@ struct NotificationSettingsView: View {
             }
         }
         .tint(BipeColor.accentFill)
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.settingsNotifications)
         .accessibilityIdentifier(BipeScreen.notificationSettings.rawValue)
         .task { await model.appear() }

@@ -43,6 +43,8 @@ object BipeTheme {
 /**
  * Picks the token set from the system dark mode and, on Android 14 and later, the system contrast
  * setting. Material components get the same colours. No dynamic colour (identity.md: always açaí).
+ * Every M3 surface role maps to a Bipe surface token, so no baseline (purple-tinted) default leaks into
+ * lists, menus, sheets or fields; surfaceTint is the base surface, so elevation adds no tonal tint.
  */
 @Composable
 fun BipeTheme(content: @Composable () -> Unit) {
@@ -66,6 +68,17 @@ fun BipeTheme(content: @Composable () -> Unit) {
             outline = colors.lineStrong,
             outlineVariant = colors.lineSubtle,
             error = colors.trustDangerInk,
+            surfaceTint = colors.surfaceBase,
+            surfaceBright = colors.surfaceBase,
+            surfaceDim = colors.surfaceSunken,
+            surfaceVariant = colors.surfaceSunken,
+            surfaceContainerLowest = colors.surfaceBase,
+            surfaceContainerLow = colors.surfaceRaised,
+            surfaceContainer = colors.surfaceRaised,
+            surfaceContainerHigh = colors.surfaceRaised,
+            surfaceContainerHighest = colors.surfaceSunken,
+            secondaryContainer = colors.accentWash,
+            onSecondaryContainer = colors.accentInk,
         )
     } else {
         lightColorScheme(
@@ -79,11 +92,22 @@ fun BipeTheme(content: @Composable () -> Unit) {
             outline = colors.lineStrong,
             outlineVariant = colors.lineSubtle,
             error = colors.trustDangerInk,
+            surfaceTint = colors.surfaceBase,
+            surfaceBright = colors.surfaceBase,
+            surfaceDim = colors.surfaceSunken,
+            surfaceVariant = colors.surfaceSunken,
+            surfaceContainerLowest = colors.surfaceBase,
+            surfaceContainerLow = colors.surfaceRaised,
+            surfaceContainer = colors.surfaceRaised,
+            surfaceContainerHigh = colors.surfaceRaised,
+            surfaceContainerHighest = colors.surfaceSunken,
+            secondaryContainer = colors.accentWash,
+            onSecondaryContainer = colors.accentInk,
         )
     }
     val reduceMotion = reduceMotion(LocalContext.current)
     CompositionLocalProvider(LocalBipeColors provides colors, LocalReduceMotion provides reduceMotion) {
-        MaterialTheme(colorScheme = scheme, content = content)
+        MaterialTheme(colorScheme = scheme, typography = BipeTypography, content = content)
     }
 }
 

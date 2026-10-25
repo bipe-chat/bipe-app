@@ -4,11 +4,11 @@
 
 package chat.bipe.app.chatlist
 
+import android.content.Intent
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -51,7 +50,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -67,7 +65,6 @@ import chat.bipe.app.account.TermsReacceptScreen
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.OfficialBadge
-import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
@@ -89,13 +86,14 @@ import chat.bipe.app.pixcheck.PixPreview
 import chat.bipe.app.pixcheck.PixSendScreen
 import chat.bipe.app.recovery.RecoveryAlertModel
 import chat.bipe.app.recovery.RecoveryAlertScreen
+import chat.bipe.app.settings.PhoneConfirmNoticeDialog
+import chat.bipe.app.settings.PhoneConfirmNoticeModel
 import chat.bipe.app.recovery.RecoveryEmailAddScreen
 import chat.bipe.app.recovery.RecoveryReminderCard
 import chat.bipe.app.recovery.RecoveryReminderModel
 import chat.bipe.app.signup.SignupStart
 import chat.bipe.app.tabs.AccountNewScreen
 import chat.bipe.app.tabs.InviteSignedInScreen
-import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.tabs.AppTabsScreen
 import chat.bipe.app.timeline.ChatTimelineScreen
@@ -103,10 +101,9 @@ import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeNotificationTarget
 import chat.bipe.shared.BipeNotificationDestination
-import chat.bipe.shared.generated.BipeHaptic
-import chat.bipe.shared.bipeHaptic
-import androidx.compose.ui.platform.LocalView
+import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.generated.BipeOnboardingTarget
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -142,6 +139,7 @@ fun HomeScreen(
     val encryption = remember(session) { EncryptionStatusModel(session, scope, context.applicationContext) }
     val recoveryAlert = remember(session) { RecoveryAlertModel(context.applicationContext, api, session, scope) }
     val alertNotice by recoveryAlert.notice.collectAsState()
+    val phoneNotice = remember(session) { PhoneConfirmNoticeModel(context.applicationContext, api, session, scope) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
@@ -184,6 +182,9 @@ fun HomeScreen(
     )
     // recovery-alert, action check: on launch and on every return to the foreground.
     LaunchedEffect(foregroundCount) { recoveryAlert.check() }
+    // phone-link-status, action checkNotice: on launch and on every return to the foreground.
+    LaunchedEffect(foregroundCount) { phoneNotice.check() }
+    PhoneConfirmNoticeDialog(phoneNotice)
     // Critical banners refresh alongside account/profile and recovery checks.
     LaunchedEffect(foregroundCount) { remoteBanner.refresh() }
     LaunchedEffect(foregroundCount) { recovery.load() }
@@ -347,9 +348,7 @@ fun ChatListScreen(
     requests: ChatRequestsModel? = null,
     remoteBanner: RemoteBannerModel? = null,
     onOpenRequests: () -> Unit = {},
-    account: AccountSummary? = null,
-    onOpenVoce: () -> Unit = {},
-    /** Spec encryption-status: the banner above the chat list. */
+    /** Spec encryption-status: the banner, the first row of the list so it scrolls with the chats. */
     banner: @Composable () -> Unit = {},
     /** Spec recovery-reminder: shows when the handle card does not (one card at a time). */
     recoveryCard: @Composable () -> Unit = {},
@@ -360,13 +359,15 @@ fun ChatListScreen(
     onInvite: () -> Unit = {},
     onOpenPeople: (PeopleRoute) -> Unit = {},
     listOpenRequest: Int = 0,
+    /** Spec chat-list-cards shareInvite; `null` outside Conversas. */
+    api: BipeApiClient? = null,
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
-    val unreadScopes by model.unreadScopes.collectAsState()
-    val unreadChats by model.unreadChats.collectAsState()
-    val unreadLoading by model.unreadLoading.collectAsState()
-    val unreadOnly = scope in unreadScopes
+    val cardScope = rememberCoroutineScope()
+    val cards = remember(model.session.userId) { FirstListCardsModel(context, model.session.userId) }
+    val doneCards by cards.done.collectAsState()
+    val notesTitle = stringResource(R.string.bipe_self_chat_title)
     val allPhase by model.phase.collectAsState()
     val allChats by model.chats.collectAsState()
     val archiveMarkers by model.archive.markers.collectAsState()
@@ -375,10 +376,9 @@ fun ChatListScreen(
     val markingRoomId by model.markingRoomId.collectAsState()
     var showingArchived by rememberSaveable(model.session.userId, scope) { mutableStateOf(false) }
     LaunchedEffect(listOpenRequest) { if (listOpenRequest > 0) showingArchived = false }
-    val displayed = if (unreadOnly && !showingArchived) unreadChats[scope].orEmpty() else allChats
-    val visibleChats = withoutClearedDms(displayed, { it.roomId }, { it.lastActivity })
+    val visibleChats = withoutClearedDms(allChats, { it.roomId }, { it.lastActivity })
     val chats = visibleChats.filter { it.scope == scope && archiveMarkers.containsKey(it.roomId) == showingArchived }
-    val phase = if (unreadOnly && !showingArchived && scope in unreadLoading) ChatListModel.Phase.LOADING else model.phase(scope, allPhase, chats)
+    val phase = model.phase(scope, allPhase, chats)
     val handleState by handle.state.collectAsState()
     val requestList = requests?.requests?.collectAsState()?.value.orEmpty()
     val groupInvites = requests?.groupInvites?.collectAsState()?.value.orEmpty()
@@ -396,6 +396,8 @@ fun ChatListScreen(
                     modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 )
                 CreateGroupButton(onCreateGroup, onInvite)
+                // Search apart from the bottom bar destinations, at the end of the top bar (spec app-tabs). No account
+                // avatar here: Você shows the current account (MZ decision 25 Oct 2026, spec chat-list).
                 IconButton(onClick = onOpenSearch) {
                     Icon(
                         painterResource(PhosphorIcon.MAGNIFYING_GLASS.drawable),
@@ -404,20 +406,11 @@ fun ChatListScreen(
                         modifier = Modifier.size(24.dp),
                     )
                 }
-                if (account != null) {
-                    val label = stringResource(R.string.bipe_app_account_current_a11y, account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) })
-                    IconButton(onClick = onOpenVoce, modifier = Modifier.semantics { contentDescription = label }) {
-                        Avatar(account.displayName, account.avatarUrl, media, size = 32.dp, userId = account.userId, isCompany = account.isCompany)
-                    }
-                }
             }
             remoteBanner?.let { RemoteBannerCard(it, context) }
-            // Spec encryption-status: the banner above the chat list.
-            banner()
             run {
                 if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
                 else if (scope == ChatScope.CONVERSAS) recoveryCard()
-                if (!showingArchived) UnreadChip(unreadOnly) { model.toggleUnread(scope) }
                 TextButton(onClick = { showingArchived = !showingArchived }) {
                     Text(stringResource(if (!showingArchived) R.string.bipe_archived_title else if (scope == ChatScope.CONVERSAS) R.string.bipe_app_chat_list_title else R.string.bipe_tab_groups))
                 }
@@ -434,6 +427,37 @@ fun ChatListScreen(
                         CircularProgressIndicator(color = colors.accentFill)
                     }
                     ChatListModel.Phase.EMPTY, ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        // Spec encryption-status: the first row, so it scrolls with the chats (MZ decision 25 Oct 2026).
+                        if (!showingArchived) item(key = "history-banner") { banner() }
+                        // Spec chat-list-cards: the first-list cards at the top of Conversas.
+                        if (!showingArchived && scope == ChatScope.CONVERSAS) {
+                            val count = allChats.count { it.scope == ChatScope.CONVERSAS && !archiveMarkers.containsKey(it.roomId) }
+                            items(cards.visible(doneCards, count, handleState.currentHandle), key = { "card-${it.name}" }) { card ->
+                                FirstListCard(card, handleState.currentHandle) { target ->
+                                    cards.finish(card)
+                                    when (target) {
+                                        BipeOnboardingTarget.SHARE_INVITE -> cardScope.launch {
+                                            val link = api?.let { shareableInvite(it, model.session) }
+                                            if (link != null) {
+                                                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                                                    .putExtra(Intent.EXTRA_TEXT, context.getString(R.string.bipe_invites_share_message, link)), null))
+                                            } else {
+                                                onInvite()
+                                            }
+                                        }
+                                        BipeOnboardingTarget.SHARE_PROFILE -> handleState.currentHandle?.let { BipeProfileLink.url(it) }?.let { link ->
+                                            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                                                .putExtra(Intent.EXTRA_TEXT, link), null))
+                                        }
+                                        BipeOnboardingTarget.PROFILE_QR -> onOpenPeople(PeopleRoute.ProfileQr)
+                                        BipeOnboardingTarget.NOTES -> cardScope.launch {
+                                            runCatching { model.openNotes(notesTitle) }.getOrNull()?.let(onOpenChat)
+                                        }
+                                        else -> Unit
+                                    }
+                                }
+                            }
+                        }
                         // The requests row and the group invites (specs chat-requests and chat-list-filters).
                         if (!showingArchived && scope == ChatScope.CONVERSAS && rowCount > 0) item(key = "requests") { ChatRequestsRow(rowCount, onOpenRequests) }
                         if (!showingArchived && scope == ChatScope.GRUPOS && requests != null) {
@@ -446,7 +470,7 @@ fun ChatListScreen(
                         }
                         if (phase == ChatListModel.Phase.EMPTY) item(key = "empty") {
                             if (showingArchived) Text(stringResource(R.string.bipe_archived_empty), color = colors.inkSecondary, modifier = Modifier.padding(16.dp))
-                            else EmptyState(scope, unreadOnly, onTurnOffUnread = { model.toggleUnread(scope) }, onStartChat = { onOpenPeople(PeopleRoute.Contacts) })
+                            else EmptyState(scope, onStartChat = { onOpenPeople(PeopleRoute.Contacts) }, onCreateGroup = onCreateGroup)
                         }
                         items(chats, key = { it.roomId }) { chat ->
                             ArchivedChatRow(
@@ -581,50 +605,20 @@ private fun timeLabel(context: android.content.Context, time: Long): String =
         DateUtils.formatDateTime(context, time, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH or DateUtils.FORMAT_NO_YEAR)
     }
 
-/** The only filter chip: Unread (spec chat-list-filters). */
+/** The empty messages of chat-list-filters: noChats offers start chat. */
 @Composable
-private fun UnreadChip(isOn: Boolean, onToggle: () -> Unit) {
-    val colors = BipeTheme.colors
-    val view = LocalView.current
-    val ink = if (isOn) colors.inkOnAccent else colors.inkPrimary
-    Row(
-        modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .bipeTapTarget()
-            .background(if (isOn) colors.accentFill else colors.surfaceRaised, CircleShape)
-            // A filter chip: TalkBack says whether it is on (bipe#495).
-            .toggleable(value = isOn, role = Role.Checkbox) {
-                onToggle()
-                view.bipeHaptic(BipeHaptic.Tick)
-            }
-            .padding(horizontal = 14.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        // On shows a check, not only a colour (bipe#497).
-        if (isOn) Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = ink, modifier = Modifier.size(14.dp))
-        Text(stringResource(R.string.bipe_app_chat_list_filter_unread), style = MaterialTheme.typography.labelLarge, color = ink)
-    }
-}
-
-/** The empty messages of chat-list-filters: noUnread turns the filter off on a tap; noChats offers start chat. */
-@Composable
-private fun EmptyState(scope: ChatScope, unreadOnly: Boolean, onTurnOffUnread: () -> Unit, onStartChat: () -> Unit) {
+private fun EmptyState(scope: ChatScope, onStartChat: () -> Unit, onCreateGroup: () -> Unit) {
     val colors = BipeTheme.colors
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (unreadOnly) {
-            Text(
-                stringResource(R.string.bipe_app_chat_list_no_unread),
-                color = colors.inkSecondary,
-                modifier = Modifier.bipeTapTarget().clickable(onClick = onTurnOffUnread),
-            )
-        } else if (scope == ChatScope.GRUPOS) {
+        if (scope == ChatScope.GRUPOS) {
             Text(stringResource(R.string.bipe_groups_empty_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
             Text(stringResource(R.string.bipe_groups_empty_body), color = colors.inkSecondary)
+            // Spec chat-list-cards createGroup.
+            TextButton(onClick = onCreateGroup) { Text(stringResource(R.string.bipe_groups_empty_create)) }
         } else {
             Text(stringResource(R.string.bipe_chats_empty_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
             Text(stringResource(R.string.bipe_chats_empty_body), color = colors.inkSecondary)

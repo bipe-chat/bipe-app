@@ -7,32 +7,32 @@ import Phosphor
 import SwiftUI
 import UIKit
 
-struct InviteQr: Identifiable {
+/// One invite as the card shows it: a new one from create, or a pending one from the list.
+struct InviteCard: Identifiable {
     let id: String
-    let url: URL
-    var name: String?
+    let url: URL?
+    let expiresAt: Date
 }
 
-/// Spec invites: quota, pending links from this phone, joined people, naming and revocation.
+/// Spec invites: one create button, then two lists. A pending row opens its card; a joined row opens the chat.
 struct InvitesView: View {
     @ObservedObject var model: InvitesModel
     let people: PeopleService
     let openChat: (String) -> Void
     @State private var creating = false
-    @State private var qr: InviteQr?
-    @State private var editing: BipeInvite?
-    @State private var name = ""
-    @State private var revoking: BipeInvite?
+    @State private var card: InviteCard?
 
     var body: some View {
         List {
             Section {
-                Button(BipeStrings.invitesCreate) { model.beginCreate(); creating = true }
-                    .disabled((model.quota?.available ?? 0) <= 0)
+                Button { model.beginCreate(); creating = true } label: {
+                    Label { Text(BipeStrings.invitesCreate) } icon: { PhosphorIcon.plus.image.resizable().frame(width: 20, height: 20) }
+                }
+                .disabled((model.quota?.available ?? 0) <= 0)
             } footer: {
                 Text(BipeInviteQuota.footer(available: model.quota?.available, nextAvailableAt: model.quota?.nextAvailableAt))
             }
-            if model.phase == .loading { ProgressView() }
+            if model.phase == .loading { ProgressView().frame(maxWidth: .infinity) }
             if model.phase == .failed {
                 Section {
                     Text(BipeStrings.errorNetwork)
@@ -46,26 +46,8 @@ struct InvitesView: View {
             if !model.pending.isEmpty {
                 Section(BipeStrings.invitesPendingHeader) {
                     ForEach(model.pending) { invite in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(invite.name?.isEmpty == false ? invite.name! : BipeStrings.invitesStatusPending)
-                                Text(BipeStrings.invitesExpires(invite.expiresAt.formatted(date: .abbreviated, time: .shortened)))
-                                    .font(.caption).foregroundStyle(BipeColor.inkSecondary)
-                                if model.links[invite.id] == nil {
-                                    Text(BipeStrings.invitesOtherDevice).font(.caption).foregroundStyle(BipeColor.inkSecondary)
-                                }
-                                if model.notes.contains(invite.id) { Text(BipeStrings.inviteNoteTitle).font(.caption) }
-                            }
-                            Spacer()
-                            Menu {
-                                if let link = model.links[invite.id] {
-                                    ShareLink(item: BipeStrings.invitesShareMessage(link.absoluteString)) { Text(BipeStrings.appShare) }
-                                    Button(BipeStrings.invitesQrAction) { qr = InviteQr(id: invite.id, url: link, name: invite.name) }
-                                }
-                                Button(BipeStrings.invitesNameAction) { name = invite.name ?? ""; editing = invite }
-                                Button(BipeStrings.invitesRevoke, role: .destructive) { revoking = invite }
-                            } label: { PhosphorIcon.caretRight.image.resizable().frame(width: 20, height: 20) }
-                            .accessibilityLabel(BipeStrings.invitesTitle)
+                        Button { card = InviteCard(id: invite.id, url: model.links[invite.id], expiresAt: invite.expiresAt) } label: {
+                            PendingInviteRow(invite: invite, onThisPhone: model.links[invite.id] != nil)
                         }
                     }
                 }
@@ -84,25 +66,27 @@ struct InvitesView: View {
         .accessibilityIdentifier(BipeScreen.invites.rawValue)
         .task { await model.refresh() }
         .refreshable { await model.refresh() }
-        .sheet(isPresented: $creating) { InviteNoteView(model: model) }
-        .sheet(item: $qr) { InviteQrView(invite: $0) }
-        .alert(BipeStrings.invitesNameAction, isPresented: Binding(get: { editing != nil }, set: { if !$0 { editing = nil } })) {
-            TextField(BipeStrings.invitesNamePlaceholder, text: $name)
-            Button(BipeStrings.appSave) {
-                if let invite = editing { Task {
-                    do { try await model.setName(id: invite.id, name: name) }
-                    catch { model.error = BipeStrings.errorNetwork }
-                } }
-                editing = nil
+        .sheet(isPresented: $creating) { InviteCreateView(model: model) }
+        .sheet(item: $card) { InviteCardView(model: model, card: $0) }
+    }
+}
+
+private struct PendingInviteRow: View {
+    let invite: BipeInvite
+    let onThisPhone: Bool
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(invite.name?.isEmpty == false ? invite.name! : BipeStrings.invitesLink)
+                    .foregroundStyle(BipeColor.inkPrimary)
+                Text(onThisPhone
+                     ? BipeStrings.invitesExpires(invite.expiresAt.formatted(date: .abbreviated, time: .omitted))
+                     : BipeStrings.invitesOtherDevice)
+                    .font(.caption).foregroundStyle(BipeColor.inkSecondary)
             }
-            Button(BipeStrings.appCancel, role: .cancel) { editing = nil }
-        } message: { Text(BipeStrings.invitesNameFooter) }
-        .confirmationDialog(BipeStrings.invitesRevoke,
-                            isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } })) {
-            Button(BipeStrings.invitesRevoke, role: .destructive) {
-                if let invite = revoking { Task { await model.revoke(invite) } }
-                revoking = nil
-            }
+            Spacer()
+            PhosphorIcon.caretRight.image.resizable().frame(width: 16, height: 16).foregroundStyle(BipeColor.inkSecondary)
         }
     }
 }
@@ -129,10 +113,12 @@ private struct JoinedInviteRow: View {
                 AvatarView(name: person?.displayName ?? "", mxcUrl: person?.avatarUrl, loader: people.media,
                            size: 40, userId: invite.joinedUserId)
                 VStack(alignment: .leading) {
-                    Text(person?.displayName ?? BipeStrings.invitesStatusUsed)
-                    Text(failed ? BipeStrings.errorNetwork : BipeStrings.invitesChat).font(.caption)
+                    Text(person?.displayName ?? BipeStrings.invitesStatusUsed).foregroundStyle(BipeColor.inkPrimary)
+                    Text(failed ? BipeStrings.errorNetwork : BipeStrings.invitesChat)
+                        .font(.caption).foregroundStyle(BipeColor.inkSecondary)
                 }
-                if opening { Spacer(); ProgressView() }
+                Spacer()
+                if opening { ProgressView() }
             }
         }
         .task(id: invite.joinedUserId) {
@@ -141,78 +127,143 @@ private struct JoinedInviteRow: View {
     }
 }
 
-/// Spec invite-note: a first message stays on this phone until the invitee's DM exists.
-struct InviteNoteView: View {
+/// Spec invite-note, without the note: ask who it is for, create, then show the card.
+struct InviteCreateView: View {
     @ObservedObject var model: InvitesModel
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
-    @State private var note = BipeStrings.inviteNoteDefault
     @State private var busy = false
-    @State private var qr: InviteQr?
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        if let created = model.created, model.error == nil {
+            InviteCardView(model: model, card: InviteCard(id: created.id, url: created.url, expiresAt: created.expiresAt))
+        } else {
+            NavigationStack {
+                Form {
+                    Section {
+                        TextField(BipeStrings.invitesNamePlaceholder, text: $name)
+                            .focused($focused)
+                            .submitLabel(.done)
+                            .onSubmit(create)
+                    } footer: { Text(BipeStrings.invitesNameFooter) }
+                    if let error = model.error { Text(error).foregroundStyle(BipeColor.trustDangerInk) }
+                }
+                .scrollContentBackground(.hidden)
+                .background(BipeColor.surfaceBase.ignoresSafeArea())
+                .safeAreaInset(edge: .bottom) {
+                    Button(action: create) {
+                        HStack {
+                            if busy { ProgressView() }
+                            Text(busy ? BipeStrings.appInviteCreating
+                                 : model.created == nil ? BipeStrings.invitesCreate : BipeStrings.appRetry)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(busy)
+                    .padding()
+                }
+                .navigationTitle(BipeStrings.invitesNameAction)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(BipeStrings.appCancel) { dismiss() }.disabled(busy)
+                    }
+                }
+                .onAppear { focused = true }
+                .accessibilityIdentifier(BipeScreen.inviteNote.rawValue)
+            }
+            .tint(BipeColor.accentFill)
+            .interactiveDismissDisabled(busy)
+        }
+    }
+
+    private func create() {
+        guard !busy else { return }
+        busy = true
+        Task { await model.create(name: name); busy = false }
+    }
+}
+
+/// One invite: the QR code and the link to share, then rename and revoke. A new invite and a pending one look the same.
+struct InviteCardView: View {
+    @ObservedObject var model: InvitesModel
+    let card: InviteCard
+    @Environment(\.dismiss) private var dismiss
     @State private var copied = false
+    @State private var editing = false
+    @State private var name = ""
+    @State private var revoking = false
+
+    private var invite: BipeInvite? { model.pending.first { $0.id == card.id } }
+    private var title: String { invite?.name?.isEmpty == false ? invite!.name! : BipeStrings.invitesLink }
 
     var body: some View {
         NavigationStack {
-            Form {
-                if let created = model.created {
-                    Section(BipeStrings.invitesLink) {
-                        Text(created.url.absoluteString).textSelection(.enabled)
-                        Text(BipeStrings.invitesExpires(created.expiresAt.formatted(date: .abbreviated, time: .shortened)))
-                        ShareLink(item: BipeStrings.invitesShareMessage(created.url.absoluteString)) { Text(BipeStrings.appShare) }
-                        Button(BipeStrings.appCopy) { UIPasteboard.general.url = created.url; copied = true }
-                        Button(BipeStrings.invitesQrAction) { qr = InviteQr(id: created.id, url: created.url, name: name) }
+            ScrollView {
+                VStack(spacing: 20) {
+                    if let url = card.url {
+                        QRCodeImage(text: url.absoluteString).frame(maxWidth: 240, maxHeight: 240)
+                        Text(BipeStrings.invitesExpires(card.expiresAt.formatted(date: .abbreviated, time: .omitted)))
+                            .font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                        VStack(spacing: 12) {
+                            ShareLink(item: BipeStrings.invitesShareMessage(url.absoluteString)) {
+                                Label { Text(BipeStrings.appShare) } icon: { PhosphorIcon.shareNetwork.image.resizable().frame(width: 20, height: 20) }
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            Button { UIPasteboard.general.url = url; copied = true } label: {
+                                Label { Text(copied ? BipeStrings.appCopied : BipeStrings.appCopy) } icon: { PhosphorIcon.copy.image.resizable().frame(width: 20, height: 20) }
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .controlSize(.large)
+                        Text(BipeStrings.invitesQrFooter)
+                            .font(.footnote).multilineTextAlignment(.center).foregroundStyle(BipeColor.inkSecondary)
+                    } else {
+                        Text(BipeStrings.invitesOtherDevice).foregroundStyle(BipeColor.inkSecondary)
                     }
-                } else {
-                    Section {
-                        TextField(BipeStrings.invitesNamePlaceholder, text: $name)
-                    } footer: { Text(BipeStrings.invitesNameFooter) }
-                    Section {
-                        TextField(BipeStrings.inviteNotePlaceholder, text: $note, axis: .vertical).lineLimit(3...8)
-                    } header: { Text(BipeStrings.inviteNoteTitle) } footer: { Text(BipeStrings.inviteNoteFooter) }
-                }
-                if let error = model.error { Text(error).foregroundStyle(BipeColor.trustDangerInk) }
-                if model.created == nil || model.error != nil {
-                    Button {
-                        busy = true
-                        Task { await model.create(name: name, note: note); busy = false }
-                    } label: {
-                        if busy { ProgressView(); Text(BipeStrings.appInviteCreating) }
-                        else { Text(model.created == nil ? BipeStrings.invitesCreate : BipeStrings.appRetry) }
+                    if invite != nil {
+                        Divider()
+                        VStack(spacing: 4) {
+                            Button(BipeStrings.invitesNameAction) { name = invite?.name ?? ""; editing = true }
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                            Button(BipeStrings.invitesRevoke, role: .destructive) { revoking = true }
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }
                     }
-                    .disabled(busy)
                 }
-                if copied { Text(BipeStrings.appCopied) }
+                .padding(24)
             }
-            .disabled(busy)
-            .navigationTitle(BipeStrings.invitesCreate)
-            .toolbar { Button(BipeStrings.appClose) { dismiss() }.disabled(busy) }
-            .accessibilityIdentifier(BipeScreen.inviteNote.rawValue)
+            .background(BipeColor.surfaceBase.ignoresSafeArea())
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button(BipeStrings.appClose) { dismiss() } }
+            }
+            .alert(BipeStrings.invitesNameAction, isPresented: $editing) {
+                TextField(BipeStrings.invitesNamePlaceholder, text: $name)
+                Button(BipeStrings.appSave) { Task {
+                    do { try await model.setName(id: card.id, name: name) }
+                    catch { model.error = BipeStrings.errorNetwork }
+                } }
+                Button(BipeStrings.appCancel, role: .cancel) {}
+            } message: { Text(BipeStrings.invitesNameFooter) }
+            .confirmationDialog(BipeStrings.invitesRevoke, isPresented: $revoking) {
+                Button(BipeStrings.invitesRevoke, role: .destructive) {
+                    if let invite { Task { await model.revoke(invite); dismiss() } }
+                }
+            }
+            .accessibilityIdentifier(BipeScreen.inviteQr.rawValue)
         }
-        .interactiveDismissDisabled(busy)
-        .sheet(item: $qr) { InviteQrView(invite: $0) }
+        .tint(BipeColor.accentFill)
     }
 }
 
 struct InviteJoinNotice: ViewModifier {
     @ObservedObject var model: InvitesModel
     func body(content: Content) -> some View { content.toast($model.notice) }
-}
-
-struct InviteQrView: View {
-    let invite: InviteQr
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                if let name = invite.name, !name.isEmpty { Text(name).font(.headline) }
-                QRCodeImage(text: invite.url.absoluteString).frame(maxWidth: 280, maxHeight: 280)
-                Text(BipeStrings.invitesQrFooter).multilineTextAlignment(.center).foregroundStyle(BipeColor.inkSecondary)
-                ShareLink(item: BipeStrings.invitesShareMessage(invite.url.absoluteString)) { Text(BipeStrings.appShare) }
-            }
-            .padding(24)
-            .navigationTitle(BipeStrings.invitesQrTitle)
-            .toolbar { Button(BipeStrings.appClose) { dismiss() } }
-            .accessibilityIdentifier(BipeScreen.inviteQr.rawValue)
-        }
-    }
 }

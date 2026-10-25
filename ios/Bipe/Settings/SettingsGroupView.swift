@@ -41,7 +41,6 @@ struct SettingsGroupView: View {
                     Text(BipeStrings.accountCompanyOwner(owner))
                         .font(.subheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
-                        .listRowBackground(BipeColor.surfaceRaised)
                 }
             }
             if group == .account, let warning = model.waysBack?.warning {
@@ -57,7 +56,6 @@ struct SettingsGroupView: View {
                 Section {
                     ForEach(visible.rows, id: \.self) { row in
                         rowView(row)
-                            .listRowBackground(BipeColor.surfaceRaised)
                     }
                 } header: {
                     if let title = section.title {
@@ -68,8 +66,6 @@ struct SettingsGroupView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(group.title)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.settingsGroup.rawValue)
@@ -195,6 +191,12 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title)
             }
+        case .accountLinkedAccounts:
+            NavigationLink {
+                LinkedAccountsView(settings: model)
+            } label: {
+                SettingsRowLabel(title: row.title, value: linkedSummary)
+            }
         case .helpReportProblem:
             NavigationLink {
                 ProblemReportView(model: model)
@@ -224,7 +226,8 @@ struct SettingsGroupView: View {
                 Toggle(isOn: .constant(false)) { SettingsRowLabel(title: row.title, footer: row.footer) }
                     .disabled(true)
             case .info:
-                SettingsRowLabel(title: row.title, value: value(of: row), footer: row.footer)
+                SettingsRowLabel(title: row.title, value: value(of: row), footer: row.footer,
+                                 isWarning: row == .privacyNumber && model.phone?.needsAttention == true)
             default:
                 Button {
                     tap(row)
@@ -250,11 +253,18 @@ struct SettingsGroupView: View {
         }
     }
 
+    /// The linked providers, for the linkedAccounts row (ADR 0096).
+    private var linkedSummary: String? {
+        guard let links = model.account?.links, !links.isEmpty else { return nil }
+        return links.map { $0.provider == .apple ? BipeStrings.linkedApple : BipeStrings.linkedGoogle }.joined(separator: ", ")
+    }
+
     /// The current value of a row, formatted (spec settings-group, SettingsRow.value).
     private func value(of row: BipeSettingsRow) -> String? {
         switch row {
         case .privacyReadReceipts: BipeStrings.privacyReadReceiptsValue
         case .accountWaysBackStatus: model.waysBack?.summary
+        case .privacyNumber: model.phone?.summary
         case .accountEmail: model.account.map { $0.email ?? BipeStrings.accountEmailNone }
         case .accountRecoveryKey: model.hasRecoveryKey ? BipeStrings.accountRecoveryKeySaved : BipeStrings.accountRecoveryKeyMissing
         case .accountThisDevice: UIDevice.current.model
@@ -375,11 +385,8 @@ struct ChoiceListView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selection == option.id ? .isSelected : [])
-                .listRowBackground(BipeColor.surfaceRaised)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -411,15 +418,26 @@ struct SettingsRowLabel: View {
     var value: String?
     var footer: String?
     var isDestructive = false
+    /// The caution colour and mark on the value (spec phone-link-status).
+    var isWarning = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .foregroundStyle(isDestructive ? BipeColor.trustDangerInk : BipeColor.inkPrimary)
             if let value {
-                Text(value)
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    if isWarning {
+                        PhosphorIcon.warningCircle.image
+                            .resizable()
+                            .frame(width: 14, height: 14)
+                            .foregroundStyle(BipeColor.trustCautionInk)
+                            .accessibilityHidden(true)
+                    }
+                    Text(value)
+                        .font(.subheadline)
+                        .foregroundStyle(isWarning ? BipeColor.trustCautionInk : BipeColor.inkSecondary)
+                }
             }
             if let footer {
                 Text(footer)
@@ -459,16 +477,12 @@ private struct MessagingPickerView: View {
                 .buttonStyle(.plain)
                 .disabled(saving)
                 .accessibilityAddTraits(model.whoCanMessage == option ? .isSelected : [])
-                .listRowBackground(BipeColor.surfaceRaised)
             }
             if failed {
                 Text(BipeStrings.errorGeneric)
                     .foregroundStyle(BipeColor.trustDangerInk)
-                    .listRowBackground(BipeColor.surfaceBase)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.messagingTitle)
         .navigationBarTitleDisplayMode(.inline)
     }

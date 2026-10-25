@@ -78,7 +78,6 @@ struct TrustCardSection: View {
                         .foregroundStyle(BipeColor.glyphSecondary)
                 }
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             .accessibilityIdentifier(BipeScreen.trustCard.rawValue)
             if !profile.liveStepsDone {
                 ForEach(profile.missingProfileItems, id: \.self) { item in
@@ -86,7 +85,6 @@ struct TrustCardSection: View {
                         IconLabel(icon: TrustText.icon(item), text: TrustText.action(item, isCompany: profile.isCompany),
                                   tint: BipeColor.accentInk)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
             }
         } footer: {
@@ -108,7 +106,6 @@ struct TrustProfileView: View {
                     Text(TrustProgress.text(profile)).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                 }
                 .padding(.vertical, 4)
-                .listRowBackground(BipeColor.surfaceRaised)
             }
             Section {
                 ForEach(Array(profile.steps.enumerated()), id: \.element.id) { index, step in
@@ -117,10 +114,8 @@ struct TrustProfileView: View {
                         Button(action: openClaim) {
                             TrustStepRow(number: index + 1, step: step, isCompany: profile.isCompany)
                         }
-                        .listRowBackground(BipeColor.surfaceRaised)
                     } else {
                         TrustStepRow(number: index + 1, step: step, isCompany: profile.isCompany)
-                            .listRowBackground(BipeColor.surfaceRaised)
                     }
                     if step.id == .profile, step.status == .todo {
                         ForEach(profile.missingProfileItems, id: \.self) { item in
@@ -129,7 +124,6 @@ struct TrustProfileView: View {
                                           tint: BipeColor.accentInk)
                             }
                             .padding(.leading, 36)
-                            .listRowBackground(BipeColor.surfaceRaised)
                         }
                     }
                 }
@@ -138,8 +132,6 @@ struct TrustProfileView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.trustTitle)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.trustProfile.rawValue)

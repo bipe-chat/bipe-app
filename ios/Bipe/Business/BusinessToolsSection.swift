@@ -32,23 +32,18 @@ struct BusinessToolsSection: View {
             Button(action: openAgenda) {
                 BusinessToolLabel(icon: .clock, title: BipeStrings.tabAgenda, subtitle: agendaSubtitle)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Button(action: openCatalog) {
                 BusinessToolLabel(icon: .image, title: BipeStrings.catalogTitle, subtitle: nil)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Button(action: openOrders) {
                 BusinessToolLabel(icon: .notepad, title: BipeStrings.ordersTitle, subtitle: nil)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Button(action: openQuotes) {
                 BusinessToolLabel(icon: .file, title: BipeStrings.quotesTitle, subtitle: nil)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
             Button(action: openQueue) {
                 BusinessToolLabel(icon: .usersThree, title: BipeStrings.queueTitle, subtitle: nil)
             }
-            .listRowBackground(BipeColor.surfaceRaised)
         } header: {
             Text(BipeStrings.businessToolsTitle)
         } footer: {

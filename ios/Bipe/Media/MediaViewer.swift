@@ -220,6 +220,9 @@ private struct MediaPage: View {
                     .onDisappear { player.pause() }
             } else if let image = full ?? preview {
                 ZoomableImage(image: image)
+                    .accessibilityElement()
+                    .accessibilityLabel(media.accessibilityLabel)
+                    .accessibilityAddTraits(.isImage)
             }
             if isLoadingFull {
                 ProgressView()

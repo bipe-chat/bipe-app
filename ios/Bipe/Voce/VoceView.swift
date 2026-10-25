@@ -51,7 +51,6 @@ struct VoceView: View {
                     Button(action: onNewAccount) {
                         IconLabel(icon: .plus, text: BipeStrings.appAccountNew, tint: BipeColor.accentInk)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 } header: {
                     if model.accounts.count > 1 { Text(BipeStrings.appAccountSwitcherTitle) }
                 }
@@ -69,7 +68,6 @@ struct VoceView: View {
                         }
                     }
                     .disabled(openingNotes)
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
                 // Perfil de confiança after Anotações (ADR 0112, spec trust-card).
                 if let account = model.accounts.first(where: \.isCurrent) {
@@ -80,12 +78,10 @@ struct VoceView: View {
                     NavigationLink(value: Destination.invites) {
                         IconLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                     // Spec voce openLinkPhone: the only way into link-phone-show (ADR 0059).
                     Button { showsLinkPhone = true } label: {
                         IconLabel(icon: .devices, text: BipeStrings.appLinkPhoneAction)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
                 // Spec business-tools: a company account's tools, before the settings.
                 if model.currentIsCompany {
@@ -103,13 +99,10 @@ struct VoceView: View {
                         NavigationLink(value: Destination.myBookings) {
                             IconLabel(icon: .clock, text: BipeStrings.agendaMyBookings)
                         }
-                        .listRowBackground(BipeColor.surfaceRaised)
                     }
                 }
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.tabYou)
             .settingsDestinations(model: settings) {
                 Task { await model.start.signOut(userId: chatList.session.userId, alreadyLoggedOut: true) }

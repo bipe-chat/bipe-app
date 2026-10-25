@@ -208,6 +208,10 @@ enum TimelineRowBuilder {
             var mediaContent = MediaContent(content.kind)
             if case .media(var media) = mediaContent {
                 media.uploadProgress = event.isOwn ? MediaFormat.uploadPercent(event.localSendState) : nil
+                // The SDK types have no field for the image description; it comes from the event JSON (bipe-chat/bipe#501).
+                if media.kind == .image {
+                    media.description = BipeImageDescription.read(eventJson: event.lazyProvider.debugInfo().originalJson)
+                }
                 mediaContent = .media(media)
             }
             switch content.kind {
@@ -270,13 +274,14 @@ enum TimelineRowBuilder {
                     canDelete: event.isOwn ? (facts.canRedactOwn || message.sendState != .sent) : (!facts.isDm && facts.canRedactOther)
                 )
                 rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
-            case .poll(let question, let pollKind, _, let answers, let votes, let endTime, _):
+            case .poll(let question, let pollKind, let maxSelections, let answers, let votes, let endTime, _):
                 guard let eventId = eventId(event) else { continue }
                 var message = base
                 message.kind = .poll
                 message.poll = PollData(eventId: eventId,
                                         question: question,
                                         kind: pollKind,
+                                        maxSelections: maxSelections,
                                         answers: answers,
                                         votes: votes,
                                         endTime: endTime,

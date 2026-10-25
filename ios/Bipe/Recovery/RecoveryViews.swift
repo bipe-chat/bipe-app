@@ -34,6 +34,7 @@ struct RecoveryFlowView: View {
                         case .beta: RecoveryBetaView(model: model)
                         case .waiting: RecoveryWaitingView(model: model).navigationBarBackButtonHidden()
                         case .oldPhone: OldPhoneView(onSignedIn: model.signedInWithOldPhone)
+                        case .linked: RecoveryLinkedView(model: model)
                         }
                     }
                     .background(BipeColor.surfaceBase.ignoresSafeArea())
@@ -150,9 +151,36 @@ private struct RecoveryStartView: View {
     }
 
     private func rowBody(of row: BipeOnboardingRecoveryRow) -> String {
-        row == .email
-            ? BipeStrings.recoveryEmailBody(String(BipeRegistries.recoveryDelayHoursEmail))
-            : BipeLocalized.string(row.bodyKey)
+        if row == .email {
+            return BipeStrings.recoveryEmailBody(String(BipeRegistries.recoveryDelayHoursEmail))
+        }
+        if row.linkProvider != nil {
+            return BipeStrings.recoveryLinkedBody(String(BipeRegistries.linkedRecoveryDelayHours))
+        }
+        return BipeLocalized.string(row.bodyKey)
+    }
+}
+
+// MARK: - recovery-linked
+
+/// Spec recovery-linked (ADR 0096): the provider sheet runs; this screen shows while it does and after a failure.
+private struct RecoveryLinkedView: View {
+    @ObservedObject var model: RecoveryFlowModel
+
+    var body: some View {
+        RecoveryStep(screen: .recoveryLinked,
+                     title: model.linkProvider == .apple ? BipeStrings.recoveryApple : BipeStrings.recoveryGoogle,
+                     message: BipeStrings.recoveryLinkedBody(String(BipeRegistries.linkedRecoveryDelayHours))) {
+            switch model.linkedPhase {
+            case .signingIn:
+                ProgressView().frame(maxWidth: .infinity)
+            case .failed:
+                if let error = model.linkedError {
+                    Footer(text: error, isError: true)
+                }
+                FilledButton(title: BipeStrings.appRetry) { Task { await model.startLinked() } }
+            }
+        }
     }
 }
 
@@ -200,7 +228,8 @@ private struct RecoveryPinView: View {
                 if let error = errorText {
                     Footer(text: error, isError: true)
                 }
-                if model.pinPhase == .failed, model.pinError == BipeStrings.errorRecoveryInvalid {
+                if model.pinPhase == .failed,
+                   model.pinError == BipeStrings.errorRecoveryInvalid || model.pinError == BipeStrings.recoveryLinkedInvalid {
                     FilledButton(title: BipeStrings.actionContinue) { model.backToStart() }
                 }
                 Footer(text: BipeStrings.pinNeverAsked)
@@ -225,7 +254,10 @@ private struct RecoveryPinView: View {
 
     private var message: String? {
         switch model.pinPhase {
-        case .blocked: return BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries))
+        // A linked account never unblocks the PIN (ADR 0096).
+        case .blocked: return model.factor == .linked
+            ? BipeStrings.recoveryLinkedPinBlocked
+            : BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries))
         case .newPin: return BipeStrings.pinCreateBody(String(BipeRegistries.pinLength))
         case .newPinConfirm: return nil
         default:
@@ -324,7 +356,9 @@ private struct RecoveryWaitingView: View {
             case .waiting, .claiming:
                 if let pending = model.pending {
                     let date = pending.readyAt.formatted(date: .abbreviated, time: .shortened)
-                    Text(pending.purpose == .pinReset ? BipeStrings.recoveryWaitingPinBody(date) : BipeStrings.recoveryWaitingBody(date))
+                    Text(pending.purpose == .pinReset
+                         ? BipeStrings.recoveryWaitingPinBody(date)
+                         : model.waitingProvider != nil ? BipeStrings.recoveryLinkedWait(date) : BipeStrings.recoveryWaitingBody(date))
                         .foregroundStyle(BipeColor.inkPrimary)
                 }
                 if model.waitingPhase == .claiming {
@@ -339,7 +373,7 @@ private struct RecoveryWaitingView: View {
                     FilledButton(title: BipeStrings.actionContinue) { model.startOver() }
                 } else {
                     Text(BipeStrings.recoveryReady).foregroundStyle(BipeColor.inkPrimary)
-                    Footer(text: BipeStrings.recoveryHistoryNote)
+                    Footer(text: model.waitingProvider != nil ? BipeStrings.recoveryLinkedHistory : BipeStrings.recoveryHistoryNote)
                 }
             case .cancelled:
                 Text(BipeStrings.recoveryCancelled).foregroundStyle(BipeColor.inkPrimary)

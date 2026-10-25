@@ -51,7 +51,6 @@ struct ChatRequestsView: View {
                 // Empty box: bipe_app_requests_empty and a link to the who-can-message setting.
                 Text(BipeStrings.appRequestsEmpty)
                     .foregroundStyle(BipeColor.inkSecondary)
-                    .listRowBackground(BipeColor.surfaceBase)
             } else {
                 ForEach(model.visibleRequests) { request in
                     // Action openRequest.
@@ -60,7 +59,6 @@ struct ChatRequestsView: View {
                     } label: {
                         RequestRow(request: request, trust: model.trust(for: request), media: media, hidePhoto: model.hidePhotos)
                     }
-                    .listRowBackground(BipeColor.surfaceBase)
                 }
             }
             // Action openWhoCanMessage.
@@ -68,11 +66,8 @@ struct ChatRequestsView: View {
                 Text(BipeStrings.messagingTitle)
                     .foregroundStyle(BipeColor.accentInk)
             }
-            .listRowBackground(BipeColor.surfaceBase)
         }
         .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.requestsTitle)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.chatRequests.rawValue)
