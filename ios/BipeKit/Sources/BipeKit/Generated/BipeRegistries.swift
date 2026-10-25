@@ -760,4 +760,10 @@ public enum BipeRegistries {
     /// Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit.
     public static let imageDescriptionField = "chat.bipe.image_description"
     public static let imageDescriptionMaxLength = 1000
+
+    /// Pix request marks (ADR 0046, bipe-chat/bipe#130; registries/pix-marks.json). Rules: BipePixMarks, test-vectors/pix-marks.json.
+    public static let pixMarkEventType = "chat.bipe.pix_mark"
+    public static let pixMarkRelType = "m.reference"
+    public static let pixE2eIdPattern = "^E[0-9]{8}[A-Za-z0-9]{23}$"
+    public static let pixTxidMaxLength = 25
 }
