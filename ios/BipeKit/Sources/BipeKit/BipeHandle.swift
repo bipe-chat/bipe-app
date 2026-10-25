@@ -57,6 +57,33 @@ public nonisolated enum BipeHandle {
         }
         return nil
     }
+
+    /// Escolha seu @ (bipe-chat/bipe#200): port of `handleSuggestions()` in bipe-shared tools/lib/registries.mjs.
+    /// Must match test-vectors/handle-suggestions.json. The caller checks availability in this order.
+    public static func suggestions(for displayName: String) -> [String] {
+        let normalized = NameNormalizer.normalize(displayName, homoglyphs: [:])
+        let letters: ClosedRange<Unicode.Scalar> = "a"..."z"
+        let digits: ClosedRange<Unicode.Scalar> = "0"..."9"
+        let words = normalized.unicodeScalars
+            .split { !(letters.contains($0) || digits.contains($0)) }
+            .map { String($0) }
+        guard let first = words.first, let last = words.last else { return [] }
+        let raw = words.count > 1
+            ? ["\(first).\(last)", "\(first)\(last)", "\(first)_\(last)", first, "\(last).\(first)",
+               "\(first).\(last)1", "\(first)\(last)1"]
+            : [first, "\(first)1", "\(first)2", "\(first)_"]
+        var result: [String] = []
+        for candidate in raw {
+            var cut = String(candidate.prefix(BipeRegistries.handleMaxLength))
+            while cut.hasSuffix(".") { cut.removeLast() }
+            guard cut.count >= BipeRegistries.handleMinLength,
+                  cut.range(of: BipeRegistries.handlePattern, options: .regularExpression) != nil,
+                  !result.contains(cut) else { continue }
+            result.append(cut)
+            if result.count == BipeRegistries.handleSuggestionCandidates { break }
+        }
+        return result
+    }
 }
 
 /// Client-side checks for the sign-up form. Limits come from the API contract (`SignupRequest`).

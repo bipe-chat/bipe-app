@@ -142,6 +142,14 @@ struct SharedVectorTests {
     }
     
     @Test
+    func handleSuggestions() throws {
+        for vector in try SharedVectors.array("handle-suggestions.json", key: "cases") {
+            let name = try #require(vector["name"] as? String)
+            #expect(BipeHandle.suggestions(for: name) == vector["suggestions"] as? [String], "suggestions(\(name))")
+        }
+    }
+
+    @Test
     func inviteCodes() throws {
         for vector in try SharedVectors.array("invite-codes.json", key: "vectors") {
             let input = try #require(vector["input"] as? String)
