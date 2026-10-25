@@ -15,7 +15,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
-import org.matrix.rustcomponents.sdk.BackgroundTaskFailureReason
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
 import org.matrix.rustcomponents.sdk.ClientDelegate
@@ -25,6 +24,7 @@ import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
 import org.matrix.rustcomponents.sdk.SyncService
 import org.matrix.rustcomponents.sdk.TaskHandle
 import uniffi.matrix_sdk.BackupDownloadStrategy
+import uniffi.matrix_sdk_common.BackgroundTaskFailureReason
 
 /** A signed-in account: the SDK client and its sync service. */
 class AccountSession(val client: Client, val syncService: SyncService, val userId: String) {
