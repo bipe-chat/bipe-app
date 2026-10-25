@@ -192,6 +192,8 @@ private struct BipeTextField: View {
 struct OnboardingWelcomeView: View {
     @ObservedObject var model: SignupFlowModel
     @State private var showsSite = false
+    /// The wordmark follows the system text size.
+    @ScaledMetric(relativeTo: .largeTitle) private var wordmarkSize: CGFloat = 52
 
     var body: some View {
         // The window decides the layout, never the device (docs/iphone-duo.md).
@@ -240,7 +242,7 @@ struct OnboardingWelcomeView: View {
                     .frame(width: 40, height: 40)
                     .accessibilityHidden(true)
                 Text(BipeStrings.appName.lowercased())
-                    .font(.system(size: 52, weight: .heavy, design: .rounded))
+                    .font(.system(size: wordmarkSize, weight: .heavy, design: .rounded))
                     .accessibilityAddTraits(.isHeader)
             }
             Spacer(minLength: 24)
