@@ -726,6 +726,15 @@ public enum BipeRegistries {
     public static let maxPersonalAccounts = 2
     /// Wait between the full-access warning and the biometric check of a web sign-in approval (ADR 0118).
     public static let webLinkCooldownSeconds = 5
+    /// Recovery reminder card (bipe#531): first show after these days on this phone; each "Agora não" hides it for the
+    /// next snooze, and the last snooze repeats.
+    public static let recoveryReminderFirstAfterDays = 2
+    public static let recoveryReminderSnoozeDays: [Int] = [
+        7,
+        14,
+        30,
+        60,
+    ]
 
     /// Terms and privacy accepted at sign-up (ADR 0113; registries/legal.json). Paths are on the public site.
     public static let legalVersion = "2026-10-16"

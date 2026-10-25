@@ -796,6 +796,10 @@ public enum BipeStrings {
 
     public static var emailLinkInvalid: String { NSLocalizedString("bipe_email_link_invalid", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var emailSend: String { NSLocalizedString("bipe_email_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var emailChangeReason: String { NSLocalizedString("bipe_email_change_reason", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var errorEmailUnavailable: String { NSLocalizedString("bipe_error_email_unavailable", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var recoveryTitle: String { NSLocalizedString("bipe_recovery_title", tableName: "Bipe", bundle: .module, comment: "") }
