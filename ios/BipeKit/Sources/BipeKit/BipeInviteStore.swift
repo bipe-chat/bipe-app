@@ -25,6 +25,8 @@ public nonisolated struct BipeInviteStore {
     
     private static let linksKeychainService = "chat.bipe.invites"
     private static let notesKeychainService = "chat.bipe.invites.notes"
+    /// The services the app-group move copies (bipe-chat/bipe#531).
+    public static let keychainServices = [linksKeychainService, notesKeychainService]
     
     public init(userID: String, defaults: UserDefaults = .standard) {
         self.init(userID: userID, defaults: defaults,

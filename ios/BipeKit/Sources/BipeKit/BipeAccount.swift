@@ -47,6 +47,9 @@ public struct BipeAccountStatus: Decodable, Sendable, Equatable {
     public let maxAccounts: Int?
     /// ADR 0087. Absent from an older server: personal.
     public let accountType: BipeAccountType?
+    /// bipe-chat/bipe#531: a way back the server can check that does not depend on the Apple Team ID (a verified
+    /// recovery email). `false` shows the recovery-reminder card. Absent from an older server: no card.
+    public let independentRecovery: Bool?
 }
 
 /// Contract: `Recovery`.

@@ -40,6 +40,11 @@ public nonisolated struct BipeCredentialStore: Sendable {
         case tokenExcluded = "chat.bipe.account.recovery-token.excluded"
     }
     
+    /// Every service this store writes, sign-out markers first: the app-group move (bipe-chat/bipe#531) copies a marker
+    /// before the items it hides.
+    public static let keychainServices: [String] = [Service.passwordExcluded, .tokenExcluded, .password, .recoveryToken,
+                                                    .pendingSignup, .pendingRecovery].map(\.rawValue)
+
     /// A sign-up whose credentials are not stored yet (ADR 0094). The key makes a retry return the same account.
     /// The PIN is the one the first try sent, so the app lock gets the PIN the account really has.
     public struct PendingSignup: Codable, Sendable, Equatable, CustomStringConvertible {
@@ -52,7 +57,8 @@ public nonisolated struct BipeCredentialStore: Sendable {
         }
     }
     
-    /// Mutations require the app's explicit own group (ADR 0147). The build expands AppIdentifierPrefix in Info.plist.
+    /// Mutations require the app's explicit own group (ADR 0147): the app-group keychain group since bipe-chat/bipe#531,
+    /// so the items survive the App Store transfer. The Team-ID group before it is a legacy read group now.
     /// A missing or unresolved group disables mutations; it must never become an unscoped query.
     public init(accessGroup: String? = nil) {
         self.init(ownedAccessGroup: accessGroup ?? (Bundle.main.object(forInfoDictionaryKey: "BipeOwnedKeychainGroup") as? String),
@@ -255,12 +261,17 @@ public nonisolated struct BipeCredentialStore: Sendable {
 
     /// Read own items first, then the configured legacy groups. Dedupe by account before sorting by date.
     /// Pending operations belong to this app alone; only passwords and recovery tokens have legacy fallback.
+    /// A sign-out marker in the own group hides every copy; a marker in a legacy group (the Team-ID group before the
+    /// app-group move, bipe-chat/bipe#531, or the fork's) hides only legacy copies, so a later own save shows again.
     private func records(_ service: Service, account: String? = nil) -> [Stored] {
         var groups = ownedAccessGroup.map { [$0] } ?? []
         if service == .password || service == .recoveryToken { groups += legacyReadGroups }
-        let excluded = exclusionService(service).map { Set(records($0).map(\.account)) } ?? []
+        let exclusion = exclusionService(service)
+        let ownExcluded = exclusion.map { Set(markerAccounts($0, in: ownedAccessGroup)) } ?? []
+        let legacyExcluded = exclusion.map { marker in ownExcluded.union(legacyReadGroups.flatMap { markerAccounts(marker, in: $0) }) } ?? []
         var selected: [String: Stored] = [:]
         for group in groups {
+            let excluded = group == ownedAccessGroup ? ownExcluded : legacyExcluded
             var query = baseQuery(service, group: group, account: account)
             query[kSecReturnData as String] = true
             query[kSecReturnAttributes as String] = true
@@ -284,6 +295,17 @@ public nonisolated struct BipeCredentialStore: Sendable {
         records(.password).compactMap { record in
             Self.item((record.account, record.data)).map { ($0, record.created) }
         }
+    }
+
+    /// The accounts of the sign-out markers in one group. An unreadable group counts as none.
+    private func markerAccounts(_ service: Service, in group: String?) -> [String] {
+        guard let group else { return [] }
+        var query = baseQuery(service, group: group)
+        query[kSecReturnAttributes as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitAll
+        let (status, result) = keychain.copyMatching(query)
+        guard status == errSecSuccess, let items = result as? [[String: Any]] else { return [] }
+        return items.compactMap { $0[kSecAttrAccount as String] as? String }
     }
 
     private func readAll(_ service: Service) -> [(account: String, data: Data)] {
