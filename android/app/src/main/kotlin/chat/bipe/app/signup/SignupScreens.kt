@@ -309,7 +309,7 @@ private fun SignupNameScreen(model: SignupFlowModel) {
         if (handle != null) {
             Text(stringResource(R.string.bipe_signup_invited_by, handle), style = MaterialTheme.typography.titleSmall, color = colors.accentInk)
         }
-        BipeField(stringResource(R.string.bipe_signup_display_name), name, model::editName)
+        BipeField(stringResource(if (model.isCompany) R.string.bipe_company_name else R.string.bipe_signup_display_name), name, model::editName)
         FieldFooter(stringResource(R.string.bipe_signup_display_name_footer))
         TermsRow(accepted, onToggle = model::toggleTerms)
         if (required) FieldFooter(stringResource(R.string.bipe_signup_terms_required), isError = true)

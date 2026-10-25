@@ -83,8 +83,8 @@ class AccountNewModel(private val context: Context, private val session: Account
         catch (_: Exception) { _state.value = _state.value.copy(invitePhase = InvitePhase.FAILED) }
     }
 
-    /** Action choosePersonal: the invite for the sign-up, else `null` with the reason on screen. */
-    suspend fun choosePersonal(): SignupStart? {
+    /** Actions choosePersonal and chooseCompany: the invite for the sign-up, else `null` with the reason on screen. */
+    suspend fun choose(isCompany: Boolean): SignupStart? {
         if (_state.value.busy) return null
         _state.value = _state.value.copy(busy = true, error = null)
         try {
@@ -94,7 +94,7 @@ class AccountNewModel(private val context: Context, private val session: Account
                 return null
             }
             val invite = withToken { api.createInvite(it) }
-            return SignupStart(invite.id, invite.code)
+            return SignupStart(invite.id, invite.code, isCompany)
         } catch (error: CancellationException) { throw error }
         catch (error: Exception) {
             if (error is BipeApiException.Server && error.code == BipeApiErrorCode.INVITE_QUOTA_EXHAUSTED) noneLeft(null)
@@ -128,8 +128,8 @@ class AccountNewModel(private val context: Context, private val session: Account
 }
 
 /**
- * The Nova conta screen: the choices, then the sign-up or recovery-start in its place. Conta da empresa stays hidden on
- * Android until the phone can attest a company sign-up (bipe-chat/bipe#92).
+ * The Nova conta screen: the choices, then the sign-up or recovery-start in its place. Conta da empresa shows while the
+ * account on screen is not a company; signup-create sends Key Attestation (bipe-chat/bipe#92).
  */
 @Composable
 fun AccountNewScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, onClose: () -> Unit) {
@@ -181,7 +181,17 @@ fun AccountNewScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiCl
             else stringResource(R.string.bipe_account_cap_reached, tabsState.maxPersonalAccounts.toString()),
             enabled = tabsState.canAddAccount && invitesLeft && !state.busy,
         ) {
-            scope.launch { model.choosePersonal()?.let { signup = it } }
+            scope.launch { model.choose(isCompany = false)?.let { signup = it } }
+        }
+        if (current?.isCompany == false) {
+            ChoiceRow(
+                PhosphorIcon.HANDSHAKE,
+                stringResource(R.string.bipe_account_new_company),
+                stringResource(R.string.bipe_account_new_company_body),
+                enabled = invitesLeft && !state.busy,
+            ) {
+                scope.launch { model.choose(isCompany = true)?.let { signup = it } }
+            }
         }
         val note = state.quotaText?.takeIf { !invitesLeft }
             ?: current?.displayName?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.bipe_account_new_invite_note, it) }

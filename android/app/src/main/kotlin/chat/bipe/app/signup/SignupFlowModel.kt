@@ -41,9 +41,9 @@ data class PendingInvite(val code: String, val inviterHandle: String?, val isVal
 
 /**
  * Type SignupStart of spec account-new: a sign-up from the Nova conta window, with the invite the account on screen made.
- * Android offers only personal accounts there until bipe-chat/bipe#92.
+ * [isCompany] sends `account_type: company` (ADR 0087).
  */
-data class SignupStart(val inviteId: String, val code: String) {
+data class SignupStart(val inviteId: String, val code: String, val isCompany: Boolean = false) {
     override fun toString(): String = "SignupStart($inviteId)"
 }
 
@@ -76,6 +76,9 @@ class SignupFlowModel(
         val index = current.indexOf(route)
         _path.value = if (index >= 0) current.subList(0, index + 1) else current + route
     }
+
+    /** A company sign-up from account-new: signup-name asks for the company name. */
+    val isCompany: Boolean get() = start?.isCompany == true
 
     /** true once signup-create ran: a cancel no longer revokes the invite of [start] (spec account-new cancelSignup). */
     var reachedCreate = false
@@ -443,6 +446,7 @@ class SignupFlowModel(
                 signupKey = pending.key,
                 termsVersion = if (termsAccepted.value) acceptedTermsVersion else null,
                 attestation = attestation,
+                accountType = if (isCompany) "company" else null,
             )
             val response = try {
                 signupRetryingLostAnswers(request)
