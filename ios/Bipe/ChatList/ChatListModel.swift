@@ -41,6 +41,8 @@ struct ChatSummary: Identifiable, Equatable {
 enum ChatScope: String, CaseIterable, Hashable {
     case conversas
     case grupos
+    /// The Conversas tab of a company account: DMs and groups together (spec app-tabs).
+    case todas
 }
 
 /// Spec chat-list (bipe-shared product/screens/chat-list.json).
@@ -92,7 +94,7 @@ final class ChatListModel: ObservableObject {
 
     /// The chats of one scope, in room list order.
     func chats(in scope: ChatScope, archived: Bool = false) -> [ChatSummary] {
-        chats.filter { $0.scope == scope && archive.contains($0) == archived }
+        chats.filter { (scope == .todas || $0.scope == scope) && archive.contains($0) == archived }
     }
 
     /// The phase of one scope: empty when the list loaded and the scope has no chat.

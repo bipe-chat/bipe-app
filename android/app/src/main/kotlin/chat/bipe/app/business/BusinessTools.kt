@@ -9,17 +9,25 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,15 +65,32 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** What the business tools section has open. */
-private enum class ToolScreen { CATALOG, ORDERS, QUOTES, QUEUE }
+private enum class ToolScreen { AGENDA, CATALOG, ORDERS, QUOTES, QUEUE }
 
 /**
- * Spec business-tools: the Ferramentas do negócio section on the Você tab of a company account. Agenda selects the
- * Agenda tab; Catálogo opens catalog-owner, Pedidos order-owner, Orçamentos quote-builder and Fila virtual queue-owner.
+ * Spec app-tabs and business-tools: the Trabalho tab of a company account, in the place of Grupos.
+ * [onOpenChat] takes a room ID and shows it in Conversas.
+ */
+@Composable
+fun WorkScreen(session: AccountSession, chatList: ChatListModel, onOpenChat: (String) -> Unit) {
+    val colors = BipeTheme.colors
+    Surface(modifier = Modifier.fillMaxSize(), color = colors.surfaceBase) {
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+            .verticalScroll(rememberScrollState())) {
+            Text(stringResource(R.string.bipe_tab_work), style = MaterialTheme.typography.headlineMedium, color = colors.inkPrimary,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp))
+            BusinessToolsSection(session, chatList, onOpenChat)
+        }
+    }
+}
+
+/**
+ * Spec business-tools: the Ferramentas do negócio section on the Trabalho tab of a company account. Agenda opens
+ * agenda-owner, Catálogo catalog-owner, Pedidos order-owner, Orçamentos quote-builder and Fila virtual queue-owner.
  * [chatList] gives the company's DMs (owner orders and walk-ins); [onOpenChat] takes a room ID.
  */
 @Composable
-fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpenAgenda: () -> Unit, onOpenChat: (String) -> Unit) {
+fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpenChat: (String) -> Unit) {
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
     val business = remember(session) { BusinessApi(session) }
@@ -91,7 +116,7 @@ fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpe
             state.published -> stringResource(R.string.bipe_agenda_published)
             else -> stringResource(R.string.bipe_agenda_not_published)
         }
-        ToolRow(PhosphorIcon.CLOCK, stringResource(R.string.bipe_tab_agenda), subtitle, onOpenAgenda)
+        ToolRow(PhosphorIcon.CLOCK, stringResource(R.string.bipe_tab_agenda), subtitle) { open = ToolScreen.AGENDA }
         ToolRow(PhosphorIcon.NOTEPAD, stringResource(R.string.bipe_catalog_title), null) { open = ToolScreen.CATALOG }
         ToolRow(PhosphorIcon.CHECKS, stringResource(R.string.bipe_orders_title), null) { open = ToolScreen.ORDERS }
         ToolRow(PhosphorIcon.HANDSHAKE, stringResource(R.string.bipe_quotes_title), null) { open = ToolScreen.QUOTES }
@@ -102,6 +127,10 @@ fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpe
     open?.let { screen ->
         BusinessFullScreen(onDismiss = { open = null }) {
             when (screen) {
+                ToolScreen.AGENDA -> AgendaOwnerScreen(session, chatList, onOpenChat = { roomId ->
+                    open = null
+                    onOpenChat(roomId)
+                })
                 ToolScreen.CATALOG -> CatalogOwnerScreen(business, onClose = { open = null })
                 ToolScreen.ORDERS -> OrderOwnerScreen(business, customers, onOpenChat = openCustomerChat, onClose = { open = null })
                 ToolScreen.QUOTES -> QuoteOwnerScreen(business, onOpenChat = openCustomerChat, onClose = { open = null })

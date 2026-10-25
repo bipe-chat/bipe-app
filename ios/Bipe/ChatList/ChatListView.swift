@@ -10,7 +10,7 @@ import SwiftUI
 
 private enum RequestInboxRoute: Hashable { case inbox }
 
-/// Spec chat-list, one scope: Conversas or Grupos (ADR 0053).
+/// Spec chat-list, one scope: Conversas or Grupos (ADR 0053), or both in one list for a company account (spec app-tabs).
 struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
     @ObservedObject private var archive: ChatArchiveModel
@@ -67,7 +67,7 @@ struct ChatListView: View {
         NavigationStack(path: $path) {
             content
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
-                .navigationTitle(scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups)
+                .navigationTitle(scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle)
                 .navigationDestination(for: String.self) { roomId in
                     ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
                         Task {
@@ -100,7 +100,7 @@ struct ChatListView: View {
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
         .task { await encryption.observe() }
         .task {
-            if scope == .conversas {
+            if scope != .grupos {
                 await handle.load()
                 await recovery.load()
             }
@@ -113,7 +113,7 @@ struct ChatListView: View {
                 Task {
                     await banner.refresh()
                     await requests.refreshTrust()
-                    if scope == .conversas { await recovery.load() }
+                    if scope != .grupos { await recovery.load() }
                 }
             }
         }
@@ -159,7 +159,7 @@ struct ChatListView: View {
         }
         // invite-signed-in: the inviter's chat or profile-link-open, in the Conversas list.
         .onReceive(TabsLinks.shared.$link.compactMap { $0 }) { link in
-            guard scope == .conversas else { return }
+            guard scope != .grupos else { return }
             TabsLinks.shared.link = nil
             switch link {
             case .chat(let roomId): path = NavigationPath([roomId])
@@ -168,7 +168,7 @@ struct ChatListView: View {
         }
         .onOpenURL { url in
             // Both tabs show a chat list; the Conversas one takes profile links.
-            guard scope == .conversas else { return }
+            guard scope != .grupos else { return }
             switch PeopleLink(url: url) {
             case .handle(let handle): openingLink = handle
             case .userId(let userId): path.append(PeopleRoute.person(userId: userId, fromDm: false))
@@ -181,7 +181,7 @@ struct ChatListView: View {
             // @Published emits before assignment. Consume after the owner/tab route has settled.
             Task { @MainActor in
                 let destinationScope: ChatScope = target.destination == .groups ? .grupos : .conversas
-                guard scope == destinationScope, target.accountUserId == model.session.userId,
+                guard scope == destinationScope || scope == .todas, target.accountUserId == model.session.userId,
                       notifications.owns(model.session), notifications.roomToOpen == target else { return }
                 var opensChat = false
                 if target.destination == .chat,
@@ -256,11 +256,11 @@ struct ChatListView: View {
     /// One card at a time: the handle card first, then the recovery reminder (spec recovery-reminder).
     @ViewBuilder
     private var handlePrompt: some View {
-        if scope == .conversas && handle.showsPrompt {
+        if scope != .grupos && handle.showsPrompt {
             HandlePromptCard(model: handle) { showsHandlePick = true }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-        } else if scope == .conversas && recovery.showsCard {
+        } else if scope != .grupos && recovery.showsCard {
             RecoveryReminderCard(model: recovery) { showsRecoveryEmail = true }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -280,7 +280,7 @@ struct ChatListView: View {
     /// Spec chat-list-cards: the first-list cards at the top of Conversas.
     @ViewBuilder
     private var firstListCards: some View {
-        if scope == .conversas && !showingArchived {
+        if scope != .grupos && !showingArchived {
             let count = model.chats(in: .conversas, archived: false).count
             ForEach(cards.visible(chatCount: count, handle: handle.currentHandle), id: \.self) { card in
                 FirstListCardView(card: card, handle: handle.currentHandle) { target in run(target, of: card) }
@@ -319,13 +319,13 @@ struct ChatListView: View {
     @ViewBuilder
     private var topRows: some View {
         // Spec encryption-status: the banner is the first row, so it scrolls with the chats (MZ decision 25 Oct 2026).
-        if scope == .conversas && encryption.showsBanner && !showingArchived {
+        if scope != .grupos && encryption.showsBanner && !showingArchived {
             HistoryBanner(model: encryption)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(BipeColor.surfaceRaised)
         }
         firstListCards
-        Button(showingArchived ? (scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups) : BipeStrings.archivedTitle) {
+        Button(showingArchived ? (scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle) : BipeStrings.archivedTitle) {
             showingArchived.toggle()
         }
         if model.readActionFailed {
@@ -341,7 +341,7 @@ struct ChatListView: View {
                 Button(BipeStrings.appRetry) { archive.retry(model.chats) }
             }
         }
-        if !showingArchived && scope == .conversas && requests.rowCount > 0 {
+        if !showingArchived && scope != .grupos && requests.rowCount > 0 {
             // Action openBox.
             NavigationLink {
                 ChatRequestsView(model: requests, media: model.media, onOpenChat: openChat, onOpenWhoCanMessage: { path.append(PeopleRoute.whoCanMessage) })
@@ -349,7 +349,7 @@ struct ChatListView: View {
                 ChatRequestsRow(count: requests.rowCount)
             }
         }
-        ForEach(!showingArchived && scope == .grupos ? requests.visibleGroupInvites : []) { invite in
+        ForEach(!showingArchived && scope != .conversas ? requests.visibleGroupInvites : []) { invite in
             GroupInviteRow(model: requests, invite: invite, media: model.media, onOpenChat: openChat)
         }
         if requests.error {

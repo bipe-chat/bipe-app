@@ -121,6 +121,7 @@ sealed interface SettingsRoute {
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
+    data object DataUse : SettingsRoute
     data object RecoveryKey : SettingsRoute
     /** Spec recovery-email-add, from the e-mail row of Ways back (bipe-chat/bipe#531). */
     data object RecoveryEmail : SettingsRoute
@@ -196,6 +197,7 @@ fun SettingsHost(
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
         SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
+        SettingsRoute.DataUse -> DataUseScreen(onBack = pop)
         SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, onClose = pop)
         SettingsRoute.RecoveryEmail -> {
             val ways = model.state.collectAsState().value.account
@@ -344,6 +346,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)
             BipeSettingsRow.ACCOUNT_EMAIL -> onOpen(SettingsRoute.RecoveryEmail)
             BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
+            BipeSettingsRow.CHATS_DATA_USE -> onOpen(SettingsRoute.DataUse)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
             // The screens of the other rows come with their own specs (see settings-group notes).
             else -> Unit
@@ -536,7 +539,7 @@ private fun openNotificationSettings(context: Context) {
 }
 
 @Composable
-private fun SectionHeader(title: String?) {
+internal fun SectionHeader(title: String?) {
     if (title == null) {
         Spacer(Modifier.size(16.dp))
         return
@@ -577,11 +580,12 @@ private fun SectionFooter(section: BipeSettingsSection, group: BipeSettingsGroup
     }
 }
 
-/** The version name and build, for bipe_help_version. */
+/** The version name, build and commit, for bipe_help_version: "26.10.2 (141) 5481bba" (tools/version.mjs). */
 private fun appVersion(context: Context): String {
     val info = context.packageManager.getPackageInfo(context.packageName, 0)
     val build = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
-    return "${info.versionName} ($build)"
+    val commit = chat.bipe.app.BuildConfig.BIPE_COMMIT
+    return if (commit.isEmpty()) "${info.versionName} ($build)" else "${info.versionName} ($build) $commit"
 }
 
 @Composable

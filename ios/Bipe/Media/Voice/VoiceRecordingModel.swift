@@ -177,6 +177,7 @@ final class VoiceRecordingModel: NSObject, ObservableObject {
             _ = try timeline.sendVoiceMessage(params: params,
                                               audioInfo: info,
                                               waveform: waveform.map { Float($0) / 1024 })
+            DataUseMeter.shared.recordSent(Int64(info.size ?? 0))
         } catch {
             // The send queue shows a failed upload in the timeline; a failed remux sends nothing.
         }
