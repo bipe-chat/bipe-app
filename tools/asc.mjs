@@ -55,7 +55,7 @@ export const PROFILE_TYPES = { appstore: 'IOS_APP_STORE', adhoc: 'IOS_APP_ADHOC'
 
 // ID sets (bipe-chat/bipe#602, ios/project.yml BIPE_APP_ID). next: Bipe Next, the tester app that
 // CI may set up. store: the fork's live app (ADR 0061), read and signed for, never changed. Its
-// extension IDs derive like the project's (.nse, .share); `store-ids` reports the real ones.
+// extension IDs are the registered ones (.nse, .shareextension; ios/project.yml BIPE_SHARE_ID_SUFFIX).
 export const NEXT = {
   name: 'next', appId: BUNDLE_ID, appName: APP_NAME, bundleIds: BUNDLE_IDS, profilePrefix: 'Bipe Next CI', manage: true,
   kinds: Object.keys(PROFILE_TYPES),
@@ -65,7 +65,7 @@ export const STORE = {
   bundleIds: [
     { identifier: 'chat.bipe.app', name: 'Bipe' },
     { identifier: 'chat.bipe.app.nse', name: 'Bipe NSE' },
-    { identifier: 'chat.bipe.app.share', name: 'Bipe Share' },
+    { identifier: 'chat.bipe.app.shareextension', name: 'Bipe Share' },
   ],
 };
 export function idSet(name = 'next') {

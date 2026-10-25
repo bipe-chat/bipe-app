@@ -149,6 +149,7 @@ jobs:
             DEVELOPMENT_TEAM="$TEAM_ID" \
             BIPE_APP_ID="$STORE_APP_ID" \
             BIPE_APP_GROUP=group.chat.bipe \
+            BIPE_SHARE_ID_SUFFIX=shareextension \
             BIPE_DISPLAY_NAME=Bipe \
             BIPE_SIGN_STYLE=Manual \
             BIPE_SIGN_IDENTITY="Apple Distribution" \
