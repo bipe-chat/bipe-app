@@ -59,14 +59,20 @@ fun AccountMenu(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: ()
         onDismissRequest = tabs::dismissAccountSwitcher,
         modifier = Modifier.testTag(BipeScreen.ACCOUNT_SWITCHER.id),
     ) {
-        state.accounts.forEach { account ->
+        state.accounts.forEachIndexed { index, account ->
             val name = account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }
             val label = if (account.isCurrent) stringResource(R.string.bipe_app_account_current_a11y, name) else name
+            // One group per owner and its company accounts (bipe-chat/bipe#444).
+            if (index > 0 && account.ownerId == null) HorizontalDivider()
             DropdownMenuItem(
                 text = {
                     Column {
                         Text(name, style = MaterialTheme.typography.bodyLarge)
-                        account.handle?.let {
+                        val owner = account.ownerName
+                        if (owner != null) {
+                            Text(stringResource(R.string.bipe_account_company_owner, owner), style = MaterialTheme.typography.bodyMedium,
+                                color = BipeTheme.colors.inkSecondary)
+                        } else account.handle?.let {
                             Text("@$it", style = MaterialTheme.typography.bodyMedium, color = BipeTheme.colors.inkSecondary)
                         }
                     }
@@ -83,7 +89,7 @@ fun AccountMenu(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: ()
                         Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = BipeTheme.colors.accentInk)
                     }
                 },
-                modifier = Modifier.semantics(mergeDescendants = true) {
+                modifier = Modifier.padding(start = if (account.ownerId != null) 24.dp else 0.dp).semantics(mergeDescendants = true) {
                     selected = account.isCurrent
                     contentDescription = label
                 },
@@ -112,14 +118,19 @@ fun AccountRows(tabs: AppTabsModel, fallbackMedia: MediaLoader) {
                 selected = account.isCurrent
                 contentDescription = label
             }.clickable { if (tabs.switchAccount(account.userId)) view.bipeHaptic(BipeHaptic.Tick) }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                // A company account sits under its owner (bipe-chat/bipe#444).
+                .padding(start = if (account.ownerId != null) 40.dp else 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Avatar(name, account.avatarUrl, tabs.media(account.userId) ?: fallbackMedia, userId = account.userId, isCompany = account.isCompany)
             Column(Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.titleMedium, color = BipeTheme.colors.inkPrimary)
-                account.handle?.let { Text("@$it", color = BipeTheme.colors.inkSecondary, style = MaterialTheme.typography.bodyMedium) }
+                val owner = account.ownerName
+                if (owner != null) {
+                    Text(stringResource(R.string.bipe_account_company_owner, owner), color = BipeTheme.colors.inkSecondary,
+                        style = MaterialTheme.typography.bodyMedium)
+                } else account.handle?.let { Text("@$it", color = BipeTheme.colors.inkSecondary, style = MaterialTheme.typography.bodyMedium) }
             }
             if (account.hasUnread) Box(Modifier.size(8.dp).background(BipeTheme.colors.accentFill, CircleShape))
             if (account.isCurrent) Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = BipeTheme.colors.accentInk)

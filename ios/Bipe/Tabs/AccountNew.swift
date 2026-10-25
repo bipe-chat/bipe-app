@@ -101,6 +101,10 @@ struct AccountNewView: View {
     var body: some View {
         if let signup {
             SignupFlowView(api: api, start: signup, onCancel: { reachedCreate in cancel(signup, reachedCreate: reachedCreate) }) { session, outcome in
+                if signup.accountType == .company {
+                    // The account on screen owns the new company account, on this phone only (bipe-chat/bipe#444).
+                    AccountList.setOwner(model.session.userId, of: session.userId)
+                }
                 close()
                 tabs.start.didSignUp(session, outcome: outcome)
             }
@@ -132,7 +136,9 @@ struct AccountNewView: View {
                         choose(.personal)
                     }
                     if canAddCompany {
-                        choice(icon: .handshake, title: BipeStrings.accountNewCompany, body: BipeStrings.accountNewCompanyBody,
+                        choice(icon: .handshake, title: BipeStrings.accountNewCompany,
+                               body: current.map { "\(BipeStrings.accountNewCompanyBody) \(BipeStrings.accountNewCompanyOwner($0.displayName))" }
+                                   ?? BipeStrings.accountNewCompanyBody,
                                enabled: invitesLeft) {
                             choose(.company)
                         }

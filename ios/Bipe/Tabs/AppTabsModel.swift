@@ -17,6 +17,9 @@ struct AccountSummary: Identifiable, Equatable {
     var isCurrent: Bool
     var hasUnread: Bool
     var isCompany = false
+    /// For a company account made on this phone: its owner's name, while the owner is on this phone (bipe-chat/bipe#444).
+    var ownerName: String?
+    var ownerId: String?
 
     var id: String { userId }
 }
@@ -162,6 +165,7 @@ final class AppTabsModel: ObservableObject {
         var photo: UIImage?
         if let avatarUrl { photo = await media.thumbnail(mxcUrl: avatarUrl, size: 96) }
         guard sessionIds.contains(session.userId) else { return }
+        BipeAccountLabels.remember(displayName: displayName, for: session.userId)
         avatarPhotos[session.userId] = photo
         profiles[session.userId] = Profile(displayName: displayName, avatarUrl: avatarUrl, handle: mine?.handle,
                                           isCompany: company, maxAccounts: max(1, status?.maxAccounts ?? BipeRegistries.maxPersonalAccounts))
@@ -201,8 +205,29 @@ final class AppTabsModel: ObservableObject {
         return image.withRenderingMode(.alwaysOriginal)
     }
 
+    /// Spec account-switcher notes: each owner with its company accounts right after it; a company whose owner is not
+    /// on this phone keeps its own place.
+    static func grouped(_ summaries: [AccountSummary]) -> [AccountSummary] {
+        var withOwners = summaries.map { summary in
+            var summary = summary
+            if let owner = AccountList.owner(of: summary.userId),
+               let ownerSummary = summaries.first(where: { $0.userId == owner && !$0.isCompany }) {
+                summary.ownerId = owner
+                summary.ownerName = ownerSummary.displayName
+            }
+            return summary
+        }
+        var result: [AccountSummary] = []
+        for summary in withOwners where summary.ownerId == nil {
+            result.append(summary)
+            result += withOwners.filter { $0.ownerId == summary.userId }
+        }
+        withOwners.removeAll { summary in result.contains { $0.userId == summary.userId } }
+        return result + withOwners
+    }
+
     private func refresh() {
-        accounts = sessionIds.map { userId in
+        let summaries = sessionIds.map { userId in
             let profile = profiles[userId]
             return AccountSummary(userId: userId,
                                   displayName: profile?.displayName.isEmpty == false ? profile!.displayName : BipeStrings.tabYou,
@@ -212,6 +237,7 @@ final class AppTabsModel: ObservableObject {
                                   hasUnread: latestChats[userId]?.contains { $0.isUnread } ?? false,
                                   isCompany: profile?.isCompany ?? false)
         }
+        accounts = Self.grouped(summaries)
         let chats = currentId.flatMap { latestChats[$0] } ?? []
         conversasUnread = chats.filter { $0.scope == .conversas && $0.isUnread }.count
         gruposAttention = chats.filter { $0.scope == .grupos }.reduce(0) { $0 + $1.mentionCount }
