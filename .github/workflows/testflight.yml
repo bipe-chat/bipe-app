@@ -11,7 +11,7 @@
 #   certificate on every run until the team reached Apple's limit.
 # - Android: a debug-signed release APK of chat.bipe.app.next (artifact bipe-next-apk).
 # Version (bipe-chat/bipe#584, ADR 0088): the version name of bipe-shared product/version.json;
-# build number: its build plus the run number. Both platforms carry the same pair.
+# build number: its build plus the number of commits (tools/version.mjs). Both platforms carry the same pair.
 # Install commands: AGENTS.md, "Tester builds".
 name: testflight
 
@@ -36,15 +36,14 @@ jobs:
     outputs:
       number: ${{ steps.n.outputs.number }}
       version: ${{ steps.n.outputs.version }}
+      commit: ${{ steps.n.outputs.commit }}
     steps:
+      # The build number counts the commits (tools/version.mjs), so the job needs the full history and the tags.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - id: n
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/bipe-chat/bipe-shared/main/product/version.json > version.json
-          base=$(jq -er '.build' version.json)
-          version=$(jq -er '.version' version.json)
-          echo "number=$((base + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "version $version, build number: $((base + GITHUB_RUN_NUMBER))"
+        run: node tools/version.mjs --github
 
   ios:
     needs: build-number
@@ -148,7 +147,8 @@ jobs:
             BIPE_CI_PROFILE_SHARE="$BIPE_CI_PROFILE_SHARE" \
             BIPE_APS_ENVIRONMENT=production \
             MARKETING_VERSION="$VERSION_NAME" \
-            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" | tee "$RUNNER_TEMP/archive.log" | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            BIPE_COMMIT="${{ needs.build-number.outputs.commit }}" | tee "$RUNNER_TEMP/archive.log" | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
           grep -q "ARCHIVE SUCCEEDED" "$RUNNER_TEMP/archive.log"
       - name: Upload to TestFlight
         if: steps.asc.outputs.app == 'true'
@@ -216,7 +216,7 @@ jobs:
           FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
           FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
         run: |
-          ./gradlew --no-daemon assemblePlayRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }} \
+          ./gradlew --no-daemon assemblePlayRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }} -PbipeCommit=${{ needs.build-number.outputs.commit }} \
             -PbipeFirebaseAppId="$FIREBASE_APP_ID" -PbipeFirebaseProjectId="$FIREBASE_PROJECT_ID" \
             -PbipeFirebaseApiKey="$FIREBASE_API_KEY" -PbipeFirebaseSenderId="$FIREBASE_SENDER_ID"
           mv app/build/outputs/apk/play/release/*.apk "app/build/outputs/apk/play/release/Bipe-Next-${{ needs.build-number.outputs.number }}.apk"

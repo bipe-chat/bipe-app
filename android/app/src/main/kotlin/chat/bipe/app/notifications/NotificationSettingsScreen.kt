@@ -6,6 +6,7 @@ package chat.bipe.app.notifications
 
 import android.content.Intent
 import android.provider.Settings
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,11 +48,13 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.account.AccountList
 import chat.bipe.app.account.AccountSession
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeScreen
+import java.time.Instant
 
 /** Spec notification-settings: the Notifications group of Settings. Every row says its current value. */
 @Composable
@@ -69,6 +73,13 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
     val phoneEnabled by model.phoneEnabled.collectAsState(initial = true)
     val permission by app.push.permission.collectAsState()
     val colors = BipeTheme.colors
+    val accountName = remember(session) { AccountList(context).name(session.userId) ?: session.userId }
+    var showsWorkHours by rememberSaveable { mutableStateOf(false) }
+    if (showsWorkHours) {
+        BackHandler { showsWorkHours = false }
+        WorkHoursScreen(session, api, app.notifications, onSaved = model::workHoursSaved, onBack = { showsWorkHours = false })
+        return
+    }
 
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.NOTIFICATION_SETTINGS.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
@@ -133,6 +144,42 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
                 stateDescription = stringResource(R.string.bipe_notifications_tone_current, soundLabel),
                 onSelect = model::setSound,
             )
+            // bipe-chat/bipe#511: per account on this phone.
+            SwitchRow(stringResource(R.string.bipe_notifications_preview), state.preview, true, model::setPreview)
+            Text(
+                stringResource(R.string.bipe_notifications_preview_footer),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.inkSecondary,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            Text(
+                stringResource(R.string.bipe_notifications_account_footer, accountName),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.inkSecondary,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+            )
+
+            // Spec work-hours (ADR 0138 rule 4): company accounts only.
+            if (state.isCompany) {
+                val hours = state.workHours
+                val value = when {
+                    hours == null || !hours.enabled -> null
+                    hours.isOpen(Instant.now()) -> stringResource(R.string.bipe_work_hours_open_now)
+                    else -> stringResource(R.string.bipe_work_hours_closed_now)
+                }
+                Column(
+                    modifier = Modifier.fillMaxWidth().clickable { showsWorkHours = true }.padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Text(stringResource(R.string.bipe_work_hours_title), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                    if (value != null) Text(value, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
+                }
+                Text(
+                    stringResource(R.string.bipe_work_hours_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkSecondary,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
 
             // Spec news (ADR 0117): hidden until the API answered.
             if (state.news != NotificationSettingsModel.News.UNKNOWN) {

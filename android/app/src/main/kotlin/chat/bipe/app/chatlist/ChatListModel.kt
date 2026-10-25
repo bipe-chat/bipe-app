@@ -65,8 +65,13 @@ data class ChatSummary(
         get() = isDm && BipeOfficialAccounts.isOfficial(peerUserId)
 }
 
-/** State scope of spec chat-list. */
-enum class ChatScope { CONVERSAS, GRUPOS }
+/** State scope of spec chat-list. TODAS: the Conversas tab of a company account, DMs and groups together (spec app-tabs). */
+enum class ChatScope {
+    CONVERSAS, GRUPOS, TODAS;
+
+    /** True when a chat of [chat] scope shows in this one. */
+    fun shows(chat: ChatScope): Boolean = this == TODAS || this == chat
+}
 
 /** Spec chat-list (bipe-shared product/screens/chat-list.json). */
 class ChatListModel(
@@ -168,7 +173,7 @@ class ChatListModel(
     /** The phase of one scope: empty when the list loaded and the scope has no chat. */
     fun phase(scope: ChatScope, phase: Phase, chats: List<ChatSummary>): Phase = when {
         phase == Phase.LOADING -> Phase.LOADING
-        chats.any { it.scope == scope } -> Phase.LOADED
+        chats.any { scope.shows(it.scope) } -> Phase.LOADED
         listLoaded -> Phase.EMPTY
         else -> Phase.LOADING
     }
