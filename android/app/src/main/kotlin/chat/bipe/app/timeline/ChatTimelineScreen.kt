@@ -87,6 +87,8 @@ import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.app.people.PeopleService
 import kotlinx.coroutines.launch
 import chat.bipe.shared.bipeHaptic
+import chat.bipe.shared.BipeOfficialAccounts
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.groups.DmDeleteSheet
 import chat.bipe.app.media.MediaViewer
@@ -239,7 +241,12 @@ fun ChatTimelineScreen(
                             color = colors.inkPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
+                        if (isDm && BipeOfficialAccounts.isOfficial(peerUserId)) {
+                            Spacer(Modifier.size(6.dp))
+                            OfficialBadge()
+                        }
                     }
                     if (isGroup && onOpenGroupDetails != null) {
                         IconButton(onClick = onOpenGroupDetails) {

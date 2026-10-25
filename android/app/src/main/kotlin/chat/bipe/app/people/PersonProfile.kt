@@ -41,8 +41,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.NameNormalizer
 import chat.bipe.shared.R
@@ -81,6 +83,8 @@ class PersonProfileModel(
         val phase: Phase = Phase.LOADING,
         val person: Person,
         val isCompany: Boolean = false,
+        /** isOfficial of the spec: the exact user ID is an official Bipe account (ADR 0117). */
+        val isOfficial: Boolean = false,
         val marks: List<TrustMark> = emptyList(),
         val seal: BipeCompanySealState = BipeCompanySealState.None,
         val confirmedInPerson: Boolean = false,
@@ -91,7 +95,7 @@ class PersonProfileModel(
         val openingChat: Boolean = false,
     )
 
-    private val _state = MutableStateFlow(State(person = Person(userId, Person.localpart(userId))))
+    private val _state = MutableStateFlow(State(person = Person(userId, Person.localpart(userId)), isOfficial = BipeOfficialAccounts.isOfficial(userId)))
     val state: StateFlow<State> = _state.asStateFlow()
 
     /** Action appear: shows what it has and fills in the rest. */
@@ -128,8 +132,9 @@ class PersonProfileModel(
         if (current.confirmedInPerson) {
             marks += TrustMark(TrustMark.Kind.CONFIRMED_IN_PERSON, context.getString(R.string.bipe_badge_verified_contact))
         }
-        // A company whose verified seal names it does not get the warning.
-        val reserved = NameNormalizer.reservedCategory(current.person.displayName) != null && seal !is BipeCompanySealState.Verified
+        // An official account, or a company whose verified seal names it, does not get the warning.
+        val reserved = NameNormalizer.reservedCategory(current.person.displayName) != null &&
+            !current.isOfficial && seal !is BipeCompanySealState.Verified
         _state.value = current.copy(seal = seal, marks = marks, reservedNameWarning = reserved)
     }
 
@@ -315,6 +320,7 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
                 color = colors.inkPrimary,
                 textAlign = TextAlign.Center,
             )
+            if (state.isOfficial) OfficialBadge(style = MaterialTheme.typography.labelMedium)
             if (state.seal is BipeCompanySealState.Verified) {
                 Icon(
                     painterResource(PhosphorIcon.SEAL_CHECK.drawable),
