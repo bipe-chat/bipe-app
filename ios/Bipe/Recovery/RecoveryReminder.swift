@@ -234,7 +234,7 @@ struct RecoveryEmailAddView: View {
     /// Action send: PUT /v1/me/email. The address is never logged.
     private func send() async {
         let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard BipeHandle.isPlausibleEmail(address) else {
+        guard BipeSignupRules.isPlausibleEmail(address) else {
             emailInvalid = true
             return
         }
