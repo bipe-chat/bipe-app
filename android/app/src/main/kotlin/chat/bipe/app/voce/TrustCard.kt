@@ -23,6 +23,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -94,12 +96,20 @@ class TrustCardModel(private val session: AccountSession, private val api: BipeA
             handle = current.handle,
             isCompany = current.isCompany,
             business = business,
+            claimEnabled = true,
         )
+    }
+
+    /** After a change on business-claim: reads the claim again. */
+    fun reload() {
+        val current = account ?: return
+        account = null
+        update(current)
     }
 }
 
-/** What the trust rows can open. Each one is a screen that completes step 2. */
-class TrustActions(val addName: () -> Unit, val addPhoto: () -> Unit, val chooseHandle: () -> Unit) {
+/** What the trust rows can open. [openClaim]: a company account opens business-claim (bipe-chat/bipe#249). */
+class TrustActions(val addName: () -> Unit, val addPhoto: () -> Unit, val chooseHandle: () -> Unit, val openClaim: (() -> Unit)? = null) {
     fun run(item: BipeTrustProfile.ProfileItem) = when (item) {
         BipeTrustProfile.ProfileItem.DISPLAY_NAME -> addName()
         BipeTrustProfile.ProfileItem.HANDLE -> chooseHandle()
@@ -161,7 +171,13 @@ fun TrustProfileScreen(profile: BipeTrustProfile, actions: TrustActions, onBack:
             }
         }
         profile.steps.forEachIndexed { index, step ->
-            item(key = "trust-step-${step.id.id}") { TrustStepRow(index + 1, step, profile.isCompany) }
+            val claimStep = profile.isCompany && step.id in setOf(BipeTrustProfile.StepId.CNPJ, BipeTrustProfile.StepId.PROOF, BipeTrustProfile.StepId.DOMAIN)
+            val openClaim = actions.openClaim
+            item(key = "trust-step-${step.id.id}") {
+                // Action openClaim: every company step opens business-claim, done or not.
+                if (claimStep && openClaim != null) Box(Modifier.clickable(role = Role.Button, onClick = openClaim)) { TrustStepRow(index + 1, step, profile.isCompany) }
+                else TrustStepRow(index + 1, step, profile.isCompany)
+            }
             if (step.id == BipeTrustProfile.StepId.PROFILE && step.status == BipeTrustProfile.Status.TODO) {
                 items(profile.missingProfileItems, key = { "trust-step-action-${it.id}" }) { item ->
                     TrustActionRow(item, profile.isCompany, startPadding = 40.dp) { actions.run(item) }

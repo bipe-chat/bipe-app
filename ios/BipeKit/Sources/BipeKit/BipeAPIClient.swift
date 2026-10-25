@@ -804,19 +804,52 @@ public struct BipeBusinessClaim: Decodable, Sendable, Equatable {
     public struct Domain: Decodable, Sendable, Equatable {
         public let domain: String
         public let verifiedAt: Date?
+        /// Where to publish the TXT record, for example `_bipe.example.com.br`.
+        public let txtName: String?
+        public let txtValue: String?
         
-        public init(domain: String, verifiedAt: Date?) {
+        public init(domain: String, verifiedAt: Date?, txtName: String? = nil, txtValue: String? = nil) {
             self.domain = domain
             self.verifiedAt = verifiedAt
+            self.txtName = txtName
+            self.txtValue = txtValue
         }
+    }
+
+    /// Contract `CnpjRegistryRecord`: what Bipe's copy of the Receita Federal data says.
+    public struct Registry: Decodable, Sendable, Equatable {
+        public let active: Bool
+        public let legalName: String
+        public let tradeName: String?
+        /// The Receita Federal release, YYYY-MM.
+        public let checkedMonth: String
+    }
+
+    public struct ReservedName: Decodable, Sendable, Equatable {
+        public let name: String
+        public let approved: Bool
     }
     
     public let status: Status
     public let domains: [Domain]
+    /// 14 characters, digits and uppercase letters.
+    public let cnpj: String?
+    /// Why the claim is rejected or revoked, for example `not_active`, `staff`.
+    public let reason: String?
+    public let registry: Registry?
+    /// The exact text to sign with the e-CNPJ, while the status is awaitingProof.
+    public let challenge: String?
+    public let reservedNames: [ReservedName]?
     
-    public init(status: Status, domains: [Domain] = []) {
+    public init(status: Status, domains: [Domain] = [], cnpj: String? = nil, reason: String? = nil, registry: Registry? = nil,
+                challenge: String? = nil, reservedNames: [ReservedName]? = nil) {
         self.status = status
         self.domains = domains
+        self.cnpj = cnpj
+        self.reason = reason
+        self.registry = registry
+        self.challenge = challenge
+        self.reservedNames = reservedNames
     }
 }
 
@@ -935,6 +968,11 @@ public enum BipeAPIErrorCode: String, Sendable {
     case ordersClosed = "orders_closed"
     case paymentRequiresVerifiedBusiness = "payment_requires_verified_business"
     case pixChargeUnavailable = "pix_charge_unavailable"
+    /// Business claims (ADR 0042, business-claim).
+    case cnpjInvalid = "cnpj_invalid"
+    case cnpjNotActive = "cnpj_not_active"
+    case cnpjTaken = "cnpj_taken"
+    case signatureInvalid = "signature_invalid"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -997,6 +1035,10 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .quoteExpired, .quoteVersionChanged, .quoteNotOpen: self.quoteMessage
             case .orderAlreadyOpen, .orderNotOpen, .itemUnavailable, .priceNotFixed, .ordersClosed, .paymentRequiresVerifiedBusiness,
                  .pixChargeUnavailable: self.orderMessage
+            case .cnpjInvalid: BipeStrings.claimCnpjInvalid
+            case .cnpjNotActive: BipeStrings.claimRejected
+            case .cnpjTaken: BipeStrings.claimCnpjTaken
+            case .signatureInvalid: BipeStrings.claimSignatureInvalid
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:
