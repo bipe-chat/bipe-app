@@ -1732,6 +1732,12 @@ public enum BipeStrings {
 
     public static var settingsNotifications: String { NSLocalizedString("bipe_settings_notifications", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var settingsNews: String { NSLocalizedString("bipe_settings_news", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var settingsNewsBody: String { NSLocalizedString("bipe_settings_news_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var settingsNewsFailed: String { NSLocalizedString("bipe_settings_news_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var settingsChats: String { NSLocalizedString("bipe_settings_chats", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var settingsHelp: String { NSLocalizedString("bipe_settings_help", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2349,6 +2355,14 @@ public enum BipeStrings {
     public static var supportRoomTopic: String { NSLocalizedString("bipe_support_room_topic", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var supportWelcome: String { NSLocalizedString("bipe_support_welcome", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var newsRoomName: String { NSLocalizedString("bipe_news_room_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var newsRoomTopic: String { NSLocalizedString("bipe_news_room_topic", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var newsWelcome: String { NSLocalizedString("bipe_news_welcome", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var newsSupportLine: String { NSLocalizedString("bipe_news_support_line", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var supportReportReceived: String { NSLocalizedString("bipe_support_report_received", tableName: "Bipe", bundle: .module, comment: "") }
 
@@ -3309,4 +3323,90 @@ public enum BipeStrings {
     public static var chatDetails: String { NSLocalizedString("bipe_chat_details", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatReadError: String { NSLocalizedString("bipe_chat_read_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessToolsTitle: String { NSLocalizedString("bipe_business_tools_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessToolsFooter: String { NSLocalizedString("bipe_business_tools_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessToolsA11y: String { NSLocalizedString("bipe_business_tools_a11y", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaTabOffBody: String { NSLocalizedString("bipe_agenda_tab_off_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaLoadFailed: String { NSLocalizedString("bipe_agenda_load_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaBooked: String { NSLocalizedString("bipe_agenda_booked", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaSettingsTitle: String { NSLocalizedString("bipe_agenda_settings_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaPublished: String { NSLocalizedString("bipe_agenda_published", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaNotPublished: String { NSLocalizedString("bipe_agenda_not_published", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaPublishIncomplete: String { NSLocalizedString("bipe_agenda_publish_incomplete", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaMinNotice: String { NSLocalizedString("bipe_agenda_min_notice", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaHorizon: String { NSLocalizedString("bipe_agenda_horizon", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaSlotStep: String { NSLocalizedString("bipe_agenda_slot_step", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaCancelWindow: String { NSLocalizedString("bipe_agenda_cancel_window", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaMaxOpen: String { NSLocalizedString("bipe_agenda_max_open", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaRequestMode: String { NSLocalizedString("bipe_agenda_request_mode", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaRequestModeFooter: String { NSLocalizedString("bipe_agenda_request_mode_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaClosed: String { NSLocalizedString("bipe_agenda_closed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaDate: String { NSLocalizedString("bipe_agenda_date", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaTime: String { NSLocalizedString("bipe_agenda_time", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaPerson: String { NSLocalizedString("bipe_agenda_person", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaService: String { NSLocalizedString("bipe_agenda_service", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaCustomer: String { NSLocalizedString("bipe_agenda_customer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaCustomerFromChats: String { NSLocalizedString("bipe_agenda_customer_from_chats", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaRemovePerson: String { NSLocalizedString("bipe_agenda_remove_person", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaAddService: String { NSLocalizedString("bipe_agenda_add_service", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaCloseTodaySend: String { NSLocalizedString("bipe_agenda_close_today_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func agendaCloseTodaySent(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_agenda_close_today_sent", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func agendaCalendarTitle(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_agenda_calendar_title", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var agendaNow: String { NSLocalizedString("bipe_agenda_now", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaFreeTime: String { NSLocalizedString("bipe_agenda_free_time", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaCancelConfirmBody: String { NSLocalizedString("bipe_agenda_cancel_confirm_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaKeep: String { NSLocalizedString("bipe_agenda_keep", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var catalogUncategorised: String { NSLocalizedString("bipe_catalog_uncategorised", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var catalogHidden: String { NSLocalizedString("bipe_catalog_hidden", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var catalogAmount: String { NSLocalizedString("bipe_catalog_amount", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var catalogOnRequestOption: String { NSLocalizedString("bipe_catalog_on_request_option", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func catalogItemOpenA11y(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_catalog_item_open_a11y", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func catalogPhotoA11y(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_catalog_photo_a11y", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }
