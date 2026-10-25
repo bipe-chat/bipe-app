@@ -116,6 +116,15 @@ jobs:
       - name: Generate the project
         working-directory: ios
         run: xcodegen generate
+      # Linked Apple account for recovery (ADR 0096, bipe-chat/bipe#307). The Sign in with Apple entitlement goes in only
+      # when the owner has turned the capability on for the app ID and set the variable BIPE_APPLE_SIGN_IN to true:
+      # a profile without the capability fails the archive. Off, the app hides Apple on iOS (the API offers no native
+      # Apple path either until APPLE_APP_IDS is set).
+      - name: Sign in with Apple entitlement
+        if: vars.BIPE_APPLE_SIGN_IN == 'true'
+        working-directory: ios
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.applesignin array" -c "Add :com.apple.developer.applesignin:0 string Default" SupportFiles/Bipe/Bipe.entitlements
       - name: Use the committed package pins
         run: |
           dir=ios/Bipe.xcodeproj/project.xcworkspace/xcshareddata/swiftpm

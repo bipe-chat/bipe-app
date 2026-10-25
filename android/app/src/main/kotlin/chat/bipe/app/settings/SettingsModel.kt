@@ -48,8 +48,7 @@ class SettingsModel(
             get() = account?.let {
                 BipeWaysBack.of(
                     hasEmail = it.email != null,
-                    // Linked Apple or Google accounts come with bipe-chat/bipe#307.
-                    hasLinkedAccount = false,
+                    hasLinkedAccount = it.links.isNotEmpty(),
                     hasRecoveryKey = hasRecoveryKey,
                     // Android keeps the recovery token on this phone only: the synced store needs an ADR (bipe-chat/bipe#554).
                     hasSyncedToken = false,
