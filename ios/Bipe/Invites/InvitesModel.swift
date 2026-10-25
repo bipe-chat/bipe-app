@@ -92,7 +92,7 @@ final class InvitesModel: ObservableObject {
     }
 
     /// Once POST succeeds, retries persist/name that same invite. They never consume another invite slot.
-    func create(name: String, note: String) async {
+    func create(name: String) async {
         guard !creating, !Task.isCancelled else { return }
         creating = true
         defer { creating = false }
@@ -104,9 +104,7 @@ final class InvitesModel: ObservableObject {
                 }
             }
             guard let created else { return }
-            let persisted = await withStore { store in
-                store.saveLink(created.url, forInviteID: created.id) && store.saveNote(note, forInviteID: created.id)
-            }
+            let persisted = await withStore { $0.saveLink(created.url, forInviteID: created.id) }
             guard persisted else {
                 error = BipeStrings.errorGeneric
                 return

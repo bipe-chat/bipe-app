@@ -18,6 +18,9 @@ import kotlinx.coroutines.MainScope
 import chat.bipe.app.pixcheck.PixPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import org.matrix.rustcomponents.sdk.LogLevel
+import org.matrix.rustcomponents.sdk.TracingConfiguration
+import org.matrix.rustcomponents.sdk.initPlatform
 
 /** Holds the accounts and the tabs for the life of the process, so the sessions outlive an activity. */
 class BipeApplication : Application() {
@@ -41,6 +44,20 @@ class BipeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Before any SDK call. On Android, initPlatform is the only place where the SDK sets up rustls-platform-verifier:
+        // without it the first HTTPS request (the login) panics, and Kotlin gets InternalException. It also sends SDK
+        // warnings, errors and panics to logcat.
+        initPlatform(
+            TracingConfiguration(
+                logLevel = LogLevel.WARN,
+                traceLogPacks = emptyList(),
+                extraTargets = emptyList(),
+                writeToStdoutOrSystem = true,
+                writeToFiles = null,
+                sentryConfig = null,
+            ),
+            useLightweightTokioRuntime = false,
+        )
         // Spec data-use: the media counters follow the network in use.
         chat.bipe.app.media.DataUseMeter.start(this)
         // FCM in the Play flavour (ADR 0150), before a push can wake the process; none in the foss flavour.

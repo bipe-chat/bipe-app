@@ -8,6 +8,8 @@ import android.content.Context
 import androidx.core.app.NotificationManagerCompat
 import chat.bipe.app.account.AccountSession
 import chat.bipe.shared.R
+import chat.bipe.shared.account.BipePhoneLinkState
+import chat.bipe.shared.account.myPhone
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeSettingsGroup
 import chat.bipe.shared.settings.BipeAccountWays
@@ -38,6 +40,8 @@ class SettingsModel(
         val account: BipeAccountWays? = null,
         val hasRecoveryKey: Boolean = false,
         val notificationsOn: Boolean? = null,
+        /** Spec phone-link-status: null until GET /v1/me/phone answers. */
+        val phone: BipePhoneLinkState? = null,
     ) {
         /** Null until GET /v1/me/account answers. */
         val waysBack: BipeWaysBack?
@@ -69,6 +73,9 @@ class SettingsModel(
         }
         scope.launch {
             runCatching { authorized { api.accountWays(it) } }.onSuccess { value -> _state.update { it.copy(account = value) } }
+        }
+        scope.launch {
+            runCatching { authorized { api.myPhone(it) } }.onSuccess { value -> _state.update { it.copy(phone = BipePhoneLinkState.of(value)) } }
         }
     }
 
