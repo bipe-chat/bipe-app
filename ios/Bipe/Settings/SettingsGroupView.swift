@@ -400,7 +400,7 @@ struct ChoiceListView: View {
 
 /// The app version and the app language.
 enum AppVersion {
-    /// The version name (product/version.json), for the remote banner's min_app_version.
+    /// The version name (version.json, ADR 0163), for the remote banner's min_app_version.
     static var name: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
     }

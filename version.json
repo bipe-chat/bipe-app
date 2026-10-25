@@ -1,0 +1,5 @@
+{
+  "$comment": "Bipe Next's own version (ADR 0163): a new app, not the fork's 26.x line. Change version by hand at a release; build is the base of the build number (tools/version.mjs adds the commit count).",
+  "version": "1.0.0",
+  "build": 12
+}
