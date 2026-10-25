@@ -192,7 +192,8 @@ struct SharedVectorTests {
     @Test
     func profileFacts() throws {
         let file = try SharedVectors.object("profile-facts.json")
-        let now = try #require(BipeProfileFactLines.parse(#require(file["now"] as? String)))
+        let nowText = try #require(file["now"] as? String)
+        let now = try #require(BipeProfileFactLines.parse(nowText))
         let vectors = try #require(file["vectors"] as? [[String: Any]])
         #expect(!vectors.isEmpty)
         for vector in vectors {
@@ -210,7 +211,8 @@ struct SharedVectorTests {
             for (line, want) in zip(result.lines, lines) {
                 #expect(line.fact.rawValue == want["fact"] as? String, "profile facts \(name)")
                 #expect(line.count == (want["count"] as? NSNumber)?.intValue, "profile facts \(name)")
-                let at = try #require(BipeProfileFactLines.parse(#require(want["at"] as? String)))
+                let atText = try #require(want["at"] as? String)
+                let at = try #require(BipeProfileFactLines.parse(atText))
                 #expect(BipeProfileFactLines.milliseconds(line.at) == BipeProfileFactLines.milliseconds(at), "profile facts \(name)")
             }
         }
