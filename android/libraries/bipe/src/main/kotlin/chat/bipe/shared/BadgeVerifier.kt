@@ -9,7 +9,9 @@ import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
@@ -80,8 +82,9 @@ class BadgeVerifier(trustedKeys: Map<String, ByteArray>) {
         if (nowMillis >= payload.exp * 1000) return invalid(BadgeVerificationFailure.EXPIRED)
         if (nowMillis < payload.iat * 1000) return invalid(BadgeVerificationFailure.NOT_YET_VALID)
         if (payload.sub != sender) return invalid(BadgeVerificationFailure.SUBJECT_MISMATCH)
-        if (payload.lvl == BadgeLevel.CNPJ || payload.lvl == BadgeLevel.BRAND_MARK) {
-            // A company badge or a brand mark binds to the account, so any of its devices may send. No known master key fails closed.
+        if (payload.lvl == BadgeLevel.CNPJ || payload.lvl == BadgeLevel.INSTITUTION || payload.lvl == BadgeLevel.BRAND_MARK) {
+            // A company badge, an institution badge or a brand mark binds to the account, so any of its devices may send.
+            // No known master key fails closed.
             if (senderMasterKey == null || payload.msk != senderMasterKey) return invalid(BadgeVerificationFailure.MASTER_KEY_MISMATCH)
         } else if (payload.dev != senderDevice) {
             return invalid(BadgeVerificationFailure.DEVICE_MISMATCH)
@@ -143,9 +146,9 @@ data class BadgePayload(
     val name: String,
     /** Normalised CNPJ (14 characters, digits and uppercase letters). Present for `institution` and `cnpj`. */
     val cnpj: String? = null,
-    /** Fingerprint of the device key the badge is bound to. `pix`, `govbr` and `institution` only. */
+    /** Fingerprint of the device key the badge is bound to. `pix` and `govbr` only. */
     val dev: String? = null,
-    /** The account's cross-signing master key the badge is bound to. `cnpj` and `brand-mark` only. */
+    /** The account's cross-signing master key the badge is bound to. `cnpj`, `institution` and `brand-mark` only. */
     val msk: String? = null,
     /** `brand-mark` only: the mark ID, the brand's Matrix user ID and the label id of registries/brand-marks.json. */
     val mark: String? = null,
@@ -158,6 +161,8 @@ data class BadgePayload(
     @SerialName("checked_month") val checkedMonth: String? = null,
     /** `cnpj` only, optional: the CVM register line (ADR 0077), as sent. BipeCvmLines reads it leniently. */
     val cvm: JsonElement? = null,
+    /** `institution` only, optional: the verified link domains (ADR 0036), as sent. Read through [domainList]. */
+    @SerialName("domains") val domainsField: JsonElement? = null,
     /** Issued at, Unix seconds. */
     val iat: Long,
     /** Expires at, Unix seconds. */
@@ -167,11 +172,23 @@ data class BadgePayload(
     internal fun isWellFormed(): Boolean = when (lvl) {
         BadgeLevel.CNPJ -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !legalName.isNullOrEmpty() && !msk.isNullOrEmpty() &&
             method != null && checkedMonth != null && MONTH_PATTERN.matches(checkedMonth)
+        BadgeLevel.INSTITUTION -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !msk.isNullOrEmpty() && domainList() != null
         BadgeLevel.BRAND_MARK -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !msk.isNullOrEmpty() && dev == null && name.isNotEmpty() &&
             !mark.isNullOrEmpty() && !brand.isNullOrEmpty() && label != null && label in BipeRegistries.BRAND_MARK_LABELS
-        BadgeLevel.INSTITUTION -> cnpj != null && dev != null
         BadgeLevel.PIX, BadgeLevel.GOVBR -> dev != null
     }
+
+    /** `institution`: the verified domains, empty when absent; null when the field is not a list of domains. */
+    internal fun domainList(): List<String>? = when (val field = domainsField) {
+        null, JsonNull -> emptyList()
+        is JsonArray -> field.map { item ->
+            (item as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf(BipeNoticeLinks::isDomain) ?: return null
+        }
+        else -> null
+    }
+
+    /** `institution` only: the verified link domains. Empty: no link in a notice is clickable. */
+    val domains: List<String> get() = if (lvl == BadgeLevel.INSTITUTION) domainList().orEmpty() else emptyList()
 }
 
 private val CNPJ_PATTERN = Regex("[0-9A-Z]{12}[0-9]{2}")

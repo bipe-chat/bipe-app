@@ -58,13 +58,17 @@ class BipeCompanySeals(
     private val verifier: Lazy<BadgeVerifier> = lazy(BadgeVerifier::bipeTrusted),
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    private data class Entry(val state: BipeCompanySealState, val expiryMillis: Long)
+    private data class Entry(val state: BipeCompanySealState, val expiryMillis: Long, val institution: BadgePayload? = null)
 
     private val entries = MutableStateFlow<Map<String, Entry>>(emptyMap())
 
     /** User ID to seal state. Emits on every cache change. */
     val states: StateFlow<Map<String, BipeCompanySealState>> get() = statesFlow.asStateFlow()
     private val statesFlow = MutableStateFlow<Map<String, BipeCompanySealState>>(emptyMap())
+
+    /** User ID to verified `institution` badge (bipe#245): its messages show as official notice cards. */
+    val institutions: StateFlow<Map<String, BadgePayload>> get() = institutionsFlow.asStateFlow()
+    private val institutionsFlow = MutableStateFlow<Map<String, BadgePayload>>(emptyMap())
 
     private val lock = Any()
     private val inFlight = mutableSetOf<String>()
@@ -78,6 +82,12 @@ class BipeCompanySeals(
         val state = entry?.state ?: BipeCompanySealState.None
         // An expired badge never shows, also while the new fetch runs.
         return if (state is BipeCompanySealState.Verified && state.payload.exp * 1000 <= now) BipeCompanySealState.None else state
+    }
+
+    /** The verified institution badge of [userId], or null. Queues a fetch like [seal]. Fail closed: no fresh answer, no notice. */
+    fun institution(userId: String): BadgePayload? {
+        seal(userId)
+        return institutionsFlow.value[userId]?.takeIf { it.exp * 1000 > clock() }
     }
 
     private fun fetch(userId: String) {
@@ -94,6 +104,7 @@ class BipeCompanySeals(
                 }
                 entries.update { it + (userId to entry) }
                 statesFlow.update { it + (userId to entry.state) }
+                institutionsFlow.update { if (entry.institution != null) it + (userId to entry.institution) else it - userId }
             } finally {
                 synchronized(lock) { inFlight.remove(userId) }
             }
@@ -122,6 +133,8 @@ class BipeCompanySeals(
                         seen.add(userId)
                         return Entry(BipeCompanySealState.Verified(result.payload), minOf(result.payload.exp * 1000, now + TTL_MILLIS))
                     }
+                    result is BadgeVerificationResult.Valid && result.payload.lvl == BadgeLevel.INSTITUTION ->
+                        return Entry(BipeCompanySealState.None, minOf(result.payload.exp * 1000, now + TTL_MILLIS), result.payload)
                     result is BadgeVerificationResult.Valid -> BipeCompanySealState.None
                     seen.contains(userId) -> BipeCompanySealState.Suspended
                     else -> BipeCompanySealState.None
