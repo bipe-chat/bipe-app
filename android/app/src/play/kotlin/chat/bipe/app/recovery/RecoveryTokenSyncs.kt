@@ -53,6 +53,9 @@ private class BlockStoreRecoveryTokenSync(context: Context) : BipeRecoveryTokenS
         val request = DeleteBytesRequest.Builder().setKeys(listOf(BipeSyncedTokenCodec.key(userId))).build()
         client.deleteBytes(request).await()
     }
+
+    /** Block Store backs the token up end to end only when the phone has a screen lock (see the class comment). */
+    override suspend fun isBackedUp(): Boolean = runCatching { client.isEndToEndEncryptionAvailable().await() }.getOrDefault(false)
 }
 
 /** Waits for a Play services task. Cancelling the caller stops waiting; the task itself cannot be stopped. */

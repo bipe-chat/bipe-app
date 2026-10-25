@@ -35,6 +35,12 @@
     <string name="bipe_brand_mark_label_revendedor">Authorised reseller of %1$s</string>
     <string name="bipe_brand_mark_label_corretor">Accredited broker of %1$s</string>
     <string name="bipe_brand_mark_label_representante">Authorised representative of %1$s</string>
+    <string name="bipe_brand_mark_more">+%1$s</string>
+    <string name="bipe_brand_mark_title">Reseller mark</string>
+    <string name="bipe_brand_mark_body">The brand vouches for this account as its reseller. The brand does not read the chats and does not see the customers.</string>
+    <string name="bipe_brand_mark_brand_seal">Brand\'s seal</string>
+    <string name="bipe_brand_mark_brand_unchecked">We could not check the brand\'s seal right now.</string>
+    <string name="bipe_brand_mark_ended">%1$s no longer vouches for this reseller</string>
     <string name="bipe_cvm_cancelled">CVM registration cancelled on %1$s.</string>
     <string name="bipe_cvm_no_registration">No CVM registration.</string>
     <string name="bipe_cvm_bank_note">A bank can sell CDBs and savings without a CVM registration.</string>
@@ -398,6 +404,13 @@
     <string name="bipe_fallback_recovery_key_body">The key also brings back your old messages. Nobody at Bipe will ask for it.</string>
     <string name="bipe_fallback_skip">Not now</string>
     <string name="bipe_fallback_reminder">You have no way back into your account yet if you lose your phone.</string>
+    <string name="bipe_fallback_sync_off_ios">iCloud is off on this phone. With it on, your account comes back on a new iPhone with no wait.</string>
+    <string name="bipe_fallback_sync_off_android">Google backup is off on this phone. With it on, your account comes back on a new phone with no wait.</string>
+    <string name="bipe_pin_reminder_title">Do you remember your PIN?</string>
+    <string name="bipe_pin_reminder_body">Type your %1$s-digit PIN, so you don\'t forget it.</string>
+    <string name="bipe_pin_reminder_action">Type PIN</string>
+    <string name="bipe_pin_reminder_right">That\'s it. See you next time.</string>
+    <string name="bipe_pin_reminder_wrong">That\'s not your PIN. If you don\'t remember it, change it now.</string>
     <string name="bipe_email_title">Recovery email</string>
     <string name="bipe_email_footer">Use it to get back into your account or create a new PIN. It doesn\'t appear on your profile.</string>
     <string name="bipe_email_sent">We sent a link to %1$s. Open it to confirm.</string>

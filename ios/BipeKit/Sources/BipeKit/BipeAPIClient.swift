@@ -67,6 +67,11 @@ public struct BipeAPIClient: Sendable {
     public func setPIN(_ pin: String, accessToken: String) async throws(BipeAPIError) {
         let _: NoContent = try await send(method: "PUT", path: ["v1", "me", "pin"], body: PINRequest(pin: pin), accessToken: accessToken)
     }
+
+    /// `POST /v1/me/pin/check` (spec pin-reminder). A wrong PIN counts against the account; a right one resets the count.
+    public func checkPIN(_ pin: String, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "POST", path: ["v1", "me", "pin", "check"], body: PINRequest(pin: pin), accessToken: accessToken)
+    }
     
     /// `POST /v1/me/device-first`. Moves a beta account to a hidden password. Needs a PIN first.
     public func moveToDeviceFirst(accessToken: String) async throws(BipeAPIError) -> BipeCredentials {

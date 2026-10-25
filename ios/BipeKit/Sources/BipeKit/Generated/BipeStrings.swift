@@ -96,6 +96,22 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_brand_mark_label_representante", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static func brandMarkMore(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_more", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var brandMarkTitle: String { NSLocalizedString("bipe_brand_mark_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarkBody: String { NSLocalizedString("bipe_brand_mark_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarkBrandSeal: String { NSLocalizedString("bipe_brand_mark_brand_seal", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var brandMarkBrandUnchecked: String { NSLocalizedString("bipe_brand_mark_brand_unchecked", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func brandMarkEnded(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_ended", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static func cvmCancelled(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_cvm_cancelled", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
@@ -917,6 +933,22 @@ public enum BipeStrings {
     public static var fallbackSkip: String { NSLocalizedString("bipe_fallback_skip", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var fallbackReminder: String { NSLocalizedString("bipe_fallback_reminder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var fallbackSyncOffIos: String { NSLocalizedString("bipe_fallback_sync_off_ios", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var fallbackSyncOffAndroid: String { NSLocalizedString("bipe_fallback_sync_off_android", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pinReminderTitle: String { NSLocalizedString("bipe_pin_reminder_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func pinReminderBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_reminder_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var pinReminderAction: String { NSLocalizedString("bipe_pin_reminder_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pinReminderRight: String { NSLocalizedString("bipe_pin_reminder_right", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pinReminderWrong: String { NSLocalizedString("bipe_pin_reminder_wrong", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var emailTitle: String { NSLocalizedString("bipe_email_title", tableName: "Bipe", bundle: .module, comment: "") }
 

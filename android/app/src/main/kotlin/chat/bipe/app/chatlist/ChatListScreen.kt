@@ -91,6 +91,8 @@ import chat.bipe.app.settings.PhoneConfirmNoticeModel
 import chat.bipe.app.recovery.RecoveryEmailAddScreen
 import chat.bipe.app.recovery.RecoveryReminderCard
 import chat.bipe.app.recovery.RecoveryReminderModel
+import chat.bipe.app.settings.PinChangeScreen
+import chat.bipe.app.settings.SettingsModel
 import chat.bipe.app.signup.SignupStart
 import chat.bipe.app.tabs.AccountNewScreen
 import chat.bipe.app.tabs.InviteSignedInScreen
@@ -129,6 +131,13 @@ fun HomeScreen(
     val recovery = remember(session) { RecoveryReminderModel(context.applicationContext, api, session, scope) }
     val recoveryState by recovery.state.collectAsState()
     var showsRecoveryEmail by rememberSaveable { mutableStateOf(false) }
+    // Spec recovery-reminder syncOff and spec pin-reminder (bipe-chat/bipe#202).
+    var syncOff by remember(session) { mutableStateOf(false) }
+    val pinReminder = remember(session) { PinReminderModel(context.applicationContext, session.userId) }
+    val showsPinCard by pinReminder.showsCard.collectAsState()
+    var showsPinReminder by rememberSaveable { mutableStateOf(false) }
+    var showsPinChange by rememberSaveable { mutableStateOf(false) }
+    val settings = remember(session) { SettingsModel(context.applicationContext, session, api, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     val people = remember(session) { PeopleService(context, session, api, media, scope) }
     val requests = remember(session) { ChatRequestsModel(context.applicationContext, session, api, scope, people) }
@@ -188,6 +197,10 @@ fun HomeScreen(
     // Critical banners refresh alongside account/profile and recovery checks.
     LaunchedEffect(foregroundCount) { remoteBanner.refresh() }
     LaunchedEffect(foregroundCount) { recovery.load() }
+    LaunchedEffect(foregroundCount) {
+        pinReminder.refresh()
+        syncOff = tabs.start.recoveryTokens.isAvailable && !tabs.start.recoveryTokens.isBackedUp()
+    }
     // Spec notification-service, action open.
     val roomToOpen by app.roomToOpen.collectAsState()
     // Spec pix-check-result, action sendToChat: a preview from Conferir no Bipe, for this account only.
@@ -255,6 +268,15 @@ fun HomeScreen(
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
+        showsPinReminder -> {
+            BackHandler { showsPinReminder = false }
+            PinReminderScreen(session, api, onResult = pinReminder::checked,
+                onChangePin = { showsPinReminder = false; showsPinChange = true }, onClose = { showsPinReminder = false })
+        }
+        showsPinChange -> {
+            BackHandler { showsPinChange = false }
+            PinChangeScreen(settings, onClose = { showsPinChange = false })
+        }
         showsRecoveryEmail -> RecoveryEmailAddScreen(
             api, session, current = recoveryState.account?.email, pending = recoveryState.account?.emailPending,
             onSent = recovery::load, onClose = { showsRecoveryEmail = false },
@@ -314,7 +336,8 @@ fun HomeScreen(
                     onNewAccount = { showsNewAccount = true },
                     banner = { HistoryBanner(encryption) },
                     recoveryCard = {
-                        if (recovery.showsCard(recoveryState)) RecoveryReminderCard(recovery) { showsRecoveryEmail = true }
+                        if (recovery.showsCard(recoveryState)) RecoveryReminderCard(recovery, syncOff) { showsRecoveryEmail = true }
+                        else if (showsPinCard) PinReminderCard(pinReminder) { showsPinReminder = true }
                     },
                     onCreateGroup = groups.createGroup,
                     onDeleteDm = groups.deleteDm,

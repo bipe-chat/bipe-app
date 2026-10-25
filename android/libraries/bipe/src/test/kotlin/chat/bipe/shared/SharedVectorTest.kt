@@ -22,6 +22,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import chat.bipe.shared.onboarding.BipeOnboardingSchedule
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
 import org.junit.Test
@@ -168,6 +169,17 @@ class SharedVectorTest {
             val name = vector.string("name")!!
             val expected = vector["suggestions"]!!.jsonArray.map { it.jsonPrimitive.content }
             assertWithMessage("suggestions($name)").that(BipeHandle.suggestions(name)).isEqualTo(expected)
+        }
+    }
+
+    @Test
+    fun pinReminderSchedule() {
+        for (vector in vectors("onboarding-schedule.json", "pinReminder")) {
+            val step = vector.string("step")!!.toInt()
+            val result = BipeOnboardingSchedule.PinResult.entries.first { it.id == vector.string("result") }
+            val next = BipeOnboardingSchedule.pinReminderNext(step, result)
+            assertWithMessage("pinReminderNext($step, ${result.id}) step").that(next.step).isEqualTo(vector.string("nextStep")!!.toInt())
+            assertWithMessage("pinReminderNext($step, ${result.id}) gapDays").that(next.gapDays).isEqualTo(vector.string("gapDays")!!.toInt())
         }
     }
 

@@ -35,6 +35,12 @@
     <string name="bipe_brand_mark_label_revendedor">Revendedor autorizado %1$s</string>
     <string name="bipe_brand_mark_label_corretor">Corretor credenciado %1$s</string>
     <string name="bipe_brand_mark_label_representante">Representante autorizado %1$s</string>
+    <string name="bipe_brand_mark_more">+%1$s</string>
+    <string name="bipe_brand_mark_title">Selo de revenda</string>
+    <string name="bipe_brand_mark_body">A marca confirma esta conta como revenda dela. A marca não lê as conversas e não vê os clientes.</string>
+    <string name="bipe_brand_mark_brand_seal">Selo da marca</string>
+    <string name="bipe_brand_mark_brand_unchecked">Não deu para conferir o selo da marca agora.</string>
+    <string name="bipe_brand_mark_ended">%1$s não confirma mais esta revendedora</string>
     <string name="bipe_cvm_cancelled">Registro na CVM cancelado em %1$s.</string>
     <string name="bipe_cvm_no_registration">Sem registro na CVM.</string>
     <string name="bipe_cvm_bank_note">Banco pode vender CDB e poupança sem registro na CVM.</string>
@@ -398,6 +404,13 @@
     <string name="bipe_fallback_recovery_key_body">A chave também traz suas mensagens antigas. Ninguém do Bipe vai pedir essa chave.</string>
     <string name="bipe_fallback_skip">Agora não</string>
     <string name="bipe_fallback_reminder">Você ainda não tem um jeito de voltar para sua conta se perder o celular.</string>
+    <string name="bipe_fallback_sync_off_ios">O iCloud está desligado neste celular. Com ele ligado, sua conta volta sem espera num iPhone novo.</string>
+    <string name="bipe_fallback_sync_off_android">O backup do Google está desligado neste celular. Com ele ligado, sua conta volta sem espera num celular novo.</string>
+    <string name="bipe_pin_reminder_title">Lembra sua senha?</string>
+    <string name="bipe_pin_reminder_body">Digite sua senha de %1$s números para não esquecer.</string>
+    <string name="bipe_pin_reminder_action">Digitar senha</string>
+    <string name="bipe_pin_reminder_right">Isso. Até a próxima.</string>
+    <string name="bipe_pin_reminder_wrong">Essa não é a sua senha. Se não lembra, troque agora.</string>
     <string name="bipe_email_title">E-mail de recuperação</string>
     <string name="bipe_email_footer">Serve para voltar para sua conta ou criar uma senha nova. Não aparece no seu perfil.</string>
     <string name="bipe_email_sent">A gente mandou um link para %1$s. Abra o link para confirmar.</string>
@@ -942,7 +955,7 @@
     <string name="bipe_app_linked_devices_sign_out_error">Não deu para desconectar o aparelho. Tente de novo.</string>
     <string name="bipe_app_linked_devices_signed_out">Aparelho desconectado.</string>
     <string name="bipe_app_sign_out_title">Sair do Bipe neste celular?</string>
-    <string name="bipe_soft_logout_title">Digite seu PIN para continuar</string>
+    <string name="bipe_soft_logout_title">Digite sua senha para continuar</string>
     <string name="bipe_soft_logout_body">O Bipe precisa confirmar que é você na conta %1$s.</string>
     <string name="bipe_soft_logout_removed">A conta %1$s foi desconectada deste celular em outro aparelho.</string>
     <string name="bipe_app_sign_out_body">Para voltar, você vai precisar da sua senha de %1$s números e de um destes jeitos de voltar:</string>

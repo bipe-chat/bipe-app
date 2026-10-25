@@ -26,6 +26,7 @@ public enum BipeOnboardingTarget: String, Sendable {
     case profileQr
     case notes
     case photoPicker
+    case pinCheck
 }
 
 public struct BipeOnboardingButton: Sendable, Equatable {
@@ -142,6 +143,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
     case handle
     case recovery
     case photo
+    case pinReminder
 
     public var titleKey: String {
         switch self {
@@ -149,6 +151,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .handle: "bipe_handle_prompt_title"
         case .recovery: "bipe_fallback_title"
         case .photo: "bipe_photo_prompt_title"
+        case .pinReminder: "bipe_pin_reminder_title"
         }
     }
 
@@ -158,6 +161,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .handle: "bipe_handle_prompt_body"
         case .recovery: "bipe_fallback_reminder"
         case .photo: "bipe_photo_prompt_body"
+        case .pinReminder: "bipe_pin_reminder_body"
         }
     }
 
@@ -168,6 +172,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .handle: BipeOnboardingButton(titleKey: "bipe_handle_prompt_action", target: .handleScreen)
         case .recovery: BipeOnboardingButton(titleKey: "bipe_fallback_email", target: .recoveryEmailAdd)
         case .photo: BipeOnboardingButton(titleKey: "bipe_photo_prompt_action", target: .photoPicker)
+        case .pinReminder: BipeOnboardingButton(titleKey: "bipe_pin_reminder_action", target: .pinCheck)
         }
     }
 
@@ -178,6 +183,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .handle: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
         case .recovery: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
         case .photo: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
+        case .pinReminder: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
         }
     }
 
@@ -188,6 +194,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .handle: true
         case .recovery: false
         case .photo: true
+        case .pinReminder: true
         }
     }
 }
@@ -302,6 +309,9 @@ public enum BipeOnboarding {
     public static let firstListMaxChats = 3
     /// Hours between two slot prompts on one account (bipe-chat/bipe#200).
     public static let promptSlotHours = 24
+    /// Trigger pinReminderDue (bipe-chat/bipe#202): the gap in days after each step, then pinReminderThenEveryDays.
+    public static let pinReminderDays = [1, 3, 7, 14, 30]
+    public static let pinReminderThenEveryDays = 60
     public static let waitlistBodyKey = "bipe_waitlist_body"
     public static let waitlistPrimary = BipeOnboardingButton(titleKey: "bipe_waitlist_join", target: .waitlist)
     public static let waitlistDoneKey = "bipe_waitlist_done"

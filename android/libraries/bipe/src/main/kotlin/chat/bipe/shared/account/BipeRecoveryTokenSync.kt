@@ -31,6 +31,9 @@ interface BipeRecoveryTokenSync {
     /** Removes the token of [userId] (`null`: the entry from before bipe-chat/bipe#265). Nothing happens when there is none. */
     suspend fun delete(userId: String?)
 
+    /** True when the store backs tokens up off this phone (spec recovery-reminder syncOff, bipe-chat/bipe#202). */
+    suspend fun isBackedUp(): Boolean = isAvailable
+
     /** No synced store: the token stays in [BipeAccountVault], on this phone only. */
     object None : BipeRecoveryTokenSync {
         override val isAvailable = false

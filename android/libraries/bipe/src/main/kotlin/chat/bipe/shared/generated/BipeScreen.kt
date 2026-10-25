@@ -58,6 +58,9 @@ enum class BipeScreen(val id: String) {
     /** Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json */
     BLOCKED_LIST("blocked-list"),
 
+    /** Brand mark (flow people). Spec: bipe-shared/product/screens/brand-mark.json */
+    BRAND_MARK("brand-mark"),
+
     /** Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json */
     BUSINESS_CHAT_BAR("business-chat-bar"),
 
@@ -237,6 +240,9 @@ enum class BipeScreen(val id: String) {
 
     /** Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json */
     PIN_CHANGE("pin-change"),
+
+    /** PIN reminder (flow home). Spec: bipe-shared/product/screens/pin-reminder.json */
+    PIN_REMINDER("pin-reminder"),
 
     /** Receive a shared Pix item (flow share). Spec: bipe-shared/product/screens/pix-check-receive.json */
     PIX_CHECK_RECEIVE("pix-check-receive"),

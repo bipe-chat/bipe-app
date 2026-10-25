@@ -52,6 +52,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json
     case blockedList = "blocked-list"
 
+    /// Brand mark (flow people). Spec: bipe-shared/product/screens/brand-mark.json
+    case brandMark = "brand-mark"
+
     /// Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json
     case businessChatBar = "business-chat-bar"
 
@@ -231,6 +234,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json
     case pinChange = "pin-change"
+
+    /// PIN reminder (flow home). Spec: bipe-shared/product/screens/pin-reminder.json
+    case pinReminder = "pin-reminder"
 
     /// Receive a shared Pix item (flow share). Spec: bipe-shared/product/screens/pix-check-receive.json
     case pixCheckReceive = "pix-check-receive"
