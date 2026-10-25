@@ -53,6 +53,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +67,7 @@ import chat.bipe.app.account.TermsReacceptModel
 import chat.bipe.app.account.TermsReacceptScreen
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
@@ -88,6 +90,9 @@ import chat.bipe.app.pixcheck.PixPreview
 import chat.bipe.app.pixcheck.PixSendScreen
 import chat.bipe.app.recovery.RecoveryAlertModel
 import chat.bipe.app.recovery.RecoveryAlertScreen
+import chat.bipe.app.recovery.RecoveryEmailAddScreen
+import chat.bipe.app.recovery.RecoveryReminderCard
+import chat.bipe.app.recovery.RecoveryReminderModel
 import chat.bipe.app.signup.SignupStart
 import chat.bipe.app.tabs.AccountNewScreen
 import chat.bipe.app.tabs.InviteSignedInScreen
@@ -127,6 +132,9 @@ fun HomeScreen(
     val model = remember(session) { tabs.chatList(session) }
     val media = remember(session) { tabs.media(session) }
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
+    val recovery = remember(session) { RecoveryReminderModel(context.applicationContext, api, session, scope) }
+    val recoveryState by recovery.state.collectAsState()
+    var showsRecoveryEmail by rememberSaveable { mutableStateOf(false) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     val people = remember(session) { PeopleService(context, session, api, media, scope) }
     val requests = remember(session) { ChatRequestsModel(context.applicationContext, session, api, scope, people) }
@@ -181,6 +189,7 @@ fun HomeScreen(
     LaunchedEffect(foregroundCount) { recoveryAlert.check() }
     // Critical banners refresh alongside account/profile and recovery checks.
     LaunchedEffect(foregroundCount) { remoteBanner.refresh() }
+    LaunchedEffect(foregroundCount) { recovery.load() }
     // Spec notification-service, action open.
     val roomToOpen by app.roomToOpen.collectAsState()
     // Spec pix-check-result, action sendToChat: a preview from Conferir no Bipe, for this account only.
@@ -248,6 +257,10 @@ fun HomeScreen(
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
+        showsRecoveryEmail -> RecoveryEmailAddScreen(
+            api, session, current = recoveryState.account?.email, pending = recoveryState.account?.emailPending,
+            onSent = recovery::load, onClose = { showsRecoveryEmail = false },
+        )
         showsRequests -> ChatRequestsScreen(requests, media,
             onBack = { showsRequests = false },
             onOpenChat = { showsRequests = false; openRoomId = it },
@@ -302,6 +315,9 @@ fun HomeScreen(
                     onOpenChat = { openRoomId = it },
                     onNewAccount = { showsNewAccount = true },
                     banner = { HistoryBanner(encryption) },
+                    recoveryCard = {
+                        if (recovery.showsCard(recoveryState)) RecoveryReminderCard(recovery) { showsRecoveryEmail = true }
+                    },
                     onCreateGroup = groups.createGroup,
                     onDeleteDm = groups.deleteDm,
                     onChatNotifications = groups.openNotifications,
@@ -338,6 +354,8 @@ fun ChatListScreen(
     onOpenVoce: () -> Unit = {},
     /** Spec encryption-status: the banner above the chat list. */
     banner: @Composable () -> Unit = {},
+    /** Spec recovery-reminder: shows when the handle card does not (one card at a time). */
+    recoveryCard: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
     onChatNotifications: (String) -> Unit = {},
@@ -407,6 +425,7 @@ fun ChatListScreen(
             banner()
             run {
                 if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
+                else if (scope == ChatScope.CONVERSAS) recoveryCard()
                 if (!showingArchived) UnreadChip(unreadOnly) { model.toggleUnread(scope) }
                 TextButton(onClick = { showingArchived = !showingArchived }) {
                     Text(stringResource(if (!showingArchived) R.string.bipe_archived_title else if (scope == ChatScope.CONVERSAS) R.string.bipe_app_chat_list_title else R.string.bipe_tab_groups))
@@ -514,8 +533,13 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = 
                     color = colors.inkPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f, fill = !chat.isOfficial),
                 )
+                if (chat.isOfficial) {
+                    Spacer(Modifier.width(6.dp))
+                    OfficialBadge()
+                    Spacer(Modifier.weight(1f))
+                }
                 chat.lastActivity?.let { time ->
                     Text(
                         timeLabel(context, time),
@@ -550,6 +574,20 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = 
                     )
                 }
                 if (chat.unreadCount > 0) {
+                    if (chat.mentionCount > 0) {
+                        // A mention has its own mark, not only a colour (bipe#497). The count's label reads it.
+                        Text(
+                            "@",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.inkOnAccent,
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .background(colors.accentFill, CircleShape)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .clearAndSetSemantics {},
+                        )
+                    }
                     val count = NumberFormat.getIntegerInstance().format(chat.unreadCount)
                     // A mention is read with the count; the badge shows it by colour only (bipe#495).
                     val unread = stringResource(R.string.bipe_app_chat_list_unread, count)
@@ -587,10 +625,8 @@ private fun timeLabel(context: android.content.Context, time: Long): String =
 private fun UnreadChip(isOn: Boolean, onToggle: () -> Unit) {
     val colors = BipeTheme.colors
     val view = LocalView.current
-    Text(
-        stringResource(R.string.bipe_app_chat_list_filter_unread),
-        style = MaterialTheme.typography.labelLarge,
-        color = if (isOn) colors.inkOnAccent else colors.inkPrimary,
+    val ink = if (isOn) colors.inkOnAccent else colors.inkPrimary
+    Row(
         modifier = Modifier
             .padding(horizontal = 16.dp)
             .bipeTapTarget()
@@ -601,7 +637,13 @@ private fun UnreadChip(isOn: Boolean, onToggle: () -> Unit) {
                 view.bipeHaptic(BipeHaptic.Tick)
             }
             .padding(horizontal = 14.dp, vertical = 6.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        // On shows a check, not only a colour (bipe#497).
+        if (isOn) Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = ink, modifier = Modifier.size(14.dp))
+        Text(stringResource(R.string.bipe_app_chat_list_filter_unread), style = MaterialTheme.typography.labelLarge, color = ink)
+    }
 }
 
 /** The empty messages of chat-list-filters: noUnread turns the filter off on a tap; noChats offers start chat. */

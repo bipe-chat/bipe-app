@@ -77,6 +77,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.business.rememberBusinessChatTools
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.LocalReduceMotion
@@ -87,6 +88,8 @@ import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.app.people.PeopleService
 import kotlinx.coroutines.launch
 import chat.bipe.shared.bipeHaptic
+import chat.bipe.shared.BipeOfficialAccounts
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.groups.DmDeleteSheet
 import chat.bipe.app.media.MediaViewer
@@ -179,6 +182,8 @@ fun ChatTimelineScreen(
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     var dmMenu by remember { mutableStateOf(false) }
+    // Spec business-chat-bar: the tools and booking cards of a DM with a company (or, on a company, with a customer).
+    val business = rememberBusinessChatTools(session, media, peerUserId.takeIf { isDm })
     var deletingDm by rememberSaveable { mutableStateOf(false) }
     if (deletingDm) {
         DmDeleteSheet(session, roomId, onDismiss = { deletingDm = false }, onDeleted = {
@@ -239,7 +244,12 @@ fun ChatTimelineScreen(
                             color = colors.inkPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
+                        if (isDm && BipeOfficialAccounts.isOfficial(peerUserId)) {
+                            Spacer(Modifier.size(6.dp))
+                            OfficialBadge()
+                        }
                     }
                     if (isGroup && onOpenGroupDetails != null) {
                         IconButton(onClick = onOpenGroupDetails) {
@@ -260,6 +270,7 @@ fun ChatTimelineScreen(
                                 )
                             }
                             DropdownMenu(expanded = dmMenu, onDismissRequest = { dmMenu = false }) {
+                                business?.MenuItems(dismiss = { dmMenu = false })
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) },
                                     onClick = {
@@ -271,6 +282,8 @@ fun ChatTimelineScreen(
                         }
                     }
                 }
+                // Booking cards pinned above the timeline (agenda-booking-card); they are not room events (ADR 0102).
+                business?.Cards()
                 LazyColumn(
                     state = listState,
                     reverseLayout = true,
@@ -363,6 +376,7 @@ fun ChatTimelineScreen(
             }
         }
     }
+    business?.Sheets()
 
     model.row(ui.actionsRowId)?.let { row ->
         MessageActionsSheet(

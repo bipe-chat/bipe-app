@@ -6,6 +6,8 @@ package chat.bipe.app.people
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,19 +39,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.business.BusinessProfileButtons
 import chat.bipe.app.common.Avatar
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.NameNormalizer
+import chat.bipe.shared.BipeTrustSources
 import chat.bipe.shared.R
 import chat.bipe.shared.api.publicProfile
 import chat.bipe.shared.company.BipeCompanySealState
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.generated.BipeTrustFacts
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -81,9 +90,16 @@ class PersonProfileModel(
         val phase: Phase = Phase.LOADING,
         val person: Person,
         val isCompany: Boolean = false,
+        /** isOfficial of the spec: the exact user ID is an official Bipe account (ADR 0117). */
+        val isOfficial: Boolean = false,
         val marks: List<TrustMark> = emptyList(),
         val seal: BipeCompanySealState = BipeCompanySealState.None,
-        val confirmedInPerson: Boolean = false,
+        /** The SDK's identity of the person (spec facts). null while not read, or when the SDK could not read it. */
+        val trustIdentity: BipeTrustSources.Identity? = null,
+        /** The identity read has run at least once: a null trustIdentity then means lifecycle unknown. */
+        val identityRead: Boolean = false,
+        /** facts of the spec: identity proof, personal confirmation and changes, apart (ADR 0074, BipeTrustSources). */
+        val facts: BipeTrustFacts = BipeTrustSources.profileFacts("", null, BipeTrustSources.Seal.None),
         val reservedNameWarning: Boolean = false,
         val bio: String? = null,
         val dmRoomId: String? = null,
@@ -91,7 +107,7 @@ class PersonProfileModel(
         val openingChat: Boolean = false,
     )
 
-    private val _state = MutableStateFlow(State(person = Person(userId, Person.localpart(userId))))
+    private val _state = MutableStateFlow(State(person = Person(userId, Person.localpart(userId)), isOfficial = BipeOfficialAccounts.isOfficial(userId)))
     val state: StateFlow<State> = _state.asStateFlow()
 
     /** Action appear: shows what it has and fills in the rest. */
@@ -105,9 +121,8 @@ class PersonProfileModel(
             }
             _state.value = _state.value.copy(phase = Phase.LOADED, person = person)
             val isCompany = people.isCompany(userId)
-            val confirmed = people.isConfirmedInPerson(userId)
-            _state.value = _state.value.copy(isCompany = isCompany, confirmedInPerson = confirmed)
-            applySeal(people.seals.seal(userId))
+            _state.value = _state.value.copy(isCompany = isCompany)
+            readIdentityNow()
             // The seal store answers later and emits; it fails closed.
             scope.launch { people.seals.states.collect { applySeal(people.seals.seal(userId)) } }
             val bio = person.handle?.let { handle -> runCatching { people.api.publicProfile(handle) }.getOrNull()?.bio?.trim() }
@@ -115,22 +130,40 @@ class PersonProfileModel(
         }
     }
 
-    /** marks and reservedNameWarning of the spec, from the seal store. verifiedName and nameSuspended have no signer yet. */
+    /** Action retryFacts: reads the person's identity again. */
+    fun readIdentity() {
+        scope.launch { readIdentityNow() }
+    }
+
+    private suspend fun readIdentityNow() {
+        val identity = people.trustIdentity(userId)
+        _state.value = _state.value.copy(trustIdentity = identity, identityRead = true)
+        applySeal(people.seals.seal(userId))
+    }
+
+    /** facts, marks and reservedNameWarning of the spec. verifiedName and nameSuspended have no signer yet. */
     private fun applySeal(seal: BipeCompanySealState) {
         val current = _state.value
-        val marks = mutableListOf<TrustMark>()
-        when (seal) {
-            is BipeCompanySealState.Verified -> marks += TrustMark(TrustMark.Kind.COMPANY, context.getString(R.string.bipe_badge_company))
-            is BipeCompanySealState.Revoked -> marks += TrustMark(TrustMark.Kind.COMPANY_REVOKED, seal.notice(context).orEmpty())
-            BipeCompanySealState.Suspended -> marks += TrustMark(TrustMark.Kind.COMPANY_SUSPENDED, seal.notice(context).orEmpty())
-            BipeCompanySealState.None -> Unit
+        val sealSource = when (seal) {
+            is BipeCompanySealState.Verified -> BipeTrustSources.Seal.Verified(seal.payload.name)
+            BipeCompanySealState.Suspended -> BipeTrustSources.Seal.Suspended
+            else -> BipeTrustSources.Seal.None
         }
-        if (current.confirmedInPerson) {
+        val facts = BipeTrustSources.profileFacts(userId, current.trustIdentity, sealSource)
+        val marks = mutableListOf<TrustMark>()
+        when {
+            seal is BipeCompanySealState.Revoked -> marks += TrustMark(TrustMark.Kind.COMPANY_REVOKED, seal.notice(context).orEmpty())
+            facts.identity == "verified" -> marks += TrustMark(TrustMark.Kind.COMPANY, context.getString(R.string.bipe_badge_company))
+            facts.identity == "suspended" || seal == BipeCompanySealState.Suspended ->
+                marks += TrustMark(TrustMark.Kind.COMPANY_SUSPENDED, BipeCompanySealState.Suspended.notice(context).orEmpty())
+        }
+        if (facts.contact == "confirmed") {
             marks += TrustMark(TrustMark.Kind.CONFIRMED_IN_PERSON, context.getString(R.string.bipe_badge_verified_contact))
         }
-        // A company whose verified seal names it does not get the warning.
-        val reserved = NameNormalizer.reservedCategory(current.person.displayName) != null && seal !is BipeCompanySealState.Verified
-        _state.value = current.copy(seal = seal, marks = marks, reservedNameWarning = reserved)
+        // An official account, or a company whose verified seal names it, does not get the warning.
+        val reserved = NameNormalizer.reservedCategory(current.person.displayName) != null &&
+            !current.isOfficial && seal !is BipeCompanySealState.Verified
+        _state.value = current.copy(seal = seal, facts = facts, marks = marks, reservedNameWarning = reserved)
     }
 
     /** Action message: the DM, created when missing. */
@@ -247,6 +280,8 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
             }
             PersonProfileModel.Phase.LOADED -> {
                 Header(model, state, isBlocked, onOpenSeal = { showsSeal = true })
+                // Spec business-chat-bar: a company's tools under its name (ADR 0103: Agendar).
+                if (state.isCompany) BusinessProfileButtons(people.session, people.media, userId)
                 RowGroup {
                     IconRow(PhosphorIcon.CHAT_TEXT, stringResource(R.string.bipe_app_person_message), enabled = !state.openingChat) {
                         model.message(routes.openChat)
@@ -315,7 +350,8 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
                 color = colors.inkPrimary,
                 textAlign = TextAlign.Center,
             )
-            if (state.seal is BipeCompanySealState.Verified) {
+            if (state.isOfficial) OfficialBadge(style = MaterialTheme.typography.labelMedium)
+            if (state.facts.identity == "verified") {
                 Icon(
                     painterResource(PhosphorIcon.SEAL_CHECK.drawable),
                     contentDescription = stringResource(R.string.bipe_badge_company),
@@ -336,6 +372,7 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
                 else -> MarkLine(PhosphorIcon.SEAL_WARNING, mark.text, colors.trustCautionInk)
             }
         }
+        FactLines(state, onRetry = model::readIdentity)
         if (isBlocked) {
             MarkLine(PhosphorIcon.PROHIBIT, stringResource(R.string.bipe_app_person_blocked), colors.trustDangerInk)
         }
@@ -421,4 +458,42 @@ fun BlockPersonDialog(people: PeopleService, userId: String, name: String, onClo
         dismissButton = { TextButton(enabled = !working, onClick = onClose) { Text(stringResource(R.string.bipe_app_cancel)) } },
         containerColor = colors.surfaceRaised,
     )
+}
+
+/** Spec facts: what each fact means, the contact not confirmed yet, a change and an unknown state, each apart. */
+@Composable
+private fun FactLines(state: PersonProfileModel.State, onRetry: () -> Unit) {
+    val colors = BipeTheme.colors
+    val facts = state.facts
+    if (facts.identity == "verified") FactCaption(stringResource(R.string.bipe_trust_identity_body))
+    if (facts.contact == "confirmed") {
+        FactCaption(stringResource(R.string.bipe_trust_contact_body))
+    } else if (facts.change != "unknown") {
+        MarkLine(PhosphorIcon.USER_CIRCLE, stringResource(R.string.bipe_trust_contact_unconfirmed), colors.trustNeutralInk)
+    }
+    if (facts.change in setOf("identity", "device", "device_and_identity")) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colors.trustCautionWash, RoundedCornerShape(10.dp))
+                .border(1.dp, colors.trustCautionLine, RoundedCornerShape(10.dp))
+                .padding(10.dp)
+                .semantics(mergeDescendants = true) {},
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            MarkLine(PhosphorIcon.WARNING, stringResource(R.string.bipe_banner_security_change), colors.trustCautionInk)
+            Text(stringResource(R.string.bipe_trust_change_confirm_action), style = MaterialTheme.typography.bodySmall, color = colors.inkPrimary)
+        }
+    }
+    if (state.identityRead && facts.change == "unknown") {
+        MarkLine(PhosphorIcon.INFO, stringResource(R.string.bipe_trust_lifecycle_unknown), colors.trustNeutralInk)
+        TextButton(onClick = onRetry) { Text(stringResource(R.string.bipe_trust_lifecycle_retry_action)) }
+    }
+    if (facts.identity == "verified" || facts.contact == "confirmed") FactCaption(stringResource(R.string.bipe_trust_warning_absence_body))
+}
+
+/** The meaning or limit of a fact, under its mark. */
+@Composable
+private fun FactCaption(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary, textAlign = TextAlign.Center)
 }

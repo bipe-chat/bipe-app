@@ -36,6 +36,8 @@ jobs:
         with:
           node-version: 24
       - run: node tools/deny-list.mjs
+      # Release builds have no developer options and no unlock gesture (bipe-chat/bipe#432).
+      - run: node tools/release-gate.mjs
 
   licences:
     runs-on: ubuntu-latest

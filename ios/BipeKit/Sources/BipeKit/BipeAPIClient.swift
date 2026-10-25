@@ -86,6 +86,12 @@ public struct BipeAPIClient: Sendable {
                                           accessToken: accessToken)
     }
     
+    /// `POST /v1/me/keychain-move` (bipe-chat/bipe#531): this device moved its keychain items into the app-group group.
+    /// The server takes the device from the token.
+    public func recordKeychainMove(accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "POST", path: ["v1", "me", "keychain-move"], body: Empty?.none, accessToken: accessToken)
+    }
+
     /// `DELETE /v1/me/email`.
     public func removeRecoveryEmail(accessToken: String) async throws(BipeAPIError) {
         let _: NoContent = try await send(method: "DELETE", path: ["v1", "me", "email"], body: Empty?.none, accessToken: accessToken)
@@ -903,6 +909,14 @@ public enum BipeAPIErrorCode: String, Sendable {
     case termsRequired = "terms_required"
     /// 503. The support account is not set up on the server (ADR 0114).
     case supportUnavailable = "support_unavailable"
+    // Business tools (api/business-schemas.json AgendaError). Texts: BipeAPIError.agendaMessage.
+    case slotTaken = "slot_taken"
+    case holdExpired = "hold_expired"
+    case tooManyOpenBookings = "too_many_open_bookings"
+    case outsideNotice = "outside_notice"
+    case outsideHorizon = "outside_horizon"
+    case agendaNotPublished = "agenda_not_published"
+    case cancellationWindowClosed = "cancellation_window_closed"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -957,6 +971,8 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .emailUnavailable: BipeStrings.errorEmailUnavailable
             case .termsRequired: BipeStrings.signupTermsRequired
             case .supportUnavailable: BipeStrings.supportOpenFailed
+            case .slotTaken, .holdExpired, .tooManyOpenBookings, .outsideNotice, .outsideHorizon, .agendaNotPublished,
+                 .cancellationWindowClosed: self.agendaMessage
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:
