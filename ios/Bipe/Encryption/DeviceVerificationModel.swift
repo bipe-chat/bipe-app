@@ -49,11 +49,15 @@ final class DeviceVerificationModel: ObservableObject {
     @Published private(set) var symbols: [VerificationSymbol] = []
     /// The flow ended with noMatch: the screen shows bipe_app_verify_mismatch.
     @Published private(set) var mismatch = false
+    /// Action notifyAgain is open: newPhone waits and the last nudge is approvalNudgeAgainSeconds old.
+    @Published private(set) var canNotifyAgain = false
 
     /// Called when a request from another device of this account arrives (action receive).
     var onIncoming: (@MainActor () -> Void)?
 
     private let session: AccountSession
+    private let api = BipeAPIClient(baseURL: AppConfig.apiBaseURL)
+    private var nudgeWait: Task<Void, Never>?
     private let delegate = SessionVerificationStream()
     private var controller: SessionVerificationController?
     private var started = false
@@ -96,6 +100,7 @@ final class DeviceVerificationModel: ObservableObject {
         otherDevice = nil
         symbols = []
         mismatch = false
+        canNotifyAgain = false
         phase = .requesting
         guard let controller = await readyController() else {
             phase = .failed
@@ -106,6 +111,30 @@ final class DeviceVerificationModel: ObservableObject {
             phase = .waitingForOther
         } catch {
             phase = .failed
+            return
+        }
+        await nudge()
+    }
+
+    /// Action notifyAgain: the push to the other devices once more (bipe-chat/bipe#628).
+    func notifyAgain() async {
+        guard role == .newPhone, phase == .waitingForOther, canNotifyAgain else { return }
+        await nudge()
+    }
+
+    /// POST /v1/me/approval-nudge. Best effort: a failure, rate_limited included, does not change the phase.
+    private func nudge() async {
+        canNotifyAgain = false
+        nudgeWait?.cancel()
+        let session = self.session
+        let api = self.api
+        try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) in
+            try await api.sendApprovalNudge(accessToken: token)
+        }
+        nudgeWait = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(BipeRegistries.approvalNudgeAgainSeconds))
+            guard !Task.isCancelled, let self, self.role == .newPhone, self.phase == .waitingForOther else { return }
+            self.canNotifyAgain = true
         }
     }
 

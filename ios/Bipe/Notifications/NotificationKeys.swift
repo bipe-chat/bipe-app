@@ -22,6 +22,11 @@ enum NotificationKeys {
     static let eventId = "event_id"
     static let kind = "notification_kind"
     static let unreadCount = "unread_count"
+    /// bipe-api adds this to the default_payload of a push that is not a room event (spec notification-service).
+    static let pushKind = "bipe_push_kind"
+    /// pushKind of the approval nudge (bipe-chat/bipe#628), and the kind of its local notification.
+    static let deviceApprovalPush = "device_approval"
+    static let deviceApprovalKind = "deviceApproval"
 
     /// A provider payload carries only a random registration route; the Matrix ID stays on this phone.
     static func pushTarget(_ userInfo: [AnyHashable: Any]) -> BipeNotificationTarget? {

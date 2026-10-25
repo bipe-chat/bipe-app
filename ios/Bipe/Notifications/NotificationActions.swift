@@ -45,6 +45,8 @@ final class NotificationActions: ObservableObject {
 
     /// Action open: the chat that chat-list opens next.
     @Published var roomToOpen: BipeNotificationOpen?
+    /// A tap on an approval nudge (bipe-chat/bipe#628): the owner account's conversation list, where the request shows.
+    @Published var accountToOpen: String?
     /// The chat on screen, so its pushes do not show a banner.
     var visibleRoom: BipeNotificationTarget?
 
@@ -83,11 +85,21 @@ final class NotificationActions: ObservableObject {
             center.removeDeliveredNotifications(withIdentifiers: ids)
         }
         if roomToOpen?.accountUserId == userId { roomToOpen = nil }
+        if accountToOpen == userId { accountToOpen = nil }
         if visibleRoom?.accountUserId == userId { visibleRoom = nil }
     }
 
     func handle(_ response: UNNotificationResponse) async {
         let userInfo = response.notification.request.content.userInfo
+        if userInfo[NotificationKeys.kind] as? String == NotificationKeys.deviceApprovalKind {
+            // The route must still belong to the recorded owner; else the tap only opens the app.
+            guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+                  let userId = userInfo[NotificationKeys.accountUserId] as? String,
+                  let route = userInfo[NotificationKeys.accountRoute] as? String,
+                  NotificationKeys.accountRoutes?.account(for: route) == userId else { return }
+            accountToOpen = userId
+            return
+        }
         guard let target = NotificationKeys.target(userInfo),
               let route = userInfo[NotificationKeys.accountRoute] as? String else { return }
         let eventId = userInfo[NotificationKeys.eventId] as? String

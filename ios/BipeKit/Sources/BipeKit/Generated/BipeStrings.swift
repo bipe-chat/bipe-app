@@ -3308,6 +3308,10 @@ public enum BipeStrings {
 
     public static var appVerifyCancelled: String { NSLocalizedString("bipe_app_verify_cancelled", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appVerifyNudgeBody: String { NSLocalizedString("bipe_app_verify_nudge_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appVerifyNotifyAgain: String { NSLocalizedString("bipe_app_verify_notify_again", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appHistoryBanner: String { NSLocalizedString("bipe_app_history_banner", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appHistoryTitle: String { NSLocalizedString("bipe_app_history_title", tableName: "Bipe", bundle: .module, comment: "") }

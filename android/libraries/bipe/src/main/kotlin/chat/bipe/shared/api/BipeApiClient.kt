@@ -142,6 +142,14 @@ class BipeApiClient(baseUrl: String) {
         send("POST", listOf("v1", "me", "device-first"), accessToken = accessToken, response = BipeCredentials.serializer())
 
     /**
+     * `POST /v1/me/approval-nudge` (bipe-chat/bipe#628): a push to the other devices of the account while this device
+     * waits for approval. The server takes the device from the token.
+     */
+    suspend fun sendApprovalNudge(accessToken: String) {
+        send<Unit>("POST", listOf("v1", "me", "approval-nudge"), accessToken = accessToken, response = null)
+    }
+
+    /**
      * `PUT /v1/me/voice-media/{server}/{mediaId}` (ADR 0164, bipe-chat/bipe#622): the caller's own voice upload, so the
      * server can expire its audio. 404 when the media is not the caller's upload on this server.
      */

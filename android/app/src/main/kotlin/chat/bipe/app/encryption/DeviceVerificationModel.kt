@@ -5,6 +5,9 @@
 package chat.bipe.app.encryption
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.common.AppConfig
+import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -59,6 +62,13 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
     private val _mismatch = MutableStateFlow(false)
     val mismatch: StateFlow<Boolean> = _mismatch.asStateFlow()
 
+    /** Action notifyAgain is open: newPhone waits and the last nudge is APPROVAL_NUDGE_AGAIN_SECONDS old. */
+    private val _canNotifyAgain = MutableStateFlow(false)
+    val canNotifyAgain: StateFlow<Boolean> = _canNotifyAgain.asStateFlow()
+
+    private val api = BipeApiClient(AppConfig.API_BASE_URL)
+    private var nudgeWait: Job? = null
+
     /** Called when a request from another device of this account arrives (action receive). */
     var onIncoming: (() -> Unit)? = null
 
@@ -102,6 +112,7 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
         _otherDevice.value = null
         _symbols.value = emptyList()
         _mismatch.value = false
+        _canNotifyAgain.value = false
         _phase.value = Phase.REQUESTING
         scope.launch {
             val controller = readyController()
@@ -111,6 +122,24 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
             }
             _phase.value = runCatching { controller.requestDeviceVerification() }
                 .fold({ Phase.WAITING_FOR_OTHER }, { Phase.FAILED })
+            if (_phase.value == Phase.WAITING_FOR_OTHER) nudge()
+        }
+    }
+
+    /** Action notifyAgain: the push to the other devices once more (bipe-chat/bipe#628). */
+    fun notifyAgain() {
+        if (_role.value != Role.NEW_PHONE || _phase.value != Phase.WAITING_FOR_OTHER || !_canNotifyAgain.value) return
+        scope.launch { nudge() }
+    }
+
+    /** POST /v1/me/approval-nudge. Best effort: a failure, rate_limited included, does not change the phase. */
+    private suspend fun nudge() {
+        _canNotifyAgain.value = false
+        nudgeWait?.cancel()
+        runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { api.sendApprovalNudge(it) } }
+        nudgeWait = scope.launch {
+            delay(BipeRegistries.APPROVAL_NUDGE_AGAIN_SECONDS * 1_000L)
+            if (_role.value == Role.NEW_PHONE && _phase.value == Phase.WAITING_FOR_OTHER) _canNotifyAgain.value = true
         }
     }
 

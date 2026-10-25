@@ -369,6 +369,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             val app = context.applicationContext as BipeApplication
             app.notifications.detach(current.userId)
             if (app.roomToOpen.value?.accountUserId == current.userId) app.roomToOpen.value = null
+            if (app.accountToOpen.value == current.userId) app.accountToOpen.value = null
             // The pusher still goes before the SDK session ends.
             if (_userId.value == current.userId) app.push.signOut()
             current.signOut(context, sessionStore, vault, alreadyLoggedOut)

@@ -48,6 +48,7 @@ fun DeviceVerificationScreen(model: DeviceVerificationModel, close: () -> Unit) 
     val otherDevice by model.otherDevice.collectAsState()
     val symbols by model.symbols.collectAsState()
     val mismatch by model.mismatch.collectAsState()
+    val canNotifyAgain by model.canNotifyAgain.collectAsState()
     val confirmOwner = rememberDeviceOwnerCheck(stringResource(R.string.bipe_app_verify_biometric))
     val colors = BipeTheme.colors
 
@@ -72,6 +73,11 @@ fun DeviceVerificationScreen(model: DeviceVerificationModel, close: () -> Unit) 
                 }
                 CircularProgressIndicator(color = colors.accentFill)
                 Body(stringResource(R.string.bipe_app_verify_waiting))
+                if (role == DeviceVerificationModel.Role.NEW_PHONE && canNotifyAgain) {
+                    BipeOutlinedButton(onClick = { model.notifyAgain() }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.bipe_app_verify_notify_again))
+                    }
+                }
                 BipeOutlinedButton(onClick = { model.cancel(); close() }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.bipe_app_cancel))
                 }

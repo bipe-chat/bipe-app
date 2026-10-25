@@ -39,6 +39,14 @@ struct DeviceVerificationView: View {
             ProgressView()
             BodyText(text: BipeStrings.appVerifyWaiting)
             Spacer()
+            if model.role == .newPhone && model.canNotifyAgain {
+                Button {
+                    Task { await model.notifyAgain() }
+                } label: {
+                    Text(BipeStrings.appVerifyNotifyAgain).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bipeBordered)
+            }
             cancelButton
         case .incoming, .confirmIdentity:
             TitleText(text: BipeStrings.appVerifyIncomingTitle)

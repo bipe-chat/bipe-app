@@ -762,6 +762,8 @@ public enum BipeRegistries {
     public static let deletionCooldownHours = 72
     /// After a deletion, the CPF hash and the badge record stay this long (ADR 0140).
     public static let deletionVerificationKeepDays = 365
+    /// A new phone that waits for approval can send the approval nudge again after this wait (bipe-chat/bipe#628).
+    public static let approvalNudgeAgainSeconds = 30
     /// A released @ stays on hold this long (ADR 0016), also after an account deletion.
     public static let handleReleaseHoldDays = 90
     /// Recovery reminder card (bipe#531): first show after these days on this phone; each "Agora não" hides it for the
