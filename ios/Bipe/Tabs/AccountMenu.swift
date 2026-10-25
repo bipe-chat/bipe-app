@@ -69,7 +69,6 @@ struct AccountRows: View {
             }
             .accessibilityAddTraits(account.isCurrent ? .isSelected : [])
             .accessibilityLabel(account.isCurrent ? BipeStrings.appAccountCurrentA11y(account.displayName) : account.displayName)
-            .listRowBackground(BipeColor.surfaceRaised)
         }
     }
 }

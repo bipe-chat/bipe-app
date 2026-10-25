@@ -78,8 +78,6 @@ struct InvitesView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.invitesTitle)
         .accessibilityIdentifier(BipeScreen.invites.rawValue)
         .task { await model.refresh() }

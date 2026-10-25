@@ -9,6 +9,7 @@ import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
@@ -148,6 +149,8 @@ data class BadgePayload(
     val method: BadgeCnpjMethod? = null,
     /** The Receita Federal release that last showed the CNPJ as active, YYYY-MM. */
     @SerialName("checked_month") val checkedMonth: String? = null,
+    /** `cnpj` only, optional: the CVM register line (ADR 0077), as sent. BipeCvmLines reads it leniently. */
+    val cvm: JsonElement? = null,
     /** Issued at, Unix seconds. */
     val iat: Long,
     /** Expires at, Unix seconds. */

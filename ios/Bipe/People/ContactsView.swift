@@ -182,8 +182,6 @@ struct ContactsView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.contactsTitle)
         .accessibilityIdentifier(BipeScreen.contacts.rawValue)
         .refreshable { await model.check() }

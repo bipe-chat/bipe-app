@@ -63,6 +63,12 @@ import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeBookingStatus
 import chat.bipe.shared.api.BipeCatalogPrice
+import chat.bipe.shared.api.BipeCommerceLine
+import chat.bipe.shared.api.BipeOrderRefuseReason
+import chat.bipe.shared.api.BipeOrderStatus
+import chat.bipe.shared.api.BipeQueuePlaceStatus
+import chat.bipe.shared.api.BipeQuoteStatus
+import chat.bipe.shared.api.FULFILMENT_DELIVERY
 import java.io.File
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -73,6 +79,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -180,12 +188,73 @@ object BusinessText {
             is BipeApiException.Server -> when (error.code) {
                 BipeApiErrorCode.SLOT_TAKEN, BipeApiErrorCode.HOLD_EXPIRED, BipeApiErrorCode.TOO_MANY_OPEN_BOOKINGS,
                 BipeApiErrorCode.OUTSIDE_NOTICE, BipeApiErrorCode.OUTSIDE_HORIZON, BipeApiErrorCode.AGENDA_NOT_PUBLISHED,
-                BipeApiErrorCode.CANCELLATION_WINDOW_CLOSED, BipeApiErrorCode.RATE_LIMITED -> error.localizedMessage(context)
+                BipeApiErrorCode.CANCELLATION_WINDOW_CLOSED, BipeApiErrorCode.RATE_LIMITED,
+                BipeApiErrorCode.QUEUE_CLOSED, BipeApiErrorCode.ALREADY_IN_QUEUE, BipeApiErrorCode.PLACE_NOT_ACTIVE,
+                BipeApiErrorCode.QUOTE_EXPIRED, BipeApiErrorCode.QUOTE_VERSION_CHANGED,
+                BipeApiErrorCode.ORDER_ALREADY_OPEN, BipeApiErrorCode.ITEM_UNAVAILABLE, BipeApiErrorCode.PRICE_NOT_FIXED,
+                BipeApiErrorCode.ORDERS_CLOSED, BipeApiErrorCode.PAYMENT_REQUIRES_VERIFIED_BUSINESS,
+                BipeApiErrorCode.PIX_CHARGE_UNAVAILABLE -> error.localizedMessage(context)
                 else -> context.getString(fallback)
             }
             is BipeApiException.Network -> error.localizedMessage(context)
             else -> context.getString(fallback)
         }
+
+    @androidx.annotation.StringRes
+    fun queueStatus(status: BipeQueuePlaceStatus): Int = when (status) {
+        BipeQueuePlaceStatus.WAITING -> R.string.bipe_queue_status_waiting
+        BipeQueuePlaceStatus.CALLED -> R.string.bipe_queue_called
+        BipeQueuePlaceStatus.SERVED -> R.string.bipe_queue_status_served
+        BipeQueuePlaceStatus.NO_SHOW -> R.string.bipe_queue_status_no_show
+        BipeQueuePlaceStatus.LEFT -> R.string.bipe_queue_status_left
+    }
+
+    @androidx.annotation.StringRes
+    fun quoteStatus(status: BipeQuoteStatus): Int = when (status) {
+        BipeQuoteStatus.OFFERED -> R.string.bipe_quote_status_offered
+        BipeQuoteStatus.ACCEPTED -> R.string.bipe_quote_status_accepted
+        BipeQuoteStatus.REFUSED -> R.string.bipe_quote_status_refused
+        BipeQuoteStatus.EXPIRED -> R.string.bipe_quote_status_expired
+    }
+
+    @androidx.annotation.StringRes
+    fun orderStatus(status: BipeOrderStatus): Int = when (status) {
+        BipeOrderStatus.SENT -> R.string.bipe_order_status_sent
+        BipeOrderStatus.ACCEPTED -> R.string.bipe_order_status_accepted
+        BipeOrderStatus.REFUSED -> R.string.bipe_order_status_refused
+        BipeOrderStatus.READY -> R.string.bipe_order_status_ready
+        BipeOrderStatus.DONE -> R.string.bipe_order_status_done
+        BipeOrderStatus.CANCELLED -> R.string.bipe_order_status_cancelled
+    }
+
+    @androidx.annotation.StringRes
+    fun refuseReason(reason: BipeOrderRefuseReason): Int = when (reason) {
+        BipeOrderRefuseReason.UNAVAILABLE -> R.string.bipe_order_refuse_unavailable
+        BipeOrderRefuseReason.CLOSED -> R.string.bipe_order_refuse_closed
+        BipeOrderRefuseReason.CANNOT_DELIVER -> R.string.bipe_order_refuse_cannot_deliver
+        BipeOrderRefuseReason.CANNOT_FULFIL -> R.string.bipe_order_refuse_cannot_fulfil
+    }
+
+    @androidx.annotation.StringRes
+    fun fulfilment(id: String): Int = if (id == FULFILMENT_DELIVERY) R.string.bipe_order_delivery else R.string.bipe_order_pickup
+
+    /** A quantity as the line shows it: "2", or "1,5" for a part (quote lines take decimals). */
+    fun quantity(value: Double): String {
+        if (value == Math.rint(value) && kotlin.math.abs(value) < 1e12) return value.toLong().toString()
+        return DecimalFormat("0.###", DecimalFormatSymbols(Locale.getDefault())).format(value)
+    }
+
+    /** One line, bipe_order_line ("2 × Pão") with its total in reais. */
+    fun line(context: Context, line: BipeCommerceLine): String =
+        context.getString(R.string.bipe_order_line, quantity(line.quantity), line.name) + " · " + reais(line.totalAmountCents)
+
+    /** A quantity the owner typed ("2", "1,5"); `null` when it is not a positive number. */
+    fun quantityInput(text: String): Double? =
+        text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 && it <= 100_000 && !it.isNaN() }
+
+    /** Spec quote-builder validUntil: the end of the local [day] in the phone's time zone, as a UTC instant with a trailing Z. */
+    fun endOfDay(day: LocalDate): String =
+        ZonedDateTime.of(day, LocalTime.of(23, 59, 59), ZoneId.systemDefault()).toInstant().truncatedTo(ChronoUnit.SECONDS).toString()
 }
 
 /** The calendar file of agenda-booking-card addToCalendar: a local .ics opened in the system calendar. Nothing goes to a server. */

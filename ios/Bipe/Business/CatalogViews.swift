@@ -43,6 +43,8 @@ struct CatalogView: View {
     /// The business takes bookings: a service shows Agendar.
     let canBook: Bool
     let book: (String) -> Void
+    /// order-customer add: Adicionar ao pedido on an active fixed-price product. nil when the business takes no orders.
+    var addToOrder: ((String) -> Void)? = nil
     let close: () -> Void
 
     @State private var items: [BipeCatalogItem] = []
@@ -65,7 +67,10 @@ struct CatalogView: View {
                     CatalogItemDetail(item: item, canBook: canBook && item.kind == .service, book: {
                         selected = nil
                         book(item.id)
-                    })
+                    }, addToOrder: addToOrder != nil && item.isOrderable && !item.soldOutToday ? {
+                        selected = nil
+                        addToOrder?(item.id)
+                    } : nil)
                     .presentationDetents([.medium, .large])
                 }
         }
@@ -98,7 +103,6 @@ struct CatalogView: View {
                         ForEach(group.items) { item in
                             Button { selected = item } label: { CatalogItemRow(item: item) }
                                 .accessibilityLabel(BipeStrings.catalogItemOpenA11y(item.name))
-                                .listRowBackground(BipeColor.surfaceRaised)
                         }
                     } header: {
                         Text(group.title)
@@ -106,7 +110,6 @@ struct CatalogView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
         }
     }
 
@@ -166,6 +169,8 @@ private struct CatalogItemDetail: View {
     let item: BipeCatalogItem
     let canBook: Bool
     let book: () -> Void
+    /// Adicionar ao pedido (order-customer add); nil hides it.
+    var addToOrder: (() -> Void)? = nil
 
     var body: some View {
         ScrollView {
@@ -197,6 +202,14 @@ private struct CatalogItemDetail: View {
                 if canBook {
                     Button(action: book) {
                         Text(BipeStrings.agendaBook).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.top, 8)
+                }
+                if let addToOrder {
+                    Button(action: addToOrder) {
+                        Text(BipeStrings.orderAdd).frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
@@ -312,13 +325,11 @@ struct CatalogOwnerView: View {
                             .font(.footnote)
                         }
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
                 .onMove { from, to in items.move(fromOffsets: from, toOffset: to) }
                 .onDelete { offsets in removing = offsets.first.map { items[$0] } }
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .refreshable { await load() }
         }
     }
@@ -434,7 +445,6 @@ struct CatalogItemEditView: View {
                         Text(BipeStrings.catalogKindProduct).tag(BipeCatalogKind.product)
                     }
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
                 Section {
                     Picker(BipeStrings.catalogPrice, selection: $priceMode) {
                         Text(BipeStrings.catalogPriceFixed).tag(BipeCatalogPrice.Mode.fixed)
@@ -452,7 +462,6 @@ struct CatalogItemEditView: View {
                 } header: {
                     Text(BipeStrings.catalogPrice)
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
                 Section {
                     TextField(BipeStrings.catalogDescription, text: $description, axis: .vertical)
                         .lineLimit(3...8)
@@ -465,14 +474,12 @@ struct CatalogItemEditView: View {
                         }
                     Toggle(BipeStrings.catalogActive, isOn: $active)
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
                 if schedules, let agenda {
                     Section {
                         LabeledField(title: BipeStrings.agendaServiceDuration, text: $duration)
                         LabeledField(title: BipeStrings.agendaBufferBefore, text: $bufferBefore)
                         LabeledField(title: BipeStrings.agendaBufferAfter, text: $bufferAfter)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                     Section {
                         ForEach(agenda.agendas) { person in
                             Toggle(person.name, isOn: Binding(get: { agendaIds.contains(person.id) },
@@ -481,7 +488,6 @@ struct CatalogItemEditView: View {
                     } header: {
                         Text(BipeStrings.agendaSetupPeople)
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
                 if let error {
                     Section {
@@ -492,11 +498,8 @@ struct CatalogItemEditView: View {
                     Section {
                         Button(BipeStrings.catalogRemove, role: .destructive) { confirmsRemove = true }
                     }
-                    .listRowBackground(BipeColor.surfaceRaised)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(item == nil ? BipeStrings.catalogAddItem : BipeStrings.catalogEditItem)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -551,7 +554,6 @@ struct CatalogItemEditView: View {
         } header: {
             Text(BipeStrings.catalogPhoto)
         }
-        .listRowBackground(BipeColor.surfaceRaised)
     }
 
     /// Fills the form from the item once.

@@ -46,6 +46,9 @@ struct ChatTimelineView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if model.isDm, let people, let peer = model.peerUserId {
+                CvmStopOrderCard(seals: people.seals, userId: peer)
+            }
             // The open bookings with the business, pinned above the timeline (ADR 0102).
             BookingCardStack(model: business)
             rowList
@@ -597,5 +600,35 @@ private struct InviterHintRow: View {
         }
         .padding(12)
         .background(BipeColor.accentWash)
+    }
+}
+
+/// Spec chat-timeline: the red caution card in a DM with a company that CVM ordered to stop its offers (ADR 0077).
+/// From the signed badge only; it stays while the badge says so.
+private struct CvmStopOrderCard: View {
+    let seals: BipeCompanySeals
+    let userId: String
+
+    var body: some View {
+        let cvm = seals.state(for: userId).cvm
+        if cvm.danger, let date = cvm.lines.first?.arg {
+            HStack(alignment: .top, spacing: 8) {
+                PhosphorIcon.warningCircle.image
+                    .resizable()
+                    .frame(width: 20, height: 20)
+                    .foregroundStyle(BipeColor.trustDangerInk)
+                    .accessibilityHidden(true)
+                Text(BipeStrings.cvmStopOrderCard(date))
+                    .font(.subheadline.bold())
+                    .foregroundStyle(BipeColor.trustDangerInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.trustDangerWash))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(BipeColor.trustDangerLine, lineWidth: 2))
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .accessibilityElement(children: .combine)
+        }
     }
 }

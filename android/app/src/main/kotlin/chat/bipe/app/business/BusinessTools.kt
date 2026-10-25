@@ -13,8 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -23,9 +24,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +40,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.chatlist.ChatListModel
+import chat.bipe.app.chatlist.NativeDmSelection
 import chat.bipe.app.groups.GroupTopBar
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -49,18 +54,31 @@ import chat.bipe.shared.api.publicServices
 import chat.bipe.shared.api.resolveHandles
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+
+/** What the business tools section has open. */
+private enum class ToolScreen { CATALOG, ORDERS, QUOTES, QUEUE }
 
 /**
  * Spec business-tools: the Ferramentas do negócio section on the Você tab of a company account. Agenda selects the
- * Agenda tab; Catálogo opens catalog-owner.
+ * Agenda tab; Catálogo opens catalog-owner, Pedidos order-owner, Orçamentos quote-builder and Fila virtual queue-owner.
+ * [chatList] gives the company's DMs (owner orders and walk-ins); [onOpenChat] takes a room ID.
  */
 @Composable
-fun BusinessToolsSection(session: AccountSession, onOpenAgenda: () -> Unit) {
+fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpenAgenda: () -> Unit, onOpenChat: (String) -> Unit) {
     val colors = BipeTheme.colors
+    val scope = rememberCoroutineScope()
     val business = remember(session) { BusinessApi(session) }
     // null: not loaded; Result of the state, whose null value means not activated.
     var agenda by remember(session) { mutableStateOf<Result<BipeAgendaState?>?>(null) }
-    var showsCatalog by remember { mutableStateOf(false) }
+    var open by remember { mutableStateOf<ToolScreen?>(null) }
+    val chats by chatList.chats.collectAsState()
+    val customers = chats.filter { it.isDm && it.peerUserId != null }.map { it.peerUserId!! to it.name }
+    // order-owner and quote-builder openChat: the DM with the customer, after the tool closes.
+    val openCustomerChat: (String) -> Unit = { userId ->
+        open = null
+        scope.launch { NativeDmSelection.roomId(userId, session)?.let(onOpenChat) }
+    }
     val foreground = rememberForegroundRevision()
     LaunchedEffect(business, foreground) { agenda = runCatching { business.withToken { myAgenda(it) } } }
     Column(Modifier.fillMaxWidth().testTag(BipeScreen.BUSINESS_TOOLS.id)) {
@@ -74,13 +92,21 @@ fun BusinessToolsSection(session: AccountSession, onOpenAgenda: () -> Unit) {
             else -> stringResource(R.string.bipe_agenda_not_published)
         }
         ToolRow(PhosphorIcon.CLOCK, stringResource(R.string.bipe_tab_agenda), subtitle, onOpenAgenda)
-        ToolRow(PhosphorIcon.NOTEPAD, stringResource(R.string.bipe_catalog_title), null) { showsCatalog = true }
+        ToolRow(PhosphorIcon.NOTEPAD, stringResource(R.string.bipe_catalog_title), null) { open = ToolScreen.CATALOG }
+        ToolRow(PhosphorIcon.CHECKS, stringResource(R.string.bipe_orders_title), null) { open = ToolScreen.ORDERS }
+        ToolRow(PhosphorIcon.HANDSHAKE, stringResource(R.string.bipe_quotes_title), null) { open = ToolScreen.QUOTES }
+        ToolRow(PhosphorIcon.USERS_THREE, stringResource(R.string.bipe_queue_title), null) { open = ToolScreen.QUEUE }
         Text(stringResource(R.string.bipe_business_tools_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
     }
-    if (showsCatalog) {
-        BusinessFullScreen(onDismiss = { showsCatalog = false }) {
-            CatalogOwnerScreen(business, onClose = { showsCatalog = false })
+    open?.let { screen ->
+        BusinessFullScreen(onDismiss = { open = null }) {
+            when (screen) {
+                ToolScreen.CATALOG -> CatalogOwnerScreen(business, onClose = { open = null })
+                ToolScreen.ORDERS -> OrderOwnerScreen(business, customers, onOpenChat = openCustomerChat, onClose = { open = null })
+                ToolScreen.QUOTES -> QuoteOwnerScreen(business, onOpenChat = openCustomerChat, onClose = { open = null })
+                ToolScreen.QUEUE -> QueueOwnerScreen(business, customers, onClose = { open = null })
+            }
         }
     }
 }
@@ -138,11 +164,9 @@ fun MyBookingsScreen(session: AccountSession, onOpenChat: (String) -> Unit, onCl
             list.isEmpty() -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                 Text(stringResource(R.string.bipe_agenda_no_bookings), color = colors.inkSecondary, textAlign = TextAlign.Center)
             }
-            else -> LazyColumn(
-                Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(list, key = { it.booking.id }) { view ->
+            else -> LazyColumn(Modifier.fillMaxSize()) {
+                itemsIndexed(list, key = { _, view -> view.booking.id }) { index, view ->
+                    if (index > 0) HorizontalDivider()
                     BookingCard(
                         view = view,
                         ownerMode = false,
@@ -151,6 +175,7 @@ fun MyBookingsScreen(session: AccountSession, onOpenChat: (String) -> Unit, onCl
                         onOpenOwner = {},
                         onChanged = { attempt++ },
                         onOpen = { onOpenChat(view.booking.businessId) },
+                        inList = true,
                     )
                 }
             }
