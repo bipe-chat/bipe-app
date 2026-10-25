@@ -41,6 +41,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
@@ -301,7 +303,7 @@ fun WhoCanMessageScreen(people: PeopleService, onBack: () -> Unit) {
                                 .onFailure { current = old; failed = true }
                             saving = false
                         }
-                    }.padding(vertical = 12.dp),
+                    }.semantics { selected = value == current }.padding(vertical = 12.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -50,6 +51,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -488,7 +490,9 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = 
                 }
                 if (chat.unreadCount > 0) {
                     val count = NumberFormat.getIntegerInstance().format(chat.unreadCount)
-                    val label = stringResource(R.string.bipe_app_chat_list_unread, count)
+                    // A mention is read with the count; the badge shows it by colour only (bipe#495).
+                    val unread = stringResource(R.string.bipe_app_chat_list_unread, count)
+                    val label = if (chat.mentionCount > 0) "$unread, ${stringResource(R.string.bipe_a11y_mention)}" else unread
                     Text(
                         count,
                         style = MaterialTheme.typography.labelSmall,
@@ -529,7 +533,8 @@ private fun UnreadChip(isOn: Boolean, onToggle: () -> Unit) {
         modifier = Modifier
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .background(if (isOn) colors.accentFill else colors.surfaceRaised, CircleShape)
-            .clickable {
+            // A filter chip: TalkBack says whether it is on (bipe#495).
+            .toggleable(value = isOn, role = Role.Checkbox) {
                 onToggle()
                 view.bipeHaptic(BipeHaptic.Tick)
             }

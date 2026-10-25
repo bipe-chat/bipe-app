@@ -94,6 +94,10 @@ struct SignupDoneView: View {
         .onTapGesture {
             Task { finish(await model.continueFlow()) }
         }
+        // A tap anywhere goes on; VoiceOver reads the screen as one button (bipe#495).
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { Task { finish(await model.continueFlow()) } }
         .task { finish(await model.appear()) }
         .accessibilityIdentifier(BipeScreen.signupDone.rawValue)
     }

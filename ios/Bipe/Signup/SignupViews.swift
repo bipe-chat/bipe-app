@@ -385,6 +385,12 @@ struct SignupPinView: View {
                 .padding(.vertical, 12)
                 .contentShape(Rectangle())
                 .onTapGesture { focused = true }
+                // The field is hidden from VoiceOver: the dots are the PIN field, a tap opens the keyboard (bipe#495).
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(confirm ? BipeStrings.pinConfirmTitle : BipeStrings.pinCreateTitle)
+                .accessibilityValue(BipeStrings.a11yPinProgress(String(model.pin.count), String(BipeRegistries.pinLength)))
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { focused = true }
             }
             if let problem = problemText {
                 FieldFooter(text: problem, isError: true)

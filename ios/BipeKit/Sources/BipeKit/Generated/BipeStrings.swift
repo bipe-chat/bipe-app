@@ -2202,6 +2202,30 @@ public enum BipeStrings {
 
     public static var a11yChatPhoto: String { NSLocalizedString("bipe_a11y_chat_photo", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var a11yBack: String { NSLocalizedString("bipe_a11y_back", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yClearSearch: String { NSLocalizedString("bipe_a11y_clear_search", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func a11yRemovePerson(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_a11y_remove_person", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var a11yRemoveScreenshot: String { NSLocalizedString("bipe_a11y_remove_screenshot", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yMention: String { NSLocalizedString("bipe_a11y_mention", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func a11yPinProgress(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_a11y_pin_progress", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var a11yPinDelete: String { NSLocalizedString("bipe_a11y_pin_delete", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yBiometrics: String { NSLocalizedString("bipe_a11y_biometrics", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yOpenOriginal: String { NSLocalizedString("bipe_a11y_open_original", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yShowControls: String { NSLocalizedString("bipe_a11y_show_controls", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var helpProblemLanguage: String { NSLocalizedString("bipe_help_problem_language", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatMessageNoAccess: String { NSLocalizedString("bipe_chat_message_no_access", tableName: "Bipe", bundle: .module, comment: "") }

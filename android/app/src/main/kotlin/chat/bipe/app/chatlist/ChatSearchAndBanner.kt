@@ -120,7 +120,7 @@ fun ChatSearchField(model: ChatSearchModel) {
         singleLine = true,
         trailingIcon = if (state.query.isEmpty()) null else ({
             IconButton(onClick = model::close) {
-                Icon(painterResource(PhosphorIcon.X.drawable), contentDescription = null, tint = BipeTheme.colors.glyphSecondary)
+                Icon(painterResource(PhosphorIcon.X.drawable), contentDescription = stringResource(R.string.bipe_a11y_clear_search), tint = BipeTheme.colors.glyphSecondary)
             }
         }),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),

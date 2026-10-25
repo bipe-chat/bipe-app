@@ -63,6 +63,8 @@ jobs:
         with:
           node-version: 24
       - run: node tools/strings.mjs
+      # Accessibility labels are UI text too (bipe-chat/bipe#495).
+      - run: node tools/a11y.mjs
 
   sdk-version:
     runs-on: ubuntu-latest
