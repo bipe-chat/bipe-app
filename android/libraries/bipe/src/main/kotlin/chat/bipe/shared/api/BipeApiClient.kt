@@ -391,6 +391,10 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.ORDERS_CLOSED -> context.getString(R.string.bipe_order_error_closed)
             BipeApiErrorCode.PAYMENT_REQUIRES_VERIFIED_BUSINESS, BipeApiErrorCode.PIX_CHARGE_UNAVAILABLE ->
                 context.getString(R.string.bipe_order_error_pix)
+            BipeApiErrorCode.CNPJ_INVALID -> context.getString(R.string.bipe_claim_cnpj_invalid)
+            BipeApiErrorCode.CNPJ_NOT_ACTIVE -> context.getString(R.string.bipe_claim_rejected)
+            BipeApiErrorCode.CNPJ_TAKEN -> context.getString(R.string.bipe_claim_cnpj_taken)
+            BipeApiErrorCode.SIGNATURE_INVALID -> context.getString(R.string.bipe_claim_signature_invalid)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID ->
                 context.getString(R.string.bipe_error_generic)
         }
