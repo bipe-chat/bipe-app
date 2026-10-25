@@ -79,7 +79,7 @@ struct CreateGroupButton: View {
             Button(BipeStrings.groupsEmptyAction, action: createGroup)
             Button(BipeStrings.invitesTitle, action: invite)
         } label: {
-            // Title and image: the system needs the title in the iPhone Duo side bar and in overflow.
+            // Title and image: the system needs the title in a side bar and in overflow.
             Label {
                 Text(BipeStrings.groupsEmptyAction)
             } icon: {

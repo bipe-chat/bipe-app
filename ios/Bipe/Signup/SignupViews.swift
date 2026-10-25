@@ -80,8 +80,8 @@ extension SignupFlowView {
 // MARK: - Shared pieces
 
 private extension View {
-    /// A centred column on wide windows (iPad, the open iPhone Duo). The background still fills the window.
-    /// 560 points is a Bipe form-width default, not a device dimension (docs/iphone-duo.md).
+    /// A centred column on wide windows. The background still fills the window.
+    /// 560 points is a Bipe form-width default, not a device dimension.
     func signupColumn() -> some View {
         frame(maxWidth: 560).frame(maxWidth: .infinity)
     }
@@ -196,11 +196,11 @@ struct OnboardingWelcomeView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var wordmarkSize: CGFloat = 52
 
     var body: some View {
-        // The window decides the layout, never the device (docs/iphone-duo.md).
+        // The window decides the layout, never the device.
         GeometryReader { window in
             let insets = window.safeAreaInsets
             if window.size.width >= 600 && window.size.width > window.size.height {
-                // Wide (the open iPhone Duo, iPad, landscape): the cover is the left half of the whole window, so the
+                // Wide (iPad, a foldable, landscape): the cover is the left half of the whole window, so the
                 // split meets the fold. The window here excludes the safe area, so subtract the leading inset.
                 let half = (window.size.width + insets.leading + insets.trailing) / 2
                 HStack(spacing: 0) {

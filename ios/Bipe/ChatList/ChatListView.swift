@@ -33,7 +33,7 @@ struct ChatListView: View {
     @StateObject private var encryption: EncryptionStatusModel
     @StateObject private var people: PeopleService
     /// One selection for both layouts. A wide window shows it beside the list; a narrow one pushes it.
-    /// Opening or closing an iPhone Duo keeps the same detail, timeline and path (docs/iphone-duo.md).
+    /// A change of window size keeps the same detail, timeline and path.
     @State private var detail: ChatDetail?
     @State private var path = NavigationPath()
     @State private var compactColumn: NavigationSplitViewColumn
@@ -92,7 +92,7 @@ struct ChatListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     if let account {
                         Button(action: onOpenVoce) {
-                            // Title and image: the system needs the title in the iPhone Duo side bar and in overflow.
+                            // Title and image: the system needs the title in a side bar and in overflow.
                             Label {
                                 Text(account.displayName)
                             } icon: {
