@@ -708,6 +708,9 @@ object BipeRegistries {
     const val PHONE_MAX_INPUT_LENGTH = 64
     const val PHONE_INTERNATIONAL_MIN_DIGITS = 8
     const val PHONE_INTERNATIONAL_MAX_DIGITS = 15
+    /** Yearly confirmation of a linked number (bipe-chat/bipe#470): months findable, and the warning days before confirm_by. */
+    const val PHONE_LINK_CONFIRM_MONTHS = 12
+    const val PHONE_LINK_CONFIRM_WARN_DAYS = 30
 
     /**
      * Device-first accounts (ADR 0057, ADR 0059; registries/accounts.json). Check PINs with the rule there;
@@ -746,6 +749,9 @@ object BipeRegistries {
     const val PRIVACY_PATH = "/privacidade/"
     const val EN_TERMS_PATH = "/en/terms/"
     const val EN_PRIVACY_PATH = "/en/privacy/"
+    // The site home pages that onboarding-welcome learnMore opens.
+    const val HOME_PATH = "/"
+    const val EN_HOME_PATH = "/en/"
 
     /** Badge signing keys a release build trusts (ADR 0123; registries/badge-keys.json): kid to raw Ed25519 public key, base64url. */
     val badgeKeys: Map<String, String> = mapOf(
@@ -764,4 +770,8 @@ object BipeRegistries {
     const val PIX_MARK_REL_TYPE = "m.reference"
     const val PIX_E2E_ID_PATTERN = "^E[0-9]{8}[A-Za-z0-9]{23}\$"
     const val PIX_TXID_MAX_LENGTH = 25
+
+    /** Data use (bipe-chat/bipe#242; registries/data-use.json): the budget of a normal day and the default of the data saver switch. */
+    const val DATA_USE_BUDGET_MEGABYTES_PER_DAY = 10
+    const val DATA_SAVER_DEFAULT = false
 }

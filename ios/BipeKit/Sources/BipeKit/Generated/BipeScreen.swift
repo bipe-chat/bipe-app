@@ -55,6 +55,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json
     case businessChatBar = "business-chat-bar"
 
+    /// My business: claim and verify the company (flow voce). Spec: bipe-shared/product/screens/business-claim.json
+    case businessClaim = "business-claim"
+
     /// Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json
     case businessTools = "business-tools"
 
@@ -69,6 +72,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Archived chats (flow home). Spec: bipe-shared/product/screens/chat-archive.json
     case chatArchive = "chat-archive"
+
+    /// First chat list cards (flow home). Spec: bipe-shared/product/screens/chat-list-cards.json
+    case chatListCards = "chat-list-cards"
 
     /// Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json
     case chatListFilters = "chat-list-filters"
@@ -106,6 +112,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json
     case dataExport = "data-export"
 
+    /// Data use (flow settings). Spec: bipe-shared/product/screens/data-use.json
+    case dataUse = "data-use"
+
     /// Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json
     case deviceVerification = "device-verification"
 
@@ -136,10 +145,10 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
-    /// Create an invite with a first message (flow invites). Spec: bipe-shared/product/screens/invite-note.json
+    /// Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json
     case inviteNote = "invite-note"
 
-    /// Invite as a QR code (flow invites). Spec: bipe-shared/product/screens/invite-qr.json
+    /// Invite card (flow invites). Spec: bipe-shared/product/screens/invite-qr.json
     case inviteQr = "invite-qr"
 
     /// Invite opened on a signed-in phone (flow home). Spec: bipe-shared/product/screens/invite-signed-in.json
@@ -216,6 +225,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json
     case personProfile = "person-profile"
+
+    /// Your number: link state and yearly confirmation (flow settings). Spec: bipe-shared/product/screens/phone-link-status.json
+    case phoneLinkStatus = "phone-link-status"
 
     /// Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json
     case pinChange = "pin-change"
