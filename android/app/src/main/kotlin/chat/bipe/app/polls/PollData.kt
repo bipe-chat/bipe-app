@@ -22,6 +22,8 @@ data class PollData(
     val isEnded: Boolean,
     val canEnd: Boolean,
     val yourVote: String?,
+    /** One choice with 2 to 10 options: the shape of a company's structured question (spec question-card, ADR 0081). */
+    val isQuestionShape: Boolean = false,
 ) {
     /** Type PollOption of spec poll-detail, without the voters' names (poll-detail adds them). */
     data class Option(
@@ -59,6 +61,7 @@ data class PollData(
                 isEnded = isEnded,
                 canEnd = isOwnPoll && !isEnded,
                 yourVote = yourVote,
+                isQuestionShape = poll.maxSelections == 1uL && poll.answers.size in 2..10,
             )
         }
     }

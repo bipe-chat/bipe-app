@@ -52,6 +52,7 @@ struct ChatTimelineView: View {
             // The open bookings with the business, pinned above the timeline (ADR 0102).
             BookingCardStack(model: business)
             rowList
+                .environment(\.bipeCompanySeals, people?.seals)
             if let hint = model.inviterHint {
                 InviterHintRow(hint: hint, inviterName: model.roomName) {
                     Task { await model.sendGreeting() }

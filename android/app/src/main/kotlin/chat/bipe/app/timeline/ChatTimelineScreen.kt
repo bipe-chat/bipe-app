@@ -310,6 +310,7 @@ fun ChatTimelineScreen(
                             onTogglePlay = voicePlayer::togglePlay,
                             onSeek = voicePlayer::seek,
                             onOpenViewer = { viewerRowId = it },
+                            seals = people?.seals,
                         )
                     }
                     item(key = "history") {
