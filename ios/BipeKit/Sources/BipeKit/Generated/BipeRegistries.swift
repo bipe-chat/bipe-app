@@ -787,4 +787,9 @@ public enum BipeRegistries {
     /// Data use (bipe-chat/bipe#242; registries/data-use.json): the budget of a normal day and the default of the data saver switch.
     public static let dataUseBudgetMegabytesPerDay = 10
     public static let dataSaverDefault = false
+
+    /// Brand marks for resellers (bipe ADR 0162; registries/brand-marks.json). Label ids, string key bipe_brand_mark_label_<id>.
+    public static let brandMarkLabels: [String] = ["revendedora", "revendedor", "corretor", "representante"]
+    public static let brandMarkMaxPerAccount = 3
+    public static let brandMarkRecheckMinutes = 10
 }
