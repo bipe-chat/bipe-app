@@ -47,7 +47,7 @@ struct ProfileLinkView: View {
                         IconLabel(icon: .copy, text: BipeStrings.appCopy)
                     }
                     Button {
-                        withAnimation { showingQr.toggle() }
+                        withBipeAnimation { showingQr.toggle() }
                     } label: {
                         IconLabel(icon: .qrCode, text: BipeStrings.profileQrAction)
                     }

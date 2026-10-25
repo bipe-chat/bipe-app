@@ -51,14 +51,14 @@ struct ToastModifier: ViewModifier {
                     .padding(.vertical, 10)
                     .background(Capsule().fill(BipeColor.surfaceRaised).shadow(radius: 4))
                     .padding(.bottom, 24)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.bipeMove(edge: .bottom))
                     .task(id: message) {
                         try? await Task.sleep(for: .seconds(3))
-                        withAnimation { self.message = nil }
+                        withBipeAnimation { self.message = nil }
                     }
             }
         }
-        .animation(.default, value: message)
+        .bipeAnimation(.default, value: message)
     }
 }
 

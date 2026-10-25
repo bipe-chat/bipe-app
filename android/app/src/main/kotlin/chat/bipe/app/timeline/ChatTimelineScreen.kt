@@ -79,6 +79,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
+import chat.bipe.app.common.LocalReduceMotion
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.composer.MentionSuggestion
@@ -198,8 +199,10 @@ fun ChatTimelineScreen(
 
     // The list is reversed: index 0 is the newest row, so the view opens at the bottom.
     val newestFirst = remember(rows) { rows.asReversed() }
+    // Reduce Motion: the list jumps, it does not scroll by itself (bipe#496).
+    val reduceMotion = LocalReduceMotion.current
     LaunchedEffect(rows.lastOrNull()?.id) {
-        if (rows.isNotEmpty()) listState.animateScrollToItem(0)
+        if (rows.isNotEmpty()) if (reduceMotion) listState.scrollToItem(0) else listState.animateScrollToItem(0)
     }
     // Action markAsRead: while the newest row is on screen.
     val atNewest by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
@@ -209,7 +212,7 @@ fun ChatTimelineScreen(
     LaunchedEffect(ui.scrollTarget) {
         val target = ui.scrollTarget ?: return@LaunchedEffect
         val index = newestFirst.indexOfFirst { it.id == target }
-        if (index >= 0) listState.animateScrollToItem(index)
+        if (index >= 0) if (reduceMotion) listState.scrollToItem(index) else listState.animateScrollToItem(index)
         model.scrolledToTarget()
     }
 
@@ -469,6 +472,8 @@ private fun TypingLine(names: List<String>) {
     val view = LocalView.current
     // Screen readers announce the line once when it appears, not on every change.
     LaunchedEffect(Unit) { view.announceForAccessibility(text) }
+    // Reduce Motion: the dots stay still (bipe#496).
+    val reduceMotion = LocalReduceMotion.current
     val transition = rememberInfiniteTransition(label = "typing")
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
@@ -483,7 +488,7 @@ private fun TypingLine(names: List<String>) {
                     animationSpec = infiniteRepeatable(tween(600, delayMillis = index * 200), RepeatMode.Reverse),
                     label = "dot$index",
                 )
-                Box(Modifier.size(5.dp).alpha(alpha).background(colors.glyphSecondary, CircleShape))
+                Box(Modifier.size(5.dp).alpha(if (reduceMotion) 0.6f else alpha).background(colors.glyphSecondary, CircleShape))
             }
         }
         Text(text, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)

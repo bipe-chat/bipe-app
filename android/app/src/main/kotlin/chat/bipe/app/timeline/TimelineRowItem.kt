@@ -5,6 +5,7 @@
 package chat.bipe.app.timeline
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.bipeMotion
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.app.media.TimelineMediaRow
@@ -255,7 +257,8 @@ private fun MessageBubbleRow(
     val view = LocalView.current
     val threshold = with(LocalDensity.current) { 60.dp.toPx() }
     var swipe by remember(row.id) { mutableFloatStateOf(0f) }
-    val shownSwipe by animateFloatAsState(swipe, label = "swipe")
+    // Reduce Motion: the bubble goes back at once after a swipe (bipe#496).
+    val shownSwipe by animateFloatAsState(swipe, animationSpec = bipeMotion(spring<Float>()), label = "swipe")
     val replyLabel = stringResource(R.string.bipe_app_message_action_reply)
     val reactLabel = stringResource(R.string.bipe_a11y_react)
     val menuLabel = stringResource(R.string.bipe_message_actions)
