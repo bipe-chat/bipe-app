@@ -287,6 +287,12 @@ class SignupFlowModel(
         submitCode()
     }
 
+    /** Action scanCode: the text of the QR code read becomes the code and the screen continues, as for pasteCode. */
+    fun scannedCode(text: String) {
+        editCode(text)
+        submitCode()
+    }
+
     /** Action submit: takes the code out of the text and asks the server. */
     fun submitCode() {
         if (code.value.isBlank()) return

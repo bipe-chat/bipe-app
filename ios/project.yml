@@ -94,8 +94,6 @@ targets:
         # Spec contacts (ADR 0015): bipe_contacts_intro in pt-BR, the development language.
         NSContactsUsageDescription: Veja quem dos seus contatos já está no Bipe. O servidor só compara os números e não guarda nenhum.
         # App lock, the owner checks of settings (spec app-lock, pin-change, data-export) and device approval (device-verification).
-        # Link a computer (spec link-computer-scan): the camera reads the QR code of chat.bipe.net.br.
-        NSCameraUsageDescription: O Bipe usa a câmera para ler o código QR que aparece no computador.
         NSFaceIDUsageDescription: O Bipe usa o Face ID para abrir o app e para confirmar que é você.
         # The shell encrypts nothing itself. Revisit before end-to-end encryption ships.
         ITSAppUsesNonExemptEncryption: false
@@ -104,7 +102,8 @@ targets:
         # Media viewer save (spec media-viewer). The system shows this text with the add-only photo permission.
         NSPhotoLibraryAddUsageDescription: O Bipe salva na sua galeria as fotos e os vídeos que você escolher salvar.
         # Composer (specs attachment-picker, voice-recording). The transcript is made on this iPhone only (ADR 0023).
-        NSCameraUsageDescription: O Bipe usa a câmera quando você tira uma foto ou grava um vídeo para enviar numa conversa.
+        # One key for every camera use: the composer, and the QR codes of link-computer-scan and signup-invite-code.
+        NSCameraUsageDescription: O Bipe usa a câmera para fotos e vídeos nas conversas e para ler QR codes, como o do computador ou de um convite.
         NSMicrophoneUsageDescription: O Bipe usa o microfone quando você grava uma mensagem de voz ou um vídeo.
         NSSpeechRecognitionUsageDescription: O Bipe transcreve suas mensagens de voz neste iPhone, sem enviar o áudio para nenhum servidor.
     entitlements:

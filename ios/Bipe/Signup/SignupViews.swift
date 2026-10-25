@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import AVFoundation
 import BipeKit
 import Phosphor
 import SwiftUI
@@ -355,6 +356,7 @@ private struct BubbleTexture: View {
 
 struct SignupInviteCodeView: View {
     @ObservedObject var model: SignupFlowModel
+    @State private var scanning = false
 
     var body: some View {
         let step = BipeOnboardingStep.inviteCode
@@ -371,6 +373,13 @@ struct SignupInviteCodeView: View {
             }
             .tint(BipeColor.accentFill)
             .disabled(model.inviteCodePhase == .checking)
+            // Action scanCode: the QR code on the inviter's phone holds the invite link.
+            Button { scanning = true } label: {
+                Label { Text(BipeStrings.onboardingScanInvite) } icon: { PhosphorIcon.qrCode.image.resizable().frame(width: 20, height: 20) }
+            }
+            .buttonStyle(.bordered)
+            .tint(BipeColor.accentFill)
+            .disabled(model.inviteCodePhase == .checking)
             if model.inviteCodePhase == .checking {
                 FieldFooter(text: BipeStrings.appInviteChecking)
             } else if let error = model.inviteCodeError {
@@ -384,6 +393,71 @@ struct SignupInviteCodeView: View {
             ForEach(step.text, id: \.titleKey) { button in
                 TextButton(title: button.title) { model.noInvite() }
             }
+        }
+        .sheet(isPresented: $scanning) {
+            InviteScanSheet { text in Task { @MainActor in await model.pasteCode(text) } }
+        }
+    }
+}
+
+/// Action scanCode of signup-invite-code: the camera in a sheet. The first QR code read closes the sheet and hands
+/// over its text; pasteCode takes the code out of it.
+struct InviteScanSheet: View {
+    let onText: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var cameraAllowed: Bool?
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                Text(BipeStrings.appInviteScanTitle)
+                    .font(.title2.bold())
+                    .foregroundStyle(BipeColor.inkPrimary)
+                    .multilineTextAlignment(.center)
+                switch cameraAllowed {
+                case .none:
+                    ProgressView()
+                case .some(false):
+                    Text(BipeStrings.cameraPermissionBody)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                        .multilineTextAlignment(.center)
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Text(BipeStrings.contactsOpenSettings)
+                    }
+                    .buttonStyle(.borderedProminent)
+                case .some(true):
+                    Text(BipeStrings.appInviteScanBody)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                        .multilineTextAlignment(.center)
+                    QRScannerView { bytes in
+                        guard let text = String(data: bytes, encoding: .utf8) else { return }
+                        dismiss()
+                        onText(text)
+                    }
+                    .aspectRatio(1, contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .background(BipeColor.surfaceBase.ignoresSafeArea())
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button(BipeStrings.appCancel) { dismiss() } }
+            }
+        }
+        .tint(BipeColor.accentFill)
+        .task { cameraAllowed = await Self.requestCamera() }
+    }
+
+    private static func requestCamera() async -> Bool {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized: true
+        case .notDetermined: await AVCaptureDevice.requestAccess(for: .video)
+        default: false
         }
     }
 }

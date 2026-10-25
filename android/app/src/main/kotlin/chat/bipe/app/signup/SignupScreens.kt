@@ -4,9 +4,14 @@
 
 package chat.bipe.app.signup
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,6 +25,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +46,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +62,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -84,9 +92,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.common.BipeMarkShape
+import chat.bipe.app.linkcomputer.QrScanner
 import chat.bipe.app.settings.openPage
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeInviteLink
@@ -407,17 +417,70 @@ private fun SignupInviteCodeScreen(model: SignupFlowModel) {
     val code by model.code.collectAsState()
     val phase by model.inviteCodePhase.collectAsState()
     val error by model.inviteCodeError.collectAsState()
+    var scanning by remember { mutableStateOf(false) }
+    if (scanning) {
+        InviteScanScreen(onText = { scanning = false; model.scannedCode(it) }, onCancel = { scanning = false })
+        return
+    }
     val step = BipeOnboardingStep.INVITE_CODE
     StepLayout(BipeScreen.SIGNUP_INVITE_CODE, stringResource(step.title), step.body?.let { stringResource(it) }) {
         BipeField(stringResource(R.string.bipe_signup_invite_code), code, model::editCode, isCode = true, format = BipeInviteLink::typedCode)
         // Action pasteCode: reads the clipboard only on this tap and continues at once.
         TextButtonRow(stringResource(R.string.bipe_onboarding_paste_invite), enabled = phase != SignupFlowModel.InviteCodePhase.CHECKING, onClick = model::pasteCode)
+        // Action scanCode: the QR code on the inviter's phone holds the invite link.
+        TextButtonRow(stringResource(R.string.bipe_onboarding_scan_invite), enabled = phase != SignupFlowModel.InviteCodePhase.CHECKING) { scanning = true }
         when {
             phase == SignupFlowModel.InviteCodePhase.CHECKING -> FieldFooter(stringResource(R.string.bipe_app_invite_checking))
             error != null -> FieldFooter(error.orEmpty(), isError = true)
         }
         PrimaryButton(stringResource(step.primary.title), enabled = code.isNotBlank(), busy = phase == SignupFlowModel.InviteCodePhase.CHECKING, onClick = model::submitCode)
         step.text.forEach { TextButtonRow(stringResource(it.title), onClick = model::noInvite) }
+    }
+}
+
+/**
+ * Action scanCode of signup-invite-code: the camera over the whole step. The first QR code read closes it and hands
+ * over its text; scannedCode takes the code out of it. No Dialog: QrScanner binds the camera to the activity.
+ */
+@Composable
+private fun InviteScanScreen(onText: (String) -> Unit, onCancel: () -> Unit) {
+    val context = LocalContext.current
+    val colors = BipeTheme.colors
+    var cameraAllowed by remember { mutableStateOf<Boolean?>(null) }
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { cameraAllowed = it }
+    LaunchedEffect(Unit) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            cameraAllowed = true
+        } else {
+            cameraPermission.launch(Manifest.permission.CAMERA)
+        }
+    }
+    BackHandler(onBack = onCancel)
+    Surface(modifier = Modifier.fillMaxSize(), color = colors.surfaceBase) {
+        Column(
+            modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            TextButton(onClick = onCancel, modifier = Modifier.align(Alignment.Start)) { Text(stringResource(R.string.bipe_app_cancel)) }
+            Text(stringResource(R.string.bipe_app_invite_scan_title), style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary, textAlign = TextAlign.Center)
+            when (cameraAllowed) {
+                null -> CircularProgressIndicator(color = colors.accentFill)
+                false -> {
+                    Text(stringResource(R.string.bipe_camera_permission_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
+                    Button(onClick = {
+                        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
+                    }) { Text(stringResource(R.string.bipe_contacts_open_settings_android)) }
+                }
+                true -> {
+                    Text(stringResource(R.string.bipe_app_invite_scan_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
+                    QrScanner(
+                        onCode = { bytes -> onText(bytes.decodeToString()) },
+                        modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp)),
+                    )
+                }
+            }
+        }
     }
 }
 
