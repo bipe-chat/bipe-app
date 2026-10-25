@@ -104,6 +104,10 @@ adb install -r Bipe-Next-<n>.apk
 
 `xcrun devicectl list devices` shows the UDID. CI makes a new debug key on each run, so `adb install -r` over an older tester APK can fail with a signature mismatch; then run `adb uninstall chat.bipe.app.next` first.
 
+## Store release
+
+`.github/workflows/store-release.yml` (bipe-chat/bipe#604) sends a build with the fork's IDs (`chat.bipe.app`, ADR 0061) to internal TestFlight on the "Bipe" record and to the Play internal track. It runs on demand only, in the GitHub environment `store`, and its first job fails unless the repository variable `BIPE_SWITCH_READY` is `true`; MZ sets it when the readiness gate bipe-chat/bipe#601 passes. Never set it, run it or widen its track. With `BIPE_ID_SET=store`, `tools/asc.mjs` never registers a bundle ID, changes a capability or creates an app record. `node tools/asc.mjs store-ids [<n>]` reads the fork's bundle IDs, record, last build and versions, and fails when build `<n>` is not higher; `testflight.yml` writes that report into its job summary on every main push. `tools/play.mjs` uploads to the internal track only, after it checks that the versionCode is higher than every uploaded one. The secrets and variables it needs are listed in the workflow header.
+
 ## Pull requests
 
 - One PR per issue. The PR covers iOS and Android together ([ADR 0031](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0031-platform-lockstep.md)).

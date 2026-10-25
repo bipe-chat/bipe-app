@@ -1,0 +1,268 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# Store release of the own client with the fork's IDs (bipe-chat/bipe#604, docs/client-switch-plan.md
+# step 4, ADR 0061). On demand only, and only after the readiness gate (bipe-chat/bipe#601): the
+# repository variable BIPE_SWITCH_READY must be "true", which MZ sets. The jobs run in the GitHub
+# environment "store" (give it required reviewers to approve each run).
+# - iOS: archive with the store IDs, signed with the distribution certificate (bipe-chat/bipe#585),
+#   App Store profiles from tools/asc.mjs (BIPE_ID_SET=store), upload to the "Bipe" record and add
+#   the build to its internal testing group. The build number must be above the fork's last one.
+# - Android: AAB of chat.bipe.app (play flavour), signed with the Play upload key, uploaded through
+#   the Play Developer API to the internal track (tools/play.mjs). The versionCode must be above every
+#   uploaded one, the fork's included.
+# Owner-only setup (MZ): secrets DIST_CERT_P12, DIST_CERT_PASSWORD, ASC_KEY_P8, ANDROID_UPLOAD_KEYSTORE
+# (base64), ANDROID_UPLOAD_KEYSTORE_PASSWORD, ANDROID_UPLOAD_KEY_ALIAS, ANDROID_UPLOAD_KEY_PASSWORD,
+# PLAY_SERVICE_ACCOUNT_JSON; variables ASC_KEY_ID, ASC_ISSUER_ID, STORE_FIREBASE_APP_ID,
+# STORE_FIREBASE_PROJECT_ID, STORE_FIREBASE_API_KEY, STORE_FIREBASE_SENDER_ID, BIPE_SWITCH_READY.
+name: store-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: Platforms to release
+        type: choice
+        options: [both, ios, android]
+        default: both
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-release
+  cancel-in-progress: false
+
+env:
+  TEAM_ID: 992N457T8D
+  STORE_APP_ID: chat.bipe.app
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Readiness gate (bipe-chat/bipe#601)
+        env:
+          READY: ${{ vars.BIPE_SWITCH_READY }}
+        run: |
+          if [ "$READY" != "true" ]; then
+            echo "::error::The switch readiness gate (bipe-chat/bipe#601) has not passed. MZ sets the repository variable BIPE_SWITCH_READY=true when it does."
+            exit 1
+          fi
+
+  build-number:
+    needs: gate
+    runs-on: ubuntu-latest
+    outputs:
+      number: ${{ steps.n.outputs.number }}
+      version: ${{ steps.n.outputs.version }}
+    steps:
+      - id: n
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/bipe-chat/bipe-shared/main/product/version.json > version.json
+          base=$(jq -er '.build' version.json)
+          version=$(jq -er '.version' version.json)
+          echo "number=$((base + GITHUB_RUN_NUMBER))" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "version $version, build number: $((base + GITHUB_RUN_NUMBER))"
+
+  ios:
+    needs: build-number
+    if: inputs.platforms != 'android'
+    runs-on: xcode-27
+    environment: store
+    timeout-minutes: 120
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      BUILD_NUMBER: ${{ needs.build-number.outputs.number }}
+      VERSION_NAME: ${{ needs.build-number.outputs.version }}
+      ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+      BIPE_ID_SET: store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Write the API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          umask 077
+          key="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$key"
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+      - name: Check the store IDs and the build number
+        run: |
+          node tools/asc.mjs prepare
+          node tools/asc.mjs store-ids "$BUILD_NUMBER"
+      - name: Import the distribution certificate
+        env:
+          DIST_CERT_P12: ${{ secrets.DIST_CERT_P12 }}
+          DIST_CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
+        run: |
+          if [ -z "$DIST_CERT_P12" ] || [ -z "$DIST_CERT_PASSWORD" ]; then
+            echo "::error::Secrets DIST_CERT_P12 and DIST_CERT_PASSWORD are not set (bipe-chat/bipe#585)."
+            exit 1
+          fi
+          umask 077
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(openssl rand -hex 24)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "KEYCHAIN_PATH=$keychain" >> "$GITHUB_ENV"
+          printf '%s' "$DIST_CERT_P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$keychain" -f pkcs12 -P "$DIST_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/dist.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          serial=$(security find-certificate -c "Apple Distribution" -p "$keychain" | openssl x509 -noout -serial | cut -d= -f2)
+          if [ -z "$serial" ]; then
+            echo "::error::The .p12 in DIST_CERT_P12 holds no Apple Distribution certificate."
+            exit 1
+          fi
+          echo "DIST_CERT_SERIAL=$serial" >> "$GITHUB_ENV"
+      - name: Make the App Store profiles and export options
+        run: node tools/asc.mjs signing "$DIST_CERT_SERIAL"
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Use the committed package pins
+        run: |
+          dir=ios/Bipe.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
+          mkdir -p "$dir"
+          cp ios/Package.resolved "$dir/Package.resolved"
+      - name: Archive with the store IDs
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project ios/Bipe.xcodeproj \
+            -scheme Bipe \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath ios/DerivedData \
+            -archivePath "$RUNNER_TEMP/Bipe.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            BIPE_APP_ID="$STORE_APP_ID" \
+            BIPE_APP_GROUP=group.chat.bipe \
+            BIPE_DISPLAY_NAME=Bipe \
+            BIPE_SIGN_STYLE=Manual \
+            BIPE_SIGN_IDENTITY="Apple Distribution" \
+            BIPE_CI_PROFILE_APP="$BIPE_CI_PROFILE_APP" \
+            BIPE_CI_PROFILE_NSE="$BIPE_CI_PROFILE_NSE" \
+            BIPE_CI_PROFILE_SHARE="$BIPE_CI_PROFILE_SHARE" \
+            BIPE_APS_ENVIRONMENT=production \
+            MARKETING_VERSION="$VERSION_NAME" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" | tee "$RUNNER_TEMP/archive.log" | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
+          grep -q "ARCHIVE SUCCEEDED" "$RUNNER_TEMP/archive.log"
+      - name: Upload to App Store Connect
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Bipe.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/upload.plist" \
+            -exportPath "$RUNNER_TEMP/upload" \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee "$RUNNER_TEMP/upload.log" | grep -E "error:|EXPORT (SUCCEEDED|FAILED)|Upload" || true
+          grep -q "EXPORT SUCCEEDED" "$RUNNER_TEMP/upload.log"
+      - name: Add the build to the internal testing group
+        run: node tools/asc.mjs distribute "$BUILD_NUMBER"
+      - name: Upload the logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-release-ios-logs
+          path: ${{ runner.temp }}/*.log
+      - name: Remove the API key, the keychain and the profiles
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP"/AuthKey_*.p8 "$RUNNER_TEMP/dist.p12"
+          if [ -n "${KEYCHAIN_PATH:-}" ]; then security delete-keychain "$KEYCHAIN_PATH" || true; fi
+          rm -rf "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" "$HOME/Library/MobileDevice/Provisioning Profiles"
+
+  android:
+    needs: build-number
+    if: inputs.platforms != 'ios'
+    runs-on: ubuntu-latest
+    environment: store
+    timeout-minutes: 60
+    env:
+      BUILD_NUMBER: ${{ needs.build-number.outputs.number }}
+      VERSION_NAME: ${{ needs.build-number.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Check the secrets and variables
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          SERVICE_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_APP_ID: ${{ vars.STORE_FIREBASE_APP_ID }}
+          FIREBASE_PROJECT_ID: ${{ vars.STORE_FIREBASE_PROJECT_ID }}
+          FIREBASE_API_KEY: ${{ vars.STORE_FIREBASE_API_KEY }}
+          FIREBASE_SENDER_ID: ${{ vars.STORE_FIREBASE_SENDER_ID }}
+        run: |
+          missing=""
+          for name in KEYSTORE STORE_PASSWORD KEY_ALIAS KEY_PASSWORD SERVICE_ACCOUNT FIREBASE_APP_ID FIREBASE_PROJECT_ID FIREBASE_API_KEY FIREBASE_SENDER_ID; do
+            [ -n "$(printenv "$name")" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            # A store build without push or without the upload key must not reach Play.
+            echo "::error::Not set:$missing (see the header of store-release.yml)."
+            exit 1
+          fi
+      - name: Write the service account key and the upload keystore
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          KEYSTORE: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
+        run: |
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/play.json"
+          printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/upload.keystore"
+          echo "PLAY_SERVICE_ACCOUNT_PATH=$RUNNER_TEMP/play.json" >> "$GITHUB_ENV"
+      - name: Check the versionCode against Play
+        run: node tools/play.mjs check "$STORE_APP_ID" "$BUILD_NUMBER"
+      - name: Build the signed AAB with the store IDs
+        working-directory: android
+        env:
+          ORG_GRADLE_PROJECT_bipeUploadStorePassword: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_bipeUploadKeyAlias: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_bipeUploadKeyPassword: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          ORG_GRADLE_PROJECT_bipeFirebaseAppId: ${{ vars.STORE_FIREBASE_APP_ID }}
+          ORG_GRADLE_PROJECT_bipeFirebaseProjectId: ${{ vars.STORE_FIREBASE_PROJECT_ID }}
+          ORG_GRADLE_PROJECT_bipeFirebaseApiKey: ${{ vars.STORE_FIREBASE_API_KEY }}
+          ORG_GRADLE_PROJECT_bipeFirebaseSenderId: ${{ vars.STORE_FIREBASE_SENDER_ID }}
+        run: |
+          ./gradlew --no-daemon bundlePlayRelease -PbipeIdSet=store \
+            -PbipeBuildNumber="$BUILD_NUMBER" -PbipeVersionName="$VERSION_NAME" \
+            -PbipeUploadStoreFile="$RUNNER_TEMP/upload.keystore"
+      - name: Check the AAB signature
+        run: |
+          aab=$(ls android/app/build/outputs/bundle/playRelease/*.aab)
+          signer=$(keytool -printcert -jarfile "$aab")
+          if [ -z "$signer" ] || printf '%s' "$signer" | grep -q "CN=Android Debug"; then
+            echo "::error::The AAB is not signed with the upload key."
+            exit 1
+          fi
+          echo "AAB=$aab" >> "$GITHUB_ENV"
+      - name: Upload to the internal track
+        env:
+          PLAY_RELEASE_NAME: ${{ needs.build-number.outputs.version }} (${{ needs.build-number.outputs.number }})
+        run: node tools/play.mjs upload "$STORE_APP_ID" "$AAB" internal
+      - name: Remove the keys
+        if: always()
+        run: rm -f "$RUNNER_TEMP/play.json" "$RUNNER_TEMP/upload.keystore"

@@ -1570,6 +1570,12 @@ public enum BipeStrings {
 
     public static var dmLeftByYou: String { NSLocalizedString("bipe_dm_left_by_you", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var actionInviteAgain: String { NSLocalizedString("bipe_action_invite_again", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var dmInviteAgainFailed: String { NSLocalizedString("bipe_dm_invite_again_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var dmAccountGone: String { NSLocalizedString("bipe_dm_account_gone", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var dmLeaving: String { NSLocalizedString("bipe_dm_leaving", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var dmDeleteAction: String { NSLocalizedString("bipe_dm_delete_action", tableName: "Bipe", bundle: .module, comment: "") }
