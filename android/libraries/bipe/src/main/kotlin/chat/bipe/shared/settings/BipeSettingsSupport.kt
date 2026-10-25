@@ -117,6 +117,8 @@ data class BipeAccountWays(
     /** The verified recovery email. */
     @SerialName("email") val email: String? = null,
     @SerialName("recovery_token_set") val recoveryTokenSet: Boolean = false,
+    /** ADR 0096: the linked Apple and Google accounts. */
+    @SerialName("links") val links: List<chat.bipe.shared.account.BipeLinkedAccount> = emptyList(),
 ) {
     override fun toString(): String = "BipeAccountWays"
 }

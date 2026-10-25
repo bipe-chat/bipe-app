@@ -1362,6 +1362,8 @@ public enum BipeStrings {
 
     public static var linkedAccountUnlinkError: String { NSLocalizedString("bipe_linked_account_unlink_error", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var linkedAccountTaken: String { NSLocalizedString("bipe_linked_account_taken", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var recoveryApple: String { NSLocalizedString("bipe_recovery_apple", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var recoveryGoogle: String { NSLocalizedString("bipe_recovery_google", tableName: "Bipe", bundle: .module, comment: "") }

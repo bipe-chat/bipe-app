@@ -114,7 +114,7 @@ private struct SignedInView: View {
 
     var body: some View {
         AppTabsView(model: tabs, session: session, api: api, initialRoomId: initialRoomId)
-            .fullScreenCover(isPresented: Binding(get: { recoveryAlert.notice != nil }, set: { _ in })) {
+            .fullScreenCover(isPresented: Binding(get: { recoveryAlert.notice != nil || recoveryAlert.linkNotice != nil }, set: { _ in })) {
                 RecoveryAlertView(model: recoveryAlert)
             }
             .fullScreenCover(isPresented: Binding(get: { terms.phase != .hidden }, set: { _ in })) {

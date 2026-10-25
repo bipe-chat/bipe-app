@@ -286,6 +286,12 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** HTTP 403: the sign-up or the account lacks the current legal version (ADR 0113). */
     TERMS_REQUIRED("terms_required"),
+
+    /** HTTP 409: that Apple or Google account is linked to another Bipe account (ADR 0096). */
+    LINK_TAKEN("link_taken"),
+
+    /** HTTP 503: the server has no configuration for that provider (ADR 0096). */
+    LINK_UNAVAILABLE("link_unavailable"),
     ;
 
     companion object {
@@ -337,6 +343,8 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.TERMS_REQUIRED -> context.getString(R.string.bipe_signup_terms_required)
             BipeApiErrorCode.PROFILE_INVALID ->
                 reason?.let(BipeProfileProblem::fromId)?.localizedMessage(context) ?: context.getString(R.string.bipe_error_generic)
+            BipeApiErrorCode.LINK_TAKEN -> context.getString(R.string.bipe_linked_account_taken)
+            BipeApiErrorCode.LINK_UNAVAILABLE -> context.getString(R.string.bipe_linked_account_error)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL -> context.getString(R.string.bipe_error_generic)
         }
         is Network -> context.getString(R.string.bipe_error_network)

@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import chat.bipe.app.account.AccountStartModel
 import chat.bipe.app.people.PeopleLinks
+import chat.bipe.app.recovery.LinkWebFlow
 import chat.bipe.app.account.AccountStartScreen
 import chat.bipe.app.notifications.PhoneNotifications
 import chat.bipe.shared.BipeNotificationDestination
@@ -70,6 +71,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         accountStart.resume()
+        LinkWebFlow.appResumed()
     }
 
     override fun onStop() {

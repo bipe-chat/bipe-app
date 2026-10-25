@@ -417,10 +417,14 @@ private fun SignupFallbackScreen(model: SignupFlowModel) {
     val phase by model.fallbackPhase.collectAsState()
     val email by model.fallbackEmail.collectAsState()
     val invalid by model.fallbackEmailInvalid.collectAsState()
+    val linkProvider by model.fallbackLinkProvider.collectAsState()
+    LaunchedEffect(model) { model.loadFallbackLink() }
     val step = BipeOnboardingStep.FALLBACK
     StepLayout(BipeScreen.SIGNUP_FALLBACK, stringResource(step.title), step.body?.let { stringResource(it) }) {
         if (phase == SignupFlowModel.FallbackPhase.CHOOSE) {
             PrimaryButton(stringResource(step.primary.title), onClick = model::addEmail)
+            // ADR 0096: the platform's own provider next to the e-mail, when the server offers it.
+            if (linkProvider != null) TextButtonRow(stringResource(R.string.bipe_link_google), onClick = model::linkAccount)
         } else {
             BipeField(stringResource(R.string.bipe_signup_email_optional), email, model::editFallbackEmail, KeyboardType.Email)
             FieldFooter(
