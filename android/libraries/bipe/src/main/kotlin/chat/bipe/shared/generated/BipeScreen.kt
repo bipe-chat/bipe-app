@@ -391,6 +391,9 @@ enum class BipeScreen(val id: String) {
     /** Accept the terms again (flow account). Spec: bipe-shared/product/screens/terms-reaccept.json */
     TERMS_REACCEPT("terms-reaccept"),
 
+    /** Theft protection (flow settings). Spec: bipe-shared/product/screens/theft-protection.json */
+    THEFT_PROTECTION("theft-protection"),
+
     /** Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json */
     TIMELINE_MEDIA("timeline-media"),
 
