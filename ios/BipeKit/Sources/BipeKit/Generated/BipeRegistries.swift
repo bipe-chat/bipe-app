@@ -700,6 +700,23 @@ public enum BipeRegistries {
     public static let phoneMaxInputLength = 64
     public static let phoneInternationalMinDigits = 8
     public static let phoneInternationalMaxDigits = 15
+    /// Yearly confirmation of a linked number (bipe-chat/bipe#470): findable for this many months after the last proof,
+    /// and the apps warn this many days before confirm_by.
+    public static let phoneLinkConfirmMonths = 12
+    public static let phoneLinkConfirmWarnDays = 30
+
+    /// Work side opening hours (registries/work-hours.json, bipe-chat/bipe#511).
+    public static let workHoursDefaultTimeZone = "America/Sao_Paulo"
+    public static let workHoursMaxRangesPerDay = 3
+    /// ISO weekday (1 Monday ... 7 Sunday) and its ranges, local HH:MM, half-open.
+    public static let workHoursDefaultDays: [(day: Int, ranges: [(start: String, end: String)])] = [
+        (day: 1, ranges: [(start: "08:00", end: "18:00")]),
+        (day: 2, ranges: [(start: "08:00", end: "18:00")]),
+        (day: 3, ranges: [(start: "08:00", end: "18:00")]),
+        (day: 4, ranges: [(start: "08:00", end: "18:00")]),
+        (day: 5, ranges: [(start: "08:00", end: "18:00")]),
+        (day: 6, ranges: [(start: "08:00", end: "12:00")]),
+    ]
 
     /// Device-first accounts (ADR 0057, ADR 0059; registries/accounts.json). Check PINs with the rule there;
     /// test-vectors/pins.json has the cases. The server is the authority.
@@ -748,6 +765,9 @@ public enum BipeRegistries {
     public static let privacyPath = "/privacidade/"
     public static let enTermsPath = "/en/terms/"
     public static let enPrivacyPath = "/en/privacy/"
+    /// The site home pages that onboarding-welcome learnMore opens.
+    public static let homePath = "/"
+    public static let enHomePath = "/en/"
 
     /// Badge signing keys a release build trusts (ADR 0123; registries/badge-keys.json): kid to raw Ed25519 public key, base64url.
     public static let badgeKeys: [String: String] = [
@@ -766,4 +786,8 @@ public enum BipeRegistries {
     public static let pixMarkRelType = "m.reference"
     public static let pixE2eIdPattern = "^E[0-9]{8}[A-Za-z0-9]{23}$"
     public static let pixTxidMaxLength = 25
+
+    /// Data use (bipe-chat/bipe#242; registries/data-use.json): the budget of a normal day and the default of the data saver switch.
+    public static let dataUseBudgetMegabytesPerDay = 10
+    public static let dataSaverDefault = false
 }
