@@ -112,7 +112,7 @@ struct PersonProfileView: View {
                 if model.isOfficial {
                     OfficialBadge(font: .footnote)
                 }
-                if model.seal.isVerified {
+                if model.facts.identity == "verified" {
                     Button {
                         showsSeal = true
                     } label: {
@@ -137,6 +137,7 @@ struct PersonProfileView: View {
             ForEach(model.marks) { mark in
                 markLine(mark)
             }
+            factLines
             if people.isBlocked(model.userId) {
                 MarkLine(icon: .prohibit, text: BipeStrings.appPersonBlocked, tint: BipeColor.trustDangerInk)
             }
@@ -173,6 +174,44 @@ struct PersonProfileView: View {
             MarkLine(icon: .handshake, text: mark.text, tint: BipeColor.trustVerifiedInk)
         case .companyRevoked, .companySuspended, .nameSuspended:
             MarkLine(icon: .sealWarning, text: mark.text, tint: BipeColor.trustCautionInk)
+        }
+    }
+
+    /// Spec facts: what each fact means, the contact not confirmed yet, a change and an unknown state, each apart.
+    @ViewBuilder
+    private var factLines: some View {
+        let facts = model.facts
+        if facts.identity == "verified" {
+            FactCaption(text: BipeStrings.trustIdentityBody)
+        }
+        if facts.contact == "confirmed" {
+            FactCaption(text: BipeStrings.trustContactBody)
+        } else if facts.change != "unknown" {
+            MarkLine(icon: .userCircle, text: BipeStrings.trustContactUnconfirmed, tint: BipeColor.trustNeutralInk)
+        }
+        if facts.change == "identity" || facts.change == "device" || facts.change == "device_and_identity" {
+            VStack(alignment: .leading, spacing: 4) {
+                MarkLine(icon: .warning, text: BipeStrings.bannerSecurityChange, tint: BipeColor.trustCautionInk)
+                Text(BipeStrings.trustChangeConfirmAction)
+                    .font(.footnote)
+                    .foregroundStyle(BipeColor.inkPrimary)
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10).fill(BipeColor.trustCautionWash))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(BipeColor.trustCautionLine))
+            .accessibilityElement(children: .combine)
+        }
+        if model.lifecycleUnknown {
+            MarkLine(icon: .info, text: BipeStrings.trustLifecycleUnknown, tint: BipeColor.trustNeutralInk)
+            Button {
+                Task { await model.readIdentity() }
+            } label: {
+                Text(BipeStrings.trustLifecycleRetryAction)
+                    .font(.footnote.weight(.semibold))
+            }
+        }
+        if facts.identity == "verified" || facts.contact == "confirmed" {
+            FactCaption(text: BipeStrings.trustWarningAbsenceBody)
         }
     }
 
@@ -274,6 +313,18 @@ private struct MarkLine: View {
                 .foregroundStyle(tint)
                 .multilineTextAlignment(.leading)
         }
+    }
+}
+
+/// The meaning or limit of a fact, under its mark.
+private struct FactCaption: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(BipeColor.inkSecondary)
+            .multilineTextAlignment(.center)
     }
 }
 
