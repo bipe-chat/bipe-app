@@ -135,6 +135,9 @@ final class ChatTimelineModel: ObservableObject {
     /// Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone.
     @Published private(set) var peerAway: PeerAway = .none
     @Published private(set) var invitingAgain = false
+    /// Spec chat-timeline theftMark: a valid theft statement for the other person of a DM, else nil.
+    @Published private(set) var theftMark: BipeTheftStatement?
+    private var theftTask: Task<Void, Never>?
     /// The person whose profile was checked for accountGone, so the lookup runs once per leave.
     private var accountGoneChecked: (userId: String, gone: Bool)?
     @Published private(set) var isGroup = false
@@ -217,6 +220,7 @@ final class ChatTimelineModel: ObservableObject {
         handle?.cancel()
         typingHandle?.cancel()
         handleChangesTask?.cancel()
+        theftTask?.cancel()
     }
 
     /// Spec typing-indicator sharesTyping: the presence setting (bipe_privacy_presence). On unless turned off.
@@ -272,6 +276,7 @@ final class ChatTimelineModel: ObservableObject {
             }
         }
         await loadHandleChanges(room)
+        watchTheftMark()
         let typing = TypingStream()
         typingHandle = room.subscribeToTypingNotifications(listener: typing)
         Task { [weak self] in
@@ -761,6 +766,37 @@ final class ChatTimelineModel: ObservableObject {
 
     private func item(_ rowId: String) -> TimelineItem? {
         items.first { $0.uniqueId().id == rowId }
+    }
+
+    // MARK: theftMark
+
+    /// Asks for the DM partner's theft mark when the chat opens, then every checkMinutes while it stays open.
+    private func watchTheftMark() {
+        theftTask?.cancel()
+        theftTask = Task { [weak self] in
+            while !Task.isCancelled {
+                await self?.checkTheftMark()
+                try? await Task.sleep(for: .seconds(TheftMarkChecks.interval))
+            }
+        }
+    }
+
+    private func checkTheftMark() async {
+        guard isDm, let peer = peerUserId else {
+            theftMark = nil
+            return
+        }
+        let statement = await TheftMarkChecks.statement(for: peer, session: session)
+        // The chat may have changed partner while the call ran.
+        if peerUserId == peer {
+            theftMark = statement
+        }
+    }
+
+    /// bipe_theft_message_marker: a message of the marked partner sent from stolen_at minus markedMessageMinutes on.
+    func showsTheftMarker(_ message: TimelineMessage) -> Bool {
+        guard let theftMark, !message.isOwn, message.senderId == theftMark.sub else { return false }
+        return message.sentAt >= theftMark.markerStart
     }
 
     // MARK: handle-change-line

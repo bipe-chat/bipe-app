@@ -588,6 +588,12 @@ public enum BipeRegistries {
     public static let profileFactsNoticePairHours = 24
     public static let profileFactsNoticeDays = 7
 
+    /// Theft protection (ADR 0044, ADR 0051, registries/theft-protection.json). Statement: docs/theft-mark.md.
+    public static let theftMaxGuardians = 3
+    public static let theftMarkedMessageMinutes = 60
+    public static let theftStatementLifeHours = 24
+    public static let theftCheckMinutes = 15
+
     /// Username (handle) rules. The server is the authority; clients check early for feedback.
     public static let handleMinLength = 3
     public static let handleMaxLength = 30
