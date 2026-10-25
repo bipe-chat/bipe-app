@@ -103,7 +103,6 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
         }
     }
     // Spec voce photoPrompt (bipe-chat/bipe#200).
-    val context = LocalContext.current
     val photoPrefs = remember { context.getSharedPreferences("bipe_photo_prompt", Context.MODE_PRIVATE) }
     val photoKey = "dismissed_${session.userId}"
     var photoPromptDismissed by remember(session) { mutableStateOf(photoPrefs.getBoolean(photoKey, false)) }
