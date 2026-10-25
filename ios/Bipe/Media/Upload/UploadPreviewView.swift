@@ -31,6 +31,7 @@ struct UploadPreviewView: View {
                             .frame(width: 20, height: 20)
                             .foregroundStyle(BipeColor.glyphPrimary)
                             .padding(8)
+                            .bipeTapTarget()
                     }
                     .accessibilityLabel(BipeStrings.catalogRemove)
                 }
@@ -71,6 +72,7 @@ struct UploadPreviewView: View {
                     .padding(9)
                     .foregroundStyle(model.canSend ? BipeColor.inkOnAccent : BipeColor.inkDisabled)
                     .background(Circle().fill(model.canSend ? BipeColor.accentFill : BipeColor.surfaceSunken))
+                    .bipeTapTarget()
                 }
                 .disabled(!model.canSend)
                 .accessibilityLabel(BipeStrings.appUploadSend)

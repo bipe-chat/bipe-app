@@ -407,6 +407,7 @@ private struct ComposerBar: View {
                             .frame(width: 20, height: 20)
                             .foregroundStyle(BipeColor.glyphSecondary)
                             .padding(.vertical, 8)
+                            .bipeTapTarget()
                     }
                     .accessibilityLabel(BipeStrings.actionStickers)
                 }
@@ -424,6 +425,7 @@ private struct ComposerBar: View {
                         .padding(9)
                         .foregroundStyle(model.canSend ? BipeColor.inkOnAccent : BipeColor.inkDisabled)
                         .background(Circle().fill(model.canSend ? BipeColor.accentFill : BipeColor.surfaceSunken))
+                        .bipeTapTarget()
                 }
                 .disabled(!model.canSend)
                 .accessibilityLabel(model.editing == nil ? BipeStrings.appTimelineSend : BipeStrings.appMessageSaveEdit)
@@ -438,6 +440,7 @@ private struct ComposerBar: View {
                         .padding(9)
                         .foregroundStyle(BipeColor.inkOnAccent)
                         .background(Circle().fill(BipeColor.accentFill))
+                        .bipeTapTarget()
                 }
                 .accessibilityLabel(BipeStrings.appComposerRecord)
             }
@@ -486,6 +489,7 @@ private struct ComposerBar: View {
                 .frame(width: 22, height: 22)
                 .padding(9)
                 .foregroundStyle(BipeColor.glyphPrimary)
+                .bipeTapTarget()
         }
         .accessibilityLabel(label)
     }
@@ -515,6 +519,7 @@ private struct ComposerBar: View {
                     .frame(width: 16, height: 16)
                     .foregroundStyle(BipeColor.glyphSecondary)
                     .padding(6)
+                    .bipeTapTarget()
             }
             .accessibilityLabel(BipeStrings.appCancel)
         }

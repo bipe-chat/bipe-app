@@ -43,6 +43,7 @@ struct MessageActionsSheet: View {
                             .frame(width: 26, height: 26)
                             .foregroundStyle(BipeColor.glyphSecondary)
                             .frame(maxWidth: .infinity)
+                            .bipeTapTarget()
                     }
                     .accessibilityLabel(BipeStrings.appMessageActionMoreReactions)
                 }

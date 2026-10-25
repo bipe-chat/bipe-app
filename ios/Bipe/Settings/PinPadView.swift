@@ -118,6 +118,7 @@ struct PinPadView: View {
                 .frame(width: 28, height: 28)
                 .foregroundStyle(BipeColor.glyphPrimary)
                 .frame(width: size, height: size)
+                .bipeTapTarget()
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)

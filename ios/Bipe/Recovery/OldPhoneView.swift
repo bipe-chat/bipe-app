@@ -10,6 +10,8 @@ import UIKit
 /// the old phone; then the check code, the wait for the approval and the history.
 struct OldPhoneView: View {
     @StateObject private var model: OldPhoneModel
+    /// Grows with the system text size (bipe-chat/bipe#498).
+    @ScaledMetric(relativeTo: .largeTitle) private var codeSize: CGFloat = 64
 
     init(onSignedIn: @escaping (AccountSession) -> Void) {
         _model = StateObject(wrappedValue: OldPhoneModel(onSignedIn: onSignedIn))
@@ -79,7 +81,9 @@ struct OldPhoneView: View {
             title(BipeStrings.appOldPhoneCheckCodeTitle)
             // Large; never read aloud or sent anywhere.
             Text(verbatim: model.checkCode ?? "")
-                .font(.system(size: 64, weight: .bold, design: .monospaced))
+                .font(.system(size: codeSize, weight: .bold, design: .monospaced))
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .accessibilityAddTraits(.isHeader)
             Text(BipeStrings.appOldPhoneCheckCodeBody)

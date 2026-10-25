@@ -52,6 +52,8 @@ struct LinkComputerView: View {
 /// Spec link-computer-scan.
 private struct LinkComputerScanView: View {
     @ObservedObject var model: LinkComputerModel
+    /// Grows with the system text size (bipe-chat/bipe#498).
+    @ScaledMetric(relativeTo: .largeTitle) private var codeSize: CGFloat = 64
 
     var body: some View {
         VStack(spacing: 16) {
@@ -114,7 +116,9 @@ private struct LinkComputerScanView: View {
                 .foregroundStyle(BipeColor.inkPrimary)
             // Large; never read aloud or sent anywhere.
             Text(verbatim: model.checkCode ?? "")
-                .font(.system(size: 64, weight: .bold, design: .monospaced))
+                .font(.system(size: codeSize, weight: .bold, design: .monospaced))
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .accessibilityAddTraits(.isHeader)
             Text(BipeStrings.appLinkComputerCheckCodeBody)

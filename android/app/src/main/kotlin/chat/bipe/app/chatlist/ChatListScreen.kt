@@ -65,6 +65,7 @@ import chat.bipe.app.account.TermsReacceptModel
 import chat.bipe.app.account.TermsReacceptScreen
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
@@ -522,7 +523,8 @@ private fun UnreadChip(isOn: Boolean, onToggle: () -> Unit) {
         style = MaterialTheme.typography.labelLarge,
         color = if (isOn) colors.inkOnAccent else colors.inkPrimary,
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = 16.dp)
+            .bipeTapTarget()
             .background(if (isOn) colors.accentFill else colors.surfaceRaised, CircleShape)
             // A filter chip: TalkBack says whether it is on (bipe#495).
             .toggleable(value = isOn, role = Role.Checkbox) {
@@ -546,7 +548,7 @@ private fun EmptyState(scope: ChatScope, unreadOnly: Boolean, onTurnOffUnread: (
             Text(
                 stringResource(R.string.bipe_app_chat_list_no_unread),
                 color = colors.inkSecondary,
-                modifier = Modifier.clickable(onClick = onTurnOffUnread),
+                modifier = Modifier.bipeTapTarget().clickable(onClick = onTurnOffUnread),
             )
         } else if (scope == ChatScope.GRUPOS) {
             Text(stringResource(R.string.bipe_groups_empty_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)

@@ -14,12 +14,17 @@
 // - tap: a view with .onTapGesture needs .accessibilityAddTraits(.isButton), .accessibilityAction,
 //   .accessibilityHidden(true) or .accessibilityElement(...) within 8 lines before or after it, or a
 //   comment "// a11y: <why>" on its line or the line before (the gesture has another accessible path).
+// - tap-target: the same controls, outside a toolbar, put .bipeTapTarget() on their label (44 x 44 pt).
+// - text-size: no .font(.system(size: <number>)); use a text style or a @ScaledMetric size.
 // Kotlin (android/):
 // - icon-only: IconButton, FilledIconButton, FilledTonalIconButton, OutlinedIconButton,
 //   IconToggleButton and the FloatingActionButton family need a non-null contentDescription or a Text
 //   inside the call. A Box, Row or Surface made clickable
 //   (clickable, combinedClickable, toggleable, selectable, onClick =) that shows an Icon or Image has
 //   the same rule.
+// - tap-target: a click modifier (clickable, combinedClickable, toggleable, selectable) in a chain with
+//   size, width or height below 48.dp needs bipeTapTarget() or minimumInteractiveComponentSize().
+// - text-size: no .dp.toSp() and no forced fontScale = 1f.
 //
 // Limits: this reads the source, it does not build the views.
 // - It does not follow values: a label built in another function or view counts only when that
@@ -167,9 +172,14 @@ export function auditSwift(source) {
     if (titled) continue;
     const content = call.args + call.body;
     if (!SWIFT_ICON.test(content) || SWIFT_TEXT.test(content)) continue;
-    if (SWIFT_LABELLED.test(content) || SWIFT_LABELLED.test(call.modifiers)) continue;
-    hits.push({ line: lineOf(text, m.index), rule: 'icon-only', call: m[1] });
+    const line = lineOf(text, m.index);
+    if (!SWIFT_LABELLED.test(content) && !SWIFT_LABELLED.test(call.modifiers)) hits.push({ line, rule: 'icon-only', call: m[1] });
+    // The system sizes toolbar items itself.
+    const inToolbar = /ToolbarItem|\.toolbar\b/.test(text.slice(Math.max(0, m.index - 300), m.index));
+    if (!inToolbar && !/\.bipeTapTarget\(\)/.test(content)) hits.push({ line, rule: 'tap-target', call: m[1] });
   }
+  // Text that does not grow with the system text size (bipe-chat/bipe#498).
+  for (const m of text.matchAll(/\.font\(\s*\.system\(\s*size:\s*\d/g)) hits.push({ line: lineOf(text, m.index), rule: 'text-size', call: '.font(.system(size:)' });
   const lines = text.split('\n');
   const raw = source.split('\n');
   lines.forEach((line, i) => {
@@ -213,12 +223,32 @@ export function auditKotlin(source) {
     if (KOTLIN_LABELLED.test(call.args + call.body) || /\bsemantics\b|clearAndSetSemantics/.test(call.args)) continue;
     hits.push({ line: lineOf(text, m.index), rule: 'icon-only', call: m[1] });
   }
+  // A clickable element smaller than 48 dp needs the minimum tap target (bipe-chat/bipe#498). The chain
+  // runs from the Modifier before the click modifier to the last line that starts with a dot.
+  for (const m of text.matchAll(/\.(clickable|combinedClickable|toggleable|selectable)\b(?=\s*[({])/g)) {
+    const start = text.lastIndexOf('Modifier', m.index);
+    if (start < 0) continue;
+    const after = text.slice(m.index).split('\n');
+    let chain = text.slice(start, m.index) + after[0];
+    for (const l of after.slice(1)) {
+      if (!/^\s*\./.test(l)) break;
+      chain += l;
+    }
+    const small = [...chain.matchAll(/\.(?:size|height|width)\(\s*(\d+)\.dp\s*\)/g)].some((s) => Number(s[1]) < 48);
+    if (small && !/bipeTapTarget\(\)|minimumInteractiveComponentSize\(\)/.test(chain)) {
+      hits.push({ line: lineOf(text, m.index), rule: 'tap-target', call: m[1] });
+    }
+  }
+  // Text that does not grow with the system font size (bipe-chat/bipe#498).
+  for (const m of text.matchAll(/\.dp\.toSp\(\)|fontScale\s*=\s*1(?:\.0)?f/g)) hits.push({ line: lineOf(text, m.index), rule: 'text-size', call: m[0] });
   return hits;
 }
 
 const ADVICE = {
   'icon-only': 'shows only an icon and has no label. Add an accessibility label from the generated bipe-shared strings.',
   tap: 'is a tap target that VoiceOver does not announce. Add .accessibilityAddTraits(.isButton) or an accessibility action, or use a Button.',
+  'tap-target': 'can be smaller than 44 pt / 48 dp to tap. Add .bipeTapTarget() (on the Swift label, first in the Compose chain).',
+  'text-size': 'does not follow the system text size. Use a text style (SwiftUI .font(.body), @ScaledMetric; Compose typography or sp).',
 };
 
 export function checkA11y(root) {

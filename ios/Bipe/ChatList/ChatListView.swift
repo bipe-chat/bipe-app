@@ -263,6 +263,8 @@ struct ChatListView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(model.unreadScopes.contains(scope) ? BipeColor.accentFill : BipeColor.surfaceRaised))
+                    .frame(minHeight: BipeTapTarget.minimum)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             // A filter chip: VoiceOver says whether it is on (bipe#495).

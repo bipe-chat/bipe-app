@@ -38,12 +38,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.timeline.TimelineMessage
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -87,6 +89,7 @@ fun VoiceMessageRow(
             )
             Box(
                 modifier = Modifier
+                    .bipeTapTarget()
                     .size(40.dp)
                     .background(colors.accentFill, CircleShape)
                     .clickable(onClick = onTogglePlay)
@@ -140,7 +143,7 @@ fun VoiceMessageRow(
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = colors.accentInk,
-                        modifier = Modifier.clickable { transcriptExpanded = !transcriptExpanded },
+                        modifier = Modifier.bipeTapTarget().clickable(role = Role.Button) { transcriptExpanded = !transcriptExpanded },
                     )
                 }
             }
