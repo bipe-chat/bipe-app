@@ -47,8 +47,8 @@ import chat.bipe.shared.generated.BipeScreen
 
 /**
  * Spec account-switcher (ADR 0135): the Material 3 dropdown menu that a long press on Você opens, anchored to the item.
- * Each account shows its photo or initial, name and @handle, with a check on the current one; then Nova conta while
- * the cap allows.
+ * Each account shows its photo or initial, name and @handle, with a check on the current one; then Nova conta, which
+ * opens account-new.
  */
 @Composable
 fun AccountMenu(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: () -> Unit) {
@@ -89,14 +89,12 @@ fun AccountMenu(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: ()
                 },
             )
         }
-        if (state.canAddAccount) {
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.bipe_app_account_new)) },
-                onClick = { tabs.dismissAccountSwitcher(); onNewAccount() },
-                leadingIcon = { Icon(painterResource(PhosphorIcon.PLUS.drawable), contentDescription = null) },
-            )
-        }
+        HorizontalDivider()
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.bipe_app_account_new)) },
+            onClick = { tabs.dismissAccountSwitcher(); onNewAccount() },
+            leadingIcon = { Icon(painterResource(PhosphorIcon.PLUS.drawable), contentDescription = null) },
+        )
     }
     LaunchedEffect(state.showsAccountSwitcher) { if (state.showsAccountSwitcher) tabs.refreshProfiles() }
 }

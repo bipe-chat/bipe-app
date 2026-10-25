@@ -84,8 +84,7 @@ import chat.bipe.app.pixcheck.PixPreview
 import chat.bipe.app.pixcheck.PixSendScreen
 import chat.bipe.app.recovery.RecoveryAlertModel
 import chat.bipe.app.recovery.RecoveryAlertScreen
-import chat.bipe.app.signup.SignupFlowModel
-import chat.bipe.app.signup.SignupFlowScreen
+import chat.bipe.app.tabs.AccountNewScreen
 import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.tabs.AppTabsScreen
@@ -212,16 +211,7 @@ fun HomeScreen(
             app.pixPreview.value = null
         }
         alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
-        showsNewAccount -> {
-            BackHandler { showsNewAccount = false }
-            val signup = remember(session) {
-                SignupFlowModel(context, api, tabs.start.vault, tabs.start.sessionStore, scope, onSignedUp = { created, outcome ->
-                    showsNewAccount = false
-                    tabs.start.didSignUp(created, outcome)
-                })
-            }
-            SignupFlowScreen(signup, onCancel = { showsNewAccount = false })
-        }
+        showsNewAccount -> AccountNewScreen(tabs, session, api, onClose = { showsNewAccount = false })
         showsHandlePick -> {
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
@@ -277,7 +267,7 @@ fun HomeScreen(
                     listOpenRequest = notificationListOpen,
                     onOpenHandlePick = { showsHandlePick = true },
                     onOpenChat = { openRoomId = it },
-                    onNewAccount = { if (tabs.state.value.canAddAccount) showsNewAccount = true },
+                    onNewAccount = { showsNewAccount = true },
                     banner = { HistoryBanner(encryption) },
                     onCreateGroup = groups.createGroup,
                     onDeleteDm = groups.deleteDm,

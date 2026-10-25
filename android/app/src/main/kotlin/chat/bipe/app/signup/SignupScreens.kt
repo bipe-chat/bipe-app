@@ -75,21 +75,33 @@ import chat.bipe.shared.generated.BipeScreen
 
 /** The sign-up flow from onboarding-welcome to signup-create. account-start shows it when its phase is noAccount. */
 @Composable
-fun SignupFlowScreen(model: SignupFlowModel, onCancel: (() -> Unit)? = null) {
+fun SignupFlowScreen(model: SignupFlowModel, onCancel: ((reachedCreate: Boolean) -> Unit)? = null) {
     val path by model.path.collectAsState()
     val showsWaitlist by model.showsWaitlist.collectAsState()
-    BackHandler(enabled = path.isNotEmpty()) { model.back() }
+    BackHandler(enabled = path.isNotEmpty() && model.canGoBack) { model.back() }
+    // Spec account-new: the sign-up from Nova conta starts at signup-name and closes from there.
+    val cancelRow: @Composable () -> Unit = {
+        if (onCancel != null) {
+            TextButton(onClick = { onCancel(model.reachedCreate) }) { Text(stringResource(R.string.bipe_app_cancel)) }
+        }
+    }
     Surface(modifier = Modifier.fillMaxSize(), color = BipeTheme.colors.surfaceBase) {
         Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             when (path.lastOrNull()) {
                 null -> Column {
-                    if (onCancel != null) {
-                        TextButton(onClick = onCancel) { Text(stringResource(R.string.bipe_app_cancel)) }
-                    }
+                    cancelRow()
                     OnboardingWelcomeScreen(model)
                 }
                 SignupFlowModel.Route.INVITE_CODE -> SignupInviteCodeScreen(model)
-                SignupFlowModel.Route.NAME -> SignupNameScreen(model)
+                SignupFlowModel.Route.NAME -> if (model.start != null && path.size == 1) {
+                    Column {
+                        cancelRow()
+                        SignupNameScreen(model)
+                    }
+                    LaunchedEffect(Unit) { model.appear() }
+                } else {
+                    SignupNameScreen(model)
+                }
                 SignupFlowModel.Route.PIN -> SignupPinScreen(model, confirm = false)
                 SignupFlowModel.Route.PIN_CONFIRM -> SignupPinScreen(model, confirm = true)
                 SignupFlowModel.Route.FALLBACK -> SignupFallbackScreen(model)

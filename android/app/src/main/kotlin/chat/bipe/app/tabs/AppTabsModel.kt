@@ -54,6 +54,8 @@ class AppTabsModel(
         val otherAccountUnread: Boolean = false,
         val showsAccountSwitcher: Boolean = false,
         val canAddAccount: Boolean = true,
+        /** max_accounts of the account on screen, for bipe_account_cap_reached (spec account-new). */
+        val maxPersonalAccounts: Int = BipeRegistries.MAX_PERSONAL_ACCOUNTS,
     )
 
     private val _state = MutableStateFlow(State())
@@ -183,12 +185,14 @@ class AppTabsModel(
             )
         }
         val chats = currentId?.let { latestChats[it] }.orEmpty()
+        val limit = currentId?.let { profiles[it]?.limit } ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS
         _state.value = _state.value.copy(
             accounts = accounts,
             conversasUnread = chats.count { it.scope == ChatScope.CONVERSAS && it.isUnread },
             gruposAttention = chats.filter { it.scope == ChatScope.GRUPOS }.sumOf { it.mentionCount },
             otherAccountUnread = accounts.any { !it.isCurrent && it.hasUnread },
-            canAddAccount = accounts.count { !it.isCompany } < (currentId?.let { profiles[it]?.limit } ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS),
+            canAddAccount = accounts.count { !it.isCompany } < limit,
+            maxPersonalAccounts = limit,
         )
     }
 }

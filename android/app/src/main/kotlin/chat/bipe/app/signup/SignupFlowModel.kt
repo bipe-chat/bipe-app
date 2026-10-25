@@ -40,6 +40,14 @@ data class PendingInvite(val code: String, val inviterHandle: String?, val isVal
 }
 
 /**
+ * Type SignupStart of spec account-new: a sign-up from the Nova conta window, with the invite the account on screen made.
+ * Android offers only personal accounts there until bipe-chat/bipe#92.
+ */
+data class SignupStart(val inviteId: String, val code: String) {
+    override fun toString(): String = "SignupStart($inviteId)"
+}
+
+/**
  * The sign-up flow: onboarding-welcome, signup-invite-code, signup-waitlist, signup-name, signup-pin, signup-fallback and
  * signup-create (bipe-shared product/screens). State and action names follow the specs, as on iOS.
  */
@@ -52,11 +60,15 @@ class SignupFlowModel(
     private val onSignedUp: (AccountSession, SignupOutcome) -> Unit,
     /** Action haveAccount of onboarding-welcome: account-start opens recovery-start. */
     val onHaveAccount: () -> Unit = {},
+    /** Set for a sign-up from account-new: it starts at signup-name with the invite, and has no inviter. */
+    val start: SignupStart? = null,
 ) {
     /** The steps on top of onboarding-welcome. System back pops one step (action back). */
     enum class Route { INVITE_CODE, NAME, PIN, PIN_CONFIRM, FALLBACK, CREATE }
 
-    private val _path = MutableStateFlow<List<Route>>(emptyList())
+    /** A sign-up from account-new has signup-name as its first step. */
+    private val firstSteps: List<Route> = if (start != null) listOf(Route.NAME) else emptyList()
+    private val _path = MutableStateFlow(firstSteps)
     val path: StateFlow<List<Route>> = _path.asStateFlow()
 
     private fun go(route: Route) {
@@ -65,10 +77,18 @@ class SignupFlowModel(
         _path.value = if (index >= 0) current.subList(0, index + 1) else current + route
     }
 
-    /** System back. `false` on onboarding-welcome, where the app closes. */
+    /** true once signup-create ran: a cancel no longer revokes the invite of [start] (spec account-new cancelSignup). */
+    var reachedCreate = false
+        private set
+
+    /** true while system back stays in the flow. */
+    val canGoBack: Boolean get() = _path.value.size > firstSteps.size
+
+    /** System back. `false` on the first step (onboarding-welcome, or signup-name from account-new), where the flow closes. */
     fun back(): Boolean {
         val current = _path.value
-        if (current.isEmpty() || current.last() == Route.CREATE) return current.isNotEmpty()
+        if (current.size <= firstSteps.size) return false
+        if (current.last() == Route.CREATE) return true
         _path.value = current.dropLast(1)
         // Action back of signup-pin: leaving confirm goes back to create and forgets firstPin.
         if (current.last() == Route.PIN_CONFIRM) resetPin()
@@ -81,7 +101,8 @@ class SignupFlowModel(
     enum class PasteResult { NONE, NOT_AN_INVITE }
 
     val variant = MutableStateFlow(Variant.LOADING)
-    val invite = MutableStateFlow<PendingInvite?>(null)
+    // The account on screen made the invite: no inviter handle, so signup-name shows no "invited by".
+    val invite = MutableStateFlow(start?.let { PendingInvite(it.code, null, true) })
     private var inviteRequired = true
     private var termsVersion: String? = null
     val clipboardHasText = MutableStateFlow(false)
@@ -91,7 +112,7 @@ class SignupFlowModel(
 
     enum class InviteCodePhase { EDITING, CHECKING, INVALID }
 
-    val code = MutableStateFlow("")
+    val code = MutableStateFlow(start?.code.orEmpty())
     val inviteCodePhase = MutableStateFlow(InviteCodePhase.EDITING)
     val inviteCodeError = MutableStateFlow<String?>(null)
 
@@ -403,6 +424,7 @@ class SignupFlowModel(
      */
     fun create() {
         go(Route.CREATE)
+        reachedCreate = true
         createError.value = CreateError.None
         scope.launch {
             storedCredentials?.let { return@launch signIn(it) }
@@ -494,7 +516,8 @@ class SignupFlowModel(
             val session = AccountSession.signIn(context, credentials.userId, credentials.password, sessionStore)
             createPhase.value = CreatePhase.DONE
             formPin = ""
-            onSignedUp(session, SignupOutcome(inviterUserId, invite.value?.inviterHandle))
+            // A sign-up from account-new has no inviter chat and no greeting: the inviter is an account on this phone.
+            onSignedUp(session, if (start != null) SignupOutcome(null, null) else SignupOutcome(inviterUserId, invite.value?.inviterHandle))
         } catch (error: Exception) {
             createPhase.value = CreatePhase.FAILED
             createError.value = CreateError.SignInFailed

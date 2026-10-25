@@ -13,6 +13,9 @@ package chat.bipe.shared.generated
 
 /** Screen ids of Bipe's own client. iOS and Android use the same ids. */
 enum class BipeScreen(val id: String) {
+    /** New account (flow home). Spec: bipe-shared/product/screens/account-new.json */
+    ACCOUNT_NEW("account-new"),
+
     /** Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json */
     ACCOUNT_START("account-start"),
 

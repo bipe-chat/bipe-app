@@ -9,26 +9,31 @@ import SwiftUI
 /// The sign-up flow from onboarding-welcome to signup-create. account-start shows it when its phase is noAccount.
 struct SignupFlowView: View {
     @StateObject private var model: SignupFlowModel
-    private let onCancel: (() -> Void)?
+    /// The argument is true once signup-create ran (spec account-new cancelSignup).
+    private let onCancel: ((_ reachedCreate: Bool) -> Void)?
     private let onRecoveryLink: (URL) -> Void
 
     init(api: BipeAPIClient,
-         onCancel: (() -> Void)? = nil,
+         start: SignupStart? = nil,
+         onCancel: ((_ reachedCreate: Bool) -> Void)? = nil,
          onSignedUp: @escaping (AccountSession, SignupOutcome) -> Void,
          onHaveAccount: @escaping () -> Void = {},
          onRecoveryLink: @escaping (URL) -> Void = { _ in }) {
-        _model = StateObject(wrappedValue: SignupFlowModel(api: api, onSignedUp: onSignedUp, onHaveAccount: onHaveAccount))
+        _model = StateObject(wrappedValue: SignupFlowModel(api: api, start: start, onSignedUp: onSignedUp,
+                                                           onHaveAccount: onHaveAccount))
         self.onCancel = onCancel
         self.onRecoveryLink = onRecoveryLink
     }
 
     var body: some View {
         NavigationStack(path: $model.path) {
-            OnboardingWelcomeView(model: model)
+            root
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
                 .toolbar {
                     if let onCancel {
-                        ToolbarItem(placement: .cancellationAction) { Button(BipeStrings.appCancel, action: onCancel) }
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(BipeStrings.appCancel) { onCancel(model.reachedCreate) }
+                        }
                     }
                 }
                 .navigationDestination(for: SignupFlowModel.Route.self) { route in
@@ -56,6 +61,17 @@ struct SignupFlowView: View {
             } else {
                 Task { await model.openInviteLink(url) }
             }
+        }
+    }
+}
+
+extension SignupFlowView {
+    /// onboarding-welcome; a sign-up from account-new starts at signup-name (spec account-new notes).
+    @ViewBuilder private var root: some View {
+        if model.start != nil {
+            SignupNameView(model: model).task { await model.appear() }
+        } else {
+            OnboardingWelcomeView(model: model)
         }
     }
 }
@@ -326,8 +342,9 @@ struct SignupNameView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BipeColor.accentInk)
             }
-            BipeTextField(label: BipeStrings.signupDisplayName, text: model.displayName, onChange: model.editName,
-                          contentType: .name)
+            BipeTextField(label: model.isCompany ? BipeStrings.companyName : BipeStrings.signupDisplayName,
+                          text: model.displayName, onChange: model.editName,
+                          contentType: model.isCompany ? UITextContentType.organizationName : .name)
             FieldFooter(text: BipeStrings.signupDisplayNameFooter)
             termsRow
             if model.showTermsRequired {
