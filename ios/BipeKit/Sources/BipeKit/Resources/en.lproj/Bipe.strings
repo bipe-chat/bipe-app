@@ -973,6 +973,14 @@
 "bipe_chats_message_placeholder" = "Write a message";
 "bipe_chats_empty_title" = "Your conversations start here";
 "bipe_chats_empty_body" = "Ask someone you know for their @ to start a conversation.";
+"bipe_first_card_invite_title" = "Invite someone";
+"bipe_first_card_invite_body" = "Bipe is better with your family. Send an invite on WhatsApp or any way you like.";
+"bipe_first_card_invite_action" = "Invite";
+"bipe_first_card_profile_title" = "Your @ and your QR";
+"bipe_first_card_profile_body" = "Send your link bipe.chat/@%1$@, or show the QR code to someone near you.";
+"bipe_first_card_notes_body" = "Send something to yourself: notes, photos, links.";
+"bipe_first_card_notes_action" = "Open";
+"bipe_groups_empty_create" = "Create a group";
 "bipe_action_start_chat" = "New chat";
 "bipe_notifications_permission_title" = "Get notified about new messages";
 "bipe_notifications_permission_body" = "You can change this in this phone's settings.";
@@ -1012,6 +1020,7 @@
 "bipe_onboarding_join_with_invite" = "Join with the invite";
 "bipe_onboarding_have_invite" = "I have an invite";
 "bipe_onboarding_have_account" = "I already have an account";
+"bipe_onboarding_learn_more" = "Learn more about Bipe";
 "bipe_onboarding_paste_invite_hint" = "Copied the invite link?";
 "bipe_onboarding_paste_invite" = "Paste invite";
 "bipe_onboarding_paste_invite_none" = "What you copied is not a Bipe invite.";

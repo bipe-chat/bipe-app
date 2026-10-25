@@ -746,6 +746,9 @@ object BipeRegistries {
     const val PRIVACY_PATH = "/privacidade/"
     const val EN_TERMS_PATH = "/en/terms/"
     const val EN_PRIVACY_PATH = "/en/privacy/"
+    // The site home pages that onboarding-welcome learnMore opens.
+    const val HOME_PATH = "/"
+    const val EN_HOME_PATH = "/en/"
 
     /** Badge signing keys a release build trusts (ADR 0123; registries/badge-keys.json): kid to raw Ed25519 public key, base64url. */
     val badgeKeys: Map<String, String> = mapOf(

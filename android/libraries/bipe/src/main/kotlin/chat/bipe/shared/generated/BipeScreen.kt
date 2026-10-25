@@ -76,6 +76,9 @@ enum class BipeScreen(val id: String) {
     /** Archived chats (flow home). Spec: bipe-shared/product/screens/chat-archive.json */
     CHAT_ARCHIVE("chat-archive"),
 
+    /** First chat list cards (flow home). Spec: bipe-shared/product/screens/chat-list-cards.json */
+    CHAT_LIST_CARDS("chat-list-cards"),
+
     /** Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json */
     CHAT_LIST_FILTERS("chat-list-filters"),
 

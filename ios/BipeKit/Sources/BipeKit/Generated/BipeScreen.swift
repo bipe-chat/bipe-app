@@ -70,6 +70,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Archived chats (flow home). Spec: bipe-shared/product/screens/chat-archive.json
     case chatArchive = "chat-archive"
 
+    /// First chat list cards (flow home). Spec: bipe-shared/product/screens/chat-list-cards.json
+    case chatListCards = "chat-list-cards"
+
     /// Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json
     case chatListFilters = "chat-list-filters"
 
