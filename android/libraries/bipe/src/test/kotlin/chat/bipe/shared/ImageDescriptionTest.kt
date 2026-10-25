@@ -32,10 +32,10 @@ class ImageDescriptionTest {
 
     @Test
     fun readsOnlyAStringOnAnImage() {
-        val image = """{"type":"m.room.message","content":{"msgtype":"m.image","body":"a.jpg","":" Bolo de fubá "}}"""
+        val image = """{"type":"m.room.message","content":{"msgtype":"m.image","body":"a.jpg","$field":" Bolo de fubá "}}"""
         assertThat(BipeImageDescription.read(image)).isEqualTo("Bolo de fubá")
         assertThat(BipeImageDescription.read(image.replace("m.image", "m.video"))).isNull()
-        assertThat(BipeImageDescription.read("""{"content":{"msgtype":"m.image","":42}}""")).isNull()
+        assertThat(BipeImageDescription.read("""{"content":{"msgtype":"m.image","$field":42}}""")).isNull()
         assertThat(BipeImageDescription.read("not json")).isNull()
         assertThat(BipeImageDescription.read(null)).isNull()
     }
