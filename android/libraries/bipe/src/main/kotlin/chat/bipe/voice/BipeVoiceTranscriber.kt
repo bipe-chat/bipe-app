@@ -150,16 +150,16 @@ private class OnDeviceSession(
     private val listener = object : RecognitionListener {
         override fun onSegmentResults(segmentResults: Bundle) = addBest(segmentResults)
 
-        override fun onEndOfSegmentedSession() = complete(segments.joinToString(" "))
+        override fun onEndOfSegmentedSession() = complete(TranscriptParagraphs.layout(TranscriptParagraphs.pieces(segments)))
 
         override fun onResults(results: Bundle) {
             // A recogniser without segmented sessions ends with one result.
             addBest(results)
-            complete(segments.joinToString(" "))
+            complete(TranscriptParagraphs.layout(TranscriptParagraphs.pieces(segments)))
         }
 
         override fun onError(error: Int) {
-            complete(segments.joinToString(" "))
+            complete(TranscriptParagraphs.layout(TranscriptParagraphs.pieces(segments)))
         }
 
         override fun onReadyForSpeech(params: Bundle?) = Unit

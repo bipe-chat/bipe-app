@@ -52,7 +52,7 @@ enum VoiceTranscriber {
             }
             recognizer.recognitionTask(with: request) { result, error in
                 if let result, result.isFinal {
-                    finish(result.bestTranscription.formattedString.nilIfBlank)
+                    finish(TranscriptParagraphs.layout(TranscriptParagraphs.pieces(of: result.bestTranscription)).nilIfBlank)
                 } else if error != nil {
                     finish(nil)
                 }

@@ -810,4 +810,10 @@ public enum BipeRegistries {
     public static let brandMarkLabels: [String] = ["revendedora", "revendedor", "corretor", "representante"]
     public static let brandMarkMaxPerAccount = 3
     public static let brandMarkRecheckMinutes = 10
+
+    /// Voice transcript paragraphs (registries/voice-transcript.json). Rule: product/screens/voice-recording.json notes.
+    public static let voiceTranscriptPauseSeconds: Double = 1.2
+    public static let voiceTranscriptMinCharacters = 120
+    public static let voiceTranscriptMaxCharacters = 360
+    public static let voiceTranscriptSeparator = "\u{a}\u{a}"
 }
