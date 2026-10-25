@@ -61,6 +61,9 @@ struct OldPhoneView: View {
                 QRScannerView { model.codeRead($0) }
                     .aspectRatio(1, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
+                    // Same cap as the code on link-phone-show: in landscape the square keeps the rule and the paste
+                    // field on screen.
+                    .frame(maxWidth: 320)
             }
             // Rule 5, at the moment of the scan.
             Text(BipeStrings.recoveryQrNeverFromOthers)

@@ -141,6 +141,8 @@ fun SettingsHost(
     invites: InvitesModel,
     onClose: () -> Unit,
     onSignedOut: () -> Unit,
+    /** Opens account-new, the same flow as the account switcher (ADR 0135). Null: the add row is left out. */
+    onNewAccount: (() -> Unit)? = null,
     onOpenChat: (String) -> Unit = {},
     onProfileChanged: () -> Unit = {},
     trust: TrustCardModel? = null,
@@ -177,7 +179,8 @@ fun SettingsHost(
                 }
             }
         }
-        is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut)
+        is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut,
+            onNewAccount = onNewAccount)
         is SettingsRoute.People -> PeopleScreen(route.route, people, PeopleNavigation(
             push = { stack.add(SettingsRoute.People(it)) }, pop = pop,
             openChat = { stack.clear(); onOpenChat(it) },
@@ -300,6 +303,7 @@ fun SettingsGroupScreen(
     onBack: () -> Unit,
     onOpen: (SettingsRoute) -> Unit,
     onSignedOut: () -> Unit,
+    onNewAccount: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -317,9 +321,10 @@ fun SettingsGroupScreen(
     val hasBiometrics = remember { OwnerCheck.hasBiometrics(context) }
     val export = remember { DataExportState() }
     val hasDeletion = state.deletion != null
-    val sections = remember(group, lockOn, hasDeletion) {
+    val canAddAccount = onNewAccount != null
+    val sections = remember(group, lockOn, hasDeletion, canAddAccount) {
         group.sections.mapNotNull { section ->
-            val rows = section.rows.filter { it.isShownOnAndroid() && isAvailable(it, lockOn, hasBiometrics, hasDeletion) }
+            val rows = section.rows.filter { it.isShownOnAndroid() && isAvailable(it, lockOn, hasBiometrics, hasDeletion, canAddAccount) }
             if (rows.isEmpty()) null else section to rows
         }
     }
@@ -355,6 +360,8 @@ fun SettingsGroupScreen(
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
             BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)
             BipeSettingsRow.ACCOUNT_EMAIL -> onOpen(SettingsRoute.RecoveryEmail)
+            // account-new shows the cap on the personal choice when the phone is full, as from the switcher.
+            BipeSettingsRow.ACCOUNT_ADD -> onNewAccount?.invoke()
             BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
             BipeSettingsRow.CHATS_DATA_USE -> onOpen(SettingsRoute.DataUse)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
@@ -477,11 +484,12 @@ fun SettingsGroupScreen(
 }
 
 /** Rows that exist only in some states. */
-private fun isAvailable(row: BipeSettingsRow, lockOn: Boolean, hasBiometrics: Boolean, hasDeletion: Boolean): Boolean = when (row) {
+private fun isAvailable(row: BipeSettingsRow, lockOn: Boolean, hasBiometrics: Boolean, hasDeletion: Boolean, canAddAccount: Boolean): Boolean = when (row) {
     // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
     BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK -> lockOn && hasBiometrics
     // While a deletion waits, the banner (or the alert on the other devices) takes its place (spec account-delete).
     BipeSettingsRow.ACCOUNT_DELETE -> !hasDeletion
+    BipeSettingsRow.ACCOUNT_ADD -> canAddAccount
     else -> true
 }
 
