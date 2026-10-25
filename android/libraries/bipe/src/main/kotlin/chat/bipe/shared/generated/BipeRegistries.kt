@@ -708,6 +708,9 @@ object BipeRegistries {
     const val PHONE_MAX_INPUT_LENGTH = 64
     const val PHONE_INTERNATIONAL_MIN_DIGITS = 8
     const val PHONE_INTERNATIONAL_MAX_DIGITS = 15
+    /** Yearly confirmation of a linked number (bipe-chat/bipe#470): months findable, and the warning days before confirm_by. */
+    const val PHONE_LINK_CONFIRM_MONTHS = 12
+    const val PHONE_LINK_CONFIRM_WARN_DAYS = 30
 
     /**
      * Device-first accounts (ADR 0057, ADR 0059; registries/accounts.json). Check PINs with the rule there;

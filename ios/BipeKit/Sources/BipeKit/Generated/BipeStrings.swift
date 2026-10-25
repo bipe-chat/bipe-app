@@ -76,6 +76,10 @@ public enum BipeStrings {
 
     public static var badgeCompanySuspended: String { NSLocalizedString("bipe_badge_company_suspended", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var badgeOfficial: String { NSLocalizedString("bipe_badge_official", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var badgeOfficialA11y: String { NSLocalizedString("bipe_badge_official_a11y", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var warningNicknameConfirmTitle: String { NSLocalizedString("bipe_warning_nickname_confirm_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func warningNicknameConfirmBody(_ p1: String, _ p2: String) -> String {
@@ -653,6 +657,20 @@ public enum BipeStrings {
     public static var phoneNotLinked: String { NSLocalizedString("bipe_phone_not_linked", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var phoneLinked: String { NSLocalizedString("bipe_phone_linked", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func phoneLinkedUntil(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_phone_linked_until", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func phoneConfirmSoon(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_phone_confirm_soon", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var phoneConfirmExpired: String { NSLocalizedString("bipe_phone_confirm_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var phoneConfirmAction: String { NSLocalizedString("bipe_phone_confirm_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var phoneConfirmNoticeTitle: String { NSLocalizedString("bipe_phone_confirm_notice_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var tabChats: String { NSLocalizedString("bipe_tab_chats", tableName: "Bipe", bundle: .module, comment: "") }
 

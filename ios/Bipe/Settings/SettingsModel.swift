@@ -16,6 +16,8 @@ final class SettingsModel: ObservableObject {
 
     @Published private(set) var whoCanMessage: BipeWhoCanMessage?
     @Published private(set) var account: BipeAccountStatus?
+    /// Spec phone-link-status: `nil` until GET /v1/me/phone answers.
+    @Published private(set) var phone: BipePhoneLinkState?
     @Published private(set) var hasRecoveryKey = false
     @Published private(set) var notificationsOn: Bool?
     @Published private(set) var appLockOn = AppLockModel.shared.store.isOn
@@ -43,7 +45,8 @@ final class SettingsModel: ObservableObject {
         async let messaging: Void = loadMessaging()
         async let account: Void = loadAccount()
         async let notifications: Void = loadNotifications()
-        _ = await (messaging, account, notifications)
+        async let phone: Void = loadPhone()
+        _ = await (messaging, account, notifications, phone)
     }
 
     private func loadMessaging() async {
@@ -52,6 +55,15 @@ final class SettingsModel: ObservableObject {
             try await api.whoCanMessage(accessToken: token)
         }) {
             whoCanMessage = value
+        }
+    }
+
+    private func loadPhone() async {
+        let api = api
+        if let value = try? await authorized({ (token: String) async throws(BipeAPIError) -> BipeMyPhone in
+            try await api.myPhone(accessToken: token)
+        }) {
+            phone = BipePhoneLinkState(phone: value)
         }
     }
 

@@ -28,6 +28,8 @@
 "bipe_badge_company_revoked" = "Esta empresa não está mais verificada.";
 "bipe_badge_company_revoked_not_active" = "Esta empresa não está mais verificada. O CNPJ não aparece ativo na Receita.";
 "bipe_badge_company_suspended" = "O selo desta empresa está suspenso até o Bipe conferir a conta de novo.";
+"bipe_badge_official" = "Bipe";
+"bipe_badge_official_a11y" = "Conta oficial do Bipe";
 "bipe_warning_nickname_confirm_title" = "É a pessoa que você conhece?";
 "bipe_warning_nickname_confirm_body" = "Você salvou este contato como %1$@. A conta está verificada como %2$@. É a mesma pessoa?";
 "bipe_action_nickname_confirm_yes" = "Sim, é a mesma pessoa";
@@ -281,6 +283,11 @@
 "bipe_discovery_footer" = "Ninguém vê o seu número. Só quem já salvou seu número consegue te achar.";
 "bipe_phone_not_linked" = "Seu número não está ligado à conta. Por enquanto, seus contatos não podem te encontrar por ele.";
 "bipe_phone_linked" = "Seu número está vinculado.";
+"bipe_phone_linked_until" = "Vinculado até %1$@";
+"bipe_phone_confirm_soon" = "Confirme seu número até %1$@ para quem tem seu número continuar te encontrando.";
+"bipe_phone_confirm_expired" = "Confirmação vencida: ninguém te acha pelo número.";
+"bipe_phone_confirm_action" = "Confirmar número";
+"bipe_phone_confirm_notice_title" = "Confirme seu número";
 "bipe_tab_chats" = "Conversas";
 "bipe_tab_agenda" = "Agenda";
 "bipe_tab_groups" = "Grupos";
