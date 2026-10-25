@@ -15,6 +15,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // The Kotlin half of rustls-platform-verifier ships only inside its crate (bipe-chat/bipe#626).
+        maven {
+            url = uri(settingsDir.resolve("vendor/maven"))
+            content { includeGroup("rustls") }
+        }
     }
 }
 

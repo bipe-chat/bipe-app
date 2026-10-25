@@ -105,6 +105,8 @@ dependencies {
     implementation(project(":libraries:bipe"))
     implementation(project(":libraries:phosphor"))
     implementation(libs.matrix.rust.sdk)
+    // The SDK's TLS check calls org.rustls.platformverifier.CertificateVerifier through JNI (bipe-chat/bipe#626).
+    implementation(libs.rustls.platform.verifier)
     implementation(libs.kotlinx.coroutines.android)
     // Structure report of the earlier app's data (bipe-chat/bipe#603, account/LegacyData.kt).
     implementation(libs.kotlinx.serialization.json)

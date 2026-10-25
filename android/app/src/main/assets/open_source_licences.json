@@ -123,6 +123,10 @@
     {
       "name": "org.matrix.rustcomponents:sdk-android",
       "licence": "Apache-2.0"
+    },
+    {
+      "name": "rustls:rustls-platform-verifier",
+      "licence": "Apache-2.0"
     }
   ],
   "texts": {
