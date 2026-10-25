@@ -20,6 +20,8 @@ struct BusinessToolsSection: View {
     let openQuotes: () -> Void
     /// Action openQueue: opens queue-owner.
     let openQueue: () -> Void
+    /// Action openBrandMarks: opens brand-marks (ADR 0162).
+    let openBrandMarks: () -> Void
 
     /// nil before activation (agenda_off) or while unknown.
     @State private var published: Bool?
@@ -43,6 +45,9 @@ struct BusinessToolsSection: View {
             }
             Button(action: openQueue) {
                 BusinessToolLabel(icon: .usersThree, title: BipeStrings.queueTitle, subtitle: nil)
+            }
+            Button(action: openBrandMarks) {
+                BusinessToolLabel(icon: .sealCheck, title: BipeStrings.brandMarksTitle, subtitle: nil)
             }
         } header: {
             Text(BipeStrings.businessToolsTitle)
