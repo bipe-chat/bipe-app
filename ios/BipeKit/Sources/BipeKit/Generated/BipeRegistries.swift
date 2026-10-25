@@ -588,6 +588,9 @@ public enum BipeRegistries {
     public static let handlePattern = "^[a-z0-9](?:[a-z0-9_]|\\.(?!\\.))*[a-z0-9_]$"
     /// Owned handles (ADR 0065): only these may be shorter than `handleMinLength`, down to `handleOwnerMinLength`.
     public static let handleOwnerMinLength = 2
+    /// Escolha seu @ (bipe-chat/bipe#200): how many free suggestions show, and how many candidates to check.
+    public static let handleSuggestionsShown = 3
+    public static let handleSuggestionCandidates = 8
     public static let ownedHandles: Set<String> = [
         "mz",
         "bipe",
