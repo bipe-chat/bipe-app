@@ -112,7 +112,7 @@ struct MediaViewer: View {
             .foregroundStyle(BipeColor.inkPrimary)
             .padding(.horizontal, 8)
             .padding(.bottom, 8)
-            .background(.ultraThinMaterial)
+            .bipeMaterial(in: Rectangle())
 
             Spacer()
 
@@ -134,7 +134,7 @@ struct MediaViewer: View {
                 }
             }
             .padding(16)
-            .background(.ultraThinMaterial)
+            .bipeMaterial(in: Rectangle())
         }
     }
 

@@ -10,8 +10,8 @@ struct NotificationSettingsView: View {
     @StateObject private var model: NotificationSettingsModel
     @Environment(\.scenePhase) private var scenePhase
 
-    init(session: AccountSession) {
-        _model = StateObject(wrappedValue: NotificationSettingsModel(session: session))
+    init(session: AccountSession, api: BipeAPIClient) {
+        _model = StateObject(wrappedValue: NotificationSettingsModel(session: session, api: api))
     }
 
     var body: some View {
@@ -59,6 +59,17 @@ struct NotificationSettingsView: View {
             } header: {
                 Text(BipeStrings.notificationsSound)
             }
+
+            if model.news != .unknown {
+                Section {
+                    Toggle(isOn: binding(model.news != .off) { isOn in Task { await model.setNews(isOn) } }) {
+                        Text(BipeStrings.settingsNews)
+                    }
+                    .disabled(model.newsBusy)
+                } footer: {
+                    Text(BipeStrings.settingsNewsBody)
+                }
+            }
         }
         .tint(BipeColor.accentFill)
         .scrollContentBackground(.hidden)
@@ -90,6 +101,7 @@ struct NotificationSettingsView: View {
         }
         .alert(BipeStrings.errorGeneric, isPresented: $model.showsError) {}
         .alert(BipeStrings.notificationsToneError, isPresented: $model.showsToneError) {}
+        .alert(BipeStrings.settingsNewsFailed, isPresented: $model.showsNewsError) {}
     }
 
     /// phoneEnabled false: the card at the top. The rows below stay editable: they apply on every device.
