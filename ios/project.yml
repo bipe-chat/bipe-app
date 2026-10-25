@@ -195,6 +195,7 @@ targets:
       - path: ShareExtension
       - path: Bipe/PixCheck
       - path: Bipe/Common/AppConfig.swift
+      - path: Bipe/Common/RoundedType.swift
     info:
       path: SupportFiles/BipeShare/Info.plist
       properties:
