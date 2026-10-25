@@ -80,6 +80,22 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_cvm_registered", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static func brandMarkLabelRevendedora(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_label_revendedora", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func brandMarkLabelRevendedor(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_label_revendedor", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func brandMarkLabelCorretor(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_label_corretor", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func brandMarkLabelRepresentante(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_brand_mark_label_representante", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static func cvmCancelled(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_cvm_cancelled", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
@@ -2973,6 +2989,14 @@ public enum BipeStrings {
     public static var appStartNoAccountTitle: String { NSLocalizedString("bipe_app_start_no_account_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appStartNoAccountBody: String { NSLocalizedString("bipe_app_start_no_account_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appStartLegacyTitle: String { NSLocalizedString("bipe_app_start_legacy_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appStartLegacyBody: String { NSLocalizedString("bipe_app_start_legacy_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appStartLegacyRecover: String { NSLocalizedString("bipe_app_start_legacy_recover", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appStartLegacyFresh: String { NSLocalizedString("bipe_app_start_legacy_fresh", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appStartError: String { NSLocalizedString("bipe_app_start_error", tableName: "Bipe", bundle: .module, comment: "") }
 
