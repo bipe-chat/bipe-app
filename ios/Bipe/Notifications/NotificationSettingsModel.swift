@@ -59,7 +59,13 @@ final class NotificationSettingsModel: ObservableObject {
     @Published private(set) var groupsMode: NotificationMode = .mentions
     @Published private(set) var wholeGroupMentions = true
     @Published private(set) var invites = true
-    @Published private(set) var sound = NotificationSound.current
+    @Published private(set) var sound = NotificationSound.phone
+    /// Spec notification-settings, state preview (per account on this phone).
+    @Published private(set) var preview = true
+    /// Spec notification-settings, state isCompany: the opening-hours row shows.
+    @Published private(set) var isCompany = false
+    /// The opening hours, for the row's value. `nil` until read or for a personal account.
+    @Published var workHours: BipeWorkHours?
     @Published private(set) var mentionsMayMiss = false
     @Published private(set) var hasOlderChoices = false
     @Published private(set) var isLoaded = false
@@ -102,6 +108,7 @@ final class NotificationSettingsModel: ObservableObject {
         }
         await load()
         await loadNews()
+        await loadWorkSide()
     }
 
     /// news: on only when the API has the user subscribed and the user is joined to or invited in the room.
@@ -210,12 +217,32 @@ final class NotificationSettingsModel: ObservableObject {
         await write(restore: { $0.invites = old }) { try await $0.setInviteForMeEnabled(enabled: isOn) }
     }
 
-    /// Action setSound: a phone setting the notification service extension reads.
+    /// Action setSound: a setting of this account on this phone; the notification service extension reads it.
     func setSound(_ sound: NotificationSound) {
-        NotificationSound.current = sound
-        self.sound = NotificationSound.current
+        NotificationSound.set(sound, for: session.userId)
+        self.sound = NotificationSound.current(for: session.userId)
         if self.sound != sound {
             showsToneError = true
+        }
+    }
+
+    /// Action setPreview.
+    func setPreview(_ isOn: Bool) {
+        NotificationPrefs.setPreview(isOn, for: session.userId)
+        preview = NotificationPrefs.preview(for: session.userId)
+    }
+
+    var accountUserId: String { session.userId }
+
+    /// Reads whether the account is a company and, if so, its opening hours (spec work-hours).
+    func loadWorkSide() async {
+        let api = api
+        guard let status = try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }, { (token: String) async throws(BipeAPIError) -> BipeAccountStatus in
+            try await api.account(accessToken: token)
+        }) else { return }
+        isCompany = status.accountType == .company
+        if isCompany {
+            workHours = await WorkHoursSync.refresh(session: session, api: api)
         }
     }
 
@@ -241,7 +268,8 @@ final class NotificationSettingsModel: ObservableObject {
         mentionsMayMiss = !(await settings.canPushEncryptedEventToDevice())
         let hasKeywords = await settings.containsKeywordsRules()
         hasOlderChoices = chats != chatsPlain || groups != groupsPlain || hasKeywords
-        sound = NotificationSound.current
+        sound = NotificationSound.current(for: session.userId)
+        preview = NotificationPrefs.preview(for: session.userId)
         isLoaded = true
     }
 

@@ -122,6 +122,8 @@ private struct SignedInView: View {
             }
             .task { await terms.check() }
             .task { await recoveryAlert.check() }
+            // Spec work-hours notes: the phone's copy of a work account's opening hours, for the extension.
+            .task { _ = await WorkHoursSync.refresh(session: session, api: api) }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     Task {
@@ -129,6 +131,7 @@ private struct SignedInView: View {
                         await tabs.refreshProfiles()
                     }
                     Task { await recoveryAlert.check() }
+                    Task { _ = await WorkHoursSync.refresh(session: session, api: api) }
                 }
             }
     }

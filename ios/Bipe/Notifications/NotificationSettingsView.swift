@@ -9,8 +9,12 @@ import SwiftUI
 struct NotificationSettingsView: View {
     @StateObject private var model: NotificationSettingsModel
     @Environment(\.scenePhase) private var scenePhase
+    private let session: AccountSession
+    private let api: BipeAPIClient
 
     init(session: AccountSession, api: BipeAPIClient) {
+        self.session = session
+        self.api = api
         _model = StateObject(wrappedValue: NotificationSettingsModel(session: session, api: api))
     }
 
@@ -56,8 +60,39 @@ struct NotificationSettingsView: View {
                     Text(BipeStrings.notificationsMessageSound)
                 }
                 .accessibilityValue(BipeStrings.notificationsToneCurrent(model.sound.label))
+                // bipe-chat/bipe#511: per account on this phone.
+                Toggle(isOn: binding(model.preview) { model.setPreview($0) }) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(BipeStrings.notificationsPreview)
+                        Text(BipeStrings.notificationsPreviewFooter)
+                            .font(.footnote)
+                            .foregroundStyle(BipeColor.inkSecondary)
+                    }
+                }
             } header: {
                 Text(BipeStrings.notificationsSound)
+            } footer: {
+                Text(BipeStrings.notificationsAccountFooter(BipeAccountLabels.label(for: model.accountUserId)))
+            }
+
+            // Spec work-hours (ADR 0138 rule 4): company accounts only.
+            if model.isCompany {
+                Section {
+                    NavigationLink {
+                        WorkHoursView(session: session, api: api) { model.workHours = $0 }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(BipeStrings.workHoursTitle)
+                            if let hours = model.workHours, hours.enabled {
+                                Text(hours.isOpen(at: .now) ? BipeStrings.workHoursOpenNow : BipeStrings.workHoursClosedNow)
+                                    .font(.footnote)
+                                    .foregroundStyle(BipeColor.inkSecondary)
+                            }
+                        }
+                    }
+                } footer: {
+                    Text(BipeStrings.workHoursBody)
+                }
             }
 
             if model.news != .unknown {

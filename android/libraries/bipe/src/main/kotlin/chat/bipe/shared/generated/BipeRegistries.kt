@@ -709,6 +709,19 @@ object BipeRegistries {
     const val PHONE_INTERNATIONAL_MIN_DIGITS = 8
     const val PHONE_INTERNATIONAL_MAX_DIGITS = 15
 
+    /** Work side opening hours (registries/work-hours.json, bipe-chat/bipe#511). */
+    const val WORK_HOURS_DEFAULT_TIME_ZONE = "America/Sao_Paulo"
+    const val WORK_HOURS_MAX_RANGES_PER_DAY = 3
+    /** ISO weekday (1 Monday ... 7 Sunday) and its ranges, local HH:MM, half-open. */
+    val workHoursDefaultDays: List<Pair<Int, List<Pair<String, String>>>> = listOf(
+        1 to listOf("08:00" to "18:00"),
+        2 to listOf("08:00" to "18:00"),
+        3 to listOf("08:00" to "18:00"),
+        4 to listOf("08:00" to "18:00"),
+        5 to listOf("08:00" to "18:00"),
+        6 to listOf("08:00" to "12:00"),
+    )
+
     /**
      * Device-first accounts (ADR 0057, ADR 0059; registries/accounts.json). Check PINs with the rule there;
      * test-vectors/pins.json has the cases. The server is the authority.
