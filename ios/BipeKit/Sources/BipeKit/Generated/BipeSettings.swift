@@ -46,7 +46,7 @@ public enum BipeSettingsGroup: String, CaseIterable, Sendable {
         switch self {
         case .profile: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: nil, rows: [.profileNamePhoto, .profileHandle, .profilePublicProfile])]
         case .privacy: [BipeSettingsSection(key: "talk", titleKey: "bipe_privacy_who_can_talk", footerKey: nil, rows: [.privacyMessaging, .privacyRequestPhotos, .privacyBlocked]), BipeSettingsSection(key: "find", titleKey: "bipe_privacy_who_can_find", footerKey: nil, rows: [.privacyNumber, .privacyDiscovery, .privacyContacts]), BipeSettingsSection(key: "see", titleKey: "bipe_privacy_what_others_see", footerKey: nil, rows: [.privacyPresence, .privacyReadReceipts, .privacyWhoCanRead]), BipeSettingsSection(key: "data", titleKey: "bipe_privacy_your_data", footerKey: nil, rows: [.privacyExport, .privacyWhatBipeKeeps])]
-        case .account: [BipeSettingsSection(key: "status", titleKey: "bipe_fallback_title", footerKey: nil, rows: [.accountWaysBackStatus]), BipeSettingsSection(key: "pin", titleKey: "bipe_account_pin_section", footerKey: "bipe_account_pin_footer", rows: [.accountChangePin, .accountAppLock, .accountBiometricUnlock]), BipeSettingsSection(key: "waysBack", titleKey: "bipe_account_ways_back", footerKey: nil, rows: [.accountEmail, .accountLinkedAccounts, .accountRecoveryKey]), BipeSettingsSection(key: "devices", titleKey: "bipe_account_devices", footerKey: nil, rows: [.accountThisDevice, .accountLinkedDevices]), BipeSettingsSection(key: "accounts", titleKey: "bipe_account_on_device", footerKey: nil, rows: [.accountAdd]), BipeSettingsSection(key: "leave", titleKey: nil, footerKey: nil, rows: [.accountSignOut])]
+        case .account: [BipeSettingsSection(key: "status", titleKey: "bipe_fallback_title", footerKey: nil, rows: [.accountWaysBackStatus]), BipeSettingsSection(key: "pin", titleKey: "bipe_account_pin_section", footerKey: "bipe_account_pin_footer", rows: [.accountChangePin, .accountAppLock, .accountBiometricUnlock]), BipeSettingsSection(key: "waysBack", titleKey: "bipe_account_ways_back", footerKey: nil, rows: [.accountEmail, .accountLinkedAccounts, .accountRecoveryKey]), BipeSettingsSection(key: "devices", titleKey: "bipe_account_devices", footerKey: nil, rows: [.accountThisDevice, .accountLinkedDevices]), BipeSettingsSection(key: "accounts", titleKey: "bipe_account_on_device", footerKey: nil, rows: [.accountAdd]), BipeSettingsSection(key: "leave", titleKey: nil, footerKey: nil, rows: [.accountSignOut, .accountDelete])]
         case .notifications: []
         case .chats: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: nil, rows: [.chatsAppearance, .chatsLanguage, .chatsMediaQuality, .chatsShowMedia, .chatsDataUse, .chatsLiveLocation])]
         case .help: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: "bipe_about_steward", rows: [.helpSupport, .helpDocs, .helpTerms, .helpPrivacy, .helpReportProblem, .helpLicenses])]
@@ -100,6 +100,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
     case accountLinkedDevices = "account.linkedDevices"
     case accountAdd = "account.add"
     case accountSignOut = "account.signOut"
+    case accountDelete = "account.delete"
     case chatsAppearance = "chats.appearance"
     case chatsLanguage = "chats.language"
     case chatsMediaQuality = "chats.mediaQuality"
@@ -140,6 +141,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountLinkedDevices: .link
         case .accountAdd: .action
         case .accountSignOut: .destructive
+        case .accountDelete: .destructive
         case .chatsAppearance: .choice
         case .chatsLanguage: .action
         case .chatsMediaQuality: .link
@@ -185,6 +187,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountLinkedDevices: "bipe_linked_devices_title"
         case .accountAdd: "bipe_account_add"
         case .accountSignOut: "bipe_account_sign_out"
+        case .accountDelete: "bipe_account_delete"
         case .chatsAppearance: "bipe_chats_appearance"
         case .chatsLanguage: "bipe_settings_language"
         case .chatsMediaQuality: "bipe_chats_media_quality"
@@ -227,6 +230,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountLinkedDevices: nil
         case .accountAdd: nil
         case .accountSignOut: nil
+        case .accountDelete: nil
         case .chatsAppearance: nil
         case .chatsLanguage: NSLocalizedString("bipe_settings_language_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .chatsMediaQuality: nil
@@ -271,6 +275,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountLinkedDevices: nil
         case .accountAdd: nil
         case .accountSignOut: nil
+        case .accountDelete: nil
         case .chatsAppearance: nil
         case .chatsLanguage: "ios"
         case .chatsMediaQuality: nil

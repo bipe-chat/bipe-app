@@ -13,6 +13,9 @@ package chat.bipe.shared.generated
 
 /** Screen ids of Bipe's own client. iOS and Android use the same ids. */
 enum class BipeScreen(val id: String) {
+    /** Delete the account (flow settings). Spec: bipe-shared/product/screens/account-delete.json */
+    ACCOUNT_DELETE("account-delete"),
+
     /** New account (flow home). Spec: bipe-shared/product/screens/account-new.json */
     ACCOUNT_NEW("account-new"),
 
@@ -126,6 +129,9 @@ enum class BipeScreen(val id: String) {
 
     /** Data use (flow settings). Spec: bipe-shared/product/screens/data-use.json */
     DATA_USE("data-use"),
+
+    /** Account deletion asked on another device (flow settings). Spec: bipe-shared/product/screens/deletion-alert.json */
+    DELETION_ALERT("deletion-alert"),
 
     /** Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json */
     DEVICE_VERIFICATION("device-verification"),

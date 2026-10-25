@@ -3877,4 +3877,76 @@ public enum BipeStrings {
     public static func orderRefuseReasonLabel(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_order_refuse_reason_label", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var accountDelete: String { NSLocalizedString("bipe_account_delete", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionTitle: String { NSLocalizedString("bipe_deletion_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func deletionIntro(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_deletion_intro", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func deletionPointHandle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_deletion_point_handle", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var deletionPointGroups: String { NSLocalizedString("bipe_deletion_point_groups", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionPointData: String { NSLocalizedString("bipe_deletion_point_data", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func deletionPointKept(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_deletion_point_kept", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var deletionPointCompany: String { NSLocalizedString("bipe_deletion_point_company", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionPointLastAccount: String { NSLocalizedString("bipe_deletion_point_last_account", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionRedact: String { NSLocalizedString("bipe_deletion_redact", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionRedactFooter: String { NSLocalizedString("bipe_deletion_redact_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionOwnerReason: String { NSLocalizedString("bipe_deletion_owner_reason", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionPinTitle: String { NSLocalizedString("bipe_deletion_pin_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionRequesting: String { NSLocalizedString("bipe_deletion_requesting", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func deletionRequested(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_deletion_requested", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func deletionBanner(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_deletion_banner", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var deletionCancel: String { NSLocalizedString("bipe_deletion_cancel", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yDeletionCancel: String { NSLocalizedString("bipe_a11y_deletion_cancel", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionCancelReason: String { NSLocalizedString("bipe_deletion_cancel_reason", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionCancelled: String { NSLocalizedString("bipe_deletion_cancelled", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionAlertTitle: String { NSLocalizedString("bipe_deletion_alert_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func deletionAlertBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_deletion_alert_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var deletionError: String { NSLocalizedString("bipe_deletion_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionCancelError: String { NSLocalizedString("bipe_deletion_cancel_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionPinNotSet: String { NSLocalizedString("bipe_deletion_pin_not_set", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionDone: String { NSLocalizedString("bipe_deletion_done", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deletionCustomerName: String { NSLocalizedString("bipe_deletion_customer_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func mailNoticeDeletionStarted(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_mail_notice_deletion_started", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var mailNoticeDeletionCancelled: String { NSLocalizedString("bipe_mail_notice_deletion_cancelled", tableName: "Bipe", bundle: .module, comment: "") }
 }
