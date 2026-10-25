@@ -17,7 +17,7 @@ import { checkStrings, findLiterals, isUserText } from './strings.mjs';
 import { provenanceLine } from './provenance.mjs';
 import { evaluate, flatNames, matchedTokens, parseCsv, tokenCounts } from './similarity.mjs';
 import { checkSdkVersion, projectPin, resolvedPin, catalogPin } from './sdk-version.mjs';
-import { exact, token, sameSerial, profileName, exportOptions, signing, certificates } from './asc.mjs';
+import { exact, token, sameSerial, profileName, exportOptions, signing, certificates, storeIds } from './asc.mjs';
 import { generateKeyPairSync, verify } from 'node:crypto';
 
 function tree(files) {
@@ -417,6 +417,48 @@ test('asc certificates lists development certificates only', async () => {
   try {
     const dev = await certificates(async () => ({ data: rows }));
     assert.equal(dev.length, 1);
+  } finally {
+    console.log = log;
+  }
+});
+
+test('asc store-ids reads the fork store app only and changes nothing', async () => {
+  const calls = [];
+  const rows = {
+    '/v1/bundleIds?filter[identifier]=chat.bipe.app&limit=200': [
+      { id: 'B1', attributes: { identifier: 'chat.bipe.app', name: 'Bipe' } },
+      { id: 'B2', attributes: { identifier: 'chat.bipe.app.nse', name: 'Bipe NSE' } },
+      { id: 'B3', attributes: { identifier: 'chat.bipe.app.next', name: 'Bipe Next' } },
+      { id: 'B4', attributes: { identifier: 'chat.bipe.app.next.nse', name: 'Bipe Next NSE' } },
+      { id: 'B5', attributes: { identifier: 'chat.bipe.appother', name: 'Other' } },
+    ],
+    '/v1/bundleIds/B1/bundleIdCapabilities': [{ attributes: { capabilityType: 'PUSH_NOTIFICATIONS' } }, { attributes: { capabilityType: 'APP_GROUPS' } }],
+    '/v1/bundleIds/B2/bundleIdCapabilities': [{ attributes: { capabilityType: 'APP_GROUPS' } }],
+    '/v1/apps?filter[bundleId]=chat.bipe.app': [
+      { id: 'A0', attributes: { bundleId: 'chat.bipe.app.next', name: 'Bipe Next', sku: 'bipe-next' } },
+      { id: 'A1', attributes: { bundleId: 'chat.bipe.app', name: 'Bipe', sku: 'bipe' } },
+    ],
+    '/v1/builds?filter[app]=A1&sort=-uploadedDate&limit=200': [{ attributes: { version: '207' } }, { attributes: { version: '1024' } }, { attributes: { version: 'x' } }],
+    '/v1/apps/A1/appStoreVersions?limit=10': [{ attributes: { versionString: '1.4', appStoreState: 'READY_FOR_SALE' } }],
+  };
+  const call = async (method, path) => {
+    calls.push(`${method} ${path}`);
+    if (!(path in rows)) throw new Error(`unexpected ${method} ${path}`);
+    return { data: rows[path] };
+  };
+  const dir = mkdtempSync(join(tmpdir(), 'bipe-asc-summary-'));
+  const summary = join(dir, 'summary.md');
+  const log = console.log;
+  console.log = () => {};
+  try {
+    const report = await storeIds(call, { summary });
+    assert.deepEqual(report.bundleIds.map((b) => b.identifier), ['chat.bipe.app', 'chat.bipe.app.nse']);
+    assert.deepEqual(report.bundleIds[0].capabilities, ['APP_GROUPS', 'PUSH_NOTIFICATIONS']);
+    assert.deepEqual(report.app, { id: 'A1', name: 'Bipe', sku: 'bipe' });
+    assert.equal(report.lastBuild, 1024);
+    assert.deepEqual(report.versions, ['1.4 (READY_FOR_SALE)']);
+    assert.ok(calls.every((c) => c.startsWith('GET ')));
+    assert.match(readFileSync(summary, 'utf8'), /Last build number: 1024/);
   } finally {
     console.log = log;
   }

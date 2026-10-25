@@ -41,6 +41,7 @@ settings:
     # The store set (the fork's IDs, ADR 0061) passes BIPE_APP_ID=chat.bipe.app BIPE_APP_GROUP=group.chat.bipe
     # BIPE_DISPLAY_NAME=Bipe on the xcodebuild command line; CI builds it unsigned and never uploads it before the switch.
     # The extension IDs derive from BIPE_APP_ID (.nse, .share); for the store set that is unverified against the fork.
+    # The "Report the store IDs" step of testflight.yml (node tools/asc.mjs store-ids) lists the fork's real IDs.
     BIPE_APP_ID: chat.bipe.app.next
     BIPE_APP_GROUP: group.chat.bipe.next
 
