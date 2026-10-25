@@ -166,6 +166,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Move to a new phone: show the code on the old phone (flow devices). Spec: bipe-shared/product/screens/link-phone-show.json
     case linkPhoneShow = "link-phone-show"
 
+    /// Accounts for Bipe recovery (flow settings). Spec: bipe-shared/product/screens/linked-accounts.json
+    case linkedAccounts = "linked-accounts"
+
     /// Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json
     case linkedDevices = "linked-devices"
 
@@ -250,6 +253,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json
     case pushRegistration = "push-registration"
 
+    /// Question card (flow chat). Spec: bipe-shared/product/screens/question-card.json
+    case questionCard = "question-card"
+
     /// Fila virtual for the customer (flow business). Spec: bipe-shared/product/screens/queue-customer.json
     case queueCustomer = "queue-customer"
 
@@ -279,6 +285,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Save a recovery key (flow encryption). Spec: bipe-shared/product/screens/recovery-key-save.json
     case recoveryKeySave = "recovery-key-save"
+
+    /// Get back in with a linked account (flow recovery). Spec: bipe-shared/product/screens/recovery-linked.json
+    case recoveryLinked = "recovery-linked"
 
     /// New phone: scan the code of the old phone (flow recovery). Spec: bipe-shared/product/screens/recovery-old-phone.json
     case recoveryOldPhone = "recovery-old-phone"
