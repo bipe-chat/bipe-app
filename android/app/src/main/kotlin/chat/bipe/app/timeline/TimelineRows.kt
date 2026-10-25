@@ -7,6 +7,8 @@ package chat.bipe.app.timeline
 import chat.bipe.app.common.displayName
 import chat.bipe.app.media.MediaContent
 import chat.bipe.app.media.MediaFormat
+import chat.bipe.app.media.MediaMessage
+import chat.bipe.shared.media.BipeImageDescription
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeHandleChangePlacement
 import chat.bipe.shared.api.BipeHandleChange
@@ -194,7 +196,15 @@ object TimelineRowBuilder {
                     // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
                     val mediaContent = when (val found = MediaContent.of(content.kind)) {
                         is MediaContent.Media -> MediaContent.Media(
-                            found.media.copy(uploadProgress = if (event.isOwn) MediaFormat.uploadPercent(event.localSendState) else null),
+                            found.media.copy(
+                                uploadProgress = if (event.isOwn) MediaFormat.uploadPercent(event.localSendState) else null,
+                                // The SDK types have no field for the image description; it comes from the event JSON (bipe-chat/bipe#501).
+                                description = if (found.media.kind == MediaMessage.Kind.IMAGE) {
+                                    BipeImageDescription.read(event.lazyProvider.debugInfo().originalJson)
+                                } else {
+                                    null
+                                },
+                            ),
                         )
                         else -> found
                     }

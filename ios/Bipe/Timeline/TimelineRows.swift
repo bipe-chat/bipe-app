@@ -208,6 +208,10 @@ enum TimelineRowBuilder {
             var mediaContent = MediaContent(content.kind)
             if case .media(var media) = mediaContent {
                 media.uploadProgress = event.isOwn ? MediaFormat.uploadPercent(event.localSendState) : nil
+                // The SDK types have no field for the image description; it comes from the event JSON (bipe-chat/bipe#501).
+                if media.kind == .image {
+                    media.description = BipeImageDescription.read(eventJson: event.lazyProvider.debugInfo().originalJson)
+                }
                 mediaContent = .media(media)
             }
             switch content.kind {

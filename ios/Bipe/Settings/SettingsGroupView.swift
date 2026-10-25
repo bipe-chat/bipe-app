@@ -41,7 +41,6 @@ struct SettingsGroupView: View {
                     Text(BipeStrings.accountCompanyOwner(owner))
                         .font(.subheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
-                        .listRowBackground(BipeColor.surfaceRaised)
                 }
             }
             if group == .account, let warning = model.waysBack?.warning {
@@ -57,7 +56,6 @@ struct SettingsGroupView: View {
                 Section {
                     ForEach(visible.rows, id: \.self) { row in
                         rowView(row)
-                            .listRowBackground(BipeColor.surfaceRaised)
                     }
                 } header: {
                     if let title = section.title {
@@ -68,8 +66,6 @@ struct SettingsGroupView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(group.title)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.settingsGroup.rawValue)
@@ -377,11 +373,8 @@ struct ChoiceListView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selection == option.id ? .isSelected : [])
-                .listRowBackground(BipeColor.surfaceRaised)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -472,16 +465,12 @@ private struct MessagingPickerView: View {
                 .buttonStyle(.plain)
                 .disabled(saving)
                 .accessibilityAddTraits(model.whoCanMessage == option ? .isSelected : [])
-                .listRowBackground(BipeColor.surfaceRaised)
             }
             if failed {
                 Text(BipeStrings.errorGeneric)
                     .foregroundStyle(BipeColor.trustDangerInk)
-                    .listRowBackground(BipeColor.surfaceBase)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.messagingTitle)
         .navigationBarTitleDisplayMode(.inline)
     }

@@ -173,10 +173,11 @@ final class PeopleService: ObservableObject {
         return Person.localpart(of: userId)
     }
 
-    /// The person's identity is verified by the user (an in-person QR or emoji check).
-    func isConfirmedInPerson(_ userId: String) async -> Bool {
-        guard let identity = try? await session.client.encryption().userIdentity(userId: userId, fallbackToServer: false) else { return false }
-        return identity.isVerified()
+    /// The person's cross-signing identity for the trust facts (ADR 0074). nil: the SDK could not read it.
+    func trustIdentity(_ userId: String) async -> BipeTrustSources.Identity? {
+        guard let identity = try? await session.client.encryption().userIdentity(userId: userId, fallbackToServer: true) else { return nil }
+        return BipeTrustSources.Identity(masterKey: identity.masterKey(), isVerified: identity.isVerified(),
+                                         hasVerificationViolation: identity.hasVerificationViolation())
     }
 
     // MARK: - DMs (ADR 0141)

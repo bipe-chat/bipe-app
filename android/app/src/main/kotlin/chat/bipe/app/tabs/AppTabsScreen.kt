@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import chat.bipe.app.business.AgendaOwnerScreen
 import chat.bipe.app.chatlist.ChatRequestsModel
 import chat.bipe.app.chatlist.ChatSearchModel
 import chat.bipe.app.chatlist.RemoteBannerModel
@@ -31,7 +32,7 @@ import chat.bipe.app.people.PeopleRoute
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
 
-/** Spec app-tabs: Conversas · Grupos · Você in the bottom bar; search is a top-bar action on Android (ADR 0053). */
+/** Spec app-tabs: Conversas · Grupos · (Agenda for a company) · Você in the bottom bar; search is a top-bar action on Android (ADR 0053). */
 @Composable
 fun AppTabsScreen(
     tabs: AppTabsModel,
@@ -82,6 +83,8 @@ fun AppTabsScreen(
                         account = account, onOpenVoce = { tabs.selectTab(AppTabsModel.Tab.VOCE) },
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                         requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
+                // Spec agenda-owner: the company account's Agenda tab.
+                AppTabsModel.Tab.AGENDA -> AgendaOwnerScreen(session, chatList, onOpenChat)
                 AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }
