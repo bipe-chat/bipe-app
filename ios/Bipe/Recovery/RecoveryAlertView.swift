@@ -7,9 +7,10 @@ import Phosphor
 import SwiftUI
 
 /// Spec recovery-alert (bipe-shared product/screens/recovery-alert.json): on a signed-in phone, a full alert while
-/// someone gets back into this account elsewhere, with a cancel; and a notice after a sign-in with the synced token.
-/// Spec deletion-alert (ADR 0140): the same alert while a deletion asked on another device waits. A recovery alert
-/// goes first.
+/// someone gets back into this account elsewhere, with a cancel; a notice after a sign-in with the synced token; and a
+/// notice after an Apple or Google account was linked or unlinked (state linkNotice, ADR 0096).
+/// Spec deletion-alert (ADR 0140): the same alert while a deletion asked on another device waits, after any recovery
+/// notice.
 @MainActor
 final class RecoveryAlertModel: ObservableObject {
     enum Phase: Equatable {
@@ -20,6 +21,9 @@ final class RecoveryAlertModel: ObservableObject {
     }
 
     @Published private(set) var notice: BipeRecovery?
+    /// Shown when no recovery needs a notice.
+    @Published private(set) var linkNotice: BipeLinkEvent?
+    /// A deletion asked on another device. Shown when no recovery needs a notice.
     @Published private(set) var deletion: BipeAccountDeletion?
     @Published private(set) var phase: Phase = .shown
 
@@ -34,7 +38,7 @@ final class RecoveryAlertModel: ObservableObject {
 
     /// Action check: on launch and on foreground, from GET /v1/me/account.
     func check() async {
-        guard (notice == nil && deletion == nil) || phase == .cancelled else { return }
+        guard !isShown || phase == .cancelled else { return }
         let status = try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeAccountStatus in
             try await self.api.account(accessToken: token)
         }
@@ -47,12 +51,19 @@ final class RecoveryAlertModel: ObservableObject {
             .filter { $0.state == .waiting || $0.createdAt > since }
             .max { $0.createdAt < $1.createdAt }
         DeletionDate.remember(status.deletion?.dueAt, for: session.userId)
-        deletion = notice == nil ? status.deletion.flatMap { $0.fromThisDevice || dismissed.contains($0.id) ? nil : $0 } : nil
+        deletion = notice != nil ? nil : status.deletion.flatMap { $0.fromThisDevice || dismissed.contains($0.id) ? nil : $0 }
+        // A link made on this phone was dismissed here when it was made (RecoveryAlertModel.dismissOnThisPhone).
+        linkNotice = notice != nil || deletion != nil ? nil : (status.linkEvents ?? [])
+            .filter { !dismissed.contains($0.id) && $0.at > since }
+            .max { $0.at < $1.at }
         phase = .shown
     }
 
     /// Whether the alert covers the screen.
-    var isShown: Bool { notice != nil || deletion != nil }
+    var isShown: Bool { notice != nil || deletion != nil || linkNotice != nil }
+
+    /// The deletion alert shows when no recovery alert does.
+    var showsDeletion: Bool { notice == nil && deletion != nil }
 
     /// Action cancel: for a waiting recovery, the owner check and then the cancel.
     func cancel() async {
@@ -104,7 +115,17 @@ final class RecoveryAlertModel: ObservableObject {
         } else if let deletion {
             dismiss(deletion.id)
             self.deletion = nil
+        } else if let linkNotice {
+            dismiss(linkNotice.id)
+            self.linkNotice = nil
         }
+    }
+
+    /// A link or unlink made on this phone needs no notice here.
+    static func dismissOnThisPhone(userId: String, eventIds: [String]) {
+        let key = "bipe.recoveryAlert.dismissed.\(userId)"
+        let defaults = UserDefaults.standard
+        defaults.set(Array(Set(defaults.stringArray(forKey: key) ?? []).union(eventIds)), forKey: key)
     }
 
     /// Closes the cancelled message.
@@ -113,9 +134,6 @@ final class RecoveryAlertModel: ObservableObject {
         deletion = nil
         phase = .shown
     }
-
-    /// The deletion alert shows when no recovery alert does.
-    var showsDeletion: Bool { notice == nil && deletion != nil }
 
     private var dismissedKey: String { "bipe.recoveryAlert.dismissed.\(session.userId)" }
     private var sinceKey: String { "bipe.recoveryAlert.since.\(session.userId)" }
@@ -165,6 +183,9 @@ struct RecoveryAlertView: View {
                         .foregroundStyle(BipeColor.inkPrimary)
                 } else if let deletion = model.deletion {
                     Text(BipeStrings.deletionAlertBody(DeletionDate.text(deletion.dueAt)))
+                        .foregroundStyle(BipeColor.inkPrimary)
+                } else if let message = model.linkNotice?.alertMessage {
+                    Text(message)
                         .foregroundStyle(BipeColor.inkPrimary)
                 }
                 if model.phase == .failed {

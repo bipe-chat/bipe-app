@@ -925,6 +925,10 @@ public enum BipeAPIErrorCode: String, Sendable {
     case emailUnavailable = "email_unavailable"
     /// 403. Reason `missing` or `outdated` (ADR 0113).
     case termsRequired = "terms_required"
+    /// HTTP 409: that Apple or Google account is linked to another Bipe account (ADR 0096).
+    case linkTaken = "link_taken"
+    /// HTTP 503: the server has no configuration for that provider (ADR 0096).
+    case linkUnavailable = "link_unavailable"
     /// 503. The support account is not set up on the server (ADR 0114).
     case supportUnavailable = "support_unavailable"
     /// 409. An account deletion already waits (ADR 0140).
@@ -1005,6 +1009,8 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .emailUnavailable: BipeStrings.errorEmailUnavailable
             case .termsRequired: BipeStrings.signupTermsRequired
             case .supportUnavailable: BipeStrings.supportOpenFailed
+            case .linkTaken: BipeStrings.linkedAccountTaken
+            case .linkUnavailable: BipeStrings.linkedAccountError
             case .slotTaken, .holdExpired, .tooManyOpenBookings, .outsideNotice, .outsideHorizon, .agendaNotPublished,
                  .cancellationWindowClosed: self.agendaMessage
             case .queueClosed, .alreadyInQueue, .placeNotActive: self.queueMessage

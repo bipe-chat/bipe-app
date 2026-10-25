@@ -47,6 +47,10 @@ public struct BipeAccountStatus: Decodable, Sendable, Equatable {
     public let maxAccounts: Int?
     /// ADR 0087. Absent from an older server: personal.
     public let accountType: BipeAccountType?
+    /// ADR 0096: the linked Apple and Google accounts. Absent from an older server: none.
+    public let links: [BipeLinkedAccount]?
+    /// ADR 0096: links and unlinks of the last 7 days, newest first. The other devices show each once.
+    public let linkEvents: [BipeLinkEvent]?
     /// bipe-chat/bipe#531: a way back the server can check that does not depend on the Apple Team ID (a verified
     /// recovery email). `false` shows the recovery-reminder card. Absent from an older server: no card.
     public let independentRecovery: Bool?
@@ -143,6 +147,8 @@ public struct BipeRecoveryClaim: Decodable, Sendable, CustomStringConvertible {
 /// Contract: `Recovery.method`.
 public enum BipeRecoveryMethod: String, Codable, Sendable {
     case token, email, guardian, cpf
+    /// A linked Apple or Google account (ADR 0096).
+    case apple, google
     
     public init(from decoder: Decoder) throws {
         // An unknown value from a newer server must not fail the account state.
@@ -178,6 +184,8 @@ public extension BipeRecovery {
         case (.waiting, .pinReset, _): return BipeStrings.recoveryAlertPinReset(date)
         case (.waiting, .access, .guardian): return BipeStrings.recoveryAlertGuardian(date)
         case (.waiting, .access, .cpf): return BipeStrings.recoveryAlertCpf(date)
+        case (.waiting, .access, .apple): return BipeStrings.recoveryLinkedAppleAlert
+        case (.waiting, .access, .google): return BipeStrings.recoveryLinkedGoogleAlert
         case (.waiting, .access, _): return BipeStrings.recoveryAlertEmail(date)
         case (.completed, .access, .token): return BipeStrings.recoveryAlertToken
         default: return nil
