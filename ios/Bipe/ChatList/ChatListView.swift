@@ -323,21 +323,18 @@ struct ChatListView: View {
         Button(showingArchived ? (scope == .conversas ? BipeStrings.appChatListTitle : BipeStrings.tabGroups) : BipeStrings.archivedTitle) {
             showingArchived.toggle()
         }
-        .listRowBackground(BipeColor.surfaceBase)
         if model.readActionFailed {
             VStack(alignment: .leading) {
                 Text(BipeStrings.chatReadError).foregroundStyle(BipeColor.trustDangerInk)
                 Button(BipeStrings.appRetry) { Task { await model.retryReadAction() } }
                     .disabled(model.markingRoomId != nil)
             }
-            .listRowBackground(BipeColor.surfaceBase)
         }
         if archive.failed {
             VStack(alignment: .leading) {
                 Text(BipeStrings.archiveError).foregroundStyle(BipeColor.trustDangerInk)
                 Button(BipeStrings.appRetry) { archive.retry(model.chats) }
             }
-            .listRowBackground(BipeColor.surfaceBase)
         }
         if !showingArchived && scope == .conversas && requests.rowCount > 0 {
             // Action openBox.
@@ -346,16 +343,13 @@ struct ChatListView: View {
             } label: {
                 ChatRequestsRow(count: requests.rowCount)
             }
-            .listRowBackground(BipeColor.surfaceBase)
         }
         ForEach(!showingArchived && scope == .grupos ? requests.visibleGroupInvites : []) { invite in
             GroupInviteRow(model: requests, invite: invite, media: model.media, onOpenChat: openChat)
-                .listRowBackground(BipeColor.surfaceBase)
         }
         if requests.error {
             Text(BipeStrings.errorGeneric)
                 .foregroundStyle(BipeColor.trustDangerInk)
-                .listRowBackground(BipeColor.surfaceBase)
         }
     }
 
@@ -372,11 +366,9 @@ struct ChatListView: View {
                     Text(BipeStrings.archivedEmpty).foregroundStyle(BipeColor.inkSecondary)
                 } else { emptyState }
                 moreRows
-                    .listRowBackground(BipeColor.surfaceBase)
                     .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         case .loaded:
             let chats = model.chats(in: scope, archived: showingArchived)
             List {
@@ -384,7 +376,6 @@ struct ChatListView: View {
                 ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
                     .buttonStyle(.plain)
-                    .listRowBackground(BipeColor.surfaceBase)
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
                     .contextMenu { rowMenu(chat.roomId) }
                     .accessibilityActions { rowMenu(chat.roomId) }
@@ -397,7 +388,6 @@ struct ChatListView: View {
                 moreRows
             }
             .listStyle(.plain)
-            .scrollContentBackground(.hidden)
         }
     }
 
@@ -445,7 +435,6 @@ struct ChatListView: View {
     @ViewBuilder private var moreRows: some View {
         if !showingArchived {
             Button(BipeStrings.chatListMore) { model.loadMore(in: scope) }
-                .listRowBackground(BipeColor.surfaceBase)
         }
     }
 

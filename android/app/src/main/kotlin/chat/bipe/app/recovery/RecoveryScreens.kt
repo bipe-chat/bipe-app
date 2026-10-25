@@ -21,14 +21,15 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -57,6 +58,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountList
+import chat.bipe.app.common.edgeToEdge
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeOnboardingRecoveryRow
@@ -148,22 +150,19 @@ private fun RecoveryStartScreen(model: RecoveryFlowModel, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val rows by model.rows.collectAsState()
     RecoveryStep(BipeScreen.RECOVERY_START, stringResource(R.string.bipe_recovery_title), onBack = onClose) {
-        rows.forEach { row ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(colors.surfaceRaised, RoundedCornerShape(12.dp))
-                    .clickable { model.choose(row) }
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(stringResource(row.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
+        Column(modifier = Modifier.edgeToEdge(24.dp).fillMaxWidth()) {
+            rows.forEachIndexed { index, row ->
+                if (index > 0) HorizontalDivider()
                 val body = if (row == BipeOnboardingRecoveryRow.EMAIL) {
                     stringResource(row.body, BipeRegistries.RECOVERY_DELAY_HOURS_EMAIL.toString())
                 } else {
                     stringResource(row.body)
                 }
-                Text(body, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
+                ListItem(
+                    headlineContent = { Text(stringResource(row.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary) },
+                    supportingContent = { Text(body, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) },
+                    modifier = Modifier.fillMaxWidth().clickable { model.choose(row) },
+                )
             }
         }
     }

@@ -166,8 +166,6 @@ struct AccountNewView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.accountNewTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -198,7 +196,6 @@ struct AccountNewView: View {
             .padding(.vertical, 4)
         }
         .disabled(!on)
-        .listRowBackground(BipeColor.surfaceRaised)
     }
 
     private func choose(_ accountType: BipeAccountType) {

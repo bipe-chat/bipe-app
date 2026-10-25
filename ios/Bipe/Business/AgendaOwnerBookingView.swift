@@ -131,7 +131,6 @@ struct AgendaOwnerBookingView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
     }
 
     private func details(_ booking: BipeBooking) -> some View {
@@ -145,7 +144,6 @@ struct AgendaOwnerBookingView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(booking.status.tint)
         }
-        .listRowBackground(BipeColor.surfaceRaised)
     }
 
     @ViewBuilder
@@ -169,7 +167,6 @@ struct AgendaOwnerBookingView: View {
             }
         }
         .disabled(saving)
-        .listRowBackground(BipeColor.surfaceRaised)
     }
 
     @ViewBuilder
@@ -192,7 +189,6 @@ struct AgendaOwnerBookingView: View {
                 DatePicker(BipeStrings.agendaTime, selection: $start, displayedComponents: [.hourAndMinute])
             }
             .environment(\.timeZone, timeZone)
-            .listRowBackground(BipeColor.surfaceRaised)
             if booking == nil {
                 Section {
                     Picker(BipeStrings.agendaCustomer, selection: $source) {
@@ -215,7 +211,6 @@ struct AgendaOwnerBookingView: View {
                 } footer: {
                     if source == .typed { Text(BipeStrings.agendaWalkInHint) }
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
             }
         }
     }

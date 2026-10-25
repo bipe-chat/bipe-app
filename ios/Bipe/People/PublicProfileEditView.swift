@@ -134,7 +134,6 @@ struct PublicProfileEditView: View {
                 }
             }
         }
-        .scrollContentBackground(.hidden)
     }
 
     @ViewBuilder

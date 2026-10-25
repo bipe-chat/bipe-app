@@ -40,11 +40,8 @@ struct OpenSourceLicencesView: View {
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                 }
-                .listRowBackground(BipeColor.surfaceRaised)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.helpLicenses)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.openSourceLicences.rawValue)

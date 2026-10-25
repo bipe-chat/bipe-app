@@ -34,8 +34,6 @@ struct GroupDetailsView: View {
                 editingSections
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.appGroupDetailsTitle)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(model.phase != .viewing)

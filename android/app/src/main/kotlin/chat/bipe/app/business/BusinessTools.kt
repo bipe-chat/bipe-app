@@ -13,8 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -163,11 +164,9 @@ fun MyBookingsScreen(session: AccountSession, onOpenChat: (String) -> Unit, onCl
             list.isEmpty() -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                 Text(stringResource(R.string.bipe_agenda_no_bookings), color = colors.inkSecondary, textAlign = TextAlign.Center)
             }
-            else -> LazyColumn(
-                Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(list, key = { it.booking.id }) { view ->
+            else -> LazyColumn(Modifier.fillMaxSize()) {
+                itemsIndexed(list, key = { _, view -> view.booking.id }) { index, view ->
+                    if (index > 0) HorizontalDivider()
                     BookingCard(
                         view = view,
                         ownerMode = false,
@@ -176,6 +175,7 @@ fun MyBookingsScreen(session: AccountSession, onOpenChat: (String) -> Unit, onCl
                         onOpenOwner = {},
                         onChanged = { attempt++ },
                         onOpen = { onOpenChat(view.booking.businessId) },
+                        inList = true,
                     )
                 }
             }
