@@ -89,6 +89,9 @@ import chat.bipe.app.pixcheck.PixPreview
 import chat.bipe.app.pixcheck.PixSendScreen
 import chat.bipe.app.recovery.RecoveryAlertModel
 import chat.bipe.app.recovery.RecoveryAlertScreen
+import chat.bipe.app.recovery.RecoveryEmailAddScreen
+import chat.bipe.app.recovery.RecoveryReminderCard
+import chat.bipe.app.recovery.RecoveryReminderModel
 import chat.bipe.app.signup.SignupStart
 import chat.bipe.app.tabs.AccountNewScreen
 import chat.bipe.app.tabs.InviteSignedInScreen
@@ -126,6 +129,9 @@ fun HomeScreen(
     val model = remember(session) { tabs.chatList(session) }
     val media = remember(session) { tabs.media(session) }
     val handle = remember(session) { HandlePickModel(context, api, session, scope) }
+    val recovery = remember(session) { RecoveryReminderModel(context.applicationContext, api, session, scope) }
+    val recoveryState by recovery.state.collectAsState()
+    var showsRecoveryEmail by rememberSaveable { mutableStateOf(false) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     val people = remember(session) { PeopleService(context, session, api, media, scope) }
     val requests = remember(session) { ChatRequestsModel(context.applicationContext, session, api, scope, people) }
@@ -180,6 +186,7 @@ fun HomeScreen(
     LaunchedEffect(foregroundCount) { recoveryAlert.check() }
     // Critical banners refresh alongside account/profile and recovery checks.
     LaunchedEffect(foregroundCount) { remoteBanner.refresh() }
+    LaunchedEffect(foregroundCount) { recovery.load() }
     // Spec notification-service, action open.
     val roomToOpen by app.roomToOpen.collectAsState()
     // Spec pix-check-result, action sendToChat: a preview from Conferir no Bipe, for this account only.
@@ -247,6 +254,10 @@ fun HomeScreen(
             BackHandler { showsHandlePick = false }
             HandlePickScreen(handle, onClose = { showsHandlePick = false })
         }
+        showsRecoveryEmail -> RecoveryEmailAddScreen(
+            api, session, current = recoveryState.account?.email, pending = recoveryState.account?.emailPending,
+            onSent = recovery::load, onClose = { showsRecoveryEmail = false },
+        )
         showsRequests -> ChatRequestsScreen(requests, media,
             onBack = { showsRequests = false },
             onOpenChat = { showsRequests = false; openRoomId = it },
@@ -301,6 +312,9 @@ fun HomeScreen(
                     onOpenChat = { openRoomId = it },
                     onNewAccount = { showsNewAccount = true },
                     banner = { HistoryBanner(encryption) },
+                    recoveryCard = {
+                        if (recovery.showsCard(recoveryState)) RecoveryReminderCard(recovery) { showsRecoveryEmail = true }
+                    },
                     onCreateGroup = groups.createGroup,
                     onDeleteDm = groups.deleteDm,
                     onChatNotifications = groups.openNotifications,
@@ -337,6 +351,8 @@ fun ChatListScreen(
     onOpenVoce: () -> Unit = {},
     /** Spec encryption-status: the banner above the chat list. */
     banner: @Composable () -> Unit = {},
+    /** Spec recovery-reminder: shows when the handle card does not (one card at a time). */
+    recoveryCard: @Composable () -> Unit = {},
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
     onChatNotifications: (String) -> Unit = {},
@@ -400,6 +416,7 @@ fun ChatListScreen(
             banner()
             run {
                 if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
+                else if (scope == ChatScope.CONVERSAS) recoveryCard()
                 if (!showingArchived) UnreadChip(unreadOnly) { model.toggleUnread(scope) }
                 TextButton(onClick = { showingArchived = !showingArchived }) {
                     Text(stringResource(if (!showingArchived) R.string.bipe_archived_title else if (scope == ChatScope.CONVERSAS) R.string.bipe_app_chat_list_title else R.string.bipe_tab_groups))

@@ -225,6 +225,7 @@ final class AccountStartModel: ObservableObject {
         let order = AccountList.order
         watchAuthErrors(session)
         NotificationActions.shared.attach(session)
+        Task { await KeychainMove.report(session, api: api) }
         sessions.append(session)
         sessions.sort { (order.firstIndex(of: $0.userId) ?? .max) < (order.firstIndex(of: $1.userId) ?? .max) }
     }
