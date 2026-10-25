@@ -9,10 +9,29 @@ import SwiftUI
 /// Camera preview that reads QR codes and hands over their raw bytes. The MSC4108 code is binary, so the bytes
 /// come from the error-corrected payload, not from the text value.
 struct QRScannerView: UIViewRepresentable {
-    let onCode: (Data) -> Void
+    enum Reading {
+        case bytes((Data) -> Void)
+        case text((String) -> Void)
+    }
+
+    let reading: Reading
+
+    init(onCode: @escaping (Data) -> Void) {
+        reading = .bytes(onCode)
+    }
+
+    private init(reading: Reading) {
+        self.reading = reading
+    }
+
+    /// A text code, such as an invite link (bipe-chat/bipe#621): the decoded text of all segments. Apple's encoder
+    /// puts an uppercase tail such as the invite code in alphanumeric mode, which the byte reading drops.
+    static func text(_ onText: @escaping (String) -> Void) -> QRScannerView {
+        QRScannerView(reading: .text(onText))
+    }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onCode: onCode)
+        Coordinator(reading: reading)
     }
 
     func makeUIView(context: Context) -> PreviewView {
@@ -24,7 +43,7 @@ struct QRScannerView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: PreviewView, context: Context) {
-        context.coordinator.onCode = onCode
+        context.coordinator.reading = reading
     }
 
     static func dismantleUIView(_ uiView: PreviewView, coordinator: Coordinator) {
@@ -38,12 +57,12 @@ struct QRScannerView: UIViewRepresentable {
 
     final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
         let session = AVCaptureSession()
-        var onCode: (Data) -> Void
+        var reading: Reading
         private let queue = DispatchQueue(label: "chat.bipe.qr-scanner")
         private var lastCode: Data?
 
-        init(onCode: @escaping (Data) -> Void) {
-            self.onCode = onCode
+        init(reading: Reading) {
+            self.reading = reading
             super.init()
             guard let camera = AVCaptureDevice.default(for: .video),
                   let input = try? AVCaptureDeviceInput(device: camera),
@@ -70,13 +89,21 @@ struct QRScannerView: UIViewRepresentable {
                             didOutput metadataObjects: [AVMetadataObject],
                             from connection: AVCaptureConnection) {
             for object in metadataObjects {
-                guard let code = object as? AVMetadataMachineReadableCodeObject,
-                      let descriptor = code.descriptor as? CIQRCodeDescriptor,
-                      let bytes = QRPayload.bytes(of: descriptor) else { continue }
-                // The same code stays in front of the camera: hand it over once.
-                guard bytes != lastCode else { return }
-                lastCode = bytes
-                onCode(bytes)
+                guard let code = object as? AVMetadataMachineReadableCodeObject else { continue }
+                switch reading {
+                case .bytes(let onCode):
+                    guard let descriptor = code.descriptor as? CIQRCodeDescriptor,
+                          let bytes = QRPayload.bytes(of: descriptor) else { continue }
+                    // The same code stays in front of the camera: hand it over once.
+                    guard bytes != lastCode else { return }
+                    lastCode = bytes
+                    onCode(bytes)
+                case .text(let onText):
+                    guard let text = code.stringValue, !text.isEmpty else { continue }
+                    guard Data(text.utf8) != lastCode else { return }
+                    lastCode = Data(text.utf8)
+                    onText(text)
+                }
                 return
             }
         }

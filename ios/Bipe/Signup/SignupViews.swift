@@ -433,8 +433,7 @@ struct InviteScanSheet: View {
                     Text(BipeStrings.appInviteScanBody)
                         .foregroundStyle(BipeColor.inkSecondary)
                         .multilineTextAlignment(.center)
-                    QRScannerView { bytes in
-                        guard let text = String(data: bytes, encoding: .utf8) else { return }
+                    QRScannerView.text { text in
                         dismiss()
                         onText(text)
                     }

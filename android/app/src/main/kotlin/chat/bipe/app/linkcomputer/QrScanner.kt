@@ -31,9 +31,12 @@ import java.util.concurrent.Executors
 /**
  * Camera preview that reads QR codes and hands over their raw bytes. The MSC4108 code is binary, so the bytes come
  * from the byte segments of the decoded code, not from its text.
+ *
+ * readText: a text code, such as an invite link (bipe-chat/bipe#621). The bytes are the UTF-8 of the decoded text of
+ * all segments; iOS puts an uppercase tail such as the invite code in alphanumeric mode, which the byte segments drop.
  */
 @Composable
-fun QrScanner(onCode: (ByteArray) -> Unit, modifier: Modifier = Modifier) {
+fun QrScanner(onCode: (ByteArray) -> Unit, modifier: Modifier = Modifier, readText: Boolean = false) {
     val context = LocalContext.current
     val currentOnCode = rememberUpdatedState(onCode)
     val previewView = remember { PreviewView(context) }
@@ -50,7 +53,7 @@ fun QrScanner(onCode: (ByteArray) -> Unit, modifier: Modifier = Modifier) {
                 .build()
             val reader = QRCodeReader()
             analysis.setAnalyzer(executor) { image ->
-                val bytes = decode(reader, image)
+                val bytes = decode(reader, image, readText)
                 image.close()
                 if (bytes != null && !bytes.contentEquals(lastCode)) {
                     lastCode = bytes
@@ -68,8 +71,8 @@ fun QrScanner(onCode: (ByteArray) -> Unit, modifier: Modifier = Modifier) {
     AndroidView(factory = { previewView }, modifier = modifier)
 }
 
-/** The bytes of a QR code in the luminance plane of a YUV frame, or null. */
-private fun decode(reader: QRCodeReader, image: ImageProxy): ByteArray? {
+/** The bytes of a QR code in the luminance plane of a YUV frame (or of its text with readText), or null. */
+private fun decode(reader: QRCodeReader, image: ImageProxy, readText: Boolean): ByteArray? {
     val plane = image.planes.firstOrNull() ?: return null
     val buffer = plane.buffer
     val width = image.width
@@ -84,6 +87,7 @@ private fun decode(reader: QRCodeReader, image: ImageProxy): ByteArray? {
     val hints = mapOf(DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE), DecodeHintType.TRY_HARDER to true)
     val result = runCatching { reader.decode(BinaryBitmap(HybridBinarizer(source)), hints) }.getOrNull()
     reader.reset()
+    if (readText) return result?.text?.encodeToByteArray()?.takeIf { it.isNotEmpty() }
     @Suppress("UNCHECKED_CAST")
     val segments = result?.resultMetadata?.get(ResultMetadataType.BYTE_SEGMENTS) as? List<ByteArray> ?: return null
     return segments.fold(ByteArray(0)) { all, segment -> all + segment }.takeIf { it.isNotEmpty() }
