@@ -3206,6 +3206,16 @@ public enum BipeStrings {
 
     public static var appUploadCaptionPlaceholder: String { NSLocalizedString("bipe_app_upload_caption_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appUploadDescription: String { NSLocalizedString("bipe_app_upload_description", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadDescriptionPlaceholder: String { NSLocalizedString("bipe_app_upload_description_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadDescriptionFooter: String { NSLocalizedString("bipe_app_upload_description_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appMediaImageDescribed(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_media_image_described", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var appUploadSend: String { NSLocalizedString("bipe_app_upload_send", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appUploadPreparing: String { NSLocalizedString("bipe_app_upload_preparing", tableName: "Bipe", bundle: .module, comment: "") }
