@@ -646,7 +646,17 @@ public enum BipeStrings {
 
     public static var voiceTranscriptTitle: String { NSLocalizedString("bipe_voice_transcript_title", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var voiceTranscribe: String { NSLocalizedString("bipe_voice_transcribe", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var voiceTranscribing: String { NSLocalizedString("bipe_voice_transcribing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceTranscribedHere: String { NSLocalizedString("bipe_voice_transcribed_here", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceTranscribeUnavailable: String { NSLocalizedString("bipe_voice_transcribe_unavailable", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceTranscribeFailed: String { NSLocalizedString("bipe_voice_transcribe_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceTranscribeDenied: String { NSLocalizedString("bipe_voice_transcribe_denied", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var voiceTranscriptPlaceholder: String { NSLocalizedString("bipe_voice_transcript_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
 
@@ -2261,6 +2271,36 @@ public enum BipeStrings {
     public static var chatsShowMediaPrivate: String { NSLocalizedString("bipe_chats_show_media_private", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatsShowMediaNever: String { NSLocalizedString("bipe_chats_show_media_never", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsDataUse: String { NSLocalizedString("bipe_chats_data_use", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func dataUseBudget(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_data_use_budget", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var dataUseToday: String { NSLocalizedString("bipe_data_use_today", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var dataUseMonth: String { NSLocalizedString("bipe_data_use_month", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var dataUseMobile: String { NSLocalizedString("bipe_data_use_mobile", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var dataUseWifi: String { NSLocalizedString("bipe_data_use_wifi", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func dataUseSent(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_data_use_sent", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func dataUseReceived(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_data_use_received", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var dataUseFooter: String { NSLocalizedString("bipe_data_use_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var dataUseSaver: String { NSLocalizedString("bipe_data_use_saver", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var dataUseSaverFooter: String { NSLocalizedString("bipe_data_use_saver_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var dataUseSaverSystem: String { NSLocalizedString("bipe_data_use_saver_system", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatsLiveLocation: String { NSLocalizedString("bipe_chats_live_location", tableName: "Bipe", bundle: .module, comment: "") }
 
