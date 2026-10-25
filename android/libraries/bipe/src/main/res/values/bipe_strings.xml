@@ -279,7 +279,12 @@
     <string name="bipe_trust_step_domain_body">Um registro no DNS mostra que o site é da empresa.</string>
     <string name="bipe_invites_next">Próximo convite em %1$s</string>
     <string name="bipe_voice_transcript_title">Transcrição</string>
+    <string name="bipe_voice_transcribe">Transcrever</string>
     <string name="bipe_voice_transcribing">Transcrevendo…</string>
+    <string name="bipe_voice_transcribed_here">Transcrição feita no seu celular. O áudio não saiu dele.</string>
+    <string name="bipe_voice_transcribe_unavailable">Este celular não transcreve este idioma sem internet.</string>
+    <string name="bipe_voice_transcribe_failed">Não deu para transcrever. Tente de novo.</string>
+    <string name="bipe_voice_transcribe_denied">Para transcrever, permita o reconhecimento de fala para o Bipe nos ajustes do celular.</string>
     <string name="bipe_voice_transcript_placeholder">Confira a transcrição antes de enviar</string>
     <string name="bipe_voice_transcript_unavailable">Não deu para transcrever. Você pode enviar o áudio sem texto.</string>
     <string name="bipe_action_show_more">Ver mais</string>
