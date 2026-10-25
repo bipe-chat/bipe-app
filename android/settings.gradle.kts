@@ -15,6 +15,13 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // The Kotlin part of rustls-platform-verifier, which the SDK calls over JNI for TLS. It is not on Maven Central.
+        exclusiveContent {
+            forRepository {
+                maven { url = uri("https://github.com/rustls/rustls-platform-verifier/raw/maven-archive/android-release-support/maven/") }
+            }
+            filter { includeModule("org.rustls", "rustls-platform-verifier") }
+        }
     }
 }
 

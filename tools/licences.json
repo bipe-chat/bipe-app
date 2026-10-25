@@ -31,6 +31,13 @@
       "unverified": true,
       "note": "unverified: matrix-org/matrix-rust-components-kotlin has no LICENSE file; its README and its published POM (scripts/publish-module.gradle) name Apache-2.0; generated from matrix-org/matrix-rust-sdk (Apache-2.0). Checked 2026-10-22."
     },
+    "org.rustls:rustls-platform-verifier": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/rustls/rustls-platform-verifier",
+      "checked": "2026-10-25",
+      "note": "Dual Apache-2.0 OR MIT (LICENSE-APACHE and LICENSE-MIT in the source repo). The Maven archive has no licence file."
+    },
     "androidx.annotation:annotation": {
       "ecosystem": "gradle",
       "licence": "Apache-2.0",

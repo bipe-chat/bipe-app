@@ -105,6 +105,8 @@ dependencies {
     implementation(project(":libraries:bipe"))
     implementation(project(":libraries:phosphor"))
     implementation(libs.matrix.rust.sdk)
+    // The SDK checks TLS certificates through this Kotlin class over JNI. Without it the first SDK request fails.
+    implementation(variantOf(libs.rustls.platform.verifier) { artifactType("aar") })
     implementation(libs.kotlinx.coroutines.android)
     // Structure report of the earlier app's data (bipe-chat/bipe#603, account/LegacyData.kt).
     implementation(libs.kotlinx.serialization.json)
