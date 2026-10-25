@@ -742,6 +742,9 @@ public enum BipeRegistries {
     public static let privacyPath = "/privacidade/"
     public static let enTermsPath = "/en/terms/"
     public static let enPrivacyPath = "/en/privacy/"
+    /// The site home pages that onboarding-welcome learnMore opens.
+    public static let homePath = "/"
+    public static let enHomePath = "/en/"
 
     /// Badge signing keys a release build trusts (ADR 0123; registries/badge-keys.json): kid to raw Ed25519 public key, base64url.
     public static let badgeKeys: [String: String] = [
@@ -754,4 +757,10 @@ public enum BipeRegistries {
     /// Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit.
     public static let imageDescriptionField = "chat.bipe.image_description"
     public static let imageDescriptionMaxLength = 1000
+
+    /// Pix request marks (ADR 0046, bipe-chat/bipe#130; registries/pix-marks.json). Rules: BipePixMarks, test-vectors/pix-marks.json.
+    public static let pixMarkEventType = "chat.bipe.pix_mark"
+    public static let pixMarkRelType = "m.reference"
+    public static let pixE2eIdPattern = "^E[0-9]{8}[A-Za-z0-9]{23}$"
+    public static let pixTxidMaxLength = 25
 }
