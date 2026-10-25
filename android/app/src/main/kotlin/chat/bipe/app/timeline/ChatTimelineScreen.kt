@@ -86,6 +86,7 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.composer.MentionSuggestion
 import chat.bipe.app.notifications.NotificationsPrompt
+import chat.bipe.app.people.BrandMarkHeaderLine
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.cvm
 import kotlinx.coroutines.launch
@@ -241,17 +242,23 @@ fun ChatTimelineScreen(
                     ) {
                         Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId)
                         Spacer(Modifier.size(8.dp))
-                        Text(
-                            roomName,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = colors.inkPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        if (isDm && BipeOfficialAccounts.isOfficial(peerUserId)) {
-                            Spacer(Modifier.size(6.dp))
-                            OfficialBadge()
+                        Column(modifier = Modifier.weight(1f, fill = false)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    roomName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = colors.inkPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                if (isDm && BipeOfficialAccounts.isOfficial(peerUserId)) {
+                                    Spacer(Modifier.size(6.dp))
+                                    OfficialBadge()
+                                }
+                            }
+                            // Spec brand-mark: a reseller's mark under the title, never instead of the name.
+                            if (isDm) BrandMarkHeaderLine(peerUserId, people?.brandMarks)
                         }
                     }
                     if (isGroup && onOpenGroupDetails != null) {
