@@ -4,6 +4,12 @@
 "bipe_badge_verified_name" = "Nome verificado: %1$@";
 "bipe_badge_institution" = "Instituição verificada";
 "bipe_badge_suspended" = "Verificação do nome suspensa";
+"bipe_profile_fact_created" = "Conta criada há %1$@";
+"bipe_profile_fact_photo_once" = "Foto alterada há %1$@";
+"bipe_profile_fact_photo_times" = "Foto alterada %1$@ vezes em %2$@ dias";
+"bipe_profile_fact_name_once" = "Nome alterado há %1$@";
+"bipe_profile_fact_name_times" = "Nome alterado %1$@ vezes em %2$@ dias";
+"bipe_profile_notice_name_photo" = "%1$@ mudou o nome e a foto há pouco tempo. Antes de mandar dinheiro, confirme com a pessoa por outro meio.";
 "bipe_banner_unverified_title" = "Nome não verificado";
 "bipe_banner_unverified_body" = "Conta criada há %1$@. Não está nos seus contatos.";
 "bipe_banner_external" = "Conta de outro serviço. O Bipe não verifica o nome dessa pessoa.";
