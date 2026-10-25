@@ -758,4 +758,10 @@ object BipeRegistries {
     /** Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit. */
     const val IMAGE_DESCRIPTION_FIELD = "chat.bipe.image_description"
     const val IMAGE_DESCRIPTION_MAX_LENGTH = 1000
+
+    /** Pix request marks (ADR 0046, bipe-chat/bipe#130; registries/pix-marks.json). Rules: PixMarks, test-vectors/pix-marks.json. */
+    const val PIX_MARK_EVENT_TYPE = "chat.bipe.pix_mark"
+    const val PIX_MARK_REL_TYPE = "m.reference"
+    const val PIX_E2E_ID_PATTERN = "^E[0-9]{8}[A-Za-z0-9]{23}\$"
+    const val PIX_TXID_MAX_LENGTH = 25
 }

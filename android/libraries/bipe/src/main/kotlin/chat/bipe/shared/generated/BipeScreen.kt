@@ -169,6 +169,9 @@ enum class BipeScreen(val id: String) {
     /** Move to a new phone: show the code on the old phone (flow devices). Spec: bipe-shared/product/screens/link-phone-show.json */
     LINK_PHONE_SHOW("link-phone-show"),
 
+    /** Accounts for Bipe recovery (flow settings). Spec: bipe-shared/product/screens/linked-accounts.json */
+    LINKED_ACCOUNTS("linked-accounts"),
+
     /** Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json */
     LINKED_DEVICES("linked-devices"),
 
@@ -285,6 +288,9 @@ enum class BipeScreen(val id: String) {
 
     /** Save a recovery key (flow encryption). Spec: bipe-shared/product/screens/recovery-key-save.json */
     RECOVERY_KEY_SAVE("recovery-key-save"),
+
+    /** Get back in with a linked account (flow recovery). Spec: bipe-shared/product/screens/recovery-linked.json */
+    RECOVERY_LINKED("recovery-linked"),
 
     /** New phone: scan the code of the old phone (flow recovery). Spec: bipe-shared/product/screens/recovery-old-phone.json */
     RECOVERY_OLD_PHONE("recovery-old-phone"),
