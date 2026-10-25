@@ -258,6 +258,15 @@ final class AccountStartModel: ObservableObject {
     func authError(_ session: AccountSession, isSoftLogout: Bool) async {
         guard sessions.contains(where: { $0 === session }), !signingInAgain.contains(session.userId) else { return }
         let name = Self.name(of: session.userId)
+        // Spec account-delete notes: the session ended after the due time of a deletion, so the server deleted the
+        // account. Remove it from this phone like a sign-out and say so.
+        if DeletionDate.isPast(for: session.userId) {
+            AccountStep.log.notice("account deleted on the server")
+            await signOut(userId: session.userId, alreadyLoggedOut: true)
+            DeletionDate.remember(nil, for: session.userId)
+            notice = BipeStrings.deletionDone
+            return
+        }
         guard isSoftLogout else {
             // Another device signed this phone out: never sign in again by itself (spec soft-logout notes).
             AccountStep.log.notice("soft-logout: device signed out on the server")
