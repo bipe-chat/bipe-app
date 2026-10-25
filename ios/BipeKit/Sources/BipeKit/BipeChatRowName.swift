@@ -6,8 +6,12 @@ import Foundation
 
 public enum BipeChatRowName {
     /// Missing heroes must not discard an explicit/computed SDK room name.
-    public static func resolve(roomID: String, sdkName: String?, peerName: String?, peerID: String?, unnamed: String) -> String {
-        for value in [sdkName, peerName] {
+    /// A DM passes its m.room.name (RoomInfo.rawName) as `dmRoomName`: a DM never shows it (ADR 0141).
+    public static func resolve(roomID: String, sdkName: String?, peerName: String?, peerID: String?, unnamed: String,
+                               dmRoomName: String? = nil) -> String {
+        let roomName = dmRoomName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let shownSDKName = !roomName.isEmpty && sdkName?.trimmingCharacters(in: .whitespacesAndNewlines) == roomName ? nil : sdkName
+        for value in [shownSDKName, peerName] {
             if let name = value?.trimmingCharacters(in: .whitespacesAndNewlines),
                !name.isEmpty, name != roomID, name != peerID { return name }
         }

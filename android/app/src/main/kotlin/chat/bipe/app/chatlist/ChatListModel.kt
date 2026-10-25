@@ -293,11 +293,13 @@ class ChatListModel(
             LatestEventValue.None -> Unit
         }
         val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
-        val name = BipeChatRowName.resolve(info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText)
+        val name = BipeChatRowName.resolve(info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText,
+            dmRoomName = if (info.isDm) info.rawName else null)
         return ChatSummary(
             roomId = info.id,
             name = name,
-            avatarUrl = if (info.isDm) peer?.avatarUrl ?: info.avatarUrl else info.avatarUrl,
+            // ADR 0141: a DM shows the person's photo, never m.room.avatar.
+            avatarUrl = if (info.isDm) peer?.avatarUrl else info.avatarUrl,
             lastMessage = lastMessage,
             lastActivity = lastActivity,
             unreadCount = info.numUnreadMessages.toInt(),
