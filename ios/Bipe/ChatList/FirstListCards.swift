@@ -70,6 +70,6 @@ struct FirstListCardView: View {
 
     private var bodyText: String {
         if card == .profile, let handle { return BipeStrings.firstCardProfileBody(handle) }
-        return card.bodyKey.map(BipeLocalized.string) ?? ""
+        return card.bodyKey.map { BipeLocalized.string($0) } ?? ""
     }
 }
