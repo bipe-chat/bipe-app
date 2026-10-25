@@ -138,6 +138,26 @@ internal data class BipeHandleChangesRequest(
 @Serializable
 internal data class BipeHandleChangesResponse(@SerialName("changes") val changes: List<BipeHandleChange>)
 
+/** Contract `ProfileFacts` (ADR 0049). Dates stay strings: a date that does not parse is ignored, as in bipe-shared `profileFactLines`. */
+@Serializable
+data class BipeProfileFacts(
+    @SerialName("user_id") val userId: String,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("name_changes") val nameChanges: List<String> = emptyList(),
+    @SerialName("photo_changes") val photoChanges: List<String> = emptyList(),
+) {
+    companion object {
+        /** The most Matrix IDs per `POST /v1/profile-facts` call. */
+        const val BATCH_SIZE = 100
+    }
+}
+
+@Serializable
+internal data class BipeProfileFactsRequest(@SerialName("user_ids") val userIds: List<String>)
+
+@Serializable
+internal data class BipeProfileFactsResponse(@SerialName("facts") val facts: List<BipeProfileFacts>)
+
 /** `MyHandle`. */
 @Serializable
 data class BipeMyHandle(
@@ -160,7 +180,31 @@ data class BipeAccountStatus(
     @SerialName("links") val links: List<chat.bipe.shared.account.BipeLinkedAccount> = emptyList(),
     /** ADR 0096: links and unlinks of the last 7 days (recovery-alert link notice). */
     @SerialName("link_events") val linkEvents: List<chat.bipe.shared.account.BipeLinkEvent> = emptyList(),
+    /** ADR 0087: `personal` or `company`. Absent from an older server: personal. */
+    @SerialName("account_type") val accountType: String? = null,
+    /** ADR 0140: the waiting account deletion. Absent when none. */
+    @SerialName("deletion") val deletion: BipeAccountDeletion? = null,
 )
+
+/** `AccountDeletion` (ADR 0140). */
+@Serializable
+data class BipeAccountDeletion(
+    @SerialName("id") val id: String,
+    @Serializable(with = InstantSerializer::class) @SerialName("created_at") val createdAt: Instant,
+    /** When the server deletes the account. */
+    @Serializable(with = InstantSerializer::class) @SerialName("due_at") val dueAt: Instant,
+    @SerialName("redact_messages") val redactMessages: Boolean,
+    /** This device asked. `false` on every other device: they show the deletion alert. */
+    @SerialName("from_this_device") val fromThisDevice: Boolean,
+)
+
+@Serializable
+internal data class BipeDeletionRequest(
+    @SerialName("pin") val pin: String,
+    @SerialName("redact_messages") val redactMessages: Boolean,
+) {
+    override fun toString(): String = "BipeDeletionRequest"
+}
 
 @Serializable
 internal data class BipeWaitlistRequest(

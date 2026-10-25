@@ -306,15 +306,18 @@ fun SettingsGroupScreen(
     var hideRequestPhotos by remember { mutableStateOf(prefs.getBoolean(SettingsKeys.HIDE_REQUEST_PHOTOS, true)) }
     var sharePresence by remember { mutableStateOf(prefs.getBoolean(SettingsKeys.SHARE_PRESENCE, true)) }
     var showsSignOut by remember { mutableStateOf(false) }
+    var showsDelete by remember { mutableStateOf(false) }
+    var cancellingDeletion by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val lock = remember { AppLockModel.get(context) }
     val lockOn by lock.isOn.collectAsState()
     var biometricUnlockOn by remember(lockOn) { mutableStateOf(lock.store.biometricUnlock) }
     val hasBiometrics = remember { OwnerCheck.hasBiometrics(context) }
     val export = remember { DataExportState() }
-    val sections = remember(group, lockOn) {
+    val hasDeletion = state.deletion != null
+    val sections = remember(group, lockOn, hasDeletion) {
         group.sections.mapNotNull { section ->
-            val rows = section.rows.filter { it.isShownOnAndroid() && isAvailable(it, lockOn, hasBiometrics) }
+            val rows = section.rows.filter { it.isShownOnAndroid() && isAvailable(it, lockOn, hasBiometrics, hasDeletion) }
             if (rows.isEmpty()) null else section to rows
         }
     }
@@ -323,6 +326,9 @@ fun SettingsGroupScreen(
     val biometricReason = stringResource(R.string.bipe_app_lock_biometric, word)
     val cancel = stringResource(R.string.bipe_app_cancel)
     val copied = stringResource(R.string.bipe_help_device_id_copied)
+    val deletionCancelReason = stringResource(R.string.bipe_deletion_cancel_reason)
+    val deletionCancelled = stringResource(R.string.bipe_deletion_cancelled)
+    val deletionCancelError = stringResource(R.string.bipe_deletion_cancel_error)
 
     fun tap(row: BipeSettingsRow) {
         if (row.kind == BipeSettingsRowKind.URL) {
@@ -338,6 +344,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.PRIVACY_MESSAGING -> onOpen(SettingsRoute.Messaging)
             BipeSettingsRow.HELP_SUPPORT -> onOpen(SettingsRoute.Support)
             BipeSettingsRow.ACCOUNT_SIGN_OUT -> showsSignOut = true
+            BipeSettingsRow.ACCOUNT_DELETE -> showsDelete = true
             BipeSettingsRow.ACCOUNT_CHANGE_PIN -> onOpen(SettingsRoute.PinChange)
             BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
             BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS -> onOpen(SettingsRoute.LinkedAccounts)
@@ -360,6 +367,22 @@ fun SettingsGroupScreen(
             item(key = "company-owner") {
                 Text(stringResource(R.string.bipe_account_company_owner, owner), color = BipeTheme.colors.inkSecondary,
                     style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
+        }
+        // Spec account-delete: the banner while a deletion this phone asked for waits.
+        val deletion = state.deletion
+        if (group == BipeSettingsGroup.ACCOUNT && deletion != null && deletion.fromThisDevice) {
+            item(key = "deletion-banner") {
+                DeletionBanner(deletion, cancellingDeletion) {
+                    scope.launch {
+                        // A phone with no lock cancels without the check: a cancel only keeps the account.
+                        if (OwnerCheck.canCheckOwner(context) && !OwnerCheck.owner(context, deletionCancelReason)) return@launch
+                        cancellingDeletion = true
+                        val cancelled = model.cancelDeletion(deletion)
+                        cancellingDeletion = false
+                        Toast.makeText(context, if (cancelled) deletionCancelled else deletionCancelError, Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
         val warning = state.waysBack?.warning
@@ -442,12 +465,20 @@ fun SettingsGroupScreen(
     if (showsSignOut) {
         SignOutSheet(model, onDismiss = { showsSignOut = false }, onSignedOut = onSignedOut)
     }
+    if (showsDelete) {
+        AccountDeleteDialog(model) {
+            showsDelete = false
+            model.load()
+        }
+    }
 }
 
 /** Rows that exist only in some states. */
-private fun isAvailable(row: BipeSettingsRow, lockOn: Boolean, hasBiometrics: Boolean): Boolean = when (row) {
+private fun isAvailable(row: BipeSettingsRow, lockOn: Boolean, hasBiometrics: Boolean, hasDeletion: Boolean): Boolean = when (row) {
     // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
     BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK -> lockOn && hasBiometrics
+    // While a deletion waits, the banner (or the alert on the other devices) takes its place (spec account-delete).
+    BipeSettingsRow.ACCOUNT_DELETE -> !hasDeletion
     else -> true
 }
 

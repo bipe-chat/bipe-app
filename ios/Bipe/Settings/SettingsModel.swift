@@ -72,7 +72,24 @@ final class SettingsModel: ObservableObject {
             try await api.account(accessToken: token)
         }) {
             account = value
+            DeletionDate.remember(value.deletion?.dueAt, for: session.userId)
         }
+    }
+
+    /// Spec account-delete, action cancelPending: POST /v1/me/deletions/{id}/cancel. A 404 means it no longer waits,
+    /// which is what the person wanted. `false` when the cancel failed.
+    func cancelDeletion(_ deletion: BipeAccountDeletion) async -> Bool {
+        let api = api
+        do {
+            try await authorized { (token: String) async throws(BipeAPIError) in
+                try await api.cancelDeletion(id: deletion.id, accessToken: token)
+            }
+        } catch {
+            guard case .server(.notFound, _, _) = error else { return false }
+        }
+        DeletionDate.remember(nil, for: session.userId)
+        await loadAccount()
+        return true
     }
 
     /// The who-can-message picker: PUT /v1/me/messaging. `false` when the save failed; the value stays as it was.

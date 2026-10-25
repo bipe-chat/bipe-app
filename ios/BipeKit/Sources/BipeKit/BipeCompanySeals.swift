@@ -35,6 +35,8 @@ public final class BipeCompanySeals {
     public let serverName: String
     
     private var entries: [String: Entry] = [:]
+    /// Verified `institution` badges (bipe#245). Set and cleared with the entry of the same account.
+    private var institutions: [String: BadgePayload] = [:]
     private var companies: Set<String>
     
     @ObservationIgnored private let apiClient: BipeAPIClient
@@ -88,6 +90,16 @@ public final class BipeCompanySeals {
             return payload
         }
         return nil
+    }
+    
+    /// The verified institution badge, or `nil` (bipe#245): its messages show as official notice cards.
+    /// Queues a fetch like ``state(for:)``. Fail closed: no fresh answer, no notice.
+    public func institution(for userID: String) -> BadgePayload? {
+        _ = state(for: userID)
+        guard let payload = institutions[userID], Date(timeIntervalSince1970: TimeInterval(payload.exp)) > .now else {
+            return nil
+        }
+        return payload
     }
     
     /// Whether the account is a company (ADR 0132). Queues a fetch when the cache has no fresh value.
@@ -182,6 +194,10 @@ public final class BipeCompanySeals {
                 setSeen(userID, true)
                 let expiry = min(Date(timeIntervalSince1970: TimeInterval(payload.exp)), .now.addingTimeInterval(Self.ttl))
                 entries[userID] = Entry(state: .verified(payload), expiry: expiry)
+                institutions[userID] = nil
+            case .valid(let payload) where payload.lvl == .institution:
+                store(.none, for: userID)
+                institutions[userID] = payload
             case .valid:
                 store(.none, for: userID)
             case .invalid:
@@ -199,10 +215,12 @@ public final class BipeCompanySeals {
             old
         }
         entries[userID] = Entry(state: state, expiry: .now.addingTimeInterval(Self.errorTTL))
+        institutions[userID] = nil
     }
     
     private func store(_ state: BipeCompanySealState, for userID: String) {
         entries[userID] = Entry(state: state, expiry: .now.addingTimeInterval(Self.ttl))
+        institutions[userID] = nil
     }
     
     private func setSeen(_ userID: String, _ isSeen: Bool) {
