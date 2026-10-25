@@ -36,7 +36,7 @@ struct NoticeCard: View {
             Text(BipeStrings.noticeLabel)
                 .font(.caption.bold())
                 .foregroundStyle(BipeColor.inkSecondary)
-            Text(NoticeText.attributed(message.body ?? "", domains: institution.domains))
+            Text(OfficialNoticeText.attributed(message.body ?? "", domains: institution.domains))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .tint(BipeColor.accentInk)
             Divider()
@@ -56,7 +56,7 @@ struct NoticeCard: View {
 }
 
 /// The notice body with a link only where BipeNoticeLinks allows it (ADR 0036). Every other link stays plain text.
-enum NoticeText {
+enum OfficialNoticeText {
     static func attributed(_ body: String, domains: [String]) -> AttributedString {
         var text = AttributedString(body)
         guard !domains.isEmpty,
