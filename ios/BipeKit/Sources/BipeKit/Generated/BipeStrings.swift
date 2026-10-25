@@ -1732,6 +1732,12 @@ public enum BipeStrings {
 
     public static var settingsNotifications: String { NSLocalizedString("bipe_settings_notifications", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var settingsNews: String { NSLocalizedString("bipe_settings_news", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var settingsNewsBody: String { NSLocalizedString("bipe_settings_news_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var settingsNewsFailed: String { NSLocalizedString("bipe_settings_news_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var settingsChats: String { NSLocalizedString("bipe_settings_chats", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var settingsHelp: String { NSLocalizedString("bipe_settings_help", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2349,6 +2355,14 @@ public enum BipeStrings {
     public static var supportRoomTopic: String { NSLocalizedString("bipe_support_room_topic", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var supportWelcome: String { NSLocalizedString("bipe_support_welcome", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var newsRoomName: String { NSLocalizedString("bipe_news_room_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var newsRoomTopic: String { NSLocalizedString("bipe_news_room_topic", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var newsWelcome: String { NSLocalizedString("bipe_news_welcome", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var newsSupportLine: String { NSLocalizedString("bipe_news_support_line", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var supportReportReceived: String { NSLocalizedString("bipe_support_report_received", tableName: "Bipe", bundle: .module, comment: "") }
 
