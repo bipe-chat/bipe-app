@@ -61,6 +61,9 @@ enum class BipeScreen(val id: String) {
     /** Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json */
     BUSINESS_CHAT_BAR("business-chat-bar"),
 
+    /** My business: claim and verify the company (flow voce). Spec: bipe-shared/product/screens/business-claim.json */
+    BUSINESS_CLAIM("business-claim"),
+
     /** Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json */
     BUSINESS_TOOLS("business-tools"),
 
@@ -145,10 +148,10 @@ enum class BipeScreen(val id: String) {
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
-    /** Create an invite with a first message (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
+    /** Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
     INVITE_NOTE("invite-note"),
 
-    /** Invite as a QR code (flow invites). Spec: bipe-shared/product/screens/invite-qr.json */
+    /** Invite card (flow invites). Spec: bipe-shared/product/screens/invite-qr.json */
     INVITE_QR("invite-qr"),
 
     /** Invite opened on a signed-in phone (flow home). Spec: bipe-shared/product/screens/invite-signed-in.json */
@@ -225,6 +228,9 @@ enum class BipeScreen(val id: String) {
 
     /** A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json */
     PERSON_PROFILE("person-profile"),
+
+    /** Your number: link state and yearly confirmation (flow settings). Spec: bipe-shared/product/screens/phone-link-status.json */
+    PHONE_LINK_STATUS("phone-link-status"),
 
     /** Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json */
     PIN_CHANGE("pin-change"),
@@ -396,4 +402,7 @@ enum class BipeScreen(val id: String) {
 
     /** Who can message me (flow settings). Spec: bipe-shared/product/screens/who-can-message.json */
     WHO_CAN_MESSAGE("who-can-message"),
+
+    /** Opening hours of a work account (flow settings). Spec: bipe-shared/product/screens/work-hours.json */
+    WORK_HOURS("work-hours"),
 }
