@@ -23,6 +23,13 @@
       "source": "https://github.com/matrix-org/matrix-rust-components-swift",
       "checked": "2026-10-22"
     },
+    "rustls:rustls-platform-verifier": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/rustls/rustls-platform-verifier",
+      "checked": "2026-10-25",
+      "note": "MIT OR Apache-2.0; Apache-2.0 chosen. Not on Maven Central: android/vendor/maven holds the AAR and POM from the rustls-platform-verifier-android 0.1.1 crate (crates.io SHA-256 f87165f0995f63a9fbeea62b64d10b4d9d8e78ec6d7d51fb2125fda7bb36788f), bipe-chat/bipe#626."
+    },
     "org.matrix.rustcomponents:sdk-android": {
       "ecosystem": "gradle",
       "licence": "Apache-2.0",
