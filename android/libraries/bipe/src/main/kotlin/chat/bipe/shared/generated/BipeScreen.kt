@@ -61,6 +61,9 @@ enum class BipeScreen(val id: String) {
     /** Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json */
     BUSINESS_CHAT_BAR("business-chat-bar"),
 
+    /** My business: claim and verify the company (flow voce). Spec: bipe-shared/product/screens/business-claim.json */
+    BUSINESS_CLAIM("business-claim"),
+
     /** Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json */
     BUSINESS_TOOLS("business-tools"),
 

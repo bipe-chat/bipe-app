@@ -315,6 +315,11 @@ enum class BipeApiErrorCode(val id: String) {
     /** Pix needs a verified CNPJ (ADR 0080). The app never offers Pix; the text says to pay on site. */
     PAYMENT_REQUIRES_VERIFIED_BUSINESS("payment_requires_verified_business"),
     PIX_CHARGE_UNAVAILABLE("pix_charge_unavailable"),
+    /** Business claims (ADR 0042, business-claim). */
+    CNPJ_INVALID("cnpj_invalid"),
+    CNPJ_NOT_ACTIVE("cnpj_not_active"),
+    CNPJ_TAKEN("cnpj_taken"),
+    SIGNATURE_INVALID("signature_invalid"),
     ;
 
     companion object {

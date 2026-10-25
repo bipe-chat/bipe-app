@@ -750,4 +750,8 @@ public enum BipeRegistries {
 
     /// Cleared DMs (bipe-chat/bipe#464; registries/cleared-chats.json): the global account data event with the markers.
     public static let clearedChatsEventType = "chat.bipe.cleared_chats"
+
+    /// Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit.
+    public static let imageDescriptionField = "chat.bipe.image_description"
+    public static let imageDescriptionMaxLength = 1000
 }

@@ -98,6 +98,82 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_cvm_stop_order_card", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var claimTitle: String { NSLocalizedString("bipe_claim_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimIntro: String { NSLocalizedString("bipe_claim_intro", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimSubmit: String { NSLocalizedString("bipe_claim_submit", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimCnpjInvalid: String { NSLocalizedString("bipe_claim_cnpj_invalid", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimCnpjTaken: String { NSLocalizedString("bipe_claim_cnpj_taken", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimRegistryPending: String { NSLocalizedString("bipe_claim_registry_pending", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimAwaitingProof: String { NSLocalizedString("bipe_claim_awaiting_proof", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimRejected: String { NSLocalizedString("bipe_claim_rejected", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimRegistryActive: String { NSLocalizedString("bipe_claim_registry_active", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimRegistryInactive: String { NSLocalizedString("bipe_claim_registry_inactive", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimProofTitle: String { NSLocalizedString("bipe_claim_proof_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimProofEcnpj: String { NSLocalizedString("bipe_claim_proof_ecnpj", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimProofEcnpjBody: String { NSLocalizedString("bipe_claim_proof_ecnpj_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimCopyText: String { NSLocalizedString("bipe_claim_copy_text", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimSendText: String { NSLocalizedString("bipe_claim_send_text", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimPickSignature: String { NSLocalizedString("bipe_claim_pick_signature", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimSignatureInvalid: String { NSLocalizedString("bipe_claim_signature_invalid", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimSignatureUnreadable: String { NSLocalizedString("bipe_claim_signature_unreadable", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimVerified: String { NSLocalizedString("bipe_claim_verified", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimDomainsTitle: String { NSLocalizedString("bipe_claim_domains_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimDomainsBody: String { NSLocalizedString("bipe_claim_domains_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimDomainPlaceholder: String { NSLocalizedString("bipe_claim_domain_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimDomainAdd: String { NSLocalizedString("bipe_claim_domain_add", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimDomainInvalid: String { NSLocalizedString("bipe_claim_domain_invalid", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimDomainTxtName: String { NSLocalizedString("bipe_claim_domain_txt_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimDomainTxtValue: String { NSLocalizedString("bipe_claim_domain_txt_value", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimCopy: String { NSLocalizedString("bipe_claim_copy", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimCopied: String { NSLocalizedString("bipe_claim_copied", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimDomainCheck: String { NSLocalizedString("bipe_claim_domain_check", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimDomainVerified: String { NSLocalizedString("bipe_claim_domain_verified", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimDomainNotYet: String { NSLocalizedString("bipe_claim_domain_not_yet", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimReservedTitle: String { NSLocalizedString("bipe_claim_reserved_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimReservedBody: String { NSLocalizedString("bipe_claim_reserved_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimReservedApproved: String { NSLocalizedString("bipe_claim_reserved_approved", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimReservedPending: String { NSLocalizedString("bipe_claim_reserved_pending", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimReservedRequest: String { NSLocalizedString("bipe_claim_reserved_request", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimWithdraw: String { NSLocalizedString("bipe_claim_withdraw", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var claimWithdrawConfirm: String { NSLocalizedString("bipe_claim_withdraw_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var badgeOfficial: String { NSLocalizedString("bipe_badge_official", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var badgeOfficialA11y: String { NSLocalizedString("bipe_badge_official_a11y", tableName: "Bipe", bundle: .module, comment: "") }
@@ -3203,6 +3279,16 @@ public enum BipeStrings {
     public static var appMediaGalleryPermission: String { NSLocalizedString("bipe_app_media_gallery_permission", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appUploadCaptionPlaceholder: String { NSLocalizedString("bipe_app_upload_caption_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadDescription: String { NSLocalizedString("bipe_app_upload_description", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadDescriptionPlaceholder: String { NSLocalizedString("bipe_app_upload_description_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadDescriptionFooter: String { NSLocalizedString("bipe_app_upload_description_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appMediaImageDescribed(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_media_image_described", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 
     public static var appUploadSend: String { NSLocalizedString("bipe_app_upload_send", tableName: "Bipe", bundle: .module, comment: "") }
 

@@ -32,7 +32,8 @@ final class TrustCardModel: ObservableObject {
                          hasAvatar: account.avatarUrl != nil,
                          handle: account.handle,
                          accountType: account.isCompany ? .company : .personal,
-                         business: loadedUserId == account.userId ? business : nil)
+                         business: loadedUserId == account.userId ? business : nil,
+                         claimEnabled: true)
     }
 }
 
@@ -41,6 +42,8 @@ struct TrustActions {
     let addName: () -> Void
     let addPhoto: () -> Void
     let chooseHandle: () -> Void
+    /// Company account: opens business-claim (bipe-chat/bipe#249).
+    var openClaim: (() -> Void)?
 
     func run(_ item: BipeTrustProfile.ProfileItem) {
         switch item {
@@ -109,8 +112,16 @@ struct TrustProfileView: View {
             }
             Section {
                 ForEach(Array(profile.steps.enumerated()), id: \.element.id) { index, step in
-                    TrustStepRow(number: index + 1, step: step, isCompany: profile.isCompany)
+                    if let openClaim = actions.openClaim, profile.isCompany, [.cnpj, .proof, .domain].contains(step.id) {
+                        // Action openClaim: every company step opens business-claim, done or not.
+                        Button(action: openClaim) {
+                            TrustStepRow(number: index + 1, step: step, isCompany: profile.isCompany)
+                        }
                         .listRowBackground(BipeColor.surfaceRaised)
+                    } else {
+                        TrustStepRow(number: index + 1, step: step, isCompany: profile.isCompany)
+                            .listRowBackground(BipeColor.surfaceRaised)
+                    }
                     if step.id == .profile, step.status == .todo {
                         ForEach(profile.missingProfileItems, id: \.self) { item in
                             Button { actions.run(item) } label: {
