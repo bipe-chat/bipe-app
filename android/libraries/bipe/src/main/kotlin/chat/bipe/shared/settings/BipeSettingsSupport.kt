@@ -116,9 +116,16 @@ object BipeDataExportFile {
 data class BipeAccountWays(
     /** The verified recovery email. */
     @SerialName("email") val email: String? = null,
+    /** An address waiting for its link. */
+    @SerialName("email_pending") val emailPending: String? = null,
     @SerialName("recovery_token_set") val recoveryTokenSet: Boolean = false,
     /** ADR 0096: the linked Apple and Google accounts. */
     @SerialName("links") val links: List<chat.bipe.shared.account.BipeLinkedAccount> = emptyList(),
+    /**
+     * bipe-chat/bipe#531: a way back the server can check that does not depend on the Apple Team ID (a verified recovery
+     * email). False shows the recovery-reminder card. Absent from an older server: no card.
+     */
+    @SerialName("independent_recovery") val independentRecovery: Boolean? = null,
 ) {
     override fun toString(): String = "BipeAccountWays"
 }

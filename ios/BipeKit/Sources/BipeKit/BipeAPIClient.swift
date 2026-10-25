@@ -86,6 +86,12 @@ public struct BipeAPIClient: Sendable {
                                           accessToken: accessToken)
     }
     
+    /// `POST /v1/me/keychain-move` (bipe-chat/bipe#531): this device moved its keychain items into the app-group group.
+    /// The server takes the device from the token.
+    public func recordKeychainMove(accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "POST", path: ["v1", "me", "keychain-move"], body: Empty?.none, accessToken: accessToken)
+    }
+
     /// `DELETE /v1/me/email`.
     public func removeRecoveryEmail(accessToken: String) async throws(BipeAPIError) {
         let _: NoContent = try await send(method: "DELETE", path: ["v1", "me", "email"], body: Empty?.none, accessToken: accessToken)

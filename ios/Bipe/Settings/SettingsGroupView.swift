@@ -21,6 +21,7 @@ struct SettingsGroupView: View {
     @State private var page: WebPage?
     @State private var showsSignOut = false
     @State private var showsRecoveryKey = false
+    @State private var showsEmail = false
     @State private var showsLockSetup = false
     @State private var pinCheck: PinCheckRequest?
     @State private var notice: String?
@@ -85,6 +86,11 @@ struct SettingsGroupView: View {
         .sheet(isPresented: $showsRecoveryKey, onDismiss: { Task { await model.load() } }) {
             // Spec recovery-key-save, from the recovery key row.
             RecoveryKeySaveView(session: model.session) { showsRecoveryKey = false }
+        }
+        .sheet(isPresented: $showsEmail, onDismiss: { Task { await model.load() } }) {
+            // Spec recovery-email-add, from the e-mail row of Ways back (bipe-chat/bipe#531).
+            RecoveryEmailAddView(api: model.api, session: model.session, current: model.account?.email,
+                                 pending: model.account?.emailPending) {}
         }
         .sheet(isPresented: $showsSignOut) {
             SignOutView(model: model, onSignedOut: onSignedOut)
@@ -279,6 +285,8 @@ struct SettingsGroupView: View {
             showsSignOut = true
         case .accountRecoveryKey:
             showsRecoveryKey = true
+        case .accountEmail:
+            showsEmail = true
         case .privacyExport:
             Task { await export.start() }
         case .chatsLanguage:

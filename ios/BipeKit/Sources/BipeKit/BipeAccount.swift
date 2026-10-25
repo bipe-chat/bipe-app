@@ -51,6 +51,9 @@ public struct BipeAccountStatus: Decodable, Sendable, Equatable {
     public let links: [BipeLinkedAccount]?
     /// ADR 0096: links and unlinks of the last 7 days, newest first. The other devices show each once.
     public let linkEvents: [BipeLinkEvent]?
+    /// bipe-chat/bipe#531: a way back the server can check that does not depend on the Apple Team ID (a verified
+    /// recovery email). `false` shows the recovery-reminder card. Absent from an older server: no card.
+    public let independentRecovery: Bool?
 }
 
 /// Contract: `Recovery`.

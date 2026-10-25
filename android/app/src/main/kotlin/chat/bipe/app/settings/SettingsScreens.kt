@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.notifications.NotificationSettingsScreen
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.encryption.RecoveryKeySaveScreen
+import chat.bipe.app.recovery.RecoveryEmailAddScreen
 import chat.bipe.app.account.AccountList
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.people.PeopleService
@@ -120,6 +121,8 @@ sealed interface SettingsRoute {
     data object Licences : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
     data object RecoveryKey : SettingsRoute
+    /** Spec recovery-email-add, from the e-mail row of Ways back (bipe-chat/bipe#531). */
+    data object RecoveryEmail : SettingsRoute
     data object TrustProfile : SettingsRoute
 }
 
@@ -192,6 +195,11 @@ fun SettingsHost(
         SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
         SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, onClose = pop)
+        SettingsRoute.RecoveryEmail -> {
+            val ways = model.state.collectAsState().value.account
+            RecoveryEmailAddScreen(api, session, current = ways?.email, pending = ways?.emailPending,
+                onSent = model::load, onClose = pop)
+        }
         SettingsRoute.TrustProfile -> {
             val profile = trust?.profile?.collectAsState()?.value
             if (profile == null) LaunchedEffect(Unit) { pop() }
@@ -325,6 +333,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
             BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)
+            BipeSettingsRow.ACCOUNT_EMAIL -> onOpen(SettingsRoute.RecoveryEmail)
             BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
             // The screens of the other rows come with their own specs (see settings-group notes).
