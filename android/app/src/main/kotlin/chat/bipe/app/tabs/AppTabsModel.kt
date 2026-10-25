@@ -115,7 +115,7 @@ class AppTabsModel(
     }
 
     private fun available(tab: Tab, isCompany: Boolean): Tab = when {
-        tab == Tab.GRUPOS && isCompany, tab == Tab.TRABALHO && !isCompany -> Tab.CONVERSAS
+        (tab == Tab.GRUPOS && isCompany) || (tab == Tab.TRABALHO && !isCompany) -> Tab.CONVERSAS
         else -> tab
     }
 
