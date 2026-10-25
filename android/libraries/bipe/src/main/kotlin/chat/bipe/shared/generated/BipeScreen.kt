@@ -61,6 +61,9 @@ enum class BipeScreen(val id: String) {
     /** Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json */
     BUSINESS_CHAT_BAR("business-chat-bar"),
 
+    /** My business: claim and verify the company (flow voce). Spec: bipe-shared/product/screens/business-claim.json */
+    BUSINESS_CLAIM("business-claim"),
+
     /** Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json */
     BUSINESS_TOOLS("business-tools"),
 
@@ -399,4 +402,7 @@ enum class BipeScreen(val id: String) {
 
     /** Who can message me (flow settings). Spec: bipe-shared/product/screens/who-can-message.json */
     WHO_CAN_MESSAGE("who-can-message"),
+
+    /** Opening hours of a work account (flow settings). Spec: bipe-shared/product/screens/work-hours.json */
+    WORK_HOURS("work-hours"),
 }
