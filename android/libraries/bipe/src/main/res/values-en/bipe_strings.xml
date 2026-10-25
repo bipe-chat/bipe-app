@@ -302,7 +302,6 @@
     <string name="bipe_self_chat_title">Notes</string>
     <string name="bipe_self_chat_subtitle">Messages only you can see</string>
     <string name="bipe_self_chat_error">Couldn\'t open your notes. Try again.</string>
-    <string name="bipe_onboarding_welcome">A free messaging app.</string>
     <string name="bipe_onboarding_title">Know who you\'re talking to.</string>
     <string name="bipe_onboarding_point_scam">Checks look for scam signals in messages.</string>
     <string name="bipe_onboarding_point_brazil">Data and servers stay in Brazil, under Brazilian law.</string>

@@ -210,7 +210,6 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel) {
     ) {
         Spacer(Modifier.weight(1f))
         Icon(painterResource(PhosphorIcon.CHAT_CIRCLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(56.dp))
-        Text(stringResource(R.string.bipe_onboarding_welcome), style = MaterialTheme.typography.titleMedium, color = colors.accentInk)
         val start = model.startVariant
         val handle = invite?.inviterHandle
         val title = if (start == BipeOnboardingStart.INVITED && handle != null) {
