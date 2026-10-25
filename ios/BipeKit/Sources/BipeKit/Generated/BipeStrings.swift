@@ -2310,18 +2310,6 @@ public enum BipeStrings {
 
     public static var notificationsPreviewFooter: String { NSLocalizedString("bipe_notifications_preview_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var focusFilterTitle: String { NSLocalizedString("bipe_focus_filter_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var focusFilterDescription: String { NSLocalizedString("bipe_focus_filter_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var focusFilterAccounts: String { NSLocalizedString("bipe_focus_filter_accounts", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var focusFilterAll: String { NSLocalizedString("bipe_focus_filter_all", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func notificationsAccountGroup(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_notifications_account_group", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
     public static var workHoursTitle: String { NSLocalizedString("bipe_work_hours_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var workHoursBody: String { NSLocalizedString("bipe_work_hours_body", tableName: "Bipe", bundle: .module, comment: "") }

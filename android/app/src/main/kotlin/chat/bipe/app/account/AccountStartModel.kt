@@ -442,7 +442,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(AccountStep.TAG, "sign-in failed: ${e.javaClass.simpleName}")
+            Log.w(AccountStep.TAG, "sign-in failed: ${e.javaClass.simpleName}: ${e.message}")
             null
         }
     }
