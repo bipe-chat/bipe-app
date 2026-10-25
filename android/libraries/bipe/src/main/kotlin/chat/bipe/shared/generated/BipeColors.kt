@@ -17,13 +17,13 @@ import androidx.compose.ui.graphics.Color
 /** Bipe's colour tokens. Pick the set for the system dark mode and the high contrast text setting. */
 @Immutable
 data class BipeColors(
-    /** Screen background. */
+    /** Screen background. iOS systemBackground. */
     val surfaceBase: Color,
 
-    /** Sheets, bars and cards above the base. */
+    /** Sheets, bars and cards above the base. iOS secondarySystemBackground. */
     val surfaceRaised: Color,
 
-    /** Composer field and grouped list background. */
+    /** Fields and controls: composer, search, chips. iOS secondarySystemFill, opaque on the base. */
     val surfaceSunken: Color,
 
     /** Body text and titles. */
@@ -110,8 +110,8 @@ data class BipeColors(
 
 val BipeLightColors: BipeColors = BipeColors(
     surfaceBase = Color(0xFFFFFFFF),
-    surfaceRaised = Color(0xFFFBFBFC),
-    surfaceSunken = Color(0xFFF2F2F4),
+    surfaceRaised = Color(0xFFF2F2F7),
+    surfaceSunken = Color(0xFFE9E9EB),
     inkPrimary = Color(0xFF1C1E20),
     inkSecondary = Color(0xFF4D5157),
     inkDisabled = Color(0xFF848990),
@@ -142,9 +142,9 @@ val BipeLightColors: BipeColors = BipeColors(
 )
 
 val BipeDarkColors: BipeColors = BipeColors(
-    surfaceBase = Color(0xFF101317),
-    surfaceRaised = Color(0xFF1C1E21),
-    surfaceSunken = Color(0xFF151619),
+    surfaceBase = Color(0xFF000000),
+    surfaceRaised = Color(0xFF1C1C1E),
+    surfaceSunken = Color(0xFF262629),
     inkPrimary = Color(0xFFECEEEF),
     inkSecondary = Color(0xFFA6AAB0),
     inkDisabled = Color(0xFF666B72),
@@ -176,8 +176,8 @@ val BipeDarkColors: BipeColors = BipeColors(
 
 val BipeLightHighContrastColors: BipeColors = BipeColors(
     surfaceBase = Color(0xFFFFFFFF),
-    surfaceRaised = Color(0xFFFBFBFC),
-    surfaceSunken = Color(0xFFF2F2F4),
+    surfaceRaised = Color(0xFFEBEBF0),
+    surfaceSunken = Color(0xFFDEDEE0),
     inkPrimary = Color(0xFF1C1E20),
     inkSecondary = Color(0xFF2B2E31),
     inkDisabled = Color(0xFF5A5E65),
@@ -208,9 +208,9 @@ val BipeLightHighContrastColors: BipeColors = BipeColors(
 )
 
 val BipeDarkHighContrastColors: BipeColors = BipeColors(
-    surfaceBase = Color(0xFF101317),
-    surfaceRaised = Color(0xFF1C1E21),
-    surfaceSunken = Color(0xFF151619),
+    surfaceBase = Color(0xFF000000),
+    surfaceRaised = Color(0xFF242426),
+    surfaceSunken = Color(0xFF303033),
     inkPrimary = Color(0xFFECEEEF),
     inkSecondary = Color(0xFFDBDEE1),
     inkDisabled = Color(0xFF9599A0),
