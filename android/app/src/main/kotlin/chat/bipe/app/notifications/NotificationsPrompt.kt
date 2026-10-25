@@ -96,7 +96,9 @@ fun NotificationsPrompt(session: AccountSession, roomId: String, messages: List<
         app.push.appBecameActive()
         if (app.push.permission.value != PushRegistration.Permission.NOT_ASKED) return@LaunchedEffect
         val info = runCatching { session.client.getRoom(roomId)?.roomInfo() }.getOrNull()
-        recipientName = info?.takeIf { it.isDm }?.displayName
+        // ADR 0141: the person, never the DM's m.room.name.
+        val peer = info?.takeIf { it.isDm }?.heroes?.firstOrNull { it.userId != session.userId }
+        recipientName = peer?.displayName?.takeIf { it.isNotBlank() } ?: peer?.userId?.let { chat.bipe.app.people.Person.localpart(it) }
         isShown = true
     }
 

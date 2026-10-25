@@ -79,4 +79,12 @@ struct RoomSubscriptionsTests {
         #expect(BipeChatRowName.resolve(roomID: "!room:example.test", sdkName: " ", peerName: "Example Person", peerID: "@person:example.test", unnamed: "Unnamed") == "Example Person")
         #expect(BipeChatRowName.resolve(roomID: "!room:example.test", sdkName: "!room:example.test", peerName: "@person:example.test", peerID: "@person:example.test", unnamed: "Unnamed") == "person")
     }
+
+    /// ADR 0141: a DM never shows its own m.room.name; the person's name, then the localpart, wins.
+    @Test func DMIgnoresItsRoomName() {
+        #expect(BipeChatRowName.resolve(roomID: "!dm:example.test", sdkName: "Renamed", peerName: "Ana", peerID: "@ana:example.test", unnamed: "Unnamed", dmRoomName: "Renamed") == "Ana")
+        #expect(BipeChatRowName.resolve(roomID: "!dm:example.test", sdkName: " Renamed ", peerName: nil, peerID: "@ana:example.test", unnamed: "Unnamed", dmRoomName: "Renamed") == "ana")
+        #expect(BipeChatRowName.resolve(roomID: "!dm:example.test", sdkName: "Renamed", peerName: nil, peerID: nil, unnamed: "Unnamed", dmRoomName: "Renamed") == "Unnamed")
+        #expect(BipeChatRowName.resolve(roomID: "!dm:example.test", sdkName: "Ana", peerName: nil, peerID: "@ana:example.test", unnamed: "Unnamed", dmRoomName: nil) == "Ana")
+    }
 }
