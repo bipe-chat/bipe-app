@@ -12,21 +12,27 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -47,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -56,7 +63,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.LinkAnnotation
@@ -67,6 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import chat.bipe.app.BipeTheme
@@ -209,11 +219,53 @@ private fun BipeField(
 
 @Composable
 private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Unit)?) {
+    LaunchedEffect(Unit) { model.appear() }
+    // The window decides the layout, never the device (docs/iphone-duo.md).
+    BoxWithConstraints(Modifier.fillMaxSize().testTag(BipeScreen.ONBOARDING_WELCOME.id)) {
+        if (maxWidth >= 600.dp && maxWidth > maxHeight) {
+            // Wide (the open iPhone Duo, a tablet, landscape): the cover is the left half of the whole window, so the
+            // split meets the fold. This box draws edge to edge, so half its width is half the window.
+            Row(Modifier.fillMaxSize()) {
+                WelcomeCover(model, onCancel, WindowInsetsSides.Vertical + WindowInsetsSides.Start, Modifier.fillMaxHeight().width(maxWidth / 2))
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.End))
+                        .padding(40.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    WelcomeActions(model, Modifier.widthIn(max = 400.dp))
+                }
+            }
+        } else {
+            // Tall: the cover takes everything above the two buttons.
+            Column(Modifier.fillMaxSize()) {
+                WelcomeCover(model, onCancel, WindowInsetsSides.Top + WindowInsetsSides.Horizontal, Modifier.fillMaxWidth().weight(1f))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    WelcomeActions(model, Modifier.widthIn(max = 480.dp))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The full-bleed açaí cover of the spec: what Bipe is. Mark and wordmark, the welcome line, the title and learnMore
+ * over a faint texture of Bipe marks (identity.md: Brazilian in texture, warm açaí, never flag colours). The colour runs
+ * under the system bars; the text keeps the safe-drawing insets on [sides].
+ */
+@Composable
+private fun WelcomeCover(model: SignupFlowModel, onCancel: (() -> Unit)?, sides: WindowInsetsSides, modifier: Modifier) {
     val colors = BipeTheme.colors
-    val variant by model.variant.collectAsState()
     val invite by model.invite.collectAsState()
     val context = LocalContext.current
-    LaunchedEffect(Unit) { model.appear() }
     val start = model.startVariant
     val handle = invite?.inviterHandle
     val title = if (start == BipeOnboardingStart.INVITED && handle != null) {
@@ -221,26 +273,31 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
     } else {
         stringResource(start.title)
     }
-    Column(Modifier.fillMaxSize().testTag(BipeScreen.ONBOARDING_WELCOME.id)) {
-        // The full-bleed açaí cover of the spec: what Bipe is. It takes everything above the two buttons.
+    Box(modifier.background(Brush.linearGradient(listOf(colors.accentFill, colors.accentFillPressed)))) {
+        BubbleTexture()
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .background(Brush.linearGradient(listOf(colors.accentFill, colors.accentFillPressed)))
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(sides))
                 .padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (onCancel != null) {
                 TextButton(onClick = onCancel) { Text(stringResource(R.string.bipe_app_cancel), color = colors.inkOnAccent) }
             }
+            // The horizontal lockup of artwork-brief.md: mark, then the lowercase wordmark.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(40.dp).background(colors.inkOnAccent, BipeMarkShape))
-                Text(stringResource(R.string.bipe_app_name).lowercase(), fontSize = 52.sp, fontWeight = FontWeight.ExtraBold, color = colors.inkOnAccent)
+                Text(
+                    stringResource(R.string.bipe_app_name).lowercase(),
+                    fontSize = 52.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = colors.inkOnAccent,
+                    modifier = Modifier.semantics { heading() },
+                )
             }
             Spacer(Modifier.weight(1f))
-            Text(stringResource(R.string.bipe_onboarding_welcome), style = MaterialTheme.typography.titleMedium, color = colors.inkOnAccent)
+            Text(stringResource(R.string.bipe_onboarding_welcome), style = MaterialTheme.typography.titleMedium, color = colors.inkOnAccent.copy(alpha = 0.85f))
             Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.inkOnAccent)
             // Action learnMore: the site in a Custom Tab, so sign-up stays where it was.
             Row(
@@ -254,25 +311,56 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
                 Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = colors.inkOnAccent, modifier = Modifier.size(14.dp))
             }
         }
-        // Two choices of equal width: new here (the variant's filled button) or back to an existing account.
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            if (variant == SignupFlowModel.Variant.LOADING) {
-                // Keeps the height of the two buttons, so the cover does not jump when the variant arrives.
-                Box(Modifier.fillMaxWidth().height(112.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = colors.accentFill)
-                }
-            } else {
-                val checking by model.checkingInvite.collectAsState()
-                PrimaryButton(stringResource(start.primary.title), busy = checking, onClick = model::primary)
-                // haveAccount: recovery-start (bipe-chat/bipe#556).
-                start.text.forEach { SecondaryButton(stringResource(it.title), onClick = model.onHaveAccount) }
+    }
+}
+
+/** Two choices of equal width: new here (the variant's filled button) or back to an existing account. */
+@Composable
+private fun WelcomeActions(model: SignupFlowModel, modifier: Modifier) {
+    val colors = BipeTheme.colors
+    val variant by model.variant.collectAsState()
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (variant == SignupFlowModel.Variant.LOADING) {
+            // Keeps the height of the two buttons, so the cover does not jump when the variant arrives.
+            Box(Modifier.fillMaxWidth().height(112.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = colors.accentFill)
             }
+        } else {
+            val start = model.startVariant
+            val checking by model.checkingInvite.collectAsState()
+            PrimaryButton(stringResource(start.primary.title), busy = checking, onClick = model::primary)
+            // haveAccount: recovery-start (bipe-chat/bipe#556).
+            start.text.forEach { SecondaryButton(stringResource(it.title), onClick = model.onHaveAccount) }
+        }
+    }
+}
+
+/** A Bipe mark of the cover texture: centre and side as fractions of the panel, so the texture follows the window size. */
+private class TextureBubble(val x: Float, val y: Float, val size: Float, val opacity: Float)
+
+/** The same four marks as iOS OnboardingWelcomeView. */
+private val textureBubbles = listOf(
+    TextureBubble(x = 0.86f, y = 0.22f, size = 0.50f, opacity = 0.12f),
+    TextureBubble(x = 0.42f, y = 0.36f, size = 0.20f, opacity = 0.07f),
+    TextureBubble(x = 1.00f, y = 0.66f, size = 0.30f, opacity = 0.09f),
+    TextureBubble(x = 0.62f, y = 0.44f, size = 0.10f, opacity = 0.12f),
+)
+
+/** Bipe marks at low contrast over the cover: the bubble-and-notch motif of identity.md, not a pattern of objects. */
+@Composable
+private fun BubbleTexture() {
+    val ink = BipeTheme.colors.inkOnAccent
+    BoxWithConstraints(Modifier.fillMaxSize().clipToBounds().clearAndSetSemantics {}) {
+        val side = min(maxWidth, maxHeight * 1.4f)
+        textureBubbles.forEach { bubble ->
+            val size = side * bubble.size
+            // Upright only: the notch stays top-start, as on the icon. Absolute positions, as on iOS.
+            Box(
+                Modifier
+                    .absoluteOffset(x = maxWidth * bubble.x - size / 2, y = maxHeight * bubble.y - size / 2)
+                    .requiredSize(size)
+                    .background(ink.copy(alpha = bubble.opacity), BipeMarkShape),
+            )
         }
     }
 }
