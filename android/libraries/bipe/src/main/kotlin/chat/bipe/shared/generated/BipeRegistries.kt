@@ -754,4 +754,8 @@ object BipeRegistries {
 
     /** Cleared DMs (bipe-chat/bipe#464; registries/cleared-chats.json): the global account data event with the markers. */
     const val CLEARED_CHATS_EVENT_TYPE = "chat.bipe.cleared_chats"
+
+    /** Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit. */
+    const val IMAGE_DESCRIPTION_FIELD = "chat.bipe.image_description"
+    const val IMAGE_DESCRIPTION_MAX_LENGTH = 1000
 }
