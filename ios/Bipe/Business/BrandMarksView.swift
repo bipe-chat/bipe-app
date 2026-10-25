@@ -30,8 +30,8 @@ struct BrandMarksView: View {
             switch error {
             case .server(.notFound, _, _): self = .codeInvalid
             case .server(.brandMarkLimit, _, _): self = .limit
-            case .server(.badRequest, "already_held", _): self = .alreadyHeld
-            case .server(.badRequest, "own_brand", _): self = .ownBrand
+            case .server(.badRequest, let reason, _) where reason == "already_held": self = .alreadyHeld
+            case .server(.badRequest, let reason, _) where reason == "own_brand": self = .ownBrand
             case .server(.brandNotVerified, _, _): self = .notVerified
             default: self = .failed
             }
@@ -45,7 +45,8 @@ struct BrandMarksView: View {
     }
 
     @State private var held: [BipeHeldBrandMark] = []
-    @State private var granted = BipeGrantedBrandMarks(invites: [], marks: [])
+    @State private var openInvites: [BipeBrandMarkInvite] = []
+    @State private var grantedMarks: [BipeGrantedBrandMark] = []
     @State private var resellerNames: [String: String] = [:]
     @State private var codeText = ""
     @State private var offer: Offer?
@@ -64,10 +65,10 @@ struct BrandMarksView: View {
             heldSection
             codeSection
             grantSection
-            if !granted.invites.isEmpty {
+            if !openInvites.isEmpty {
                 openCodesSection
             }
-            if !granted.marks.isEmpty {
+            if !grantedMarks.isEmpty {
                 grantedSection
             }
         }
@@ -179,7 +180,7 @@ struct BrandMarksView: View {
 
     private var openCodesSection: some View {
         Section {
-            ForEach(granted.invites) { invite in
+            ForEach(openInvites) { invite in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(Self.line(label: invite.label, brandName: brandName ?? ""))
@@ -202,7 +203,7 @@ struct BrandMarksView: View {
 
     private var grantedSection: some View {
         Section {
-            ForEach(granted.marks) { mark in
+            ForEach(grantedMarks) { mark in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(resellerNames[mark.reseller] ?? mark.reseller)
@@ -271,13 +272,15 @@ struct BrandMarksView: View {
     private func load() async {
         do {
             held = try await api.heldBrandMarks()
-            granted = try await api.grantedBrandMarks()
+            let granted = try await api.grantedBrandMarks()
+            openInvites = granted.invites
+            grantedMarks = granted.marks
             brandName = try await api.ownBrandName()
         } catch {
             problem = .failed
             return
         }
-        let ids = granted.marks.map(\.reseller).filter { resellerNames[$0] == nil }
+        let ids = grantedMarks.map { $0.reseller }.filter { resellerNames[$0] == nil }
         for person in await people.people(ids) {
             resellerNames[person.userId] = person.displayName
         }
@@ -293,15 +296,17 @@ struct BrandMarksView: View {
     }
 
     /// Runs one call, shows its problem, then reloads the lists.
-    private func run(_ call: @escaping @MainActor () async throws(BipeAPIError) -> Void) {
+    private func run(_ call: @escaping @MainActor () async throws -> Void) {
         Task {
             working = true
             defer { working = false }
             problem = nil
             do {
                 try await call()
-            } catch {
+            } catch let error as BipeAPIError {
                 problem = Problem(error)
+            } catch {
+                problem = .failed
             }
             removing = nil
             ending = nil
