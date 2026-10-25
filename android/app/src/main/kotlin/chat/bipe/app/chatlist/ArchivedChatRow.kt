@@ -45,6 +45,7 @@ fun ArchivedChatRow(
     val notificationsLabel = stringResource(R.string.bipe_settings_notifications)
     val detailsLabel = stringResource(R.string.bipe_chat_details)
     val menuLabel = stringResource(R.string.bipe_chat_actions)
+    val deleteLabel = stringResource(R.string.bipe_dm_delete_action)
     var menu by remember(ownerId, chat.roomId) { mutableStateOf(false) }
     val swipe = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
         if (value == SwipeToDismissBoxValue.EndToStart) onArchive()
@@ -60,6 +61,8 @@ fun ArchivedChatRow(
                 if (!readPending) add(CustomAccessibilityAction(readLabel) { onRead(); true })
                 add(CustomAccessibilityAction(notificationsLabel) { onNotifications(); true })
                 onInfo?.let { open -> add(CustomAccessibilityAction(detailsLabel) { open(); true }) }
+                // Same commands as the long-press menu, Delete included (bipe-chat/bipe#587).
+                onDelete?.let { delete -> add(CustomAccessibilityAction(deleteLabel) { delete(); true }) }
             }
         },
         backgroundContent = {
@@ -77,7 +80,7 @@ fun ArchivedChatRow(
                         DropdownMenuItem(text = { Text(notificationsLabel) }, onClick = { menu = false; onNotifications() })
                         DropdownMenuItem(text = { Text(detailsLabel) }, enabled = onInfo != null, onClick = { menu = false; onInfo?.invoke() })
                         onDelete?.let { delete ->
-                            DropdownMenuItem(text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) }, onClick = { menu = false; delete() })
+                            DropdownMenuItem(text = { Text(deleteLabel, color = colors.trustDangerInk) }, onClick = { menu = false; delete() })
                         }
                     }
                 }
