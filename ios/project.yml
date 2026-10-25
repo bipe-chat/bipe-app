@@ -63,6 +63,9 @@ targets:
     platform: iOS
     sources:
       - path: Bipe
+      # bipe-chat/bipe#512: the Focus filter's titles are App Intents metadata, read from the app bundle's Bipe table.
+      - path: BipeKit/Sources/BipeKit/Resources
+        buildPhase: resources
     info:
       path: SupportFiles/Bipe/Info.plist
       properties:

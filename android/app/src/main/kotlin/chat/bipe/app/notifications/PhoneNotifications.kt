@@ -6,6 +6,8 @@ package chat.bipe.app.notifications
 
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
+import android.app.NotificationChannelGroup
+import chat.bipe.app.account.AccountList
 import chat.bipe.shared.account.BipeWorkHours
 import java.security.MessageDigest
 import java.time.Instant
@@ -222,9 +224,9 @@ class PhoneNotifications(private val context: Context) {
                     context.getString(R.string.bipe_group_notification_room_invite_body_with_sender, sender)
                 }
                 if (preview(target.accountUserId)) {
-                    postSimple(target, route, if (room.isDm) sender else room.displayName, text, INVITES_CHANNEL, kind = if (room.isDm) "chatRequest" else "groupInvite")
+                    postSimple(target, route, if (room.isDm) sender else room.displayName, text, invitesChannel(target.accountUserId), kind = if (room.isDm) "chatRequest" else "groupInvite")
                 } else {
-                    postSimple(target, route, context.getString(R.string.bipe_app_name), context.getString(R.string.bipe_app_notification_new_message), INVITES_CHANNEL, kind = if (room.isDm) "chatRequest" else "groupInvite")
+                    postSimple(target, route, context.getString(R.string.bipe_app_name), context.getString(R.string.bipe_app_notification_new_message), invitesChannel(target.accountUserId), kind = if (room.isDm) "chatRequest" else "groupInvite")
                 }
             }
         }
@@ -316,6 +318,10 @@ class PhoneNotifications(private val context: Context) {
         if (visibleRoom?.accountUserId == userId) visibleRoom = null
         manager.activeNotifications.filter { it.notification.extras.getString(EXTRA_ACCOUNT_USER_ID) == userId }
             .forEach { manager.cancel(it.tag, it.id) }
+        // bipe-chat/bipe#512: the account's channel group goes with its channels.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.getSystemService(NotificationManager::class.java).deleteNotificationChannelGroup(groupId(userId))
+        }
     }
 
     private fun isActive(session: AccountSession): Boolean =
@@ -337,20 +343,45 @@ class PhoneNotifications(private val context: Context) {
     }
 
     /**
-     * Channels: requests and invites, and the fallback for a push without an owner. Each account's messages have their
-     * own channel with that account's sound (bipe-chat/bipe#511), made when first needed. The phone-wide channels from
-     * before go.
+     * The fallback channel for a push without an owner. Each account has its own messages channel with that account's
+     * sound (bipe-chat/bipe#511) and its own invites channel, in one channel group per account (bipe-chat/bipe#512), so
+     * Do Not Disturb and modes can allow one account and silence the other. They are made when first needed. The
+     * phone-wide channels from before go.
      */
     private fun createChannels() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val system = context.getSystemService(NotificationManager::class.java)
         NotificationSound.entries.forEach { system.deleteNotificationChannel("messages_" + it.name.lowercase()) }
+        system.deleteNotificationChannel(OLD_INVITES_CHANNEL)
         system.createNotificationChannel(
             NotificationChannel(FALLBACK_CHANNEL, context.getString(R.string.bipe_app_notification_channel_messages), NotificationManager.IMPORTANCE_HIGH),
         )
-        system.createNotificationChannel(
-            NotificationChannel(INVITES_CHANNEL, context.getString(R.string.bipe_notifications_invites), NotificationManager.IMPORTANCE_DEFAULT),
-        )
+    }
+
+    /** [userId]'s channel group, named after the account; made or renamed each time a channel is needed. */
+    private fun accountGroup(userId: String): String {
+        val id = groupId(userId)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = AccountList(context).name(userId) ?: userId
+            context.getSystemService(NotificationManager::class.java)
+                .createNotificationChannelGroup(NotificationChannelGroup(id, context.getString(R.string.bipe_notifications_account_group, name)))
+        }
+        return id
+    }
+
+    /** [userId]'s requests and invites channel. */
+    private fun invitesChannel(userId: String): String {
+        val id = "invites_" + accountDigest(userId)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val system = context.getSystemService(NotificationManager::class.java)
+            val group = accountGroup(userId)
+            if (system.getNotificationChannel(id) == null) {
+                val invites = NotificationChannel(id, context.getString(R.string.bipe_notifications_invites), NotificationManager.IMPORTANCE_DEFAULT)
+                invites.group = group
+                system.createNotificationChannel(invites)
+            }
+        }
+        return id
     }
 
     /** [userId]'s messages channel, made with its sound when it does not exist yet. */
@@ -358,11 +389,18 @@ class PhoneNotifications(private val context: Context) {
         val id = messagesChannelId(userId)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val system = context.getSystemService(NotificationManager::class.java)
-            if (system.getNotificationChannel(id) == null) {
+            val group = accountGroup(userId)
+            val existing = system.getNotificationChannel(id)
+            if (existing == null) {
                 val messages = NotificationChannel(id, context.getString(R.string.bipe_app_notification_channel_messages), NotificationManager.IMPORTANCE_HIGH)
                 // Bipe's soft sound has no asset yet, so soft plays the system sound.
                 if (sound(userId) == NotificationSound.SILENT) messages.setSound(null, null)
+                messages.group = group
                 system.createNotificationChannel(messages)
+            } else if (existing.group == null) {
+                // A channel made before the groups: a channel outside a group may still join one.
+                existing.group = group
+                system.createNotificationChannel(existing)
             }
         }
         return id
@@ -398,13 +436,15 @@ class PhoneNotifications(private val context: Context) {
         const val EXTRA_ACCOUNT_ROUTE = "account_route"
         const val EXTRA_KIND = "notification_kind"
         const val EXTRA_ROOM_ID = "room_id"
-        private const val INVITES_CHANNEL = "invites"
+        private const val OLD_INVITES_CHANNEL = "invites"
         private const val KEY_SOUND = "sound"
         private const val KEY_PREVIEW = "preview"
         private const val KEY_WORK_HOURS = "workHours"
         private const val FALLBACK_CHANNEL = "messages"
 
         /** A short stable digest of a Matrix ID, for channel IDs. */
+        private fun groupId(userId: String): String = "account_" + accountDigest(userId)
+
         fun accountDigest(userId: String): String =
             MessageDigest.getInstance("SHA-256").digest(userId.toByteArray()).take(8).joinToString("") { "%02x".format(it) }
         private const val KEY_ROUTES = "accountRoutes.v1"
