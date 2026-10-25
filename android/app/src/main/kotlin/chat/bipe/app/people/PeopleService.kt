@@ -17,11 +17,13 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.isCompany
 import chat.bipe.shared.company.BipeCompanySeals
 import chat.bipe.shared.company.BipeCompanySealsSeen
+import chat.bipe.shared.generated.BipeDmPowerLevels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.ClientException
 import org.matrix.rustcomponents.sdk.CreateRoomParameters
@@ -194,18 +196,27 @@ class PeopleService(
      */
     suspend fun openOrCreateDm(userId: String): String {
         NativeDmSelection.roomId(userId, session)?.let { return it }
-        val locked = 101
+        return createDm(userId)
+    }
+
+    /**
+     * A new DM with the person (spec person-profile notes). The user is at BipeDmPowerLevels.CREATE_LEVEL and the
+     * person at 0 while the server writes the first state and the invite; then the DM power levels of
+     * registries/dm-power-levels.json put both at 0. A failed second write leaves a usable DM.
+     */
+    suspend fun createDm(userId: String): String {
+        val me = session.userId
         val powerLevels = PowerLevels(
             usersDefault = null,
             eventsDefault = null,
-            stateDefault = locked,
+            stateDefault = null,
             ban = null,
             kick = null,
             redact = null,
-            invite = locked,
+            invite = null,
             notifications = null,
-            users = mapOf(session.userId to 100, userId to 100),
-            events = mapOf("m.room.name" to locked, "m.room.avatar" to locked, "m.room.topic" to locked),
+            users = mapOf(me to BipeDmPowerLevels.CREATE_LEVEL.toInt(), userId to BipeDmPowerLevels.USERS_DEFAULT.toInt()),
+            events = emptyMap(),
         )
         val parameters = CreateRoomParameters(
             name = null,
@@ -216,11 +227,26 @@ class PeopleService(
             invite = listOf(userId),
             powerLevelContentOverride = powerLevels,
         )
-        return try {
+        val roomId = try {
             session.client.createRoom(parameters)
         } catch (error: ClientException.MatrixApi) {
             if (error.kind is ErrorKind.Forbidden) throw PeopleException(PeopleException.Kind.INVITE_REFUSED)
             throw error
+        }
+        lockDm(roomId, listOf(me, userId))
+        return roomId
+    }
+
+    /** Room.sendStateEventRaw with the m.room.power_levels content of a new DM (ADR 0141, bipe-chat/bipe#532). */
+    private suspend fun lockDm(roomId: String, userIds: List<String>) {
+        repeat(5) { attempt ->
+            val room = runCatching { session.client.getRoom(roomId) }.getOrNull()
+            if (room != null) {
+                runCatching { room.sendStateEventRaw("m.room.power_levels", "", BipeDmPowerLevels.content(userIds)) }
+                return
+            }
+            // The created room reaches the local store with the next sync.
+            delay(300L * (attempt + 1))
         }
     }
 
