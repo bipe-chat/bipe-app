@@ -12,14 +12,14 @@ import UIKit
 
 /// Bipe's colour tokens. Each colour follows the system light or dark mode and the Increase Contrast setting.
 public enum BipeColor {
-    /// Screen background.
-    public static let surfaceBase = dynamic(0xFFFFFF, 0x101317, 0xFFFFFF, 0x101317)
+    /// Screen background. iOS systemBackground.
+    public static let surfaceBase = dynamic(0xFFFFFF, 0x000000, 0xFFFFFF, 0x000000)
 
-    /// Sheets, bars and cards above the base.
-    public static let surfaceRaised = dynamic(0xFBFBFC, 0x1C1E21, 0xFBFBFC, 0x1C1E21)
+    /// Sheets, bars and cards above the base. iOS secondarySystemBackground.
+    public static let surfaceRaised = dynamic(0xF2F2F7, 0x1C1C1E, 0xEBEBF0, 0x242426)
 
-    /// Composer field and grouped list background.
-    public static let surfaceSunken = dynamic(0xF2F2F4, 0x151619, 0xF2F2F4, 0x151619)
+    /// Fields and controls: composer, search, chips. iOS secondarySystemFill, opaque on the base.
+    public static let surfaceSunken = dynamic(0xE9E9EB, 0x262629, 0xDEDEE0, 0x303033)
 
     /// Body text and titles.
     public static let inkPrimary = dynamic(0x1C1E20, 0xECEEEF, 0x1C1E20, 0xECEEEF)
