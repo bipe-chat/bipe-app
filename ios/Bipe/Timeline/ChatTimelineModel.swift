@@ -58,6 +58,8 @@ enum MessageAction: CaseIterable, Identifiable {
     case reply
     case edit
     case copy
+    case keepAudio
+    case unkeepAudio
     case retry
     case delete
     case report
@@ -91,10 +93,14 @@ enum TimelineNotice: Equatable {
     case deleteFailed
     case reported
     case inviteAgainFailed
+    case keepLimit
+    case keepFailed
 
     var text: String {
         switch self {
         case .copied: BipeStrings.appCopied
+        case .keepLimit: BipeStrings.voiceKeepLimit(String(BipeRegistries.voiceMediaMaxKeptPerAccount))
+        case .keepFailed: BipeStrings.errorGeneric
         case .reactionFailed: BipeStrings.appReactionFailed
         case .editFailed: BipeStrings.appMessageEditFailed
         case .deleteFailed: BipeStrings.appMessageDeleteFailed
@@ -316,6 +322,8 @@ final class ChatTimelineModel: ObservableObject {
 
     /// The client, for upload-preview and sticker-picker.
     var client: Client { session.client }
+    /// Expiry and keep state of this account's voice messages (ADR 0164).
+    var voiceMedia: VoiceMediaStore { VoiceMediaStore.store(for: session) }
 
     /// The reply target for a media, voice or sticker send; the reply bar closes.
     func takeReplyEventId() -> String? {
@@ -501,11 +509,19 @@ final class ChatTimelineModel: ObservableObject {
             case .edit: details.canEdit
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
+            // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
+            case .keepAudio: keepable(message, isSent: isSent) && voiceMedia.kept[message.voice!.source.url] == nil
+            case .unkeepAudio: message.voice.map { voiceMedia.kept[$0.source.url] != nil } ?? false
             case .retry: message.isOwn && message.sendState == .failed
             case .delete: details.canDelete || (message.isOwn && !isSent)
             case .report: !message.isOwn && isSent
             }
         }
+    }
+
+    private func keepable(_ message: TimelineMessage, isSent: Bool) -> Bool {
+        guard let voice = message.voice, voice.isVoice, isSent else { return false }
+        return !VoiceMediaExpiry.shared.isExpired(voice)
     }
 
     /// Spec message-actions showsReactions: messages that take reactions (message-reactions notes).
@@ -544,6 +560,20 @@ final class ChatTimelineModel: ObservableObject {
             UIPasteboard.general.string = row(rowId)?.message?.body
             BipeHaptics.play(.tap)
             show(.copied)
+        case .keepAudio, .unkeepAudio:
+            guard let url = current.message?.voice?.source.url else { return }
+            let store = voiceMedia
+            Task {
+                if action == .unkeepAudio {
+                    if await !store.unkeep(url: url) { self.show(.keepFailed) }
+                    return
+                }
+                switch await store.keep(url: url, reason: .kept) {
+                case .done: BipeHaptics.play(.tap)
+                case .limit: self.show(.keepLimit)
+                case .failed: self.show(.keepFailed)
+                }
+            }
         case .retry: Task { await retrySend(id: rowId) }
         case .delete: askDelete(rowId: rowId)
         case .report: openReport(rowId: rowId)

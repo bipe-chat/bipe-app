@@ -4,6 +4,7 @@
 
 import AVFoundation
 import Combine
+import MatrixRustSDK
 import UIKit
 
 /// The player of the voice-message rows of one chat. One row plays at a time (action togglePlay).
@@ -83,6 +84,7 @@ final class VoicePlayer: NSObject, ObservableObject {
                 self.player = player
                 start(player)
             } catch {
+                if Self.isGone(error) { VoiceMediaExpiry.shared.markExpired(voice.source.url) }
                 guard rowId == id else { return }
                 failedRows.insert(id)
                 playback = .failed
@@ -147,6 +149,17 @@ final class VoicePlayer: NSObject, ObservableObject {
             try? session.overrideOutputAudioPort(.none)
         } else {
             try? session.setCategory(.playback, mode: .spokenAudio)
+        }
+    }
+
+    /// The media repository answered 404 (M_NOT_FOUND): the server deleted the audio after its time (ADR 0164).
+    private static func isGone(_ error: Error) -> Bool {
+        guard let error = error as? ClientError else { return false }
+        switch error {
+        case .MatrixApi(kind: .notFound, code: _, msg: _, details: _): return true
+        // Media downloads can report the HTTP error as text.
+        case .Generic(let msg, _): return msg.contains("M_NOT_FOUND")
+        default: return false
         }
     }
 

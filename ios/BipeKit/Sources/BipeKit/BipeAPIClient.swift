@@ -97,6 +97,30 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "keychain-move"], body: Empty?.none, accessToken: accessToken)
     }
 
+    /// `PUT /v1/me/voice-media/{server}/{mediaId}` (ADR 0164, bipe-chat/bipe#622): the caller's own voice upload, so the
+    /// server can expire its audio. 404 when the media is not the caller's upload on this server.
+    public func registerVoiceMedia(server: String, mediaId: String, transcript: Bool, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "PUT", path: ["v1", "me", "voice-media", server, mediaId],
+                                          body: VoiceMediaRequest(transcript: transcript), accessToken: accessToken)
+    }
+
+    /// `GET /v1/me/kept-media` (ADR 0164): the voice message audio the caller keeps.
+    public func keptMedia(accessToken: String) async throws(BipeAPIError) -> [BipeKeptMedia] {
+        let list: BipeKeptMediaList = try await send(method: "GET", path: ["v1", "me", "kept-media"], body: Empty?.none, accessToken: accessToken)
+        return list.media
+    }
+
+    /// `PUT /v1/me/kept-media/{server}/{mediaId}` (ADR 0164). 409 keep_limit at maxKeptPerAccount.
+    public func keepMedia(server: String, mediaId: String, reason: BipeKeptMedia.Reason, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "PUT", path: ["v1", "me", "kept-media", server, mediaId],
+                                          body: KeepMediaRequest(reason: reason), accessToken: accessToken)
+    }
+
+    /// `DELETE /v1/me/kept-media/{server}/{mediaId}` (ADR 0164).
+    public func unkeepMedia(server: String, mediaId: String, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "DELETE", path: ["v1", "me", "kept-media", server, mediaId], body: Empty?.none, accessToken: accessToken)
+    }
+
     /// `DELETE /v1/me/email`.
     public func removeRecoveryEmail(accessToken: String) async throws(BipeAPIError) {
         let _: NoContent = try await send(method: "DELETE", path: ["v1", "me", "email"], body: Empty?.none, accessToken: accessToken)
@@ -843,6 +867,33 @@ public struct BipeMyHandle: Decodable, Sendable {
     public let changeableAt: Date?
 }
 
+/// One item of `GET /v1/me/kept-media` (ADR 0164).
+public struct BipeKeptMedia: Codable, Sendable, Equatable {
+    public enum Reason: String, Codable, Sendable {
+        /// The person chose Guardar áudio.
+        case kept
+        /// The app kept it because of a scam warning.
+        case scam
+    }
+
+    /// `mxc://<server>/<mediaId>`.
+    public let mediaId: String
+    public let reason: Reason
+    public let keptAt: Date
+}
+
+private struct BipeKeptMediaList: Decodable {
+    let media: [BipeKeptMedia]
+}
+
+private struct VoiceMediaRequest: Encodable {
+    let transcript: Bool
+}
+
+private struct KeepMediaRequest: Encodable {
+    let reason: BipeKeptMedia.Reason
+}
+
 /// Contract: `BusinessClaim` (ADR 0042). Only the parts the trust card reads.
 public struct BipeBusinessClaim: Decodable, Sendable, Equatable {
     public enum Status: String, Decodable, Sendable {
@@ -1031,6 +1082,8 @@ public enum BipeAPIErrorCode: String, Sendable {
     case brandNotVerified = "brand_not_verified"
     /// 409. The account already holds the most brand marks (ADR 0162); the invite stays open.
     case brandMarkLimit = "brand_mark_limit"
+    /// 409. The account already keeps maxKeptPerAccount voice audios (ADR 0164).
+    case keepLimit = "keep_limit"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -1100,6 +1153,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .signatureInvalid: BipeStrings.claimSignatureInvalid
             case .brandNotVerified: BipeStrings.brandMarksNotVerified
             case .brandMarkLimit: BipeStrings.brandMarksLimit
+            case .keepLimit: BipeStrings.voiceKeepLimit(String(BipeRegistries.voiceMediaMaxKeptPerAccount))
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

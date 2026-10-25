@@ -91,6 +91,7 @@ import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.ProfileNoticeBar
 import chat.bipe.app.people.cvm
 import kotlinx.coroutines.launch
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.app.common.OfficialBadge
@@ -103,6 +104,7 @@ import chat.bipe.app.media.upload.AttachmentPicker
 import chat.bipe.app.media.upload.UploadPreviewScreen
 import chat.bipe.app.media.voice.MicrophoneDeniedBar
 import chat.bipe.app.media.voice.VoiceRecordingBar
+import chat.bipe.app.media.voice.VoiceMediaStore
 import chat.bipe.app.polls.PollCreateScreen
 import chat.bipe.app.polls.PollDetailScreen
 import chat.bipe.app.settings.SettingsKeys
@@ -145,6 +147,7 @@ fun ChatTimelineScreen(
             session, roomId, scope, InviterGreetings(context, session.userId), strings, context.getString(R.string.bipe_dm_no_name),
             sharesTyping = { sharesTyping(context) },
             handleChanges = HandleChangeStores.store(context, session),
+            voiceMedia = VoiceMediaStore.store(context, session),
         )
     }
     DisposableEffect(model) {
@@ -501,6 +504,8 @@ private fun noticeText(notice: TimelineNotice): String = when (notice) {
     TimelineNotice.DELETE_FAILED -> stringResource(R.string.bipe_app_message_delete_failed)
     TimelineNotice.REPORTED -> stringResource(R.string.bipe_app_message_reported)
     TimelineNotice.INVITE_AGAIN_FAILED -> stringResource(R.string.bipe_dm_invite_again_failed)
+    TimelineNotice.KEEP_LIMIT -> stringResource(R.string.bipe_voice_keep_limit, BipeRegistries.VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT.toString())
+    TimelineNotice.KEEP_FAILED -> stringResource(R.string.bipe_error_generic)
 }
 
 /** Spec typing-indicator: who is typing, above the composer. */

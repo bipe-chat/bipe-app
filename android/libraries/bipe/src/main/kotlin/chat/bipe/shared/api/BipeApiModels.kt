@@ -158,6 +158,32 @@ internal data class BipeProfileFactsRequest(@SerialName("user_ids") val userIds:
 @Serializable
 internal data class BipeProfileFactsResponse(@SerialName("facts") val facts: List<BipeProfileFacts>)
 
+/** One item of `GET /v1/me/kept-media` (ADR 0164). [mediaId] is `mxc://<server>/<mediaId>`. */
+@Serializable
+data class BipeKeptMedia(
+    @SerialName("media_id") val mediaId: String,
+    @SerialName("reason") val reason: Reason,
+    @Serializable(with = InstantSerializer::class) @SerialName("kept_at") val keptAt: Instant,
+) {
+    @Serializable
+    enum class Reason {
+        /** The person chose Guardar áudio. */
+        @SerialName("kept") KEPT,
+
+        /** The app kept it because of a scam warning. */
+        @SerialName("scam") SCAM,
+    }
+}
+
+@Serializable
+internal data class BipeKeptMediaList(@SerialName("media") val media: List<BipeKeptMedia>)
+
+@Serializable
+internal data class BipeVoiceMediaRequest(@SerialName("transcript") val transcript: Boolean)
+
+@Serializable
+internal data class BipeKeepMediaRequest(@SerialName("reason") val reason: BipeKeptMedia.Reason)
+
 /** `MyHandle`. */
 @Serializable
 data class BipeMyHandle(

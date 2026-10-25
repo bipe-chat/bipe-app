@@ -150,6 +150,8 @@ fun TimelineRowItem(
                         onTogglePlay = { onTogglePlay(message.id, voice) },
                         onSeek = { onSeek(message.id, it) },
                         loader = media,
+                        voiceMedia = model.voiceMedia,
+                        hasScamWarning = details.scamWarning != null,
                     )
                     else -> Text(message.body.orEmpty(), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
                 }

@@ -241,7 +241,8 @@ private struct MessageBubbleRow: View {
                              openViewer: { openViewer(row.id) },
                              cancelUpload: { Task { await model.cancelUpload(id: row.id) } })
         } else if let voice = message.voice {
-            VoiceMessageRow(message: message, voice: voice, loader: media, player: voicePlayer)
+            VoiceMessageRow(message: message, voice: voice, loader: media, player: voicePlayer,
+                            voiceMedia: model.voiceMedia, hasScamWarning: row.details?.scamWarning != nil)
         } else {
             Text(message.body ?? "")
                 .foregroundStyle(BipeColor.inkPrimary)
