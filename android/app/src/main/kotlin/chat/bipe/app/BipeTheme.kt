@@ -107,7 +107,7 @@ fun BipeTheme(content: @Composable () -> Unit) {
     }
     val reduceMotion = reduceMotion(LocalContext.current)
     CompositionLocalProvider(LocalBipeColors provides colors, LocalReduceMotion provides reduceMotion) {
-        MaterialTheme(colorScheme = scheme, content = content)
+        MaterialTheme(colorScheme = scheme, typography = BipeTypography, content = content)
     }
 }
 

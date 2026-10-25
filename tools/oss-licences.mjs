@@ -23,11 +23,13 @@ export const OUTPUTS = {
   android: 'android/app/src/main/assets/open_source_licences.json',
 };
 
-const ECOSYSTEMS = { ios: ['swiftpm', 'vendored'], android: ['gradle', 'vendored'] };
+// A font (ADR 0159) is bundled on Android only; iOS uses the system SF Rounded.
+const ECOSYSTEMS = { ios: ['swiftpm', 'vendored'], android: ['gradle', 'vendored', 'font'] };
 
 // The LICENSE file of each vendored package, per platform.
 const VENDORED_LICENCE = {
   '@phosphor-icons/core': { ios: 'ios/Phosphor/LICENSE', android: 'android/libraries/phosphor/LICENSE' },
+  Nunito: { android: 'android/app/fonts/Nunito-OFL.txt' },
 };
 
 const read = (root, path) => readFileSync(join(root, path), 'utf8').replace(/\r\n/g, '\n').trimEnd();
@@ -45,7 +47,7 @@ export function licenceList(platform, root = REPO_ROOT) {
     .sort(([a], [b]) => a.toLowerCase().localeCompare(b.toLowerCase()))
     .map(([name, p]) => {
       const vendored = VENDORED_LICENCE[name]?.[platform];
-      if (p.ecosystem === 'vendored' && !vendored) throw new Error(`oss-licences: no LICENSE path for vendored ${name}`);
+      if ((p.ecosystem === 'vendored' || p.ecosystem === 'font') && !vendored) throw new Error(`oss-licences: no LICENSE path for vendored ${name}`);
       return vendored ? { name, licence: p.licence, text: read(root, vendored) } : { name, licence: textOf(p.licence) };
     });
   const bipe = {
