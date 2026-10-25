@@ -471,6 +471,9 @@ struct ChatRow: View {
                         .font(.headline)
                         .foregroundStyle(BipeColor.inkPrimary)
                         .lineLimit(1)
+                    if chat.isOfficial {
+                        OfficialBadge()
+                    }
                     Spacer(minLength: 8)
                     if let lastActivity = chat.lastActivity {
                         Text(lastActivity, format: Self.timeFormat(for: lastActivity))

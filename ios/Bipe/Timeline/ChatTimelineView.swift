@@ -258,6 +258,9 @@ struct ChatTimelineView: View {
         HStack(spacing: 8) {
             AvatarView(name: model.roomName, mxcUrl: model.roomAvatarUrl, loader: media, size: 32, userId: model.peerUserId)
             Text(model.roomName).font(.headline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
+            if model.isDm, BipeOfficialAccounts.isOfficial(model.peerUserId) {
+                OfficialBadge()
+            }
         }
     }
 
