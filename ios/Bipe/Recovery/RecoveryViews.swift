@@ -141,7 +141,7 @@ private struct RecoveryStartView: View {
             if model.pending == nil {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: close) {
-                        PhosphorIcon.caretLeft.image.resizable().frame(width: 20, height: 20)
+                        PhosphorIcon.caretLeft.toolbarImage(size: 20)
                     }
                     .accessibilityLabel(BipeStrings.appCancel)
                 }
