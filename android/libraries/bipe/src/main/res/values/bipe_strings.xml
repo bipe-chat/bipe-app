@@ -1775,4 +1775,11 @@
     <string name="bipe_bring_people_reminder_title">%1$s ainda não entrou no Bipe</string>
     <string name="bipe_bring_people_reminder_pending">O convite ainda vale. Quer mandar de novo?</string>
     <string name="bipe_bring_people_reminder_expired">O convite venceu. Quer mandar um novo?</string>
+    <string name="bipe_share_send_to_chat">Enviar para uma conversa</string>
+    <string name="bipe_share_title">Enviar para</string>
+    <string name="bipe_share_message_placeholder">Mensagem (opcional)</string>
+    <string name="bipe_share_handed_off">Abra o Bipe para escolher a conversa e enviar.</string>
+    <string name="bipe_share_signed_out">Sua conta ainda não está neste celular. Abra o Bipe, entre na conta e compartilhe de novo.</string>
+    <string name="bipe_share_too_many">Dá para enviar até 10 de cada vez, então vão só os 10 primeiros.</string>
+    <string name="bipe_share_nothing">Não deu para ler o que você compartilhou. Tente de novo.</string>
 </resources>
