@@ -3770,6 +3770,42 @@ public enum BipeStrings {
 
     public static var appAttachPoll: String { NSLocalizedString("bipe_app_attach_poll", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appAttachLocation: String { NSLocalizedString("bipe_app_attach_location", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationSendTitle: String { NSLocalizedString("bipe_app_location_send_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationSendCurrent: String { NSLocalizedString("bipe_app_location_send_current", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationSendPin: String { NSLocalizedString("bipe_app_location_send_pin", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationDragHint: String { NSLocalizedString("bipe_app_location_drag_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationFinding: String { NSLocalizedString("bipe_app_location_finding", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationPermission: String { NSLocalizedString("bipe_app_location_permission", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationUnavailable: String { NSLocalizedString("bipe_app_location_unavailable", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationSendFailed: String { NSLocalizedString("bipe_app_location_send_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationMyLocation: String { NSLocalizedString("bipe_app_location_my_location", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationZoomIn: String { NSLocalizedString("bipe_app_location_zoom_in", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationZoomOut: String { NSLocalizedString("bipe_app_location_zoom_out", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationTitle: String { NSLocalizedString("bipe_app_location_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationCurrent: String { NSLocalizedString("bipe_app_location_current", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationPinned: String { NSLocalizedString("bipe_app_location_pinned", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationOpenMaps: String { NSLocalizedString("bipe_app_location_open_maps", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appLocationBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_location_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var appAttachPhotosPermission: String { NSLocalizedString("bipe_app_attach_photos_permission", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appVoiceRecording: String { NSLocalizedString("bipe_app_voice_recording", tableName: "Bipe", bundle: .module, comment: "") }

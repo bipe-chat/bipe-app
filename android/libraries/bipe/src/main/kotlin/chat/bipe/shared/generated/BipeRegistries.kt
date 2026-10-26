@@ -825,6 +825,18 @@ object BipeRegistries {
     const val VOICE_MEDIA_NO_TRANSCRIPT_DAYS = 90
     const val VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT = 200
 
+    /** Maps for location sharing (ADR 0131, bipe-chat/bipe#768; registries/maps.json). No other map host. */
+    const val MAPS_BASE_URL = "https://maps.bipe.net.br"
+    const val MAPS_STYLE_LIGHT = "light"
+    const val MAPS_STYLE_DARK = "dark"
+    const val MAPS_STATIC_PATH = "/styles/{style}/static/{lon},{lat},{zoom}/{width}x{height}@2x.png"
+    const val MAPS_ATTRIBUTION = "© OpenStreetMap"
+    const val MAPS_DEFAULT_ZOOM = 15
+    const val MAPS_MIN_ZOOM = 3
+    const val MAPS_MAX_ZOOM = 18
+    const val MAPS_MAX_STATIC_SIZE = 1024
+    const val MAPS_COORDINATE_DECIMALS = 6
+
     /** Voice transcript paragraphs (registries/voice-transcript.json). Rule: product/screens/voice-recording.json notes. */
     const val VOICE_TRANSCRIPT_PAUSE_SECONDS: Double = 1.2
     const val VOICE_TRANSCRIPT_MIN_CHARACTERS = 120
