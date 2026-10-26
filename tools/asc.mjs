@@ -524,9 +524,15 @@ export async function external(call, buildNumber, { enable = false, publicLink =
     if (enable && group) {
       const bl = (await call('GET', `/v1/builds/${build.id}/betaBuildLocalizations?limit=50`)).data.find((l) => l.attributes.locale === BETA_LOCALE);
       if (!bl) {
-        await call('POST', '/v1/betaBuildLocalizations', {
-          data: { type: 'betaBuildLocalizations', attributes: { locale: BETA_LOCALE, whatToTest: BETA_TEXT.whatToTest }, relationships: { build: { data: { type: 'builds', id: build.id } } } },
-        });
+        // "What to Test" is optional for beta review. On 26 Oct 2026 the API rejected the attribute (409
+        // ENTITY_ERROR.ATTRIBUTE.UNKNOWN), so a failure here warns and the build still goes to review.
+        try {
+          await call('POST', '/v1/betaBuildLocalizations', {
+            data: { type: 'betaBuildLocalizations', attributes: { locale: BETA_LOCALE, whatToTest: BETA_TEXT.whatToTest }, relationships: { build: { data: { type: 'builds', id: build.id } } } },
+          });
+        } catch (err) {
+          console.error(`::warning::What to Test for build ${buildNumber} not set: ${err.message}`);
+        }
       }
       await call('POST', `/v1/betaGroups/${group.id}/relationships/builds`, { data: [{ type: 'builds', id: build.id }] });
       if (state === 'READY_FOR_BETA_SUBMISSION' && !missing.length) {
