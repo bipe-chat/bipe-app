@@ -25,7 +25,7 @@ android {
     defaultConfig {
         // ID set (bipe-chat/bipe#602, docs/client-switch-plan.md step 2): tester builds use chat.bipe.app.next;
         // -PbipeIdSet=store builds the release app's ID (ADR 0061). CI signs the store set only for the side-load APK
-        // with the old app's key (ADR 0185) and for the Play upload (store-release.yml).
+        // with the old app's key (ADR 0189) and for the Play upload (store-release.yml).
         val isStore = findProperty("bipeIdSet") == "store"
         applicationId = if (isStore) "chat.bipe.app" else "chat.bipe.app.next"
         // Name under the launcher icon: "Bipe" for the release app, "Bipe Next" for builds next to it (ADR 0147).
@@ -77,7 +77,7 @@ android {
         release {
             isMinifyEnabled = false
             // Tester APK of chat.bipe.app.next (bipe-chat/bipe#575): debug signing is enough. The side-load APK of
-            // chat.bipe.app signs with the old app's key (ADR 0185) and the store release with the Play upload key,
+            // chat.bipe.app signs with the old app's key (ADR 0189) and the store release with the Play upload key,
             // both through the "upload" config; Play then signs again with the app signing key.
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
