@@ -202,6 +202,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json
     case linkedDevices = "linked-devices"
 
+    /// Send location (flow chat). Spec: bipe-shared/product/screens/location-send.json
+    case locationSend = "location-send"
+
+    /// Location (flow chat). Spec: bipe-shared/product/screens/location-view.json
+    case locationView = "location-view"
+
     /// Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json
     case mediaViewer = "media-viewer"
 
@@ -354,6 +360,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Settings list in the Você tab (flow settings). Spec: bipe-shared/product/screens/settings-root.json
     case settingsRoot = "settings-root"
+
+    /// Share to a chat from other apps (flow share). Spec: bipe-shared/product/screens/share-to-chat.json
+    case shareToChat = "share-to-chat"
 
     /// Sign out of this phone (flow settings). Spec: bipe-shared/product/screens/sign-out.json
     case signOut = "sign-out"

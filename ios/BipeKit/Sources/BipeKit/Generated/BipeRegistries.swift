@@ -818,6 +818,18 @@ public enum BipeRegistries {
     public static let voiceMediaNoTranscriptDays = 90
     public static let voiceMediaMaxKeptPerAccount = 200
 
+    /// Maps for location sharing (ADR 0131, bipe-chat/bipe#768; registries/maps.json). No other map host.
+    public static let mapsBaseUrl = "https://maps.bipe.net.br"
+    public static let mapsStyleLight = "light"
+    public static let mapsStyleDark = "dark"
+    public static let mapsStaticPath = "/styles/{style}/static/{lon},{lat},{zoom}/{width}x{height}@2x.png"
+    public static let mapsAttribution = "© OpenStreetMap"
+    public static let mapsDefaultZoom = 15
+    public static let mapsMinZoom = 3
+    public static let mapsMaxZoom = 18
+    public static let mapsMaxStaticSize = 1024
+    public static let mapsCoordinateDecimals = 6
+
     /// Voice transcript paragraphs (registries/voice-transcript.json). Rule: product/screens/voice-recording.json notes.
     public static let voiceTranscriptPauseSeconds: Double = 1.2
     public static let voiceTranscriptMinCharacters = 120

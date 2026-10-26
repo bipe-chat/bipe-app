@@ -208,6 +208,12 @@ enum class BipeScreen(val id: String) {
     /** Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json */
     LINKED_DEVICES("linked-devices"),
 
+    /** Send location (flow chat). Spec: bipe-shared/product/screens/location-send.json */
+    LOCATION_SEND("location-send"),
+
+    /** Location (flow chat). Spec: bipe-shared/product/screens/location-view.json */
+    LOCATION_VIEW("location-view"),
+
     /** Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json */
     MEDIA_VIEWER("media-viewer"),
 
@@ -360,6 +366,9 @@ enum class BipeScreen(val id: String) {
 
     /** Settings list in the Você tab (flow settings). Spec: bipe-shared/product/screens/settings-root.json */
     SETTINGS_ROOT("settings-root"),
+
+    /** Share to a chat from other apps (flow share). Spec: bipe-shared/product/screens/share-to-chat.json */
+    SHARE_TO_CHAT("share-to-chat"),
 
     /** Sign out of this phone (flow settings). Spec: bipe-shared/product/screens/sign-out.json */
     SIGN_OUT("sign-out"),
