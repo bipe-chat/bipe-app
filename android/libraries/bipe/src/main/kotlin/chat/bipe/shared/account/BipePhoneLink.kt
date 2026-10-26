@@ -29,6 +29,20 @@ data class BipeMyPhone(
 suspend fun BipeApiClient.myPhone(accessToken: String): BipeMyPhone =
     send("GET", listOf("v1", "me", "phone"), accessToken = accessToken, response = BipeMyPhone.serializer())
 
+@Serializable
+private data class DiscoverySettings(@SerialName("by_phone") val byPhone: Boolean)
+
+/** `PUT /v1/me/discovery`. Same call as BipeKit `setDiscoverableByPhone` on iOS. */
+suspend fun BipeApiClient.setDiscoverableByPhone(value: Boolean, accessToken: String) {
+    send(
+        "PUT",
+        listOf("v1", "me", "discovery"),
+        body = encode(DiscoverySettings.serializer(), DiscoverySettings(value)),
+        accessToken = accessToken,
+        response = DiscoverySettings.serializer(),
+    )
+}
+
 /**
  * Spec phone-link-status (bipe-chat/bipe#470): the state of the linked number and its yearly confirmation. A linked
  * number stays findable until `confirm_by`; the app warns [BipeRegistries.PHONE_LINK_CONFIRM_WARN_DAYS] before it.
