@@ -16,7 +16,7 @@
       "licence": "Apache-2.0"
     },
     {
-      "name": "livekit-ffi-xcframework",
+      "name": "livekit-uniffi-xcframework",
       "licence": "Apache-2.0"
     },
     {

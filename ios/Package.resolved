@@ -10,12 +10,12 @@
       }
     },
     {
-      "identity" : "livekit-ffi-xcframework",
+      "identity" : "livekit-uniffi-xcframework",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/livekit/livekit-ffi-xcframework.git",
+      "location" : "https://github.com/livekit/livekit-uniffi-xcframework.git",
       "state" : {
-        "revision" : "685cfd95e23edf734450125eb58bb3bb21b4133b",
-        "version" : "0.13.1"
+        "revision" : "7a9bf91b1601d5c408ae0cac7dc2047b5a4f615e",
+        "version" : "0.1.9"
       }
     },
     {
@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/livekit/webrtc-xcframework.git",
       "state" : {
-        "revision" : "f843fb1c12017bd17fde38e7293649c204548467",
-        "version" : "150.7871.04"
+        "revision" : "a41df9e9bcc7ab1d62131fda75c123ea391e5188",
+        "version" : "150.7871.03"
       }
     }
   ],

@@ -240,13 +240,6 @@
       "checked": "2026-10-26",
       "note": "LiveKit iOS SDK for calls (spec call, ADR 0186)."
     },
-    "livekit-ffi-xcframework": {
-      "ecosystem": "swiftpm",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/livekit/livekit-ffi-xcframework",
-      "checked": "2026-10-26",
-      "note": "Binary of livekit/rust-sdks (Apache-2.0), a dependency of client-sdk-swift."
-    },
     "webrtc-xcframework": {
       "ecosystem": "swiftpm",
       "licence": "BSD-3-Clause",
@@ -267,6 +260,13 @@
       "source": "https://github.com/webrtc-sdk/android",
       "checked": "2026-10-26",
       "note": "LiveKit's WebRTC build for Android, a dependency of livekit-android. Its POM names the 3-Clause BSD License."
+    },
+    "livekit-uniffi-xcframework": {
+      "ecosystem": "swiftpm",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/livekit/livekit-uniffi-xcframework",
+      "checked": "2026-10-26",
+      "note": "Binary of livekit/rust-sdks (Apache-2.0), a dependency of client-sdk-swift. The repo now redirects to livekit/livekit-ffi-xcframework."
     }
   }
 }
