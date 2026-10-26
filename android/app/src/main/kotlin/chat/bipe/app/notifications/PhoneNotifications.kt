@@ -345,6 +345,7 @@ class PhoneNotifications(private val context: Context) {
     }
 
     /** Spec incoming-call timeout: a ring nobody answered, on its own channel. Opens the chat. */
+    @SuppressLint("MissingPermission")
     fun missedCall(target: BipeNotificationTarget, callerName: String, eventId: String) {
         val system = context.getSystemService(NotificationManager::class.java)
         system.createNotificationChannel(
