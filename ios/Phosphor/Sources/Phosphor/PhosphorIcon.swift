@@ -86,4 +86,15 @@ public enum PhosphorIcon: String, CaseIterable, Sendable {
     public func labelledImage(_ label: String) -> Image {
         Image(rawValue, bundle: .module, label: Text(label))
     }
+
+    /// The icon drawn at a fixed size in points, for a toolbar item. A toolbar keeps only the image of a
+    /// Label or Button: it drops a frame and stretches a resizable image to the full bar.
+    public func toolbarImage(size: CGFloat) -> Image {
+        guard let icon = UIImage(named: rawValue, in: .module, with: nil) else { return image }
+        let sized = UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { _ in
+            icon.draw(in: CGRect(x: 0, y: 0, width: size, height: size))
+        }
+        guard let cgImage = sized.cgImage else { return image }
+        return Image(decorative: cgImage, scale: sized.scale).renderingMode(.template)
+    }
 }
