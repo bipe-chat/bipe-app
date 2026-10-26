@@ -172,8 +172,8 @@ enum MissedCalls {
         content.title = call.callerName
         content.body = BipeStrings.callMissed
         content.threadIdentifier = call.roomId
-        let target = BipeNotificationTarget(accountUserId: call.accountUserId, roomId: call.roomId)
-        if let routes = NotificationKeys.accountRoutes {
+        if let target = BipeNotificationTarget(accountUserId: call.accountUserId, roomId: call.roomId),
+           let routes = NotificationKeys.accountRoutes {
             content.userInfo = NotificationKeys.payload(target, route: routes.route(for: call.accountUserId),
                                                         eventId: call.ringEventId, kind: "missedCall")
         }
