@@ -18,6 +18,8 @@ final class SettingsModel: ObservableObject {
     @Published private(set) var account: BipeAccountStatus?
     /// Spec phone-link-status: `nil` until GET /v1/me/phone answers.
     @Published private(set) var phone: BipePhoneLinkState?
+    /// The own linked number in E.164 from GET /v1/me/phone (ADR 0191), `nil` for a link made before the server stored it.
+    @Published private(set) var phoneNumber: String?
     /// The discovery switch (PUT /v1/me/discovery): `nil` until GET /v1/me/phone answers.
     @Published private(set) var discoverableByPhone: Bool?
     @Published private(set) var hasRecoveryKey = false
@@ -65,6 +67,7 @@ final class SettingsModel: ObservableObject {
             try await api.myPhone(accessToken: token)
         }) {
             phone = BipePhoneLinkState(phone: value)
+            phoneNumber = value.linked ? value.number : nil
             discoverableByPhone = value.discoverableByPhone
         }
     }

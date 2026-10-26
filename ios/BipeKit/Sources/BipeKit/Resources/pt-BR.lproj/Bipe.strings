@@ -1046,6 +1046,7 @@
 "bipe_privacy_who_can_find" = "Quem pode te achar";
 "bipe_privacy_number" = "Seu número";
 "bipe_privacy_number_linked" = "Seu número está ligado à conta";
+"bipe_privacy_number_value" = "%1$@ · %2$@";
 "bipe_privacy_number_not_linked" = "Seu número não está ligado à conta";
 "bipe_privacy_what_others_see" = "O que os outros veem";
 "bipe_privacy_presence" = "Online e digitando";

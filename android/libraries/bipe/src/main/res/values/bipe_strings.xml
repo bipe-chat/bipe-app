@@ -1048,6 +1048,7 @@
     <string name="bipe_privacy_who_can_find">Quem pode te achar</string>
     <string name="bipe_privacy_number">Seu número</string>
     <string name="bipe_privacy_number_linked">Seu número está ligado à conta</string>
+    <string name="bipe_privacy_number_value">%1$s · %2$s</string>
     <string name="bipe_privacy_number_not_linked">Seu número não está ligado à conta</string>
     <string name="bipe_privacy_what_others_see">O que os outros veem</string>
     <string name="bipe_privacy_presence">Online e digitando</string>

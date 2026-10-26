@@ -46,6 +46,8 @@ class SettingsModel(
         val notificationsOn: Boolean? = null,
         /** Spec phone-link-status: null until GET /v1/me/phone answers. */
         val phone: BipePhoneLinkState? = null,
+        /** The own linked number in E.164 from GET /v1/me/phone (ADR 0191), null for a link made before the server stored it. */
+        val phoneNumber: String? = null,
         /** The discovery switch (PUT /v1/me/discovery): null until GET /v1/me/phone answers. */
         val discoverableByPhone: Boolean? = null,
         /** ADR 0140: the waiting deletion, from GET /v1/me/account. */
@@ -86,7 +88,11 @@ class SettingsModel(
         }
         scope.launch {
             runCatching { authorized { api.myPhone(it) } }.onSuccess { value -> _state.update {
-                it.copy(phone = BipePhoneLinkState.of(value), discoverableByPhone = value.discoverableByPhone)
+                it.copy(
+                    phone = BipePhoneLinkState.of(value),
+                    phoneNumber = value.number.takeIf { value.linked },
+                    discoverableByPhone = value.discoverableByPhone,
+                )
             } }
         }
         scope.launch {

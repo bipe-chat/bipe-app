@@ -12,7 +12,7 @@ struct PhoneLinkStateTests {
     private let day: TimeInterval = 86_400
     
     private func phone(linked: Bool = true, confirmIn days: Double?) -> BipeMyPhone {
-        BipeMyPhone(linked: linked, discoverableByPhone: true, linkedAt: now, confirmBy: days.map { now.addingTimeInterval($0 * day) })
+        BipeMyPhone(linked: linked, discoverableByPhone: true, linkedAt: now, confirmBy: days.map { now.addingTimeInterval($0 * day) }, number: nil)
     }
     
     @Test
@@ -25,5 +25,17 @@ struct PhoneLinkStateTests {
         #expect(BipePhoneLinkState(phone: phone(confirmIn: 0), now: now) == .expired(since: now))
         #expect(BipePhoneLinkState(phone: phone(confirmIn: -10), now: now).needsAttention)
         #expect(!BipePhoneLinkState(phone: phone(confirmIn: 200), now: now).needsAttention)
+    }
+
+    /// ADR 0191 (bipe-chat/bipe#787): the own number shows next to the state, formatted; without one, the state only.
+    @Test
+    func summaryWithNumber() {
+        let linked = BipePhoneLinkState(phone: phone(confirmIn: 200), now: now)
+        #expect(linked.summary(number: nil) == linked.summary)
+        #expect(linked.summary(number: "") == linked.summary)
+        let shown = linked.summary(number: "+5511987654321")
+        #expect(shown.contains("+55 11 98765-4321"))
+        #expect(shown.contains(linked.summary))
+        #expect(BipePhoneLinkState.notLinked.summary(number: "+5511987654321") == BipePhoneLinkState.notLinked.summary)
     }
 }

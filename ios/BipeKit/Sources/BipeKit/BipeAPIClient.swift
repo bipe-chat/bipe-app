@@ -776,6 +776,8 @@ public struct BipeMyPhone: Decodable, Sendable {
     public let linkedAt: Date?
     /// After this date the number stops being discoverable until confirmed again.
     public let confirmBy: Date?
+    /// The caller's own linked number in E.164 (ADR 0191). `nil` when not linked or for a link made before the server stored it.
+    public let number: String?
 }
 
 public struct BipeInvitePreview: Decodable, Sendable {
