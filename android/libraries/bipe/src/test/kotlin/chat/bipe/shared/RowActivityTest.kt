@@ -4,74 +4,60 @@
 
 package chat.bipe.shared
 
-import chat.bipe.shared.BipeRowActivity.Kind
+import chat.bipe.shared.BipeRowActivity.Kind.MESSAGE
+import chat.bipe.shared.BipeRowActivity.Kind.OTHER
 import chat.bipe.shared.BipeRowActivity.LocalEvent
 import chat.bipe.shared.BipeRowActivity.Row
 import chat.bipe.shared.BipeRowActivity.SdkLatest
-import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Test
 
-/** Synthetic rooms for the chat-list row date and text (bipe-chat/bipe#592). The same cases run in RowActivityTests.swift. */
+/**
+ * Synthetic rooms for the chat-list row date and text (bipe-chat/bipe#592), one table. The same cases run in
+ * RowActivityTests.swift.
+ */
 class RowActivityTest {
-    @Test fun sdkLatestEventWinsWhenItIsTheNewest() {
-        val row = BipeRowActivity.resolve(SdkLatest(1_700_000_000_000, "oi", isIncoming = true),
-            listOf(LocalEvent(1_600_000_000_000, Kind.MESSAGE, "old")), 1_900_000_000_000)
-        assertThat(row).isEqualTo(Row(1_700_000_000_000, "oi", 1_700_000_000_000))
-    }
+    private class Case(val name: String, val sdk: SdkLatest?, val events: List<LocalEvent>, val knownMs: Long?, val row: Row)
 
-    /** The device test of 26 Oct 2026: the message arrived before its room key, so the SDK kept the own join. */
-    @Test fun newerDecryptedLocalMessageReplacesTheSdkJoin() {
-        val join = SdkLatest(1_700_000_000_000, null, isIncoming = false)
-        val events = listOf(LocalEvent(1_700_000_000_000, Kind.OTHER), LocalEvent(1_700_000_060_000, Kind.MESSAGE, "oi", isOwn = false))
-        assertThat(BipeRowActivity.resolve(join, events, null)).isEqualTo(Row(1_700_000_060_000, "oi", 1_700_000_060_000))
-    }
+    private val t = 1_700_000_000_000L
 
-    /** A newer message that still does not decrypt shows the undecryptable label with its own time. */
-    @Test fun newerUndecryptableLocalMessageShowsItsLabel() {
-        val sdk = SdkLatest(1_700_000_000_000, "before", isIncoming = true)
-        val events = listOf(LocalEvent(1_700_000_500_000, Kind.MESSAGE, "undecryptable", isOwn = false))
-        assertThat(BipeRowActivity.resolve(sdk, events, null)).isEqualTo(Row(1_700_000_500_000, "undecryptable", 1_700_000_500_000))
-    }
+    private val cases = listOf(
+        Case("the SDK latest event wins when it is the newest",
+            SdkLatest(t, "oi", true), listOf(LocalEvent(t - 100_000_000_000, MESSAGE, "old")), t + 200_000_000_000,
+            Row(t, "oi", t)),
+        // The device test of 26 Oct 2026: the message arrived before its room key, so the SDK kept the own join.
+        Case("a newer decrypted local message replaces the SDK join",
+            SdkLatest(t, null, false), listOf(LocalEvent(t, OTHER), LocalEvent(t + 60_000, MESSAGE, "oi")), null,
+            Row(t + 60_000, "oi", t + 60_000)),
+        Case("a newer undecryptable local message shows its label",
+            SdkLatest(t, "before", true), listOf(LocalEvent(t + 500_000, MESSAGE, "undecryptable")), null,
+            Row(t + 500_000, "undecryptable", t + 500_000)),
+        Case("an own newer local message is not incoming",
+            SdkLatest(t, "oi", true), listOf(LocalEvent(t + 100_000, MESSAGE, "tudo bem?", isOwn = true)), null,
+            Row(t + 100_000, "tudo bem?", null)),
+        Case("a newer state event keeps the SDK latest event",
+            SdkLatest(t, "oi", false), listOf(LocalEvent(t + 900_000, OTHER)), null,
+            Row(t, "oi", null)),
+        // The device test of 25 Oct 2026: an unapproved phone, every recent event undecryptable, no SDK latest event.
+        Case("a room whose latest event is undecryptable keeps its date",
+            null, listOf(LocalEvent(t, MESSAGE, "a"), LocalEvent(t + 500_000, MESSAGE, "undecryptable"), LocalEvent(t + 900_000, OTHER)), null,
+            Row(t + 500_000, "undecryptable", t + 500_000)),
+        Case("a room with only state events uses the newest event",
+            null, listOf(LocalEvent(t - 100_000_000_000, OTHER), LocalEvent(t - 99_999_900_000, OTHER)), null,
+            Row(t - 99_999_900_000, null, null)),
+        Case("a known time stays when the timeline is older",
+            null, listOf(LocalEvent(t - 60_000_000_000, MESSAGE, "old")), t - 50_000_000_000,
+            Row(t - 50_000_000_000, null, null)),
+        Case("a known time stays when the timeline is empty",
+            null, emptyList(), t - 50_000_000_000,
+            Row(t - 50_000_000_000, null, null)),
+        // No local data: the row has no date. It never takes the current time.
+        Case("unknown stays unknown", null, emptyList(), null, Row(null, null, null)),
+    )
 
-    /** An own newer message does not count as incoming (the archive keeps the chat archived). */
-    @Test fun ownNewerLocalMessageIsNotIncoming() {
-        val sdk = SdkLatest(1_700_000_000_000, "oi", isIncoming = true)
-        val events = listOf(LocalEvent(1_700_000_100_000, Kind.MESSAGE, "tudo bem?", isOwn = true))
-        assertThat(BipeRowActivity.resolve(sdk, events, null)).isEqualTo(Row(1_700_000_100_000, "tudo bem?", null))
-    }
-
-    /** A newer state event (a member left) never replaces the SDK latest event. */
-    @Test fun newerStateEventKeepsTheSdkLatestEvent() {
-        val sdk = SdkLatest(1_700_000_000_000, "oi", isIncoming = false)
-        assertThat(BipeRowActivity.resolve(sdk, listOf(LocalEvent(1_700_000_900_000, Kind.OTHER)), null))
-            .isEqualTo(Row(1_700_000_000_000, "oi", null))
-    }
-
-    /** The device test of 25 Oct 2026: an unapproved phone, every recent event undecryptable, no SDK latest event. */
-    @Test fun roomWhoseLatestEventIsUndecryptableKeepsItsDate() {
-        val events = listOf(
-            LocalEvent(1_700_000_000_000, Kind.MESSAGE, "a"),
-            LocalEvent(1_700_000_500_000, Kind.MESSAGE, "undecryptable"),
-            LocalEvent(1_700_000_900_000, Kind.OTHER), // a member left
-        )
-        val row = BipeRowActivity.resolve(null, events, null)
-        assertThat(row.timestampMs).isEqualTo(1_700_000_500_000)
-        assertThat(row.previewText).isEqualTo("undecryptable")
-    }
-
-    @Test fun roomWithOnlyStateEventsUsesTheNewestEvent() {
-        val events = listOf(LocalEvent(1_600_000_000_000, Kind.OTHER), LocalEvent(1_600_000_100_000, Kind.OTHER))
-        assertThat(BipeRowActivity.resolve(null, events, null)).isEqualTo(Row(1_600_000_100_000, null, null))
-    }
-
-    @Test fun knownTimeStaysWhenTheTimelineIsEmptyOrOlder() {
-        assertThat(BipeRowActivity.resolve(null, emptyList(), 1_650_000_000_000).timestampMs).isEqualTo(1_650_000_000_000)
-        val older = listOf(LocalEvent(1_640_000_000_000, Kind.MESSAGE, "old"))
-        assertThat(BipeRowActivity.resolve(null, older, 1_650_000_000_000)).isEqualTo(Row(1_650_000_000_000, null, null))
-    }
-
-    /** No local data: the row has no date. It never takes the current time. */
-    @Test fun unknownStaysUnknown() {
-        assertThat(BipeRowActivity.resolve(null, emptyList(), null)).isEqualTo(Row(null, null, null))
+    @Test fun everyCaseResolvesToItsRow() {
+        for (case in cases) {
+            assertWithMessage(case.name).that(BipeRowActivity.resolve(case.sdk, case.events, case.knownMs)).isEqualTo(case.row)
+        }
     }
 }
