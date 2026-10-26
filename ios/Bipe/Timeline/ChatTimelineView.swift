@@ -46,6 +46,7 @@ struct ChatTimelineView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            OngoingCallBar(model: model, session: session)
             if model.isDm, let people, let peer = model.peerUserId {
                 CvmStopOrderCard(seals: people.seals, userId: peer)
             }
@@ -101,6 +102,9 @@ struct ChatTimelineView: View {
             ToolbarItem(placement: .principal) {
                 if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
                 else { chatTitle }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                CallHeaderButtons(model: model, session: session)
             }
             if model.isGroup {
                 ToolbarItem(placement: .primaryAction) {

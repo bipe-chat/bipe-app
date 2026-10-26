@@ -82,6 +82,9 @@ enum class BipeScreen(val id: String) {
     /** Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json */
     BUSINESS_TOOLS("business-tools"),
 
+    /** Voice and video call (flow chat). Spec: bipe-shared/product/screens/call.json */
+    CALL("call"),
+
     /** Edit a catalogue item (flow business). Spec: bipe-shared/product/screens/catalog-item-edit.json */
     CATALOG_ITEM_EDIT("catalog-item-edit"),
 

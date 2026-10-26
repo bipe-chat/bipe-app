@@ -22,6 +22,12 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- App lock, the owner checks of settings (spec app-lock, pin-change, data-export) and device approval (device-verification). -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Calls (spec call, ADR 0186): audio routes, headsets, and the foreground service of a running call. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
 
     <application
         android:name=".BipeApplication"
@@ -103,6 +109,18 @@
                 <data android:scheme="${applicationId}" />
             </intent-filter>
         </activity>
+        <!-- Spec call: the call screen, and the service that keeps the call while the app is in the background. -->
+        <activity
+            android:name=".calls.CallActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="chat.bipe.app.call"
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden" />
+        <service
+            android:name=".calls.CallService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|camera" />
         <!-- Spec notification-service: reply and mark as read from a notification. -->
         <receiver
             android:name=".notifications.NotificationActionReceiver"
