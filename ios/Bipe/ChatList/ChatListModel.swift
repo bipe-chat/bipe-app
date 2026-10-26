@@ -68,7 +68,7 @@ final class ChatListModel: ObservableObject {
     private let subscriptionOwner = UUID().uuidString
     /// One model belongs to one account session. Never replace a known time with an absent preview.
     private var knownActivity: [String: Date] = [:]
-    /// Rows without an SDK latest event take their date from the local timeline (bipe-chat/bipe#592).
+    /// Rows take a newer message of the local timeline as their date and text (bipe-chat/bipe#592).
     private var rowActivity: RowActivityScanner?
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult?
@@ -245,22 +245,26 @@ final class ChatListModel: ObservableObject {
         }
     }
 
-    /// The row date (BipeRowActivity): the SDK latest event, else the newest event of the local timeline, which
-    /// includes undecryptable events (bipe-chat/bipe#592), else a time known earlier in this account session.
+    /// The row date and text (BipeRowActivity): a message of the local timeline newer than the SDK latest event, else
+    /// the SDK latest event, else the newest local event, which includes undecryptable events (bipe-chat/bipe#592), else a
+    /// time known earlier in this account session. The SDK keeps an older latest event when a message arrived before its
+    /// room key; the timeline decrypts it later.
     private func retainingKnownActivity(_ summaries: [ChatSummary]) -> [ChatSummary] {
         summaries.map { summary in
             var summary = summary
-            let sdkLatestMs = summary.lastActivity.map(Self.milliseconds)
-            guard BipeRowActivity.needsLocalTimeline(sdkLatestMs: sdkLatestMs) else {
-                knownActivity[summary.roomId] = summary.lastActivity
-                return summary
+            let sdk = summary.lastActivity.map {
+                BipeRowActivity.SDKLatest(timestampMs: Self.milliseconds($0), previewText: summary.lastMessage,
+                                          isIncoming: summary.latestIncomingMs != nil)
             }
             let local = rowActivity?.localEvents(roomId: summary.roomId) ?? []
             let known = knownActivity[summary.roomId].map(Self.milliseconds)
-            if let ms = BipeRowActivity.resolve(sdkLatestMs: sdkLatestMs, localEvents: local, knownMs: known) {
+            let row = BipeRowActivity.resolve(sdk: sdk, localEvents: local, knownMs: known)
+            if let ms = row.timestampMs {
                 summary.lastActivity = Date(milliseconds: ms)
                 knownActivity[summary.roomId] = summary.lastActivity
             }
+            summary.lastMessage = row.previewText
+            summary.latestIncomingMs = row.latestIncomingMs.map { Int64(clamping: $0) }
             return summary
         }
     }
