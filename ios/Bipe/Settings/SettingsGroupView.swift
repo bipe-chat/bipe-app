@@ -184,6 +184,19 @@ struct SettingsGroupView: View {
             Toggle(isOn: $hideRequestPhotos) { SettingsRowLabel(title: row.title, footer: row.footer) }
         case .privacyPresence:
             Toggle(isOn: $sharePresence) { SettingsRowLabel(title: row.title, footer: row.footer) }
+        case .privacyDiscovery:
+            // Spec contacts notes: the switch needs a linked number; without one the row says bipe_phone_not_linked.
+            Toggle(isOn: Binding(get: { model.discoverableByPhone ?? false }, set: { isOn in
+                Task {
+                    if await model.setDiscoverableByPhone(isOn) {
+                        BipeHaptics.play(.tick)
+                    }
+                }
+            })) {
+                SettingsRowLabel(title: row.title,
+                                 footer: model.phone == .notLinked ? BipeStrings.phoneNotLinked : row.footer)
+            }
+            .disabled(model.discoverableByPhone == nil || model.phone == nil || model.phone == .notLinked)
         case .accountChangePin:
             NavigationLink {
                 PinChangeView(model: model)

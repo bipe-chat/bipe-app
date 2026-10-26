@@ -18,6 +18,8 @@ final class SettingsModel: ObservableObject {
     @Published private(set) var account: BipeAccountStatus?
     /// Spec phone-link-status: `nil` until GET /v1/me/phone answers.
     @Published private(set) var phone: BipePhoneLinkState?
+    /// The discovery switch (PUT /v1/me/discovery): `nil` until GET /v1/me/phone answers.
+    @Published private(set) var discoverableByPhone: Bool?
     @Published private(set) var hasRecoveryKey = false
     @Published private(set) var notificationsOn: Bool?
     @Published private(set) var appLockOn = AppLockModel.shared.store.isOn
@@ -63,6 +65,23 @@ final class SettingsModel: ObservableObject {
             try await api.myPhone(accessToken: token)
         }) {
             phone = BipePhoneLinkState(phone: value)
+            discoverableByPhone = value.discoverableByPhone
+        }
+    }
+
+    /// The discovery switch: PUT /v1/me/discovery. `false` when the save failed; the value stays as it was.
+    func setDiscoverableByPhone(_ value: Bool) async -> Bool {
+        let api = api
+        let old = discoverableByPhone
+        discoverableByPhone = value
+        do {
+            try await authorized { (token: String) async throws(BipeAPIError) in
+                try await api.setDiscoverableByPhone(value, accessToken: token)
+            }
+            return true
+        } catch {
+            discoverableByPhone = old
+            return false
         }
     }
 

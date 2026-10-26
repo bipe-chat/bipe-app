@@ -21,7 +21,10 @@ extension TimelineItemContent {
             switch MediaContent(message.msgType) {
             case .media(let media): return media.kindLabel
             case .voice(let voice): return voice.isVoice ? BipeStrings.appMediaVoice : voice.filename
-            case nil: return message.body
+            case nil:
+                // Spec location-view notes: the chat list says "Location".
+                if case .location = message.msgType { return BipeStrings.appLocationTitle }
+                return message.body
             }
         case .sticker:
             return BipeStrings.appMediaSticker

@@ -91,6 +91,7 @@ import chat.bipe.app.voce.TrustCardModel
 import chat.bipe.app.voce.TrustProfileScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.account.BipePhoneLinkState
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.generated.BipeHaptic
@@ -438,6 +439,20 @@ fun SettingsGroupScreen(
                             if (!isOn || OwnerCheck.biometrics(context, biometricReason, cancel)) {
                                 lock.store.setBiometricUnlock(isOn)
                                 biometricUnlockOn = isOn
+                            }
+                        }
+                    }
+                    // Spec contacts notes: the switch needs a linked number; without one the row says bipe_phone_not_linked.
+                    BipeSettingsRow.PRIVACY_DISCOVERY -> {
+                        val notLinked = state.phone == BipePhoneLinkState.NotLinked
+                        SettingsSwitchItem(
+                            title,
+                            if (notLinked) stringResource(R.string.bipe_phone_not_linked) else footer,
+                            isOn = state.discoverableByPhone ?: false,
+                            enabled = state.discoverableByPhone != null && state.phone != null && !notLinked,
+                        ) { isOn ->
+                            scope.launch {
+                                if (model.setDiscoverableByPhone(isOn)) view.bipeHaptic(BipeHaptic.Tick)
                             }
                         }
                     }

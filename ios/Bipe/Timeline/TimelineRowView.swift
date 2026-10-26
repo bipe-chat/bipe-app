@@ -23,7 +23,7 @@ struct TimelineRowView: View {
         switch row.kind {
         case .message:
             if let message = row.message, let details = row.details {
-                if !message.isOwn, message.media == nil, message.voice == nil,
+                if !message.isOwn, message.media == nil, message.voice == nil, message.location == nil,
                    let institution = seals?.institution(for: message.senderId) {
                     NoticeCard(message: message, institution: institution)
                         .contentShape(Rectangle())
@@ -234,7 +234,7 @@ private struct MessageBubbleRow: View {
         }
     }
 
-    /// Text, or the media and voice content of specs timeline-media and voice-message.
+    /// Text, or the media, location and voice content of specs timeline-media, location-view and voice-message.
     @ViewBuilder
     private var content: some View {
         if let mediaMessage = message.media {
@@ -242,6 +242,9 @@ private struct MessageBubbleRow: View {
                              isPrivateRoom: model.isPrivateRoom,
                              openViewer: { openViewer(row.id) },
                              cancelUpload: { Task { await model.cancelUpload(id: row.id) } })
+        } else if let location = message.location {
+            // Spec location-view: the tap opens the full map (ChatTimelineView shows it for a location row).
+            TimelineLocationRow(location: location, openFull: { openViewer(row.id) })
         } else if let voice = message.voice {
             VoiceMessageRow(message: message, voice: voice, loader: media, player: voicePlayer,
                             voiceMedia: model.voiceMedia, hasScamWarning: row.details?.scamWarning != nil)

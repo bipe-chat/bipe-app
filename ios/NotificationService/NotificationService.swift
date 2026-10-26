@@ -184,6 +184,7 @@ final class NotificationService: UNNotificationServiceExtension {
             case .video(let value): return BipeNotificationPreview.attachment(label: BipeStrings.appMediaVideo, caption: value.caption)
             case .file(let value): return BipeNotificationPreview.attachment(label: BipeStrings.appMediaFile, caption: value.caption)
             case .audio(let value): return BipeNotificationPreview.attachment(label: value.voice != nil ? BipeStrings.appMediaVoice : BipeStrings.appMediaFile, caption: value.caption)
+            case .location: return BipeStrings.appLocationTitle
             default: return nil
             }
         default: return nil

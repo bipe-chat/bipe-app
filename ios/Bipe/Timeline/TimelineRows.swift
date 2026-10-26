@@ -236,9 +236,19 @@ enum TimelineRowBuilder {
                     message.voice = voice
                     message.body = voice.transcript ?? (voice.isVoice ? BipeStrings.appMediaVoice : voice.filename)
                 case nil:
-                    guard case .text = messageContent.msgType else { continue }
-                    message.kind = .text
-                    message.body = messageContent.body
+                    switch messageContent.msgType {
+                    case .text:
+                        message.kind = .text
+                        message.body = messageContent.body
+                    case .location(let locationContent):
+                        // Spec location-view: a geo URI the app cannot read stays unsupported.
+                        guard let location = LocationMessage(locationContent) else { continue }
+                        message.kind = .location
+                        message.location = location
+                        message.body = location.label
+                    default:
+                        continue
+                    }
                 }
                 let isSent: Bool
                 switch event.localSendState {
@@ -388,8 +398,11 @@ enum TimelineRowBuilder {
     static func isShownMessage(_ event: EventTimelineItem) -> Bool {
         guard case .msgLike(let content) = event.content else { return false }
         if MediaContent(content.kind) != nil { return true }
-        guard case .message(let message) = content.kind, case .text = message.msgType else { return false }
-        return true
+        guard case .message(let message) = content.kind else { return false }
+        switch message.msgType {
+        case .text, .location: return true
+        default: return false
+        }
     }
 
     static func eventId(_ event: EventTimelineItem) -> String? {
@@ -440,7 +453,9 @@ enum TimelineRowBuilder {
             switch MediaContent(message.msgType) {
             case .media(let media): return media.caption?.nilIfBlank ?? media.kindLabel
             case .voice(let voice): return voice.isVoice ? BipeStrings.appMediaVoice : voice.filename
-            case nil: return message.body
+            case nil:
+                if case .location = message.msgType { return BipeStrings.appLocationTitle }
+                return message.body
             }
         case .sticker: return BipeStrings.appMediaSticker
         case .redacted: return isOwn ? BipeStrings.appMessageDeletedOwn : BipeStrings.appMessageDeleted

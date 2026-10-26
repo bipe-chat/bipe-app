@@ -10,6 +10,7 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipePhoneLinkState
 import chat.bipe.shared.account.myPhone
+import chat.bipe.shared.account.setDiscoverableByPhone
 import chat.bipe.shared.api.BipeAccountDeletion
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiErrorCode
@@ -45,6 +46,8 @@ class SettingsModel(
         val notificationsOn: Boolean? = null,
         /** Spec phone-link-status: null until GET /v1/me/phone answers. */
         val phone: BipePhoneLinkState? = null,
+        /** The discovery switch (PUT /v1/me/discovery): null until GET /v1/me/phone answers. */
+        val discoverableByPhone: Boolean? = null,
         /** ADR 0140: the waiting deletion, from GET /v1/me/account. */
         val deletion: BipeAccountDeletion? = null,
         /** ADR 0087: a company account (account-delete shows bipe_deletion_point_company). */
@@ -82,7 +85,9 @@ class SettingsModel(
             runCatching { authorized { api.accountWays(it) } }.onSuccess { value -> _state.update { it.copy(account = value) } }
         }
         scope.launch {
-            runCatching { authorized { api.myPhone(it) } }.onSuccess { value -> _state.update { it.copy(phone = BipePhoneLinkState.of(value)) } }
+            runCatching { authorized { api.myPhone(it) } }.onSuccess { value -> _state.update {
+                it.copy(phone = BipePhoneLinkState.of(value), discoverableByPhone = value.discoverableByPhone)
+            } }
         }
         scope.launch {
             runCatching { authorized { api.account(it) } }.onSuccess { value ->
@@ -111,6 +116,15 @@ class SettingsModel(
         val saved = runCatching { authorized { api.setWhoCanMessage(value, it) } }.getOrNull() ?: return false
         _state.update { it.copy(whoCanMessage = saved) }
         return true
+    }
+
+    /** The discovery switch: PUT /v1/me/discovery. False when the save failed; the value stays as it was. */
+    suspend fun setDiscoverableByPhone(value: Boolean): Boolean {
+        val old = _state.value.discoverableByPhone
+        _state.update { it.copy(discoverableByPhone = value) }
+        val saved = runCatching { authorized { api.setDiscoverableByPhone(value, it) } }.isSuccess
+        if (!saved) _state.update { it.copy(discoverableByPhone = old) }
+        return saved
     }
 
     /** Runs a bipe-api request with the account's access token, retrying once after a token refresh. */
