@@ -15,6 +15,11 @@ import org.matrix.rustcomponents.sdk.TimelineItemContent
  * label resolves the media kind labels (spec timeline-media notes, voice-message notes).
  */
 fun TimelineItemContent.previewText(undecryptable: String, label: (Int) -> String): String? {
+    // Spec incoming-call: a call shows as the call kind; ChatListModel shows a missed one as missed.
+    if (this is TimelineItemContent.RtcNotification) {
+        if (activeMembers.isNotEmpty()) return label(R.string.bipe_call_ongoing)
+        return label(if (callIntent == "video") R.string.bipe_call_video else R.string.bipe_call_voice)
+    }
     val content = (this as? TimelineItemContent.MsgLike)?.content ?: return null
     return when (val kind = content.kind) {
         is MsgLikeKind.Message -> when (val media = MediaContent.of(kind.content.msgType)) {

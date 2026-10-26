@@ -28,6 +28,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <!-- Spec incoming-call: the ring vibrates. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".BipeApplication"
@@ -117,6 +119,15 @@
             android:taskAffinity="chat.bipe.app.call"
             android:excludeFromRecents="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden" />
+        <!-- Spec incoming-call: the ringing screen, also over the lock screen. -->
+        <activity
+            android:name=".calls.IncomingCallActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="chat.bipe.app.call"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
         <service
             android:name=".calls.CallService"
             android:exported="false"

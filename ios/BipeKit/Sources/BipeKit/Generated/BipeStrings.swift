@@ -666,8 +666,6 @@ public enum BipeStrings {
 
     public static var invitesRevoke: String { NSLocalizedString("bipe_invites_revoke", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var invitesActions: String { NSLocalizedString("bipe_invites_actions", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static var invitesQrAction: String { NSLocalizedString("bipe_invites_qr_action", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var invitesQrTitle: String { NSLocalizedString("bipe_invites_qr_title", tableName: "Bipe", bundle: .module, comment: "") }
@@ -4127,4 +4125,36 @@ public enum BipeStrings {
     public static var callCameraUsage: String { NSLocalizedString("bipe_call_camera_usage", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var callMinimise: String { NSLocalizedString("bipe_call_minimise", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func callIncomingVoice(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_call_incoming_voice", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func callIncomingVideo(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_call_incoming_video", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var callAnswer: String { NSLocalizedString("bipe_call_answer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callDecline: String { NSLocalizedString("bipe_call_decline", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callDeclined: String { NSLocalizedString("bipe_call_declined", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callNoAnswer: String { NSLocalizedString("bipe_call_no_answer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callMissed: String { NSLocalizedString("bipe_call_missed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func callJoined(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_call_joined", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func callDuration(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_call_duration", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var callChannelIncoming: String { NSLocalizedString("bipe_call_channel_incoming", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callChannelMissed: String { NSLocalizedString("bipe_call_channel_missed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callAnsweredElsewhere: String { NSLocalizedString("bipe_call_answered_elsewhere", tableName: "Bipe", bundle: .module, comment: "") }
 }

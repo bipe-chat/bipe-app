@@ -277,6 +277,9 @@ final class ChatListModel: ObservableObject {
         switch await room.latestEvent() {
         case .remote(let timestamp, _, let isOwn, _, let content):
             lastMessage = content.previewText
+            if case .rtcNotification = content, !isOwn, MissedCalls.isMissed(accountUserId: ownUserId, roomId: info.id) {
+                lastMessage = BipeStrings.callMissed
+            }
             lastActivity = Date(milliseconds: timestamp)
             if !isOwn, lastMessage != nil { latestIncomingMs = Int64(clamping: timestamp) }
         case .local(let timestamp, _, _, let content, _):

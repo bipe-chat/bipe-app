@@ -33,13 +33,14 @@ final class CallCenter: ObservableObject {
     func isInCall(roomId: String) -> Bool { active?.roomId == roomId }
 
     /// Starts or joins the call of a room. A call in another room stays; its screen shows instead.
-    func start(session: AccountSession, room: Room, roomName: String, video: Bool) async {
+    /// - ring: who to ring when the room has no call yet (spec call start); nil when answering a ring.
+    func start(session: AccountSession, room: Room, roomName: String, video: Bool, ring: CallRingTarget? = nil) async {
         if active != nil {
             isPresented = true
             return
         }
         guard let focus = await focusUrl(for: session),
-              let call = try? CallSession(session: session, room: room, roomName: roomName, focusUrl: focus, video: video) else { return }
+              let call = try? CallSession(session: session, room: room, roomName: roomName, focusUrl: focus, video: video, ring: ring) else { return }
         call.onFinished = { [weak self, weak call] in
             guard let self, self.active === call else { return }
             self.active = nil

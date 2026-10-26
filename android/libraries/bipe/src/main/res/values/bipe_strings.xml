@@ -276,7 +276,6 @@
     <string name="bipe_invites_status_expired">Vencido</string>
     <string name="bipe_invites_status_revoked">Cancelado</string>
     <string name="bipe_invites_revoke">Cancelar convite</string>
-    <string name="bipe_invites_actions">Ações do convite</string>
     <string name="bipe_invites_qr_action">QR code</string>
     <string name="bipe_invites_qr_title">Convite em QR code</string>
     <string name="bipe_invites_qr_footer">A pessoa aponta a câmera do celular para o código. Depois de instalar o Bipe, ela escaneia de novo e o app abre com o convite preenchido.</string>
@@ -1801,4 +1800,16 @@
     <string name="bipe_call_microphone_usage">O Bipe usa o microfone nas chamadas e quando você grava uma mensagem de voz ou um vídeo.</string>
     <string name="bipe_call_camera_usage">O Bipe usa a câmera nas chamadas de vídeo, para fotos e vídeos nas conversas e para ler QR codes, como o do computador ou de um convite.</string>
     <string name="bipe_call_minimise">Voltar à conversa</string>
+    <string name="bipe_call_incoming_voice">Chamada de voz de %1$s</string>
+    <string name="bipe_call_incoming_video">Chamada de vídeo de %1$s</string>
+    <string name="bipe_call_answer">Atender</string>
+    <string name="bipe_call_decline">Recusar</string>
+    <string name="bipe_call_declined">Chamada recusada</string>
+    <string name="bipe_call_no_answer">Ninguém atendeu</string>
+    <string name="bipe_call_missed">Chamada perdida</string>
+    <string name="bipe_call_joined">%1$s entrou na chamada</string>
+    <string name="bipe_call_duration">%1$s min</string>
+    <string name="bipe_call_channel_incoming">Chamadas recebidas</string>
+    <string name="bipe_call_channel_missed">Chamadas perdidas</string>
+    <string name="bipe_call_answered_elsewhere">Atendida em outro aparelho</string>
 </resources>

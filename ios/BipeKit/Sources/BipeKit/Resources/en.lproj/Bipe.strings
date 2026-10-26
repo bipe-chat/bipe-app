@@ -274,7 +274,6 @@
 "bipe_invites_status_expired" = "Expired";
 "bipe_invites_status_revoked" = "Cancelled";
 "bipe_invites_revoke" = "Cancel invite";
-"bipe_invites_actions" = "Invite actions";
 "bipe_invites_qr_action" = "QR code";
 "bipe_invites_qr_title" = "Invite as a QR code";
 "bipe_invites_qr_footer" = "The other person points their phone camera at the code. After installing Bipe, they scan it again and the app opens with the invite filled in.";
@@ -1799,3 +1798,15 @@
 "bipe_call_microphone_usage" = "Bipe uses the microphone in calls and when you record a voice message or a video.";
 "bipe_call_camera_usage" = "Bipe uses the camera in video calls, for photos and videos in chats, and to read QR codes, like the one on your computer or on an invite.";
 "bipe_call_minimise" = "Back to the chat";
+"bipe_call_incoming_voice" = "Voice call from %1$@";
+"bipe_call_incoming_video" = "Video call from %1$@";
+"bipe_call_answer" = "Answer";
+"bipe_call_decline" = "Decline";
+"bipe_call_declined" = "Call declined";
+"bipe_call_no_answer" = "No answer";
+"bipe_call_missed" = "Missed call";
+"bipe_call_joined" = "%1$@ joined the call";
+"bipe_call_duration" = "%1$@ min";
+"bipe_call_channel_incoming" = "Incoming calls";
+"bipe_call_channel_missed" = "Missed calls";
+"bipe_call_answered_elsewhere" = "Answered on another device";

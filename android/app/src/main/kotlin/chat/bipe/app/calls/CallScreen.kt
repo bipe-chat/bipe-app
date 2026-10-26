@@ -113,6 +113,8 @@ private fun status(ui: CallUi): String = when (ui.phase) {
     CallSession.Phase.CONNECTING -> stringResource(R.string.bipe_call_state_connecting)
     CallSession.Phase.CALLING -> stringResource(R.string.bipe_call_state_calling)
     CallSession.Phase.RECONNECTING -> stringResource(R.string.bipe_call_state_reconnecting)
+    CallSession.Phase.DECLINED -> stringResource(R.string.bipe_call_declined)
+    CallSession.Phase.NO_ANSWER -> stringResource(R.string.bipe_call_no_answer)
     CallSession.Phase.ENDED -> stringResource(R.string.bipe_call_state_ended)
     CallSession.Phase.FAILED -> stringResource(R.string.bipe_call_error_connect)
     CallSession.Phase.CONNECTED -> {

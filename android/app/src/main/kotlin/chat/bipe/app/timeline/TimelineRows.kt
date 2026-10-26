@@ -12,6 +12,9 @@ import chat.bipe.shared.media.BipeImageDescription
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeHandleChangePlacement
 import chat.bipe.shared.api.BipeHandleChange
+import chat.bipe.shared.calls.BipeCall
+import chat.bipe.shared.calls.BipeCallLine
+import chat.bipe.shared.calls.BipeCallRing
 import java.time.Instant
 import org.matrix.rustcomponents.sdk.MembershipChange
 import chat.bipe.app.polls.PollData
@@ -25,6 +28,7 @@ import org.matrix.rustcomponents.sdk.EventTimelineItem
 import org.matrix.rustcomponents.sdk.InReplyToDetails
 import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.OtherState
 import org.matrix.rustcomponents.sdk.Reaction
 import org.matrix.rustcomponents.sdk.Receipt
 import org.matrix.rustcomponents.sdk.TimelineItem
@@ -44,8 +48,10 @@ data class TimelineRow(
     val day: Long? = null,
     /** kind handleChange only (spec handle-change-line, ADR 0066). */
     val handleChange: HandleChangeLine? = null,
+    /** kind call only (spec incoming-call notes). */
+    val callText: String? = null,
 ) {
-    enum class Kind { MESSAGE, UNDECRYPTABLE, DELETED, POLL, DATE_SEPARATOR, READ_MARKER, HANDLE_CHANGE, NOT_ENCRYPTED, CHAT_START }
+    enum class Kind { MESSAGE, UNDECRYPTABLE, DELETED, POLL, DATE_SEPARATOR, READ_MARKER, HANDLE_CHANGE, NOT_ENCRYPTED, CHAT_START, CALL }
 }
 
 /** Type HandleChangeLine of spec handle-change-line. */
@@ -131,6 +137,8 @@ data class RowStrings(
     val undecryptable: String,
     /** A string resource, for the kind labels of media (spec timeline-media notes). */
     val label: (Int) -> String = { "" },
+    /** A string resource with one argument (the call lines of spec incoming-call). */
+    val format: (Int, String) -> String = { _, _ -> "" },
 )
 
 class BuiltRows(val rows: List<TimelineRow>, val hitStart: Boolean, val unknownUsers: Set<String>)
@@ -191,6 +199,10 @@ object TimelineRowBuilder {
                 }
                 null -> {
                     val event = item.asEvent() ?: return@forEachIndexed
+                    (event.content as? TimelineItemContent.RtcNotification)?.let { call ->
+                        rows += callRows(id, event, call, items, index, facts, strings, ::name)
+                        return@forEachIndexed
+                    }
                     val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return@forEachIndexed
                     val base = message(id, event, name(event.sender))
                     // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
@@ -273,6 +285,41 @@ object TimelineRowBuilder {
      * Spec handle-change-line: local lines before the first row newer than the change, inside the loaded range.
      * The timeline is live, so a change newer than the last row shows at the end.
      */
+    /**
+     * Spec incoming-call notes: one line for a ring event and the call memberships after it (up to the next ring),
+     * and in a group one line for each member who joined.
+     */
+    private fun callRows(
+        id: String,
+        event: EventTimelineItem,
+        call: TimelineItemContent.RtcNotification,
+        items: List<TimelineItem>,
+        index: Int,
+        facts: RoomFacts,
+        strings: RowStrings,
+        name: (String) -> String,
+    ): List<TimelineRow> {
+        val memberEvents = mutableListOf<Pair<String, Long>>()
+        for (item in items.drop(index + 1)) {
+            val other = item.asEvent() ?: continue
+            if (other.content is TimelineItemContent.RtcNotification) break
+            val state = other.content as? TimelineItemContent.State ?: continue
+            if ((state.content as? OtherState.Custom)?.eventType == BipeCall.MEMBER_EVENT_TYPE) {
+                memberEvents += other.sender to other.timestamp.toLong()
+            }
+        }
+        val line = BipeCallRing.line(facts.isDm, event.sender, event.timestamp.toLong(), call.activeMembers.isNotEmpty(), call.declinedBy, memberEvents)
+        val label = strings.label(if (call.callIntent == "video") R.string.bipe_call_video else R.string.bipe_call_voice)
+        val text = when (line.outcome) {
+            BipeCallLine.Outcome.ONGOING -> strings.label(R.string.bipe_call_ongoing)
+            BipeCallLine.Outcome.MISSED -> strings.label(R.string.bipe_call_missed)
+            BipeCallLine.Outcome.DECLINED -> strings.label(R.string.bipe_call_declined)
+            BipeCallLine.Outcome.ENDED -> "$label, " + strings.format(R.string.bipe_call_duration, (line.minutes ?: 1).toString())
+        }
+        return listOf(TimelineRow(id, TimelineRow.Kind.CALL, callText = text)) +
+            line.joined.map { TimelineRow("$id-joined-$it", TimelineRow.Kind.CALL, callText = strings.format(R.string.bipe_call_joined, name(it))) }
+    }
+
     private fun placeHandleChanges(rows: MutableList<TimelineRow>, items: List<TimelineItem>, facts: RoomFacts, name: (String) -> String) {
         if (facts.handleChanges.isEmpty()) return
         // Join times seen in the loaded items: a change before the person joined gets no line.

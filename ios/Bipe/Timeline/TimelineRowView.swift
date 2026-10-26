@@ -96,6 +96,8 @@ struct TimelineRowView: View {
             SystemLine(text: BipeStrings.appTimelineNotEncrypted)
         case .chatStart:
             SystemLine(text: BipeStrings.appTimelineStart)
+        case .call:
+            if let text = row.callText { SystemLine(text: text) }
         }
     }
 }

@@ -78,6 +78,7 @@ struct AppTabsView: View {
         }
         .environmentObject(model)
         .modifier(CallScreenCover())
+        .modifier(IncomingCallCover(session: session))
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
                                    menu: { AccountMenu.make(model: model) { showsNewAccount = true } },

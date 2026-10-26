@@ -209,6 +209,7 @@ fun TimelineRowItem(
         }
         TimelineRow.Kind.NOT_ENCRYPTED -> SystemLine(stringResource(R.string.bipe_app_timeline_not_encrypted))
         TimelineRow.Kind.CHAT_START -> SystemLine(stringResource(R.string.bipe_app_timeline_start))
+        TimelineRow.Kind.CALL -> row.callText?.let { SystemLine(it) }
     }
 }
 

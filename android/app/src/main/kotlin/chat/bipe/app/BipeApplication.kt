@@ -47,6 +47,8 @@ class BipeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Spec incoming-call: the missed calls of the chat list previews.
+        chat.bipe.app.calls.MissedCalls.init(this)
         // Before any SDK call. On Android, initPlatform is the only place where the SDK sets up rustls-platform-verifier:
         // without it the first HTTPS request (the login) panics, and Kotlin gets InternalException. It also sends SDK
         // warnings, errors and panics to logcat.

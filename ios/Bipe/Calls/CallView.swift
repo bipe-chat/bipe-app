@@ -74,6 +74,8 @@ struct CallView: View {
         case .connecting: Text(BipeStrings.callStateConnecting)
         case .calling: Text(BipeStrings.callStateCalling)
         case .reconnecting: Text(BipeStrings.callStateReconnecting)
+        case .declined: Text(BipeStrings.callDeclined)
+        case .noAnswer: Text(BipeStrings.callNoAnswer)
         case .ended: Text(BipeStrings.callStateEnded)
         case .failed: Text(BipeStrings.callErrorConnect)
         case .connected:
