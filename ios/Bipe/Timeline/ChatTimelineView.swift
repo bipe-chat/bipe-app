@@ -26,6 +26,8 @@ struct ChatTimelineView: View {
     @State private var attaching = false
     @State private var upload: PickedUpload?
     @State private var showsStickers = false
+    /// Spec location-send, with the reply target taken when it opened.
+    @State private var locationSend: LocationSendRequest?
     private let media: MediaLoader
     /// Opens the chat's info: person-profile for a DM.
     private let openInfo: (() -> Void)?
@@ -82,7 +84,11 @@ struct ChatTimelineView: View {
         .attachmentPicker(isPresented: $attaching,
                           onPicked: { urls in upload = PickedUpload(urls: urls, replyToEventId: model.takeReplyEventId()) },
                           onStickers: { showsStickers = true },
+                          onLocation: { locationSend = LocationSendRequest(replyToEventId: model.takeReplyEventId()) },
                           onPoll: model.canPoll ? { creatingPoll = true } : nil)
+        .fullScreenCover(item: $locationSend) { request in
+            LocationSendView(timeline: model, replyToEventId: request.replyToEventId, close: { locationSend = nil })
+        }
         .fullScreenCover(item: $upload) { upload in
             if let timeline = model.timeline {
                 UploadPreviewView(model: UploadPreviewModel(urls: upload.urls, client: model.client, timeline: timeline,
@@ -159,7 +165,12 @@ struct ChatTimelineView: View {
         }
         .fullScreenCover(isPresented: Binding(get: { viewerRowId != nil }, set: { if !$0 { viewerRowId = nil } })) {
             if let viewerRowId {
-                MediaViewer(model: model, loader: media, close: { self.viewerRowId = nil }, rowId: viewerRowId)
+                if let row = model.row(viewerRowId), let message = row.message, let location = message.location {
+                    LocationFullView(location: location, senderName: message.senderName, sentAt: message.sentAt,
+                                     close: { self.viewerRowId = nil })
+                } else {
+                    MediaViewer(model: model, loader: media, close: { self.viewerRowId = nil }, rowId: viewerRowId)
+                }
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -397,6 +408,12 @@ private struct PollSheetId: Identifiable {
 private struct PickedUpload: Identifiable {
     let id = UUID()
     let urls: [URL]
+    let replyToEventId: String?
+}
+
+/// An open location-send screen and its reply target.
+private struct LocationSendRequest: Identifiable {
+    let id = UUID()
     let replyToEventId: String?
 }
 
