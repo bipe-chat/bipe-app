@@ -11,7 +11,7 @@
 #   bipe-next-ipa). The job never makes a certificate: automatic signing made a development
 #   certificate on every run until the team reached Apple's limit.
 # - Android: a debug-signed release APK of chat.bipe.app.next (artifact bipe-next-apk), and a side-load APK of
-#   chat.bipe.app signed with the old app's key (artifact bipe-apk, ADR 0185) when its secrets are set.
+#   chat.bipe.app signed with the old app's key (artifact bipe-apk, ADR 0189) when its secrets are set.
 # Version (bipe-chat/bipe#584, ADR 0088, ADR 0163): the version name of version.json (Bipe Next's own line);
 # build number: its build plus the number of commits (tools/version.mjs). Both platforms carry the same pair.
 # Install commands: AGENTS.md, "Tester builds".
@@ -244,7 +244,7 @@ jobs:
           name: bipe-next-apk
           path: android/app/build/outputs/apk/play/release/*.apk
           retention-days: 30
-      # Side-load APK of the release app (ADR 0185): chat.bipe.app signed with the old app's key, so it installs over
+      # Side-load APK of the release app (ADR 0189): chat.bipe.app signed with the old app's key, so it installs over
       # the old Android app as an update and LegacyData opens the old app's account vault. Owner-only setup (MZ):
       # secrets SIDELOAD_KEYSTORE (base64) and SIDELOAD_KEYSTORE_PASSWORD, optional SIDELOAD_KEY_PASSWORD (else the
       # store password); variable SIDELOAD_MIN_VERSION_CODE (the old app's versionCode); variables STORE_FIREBASE_*
@@ -256,7 +256,7 @@ jobs:
           STORE_PASSWORD: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE" ] || [ -z "$STORE_PASSWORD" ]; then
-            echo "::warning::No side-load APK: secrets SIDELOAD_KEYSTORE and SIDELOAD_KEYSTORE_PASSWORD are not set (ADR 0185)."
+            echo "::warning::No side-load APK: secrets SIDELOAD_KEYSTORE and SIDELOAD_KEYSTORE_PASSWORD are not set (ADR 0189)."
             echo "- Side-load APK (\`chat.bipe.app\`): skipped, the keystore secrets are not set." >> "$GITHUB_STEP_SUMMARY"
             echo "ready=false" >> "$GITHUB_OUTPUT"
             exit 0
