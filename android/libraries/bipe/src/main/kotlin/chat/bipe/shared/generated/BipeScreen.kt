@@ -67,6 +67,12 @@ enum class BipeScreen(val id: String) {
     /** Reseller marks of a work account (flow business). Spec: bipe-shared/product/screens/brand-marks.json */
     BRAND_MARKS("brand-marks"),
 
+    /** Bring your people: weekly reminder (flow invites). Spec: bipe-shared/product/screens/bring-people-reminder.json */
+    BRING_PEOPLE_REMINDER("bring-people-reminder"),
+
+    /** Bring your people (flow invites). Spec: bipe-shared/product/screens/bring-people.json */
+    BRING_PEOPLE("bring-people"),
+
     /** Business tools in a chat and on a profile (flow business). Spec: bipe-shared/product/screens/business-chat-bar.json */
     BUSINESS_CHAT_BAR("business-chat-bar"),
 
