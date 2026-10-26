@@ -110,7 +110,7 @@ struct ChatTimelineView: View {
                         Label {
                             Text(BipeStrings.appGroupDetailsTitle)
                         } icon: {
-                            PhosphorIcon.info.image.resizable().frame(width: 22, height: 22)
+                            PhosphorIcon.info.toolbarImage(size: 22)
                         }
                     }
                     .labelStyle(.iconOnly)
@@ -127,7 +127,7 @@ struct ChatTimelineView: View {
                         Label {
                             Text(BipeStrings.dmDetailsTitle)
                         } icon: {
-                            PhosphorIcon.info.image.resizable().frame(width: 22, height: 22)
+                            PhosphorIcon.info.toolbarImage(size: 22)
                         }
                     }
                     .labelStyle(.iconOnly)
