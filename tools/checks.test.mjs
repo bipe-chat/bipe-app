@@ -464,9 +464,9 @@ test('asc store-ids reads the fork store app only and changes nothing', async ()
   }
 });
 
-test('asc store set signs the fork app with App Store profiles only and changes no bundle ID', async () => {
+test('asc store set signs chat.bipe.app with App Store and ad hoc profiles and changes no bundle ID', async () => {
   const cert = { id: 'C', attributes: { serialNumber: '105A9943', certificateType: 'DISTRIBUTION' } };
-  const { call, calls } = fakeAsc({ certs: [cert], devices: [] });
+  const { call, calls } = fakeAsc({ certs: [cert] });
   const home = mkdtempSync(join(tmpdir(), 'bipe-asc-home-'));
   const outDir = mkdtempSync(join(tmpdir(), 'bipe-asc-out-'));
   const envFile = join(outDir, 'env');
@@ -480,12 +480,11 @@ test('asc store set signs the fork app with App Store profiles only and changes 
   }
   const writes = calls.filter((c) => c.method !== 'GET');
   assert.ok(writes.every((c) => c.path.startsWith('/v1/profiles')), 'only profiles change');
-  assert.ok(!calls.some((c) => c.path.startsWith('/v1/devices')));
   const made = writes.filter((c) => c.method === 'POST').map((c) => c.body.data.attributes);
-  assert.deepEqual(made.map((a) => a.profileType), ['IOS_APP_STORE', 'IOS_APP_STORE', 'IOS_APP_STORE']);
-  assert.deepEqual(made.map((a) => a.name), STORE.bundleIds.map((b) => `Bipe CI App Store ${b.identifier}`));
+  assert.deepEqual(made.map((a) => a.profileType), ['IOS_APP_STORE', 'IOS_APP_ADHOC', 'IOS_APP_STORE', 'IOS_APP_ADHOC', 'IOS_APP_STORE', 'IOS_APP_ADHOC']);
+  assert.deepEqual(made.filter((a) => a.profileType === 'IOS_APP_STORE').map((a) => a.name), STORE.bundleIds.map((b) => `Bipe CI App Store ${b.identifier}`));
   assert.match(readFileSync(join(outDir, 'upload.plist'), 'utf8'), /<key>chat\.bipe\.app\.nse<\/key><string>Bipe CI App Store chat\.bipe\.app\.nse<\/string>/);
-  assert.throws(() => readFileSync(join(outDir, 'adhoc.plist')));
+  assert.match(readFileSync(join(outDir, 'adhoc.plist'), 'utf8'), /Bipe CI Ad Hoc chat\.bipe\.app</);
   assert.equal(readFileSync(envFile, 'utf8'), [
     'BIPE_CI_PROFILE_APP=Bipe CI App Store chat.bipe.app',
     'BIPE_CI_PROFILE_NSE=Bipe CI App Store chat.bipe.app.nse',
@@ -513,10 +512,14 @@ test('asc store set never registers a bundle ID or creates the app record', asyn
     throw new Error(`unexpected ${method} ${path}`);
   };
   const log = console.log;
+  const err = console.error;
   console.log = () => {};
   try {
     await assert.rejects(prepare(withIds, idSet('store')), /no App Store Connect app for chat\.bipe\.app/);
+    console.error = () => {};
+    assert.equal(await prepare(withIds, idSet('store'), { optional: true, summary: null }), null);
   } finally {
+    console.error = err;
     console.log = log;
   }
   assert.ok(calls.every((c) => c.startsWith('GET ')));
@@ -625,6 +628,7 @@ test('asc beta set is the fork TestFlight app and is never changed', () => {
   assert.deepEqual(BETA.bundleIds.map((b) => b.identifier), ['chat.bipe.app.dev', 'chat.bipe.app.dev.nse', 'chat.bipe.app.dev.shareextension']);
   assert.equal(BETA.manage, false);
   assert.deepEqual(BETA.kinds, ['appstore', 'adhoc']);
+  assert.deepEqual(STORE.kinds, ['appstore', 'adhoc']);
 });
 
 test('asc external on the beta set uses its own external group and copies nothing from itself', async () => {

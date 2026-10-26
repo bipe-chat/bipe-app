@@ -3,7 +3,7 @@
 # Copyright 2026 Bipe contributors
 
 # Tester builds (bipe-chat/bipe#575, ADR 0147). Every push to main:
-# - iOS (ID set beta: the fork's TestFlight app "Bipe Chat", chat.bipe.app.dev, bipe-chat/bipe#658): archive with manual signing by the team's existing distribution certificate (secrets
+# - iOS (ID set store: the release app chat.bipe.app, ADR 0178): archive with manual signing by the team's existing distribution certificate (secrets
 #   DIST_CERT_P12, DIST_CERT_PASSWORD; bipe-chat/bipe#585) and profiles made through the App
 #   Store Connect API, upload to TestFlight and add the build to the internal testing group
 #   (and to the external group when BIPE_EXTERNAL_TESTING is true, bipe-chat/bipe#658);
@@ -53,8 +53,10 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       BUILD_NUMBER: ${{ needs.build-number.outputs.number }}
-      # The own client replaces the fork in its TestFlight app "Bipe Chat" (tools/asc.mjs BETA, bipe-chat/bipe#658).
-      BIPE_ID_SET: beta
+      # The release app chat.bipe.app (tools/asc.mjs STORE, ADR 0178). Until its App Store Connect record exists,
+      # the TestFlight steps are skipped with a warning (BIPE_RECORD_OPTIONAL).
+      BIPE_ID_SET: store
+      BIPE_RECORD_OPTIONAL: 'true'
       VERSION_NAME: ${{ needs.build-number.outputs.version }}
       ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
@@ -149,8 +151,8 @@ jobs:
             BIPE_CI_PROFILE_NSE="$BIPE_CI_PROFILE_NSE" \
             BIPE_CI_PROFILE_SHARE="$BIPE_CI_PROFILE_SHARE" \
             BIPE_APS_ENVIRONMENT=production \
-            BIPE_APP_ID=chat.bipe.app.dev \
-            BIPE_APP_GROUP=group.chat.bipe.dev \
+            BIPE_APP_ID=chat.bipe.app \
+            BIPE_APP_GROUP=group.chat.bipe \
             BIPE_SHARE_ID_SUFFIX=shareextension \
             BIPE_DISPLAY_NAME=Bipe \
             MARKETING_VERSION="$VERSION_NAME" \
