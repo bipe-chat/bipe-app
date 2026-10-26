@@ -4045,4 +4045,32 @@ public enum BipeStrings {
     public static var mailNoticeDeletionCancelled: String { NSLocalizedString("bipe_mail_notice_deletion_cancelled", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var a11ySwitchAccount: String { NSLocalizedString("bipe_a11y_switch_account", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleTitle: String { NSLocalizedString("bipe_bring_people_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleBody: String { NSLocalizedString("bipe_bring_people_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleSlotEmpty: String { NSLocalizedString("bipe_bring_people_slot_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleNamePlaceholder: String { NSLocalizedString("bipe_bring_people_name_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleSent: String { NSLocalizedString("bipe_bring_people_sent", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleJoined: String { NSLocalizedString("bipe_bring_people_joined", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleExpired: String { NSLocalizedString("bipe_bring_people_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleResend: String { NSLocalizedString("bipe_bring_people_resend", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleExpiredAction: String { NSLocalizedString("bipe_bring_people_expired_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleDone: String { NSLocalizedString("bipe_bring_people_done", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func bringPeopleReminderTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_bring_people_reminder_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var bringPeopleReminderPending: String { NSLocalizedString("bipe_bring_people_reminder_pending", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var bringPeopleReminderExpired: String { NSLocalizedString("bipe_bring_people_reminder_expired", tableName: "Bipe", bundle: .module, comment: "") }
 }
