@@ -9,7 +9,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,8 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +47,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -75,6 +81,10 @@ fun InvitesScreen(model: InvitesModel, people: PeopleService, onBack: () -> Unit
     val scope = rememberCoroutineScope()
     var creating by remember { mutableStateOf(false) }
     var card by remember { mutableStateOf<InviteCard?>(null) }
+    var renaming by remember { mutableStateOf<BipeInvite?>(null) }
+    var name by remember { mutableStateOf("") }
+    var revoking by remember { mutableStateOf<BipeInvite?>(null) }
+    val context = LocalContext.current
     LaunchedEffect(model) { model.refresh() }
 
     val open = card
@@ -110,22 +120,73 @@ fun InvitesScreen(model: InvitesModel, people: PeopleService, onBack: () -> Unit
         if (state.pending.isNotEmpty()) Text(stringResource(R.string.bipe_invites_pending_header), style = MaterialTheme.typography.titleMedium)
         state.pending.forEach { invite ->
             val link = state.links[invite.id]
-            PendingInviteRow(invite, onThisPhone = link != null) { card = InviteCard(invite.id, link, invite.expiresAt) }
+            PendingInviteRow(invite, link,
+                onShare = { url -> shareInvite(context, url) },
+                onCopy = { url -> context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(null, url)) },
+                onRename = { name = invite.name.orEmpty(); renaming = invite },
+                onRevoke = { revoking = invite },
+            ) { card = InviteCard(invite.id, link, invite.expiresAt) }
         }
         if (state.joined.isNotEmpty()) Text(stringResource(R.string.bipe_invites_joined_header), style = MaterialTheme.typography.titleMedium)
         state.joined.forEach { JoinedInviteRow(it, people, openChat) }
     }
+    renaming?.let { invite ->
+        AlertDialog(onDismissRequest = { renaming = null }, title = { Text(stringResource(R.string.bipe_invites_name_action)) },
+            text = { Column {
+                OutlinedTextField(name, onValueChange = { name = it }, singleLine = true, label = { Text(stringResource(R.string.bipe_invites_name_placeholder)) })
+                Text(stringResource(R.string.bipe_invites_name_footer))
+            } },
+            confirmButton = { TextButton(onClick = { renaming = null; scope.launch { model.setName(invite.id, name) } }) { Text(stringResource(R.string.bipe_app_save)) } },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text(stringResource(R.string.bipe_app_cancel)) } })
+    }
+    revoking?.let { invite ->
+        AlertDialog(onDismissRequest = { revoking = null }, title = { Text(stringResource(R.string.bipe_invites_revoke)) },
+            confirmButton = { TextButton(onClick = { revoking = null; scope.launch { model.revoke(invite) } }) { Text(stringResource(R.string.bipe_invites_revoke)) } },
+            dismissButton = { TextButton(onClick = { revoking = null }) { Text(stringResource(R.string.bipe_app_cancel)) } })
+    }
 }
 
+/** Long press opens the invite-qr actions without the card: share and copy need the link on this phone. */
 @Composable
-private fun PendingInviteRow(invite: BipeInvite, onThisPhone: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(invite.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.bipe_invites_link))
-            Text(if (onThisPhone) stringResource(R.string.bipe_invites_expires, dateLabel(invite.expiresAt)) else stringResource(R.string.bipe_invites_other_device),
-                style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary)
+private fun PendingInviteRow(
+    invite: BipeInvite, link: String?, onShare: (String) -> Unit, onCopy: (String) -> Unit,
+    onRename: () -> Unit, onRevoke: () -> Unit, onClick: () -> Unit,
+) {
+    var menu by remember(invite.id) { mutableStateOf(false) }
+    val menuLabel = stringResource(R.string.bipe_invites_actions)
+    val shareLabel = stringResource(R.string.bipe_app_share)
+    val copyLabel = stringResource(R.string.bipe_app_copy)
+    val renameLabel = stringResource(R.string.bipe_invites_name_action)
+    val revokeLabel = stringResource(R.string.bipe_invites_revoke)
+    Box {
+        Row(Modifier.fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = { menu = true }, onLongClickLabel = menuLabel)
+            .semantics {
+                customActions = buildList {
+                    link?.let { url ->
+                        add(CustomAccessibilityAction(shareLabel) { onShare(url); true })
+                        add(CustomAccessibilityAction(copyLabel) { onCopy(url); true })
+                    }
+                    add(CustomAccessibilityAction(renameLabel) { onRename(); true })
+                    add(CustomAccessibilityAction(revokeLabel) { onRevoke(); true })
+                }
+            }
+            .padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(invite.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.bipe_invites_link))
+                Text(if (link != null) stringResource(R.string.bipe_invites_expires, dateLabel(invite.expiresAt)) else stringResource(R.string.bipe_invites_other_device),
+                    style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary)
+            }
+            Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = BipeTheme.colors.inkSecondary, modifier = Modifier.size(20.dp))
         }
-        Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = BipeTheme.colors.inkSecondary, modifier = Modifier.size(20.dp))
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            link?.let { url ->
+                DropdownMenuItem(text = { Text(shareLabel) }, onClick = { menu = false; onShare(url) })
+                DropdownMenuItem(text = { Text(copyLabel) }, onClick = { menu = false; onCopy(url) })
+            }
+            DropdownMenuItem(text = { Text(renameLabel) }, onClick = { menu = false; onRename() })
+            DropdownMenuItem(text = { Text(revokeLabel, color = BipeTheme.colors.trustDangerInk) }, onClick = { menu = false; onRevoke() })
+        }
     }
     HorizontalDivider()
 }

@@ -79,14 +79,13 @@ struct CreateGroupButton: View {
             Button(BipeStrings.groupsEmptyAction, action: createGroup)
             Button(BipeStrings.invitesTitle, action: invite)
         } label: {
-            // Title and image: the system needs the title in a side bar and in overflow.
+            // Title and image: the system needs the title in a side bar and in overflow. The bar sets the tap target.
             Label {
                 Text(BipeStrings.groupsEmptyAction)
             } icon: {
-                PhosphorIcon.plus.image.resizable().frame(width: 22, height: 22)
+                PhosphorIcon.plus.toolbarImage(size: 22)
             }
             .labelStyle(.iconOnly)
-            .bipeTapTarget()
         }
     }
 }

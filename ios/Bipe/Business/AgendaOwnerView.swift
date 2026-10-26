@@ -305,7 +305,7 @@ struct AgendaOwnerView: View {
             Label {
                 Text(BipeStrings.agendaSettingsTitle)
             } icon: {
-                PhosphorIcon.dotsThree.image.resizable().frame(width: 22, height: 22)
+                PhosphorIcon.dotsThree.toolbarImage(size: 22)
             }
             .labelStyle(.iconOnly)
         }

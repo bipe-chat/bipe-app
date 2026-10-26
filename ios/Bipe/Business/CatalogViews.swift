@@ -250,7 +250,7 @@ struct CatalogOwnerView: View {
                         Label {
                             Text(BipeStrings.catalogAddItem)
                         } icon: {
-                            PhosphorIcon.plus.image.resizable().frame(width: 22, height: 22)
+                            PhosphorIcon.plus.toolbarImage(size: 22)
                         }
                     }
                     .labelStyle(.iconOnly)

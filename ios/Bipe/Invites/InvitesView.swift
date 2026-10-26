@@ -21,6 +21,9 @@ struct InvitesView: View {
     let openChat: (String) -> Void
     @State private var creating = false
     @State private var card: InviteCard?
+    @State private var renaming: BipeInvite?
+    @State private var name = ""
+    @State private var revoking: BipeInvite?
 
     var body: some View {
         List {
@@ -49,6 +52,7 @@ struct InvitesView: View {
                         Button { card = InviteCard(id: invite.id, url: model.links[invite.id], expiresAt: invite.expiresAt) } label: {
                             PendingInviteRow(invite: invite, onThisPhone: model.links[invite.id] != nil)
                         }
+                        .contextMenu { pendingActions(invite) }
                     }
                 }
             }
@@ -68,6 +72,40 @@ struct InvitesView: View {
         .refreshable { await model.refresh() }
         .sheet(isPresented: $creating) { InviteCreateView(model: model) }
         .sheet(item: $card) { InviteCardView(model: model, card: $0) }
+        .alert(BipeStrings.invitesNameAction, isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField(BipeStrings.invitesNamePlaceholder, text: $name)
+            Button(BipeStrings.appSave) {
+                guard let id = renaming?.id else { return }
+                Task {
+                    do { try await model.setName(id: id, name: name) }
+                    catch { model.error = BipeStrings.errorNetwork }
+                }
+            }
+            Button(BipeStrings.appCancel, role: .cancel) {}
+        } message: { Text(BipeStrings.invitesNameFooter) }
+        .confirmationDialog(BipeStrings.invitesRevoke, isPresented: Binding(get: { revoking != nil }, set: { if !$0 { revoking = nil } })) {
+            Button(BipeStrings.invitesRevoke, role: .destructive) {
+                if let invite = revoking { Task { await model.revoke(invite) } }
+            }
+        }
+    }
+
+    /// Long press on a pending invite: share and copy need the link on this phone; rename and revoke work everywhere.
+    @ViewBuilder private func pendingActions(_ invite: BipeInvite) -> some View {
+        if let url = model.links[invite.id] {
+            ShareLink(item: BipeStrings.invitesShareMessage(url.absoluteString)) {
+                Label(BipeStrings.appShare, systemImage: "square.and.arrow.up")
+            }
+            Button { UIPasteboard.general.url = url } label: {
+                Label(BipeStrings.appCopy, systemImage: "doc.on.doc")
+            }
+        }
+        Button { name = invite.name ?? ""; renaming = invite } label: {
+            Label(BipeStrings.invitesNameAction, systemImage: "pencil")
+        }
+        Button(role: .destructive) { revoking = invite } label: {
+            Label(BipeStrings.invitesRevoke, systemImage: "trash")
+        }
     }
 }
 
