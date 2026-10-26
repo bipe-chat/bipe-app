@@ -276,6 +276,7 @@
     <string name="bipe_invites_status_expired">Expired</string>
     <string name="bipe_invites_status_revoked">Cancelled</string>
     <string name="bipe_invites_revoke">Cancel invite</string>
+    <string name="bipe_invites_actions">Invite actions</string>
     <string name="bipe_invites_qr_action">QR code</string>
     <string name="bipe_invites_qr_title">Invite as a QR code</string>
     <string name="bipe_invites_qr_footer">The other person points their phone camera at the code. After installing Bipe, they scan it again and the app opens with the invite filled in.</string>
