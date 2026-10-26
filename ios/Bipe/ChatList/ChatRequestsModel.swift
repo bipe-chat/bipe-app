@@ -188,7 +188,7 @@ final class ChatRequestsModel: ObservableObject {
             var summaries: [ChatRequestSummary] = []
             for room in rooms {
                 guard !Task.isCancelled else { return }
-                if let summary = await Self.summary(of: room, ownServer: Self.server(of: session.userId)) {
+                if let summary = await Self.summary(of: room) {
                     if !groups && BipeInviteTrust.acceptsAutomatically(isDm: summary.isDm, inviterID: summary.inviterId,
                                                                        isIgnored: false, pairs: invitePairs) {
                         if pending.contains(summary.roomId) { continue }
@@ -207,7 +207,7 @@ final class ChatRequestsModel: ObservableObject {
         }
     }
 
-    private static func summary(of room: Room, ownServer: String) async -> ChatRequestSummary? {
+    private static func summary(of room: Room) async -> ChatRequestSummary? {
         guard let info = try? await room.roomInfo() else { return nil }
         let inviter = info.inviter
         // A request from a blocked person never shows (Matrix ignore list).
@@ -225,13 +225,9 @@ final class ChatRequestsModel: ObservableObject {
             inviterName: inviterName,
             avatarUrl: info.isDm ? inviter?.avatarUrl : info.avatarUrl,
             // Local requests start unverified; views observe the shared, verified company-seal store.
-            trust: server(of: inviterId) == ownServer || inviterId.isEmpty ? .unverified : .external,
+            trust: BipeServers.isBipeUserID(inviterId) || inviterId.isEmpty ? .unverified : .external,
             invitedAt: invitedAt,
             isDm: info.isDm)
-    }
-
-    private static func server(of userId: String) -> String {
-        userId.split(separator: ":", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
     }
 
     // MARK: - Actions (chat-request, and the invite rows of chat-list-filters)
