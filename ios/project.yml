@@ -54,6 +54,10 @@ packages:
   MatrixRustSDK:
     url: https://github.com/matrix-org/matrix-rust-components-swift
     exactVersion: 26.08.11
+  # Calls (spec call, ADR 0186): LiveKit client SDK, Apache-2.0, with its WebRTC build. Pins in Package.resolved.
+  LiveKit:
+    url: https://github.com/livekit/client-sdk-swift
+    exactVersion: 2.18.0
   BipeKit:
     path: BipeKit
   Phosphor:
@@ -97,14 +101,15 @@ targets:
         NSFaceIDUsageDescription: O Bipe usa o Face ID para abrir o app e para confirmar que é você.
         # The shell encrypts nothing itself. Revisit before end-to-end encryption ships.
         ITSAppUsesNonExemptEncryption: false
-        # Voice messages play on with the screen locked (spec voice-message notes).
+        # Voice messages play on with the screen locked (spec voice-message notes), and a call goes on in the background (spec call).
         UIBackgroundModes: [audio]
         # Media viewer save (spec media-viewer). The system shows this text with the add-only photo permission.
         NSPhotoLibraryAddUsageDescription: O Bipe salva na sua galeria as fotos e os vídeos que você escolher salvar.
-        # Composer (specs attachment-picker, voice-recording). The transcript is made on this iPhone only (ADR 0023).
-        # One key for every camera use: the composer, and the QR codes of link-computer-scan and signup-invite-code.
-        NSCameraUsageDescription: O Bipe usa a câmera para fotos e vídeos nas conversas e para ler QR codes, como o do computador ou de um convite.
-        NSMicrophoneUsageDescription: O Bipe usa o microfone quando você grava uma mensagem de voz ou um vídeo.
+        # Composer (specs attachment-picker, voice-recording), calls (spec call). The transcript is made on this iPhone only (ADR 0023).
+        # One key for every camera use: video calls, the composer, and the QR codes of link-computer-scan and signup-invite-code.
+        # The texts are bipe-shared bipe_call_camera_usage and bipe_call_microphone_usage (pt-BR, the development language).
+        NSCameraUsageDescription: O Bipe usa a câmera nas chamadas de vídeo, para fotos e vídeos nas conversas e para ler QR codes, como o do computador ou de um convite.
+        NSMicrophoneUsageDescription: O Bipe usa o microfone nas chamadas e quando você grava uma mensagem de voz ou um vídeo.
         NSSpeechRecognitionUsageDescription: O Bipe transcreve suas mensagens de voz neste iPhone, sem enviar o áudio para nenhum servidor.
     entitlements:
       path: SupportFiles/Bipe/Bipe.entitlements
@@ -135,6 +140,8 @@ targets:
     dependencies:
       - package: MatrixRustSDK
         product: MatrixRustSDK
+      - package: LiveKit
+        product: LiveKit
       - package: BipeKit
         product: BipeKit
       - package: Phosphor

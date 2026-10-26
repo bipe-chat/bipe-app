@@ -211,6 +211,11 @@ class ChatTimelineModel(
     val inviterHint: StateFlow<InviterGreetings.Greeting?> = _inviterHint.asStateFlow()
     private val _isDm = MutableStateFlow(false)
     val isDm: StateFlow<Boolean> = _isDm.asStateFlow()
+    /** Spec call: the room is encrypted, and a call runs in it (RoomInfo.hasRoomCall). */
+    private val _isEncrypted = MutableStateFlow(true)
+    val isEncrypted: StateFlow<Boolean> = _isEncrypted.asStateFlow()
+    private val _hasCall = MutableStateFlow(false)
+    val hasCall: StateFlow<Boolean> = _hasCall.asStateFlow()
     private val _isPrivateRoom = MutableStateFlow(true)
 
     /** A DM or a group that needs an invite, for the show-media setting (spec timeline-media). */
@@ -221,6 +226,9 @@ class ChatTimelineModel(
     val ui: StateFlow<TimelineInteractions> = _ui.asStateFlow()
 
     private var room: Room? = null
+
+    /** The room, for spec call. */
+    val matrixRoom: Room? get() = room
     var timeline: Timeline? = null
         private set
     private val items = mutableListOf<TimelineItem>()
@@ -311,6 +319,7 @@ class ChatTimelineModel(
             _roomName.value = if (info.isDm) peerName else info.displayName ?: info.id
             _roomAvatarUrl.value = if (info.isDm) peer?.avatarUrl else info.avatarUrl
             _peerUserId.value = peer?.userId
+            _hasCall.value = info.hasRoomCall
             loadPeerAway(room, peer?.userId)
         }
         runCatching { room.latestEncryptionState() }.getOrNull()?.let { state ->
@@ -326,6 +335,7 @@ class ChatTimelineModel(
             }
         }
         _isDm.value = facts.isDm
+        _isEncrypted.value = facts.isEncrypted
         _isPrivateRoom.value = runCatching { room.isPublic() }.getOrNull() != true
     }
 

@@ -154,6 +154,8 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var historyLoads = 0
     @Published private(set) var isDm = false
     @Published private(set) var isEncrypted = true
+    /// Spec call: a call runs in the room (RoomInfo.hasRoomCall).
+    @Published private(set) var hasCall = false
     /// A DM or a group that needs an invite, for the show-media setting (spec timeline-media).
     @Published private(set) var isPrivateRoom = true
     @Published var draft = ""
@@ -320,6 +322,9 @@ final class ChatTimelineModel: ObservableObject {
         Task { await room.keepDraft(text) }
     }
 
+    /// The room, for spec call.
+    var matrixRoom: Room? { room }
+
     /// The client, for upload-preview and sticker-picker.
     var client: Client { session.client }
     /// Expiry and keep state of this account's voice messages (ADR 0164).
@@ -344,6 +349,7 @@ final class ChatTimelineModel: ObservableObject {
             roomName = info.isDm ? name : (info.displayName ?? info.id)
             roomAvatarUrl = info.isDm ? peer?.avatarUrl : info.avatarUrl
             peerUserId = peer?.userId
+            hasCall = info.hasRoomCall
             await loadPeerAway(room, peer: peer?.userId)
         }
         if let state = try? await room.latestEncryptionState() {

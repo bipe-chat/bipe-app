@@ -127,6 +127,9 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
     implementation(libs.zxing.core)
+    // Calls (spec call, ADR 0186): LiveKit media with per-participant E2EE keys.
+    implementation(libs.livekit.android)
+    implementation(libs.webrtc.android)
     // Recovery token sync (ADR 0059, ADR 0150): src/play/.../BlockStoreRecoveryTokenSync.kt.
     "playImplementation"(libs.play.services.auth.blockstore)
     // Push transport (ADR 0150): src/play/.../PushTransports.kt.

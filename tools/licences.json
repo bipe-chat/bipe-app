@@ -232,6 +232,41 @@
       "checked": "2026-10-24",
       "unverified": true,
       "note": "Firebase Cloud Messaging (ADR 0150, Play build only). Its source is in firebase/firebase-android-sdk (Apache-2.0); its POM was not readable from the agent session (dl.google.com blocked). It brings closed-source Google Play services libraries (play-services-basement, -tasks, -cloud-messaging) under the Android Software Development Kit License, the ADR 0150 exception. Checked 2026-10-24."
+    },
+    "client-sdk-swift": {
+      "ecosystem": "swiftpm",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/livekit/client-sdk-swift",
+      "checked": "2026-10-26",
+      "note": "LiveKit iOS SDK for calls (spec call, ADR 0186)."
+    },
+    "webrtc-xcframework": {
+      "ecosystem": "swiftpm",
+      "licence": "BSD-3-Clause",
+      "source": "https://github.com/livekit/webrtc-xcframework",
+      "checked": "2026-10-26",
+      "note": "LiveKit's WebRTC build for iOS, a dependency of client-sdk-swift. WebRTC is BSD-3-Clause; the packaging repo's own LICENSE is MIT."
+    },
+    "io.livekit:livekit-android": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/livekit/client-sdk-android",
+      "checked": "2026-10-26",
+      "note": "LiveKit Android SDK for calls (spec call, ADR 0186). Its POM names Apache-2.0. It needs com.github.davidliu:audioswitch (Apache-2.0, a fork of twilio/audioswitch) from JitPack, limited to that group in settings.gradle.kts."
+    },
+    "io.github.webrtc-sdk:android-prefixed": {
+      "ecosystem": "gradle",
+      "licence": "BSD-3-Clause",
+      "source": "https://github.com/webrtc-sdk/android",
+      "checked": "2026-10-26",
+      "note": "LiveKit's WebRTC build for Android, a dependency of livekit-android. Its POM names the 3-Clause BSD License."
+    },
+    "livekit-uniffi-xcframework": {
+      "ecosystem": "swiftpm",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/livekit/livekit-uniffi-xcframework",
+      "checked": "2026-10-26",
+      "note": "Binary of livekit/rust-sdks (Apache-2.0), a dependency of client-sdk-swift. The repo now redirects to livekit/livekit-ffi-xcframework."
     }
   }
 }

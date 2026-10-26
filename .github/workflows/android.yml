@@ -39,10 +39,23 @@ jobs:
         working-directory: android
     steps:
       - uses: actions/checkout@v4
+      # The bipe-shared branch of the same name when it exists, else main (bipe-shared AGENTS.md): a change that
+      # adds vectors in bipe-shared and their tests here is green before bipe-shared merges.
+      - name: bipe-shared branch
+        id: shared
+        working-directory: .
+        run: |
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          if git ls-remote --exit-code --heads https://github.com/bipe-chat/bipe-shared "refs/heads/$branch" > /dev/null; then
+            echo "ref=$branch" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
         with:
           repository: bipe-chat/bipe-shared
           path: bipe-shared
+          ref: ${{ steps.shared.outputs.ref }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

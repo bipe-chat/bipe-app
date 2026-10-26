@@ -76,6 +76,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json
     case businessTools = "business-tools"
 
+    /// Voice and video call (flow chat). Spec: bipe-shared/product/screens/call.json
+    case call = "call"
+
     /// Edit a catalogue item (flow business). Spec: bipe-shared/product/screens/catalog-item-edit.json
     case catalogItemEdit = "catalog-item-edit"
 

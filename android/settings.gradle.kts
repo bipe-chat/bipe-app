@@ -20,6 +20,11 @@ dependencyResolutionManagement {
             url = uri(settingsDir.resolve("vendor/maven"))
             content { includeGroup("rustls") }
         }
+        // LiveKit's audio routing library is on JitPack only (spec call, tools/licences.json io.livekit:livekit-android).
+        maven {
+            url = uri("https://jitpack.io")
+            content { includeGroup("com.github.davidliu") }
+        }
     }
 }
 

@@ -4125,4 +4125,56 @@ public enum BipeStrings {
     public static var shareTooMany: String { NSLocalizedString("bipe_share_too_many", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var shareNothing: String { NSLocalizedString("bipe_share_nothing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callVoice: String { NSLocalizedString("bipe_call_voice", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callVideo: String { NSLocalizedString("bipe_call_video", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callStateCalling: String { NSLocalizedString("bipe_call_state_calling", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callStateConnecting: String { NSLocalizedString("bipe_call_state_connecting", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callStateReconnecting: String { NSLocalizedString("bipe_call_state_reconnecting", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callStateEnded: String { NSLocalizedString("bipe_call_state_ended", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callMicrophone: String { NSLocalizedString("bipe_call_microphone", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callCamera: String { NSLocalizedString("bipe_call_camera", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callCameraFlip: String { NSLocalizedString("bipe_call_camera_flip", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callSpeaker: String { NSLocalizedString("bipe_call_speaker", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callEnd: String { NSLocalizedString("bipe_call_end", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callOngoing: String { NSLocalizedString("bipe_call_ongoing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callJoin: String { NSLocalizedString("bipe_call_join", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callErrorConnect: String { NSLocalizedString("bipe_call_error_connect", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callMicrophoneDenied: String { NSLocalizedString("bipe_call_microphone_denied", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callCameraDenied: String { NSLocalizedString("bipe_call_camera_denied", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callMuted: String { NSLocalizedString("bipe_call_muted", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callCameraOff: String { NSLocalizedString("bipe_call_camera_off", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callMembers: String { NSLocalizedString("bipe_call_members", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callReturn: String { NSLocalizedString("bipe_call_return", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callMute: String { NSLocalizedString("bipe_call_mute", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callUnmute: String { NSLocalizedString("bipe_call_unmute", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callChannelOngoing: String { NSLocalizedString("bipe_call_channel_ongoing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callMicrophoneUsage: String { NSLocalizedString("bipe_call_microphone_usage", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callCameraUsage: String { NSLocalizedString("bipe_call_camera_usage", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var callMinimise: String { NSLocalizedString("bipe_call_minimise", tableName: "Bipe", bundle: .module, comment: "") }
 }

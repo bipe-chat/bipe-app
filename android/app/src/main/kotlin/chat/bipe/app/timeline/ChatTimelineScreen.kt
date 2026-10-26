@@ -97,6 +97,8 @@ import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.groups.DmDeleteSheet
+import chat.bipe.app.calls.CallHeaderButtons
+import chat.bipe.app.calls.OngoingCallBar
 import chat.bipe.app.media.MediaViewer
 import chat.bipe.app.media.VoicePlayer
 import chat.bipe.app.media.stickers.StickerPicker
@@ -267,6 +269,7 @@ fun ChatTimelineScreen(
                             if (isDm) BrandMarkHeaderLine(peerUserId, people?.brandMarks)
                         }
                     }
+                    CallHeaderButtons(model, session, roomName)
                     if (isGroup && onOpenGroupDetails != null) {
                         IconButton(onClick = onOpenGroupDetails) {
                             Icon(
@@ -298,6 +301,7 @@ fun ChatTimelineScreen(
                         }
                     }
                 }
+                OngoingCallBar(model, session, roomName)
                 val sealInstitutions = people?.seals?.institutions?.collectAsState()
                 val cvmPeer = peerUserId
                 if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
