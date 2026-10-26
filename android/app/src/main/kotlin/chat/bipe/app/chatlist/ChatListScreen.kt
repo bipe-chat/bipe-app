@@ -110,6 +110,10 @@ import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeOnboardingTarget
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.app.share.ShareShortcuts
+import chat.bipe.app.share.ShareToChatScreen
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 
@@ -210,6 +214,15 @@ fun HomeScreen(
     val pixPreview by app.pixPreview.collectAsState()
     val pendingPix = remember(pixPreview) { pixPreview?.let { PixPreview.resolve(context, it) } }
     LaunchedEffect(Unit) { PixPreview.deleteStale(context) }
+    // Spec share-to-chat: a share from another app, for the current account, shown under the app lock.
+    val pendingShare by app.pendingShare.collectAsState()
+    // Spec share-to-chat notes: the newest chats of this account are the sharing shortcuts.
+    LaunchedEffect(model) {
+        model.chats
+            .map { chats -> chats.take(ShareShortcuts.COUNT).map { it.roomId to it.name } }
+            .distinctUntilChanged()
+            .collect { ShareShortcuts.update(context.applicationContext, session.userId, model.chats.value) }
+    }
     LaunchedEffect(roomToOpen) {
         roomToOpen?.takeIf { it.accountUserId == session.userId }?.let {
             var opensChat = false
@@ -245,6 +258,16 @@ fun HomeScreen(
             pendingPix != null -> PixSendScreen(pendingPix, model, media) {
                 pendingPix.delete()
                 app.pixPreview.value = null
+            }
+            pendingShare?.takeIf { !it.isExpired } != null -> ShareToChatScreen(pendingShare!!, model, media) { sentTo ->
+                // Sent: the send queue keeps the files. Cancelled: every copy goes.
+                if (sentTo == null) pendingShare?.delete()
+                app.pendingShare.value = null
+                if (sentTo != null) {
+                    tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+                    peopleStack = emptyList()
+                    openRoomId = sentTo
+                }
             }
             alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
             showsNewAccount -> AccountNewScreen(tabs, session, api, onClose = { showsNewAccount = false; newAccountPreset = null },

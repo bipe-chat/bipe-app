@@ -46,13 +46,16 @@ final class UploadPreviewModel: ObservableObject {
     @Published private(set) var isPreparing = false
     @Published private(set) var maxUploadLabel: String?
     @Published private(set) var isClosed = false
+    /// true once send handed the items to the send queue (spec share-to-chat opens the chat then).
+    @Published private(set) var didSend = false
 
     let quality = MediaQuality.current
     let replyToEventId: String?
     private let client: Client
     private let timeline: Timeline
 
-    init(urls: [URL], client: Client, timeline: Timeline, replyToEventId: String?) {
+    /// caption: the composer has none; share-to-chat passes its optional message.
+    init(urls: [URL], client: Client, timeline: Timeline, replyToEventId: String?, caption: String = "") {
         self.client = client
         self.timeline = timeline
         self.replyToEventId = replyToEventId
@@ -65,6 +68,7 @@ final class UploadPreviewModel: ObservableObject {
                                localURL: url,
                                size: size)
         }
+        self.caption = caption
     }
 
     var canSend: Bool {
@@ -136,6 +140,7 @@ final class UploadPreviewModel: ObservableObject {
                 _ = try? timeline.sendFile(params: params, fileInfo: info)
             }
         }
+        didSend = true
         isClosed = true
     }
 }

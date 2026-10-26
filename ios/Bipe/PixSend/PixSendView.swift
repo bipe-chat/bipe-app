@@ -17,6 +17,7 @@ extension View {
 private struct PixHandoffHost: ViewModifier {
     @ObservedObject var chatList: ChatListModel
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var lock = AppLockModel.shared
     @State private var claimed: ClaimedPreview?
     /// Kept apart from the sheet item, which is already nil when the sheet's onDismiss runs.
     @State private var current: PixHandoff.Claimed?
@@ -26,6 +27,9 @@ private struct PixHandoffHost: ViewModifier {
             .task { take() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { take() }
+            }
+            .onChange(of: lock.isLocked) { _, locked in
+                if !locked { take() }
             }
             .sheet(item: $claimed, onDismiss: {
                 // Sent, cancelled or dismissed: the preview is used once and goes.
@@ -37,7 +41,8 @@ private struct PixHandoffHost: ViewModifier {
     }
 
     private func take() {
-        guard claimed == nil, current == nil, let preview = PixHandoff.claim() else { return }
+        // The preview waits while the app is locked (spec app-lock): a sheet would show above the lock screen.
+        guard claimed == nil, current == nil, !lock.isLocked, let preview = PixHandoff.claim() else { return }
         current = preview
         claimed = ClaimedPreview(value: preview)
     }

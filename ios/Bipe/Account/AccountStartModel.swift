@@ -39,7 +39,11 @@ final class AccountStartModel: ObservableObject {
     /// The open accounts, oldest first.
     @Published private(set) var sessions: [AccountSession] = [] {
         // accountAvailable of spec pix-check-result, for the share extension.
-        didSet { PixHandoff.accountAvailable = !sessions.isEmpty }
+        didSet {
+            PixHandoff.accountAvailable = !sessions.isEmpty
+            // Spec share-to-chat: signed out, nothing is kept.
+            if sessions.isEmpty && !oldValue.isEmpty { ShareHandoff.deleteAll() }
+        }
     }
 
     /// Spec soft-logout needsPin: the account whose token the server refused and that the hidden password cannot
