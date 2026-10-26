@@ -56,25 +56,26 @@ export const CAPABILITIES = {
 };
 export const PROFILE_TYPES = { appstore: 'IOS_APP_STORE', adhoc: 'IOS_APP_ADHOC' };
 
-// ID sets (bipe-chat/bipe#602, ios/project.yml BIPE_APP_ID). next: Bipe Next, the tester app that
-// CI may set up. store: the fork's live app (ADR 0061), read and signed for, never changed. Its
-// extension IDs are the registered ones (.nse, .shareextension; ios/project.yml BIPE_SHARE_ID_SUFFIX).
+// ID sets (bipe-chat/bipe#602, ios/project.yml BIPE_APP_ID). next: Bipe Next, for local builds next to the
+// release app. store: the release app chat.bipe.app (ADR 0061, ADR 0178). testflight.yml uploads every main
+// build to it. Its bundle IDs, capabilities and app group group.chat.bipe were set up by hand (bipe-chat/bipe#530):
+// CI reads them and never changes them. Its extension IDs are .nse and .shareextension (BIPE_SHARE_ID_SUFFIX).
 export const NEXT = {
   name: 'next', appId: BUNDLE_ID, appName: APP_NAME, bundleIds: BUNDLE_IDS, profilePrefix: 'Bipe Next CI', manage: true,
   kinds: Object.keys(PROFILE_TYPES),
 };
 export const STORE = {
-  name: 'store', appId: 'chat.bipe.app', appName: 'Bipe', profilePrefix: 'Bipe CI', manage: false, kinds: ['appstore'],
+  name: 'store', appId: 'chat.bipe.app', appName: 'Bipe', profilePrefix: 'Bipe CI', manage: false,
+  kinds: Object.keys(PROFILE_TYPES),
   bundleIds: [
     { identifier: 'chat.bipe.app', name: 'Bipe' },
     { identifier: 'chat.bipe.app.nse', name: 'Bipe NSE' },
     { identifier: 'chat.bipe.app.shareextension', name: 'Bipe Share' },
   ],
 };
-// beta: the fork's TestFlight app "Bipe Chat" (chat.bipe.app.dev, group.chat.bipe.dev). The own client
-// replaces the fork there (MZ, 26 Oct 2026; bipe-chat/bipe#658): testflight.yml uploads every main build
-// to it, so the fork's testers get the new client as an update. Its bundle IDs and capabilities are read,
-// never changed. The ID can still change before the first App Store release (store set, M3).
+// beta: the fork's TestFlight app "Bipe Chat" (chat.bipe.app.dev, group.chat.bipe.dev). Build 186 of the own
+// client went there (ADR 0177); since ADR 0178 the own client ships to chat.bipe.app and the fork's testers move
+// by hand. Kept as a read-only source of beta information (BETA_SOURCES). Never changed.
 export const BETA = {
   name: 'beta', appId: 'chat.bipe.app.dev', appName: 'Bipe Chat', profilePrefix: 'Bipe Chat CI', manage: false,
   kinds: Object.keys(PROFILE_TYPES),
@@ -184,9 +185,17 @@ export async function findApp(call, set = NEXT) {
 // The app group itself (group.chat.bipe.next) has no API endpoint. Xcode registered it
 // and linked it to the bundle IDs in the automatic signing runs before bipe-chat/bipe#585.
 // A new group needs that step once by hand (Certificates, Identifiers & Profiles).
-export async function prepare(call, set = NEXT) {
+// optional (BIPE_RECORD_OPTIONAL=true, testflight.yml): a missing record of a set that CI does not manage skips
+// the TestFlight steps with a warning in the log and the job summary, instead of failing the run.
+export async function prepare(call, set = NEXT, { optional = false, summary = process.env.GITHUB_STEP_SUMMARY } = {}) {
   for (const b of set.bundleIds) await ensureBundleId(call, b, set);
   let app = await findApp(call, set);
+  if (!app && !set.manage && optional) {
+    const line = `No App Store Connect record for ${set.appId}: TestFlight is skipped. The API cannot make one. Make it once in App Store Connect: Apps, +, New App, iOS, bundle ID ${set.appId}, primary language Portuguese (Brazil).`;
+    console.error(`::warning::${line}`);
+    if (summary) appendFileSync(summary, `## TestFlight skipped\n\n${line}\n`);
+    return null;
+  }
   if (!app && !set.manage) throw new Error(`no App Store Connect app for ${set.appId}`);
   if (!app) {
     try {
@@ -550,7 +559,7 @@ async function main([cmd, arg]) {
   const set = idSet(process.env.BIPE_ID_SET || 'next');
   if (cmd === 'prepare') {
     // A missing app record skips only the TestFlight steps (output app=false); the ad hoc IPA needs no record.
-    const app = await prepare(call, set);
+    const app = await prepare(call, set, { optional: process.env.BIPE_RECORD_OPTIONAL === 'true' });
     if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `app=${app ? 'true' : 'false'}\n`);
     return 0;
   }
