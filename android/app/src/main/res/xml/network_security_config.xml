@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: AGPL-3.0-only
+  Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+  Copyright 2026 Bipe contributors
+-->
+<!--
+  Cleartext only for Let's Encrypt's certificate revocation lists (bipe-chat/bipe#626).
+  The SDK's TLS check (rustls-platform-verifier) asks Android to check revocation of the server certificate.
+  Let's Encrypt certificates have no OCSP address, only a CRL at http://<issuer>.c.lencr.org/. Android blocks
+  cleartext by default, so the CRL download fails and the verifier reports the certificate as revoked: every SDK
+  request to matrix.bipe.net.br fails. CRLs are signed by the CA, so plain HTTP does not weaken the check.
+  rustls-platform-verifier 0.7.1 (Maven 0.2.0) ships the same rule for every CA in its own manifest. Remove this
+  file when the SDK moves to that release.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">c.lencr.org</domain>
+    </domain-config>
+</network-security-config>
