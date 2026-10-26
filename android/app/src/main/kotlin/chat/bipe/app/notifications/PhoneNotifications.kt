@@ -459,6 +459,7 @@ class PhoneNotifications(private val context: Context) {
             is MessageType.Video -> attachmentPreview(R.string.bipe_app_media_video, type.content.caption)
             is MessageType.File -> attachmentPreview(R.string.bipe_app_media_file, type.content.caption)
             is MessageType.Audio -> attachmentPreview(if (type.content.voice != null) R.string.bipe_app_media_voice else R.string.bipe_app_media_file, type.content.caption)
+            is MessageType.Location -> context.getString(R.string.bipe_app_location_title)
             else -> null
         }
     }

@@ -18,6 +18,8 @@ struct TimelineMessage: Identifiable, Equatable {
         case voice
         case undecryptable
         case poll
+        /// m.location (spec location-view).
+        case location
         case unsupported
     }
 
@@ -51,6 +53,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var media: MediaMessage? = nil
     /// Kind voice.
     var voice: VoiceMessage? = nil
+    /// Kind location.
+    var location: LocationMessage? = nil
 }
 
 /// Type MessageAction of spec message-actions, in the order of the sheet.

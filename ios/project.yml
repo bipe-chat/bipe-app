@@ -106,6 +106,8 @@ targets:
         NSCameraUsageDescription: O Bipe usa a câmera para fotos e vídeos nas conversas e para ler QR codes, como o do computador ou de um convite.
         NSMicrophoneUsageDescription: O Bipe usa o microfone quando você grava uma mensagem de voz ou um vídeo.
         NSSpeechRecognitionUsageDescription: O Bipe transcreve suas mensagens de voz neste iPhone, sem enviar o áudio para nenhum servidor.
+        # Spec location-send (bipe-chat/bipe#768): "when in use" only, asked at the first send. No background access.
+        NSLocationWhenInUseUsageDescription: O Bipe usa sua localização só quando você escolhe enviar onde está numa conversa.
     entitlements:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:

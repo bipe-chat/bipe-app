@@ -7,6 +7,7 @@ package chat.bipe.app.timeline
 import chat.bipe.app.common.displayName
 import chat.bipe.app.media.MediaContent
 import chat.bipe.app.media.MediaFormat
+import chat.bipe.app.location.LocationMessage
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.shared.media.BipeImageDescription
 import chat.bipe.shared.R
@@ -222,8 +223,16 @@ object TimelineRowBuilder {
                                     body = mediaContent.voice.transcript,
                                 )
                                 null -> {
-                                    if (kind !is MsgLikeKind.Message || kind.content.msgType !is MessageType.Text) return@forEachIndexed
-                                    base.copy(kind = TimelineMessage.Kind.TEXT, body = kind.content.body)
+                                    if (kind !is MsgLikeKind.Message) return@forEachIndexed
+                                    when (val type = kind.content.msgType) {
+                                        is MessageType.Text -> base.copy(kind = TimelineMessage.Kind.TEXT, body = kind.content.body)
+                                        // Spec location-view: a geo URI the app cannot read stays unsupported.
+                                        is MessageType.Location -> {
+                                            val location = LocationMessage.of(type.content) ?: return@forEachIndexed
+                                            base.copy(kind = TimelineMessage.Kind.LOCATION, location = location, body = strings.label(location.labelRes))
+                                        }
+                                        else -> return@forEachIndexed
+                                    }
                                 }
                             }
                             val isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited ?: false
@@ -307,7 +316,7 @@ object TimelineRowBuilder {
     fun isShownMessage(event: EventTimelineItem): Boolean {
         val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
         if (kind != null && MediaContent.of(kind) != null) return true
-        return kind is MsgLikeKind.Message && kind.content.msgType is MessageType.Text
+        return kind is MsgLikeKind.Message && (kind.content.msgType is MessageType.Text || kind.content.msgType is MessageType.Location)
     }
 
     fun eventId(event: EventTimelineItem): String? = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
@@ -359,7 +368,7 @@ object TimelineRowBuilder {
             is MsgLikeKind.Message -> when (val media = MediaContent.of(kind.content.msgType)) {
                 is MediaContent.Media -> media.media.caption?.takeIf { it.isNotBlank() } ?: strings.label(media.media.kindLabel)
                 is MediaContent.Voice -> if (media.voice.isVoice) strings.label(R.string.bipe_app_media_voice) else media.voice.filename
-                null -> kind.content.body
+                null -> if (kind.content.msgType is MessageType.Location) strings.label(R.string.bipe_app_location_title) else kind.content.body
             }
             is MsgLikeKind.Sticker -> strings.label(R.string.bipe_app_media_sticker)
             MsgLikeKind.Redacted -> if (isOwn) strings.deletedOwn else strings.deleted
