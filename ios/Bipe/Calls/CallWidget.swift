@@ -38,9 +38,10 @@ actor CallWidget {
 
     init(userId: String, deviceId: String, extraSend: [String] = [], extraRead: [String] = [],
          onIncoming: @escaping @Sendable (Incoming) -> Void) throws {
-        widgetId = "bipe-call-\(UUID().uuidString.lowercased())"
+        let id = "bipe-call-\(UUID().uuidString.lowercased())"
+        widgetId = id
         // The driver needs a URL; nothing loads it.
-        let settings = WidgetSettings(widgetId: widgetId, initAfterContentLoad: false, rawUrl: "https://bipe.chat/call")
+        let settings = WidgetSettings(widgetId: id, initAfterContentLoad: false, rawUrl: "https://bipe.chat/call")
         let made = try makeWidgetDriver(settings: settings)
         driver = made.driver
         handle = made.handle
@@ -58,9 +59,9 @@ actor CallWidget {
             "org.matrix.msc3819.receive.to_device:\(key)",
         ] + sendEvents.map { "org.matrix.msc2762.send.event:\($0)" } + readEvents.map { "org.matrix.msc2762.receive.event:\($0)" }
         approved = WidgetCapabilities(
-            read: [.stateWithType(eventType: member), .toDevice(eventType: key)] + readEvents.map { .messageLikeWithType(eventType: $0) },
+            read: [.stateWithType(eventType: member), .toDevice(eventType: key)] + readEvents.map { WidgetEventFilter.messageLikeWithType(eventType: $0) },
             send: [.stateWithTypeAndStateKey(eventType: member, stateKey: ownKey), .toDevice(eventType: key)]
-                + sendEvents.map { .messageLikeWithType(eventType: $0) },
+                + sendEvents.map { WidgetEventFilter.messageLikeWithType(eventType: $0) },
             requiresClient: false, updateDelayedEvent: true, sendDelayedEvent: true, downloadFiles: false, rtcTransports: false)
         self.onIncoming = onIncoming
     }
@@ -182,8 +183,8 @@ private final class CallCapabilities: WidgetCapabilitiesProvider, @unchecked Sen
     }
 
     func acquireCapabilities(capabilities: WidgetCapabilities) -> WidgetCapabilities {
-        WidgetCapabilities(read: capabilities.read.filter(approved.read.contains),
-                           send: capabilities.send.filter(approved.send.contains),
+        WidgetCapabilities(read: capabilities.read.filter { approved.read.contains($0) },
+                           send: capabilities.send.filter { approved.send.contains($0) },
                            requiresClient: false,
                            updateDelayedEvent: capabilities.updateDelayedEvent && approved.updateDelayedEvent,
                            sendDelayedEvent: capabilities.sendDelayedEvent && approved.sendDelayedEvent,
