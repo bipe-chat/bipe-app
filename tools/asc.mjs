@@ -13,6 +13,9 @@
 //                                        three bundle IDs for the distribution certificate
 //                                        with this serial, installs them and writes the
 //                                        export options (bipe-chat/bipe#585).
+//   node tools/asc.mjs external <n>      Reports external testing; with BIPE_EXTERNAL_TESTING=true
+//                                        adds build <n> to the external group and submits it to
+//                                        beta review (bipe-chat/bipe#658).
 //   node tools/asc.mjs certificates      Lists the team's development certificates. Never
 //                                        revokes one.
 //   node tools/asc.mjs store-ids [<n>]   Read only (bipe-chat/bipe#602, #604): the bundle IDs
@@ -401,6 +404,126 @@ export async function storeIds(call, { summary = process.env.GITHUB_STEP_SUMMARY
   return report;
 }
 
+// External testing of Bipe Next (bipe-chat/bipe#658, M1 Public TestFlight). Every run writes a
+// report. With enable (BIPE_EXTERNAL_TESTING=true) it fills missing beta app information and
+// review details from the fork's "Bipe" record (read only there), adds the build to the external
+// group and submits it to beta app review. With publicLink (BIPE_PUBLIC_LINK=true) it turns the
+// group's public link on; it never turns a link off. It never prints the review contact or the
+// demo account.
+export const EXTERNAL_GROUP = 'Testers';
+export const BETA_LOCALE = 'pt-BR';
+export const BETA_TEXT = {
+  description: 'O Bipe é um mensageiro brasileiro. Suas conversas e seus dados ficam no Brasil. Esta é a versão de testes do novo app.',
+  whatToTest: 'Crie sua conta, converse com alguém que já usa o Bipe e passe a conta para outro celular pelo QR. Se algo der errado, tire uma captura de tela e envie pelo TestFlight.',
+  privacyPolicyUrl: 'https://bipe.chat/privacidade/',
+};
+const LOCALIZATION_FIELDS = ['description', 'feedbackEmail', 'marketingUrl', 'privacyPolicyUrl'];
+const REVIEW_FIELDS = ['contactFirstName', 'contactLastName', 'contactPhone', 'contactEmail', 'demoAccountName', 'demoAccountPassword', 'demoAccountRequired', 'notes'];
+const REVIEW_REQUIRED = ['contactFirstName', 'contactLastName', 'contactPhone', 'contactEmail'];
+const empty = (v) => v === null || v === undefined || v === '';
+// The fork's record can lack a resource; a 404 there means "nothing to copy".
+const orNull = (p) => p.catch((err) => { if (err.status === 404) return { data: null }; throw err; });
+
+export async function external(call, buildNumber, { enable = false, publicLink = false, summary = process.env.GITHUB_STEP_SUMMARY } = {}) {
+  const app = await findApp(call, NEXT);
+  if (!app) throw new Error(`no app record for ${NEXT.appId}`);
+  const missing = [];
+  const lines = [`## External TestFlight (${NEXT.appName})`, ''];
+
+  const groups = await call('GET', `/v1/apps/${app.id}/betaGroups?limit=200`);
+  let group = groups.data.find((g) => !g.attributes.isInternalGroup) ?? null;
+  let locs = (await call('GET', `/v1/apps/${app.id}/betaAppLocalizations?limit=50`)).data;
+  let review = (await call('GET', `/v1/apps/${app.id}/betaAppReviewDetail`)).data;
+  const list = await call('GET', `/v1/builds?filter[app]=${app.id}&filter[version]=${buildNumber}&limit=10`);
+  const build = list.data[0] ?? null;
+
+  if (enable) {
+    const store = await findApp(call, STORE);
+    const storeLocs = store ? (await orNull(call('GET', `/v1/apps/${store.id}/betaAppLocalizations?limit=50`))).data ?? [] : [];
+    const storeReview = store ? (await orNull(call('GET', `/v1/apps/${store.id}/betaAppReviewDetail`))).data : null;
+
+    // Beta app information: Bipe Next's own values first, then the fork's, then BETA_TEXT.
+    const loc = locs.find((l) => l.attributes.locale === BETA_LOCALE) ?? null;
+    const from = storeLocs.find((l) => l.attributes.locale === BETA_LOCALE)?.attributes ?? {};
+    const want = {};
+    for (const f of LOCALIZATION_FIELDS) {
+      if (!empty(loc?.attributes[f])) continue;
+      const v = empty(from[f]) ? BETA_TEXT[f] : from[f];
+      if (!empty(v)) want[f] = v;
+    }
+    if (!loc) {
+      const made = await call('POST', '/v1/betaAppLocalizations', {
+        data: { type: 'betaAppLocalizations', attributes: { locale: BETA_LOCALE, ...want }, relationships: { app: { data: { type: 'apps', id: app.id } } } },
+      });
+      locs = [...locs, made.data];
+    } else if (Object.keys(want).length) {
+      const made = await call('PATCH', `/v1/betaAppLocalizations/${loc.id}`, { data: { type: 'betaAppLocalizations', id: loc.id, attributes: want } });
+      locs = locs.map((l) => (l.id === loc.id ? made.data : l));
+    }
+
+    // Review contact and demo account: copied from the fork's record where Bipe Next has none.
+    const copy = {};
+    for (const f of REVIEW_FIELDS) {
+      if (empty(review.attributes[f]) && !empty(storeReview?.attributes?.[f])) copy[f] = storeReview.attributes[f];
+    }
+    if (Object.keys(copy).length) {
+      review = (await call('PATCH', `/v1/betaAppReviewDetails/${review.id}`, { data: { type: 'betaAppReviewDetails', id: review.id, attributes: copy } })).data;
+    }
+
+    if (!group) {
+      group = (await call('POST', '/v1/betaGroups', {
+        data: {
+          type: 'betaGroups',
+          attributes: { name: EXTERNAL_GROUP, isInternalGroup: false, publicLinkEnabled: publicLink, publicLinkLimitEnabled: false },
+          relationships: { app: { data: { type: 'apps', id: app.id } } },
+        },
+      })).data;
+    } else if (publicLink && !group.attributes.publicLinkEnabled) {
+      group = (await call('PATCH', `/v1/betaGroups/${group.id}`, { data: { type: 'betaGroups', id: group.id, attributes: { publicLinkEnabled: true, publicLinkLimitEnabled: false } } })).data;
+    }
+  }
+
+  const loc = locs.find((l) => l.attributes.locale === BETA_LOCALE) ?? null;
+  for (const f of ['description', 'feedbackEmail', 'privacyPolicyUrl']) if (empty(loc?.attributes[f])) missing.push(`beta app ${f} (${BETA_LOCALE})`);
+  for (const f of REVIEW_REQUIRED) if (empty(review?.attributes[f])) missing.push(`review ${f}`);
+  if (review?.attributes.demoAccountRequired && empty(review.attributes.demoAccountName)) missing.push('review demo account');
+
+  let state = null;
+  if (build) {
+    state = (await call('GET', `/v1/builds/${build.id}/buildBetaDetail`)).data?.attributes?.externalBuildState ?? null;
+    if (enable && group) {
+      const bl = (await call('GET', `/v1/builds/${build.id}/betaBuildLocalizations?limit=50`)).data.find((l) => l.attributes.locale === BETA_LOCALE);
+      if (!bl) {
+        await call('POST', '/v1/betaBuildLocalizations', {
+          data: { type: 'betaBuildLocalizations', attributes: { locale: BETA_LOCALE, whatToTest: BETA_TEXT.whatToTest }, relationships: { build: { data: { type: 'builds', id: build.id } } } },
+        });
+      }
+      await call('POST', `/v1/betaGroups/${group.id}/relationships/builds`, { data: [{ type: 'builds', id: build.id }] });
+      if (state === 'READY_FOR_BETA_SUBMISSION' && !missing.length) {
+        try {
+          await call('POST', '/v1/betaAppReviewSubmissions', { data: { type: 'betaAppReviewSubmissions', relationships: { build: { data: { type: 'builds', id: build.id } } } } });
+          state = 'WAITING_FOR_BETA_REVIEW';
+        } catch (err) {
+          console.error(`::warning::beta review submission of build ${buildNumber} failed: ${err.message}`);
+        }
+      }
+    }
+  }
+
+  lines.push(
+    `External testing: ${enable ? 'on' : 'off'} (BIPE_EXTERNAL_TESTING). Public link: ${publicLink ? 'on' : 'off'} (BIPE_PUBLIC_LINK).`,
+    group
+      ? `Group: ${group.attributes.name}, public link ${group.attributes.publicLinkEnabled ? (group.attributes.publicLink ?? 'on') : 'off'}`
+      : 'Group: none',
+    `Build ${buildNumber}: ${build ? (state ?? 'no beta detail') : 'not found'}`,
+    missing.length ? `Missing for beta review: ${missing.join(', ')}` : 'Beta review information: complete',
+  );
+  if (enable && missing.length) console.error(`::warning::beta review needs: ${missing.join(', ')}`);
+  console.log(lines.join('\n'));
+  if (summary) appendFileSync(summary, `${lines.join('\n')}\n`);
+  return { group, state, missing };
+}
+
 async function main([cmd, arg]) {
   const call = client();
   const set = idSet(process.env.BIPE_ID_SET || 'next');
@@ -418,6 +541,13 @@ async function main([cmd, arg]) {
     await signing(call, arg, { set });
     return 0;
   }
+  if (cmd === 'external' && /^\d+$/.test(arg ?? '')) {
+    await external(call, arg, {
+      enable: process.env.BIPE_EXTERNAL_TESTING === 'true',
+      publicLink: process.env.BIPE_PUBLIC_LINK === 'true',
+    });
+    return 0;
+  }
   if (cmd === 'certificates') {
     await certificates(call);
     return 0;
@@ -430,7 +560,7 @@ async function main([cmd, arg]) {
     }
     return 0;
   }
-  console.error('usage: [BIPE_ID_SET=store] node tools/asc.mjs prepare | distribute <build-number> | signing <serial> | certificates | store-ids [<build-number>]');
+  console.error('usage: [BIPE_ID_SET=store] node tools/asc.mjs prepare | distribute <build-number> | external <build-number> | signing <serial> | certificates | store-ids [<build-number>]');
   return 2;
 }
 
