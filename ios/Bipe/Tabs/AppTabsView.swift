@@ -86,6 +86,10 @@ struct AppTabsView: View {
                                    showsSwitchAction: model.accounts.count > 1))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
+        .shareToChat(chatList: chatList, openChat: { roomId in
+            model.selectTab(.conversas)
+            TabsLinks.shared.link = .chat(roomId)
+        })
         .modifier(InviteJoinNotice(model: model.invites(for: session)))
         .sheet(isPresented: $showsNewAccount, onDismiss: { newAccountStart = nil }) {
             AccountNewView(tabs: model, session: session, api: api, preset: newAccountStart) { showsNewAccount = false }

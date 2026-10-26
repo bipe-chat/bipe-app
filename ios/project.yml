@@ -199,8 +199,10 @@ targets:
     sources:
       - path: ShareExtension
       - path: Bipe/PixCheck
+      - path: Bipe/Share/ShareHandoff.swift
       - path: Bipe/Common/AppConfig.swift
       - path: Bipe/Common/RoundedType.swift
+      - path: Bipe/Common/ButtonSize.swift
     info:
       path: SupportFiles/BipeShare/Info.plist
       properties:
@@ -215,10 +217,14 @@ targets:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
           NSExtensionAttributes:
-            # Plain text and images only (spec pix-check-receive); at most 10 items.
+            # Spec share-to-chat: text, a web link, photos, videos and files; the app takes at most 10 items.
+            # Conferir no Bipe (spec pix-check-receive) reads only the text and images.
             NSExtensionActivationRule:
               NSExtensionActivationSupportsText: true
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
               NSExtensionActivationSupportsImageWithMaxCount: 10
+              NSExtensionActivationSupportsMovieWithMaxCount: 10
+              NSExtensionActivationSupportsFileWithMaxCount: 10
     entitlements:
       path: SupportFiles/BipeShare/BipeShare.entitlements
       properties:

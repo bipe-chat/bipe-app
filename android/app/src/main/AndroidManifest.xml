@@ -86,6 +86,21 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/recuperar" />
             </intent-filter>
+            <!-- Send to a chat (spec share-to-chat): text, links, photos, videos and files. -->
+            <intent-filter android:label="@string/bipe_share_send_to_chat">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter android:label="@string/bipe_share_send_to_chat">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <!-- Sharing shortcuts for the recent chats (spec share-to-chat). -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
         <!-- The end of a linked Apple or Google account web flow (ADR 0096): the Bipe API redirects the Custom Tab to
              <application id>:/link-done. LinkDoneActivity hands the URL over and closes the tab. The handoff works

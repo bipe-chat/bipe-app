@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: AGPL-3.0-only
+  Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+  Copyright 2026 Bipe contributors
+-->
+<!-- Sharing shortcuts of spec share-to-chat: ShareShortcuts pushes the recent chats with this category. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <share-target android:targetClass="chat.bipe.app.MainActivity">
+        <data android:mimeType="*/*" />
+        <category android:name="chat.bipe.app.category.SHARE_TARGET" />
+    </share-target>
+</shortcuts>
