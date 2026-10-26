@@ -540,7 +540,8 @@ function externalAsc({ nextLocs = [], nextReview = {}, storeLocs = [], storeRevi
   const bodies = {};
   const rows = {
     '/v1/apps?filter[bundleId]=chat.bipe.app.next': [{ id: 'N', attributes: { bundleId: 'chat.bipe.app.next' } }],
-    '/v1/apps?filter[bundleId]=chat.bipe.app': [{ id: 'N', attributes: { bundleId: 'chat.bipe.app.next' } }, { id: 'S', attributes: { bundleId: 'chat.bipe.app' } }],
+    '/v1/apps?filter[bundleId]=chat.bipe.app': [{ id: 'N', attributes: { bundleId: 'chat.bipe.app.next' } }, { id: 'D', attributes: { bundleId: 'chat.bipe.app.dev' } }],
+    '/v1/apps?filter[bundleId]=chat.bipe.app.dev': [{ id: 'S', attributes: { bundleId: 'chat.bipe.app.dev' } }],
     '/v1/apps/N/betaGroups?limit=200': groups,
     '/v1/apps/N/betaAppLocalizations?limit=50': nextLocs,
     '/v1/apps/N/betaAppReviewDetail': { id: 'R', attributes: nextReview },
@@ -591,7 +592,7 @@ test('asc external without the variable only reads', async () => {
   assert.doesNotMatch(out, /secret-demo|ana@example\.org|99999/);
 });
 
-test('asc external copies the fork review details, makes the group and submits the build', async () => {
+test('asc external copies the fork beta record (chat.bipe.app.dev) review details, makes the group and submits the build', async () => {
   const storeLocs = [{ id: 'SL', attributes: { locale: 'pt-BR', feedbackEmail: 'beta@example.org', description: 'fork text' } }];
   const { call, calls, bodies } = externalAsc({ storeLocs, storeReview: CONTACT });
   const { result, out } = await quiet(() => external(call, '300', { enable: true, summary: null }));
