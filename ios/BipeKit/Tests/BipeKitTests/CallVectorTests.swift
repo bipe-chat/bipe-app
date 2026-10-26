@@ -120,3 +120,55 @@ struct CallVectorTests {
         #expect(BipeCall.oldestFocus(members: [], own: own) == oldest["alone"])
     }
 }
+
+/// bipe-shared test-vectors/calls/ringing.json (bipe-chat/bipe#759). Android runs the same file in BipeCallRingTest.kt.
+struct CallRingVectorTests {
+    private let file = "calls/ringing.json"
+
+    private func json(_ object: Any) throws -> NSDictionary {
+        let data = try JSONSerialization.data(withJSONObject: object)
+        return try #require(try JSONSerialization.jsonObject(with: data) as? NSDictionary)
+    }
+
+    @Test
+    func ringContents() throws {
+        let cases = try SharedVectors.array(file, key: "ringContents")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let content = BipeCallRing.content(notificationType: try #require(vector["notificationType"] as? String),
+                senderTs: try #require((vector["senderTs"] as? NSNumber)?.int64Value),
+                membershipEventId: try #require(vector["membershipEventId"] as? String),
+                userIds: try #require(vector["userIds"] as? [String]), video: vector["video"] as? Bool == true)
+            let expected = try #require(vector["content"] as? [String: Any])
+            #expect(try json(content).isEqual(to: expected), "\(vector["name"] ?? "")")
+        }
+    }
+
+    @Test
+    func ringReads() throws {
+        for vector in try SharedVectors.array(file, key: "ringReads") {
+            let read = BipeCallRing.read(content: try #require(vector["content"] as? [String: Any]),
+                sender: try #require(vector["sender"] as? String),
+                originServerTs: try #require((vector["originServerTs"] as? NSNumber)?.int64Value),
+                ownUserId: try #require(vector["ownUserId"] as? String), now: try #require((vector["now"] as? NSNumber)?.int64Value))
+            let expected = BipeCallRingRead(ring: vector["ring"] as? Bool == true, notify: vector["notify"] as? Bool == true,
+                video: vector["video"] as? Bool == true, expiresAt: (vector["expiresAt"] as? NSNumber)?.int64Value ?? -1)
+            #expect(read == expected, "\(vector["name"] ?? "")")
+        }
+    }
+
+    @Test
+    func lines() throws {
+        for vector in try SharedVectors.array(file, key: "lines") {
+            let events = try #require(vector["memberEvents"] as? [[String: Any]]).map {
+                (userId: $0["userId"] as? String ?? "", ts: ($0["ts"] as? NSNumber)?.int64Value ?? 0)
+            }
+            let line = BipeCallRing.line(isDm: vector["isDm"] as? Bool == true, sender: try #require(vector["sender"] as? String),
+                ringTs: try #require((vector["ringTs"] as? NSNumber)?.int64Value), active: vector["active"] as? Bool == true,
+                declinedBy: try #require(vector["declinedBy"] as? [String]), memberEvents: events)
+            let expected = BipeCallLine(outcome: BipeCallLine.Outcome(rawValue: vector["outcome"] as? String ?? "") ?? .ongoing,
+                minutes: (vector["minutes"] as? NSNumber)?.intValue, joined: try #require(vector["joined"] as? [String]))
+            #expect(line == expected, "\(vector["name"] ?? "")")
+        }
+    }
+}

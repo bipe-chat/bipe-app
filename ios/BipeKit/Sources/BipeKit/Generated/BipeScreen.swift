@@ -166,6 +166,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
+    /// Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json
+    case incomingCall = "incoming-call"
+
     /// Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json
     case inviteNote = "invite-note"
 

@@ -20,6 +20,8 @@ struct TimelineRow: Identifiable, Equatable {
         case handleChange
         case notEncrypted
         case chatStart
+        /// A call line (spec incoming-call notes): the ring event with the memberships after it.
+        case call
     }
 
     var id: String
@@ -32,6 +34,8 @@ struct TimelineRow: Identifiable, Equatable {
     var day: Date?
     /// kind handleChange only.
     var handleChange: HandleChangeLine?
+    /// kind call only.
+    var callText: String?
 }
 
 /// Type HandleChangeLine of spec handle-change-line.
@@ -202,6 +206,11 @@ enum TimelineRowBuilder {
                 }
                 continue
             }
+            if let event = item.asEvent(), case .rtcNotification(let intent, let declinedBy, let activeMembers, _, _) = event.content {
+                rows.append(contentsOf: callRows(id: id, event: event, video: intent == "video", declinedBy: declinedBy,
+                                                 active: !activeMembers.isEmpty, items: items, from: index, facts: facts, name: name))
+                continue
+            }
             guard let event = item.asEvent(), case .msgLike(let content) = event.content else { continue }
             let base = message(id: id, event: event, senderName: name(event.sender))
             // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
@@ -339,6 +348,36 @@ enum TimelineRowBuilder {
                           at: placement.index)
         }
         return result
+    }
+
+    /// Spec incoming-call notes: one line for a ring event and the call memberships after it (up to the next ring),
+    /// and in a group one line for each member who joined.
+    private static func callRows(id: String, event: EventTimelineItem, video: Bool, declinedBy: [String], active: Bool,
+                                 items: [TimelineItem], from index: Int, facts: RoomFacts,
+                                 name: (String) -> String) -> [TimelineRow] {
+        var memberEvents: [(userId: String, ts: Int64)] = []
+        for item in items.dropFirst(index + 1) {
+            guard let other = item.asEvent() else { continue }
+            if case .rtcNotification = other.content { break }
+            if case .state(_, .custom(let eventType)) = other.content, eventType == BipeCall.memberEventType {
+                memberEvents.append((other.sender, Int64(other.timestamp)))
+            }
+        }
+        let line = BipeCallRing.line(isDm: facts.isDm, sender: event.sender, ringTs: Int64(event.timestamp), active: active,
+                                     declinedBy: declinedBy, memberEvents: memberEvents)
+        let label = video ? BipeStrings.callVideo : BipeStrings.callVoice
+        let text: String
+        switch line.outcome {
+        case .ongoing: text = BipeStrings.callOngoing
+        case .missed: text = BipeStrings.callMissed
+        case .declined: text = BipeStrings.callDeclined
+        case .ended: text = "\(label), \(BipeStrings.callDuration(String(line.minutes ?? 1)))"
+        }
+        var rows = [TimelineRow(id: id, kind: .call, callText: text)]
+        for userId in line.joined {
+            rows.append(TimelineRow(id: "\(id)-joined-\(userId)", kind: .call, callText: BipeStrings.callJoined(name(userId))))
+        }
+        return rows
     }
 
     /// A date separator whose day has no row left (only hidden events) goes away.

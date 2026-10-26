@@ -145,6 +145,7 @@ fun ChatTimelineScreen(
         deletedOwn = stringResource(R.string.bipe_app_message_deleted_own),
         undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable),
         label = { context.getString(it) },
+        format = { id, arg -> context.getString(id, arg) },
     )
     val model = remember(session, roomId) {
         ChatTimelineModel(
@@ -155,6 +156,8 @@ fun ChatTimelineScreen(
         )
     }
     DisposableEffect(model) {
+        // Spec incoming-call: an opened chat shows its call kind again in the chat list.
+        chat.bipe.app.calls.MissedCalls.clear(session.userId, roomId)
         model.start()
         onDispose { model.close() }
     }

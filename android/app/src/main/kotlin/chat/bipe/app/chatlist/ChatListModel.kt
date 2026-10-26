@@ -8,6 +8,8 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.previewText
+import chat.bipe.shared.R
+import org.matrix.rustcomponents.sdk.TimelineItemContent
 import chat.bipe.app.common.toVectorDiff
 import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.shared.BipeRowActivity
@@ -282,6 +284,10 @@ class ChatListModel(
         when (val latest = room.latestEvent()) {
             is LatestEventValue.Remote -> {
                 lastMessage = latest.content.previewText(undecryptableText, label)
+                if (latest.content is TimelineItemContent.RtcNotification && !latest.isOwn &&
+                    chat.bipe.app.calls.MissedCalls.isMissed(session.userId, info.id)) {
+                    lastMessage = label(R.string.bipe_call_missed)
+                }
                 lastActivity = latest.timestamp.toLong()
                 if (!latest.isOwn && lastMessage != null) latestIncomingMs = lastActivity
             }

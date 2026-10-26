@@ -209,7 +209,7 @@ struct ChatTimelineView: View {
             Text(BipeStrings.appMessageDeleteBody)
         }
         // Spec notification-service: an open chat has no notifications.
-        .onAppear { model.resumeMenuActions(); NotificationActions.shared.chatOpened(BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)) }
+        .onAppear { model.resumeMenuActions(); MissedCalls.clear(accountUserId: session.userId, roomId: model.roomId); NotificationActions.shared.chatOpened(BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)) }
         .onDisappear {
             let target = BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)
             if NotificationActions.shared.visibleRoom == target { NotificationActions.shared.chatOpened(nil) }

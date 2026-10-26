@@ -9,6 +9,11 @@ import MatrixRustSDK
 extension TimelineItemContent {
     /// The plain text of a message, for the chat list preview. nil for anything the slice does not show.
     var previewText: String? {
+        // Spec incoming-call: a call shows as the call kind; ChatListModel shows a missed one as missed.
+        if case .rtcNotification(let intent, _, let activeMembers, _, _) = self {
+            if !activeMembers.isEmpty { return BipeStrings.callOngoing }
+            return intent == "video" ? BipeStrings.callVideo : BipeStrings.callVoice
+        }
         guard case .msgLike(let content) = self else { return nil }
         switch content.kind {
         case .message(let message):
