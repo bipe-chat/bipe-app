@@ -71,10 +71,24 @@ export const STORE = {
     { identifier: 'chat.bipe.app.shareextension', name: 'Bipe Share' },
   ],
 };
+// beta: the fork's TestFlight app "Bipe Chat" (chat.bipe.app.dev, group.chat.bipe.dev). The own client
+// replaces the fork there (MZ, 26 Oct 2026; bipe-chat/bipe#658): testflight.yml uploads every main build
+// to it, so the fork's testers get the new client as an update. Its bundle IDs and capabilities are read,
+// never changed. The ID can still change before the first App Store release (store set, M3).
+export const BETA = {
+  name: 'beta', appId: 'chat.bipe.app.dev', appName: 'Bipe Chat', profilePrefix: 'Bipe Chat CI', manage: false,
+  kinds: Object.keys(PROFILE_TYPES),
+  bundleIds: [
+    { identifier: 'chat.bipe.app.dev', name: 'Bipe Chat' },
+    { identifier: 'chat.bipe.app.dev.nse', name: 'Bipe Chat NSE' },
+    { identifier: 'chat.bipe.app.dev.shareextension', name: 'Bipe Chat Share' },
+  ],
+};
 export function idSet(name = 'next') {
   if (name === 'next') return NEXT;
+  if (name === 'beta') return BETA;
   if (name === 'store') return STORE;
-  throw new Error(`unknown ID set ${name} (next or store)`);
+  throw new Error(`unknown ID set ${name} (next, beta or store)`);
 }
 // The build setting of each target's profile, by position: app, NSE, share (ios/project.yml).
 const PROFILE_SETTING_ORDER = ['BIPE_CI_PROFILE_APP', 'BIPE_CI_PROFILE_NSE', 'BIPE_CI_PROFILE_SHARE'];
@@ -404,7 +418,7 @@ export async function storeIds(call, { summary = process.env.GITHUB_STEP_SUMMARY
   return report;
 }
 
-// External testing of Bipe Next (bipe-chat/bipe#658, M1 Public TestFlight). Every run writes a
+// External testing of the tester app (bipe-chat/bipe#658, M1 Public TestFlight). Every run writes a
 // report. With enable (BIPE_EXTERNAL_TESTING=true) it fills missing beta app information and
 // review details from the fork's record (BETA_SOURCES, read only there), adds the build to the external
 // group and submits it to beta app review. With publicLink (BIPE_PUBLIC_LINK=true) it turns the
@@ -419,7 +433,7 @@ export const BETA_TEXT = {
 };
 // Records to copy beta information from, in order: the fork's store app, then its beta app
 // "Bipe Chat" (chat.bipe.app.dev, external group "Amigos"). Both are read only.
-export const BETA_SOURCES = [STORE.appId, 'chat.bipe.app.dev'];
+export const BETA_SOURCES = [STORE.appId, BETA.appId];
 const LOCALIZATION_FIELDS = ['description', 'feedbackEmail', 'marketingUrl', 'privacyPolicyUrl'];
 const REVIEW_FIELDS = ['contactFirstName', 'contactLastName', 'contactPhone', 'contactEmail', 'demoAccountName', 'demoAccountPassword', 'demoAccountRequired', 'notes'];
 const REVIEW_REQUIRED = ['contactFirstName', 'contactLastName', 'contactPhone', 'contactEmail'];
@@ -427,11 +441,11 @@ const empty = (v) => v === null || v === undefined || v === '';
 // The fork's record can lack a resource; a 404 there means "nothing to copy".
 const orNull = (p) => p.catch((err) => { if (err.status === 404) return { data: null }; throw err; });
 
-export async function external(call, buildNumber, { enable = false, publicLink = false, summary = process.env.GITHUB_STEP_SUMMARY } = {}) {
-  const app = await findApp(call, NEXT);
-  if (!app) throw new Error(`no app record for ${NEXT.appId}`);
+export async function external(call, buildNumber, { enable = false, publicLink = false, set = NEXT, summary = process.env.GITHUB_STEP_SUMMARY } = {}) {
+  const app = await findApp(call, set);
+  if (!app) throw new Error(`no app record for ${set.appId}`);
   const missing = [];
-  const lines = [`## External TestFlight (${NEXT.appName})`, ''];
+  const lines = [`## External TestFlight (${set.appName})`, ''];
 
   const groups = await call('GET', `/v1/apps/${app.id}/betaGroups?limit=200`);
   let group = groups.data.find((g) => !g.attributes.isInternalGroup) ?? null;
@@ -442,7 +456,7 @@ export async function external(call, buildNumber, { enable = false, publicLink =
 
   if (enable) {
     let store = null;
-    for (const appId of BETA_SOURCES) {
+    for (const appId of BETA_SOURCES.filter((id) => id !== set.appId)) {
       store = await findApp(call, { appId });
       if (store) break;
     }
@@ -550,6 +564,7 @@ async function main([cmd, arg]) {
   }
   if (cmd === 'external' && /^\d+$/.test(arg ?? '')) {
     await external(call, arg, {
+      set,
       enable: process.env.BIPE_EXTERNAL_TESTING === 'true',
       publicLink: process.env.BIPE_PUBLIC_LINK === 'true',
     });
@@ -567,7 +582,7 @@ async function main([cmd, arg]) {
     }
     return 0;
   }
-  console.error('usage: [BIPE_ID_SET=store] node tools/asc.mjs prepare | distribute <build-number> | external <build-number> | signing <serial> | certificates | store-ids [<build-number>]');
+  console.error('usage: [BIPE_ID_SET=beta|store] node tools/asc.mjs prepare | distribute <build-number> | external <build-number> | signing <serial> | certificates | store-ids [<build-number>]');
   return 2;
 }
 

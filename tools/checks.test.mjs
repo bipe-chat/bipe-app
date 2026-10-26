@@ -17,7 +17,7 @@ import { checkStrings, findLiterals, isUserText } from './strings.mjs';
 import { provenanceLine } from './provenance.mjs';
 import { evaluate, flatNames, matchedTokens, parseCsv, tokenCounts } from './similarity.mjs';
 import { checkSdkVersion, projectPin, resolvedPin, catalogPin } from './sdk-version.mjs';
-import { exact, token, sameSerial, profileName, exportOptions, signing, certificates, storeIds, prepare, idSet, STORE, external, BETA_TEXT } from './asc.mjs';
+import { exact, token, sameSerial, profileName, exportOptions, signing, certificates, storeIds, prepare, idSet, STORE, BETA, external, BETA_TEXT } from './asc.mjs';
 import { generateKeyPairSync, verify } from 'node:crypto';
 
 function tree(files) {
@@ -618,4 +618,38 @@ test('asc external does not submit when review details are missing, and turns th
   assert.ok(!calls.includes('POST /v1/betaAppReviewSubmissions'));
   assert.ok(result.missing.includes('review contactEmail'));
   assert.ok(result.missing.includes('beta app feedbackEmail (pt-BR)'));
+});
+
+test('asc beta set is the fork TestFlight app and is never changed', () => {
+  assert.equal(idSet('beta'), BETA);
+  assert.deepEqual(BETA.bundleIds.map((b) => b.identifier), ['chat.bipe.app.dev', 'chat.bipe.app.dev.nse', 'chat.bipe.app.dev.shareextension']);
+  assert.equal(BETA.manage, false);
+  assert.deepEqual(BETA.kinds, ['appstore', 'adhoc']);
+});
+
+test('asc external on the beta set uses its own external group and copies nothing from itself', async () => {
+  const calls = [];
+  const rows = {
+    '/v1/apps?filter[bundleId]=chat.bipe.app.dev': [{ id: 'S', attributes: { bundleId: 'chat.bipe.app.dev' } }],
+    '/v1/apps?filter[bundleId]=chat.bipe.app': [{ id: 'S', attributes: { bundleId: 'chat.bipe.app.dev' } }],
+    '/v1/apps/S/betaGroups?limit=200': [{ id: 'I', attributes: { name: 'Equipe', isInternalGroup: true } }, { id: 'A', attributes: { name: 'Amigos', isInternalGroup: false, publicLinkEnabled: true, publicLink: 'https://testflight.apple.com/join/x' } }],
+    '/v1/apps/S/betaAppLocalizations?limit=50': [{ id: 'L', attributes: { locale: 'pt-BR', description: 'd', feedbackEmail: 'f@example.org', privacyPolicyUrl: 'https://bipe.chat/privacidade/' } }],
+    '/v1/apps/S/betaAppReviewDetail': { id: 'R', attributes: CONTACT },
+    '/v1/builds?filter[app]=S&filter[version]=300&limit=10': [{ id: 'B' }],
+    '/v1/builds/B/buildBetaDetail': { attributes: { externalBuildState: 'READY_FOR_BETA_SUBMISSION' } },
+    '/v1/builds/B/betaBuildLocalizations?limit=50': [{ id: 'BL', attributes: { locale: 'pt-BR', whatToTest: 'x' } }],
+  };
+  const call = async (method, path) => {
+    calls.push(`${method} ${path}`);
+    if (method === 'GET') {
+      if (!(path in rows)) throw new Error(`unexpected GET ${path}`);
+      return { data: rows[path] };
+    }
+    return { data: {} };
+  };
+  const { result, out } = await quiet(() => external(call, '300', { set: BETA, enable: true, summary: null }));
+  assert.deepEqual(calls.filter((c) => !c.startsWith('GET ')), ['POST /v1/betaGroups/A/relationships/builds', 'POST /v1/betaAppReviewSubmissions']);
+  assert.equal(result.group.attributes.name, 'Amigos');
+  assert.match(out, /public link https:\/\/testflight\.apple\.com\/join\/x/);
+  assert.doesNotMatch(out, /secret-demo|ana@example\.org/);
 });
