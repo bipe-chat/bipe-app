@@ -3,7 +3,7 @@
 # Copyright 2026 Bipe contributors
 
 # Tester builds (bipe-chat/bipe#575, ADR 0147). Every push to main:
-# - iOS: archive with manual signing by the team's existing distribution certificate (secrets
+# - iOS (ID set beta: the fork's TestFlight app "Bipe Chat", chat.bipe.app.dev, bipe-chat/bipe#658): archive with manual signing by the team's existing distribution certificate (secrets
 #   DIST_CERT_P12, DIST_CERT_PASSWORD; bipe-chat/bipe#585) and profiles made through the App
 #   Store Connect API, upload to TestFlight and add the build to the internal testing group
 #   (and to the external group when BIPE_EXTERNAL_TESTING is true, bipe-chat/bipe#658);
@@ -53,6 +53,8 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       BUILD_NUMBER: ${{ needs.build-number.outputs.number }}
+      # The own client replaces the fork in its TestFlight app "Bipe Chat" (tools/asc.mjs BETA, bipe-chat/bipe#658).
+      BIPE_ID_SET: beta
       VERSION_NAME: ${{ needs.build-number.outputs.version }}
       ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
@@ -147,6 +149,10 @@ jobs:
             BIPE_CI_PROFILE_NSE="$BIPE_CI_PROFILE_NSE" \
             BIPE_CI_PROFILE_SHARE="$BIPE_CI_PROFILE_SHARE" \
             BIPE_APS_ENVIRONMENT=production \
+            BIPE_APP_ID=chat.bipe.app.dev \
+            BIPE_APP_GROUP=group.chat.bipe.dev \
+            BIPE_SHARE_ID_SUFFIX=shareextension \
+            BIPE_DISPLAY_NAME=Bipe \
             MARKETING_VERSION="$VERSION_NAME" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             BIPE_COMMIT="${{ needs.build-number.outputs.commit }}" | tee "$RUNNER_TEMP/archive.log" | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
@@ -172,7 +178,7 @@ jobs:
             -exportOptionsPlist "$RUNNER_TEMP/adhoc.plist" \
             -exportPath "$RUNNER_TEMP/adhoc" 2>&1 | tee "$RUNNER_TEMP/adhoc.log" | grep -E "error:|EXPORT (SUCCEEDED|FAILED)" || true
           grep -q "EXPORT SUCCEEDED" "$RUNNER_TEMP/adhoc.log"
-          mv "$RUNNER_TEMP"/adhoc/*.ipa "$RUNNER_TEMP/adhoc/Bipe-Next-${BUILD_NUMBER}.ipa"
+          mv "$RUNNER_TEMP"/adhoc/*.ipa "$RUNNER_TEMP/adhoc/Bipe-${BUILD_NUMBER}.ipa"
       - name: Keep the ad hoc IPA
         uses: actions/upload-artifact@v4
         with:
