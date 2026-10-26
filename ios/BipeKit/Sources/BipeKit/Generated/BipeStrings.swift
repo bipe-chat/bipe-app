@@ -3704,6 +3704,10 @@ public enum BipeStrings {
 
     public static var appPersonBlocked: String { NSLocalizedString("bipe_app_person_blocked", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var personNumber: String { NSLocalizedString("bipe_person_number", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var personNumberFooter: String { NSLocalizedString("bipe_person_number_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appPersonNotFound: String { NSLocalizedString("bipe_app_person_not_found", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func appBlockTitle(_ p1: String) -> String {

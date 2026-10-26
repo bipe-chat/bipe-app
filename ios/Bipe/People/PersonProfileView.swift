@@ -96,6 +96,7 @@ struct PersonProfileView: View {
                     header
                 }
                 .listRowBackground(Color.clear)
+                savedNumbers
                 actions
                 if model.fromDm, let roomId = model.dmRoomId {
                     dmRows(roomId: roomId)
@@ -171,6 +172,21 @@ struct PersonProfileView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
+    }
+
+    /// Spec savedNumbers (ADR 0191, bipe-chat/bipe#788): only from the user's own address book. Empty: no row.
+    @ViewBuilder
+    private var savedNumbers: some View {
+        if !model.savedNumbers.isEmpty {
+            Section {
+                ForEach(model.savedNumbers, id: \.self) { number in
+                    LabeledContent(BipeStrings.personNumber, value: number)
+                        .textSelection(.enabled)
+                }
+            } footer: {
+                Text(BipeStrings.personNumberFooter)
+            }
+        }
     }
 
     @ViewBuilder

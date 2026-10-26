@@ -1610,6 +1610,8 @@
     <string name="bipe_app_person_message">Mandar mensagem</string>
     <string name="bipe_app_person_new_group">Novo grupo com esta pessoa</string>
     <string name="bipe_app_person_blocked">Você bloqueou esta pessoa.</string>
+    <string name="bipe_person_number">Número</string>
+    <string name="bipe_person_number_footer">Vem dos seus contatos. O Bipe só mostra o número para quem já salvou esse número.</string>
     <string name="bipe_app_person_not_found">Não deu para abrir este perfil. Tente de novo.</string>
     <string name="bipe_app_block_title">Bloquear %1$s?</string>
     <string name="bipe_app_block_confirm">Bloquear</string>

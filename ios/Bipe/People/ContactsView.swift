@@ -8,6 +8,13 @@ import Phosphor
 import SwiftUI
 import UIKit
 
+/// One address-book entry for a normalised number: the saved name and the entry ID (`CNContact.identifier`).
+/// The entry ID lets person-profile read the entry again; the app keeps no copy of the numbers (ADR 0191).
+struct AddressBookEntry: Sendable, Equatable {
+    var name: String
+    var id: String
+}
+
 /// Type ContactMatch of spec contacts.
 struct ContactMatch: Identifiable, Equatable {
     var person: Person
@@ -88,9 +95,10 @@ final class ContactsModel: ObservableObject {
     func check() async {
         guard canRead, phase != .checking else { return }
         phase = .checking
-        let names = await Task.detached(priority: .userInitiated) { Self.readAddressBook() }.value
+        let book = await Task.detached(priority: .userInitiated) { Self.readAddressBook() }.value
         var found: [String: String] = [:]
-        let phones = Array(names.keys)
+        var entries: [String: String] = [:]
+        let phones = Array(book.keys)
         do throws(BipeAPIError) {
             for start in stride(from: 0, to: phones.count, by: Self.lookupChunk) {
                 let chunk = Array(phones[start..<min(start + Self.lookupChunk, phones.count)])
@@ -98,7 +106,9 @@ final class ContactsModel: ObservableObject {
                     try await people.api.lookupContacts(phones: chunk, accessToken: token)
                 }
                 for match in result where match.userId != people.session.userId && found[match.userId] == nil {
-                    found[match.userId] = names[match.phone]
+                    guard let entry = book[match.phone] else { continue }
+                    found[match.userId] = entry.name
+                    entries[match.userId] = entry.id
                 }
             }
         } catch {
@@ -110,6 +120,7 @@ final class ContactsModel: ObservableObject {
             return
         }
         people.rememberContactNames(found)
+        people.rememberContactEntries(entries)
         let invited = (try? await people.withToken { (token: String) async throws(BipeAPIError) -> Set<String> in
             Set(try await people.api.inviteConnections(accessToken: token))
         }) ?? []
@@ -123,21 +134,36 @@ final class ContactsModel: ObservableObject {
         phase = .loaded
     }
 
-    /// E.164 to the name saved in the address book. Numbers that do not normalise and duplicates are dropped.
-    nonisolated static func readAddressBook() -> [String: String] {
+    /// E.164 to the address-book entry that holds it. Numbers that do not normalise and duplicates are dropped.
+    nonisolated static func readAddressBook() -> [String: AddressBookEntry] {
         let store = CNContactStore()
         let keys: [CNKeyDescriptor] = [CNContactFormatter.descriptorForRequiredKeys(for: .fullName), CNContactPhoneNumbersKey as CNKeyDescriptor]
         let request = CNContactFetchRequest(keysToFetch: keys)
-        var names: [String: String] = [:]
+        var entries: [String: AddressBookEntry] = [:]
         try? store.enumerateContacts(with: request) { contact, _ in
             let name = CNContactFormatter.string(from: contact, style: .fullName) ?? ""
             for number in contact.phoneNumbers {
-                if let e164 = BipePhoneNumber.normalize(number.value.stringValue), names[e164] == nil {
-                    names[e164] = name
+                if let e164 = BipePhoneNumber.normalize(number.value.stringValue), entries[e164] == nil {
+                    entries[e164] = AddressBookEntry(name: name, id: contact.identifier)
                 }
             }
         }
-        return names
+        return entries
+    }
+
+    /// Spec person-profile savedNumbers (ADR 0191): the numbers of one address-book entry, read again now, formatted for
+    /// reading, without duplicates. Empty when the entry is gone or access is not given.
+    nonisolated static func savedNumbers(ofEntry id: String) -> [String] {
+        let keys: [CNKeyDescriptor] = [CNContactPhoneNumbersKey as CNKeyDescriptor]
+        guard let contact = try? CNContactStore().unifiedContact(withIdentifier: id, keysToFetch: keys) else { return [] }
+        var numbers: [String] = []
+        for number in contact.phoneNumbers {
+            let shown = BipePhoneNumber.displaySaved(number.value.stringValue)
+            if !shown.isEmpty, !numbers.contains(shown) {
+                numbers.append(shown)
+            }
+        }
+        return numbers
     }
 }
 

@@ -23,6 +23,8 @@ struct GroupInviteLookup {
     /// A failed call leaves its people out.
     func moreContacts(except known: Set<String>) async -> [Person] {
         var names: [String: String?] = [:]
+        var entries: [String: String] = [:]
+        var lookedUp = false
         if let pairs = try? await people.withToken({ (token: String) async throws(BipeAPIError) -> [String] in
             try await people.api.inviteConnections(accessToken: token)
         }) {
@@ -37,12 +39,18 @@ struct GroupInviteLookup {
                 guard let found = try? await people.withToken({ (token: String) async throws(BipeAPIError) -> [BipeContactMatch] in
                     try await people.api.lookupContacts(phones: chunk, accessToken: token)
                 }) else { break }
+                lookedUp = true
                 for match in found {
-                    names[match.userId] = book[match.phone]
+                    guard let entry = book[match.phone] else { continue }
+                    names[match.userId] = entry.name
+                    entries[match.userId] = entry.id
                 }
             }
         }
         people.rememberContactNames(names.compactMapValues { $0 })
+        if lookedUp {
+            people.rememberContactEntries(entries)
+        }
         var result: [Person] = []
         for (userId, name) in names where userId != people.session.userId && !known.contains(userId) {
             let person = (try? await people.person(userId, contactName: name))

@@ -14,6 +14,7 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import chat.bipe.shared.BipeTrustSources
 import chat.bipe.shared.BipeHandleResolver
+import chat.bipe.shared.api.lookupContacts
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.shared.api.isCompany
@@ -127,6 +128,65 @@ class PeopleService(
 
     fun contactName(userId: String): String? = if (canReadContacts()) _contactNames.value[userId] else null
 
+    /**
+     * User ID to the address-book entry ID that the contact lookup matched (ADR 0191, spec person-profile savedNumbers).
+     * Memory only, this account. Never a number: person-profile reads the entry again.
+     */
+    @Volatile private var contactEntries: Map<String, String> = emptyMap()
+
+    /** A lookup of the address book ran in this session, so person-profile does not spend the daily budget again. */
+    @Volatile private var addressBookLookedUp = false
+
+    fun rememberContactEntries(entries: Map<String, String>) {
+        contactEntries = if (canReadContacts()) entries else emptyMap()
+        if (canReadContacts()) addressBookLookedUp = true
+    }
+
+    /**
+     * Spec person-profile savedNumbers (ADR 0191, bipe-chat/bipe#788): the numbers the user saved for this person, from the
+     * user's own address book. Without contacts access or without a match: empty. Without a match in this session, one
+     * lookup of the whole address book (as contacts check), once per session.
+     */
+    suspend fun savedNumbers(userId: String): List<String> {
+        if (userId == session.userId) return emptyList()
+        if (!canReadContacts()) {
+            contactEntries = emptyMap()
+            return emptyList()
+        }
+        if (userId !in contactEntries && !addressBookLookedUp) lookUpAddressBook()
+        val entryId = contactEntries[userId] ?: return emptyList()
+        return readSavedNumbers(appContext, entryId)
+    }
+
+    /**
+     * POST /v1/contacts/lookup for the whole address book, in chunks of 500. Keeps the names and entry IDs of the matches.
+     * Stops at the first failure and keeps what it has; never runs twice in a session.
+     */
+    private suspend fun lookUpAddressBook() {
+        addressBookLookedUp = true
+        val book = readAddressBook(appContext)
+        val names = mutableMapOf<String, String>()
+        val entries = mutableMapOf<String, String>()
+        for (chunk in book.keys.toList().chunked(500)) {
+            val found = try {
+                withToken { api.lookupContacts(chunk, it) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                break
+            }
+            found.forEach { match ->
+                val entry = book[match.phone] ?: return@forEach
+                if (match.userId != session.userId && match.userId !in entries) {
+                    names[match.userId] = entry.name
+                    entries[match.userId] = entry.id
+                }
+            }
+        }
+        rememberContactNames(_contactNames.value + names)
+        rememberContactEntries(entries)
+    }
+
     private fun canReadContacts(): Boolean =
         ContextCompat.checkSelfPermission(appContext, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
 
@@ -173,6 +233,7 @@ class PeopleService(
         ignoredHandle?.cancel()
         ignoredHandle = null
         _contactNames.value = emptyMap()
+        contactEntries = emptyMap()
     }
 
     fun isBlocked(userId: String): Boolean = _ignoredUsers.value?.contains(userId) == true
