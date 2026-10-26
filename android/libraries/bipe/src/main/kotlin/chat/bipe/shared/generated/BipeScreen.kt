@@ -358,6 +358,9 @@ enum class BipeScreen(val id: String) {
     /** Settings list in the Você tab (flow settings). Spec: bipe-shared/product/screens/settings-root.json */
     SETTINGS_ROOT("settings-root"),
 
+    /** Share to a chat from other apps (flow share). Spec: bipe-shared/product/screens/share-to-chat.json */
+    SHARE_TO_CHAT("share-to-chat"),
+
     /** Sign out of this phone (flow settings). Spec: bipe-shared/product/screens/sign-out.json */
     SIGN_OUT("sign-out"),
 

@@ -237,9 +237,17 @@ jobs:
             -PbipeFirebaseAppId="$FIREBASE_APP_ID" -PbipeFirebaseProjectId="$FIREBASE_PROJECT_ID" \
             -PbipeFirebaseApiKey="$FIREBASE_API_KEY" -PbipeFirebaseSenderId="$FIREBASE_SENDER_ID"
           mv app/build/outputs/apk/play/release/*.apk "app/build/outputs/apk/play/release/Bipe-Next-${{ needs.build-number.outputs.number }}.apk"
+          # bipe-infra k8s/bipe/apk-pull.yaml serves this APK at bipe.chat/baixar/android/bipe.apk. It checks the
+          # SHA-256 file and reads the version file.
+          cd app/build/outputs/apk/play/release
+          sha256sum "Bipe-Next-${{ needs.build-number.outputs.number }}.apk" > "Bipe-Next-${{ needs.build-number.outputs.number }}.apk.sha256"
+          echo "${{ needs.build-number.outputs.version }}" > version
       - name: Keep the tester APK
         uses: actions/upload-artifact@v4
         with:
           name: bipe-next-apk
-          path: android/app/build/outputs/apk/play/release/*.apk
+          path: |
+            android/app/build/outputs/apk/play/release/*.apk
+            android/app/build/outputs/apk/play/release/*.apk.sha256
+            android/app/build/outputs/apk/play/release/version
           retention-days: 30

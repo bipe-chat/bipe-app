@@ -4076,6 +4076,20 @@ public enum BipeStrings {
 
     public static var bringPeopleReminderExpired: String { NSLocalizedString("bipe_bring_people_reminder_expired", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var shareSendToChat: String { NSLocalizedString("bipe_share_send_to_chat", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var shareTitle: String { NSLocalizedString("bipe_share_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var shareMessagePlaceholder: String { NSLocalizedString("bipe_share_message_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var shareHandedOff: String { NSLocalizedString("bipe_share_handed_off", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var shareSignedOut: String { NSLocalizedString("bipe_share_signed_out", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var shareTooMany: String { NSLocalizedString("bipe_share_too_many", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var shareNothing: String { NSLocalizedString("bipe_share_nothing", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var callVoice: String { NSLocalizedString("bipe_call_voice", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var callVideo: String { NSLocalizedString("bipe_call_video", tableName: "Bipe", bundle: .module, comment: "") }

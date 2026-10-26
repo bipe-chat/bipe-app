@@ -352,6 +352,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Settings list in the Você tab (flow settings). Spec: bipe-shared/product/screens/settings-root.json
     case settingsRoot = "settings-root"
 
+    /// Share to a chat from other apps (flow share). Spec: bipe-shared/product/screens/share-to-chat.json
+    case shareToChat = "share-to-chat"
+
     /// Sign out of this phone (flow settings). Spec: bipe-shared/product/screens/sign-out.json
     case signOut = "sign-out"
 
