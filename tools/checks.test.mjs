@@ -17,7 +17,7 @@ import { checkStrings, findLiterals, isUserText } from './strings.mjs';
 import { provenanceLine } from './provenance.mjs';
 import { evaluate, flatNames, matchedTokens, parseCsv, tokenCounts } from './similarity.mjs';
 import { checkSdkVersion, projectPin, resolvedPin, catalogPin } from './sdk-version.mjs';
-import { exact, token, sameSerial, profileName, exportOptions, signing, certificates, storeIds, prepare, idSet, STORE } from './asc.mjs';
+import { exact, token, sameSerial, profileName, exportOptions, signing, certificates, storeIds, prepare, idSet, STORE, external, BETA_TEXT } from './asc.mjs';
 import { generateKeyPairSync, verify } from 'node:crypto';
 
 function tree(files) {
@@ -532,4 +532,89 @@ test('version: build number is the base plus the commit count, above the highest
   assert.equal(highestTag([]), 0);
   assert.equal(buildNumber({ base: 12, commits: 129, tags: ['builds/next/132'] }), 141);
   assert.throws(() => buildNumber({ base: 12, commits: 120, tags: ['builds/next/132'] }), /not above/);
+});
+
+// External testing (bipe-chat/bipe#658).
+function externalAsc({ nextLocs = [], nextReview = {}, storeLocs = [], storeReview = {}, groups = [], state = 'READY_FOR_BETA_SUBMISSION' }) {
+  const calls = [];
+  const bodies = {};
+  const rows = {
+    '/v1/apps?filter[bundleId]=chat.bipe.app.next': [{ id: 'N', attributes: { bundleId: 'chat.bipe.app.next' } }],
+    '/v1/apps?filter[bundleId]=chat.bipe.app': [{ id: 'N', attributes: { bundleId: 'chat.bipe.app.next' } }, { id: 'S', attributes: { bundleId: 'chat.bipe.app' } }],
+    '/v1/apps/N/betaGroups?limit=200': groups,
+    '/v1/apps/N/betaAppLocalizations?limit=50': nextLocs,
+    '/v1/apps/N/betaAppReviewDetail': { id: 'R', attributes: nextReview },
+    '/v1/apps/S/betaAppLocalizations?limit=50': storeLocs,
+    '/v1/apps/S/betaAppReviewDetail': { id: 'RS', attributes: storeReview },
+    '/v1/builds?filter[app]=N&filter[version]=300&limit=10': [{ id: 'B' }],
+    '/v1/builds/B/buildBetaDetail': { attributes: { externalBuildState: state } },
+    '/v1/builds/B/betaBuildLocalizations?limit=50': [],
+  };
+  const call = async (method, path, body) => {
+    calls.push(`${method} ${path}`);
+    bodies[`${method} ${path}`] = body;
+    if (method === 'GET') {
+      if (!(path in rows)) throw new Error(`unexpected GET ${path}`);
+      return { data: rows[path] };
+    }
+    const attributes = body?.data?.attributes ?? {};
+    if (path === '/v1/betaGroups') return { data: { id: 'G', attributes } };
+    if (path === '/v1/betaAppReviewDetails/R') return { data: { id: 'R', attributes: { ...nextReview, ...attributes } } };
+    if (path === '/v1/betaAppLocalizations') return { data: { id: 'L', attributes } };
+    return { data: { id: 'X', attributes } };
+  };
+  return { call, calls, bodies };
+}
+
+const quiet = async (fn) => {
+  const log = console.log;
+  const err = console.error;
+  const out = [];
+  console.log = (s) => out.push(String(s));
+  console.error = (s) => out.push(String(s));
+  try {
+    return { result: await fn(), out: out.join('\n') };
+  } finally {
+    console.log = log;
+    console.error = err;
+  }
+};
+
+const CONTACT = { contactFirstName: 'Ana', contactLastName: 'Silva', contactPhone: '+5511999990000', contactEmail: 'ana@example.org', demoAccountRequired: true, demoAccountName: 'reviewer', demoAccountPassword: 'secret-demo' };
+
+test('asc external without the variable only reads', async () => {
+  const { call, calls } = externalAsc({ nextReview: CONTACT });
+  const { result, out } = await quiet(() => external(call, '300', { summary: null }));
+  assert.ok(calls.every((c) => c.startsWith('GET ')));
+  assert.equal(result.group, null);
+  assert.match(out, /External testing: off/);
+  assert.doesNotMatch(out, /secret-demo|ana@example\.org|99999/);
+});
+
+test('asc external copies the fork review details, makes the group and submits the build', async () => {
+  const storeLocs = [{ id: 'SL', attributes: { locale: 'pt-BR', feedbackEmail: 'beta@example.org', description: 'fork text' } }];
+  const { call, calls, bodies } = externalAsc({ storeLocs, storeReview: CONTACT });
+  const { result, out } = await quiet(() => external(call, '300', { enable: true, summary: null }));
+  const loc = bodies['POST /v1/betaAppLocalizations'].data.attributes;
+  assert.equal(loc.feedbackEmail, 'beta@example.org');
+  assert.equal(loc.description, 'fork text');
+  assert.equal(loc.privacyPolicyUrl, BETA_TEXT.privacyPolicyUrl);
+  assert.equal(bodies['PATCH /v1/betaAppReviewDetails/R'].data.attributes.demoAccountPassword, 'secret-demo');
+  assert.equal(bodies['POST /v1/betaGroups'].data.attributes.publicLinkEnabled, false);
+  assert.ok(calls.includes('POST /v1/betaGroups/G/relationships/builds'));
+  assert.ok(calls.includes('POST /v1/betaAppReviewSubmissions'));
+  assert.ok(!calls.some((c) => c.includes('/v1/apps/S/') && !c.startsWith('GET ')));
+  assert.equal(result.state, 'WAITING_FOR_BETA_REVIEW');
+  assert.deepEqual(result.missing, []);
+  assert.doesNotMatch(out, /secret-demo|ana@example\.org|99999/);
+});
+
+test('asc external does not submit when review details are missing, and turns the public link on only', async () => {
+  const groups = [{ id: 'G', attributes: { name: 'Testers', isInternalGroup: false, publicLinkEnabled: false } }];
+  const { call, calls, bodies } = externalAsc({ groups });
+  const { result } = await quiet(() => external(call, '300', { enable: true, publicLink: true, summary: null }));
+  assert.equal(bodies['PATCH /v1/betaGroups/G'].data.attributes.publicLinkEnabled, true);
+  assert.ok(!calls.includes('POST /v1/betaAppReviewSubmissions'));
+  assert.ok(result.missing.includes('review contactEmail'));
+  assert.ok(result.missing.includes('beta app feedbackEmail (pt-BR)'));
 });

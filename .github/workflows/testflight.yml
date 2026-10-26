@@ -5,7 +5,8 @@
 # Tester builds (bipe-chat/bipe#575, ADR 0147). Every push to main:
 # - iOS: archive with manual signing by the team's existing distribution certificate (secrets
 #   DIST_CERT_P12, DIST_CERT_PASSWORD; bipe-chat/bipe#585) and profiles made through the App
-#   Store Connect API, upload to TestFlight and add the build to the internal testing group;
+#   Store Connect API, upload to TestFlight and add the build to the internal testing group
+#   (and to the external group when BIPE_EXTERNAL_TESTING is true, bipe-chat/bipe#658);
 #   also export an ad hoc IPA for the devices registered in team 992N457T8D (artifact
 #   bipe-next-ipa). The job never makes a certificate: automatic signing made a development
 #   certificate on every run until the team reached Apple's limit.
@@ -181,6 +182,14 @@ jobs:
       - name: Add the build to the internal testing group
         if: steps.asc.outputs.app == 'true'
         run: node tools/asc.mjs distribute "$BUILD_NUMBER"
+      # External testing (bipe-chat/bipe#658): a report on every run. BIPE_EXTERNAL_TESTING=true adds the
+      # build to the external group and submits it to beta review; BIPE_PUBLIC_LINK=true turns the public link on.
+      - name: External testing
+        if: steps.asc.outputs.app == 'true'
+        env:
+          BIPE_EXTERNAL_TESTING: ${{ vars.BIPE_EXTERNAL_TESTING }}
+          BIPE_PUBLIC_LINK: ${{ vars.BIPE_PUBLIC_LINK }}
+        run: node tools/asc.mjs external "$BUILD_NUMBER"
       - name: Upload the logs
         if: failure()
         uses: actions/upload-artifact@v4
