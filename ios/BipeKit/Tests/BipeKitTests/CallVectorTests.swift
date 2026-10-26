@@ -45,7 +45,8 @@ struct CallVectorTests {
             let content = BipeCall.membershipContent(deviceId: try #require(vector["deviceId"] as? String),
                 roomId: try #require(vector["roomId"] as? String), focusUrl: try #require(vector["focusUrl"] as? String),
                 createdTs: try #require((vector["createdTs"] as? NSNumber)?.int64Value), video: vector["video"] as? Bool == true)
-            #expect(try json(content).isEqual(to: try #require(vector["content"] as? [String: Any])), "\(vector["name"] ?? "")")
+            let expected = try #require(vector["content"] as? [String: Any])
+            #expect(try json(content).isEqual(to: expected), "\(vector["name"] ?? "")")
         }
     }
 
@@ -58,8 +59,10 @@ struct CallVectorTests {
                 expiresInSeconds: try #require((raw["expiresInSeconds"] as? NSNumber)?.uint64Value))
             let body = BipeCall.sfuRequestBody(roomId: try #require(vector["roomId"] as? String),
                 deviceId: try #require(vector["deviceId"] as? String), openId: openId)
-            #expect(try json(body).isEqual(to: try #require(vector["body"] as? [String: Any])))
-            let answer = try #require(BipeCall.sfuAnswer(try #require(vector["response"] as? [String: Any])))
+            let expected = try #require(vector["body"] as? [String: Any])
+            #expect(try json(body).isEqual(to: expected))
+            let response = try #require(vector["response"] as? [String: Any])
+            let answer = try #require(BipeCall.sfuAnswer(response))
             #expect(answer.url == "wss://rtc.bipe.net.br")
         }
     }
@@ -70,7 +73,8 @@ struct CallVectorTests {
             let content = BipeCall.keyEventContent(index: try #require((vector["index"] as? NSNumber)?.int32Value),
                 key: hex(try #require(vector["keyHex"] as? String)), deviceId: try #require(vector["deviceId"] as? String),
                 sentTs: try #require((vector["sentTs"] as? NSNumber)?.int64Value))
-            #expect(try json(content).isEqual(to: try #require(vector["content"] as? [String: Any])), "\(vector["name"] ?? "")")
+            let expected = try #require(vector["content"] as? [String: Any])
+            #expect(try json(content).isEqual(to: expected), "\(vector["name"] ?? "")")
         }
         for vector in try SharedVectors.array(file, key: "keyReads") {
             let keys = BipeCall.readKeys(sender: try #require(vector["sender"] as? String),
