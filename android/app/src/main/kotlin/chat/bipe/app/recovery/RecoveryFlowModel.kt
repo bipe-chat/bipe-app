@@ -199,8 +199,8 @@ class RecoveryFlowModel(
         _hasSyncedToken.value = token != null
         // Spec recovery-start linkProviders: Android runs the web flow, so a provider needs the server's web path.
         linkProviders = runCatching { api.linkProviders().usableOnAndroid }.getOrDefault(emptyList())
-        // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate. The beta sign-in
-        // shows only in developer builds (spec soft-logout notes).
+        // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate. A row gated "flag:developer"
+        // shows only in developer builds. The e-mail and password row has no gate: App Review signs in through it (spec soft-logout notes).
         _rows.value = BipeOnboardingRecoveryRow.entries.filter { row ->
             (row.gate == null || row == BipeOnboardingRecoveryRow.OLD_PHONE || (row.gate == "flag:developer" && BuildConfig.DEBUG)) &&
                 (!row.needsSyncedToken || token != null) &&

@@ -104,7 +104,7 @@ enum class BipeOnboardingRecoveryRow(
     APPLE(R.string.bipe_recovery_apple, R.string.bipe_recovery_linked_body, false, null),
     GOOGLE(R.string.bipe_recovery_google, R.string.bipe_recovery_linked_body, false, null),
     EMAIL(R.string.bipe_recovery_email, R.string.bipe_recovery_email_body, false, null),
-    BETA(R.string.bipe_recovery_beta, R.string.bipe_recovery_beta_body, false, "flag:developer"),
+    BETA(R.string.bipe_recovery_beta, R.string.bipe_recovery_beta_body, false, null),
     ;
 }
 
