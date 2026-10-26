@@ -45,6 +45,10 @@ import chat.bipe.shared.generated.BipeScreen
 
 /** Spec incoming-call: the ringing screen, also over the lock screen. */
 class IncomingCallActivity : ComponentActivity() {
+    companion object {
+        const val ACTION_ANSWER = "chat.bipe.app.call.ANSWER"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -54,6 +58,12 @@ class IncomingCallActivity : ComponentActivity() {
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
+        }
+        // The answer action of the call notification and the system's answer (headset, car).
+        if (intent?.action == ACTION_ANSWER) {
+            IncomingCalls.answer(this)
+            finish()
+            return
         }
         setContent {
             BipeTheme {

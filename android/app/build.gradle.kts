@@ -134,6 +134,8 @@ dependencies {
     // Calls (spec call, ADR 0186): LiveKit media with per-participant E2EE keys.
     implementation(libs.livekit.android)
     implementation(libs.webrtc.android)
+    // A locked phone rings (bipe-chat/bipe#760): Bluetooth, headset and car buttons, audio focus.
+    implementation(libs.androidx.core.telecom)
     // Recovery token sync (ADR 0059, ADR 0150): src/play/.../BlockStoreRecoveryTokenSync.kt.
     "playImplementation"(libs.play.services.auth.blockstore)
     // Push transport (ADR 0150): src/play/.../PushTransports.kt.

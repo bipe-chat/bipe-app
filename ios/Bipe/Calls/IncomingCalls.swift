@@ -53,7 +53,8 @@ final class IncomingCalls: ObservableObject {
         let now = Int64(Date().timeIntervalSince1970 * 1000)
         let origin = (event["origin_server_ts"] as? NSNumber)?.int64Value ?? now
         let read = BipeCallRing.read(content: content, sender: sender, originServerTs: origin, ownUserId: session.userId, now: now)
-        guard read.ring, ringing == nil, !CallCenter.shared.isInCall(roomId: roomId) else { return }
+        guard read.ring, ringing == nil, !CallCenter.shared.isInCall(roomId: roomId),
+              !CallKitCenter.shared.isRinging(eventId: eventId) else { return }
         let call = IncomingCall(accountUserId: accountUserId, roomId: roomId, ringEventId: eventId,
                                 callerName: item.senderInfo.displayName ?? sender, callerAvatarUrl: item.senderInfo.avatarUrl,
                                 video: read.video, expiresAt: Date(timeIntervalSince1970: Double(read.expiresAt) / 1000))
@@ -84,6 +85,11 @@ final class IncomingCalls: ObservableObject {
         } else if !info.hasRoomCall {
             missed(call)
         }
+    }
+
+    /// CallKit shows this ring (PushKit, bipe-chat/bipe#760): the in-app ringing steps back.
+    func handedToCallKit(eventId: String) {
+        if ringing?.ringEventId == eventId { stop() }
     }
 
     func answer() {

@@ -64,6 +64,8 @@ object CallCenter {
             val focus = focusUrl(session) ?: return
             val call = runCatching { CallSession(context, session, room, roomName, focus, video, ring) }.getOrNull() ?: return
             call.onFinished = { if (_active.value === call) _active.value = null }
+            // A call this phone starts goes to the system too (core-telecom, bipe-chat/bipe#760); an answered ring is there already.
+            if (ring != null) TelecomCalls.outgoing(context, roomName, video) { call.end() }
             media = MediaLoader(session.client)
             _active.value = call
         }

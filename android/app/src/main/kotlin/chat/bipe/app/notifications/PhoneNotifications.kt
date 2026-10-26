@@ -118,7 +118,10 @@ class PhoneNotifications(private val context: Context) {
         }.getOrNull()
         if (!isActive(session) || !owns(target, route) || target == visibleRoom) return
         when (status) {
-            is NotificationStatus.Event -> show(status.item, target, route, eventId)
+            is NotificationStatus.Event -> {
+                // Spec incoming-call (bipe-chat/bipe#760): a ring rings the phone instead of a message notification.
+                if (!chat.bipe.app.calls.IncomingCalls.fromPush(context, session, status.item, roomId)) show(status.item, target, route, eventId)
+            }
             NotificationStatus.EventFilteredOut, NotificationStatus.EventRedacted, NotificationStatus.EventNotFound -> Unit
             null -> showFallback(target, route, eventId)
         }

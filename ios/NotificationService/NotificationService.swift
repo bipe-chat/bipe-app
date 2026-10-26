@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import CallKit
 import MatrixRustSDK
 import UserNotifications
 
@@ -91,6 +92,9 @@ final class NotificationService: UNNotificationServiceExtension {
         var kind = "message"
         switch item.event {
         case .timeline(let event):
+            if room.isDm, let ring = ring(event: event, sender: senderName ?? event.senderId(), target: target, route: route, eventId: eventId) {
+                return ring
+            }
             guard let text = messageText(event) else {
                 return fallback(target: target, route: route, eventId: eventId, unreadCount: unreadCount)
             }
@@ -124,6 +128,32 @@ final class NotificationService: UNNotificationServiceExtension {
             content.body = BipeStrings.appNotificationNewMessage
         }
         apply(sound: sound(isNoisy: item.isNoisy ?? true, userId: target.accountUserId), to: content, userId: target.accountUserId)
+        return content
+    }
+
+    /// Spec incoming-call on a locked phone (bipe-chat/bipe#760): a DM ring for this account, inside its lifetime, goes
+    /// to CallKit in the app, which rings with the system ringtone. The notification itself stays quiet.
+    private static func ring(event: TimelineEvent, sender: String, target: BipeNotificationTarget, route: String,
+                             eventId: String) -> UNNotificationContent? {
+        guard case .messageLike(.rtcNotification(let type, let expiresAt, let intent))? = try? event.content(), type == .ring,
+              event.senderId() != target.accountUserId,
+              Double(expiresAt) > Date().timeIntervalSince1970 * 1000 else { return nil }
+        let video = intent == .video
+        let payload: [AnyHashable: Any] = [
+            CallPushKeys.account: target.accountUserId,
+            CallPushKeys.roomId: target.roomId,
+            CallPushKeys.eventId: eventId,
+            CallPushKeys.caller: sender,
+            CallPushKeys.video: video,
+            CallPushKeys.expiresAt: Double(expiresAt),
+        ]
+        CXProvider.reportNewIncomingVoIPPushPayload(payload) { _ in }
+        let content = UNMutableNotificationContent()
+        content.title = sender
+        content.body = video ? BipeStrings.callIncomingVideo(sender) : BipeStrings.callIncomingVoice(sender)
+        content.threadIdentifier = target.identifier
+        content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId, kind: "call")
+        content.filterCriteria = target.accountUserId
         return content
     }
 

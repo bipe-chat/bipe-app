@@ -267,6 +267,13 @@
       "source": "https://github.com/livekit/livekit-uniffi-xcframework",
       "checked": "2026-10-26",
       "note": "Binary of livekit/rust-sdks (Apache-2.0), a dependency of client-sdk-swift. The repo now redirects to livekit/livekit-ffi-xcframework."
+    },
+    "androidx.core:core-telecom": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://developer.android.com/jetpack/androidx/releases/core",
+      "checked": "2026-10-26",
+      "note": "Jetpack core-telecom for calls on a locked phone (bipe-chat/bipe#760). Its POM names Apache-2.0."
     }
   }
 }

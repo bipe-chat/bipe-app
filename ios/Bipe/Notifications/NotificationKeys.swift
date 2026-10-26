@@ -130,3 +130,14 @@ func withNotificationTimeout<T: Sendable>(_ timeout: Duration, _ operation: @esc
         return result
     }
 }
+
+/// The VoIP payload that the notification service extension hands to CallKit for a ring (bipe-chat/bipe#760,
+/// CXProvider.reportNewIncomingVoIPPushPayload). CallKitCenter reads it in the app.
+enum CallPushKeys {
+    static let account = "bipe_account"
+    static let roomId = "bipe_room_id"
+    static let eventId = "bipe_event_id"
+    static let caller = "bipe_caller"
+    static let video = "bipe_video"
+    static let expiresAt = "bipe_expires_at"
+}

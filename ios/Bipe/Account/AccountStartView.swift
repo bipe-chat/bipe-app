@@ -14,7 +14,7 @@ struct AccountStartView: View {
     @ObservedObject private var notifications = NotificationActions.shared
 
     init() {
-        let model = AccountStartModel()
+        let model = AccountStartModel.shared
         _model = StateObject(wrappedValue: model)
         _tabs = StateObject(wrappedValue: AppTabsModel(start: model))
     }
