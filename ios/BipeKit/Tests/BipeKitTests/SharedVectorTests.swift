@@ -169,6 +169,17 @@ struct SharedVectorTests {
     }
     
     @Test
+    func bipeServers() throws {
+        let cases = try SharedVectors.array("bipe-servers.json", key: "vectors")
+        #expect(!cases.isEmpty, "bipe-servers.json is empty")
+        for vector in cases {
+            let userID = try #require(vector["userId"] as? String)
+            let expected = try #require(vector["bipe"] as? Bool)
+            #expect(BipeServers.isBipeUserID(userID) == expected, "isBipeUserID(\(userID))")
+        }
+    }
+    
+    @Test
     func pins() throws {
         let cases = try SharedVectors.array("pins.json", key: "cases")
         #expect(!cases.isEmpty)

@@ -34,8 +34,6 @@ public final class BipeBrandMarks {
         let expiry: Date
     }
     
-    public let serverName: String
-    
     private var entries: [String: Entry] = [:]
     
     @ObservationIgnored private let apiClient: BipeAPIClient
@@ -51,12 +49,10 @@ public final class BipeBrandMarks {
     
     /// `masterKey` returns the account's cross-signing master key from the Matrix SDK, `nil` when it has none.
     public init(apiClient: BipeAPIClient,
-                serverName: String,
                 sessionUserID: String,
                 defaults: UserDefaults = .standard,
                 masterKey: @escaping @MainActor (String) async throws -> String?) {
         self.apiClient = apiClient
-        self.serverName = serverName
         self.masterKey = masterKey
         self.defaults = defaults
         seenKey = "bipe.brandMarks.seen.\(sessionUserID)"
@@ -76,7 +72,7 @@ public final class BipeBrandMarks {
     // MARK: - Private
     
     private func entry(for userID: String) -> Entry? {
-        guard userID.hasPrefix("@"), userID.hasSuffix(":\(serverName)") else { return nil }
+        guard BipeServers.isBipeUserID(userID) else { return nil }
         let entry = entries[userID]
         if (entry?.expiry ?? .distantPast) < .now {
             fetch(userID)

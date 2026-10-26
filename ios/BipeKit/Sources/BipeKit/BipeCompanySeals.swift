@@ -32,8 +32,6 @@ public final class BipeCompanySeals {
         let expiry: Date
     }
     
-    public let serverName: String
-    
     private var entries: [String: Entry] = [:]
     /// Verified `institution` badges (bipe#245). Set and cleared with the entry of the same account.
     private var institutions: [String: BadgePayload] = [:]
@@ -56,12 +54,10 @@ public final class BipeCompanySeals {
     /// `masterKey` returns the account's cross-signing master key from the Matrix SDK, `nil` when the account has none.
     /// It throws when the lookup fails: the store then treats it as a network error, not as a suspended seal.
     public init(apiClient: BipeAPIClient,
-                serverName: String,
                 sessionUserID: String,
                 defaults: UserDefaults = .standard,
                 masterKey: @escaping @MainActor (String) async throws -> String?) {
         self.apiClient = apiClient
-        self.serverName = serverName
         self.masterKey = masterKey
         self.defaults = defaults
         seenKey = "bipe.companySeals.seen.\(sessionUserID)"
@@ -72,7 +68,7 @@ public final class BipeCompanySeals {
     
     /// The cached state. Queues a fetch when the cache has no fresh value.
     public func state(for userID: String) -> BipeCompanySealState {
-        guard userID.hasPrefix("@"), userID.hasSuffix(":\(serverName)") else { return .none }
+        guard BipeServers.isBipeUserID(userID) else { return .none }
         let entry = entries[userID]
         if (entry?.expiry ?? .distantPast) < .now {
             fetch(userID)
@@ -104,7 +100,7 @@ public final class BipeCompanySeals {
     
     /// Whether the account is a company (ADR 0132). Queues a fetch when the cache has no fresh value.
     public func isCompany(_ userID: String) -> Bool {
-        guard userID.hasPrefix("@"), userID.hasSuffix(":\(serverName)") else { return false }
+        guard BipeServers.isBipeUserID(userID) else { return false }
         if (typeExpiry[userID] ?? .distantPast) < .now {
             fetchType(userID)
         }

@@ -203,6 +203,17 @@ class SharedVectorTest {
     }
 
     @Test
+    fun bipeServers() {
+        val cases = vectors("bipe-servers.json", "vectors")
+        assertWithMessage("bipe-servers.json is empty").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val userId = vector.string("userId")!!
+            assertWithMessage("isBipeUserId($userId)").that(BipeServers.isBipeUserId(userId))
+                .isEqualTo(vector.getValue("bipe").jsonPrimitive.boolean)
+        }
+    }
+
+    @Test
     fun inviteCodes() {
         for (vector in vectors("invite-codes.json", "vectors")) {
             val input = vector.string("input")!!
