@@ -276,6 +276,7 @@
     <string name="bipe_invites_status_expired">Vencido</string>
     <string name="bipe_invites_status_revoked">Cancelado</string>
     <string name="bipe_invites_revoke">Cancelar convite</string>
+    <string name="bipe_invites_actions">Ações do convite</string>
     <string name="bipe_invites_qr_action">QR code</string>
     <string name="bipe_invites_qr_title">Convite em QR code</string>
     <string name="bipe_invites_qr_footer">A pessoa aponta a câmera do celular para o código. Depois de instalar o Bipe, ela escaneia de novo e o app abre com o convite preenchido.</string>
