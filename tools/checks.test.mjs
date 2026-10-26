@@ -657,3 +657,18 @@ test('asc external on the beta set uses its own external group and copies nothin
   assert.match(out, /public link https:\/\/testflight\.apple\.com\/join\/x/);
   assert.doesNotMatch(out, /secret-demo|ana@example\.org/);
 });
+
+test('asc external still submits when What to Test is rejected', async () => {
+  const storeLocs = [{ id: 'SL', attributes: { locale: 'pt-BR', feedbackEmail: 'beta@example.org', description: 'd' } }];
+  const { call: base, calls } = externalAsc({ storeLocs, storeReview: CONTACT });
+  const call = async (method, path, body) => {
+    if (method === 'POST' && path === '/v1/betaBuildLocalizations') {
+      calls.push(`${method} ${path}`);
+      throw new Error('POST /v1/betaBuildLocalizations failed: 409');
+    }
+    return base(method, path, body);
+  };
+  const { result } = await quiet(() => external(call, '300', { enable: true, summary: null }));
+  assert.ok(calls.includes('POST /v1/betaAppReviewSubmissions'));
+  assert.equal(result.state, 'WAITING_FOR_BETA_REVIEW');
+});
