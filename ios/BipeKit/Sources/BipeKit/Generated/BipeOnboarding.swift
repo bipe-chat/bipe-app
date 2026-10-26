@@ -250,7 +250,7 @@ public enum BipeOnboardingRecoveryRow: String, CaseIterable, Sendable {
         case .apple: nil
         case .google: nil
         case .email: nil
-        case .beta: "flag:developer"
+        case .beta: nil
         }
     }
 }
