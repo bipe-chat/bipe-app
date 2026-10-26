@@ -102,10 +102,13 @@ fun ShareToChatScreen(share: PendingShare, chatList: ChatListModel, media: Media
     }
 
     // A sharing shortcut picked the chat already.
+    var shortcutUsed by remember(share.id) { mutableStateOf(false) }
     LaunchedEffect(share.id, chats) {
         val target = share.shortcut ?: return@LaunchedEffect
-        if (picked != null || upload != null || target.accountUserId != chatList.session.userId) return@LaunchedEffect
-        chats.firstOrNull { it.roomId == target.roomId }?.let(::pick)
+        if (shortcutUsed || target.accountUserId != chatList.session.userId) return@LaunchedEffect
+        val chat = chats.firstOrNull { it.roomId == target.roomId } ?: return@LaunchedEffect
+        shortcutUsed = true
+        pick(chat)
     }
 
     val uploadTarget = upload
@@ -197,7 +200,7 @@ fun ShareToChatScreen(share: PendingShare, chatList: ChatListModel, media: Media
                     Spacer(Modifier.width(8.dp))
                     val canSend = picked != null && message.isNotBlank() && !sending
                     IconButton(
-                        onClick = ::send,
+                        onClick = { send() },
                         enabled = canSend,
                         modifier = Modifier.background(if (canSend) colors.accentFill else colors.surfaceSunken, CircleShape),
                     ) {

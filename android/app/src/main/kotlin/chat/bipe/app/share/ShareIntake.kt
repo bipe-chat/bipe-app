@@ -49,16 +49,17 @@ object ShareIntake {
      */
     fun take(intent: Intent): Shared? {
         if (!isShare(intent)) return null
-        val uris = buildList {
-            if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
-                IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let(::addAll)
-            } else {
-                IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let(::add)
-            }
-            if (isEmpty()) {
-                intent.clipData?.let { clip -> for (index in 0 until clip.itemCount) clip.getItemAt(index).uri?.let(::add) }
-            }
-        }.distinct()
+        val found = mutableListOf<Uri>()
+        if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
+            IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let { found.addAll(it) }
+        } else {
+            IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let { found.add(it) }
+        }
+        val clip = intent.clipData
+        if (found.isEmpty() && clip != null) {
+            for (index in 0 until clip.itemCount) clip.getItemAt(index).uri?.let { found.add(it) }
+        }
+        val uris = found.distinct()
         val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.trim().orEmpty()
         val shortcutId = intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID)
         intent.action = null
