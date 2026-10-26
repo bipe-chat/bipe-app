@@ -19,7 +19,9 @@
       "Edit(../bipe-tokens/**)",
       "Edit(//Users/mz/Dev/Bipe/bipe-ios/**)",
       "Edit(//Users/mz/Dev/Bipe/bipe-android/**)",
-      "Edit(//Users/mz/Dev/Bipe/bipe-tokens/**)"
+      "Edit(//Users/mz/Dev/Bipe/bipe-tokens/**)",
+      "Read(~/Dev/_/bipe-forks-*/**)",
+      "Read(//Users/mz/Dev/_/bipe-forks-*/**)"
     ]
   }
 }

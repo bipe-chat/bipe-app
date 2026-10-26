@@ -8,17 +8,17 @@ Decisions: [ADR 0143](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0143-
 
 These rules come from the plan, section 2. They are mandatory.
 
-- The new repos never contain Element X code, and agents never read Element X sources while they work on them. Agent sessions for the new clients start in the new repo, not in `~/Dev/Bipe`, and do not open `bipe-ios`, `bipe-android` or `bipe-tokens` outside the allowed paths below.
+- The new repos never contain Element X code, and agents never read Element X sources while they work on them. Agent sessions for the new clients do not open `bipe-ios`, `bipe-android` or `bipe-tokens` outside the allowed paths below.
 - Allowed reading: BipeKit (`bipe-ios/Components/BipeKit`), `bipe-android/libraries/bipe*`, bipe-shared, bipe-api, the docs in bipe, the Matrix spec, matrix-rust-sdk source and docs (Apache-2.0).
 - Bipe features that live inside Element files today (228 iOS files, 199 Android files) are re-specified from the running app, the issue and the ADR. Nobody reads the fork diff to port them: the diff shows Element code around the Bipe lines.
 - Never fork, clone or seed a new repo from bipe-ios, bipe-android or bipe-tokens.
 
 Rules for sessions:
 
-- Start a session in `~/Dev/BipeApp/` (only `bipe-app` and `bipe-shared` checked out) or in a cloud session that clones only these two repos.
+- Start a session in `~/Dev/Bipe/bipe-app` or in a cloud session that clones only bipe-app and bipe-shared. The fork checkouts left `~/Dev/Bipe` on 26 October 2026 (`~/Dev/BipeApp` is gone). Never clone bipe-ios, bipe-android or compound-design-tokens again.
 - A session that worked on a fork issue today does not work in this repo. It gives the issue text to a new session.
-- Do not read any `element-hq` repository. Do not read `~/Dev/Bipe/bipe-ios`, `~/Dev/Bipe/bipe-android`, `~/Dev/Bipe/bipe-tokens`, `~/Dev/Bipe/.worktrees` or `~/Dev/Bipe/.factory`. These rules apply to shell commands too (`cat`, `grep`, `find`, `ls`, `git`), not only to the Read tool.
-- `.claude/settings.json` denies Read and Edit on the fork checkouts. In Claude Code a deny rule wins over an allow rule, so the settings cannot allow the BipeKit and `libraries/bipe*` subfolders inside a denied folder. Read BipeKit and `libraries/bipe*` from GitHub only, at these paths and nowhere else in the fork repos:
+- Do not read any `element-hq` repository. Do not read the fork bundles in `~/Dev/_/bipe-forks-*`, the folders `~/Dev/Bipe/.worktrees` and `~/Dev/Bipe/.factory`, or a fork checkout if one comes back. These rules apply to shell commands too (`cat`, `grep`, `find`, `ls`, `git`), not only to the Read tool.
+- `.claude/settings.json` denies Read and Edit on the fork paths and the fork bundles. In Claude Code a deny rule wins over an allow rule, so the settings cannot allow the BipeKit and `libraries/bipe*` subfolders inside a denied folder. Read BipeKit and `libraries/bipe*` from GitHub only, at these paths and nowhere else in the fork repos:
   - `gh api repos/bipe-chat/bipe-ios/contents/Components/BipeKit/<path>`
   - `gh api repos/bipe-chat/bipe-android/contents/libraries/<bipe-module>/<path>`
 - If you are not sure that a source is allowed, do not open it. Ask in the issue.
