@@ -267,7 +267,7 @@ struct AgendaSetupView: View {
                 if model.canGoBack {
                     ToolbarItem(placement: .topBarLeading) {
                         Button { model.back() } label: {
-                            PhosphorIcon.caretLeft.image.resizable().frame(width: 20, height: 20)
+                            PhosphorIcon.caretLeft.toolbarImage(size: 20)
                         }
                         .accessibilityLabel(BipeStrings.a11yBack)
                     }

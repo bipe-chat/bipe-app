@@ -10,8 +10,7 @@
 #   also export an ad hoc IPA for the devices registered in team 992N457T8D (artifact
 #   bipe-next-ipa). The job never makes a certificate: automatic signing made a development
 #   certificate on every run until the team reached Apple's limit.
-# - Android: a debug-signed release APK of chat.bipe.app.next (artifact bipe-next-apk), and a side-load APK of
-#   chat.bipe.app signed with the old app's key (artifact bipe-apk, ADR 0185) when its secrets are set.
+# - Android: a debug-signed release APK of chat.bipe.app.next (artifact bipe-next-apk).
 # Version (bipe-chat/bipe#584, ADR 0088, ADR 0163): the version name of version.json (Bipe Next's own line);
 # build number: its build plus the number of commits (tools/version.mjs). Both platforms carry the same pair.
 # Install commands: AGENTS.md, "Tester builds".
@@ -244,82 +243,3 @@ jobs:
           name: bipe-next-apk
           path: android/app/build/outputs/apk/play/release/*.apk
           retention-days: 30
-      # Side-load APK of the release app (ADR 0185): chat.bipe.app signed with the old app's key, so it installs over
-      # the old Android app as an update and LegacyData opens the old app's account vault. Owner-only setup (MZ):
-      # secrets SIDELOAD_KEYSTORE (base64) and SIDELOAD_KEYSTORE_PASSWORD, optional SIDELOAD_KEY_PASSWORD (else the
-      # store password); variable SIDELOAD_MIN_VERSION_CODE (the old app's versionCode); variables STORE_FIREBASE_*
-      # for pushes. Without the keystore the job skips these steps with a warning.
-      - name: Write the side-load keystore
-        id: sideload
-        env:
-          KEYSTORE: ${{ secrets.SIDELOAD_KEYSTORE }}
-          STORE_PASSWORD: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
-        run: |
-          if [ -z "$KEYSTORE" ] || [ -z "$STORE_PASSWORD" ]; then
-            echo "::warning::No side-load APK: secrets SIDELOAD_KEYSTORE and SIDELOAD_KEYSTORE_PASSWORD are not set (ADR 0185)."
-            echo "- Side-load APK (\`chat.bipe.app\`): skipped, the keystore secrets are not set." >> "$GITHUB_STEP_SUMMARY"
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          umask 077
-          printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/sideload.keystore"
-          # The keystore holds one signing key; its alias is not a secret.
-          alias=$(keytool -list -keystore "$RUNNER_TEMP/sideload.keystore" -storepass:env STORE_PASSWORD | awk -F, '/PrivateKeyEntry/ { print $1; exit }')
-          if [ -z "$alias" ]; then
-            echo "::error::The side-load keystore has no private key entry."
-            exit 1
-          fi
-          echo "alias=$alias" >> "$GITHUB_OUTPUT"
-          echo "ready=true" >> "$GITHUB_OUTPUT"
-      - name: Build the side-load APK with the store IDs
-        if: steps.sideload.outputs.ready == 'true'
-        env:
-          ORG_GRADLE_PROJECT_bipeUploadStorePassword: ${{ secrets.SIDELOAD_KEYSTORE_PASSWORD }}
-          ORG_GRADLE_PROJECT_bipeUploadKeyAlias: ${{ steps.sideload.outputs.alias }}
-          ORG_GRADLE_PROJECT_bipeUploadKeyPassword: ${{ secrets.SIDELOAD_KEY_PASSWORD || secrets.SIDELOAD_KEYSTORE_PASSWORD }}
-          ORG_GRADLE_PROJECT_bipeFirebaseAppId: ${{ vars.STORE_FIREBASE_APP_ID }}
-          ORG_GRADLE_PROJECT_bipeFirebaseProjectId: ${{ vars.STORE_FIREBASE_PROJECT_ID }}
-          ORG_GRADLE_PROJECT_bipeFirebaseApiKey: ${{ vars.STORE_FIREBASE_API_KEY }}
-          ORG_GRADLE_PROJECT_bipeFirebaseSenderId: ${{ vars.STORE_FIREBASE_SENDER_ID }}
-        run: |
-          [ -n "$ORG_GRADLE_PROJECT_bipeFirebaseAppId" ] || echo "::warning::Side-load APK without pushes: variables STORE_FIREBASE_* are not set."
-          rm -f app/build/outputs/apk/play/release/*.apk
-          ./gradlew --no-daemon assemblePlayRelease -PbipeIdSet=store \
-            -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }} -PbipeCommit=${{ needs.build-number.outputs.commit }} \
-            -PbipeUploadStoreFile="$RUNNER_TEMP/sideload.keystore"
-          mkdir -p "$RUNNER_TEMP/sideload"
-          mv app/build/outputs/apk/play/release/*.apk "$RUNNER_TEMP/sideload/Bipe-${{ needs.build-number.outputs.number }}.apk"
-      - name: Check the side-load APK
-        if: steps.sideload.outputs.ready == 'true'
-        env:
-          MIN_VERSION_CODE: ${{ vars.SIDELOAD_MIN_VERSION_CODE }}
-        run: |
-          apk="$RUNNER_TEMP/sideload/Bipe-${{ needs.build-number.outputs.number }}.apk"
-          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          certs=$("$tools/apksigner" verify --print-certs "$apk")
-          if printf '%s' "$certs" | grep -q "CN=Android Debug"; then
-            echo "::error::The side-load APK is debug-signed."
-            exit 1
-          fi
-          badging=$("$tools/aapt2" dump badging "$apk" | head -1)
-          code=$(printf '%s' "$badging" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p")
-          package=$(printf '%s' "$badging" | sed -n "s/.*name='\([^']*\)'.*/\1/p")
-          digest=$(printf '%s' "$certs" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
-          [ "$package" = "chat.bipe.app" ] || { echo "::error::The side-load APK is $package, not chat.bipe.app."; exit 1; }
-          # Android refuses an update with a lower versionCode than the installed app.
-          if [ -n "$MIN_VERSION_CODE" ] && [ "$code" -le "$MIN_VERSION_CODE" ]; then
-            echo "::error::versionCode $code is not higher than the old app's $MIN_VERSION_CODE (variable SIDELOAD_MIN_VERSION_CODE): it cannot install over it."
-            exit 1
-          fi
-          [ -n "$MIN_VERSION_CODE" ] || echo "::warning::Variable SIDELOAD_MIN_VERSION_CODE is not set: the job cannot check that the APK installs over the old app."
-          echo "- Side-load APK (\`chat.bipe.app\`): versionCode $code, signer SHA-256 \`$digest\`." >> "$GITHUB_STEP_SUMMARY"
-      - name: Keep the side-load APK
-        if: steps.sideload.outputs.ready == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: bipe-apk
-          path: ${{ runner.temp }}/sideload/*.apk
-          retention-days: 30
-      - name: Remove the side-load keystore
-        if: always()
-        run: rm -f "$RUNNER_TEMP/sideload.keystore"

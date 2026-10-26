@@ -11,8 +11,10 @@ import chat.bipe.shared.BipeRowActivity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.Client
+import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.TimelineDiff
 import org.matrix.rustcomponents.sdk.TimelineItem
@@ -20,24 +22,31 @@ import org.matrix.rustcomponents.sdk.TimelineItemContent
 import org.matrix.rustcomponents.sdk.TimelineListener
 
 /**
- * Spec chat-list, bipe-chat/bipe#592: the local timeline events of rooms without an SDK latest event, for the row date
+ * Spec chat-list, bipe-chat/bipe#592: the local timeline events of every row, for the row date and text
  * (BipeRowActivity). One scanner per account session; it reads only what the SDK already stored on this phone. Call it
  * on the model's scope (main thread).
  */
 class RowActivityScanner(
     private val client: Client,
     private val scope: CoroutineScope,
+    /** The chat-list preview of an event (previewText), null when the row shows no text for it. */
+    private val preview: (TimelineItemContent) -> String?,
     private val onResults: () -> Unit,
 ) {
     private val events = mutableMapOf<String, List<BipeRowActivity.LocalEvent>>()
     private val scannedAt = mutableMapOf<String, Long>()
+    /** Rooms whose last read held an undecryptable message: its key can arrive later. */
+    private val undecryptable = mutableSetOf<String>()
+    private val undecryptableReads = mutableMapOf<String, Int>()
+    private var retryJob: Job? = null
     private val queue = ArrayDeque<String>()
     private var worker: Job? = null
 
     /** The local events read for the room, or null when they were not read yet. Asks for a read when needed. */
     fun localEvents(roomId: String): List<BipeRowActivity.LocalEvent>? {
         val cached = events[roomId]
-        val stale = cached?.isEmpty() == true && (scannedAt[roomId]?.let { SystemClock.elapsedRealtime() - it > EMPTY_RETRY_MS } ?: true)
+        val retry = cached?.isEmpty() == true || roomId in undecryptable
+        val stale = retry && (scannedAt[roomId]?.let { SystemClock.elapsedRealtime() - it > EMPTY_RETRY_MS } ?: true)
         if ((cached == null || stale) && roomId !in queue) {
             queue.addLast(roomId)
             startWorker()
@@ -49,10 +58,12 @@ class RowActivityScanner(
     fun invalidate(roomId: String) {
         events.remove(roomId)
         scannedAt.remove(roomId)
+        undecryptableReads.remove(roomId)
     }
 
     fun close() {
         worker?.cancel()
+        retryJob?.cancel()
         queue.clear()
     }
 
@@ -63,7 +74,11 @@ class RowActivityScanner(
             while (queue.isNotEmpty()) {
                 val roomId = queue.removeFirst()
                 val room = runCatching { client.getRoom(roomId) }.getOrNull()
-                events[roomId] = room?.let { read(it) }.orEmpty()
+                val found = room?.let { read(it) } ?: Read(emptyList(), false)
+                events[roomId] = found.events
+                val reads = if (found.undecryptable) (undecryptableReads[roomId] ?: 0) + 1 else 0
+                undecryptableReads[roomId] = reads
+                if (found.undecryptable && reads < MAX_UNDECRYPTABLE_READS) undecryptable += roomId else undecryptable -= roomId
                 scannedAt[roomId] = SystemClock.elapsedRealtime()
                 sinceUpdate += 1
                 // Publish in batches: each publish summarizes every row again.
@@ -72,14 +87,26 @@ class RowActivityScanner(
                     onResults()
                 }
             }
+            scheduleRetry()
         }
     }
+
+    /** A room key can arrive after the read without any room list change: ask for the rows again once the retry is due. */
+    private fun scheduleRetry() {
+        if (undecryptable.isEmpty() || retryJob?.isActive == true) return
+        retryJob = scope.launch {
+            delay(EMPTY_RETRY_MS + 1_000)
+            onResults()
+        }
+    }
+
+    private class Read(val events: List<BipeRowActivity.LocalEvent>, val undecryptable: Boolean)
 
     /**
      * The SDK sends the cached timeline items as the first update, before addListener returns (matrix-sdk-ffi
      * Timeline.add_listener). No pagination, no network.
      */
-    private suspend fun read(room: Room): List<BipeRowActivity.LocalEvent> = try {
+    private suspend fun read(room: Room): Read = try {
         room.timeline().use { timeline ->
             val items = mutableListOf<TimelineItem>()
             val handle = timeline.addListener(object : TimelineListener {
@@ -89,22 +116,24 @@ class RowActivityScanner(
             })
             handle.cancel()
             synchronized(items) {
-                items.mapNotNull { item ->
-                    item.asEvent()?.let { event ->
-                        // Message-like events, undecryptable ones included: the time of an encrypted event is not encrypted.
-                        val kind = if (event.content is TimelineItemContent.MsgLike) BipeRowActivity.Kind.MESSAGE else BipeRowActivity.Kind.OTHER
-                        BipeRowActivity.LocalEvent(event.timestamp.toLong(), kind)
-                    }
+                val events = items.mapNotNull { it.asEvent() }
+                val local = events.map { event ->
+                    // Message-like events, undecryptable ones included: the time of an encrypted event is not encrypted.
+                    val kind = if (event.content is TimelineItemContent.MsgLike) BipeRowActivity.Kind.MESSAGE else BipeRowActivity.Kind.OTHER
+                    BipeRowActivity.LocalEvent(event.timestamp.toLong(), kind, preview(event.content), event.isOwn)
                 }
+                Read(local, events.any { (it.content as? TimelineItemContent.MsgLike)?.content?.kind is MsgLikeKind.UnableToDecrypt })
             }
         }
     } catch (cancelled: CancellationException) {
         throw cancelled
     } catch (_: Exception) {
-        emptyList()
+        Read(emptyList(), false)
     }
 
     private companion object {
         const val EMPTY_RETRY_MS = 30_000L
+        /** An undecryptable message whose key has not come after this many reads stays as it is until the room changes. */
+        const val MAX_UNDECRYPTABLE_READS = 10
     }
 }

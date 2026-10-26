@@ -97,8 +97,8 @@ class ChatListModel(
     private val subscriptionOwner = UUID.randomUUID().toString()
     /** One model belongs to one account session; absent previews must not erase a known time. */
     private val knownActivity = mutableMapOf<String, Long>()
-    /** Rows without an SDK latest event take their date from the local timeline (bipe-chat/bipe#592). */
-    private val rowActivity = RowActivityScanner(session.client, scope) { refreshSummaries() }
+    /** Rows take a newer message of the local timeline as their date and text (bipe-chat/bipe#592). */
+    private val rowActivity = RowActivityScanner(session.client, scope, { it.previewText(undecryptableText, label) }) { refreshSummaries() }
     private val extraRoomIds = mutableSetOf<String>()
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult? = null
@@ -260,18 +260,19 @@ class ChatListModel(
     }
 
     /**
-     * The row date (BipeRowActivity): the SDK latest event, else the newest event of the local timeline, which includes
-     * undecryptable events (bipe-chat/bipe#592), else a time known earlier in this account session.
+     * The row date and text (BipeRowActivity): a message of the local timeline newer than the SDK latest event, else the
+     * SDK latest event, else the newest local event, which includes undecryptable events (bipe-chat/bipe#592), else a time
+     * known earlier in this account session. The SDK keeps an older latest event when a message arrived before its room
+     * key; the timeline decrypts it later.
      */
     private fun retainingKnownActivity(summaries: List<ChatSummary>): List<ChatSummary> = summaries.map { summary ->
-        if (!BipeRowActivity.needsLocalTimeline(summary.lastActivity)) {
-            summary.lastActivity?.let { knownActivity[summary.roomId] = it }
-            return@map summary
+        val sdk = summary.lastActivity?.let {
+            BipeRowActivity.SdkLatest(it, summary.lastMessage, isIncoming = summary.latestIncomingMs != null)
         }
         val local = rowActivity.localEvents(summary.roomId).orEmpty()
-        val time = BipeRowActivity.resolve(summary.lastActivity, local, knownActivity[summary.roomId])
-        time?.let { knownActivity[summary.roomId] = it }
-        summary.copy(lastActivity = time)
+        val row = BipeRowActivity.resolve(sdk, local, knownActivity[summary.roomId])
+        row.timestampMs?.let { knownActivity[summary.roomId] = it }
+        summary.copy(lastActivity = row.timestampMs, lastMessage = row.previewText, latestIncomingMs = row.latestIncomingMs)
     }
 
     suspend fun summary(room: Room): ChatSummary? {

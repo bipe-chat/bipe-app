@@ -272,7 +272,7 @@ struct QueueOwnerView: View {
                         Label {
                             Text(BipeStrings.queueAddWalkIn)
                         } icon: {
-                            PhosphorIcon.userPlus.image.resizable().frame(width: 22, height: 22)
+                            PhosphorIcon.userPlus.toolbarImage(size: 22)
                         }
                     }
                     .labelStyle(.iconOnly)
