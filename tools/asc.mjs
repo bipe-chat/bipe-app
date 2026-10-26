@@ -406,7 +406,7 @@ export async function storeIds(call, { summary = process.env.GITHUB_STEP_SUMMARY
 
 // External testing of Bipe Next (bipe-chat/bipe#658, M1 Public TestFlight). Every run writes a
 // report. With enable (BIPE_EXTERNAL_TESTING=true) it fills missing beta app information and
-// review details from the fork's "Bipe" record (read only there), adds the build to the external
+// review details from the fork's record (BETA_SOURCES, read only there), adds the build to the external
 // group and submits it to beta app review. With publicLink (BIPE_PUBLIC_LINK=true) it turns the
 // group's public link on; it never turns a link off. It never prints the review contact or the
 // demo account.
@@ -417,6 +417,9 @@ export const BETA_TEXT = {
   whatToTest: 'Crie sua conta, converse com alguém que já usa o Bipe e passe a conta para outro celular pelo QR. Se algo der errado, tire uma captura de tela e envie pelo TestFlight.',
   privacyPolicyUrl: 'https://bipe.chat/privacidade/',
 };
+// Records to copy beta information from, in order: the fork's store app, then its beta app
+// "Bipe Chat" (chat.bipe.app.dev, external group "Amigos"). Both are read only.
+export const BETA_SOURCES = [STORE.appId, 'chat.bipe.app.dev'];
 const LOCALIZATION_FIELDS = ['description', 'feedbackEmail', 'marketingUrl', 'privacyPolicyUrl'];
 const REVIEW_FIELDS = ['contactFirstName', 'contactLastName', 'contactPhone', 'contactEmail', 'demoAccountName', 'demoAccountPassword', 'demoAccountRequired', 'notes'];
 const REVIEW_REQUIRED = ['contactFirstName', 'contactLastName', 'contactPhone', 'contactEmail'];
@@ -438,7 +441,11 @@ export async function external(call, buildNumber, { enable = false, publicLink =
   const build = list.data[0] ?? null;
 
   if (enable) {
-    const store = await findApp(call, STORE);
+    let store = null;
+    for (const appId of BETA_SOURCES) {
+      store = await findApp(call, { appId });
+      if (store) break;
+    }
     const storeLocs = store ? (await orNull(call('GET', `/v1/apps/${store.id}/betaAppLocalizations?limit=50`))).data ?? [] : [];
     const storeReview = store ? (await orNull(call('GET', `/v1/apps/${store.id}/betaAppReviewDetail`))).data : null;
 
