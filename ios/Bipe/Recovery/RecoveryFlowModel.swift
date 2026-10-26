@@ -150,8 +150,8 @@ final class RecoveryFlowModel: ObservableObject {
         let signedIn = Set(SessionStore.loadAll().keys)
         token = softLogoutUserId.flatMap(store.recoveryToken(for:)) ?? store.recoveryToken(excluding: signedIn)
         hasSyncedToken = token != nil
-        // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate. The beta sign-in
-        // shows only in developer builds (spec soft-logout notes).
+        // oldPhone ships in bipe-app (bipe-chat/bipe#608); the forks keep its planned:203 gate. A row gated "flag:developer"
+        // shows only in developer builds. The e-mail and password row has no gate: App Review signs in through it (spec soft-logout notes).
         rows = BipeOnboardingRecoveryRow.allCases.filter { row in
             (row.gate == nil || row == .oldPhone || (row.gate == "flag:developer" && AppConfig.isDeveloperBuild))
                 && (!row.needsSyncedToken || hasSyncedToken)
