@@ -23,6 +23,10 @@ private struct AccountStartupSnapshot: Sendable {
 /// is the one used last, else the oldest on the phone.
 @MainActor
 final class AccountStartModel: ObservableObject {
+    /// One model for the app: the window shows it, and CallKit opens the accounts with it when PushKit woke the app
+    /// without a window (bipe-chat/bipe#760).
+    static let shared = AccountStartModel()
+
     enum Phase: Equatable {
         case opening
         case noAccount

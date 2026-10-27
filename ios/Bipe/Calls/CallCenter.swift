@@ -34,13 +34,24 @@ final class CallCenter: ObservableObject {
 
     /// Starts or joins the call of a room. A call in another room stays; its screen shows instead.
     /// - ring: who to ring when the room has no call yet (spec call start); nil when answering a ring.
-    func start(session: AccountSession, room: Room, roomName: String, video: Bool, ring: CallRingTarget? = nil) async {
+    /// - callKitId: the CallKit call that CallKit answered (bipe-chat/bipe#760); nil starts one through CXStartCallAction.
+    func start(session: AccountSession, room: Room, roomName: String, video: Bool, ring: CallRingTarget? = nil,
+               callKitId: UUID? = nil) async {
         if active != nil {
             isPresented = true
             return
         }
         guard let focus = await focusUrl(for: session),
-              let call = try? CallSession(session: session, room: room, roomName: roomName, focusUrl: focus, video: video, ring: ring) else { return }
+              let call = try? CallSession(session: session, room: room, roomName: roomName, focusUrl: focus, video: video, ring: ring) else {
+            if let callKitId { CallKitCenter.shared.reportEnded(callKitId, reason: .failed) }
+            return
+        }
+        if let callKitId {
+            call.callKitId = callKitId
+        } else {
+            let id = UUID()
+            if await CallKitCenter.shared.startOutgoing(id, roomId: room.id(), name: roomName, video: video) { call.callKitId = id }
+        }
         call.onFinished = { [weak self, weak call] in
             guard let self, self.active === call else { return }
             self.active = nil

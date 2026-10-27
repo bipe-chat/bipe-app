@@ -112,6 +112,7 @@ class CallSession(
     private var joined = false
     private var leaving = false
     private var stateSeen = false
+    private var reportedActive = false
     private var declineHandle: org.matrix.rustcomponents.sdk.TaskHandle? = null
     private var noAnswerJob: Job? = null
     /** Called once the call is over, so CallCenter can drop it. */
@@ -312,6 +313,7 @@ class CallSession(
         }
         widget = null
         CallService.stop(appContext)
+        TelecomCalls.end()
         if (!_ui.value.microphoneDenied) _ui.update { it.copy(phase = final ?: if (failed) Phase.FAILED else Phase.ENDED) }
         if (!failed) {
             delay(2_000)
@@ -419,6 +421,10 @@ class CallSession(
             )
         }
         val local = if (_ui.value.cameraOn) media?.localParticipant?.getTrackPublication(Track.Source.CAMERA)?.track as? VideoTrack else null
+        if (others.isNotEmpty() && !reportedActive && _ui.value.connectedAt != null) {
+            reportedActive = true
+            TelecomCalls.active()
+        }
         _ui.update { state ->
             val phase = when {
                 leaving || state.connectedAt == null || state.phase == Phase.RECONNECTING && stillReconnecting() -> state.phase

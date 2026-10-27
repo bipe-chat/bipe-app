@@ -74,23 +74,42 @@ object IncomingCalls {
         }
     }
 
-    private fun received(item: NotificationItem, roomId: String, session: AccountSession) {
-        val event = runCatching { Json.parseToJsonElement(item.rawEvent) as? JsonObject }.getOrNull() ?: return
-        if (event.text("type") != BipeCallRing.EVENT_TYPE) return
-        val eventId = event.text("event_id") ?: return
-        val sender = event.text("sender") ?: return
-        val content = event["content"] as? JsonObject ?: return
+    /**
+     * A push (play flavour, bipe-chat/bipe#760) brought this item: a ring rings the phone, also locked, and gets no
+     * message notification. true when the item was a ring event.
+     */
+    fun fromPush(context: Context, session: AccountSession, item: NotificationItem, roomId: String): Boolean {
+        appContext = context.applicationContext
+        sessions.putIfAbsent(session.userId, session)
+        return received(item, roomId, session)
+    }
+
+    private fun received(item: NotificationItem, roomId: String, session: AccountSession): Boolean {
+        val event = runCatching { Json.parseToJsonElement(item.rawEvent) as? JsonObject }.getOrNull() ?: return false
+        if (event.text("type") != BipeCallRing.EVENT_TYPE) return false
+        val eventId = event.text("event_id") ?: return true
+        val sender = event.text("sender") ?: return true
+        val content = event["content"] as? JsonObject ?: return true
         val now = System.currentTimeMillis()
         val read = BipeCallRing.read(content, sender, event.number("origin_server_ts") ?: now, session.userId, now)
-        if (!read.ring || _ringing.value != null || CallCenter.isInCall(roomId)) return
+        // A group call notification stays a normal notification.
+        if (read.notify) return false
+        if (!read.ring || _ringing.value?.ringEventId == eventId || _ringing.value != null || CallCenter.isInCall(roomId)) return true
         start(IncomingCall(session.userId, roomId, eventId, item.senderInfo.displayName ?: sender, item.senderInfo.avatarUrl, read.video, read.expiresAt))
+        return true
     }
 
     private fun start(call: IncomingCall) {
         val session = sessions[call.accountUserId] ?: return
         _ringing.value = call
         tone = RingTone(appContext).also { it.start() }
-        appContext.startActivity(Intent(appContext, IncomingCallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        // The call notification (CallStyle, full-screen intent) in a phoneCall foreground service; the screen at once
+        // when the app is in front.
+        CallService.ring(appContext)
+        if (CallService.isAppInFront()) {
+            appContext.startActivity(Intent(appContext, IncomingCallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+        TelecomCalls.incoming(appContext, call.callerName, call.video, onAnswer = { answerFromSystem() }, onDisconnect = { decline() })
         val room = runCatching { session.client.getRoom(call.roomId) }.getOrNull()
         // Answered on another device of the own user, or the caller hung up.
         roomInfoHandle = room?.subscribeToRoomInfoUpdates(object : RoomInfoListener {
@@ -113,9 +132,17 @@ object IncomingCalls {
         }
     }
 
+    /** Answer from a headset, a car or the system call UI (core-telecom): the call screen opens. */
+    private fun answerFromSystem() {
+        val intent = Intent(appContext, IncomingCallActivity::class.java).setAction(IncomingCallActivity.ACTION_ANSWER)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { appContext.startActivity(intent) }
+    }
+
     fun answer(context: Context) {
         val call = _ringing.value ?: return
-        stop()
+        stop(answered = true)
+        TelecomCalls.answered()
         val session = sessions[call.accountUserId] ?: return
         val room = runCatching { session.client.getRoom(call.roomId) }.getOrNull() ?: return
         scope.launch { CallCenter.start(context.applicationContext, session, room, call.callerName, call.video) }
@@ -140,7 +167,9 @@ object IncomingCalls {
     /** Avatars of the ringing screen. */
     fun media(call: IncomingCall): MediaLoader? = sessions[call.accountUserId]?.let { MediaLoader(it.client) }
 
-    private fun stop() {
+    private fun stop(answered: Boolean = false) {
+        if (!answered) TelecomCalls.end()
+        CallService.ringEnded(appContext)
         tone?.stop()
         tone = null
         timer?.cancel()

@@ -89,6 +89,9 @@ final class CallSession: ObservableObject, Identifiable {
     private var noAnswerTask: Task<Void, Never>?
     /// Called once the call is over, so CallCenter can drop it.
     var onFinished: (() -> Void)?
+    /// The CallKit call (bipe-chat/bipe#760). nil: CallKit refused, and LiveKit runs the audio session itself.
+    var callKitId: UUID?
+    private var reportedConnected = false
 
     var ownStateKey: String { BipeCall.stateKey(userId: userId, deviceId: deviceId) }
     var ownIdentity: String { BipeCall.livekitIdentity(userId: userId, deviceId: deviceId) }
@@ -112,6 +115,7 @@ final class CallSession: ObservableObject, Identifiable {
     // MARK: Join
 
     func start() async {
+        if callKitId == nil { AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = true }
         guard await AVAudioApplication.requestRecordPermission() else {
             microphoneDenied = true
             phase = .failed
@@ -166,6 +170,7 @@ final class CallSession: ObservableObject, Identifiable {
                                                                                    e2eeOptions: E2EEOptions(keyProvider: keys)))
         self.media = media
         try await media.connect(url: url, token: jwt)
+        if callKitId != nil, speakerOn { try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker) }
         try await media.localParticipant.setMicrophone(enabled: true)
         if withCamera {
             try await media.localParticipant.setCamera(enabled: true)
@@ -234,9 +239,24 @@ final class CallSession: ObservableObject, Identifiable {
     // MARK: Controls
 
     func toggleMicrophone() {
-        guard let media else { return }
-        let on = !microphoneOn
+        if let callKitId, CallKitCenter.shared.activeId == callKitId {
+            CallKitCenter.shared.requestMute(callKitId, muted: microphoneOn)
+        } else {
+            setMicrophone(on: !microphoneOn)
+        }
+    }
+
+    /// The microphone, from the app's control or from CallKit (CXSetMutedCallAction).
+    func setMicrophone(on: Bool) {
         microphoneOn = on
+        guard let media else { return }
+        Task { try? await media.localParticipant.setMicrophone(enabled: on) }
+    }
+
+    /// CallKit activated the audio session (didActivate): the microphone track starts now.
+    func audioActivated() {
+        guard let media else { return }
+        let on = microphoneOn
         Task { try? await media.localParticipant.setMicrophone(enabled: on) }
     }
 
@@ -262,10 +282,19 @@ final class CallSession: ObservableObject, Identifiable {
 
     func toggleSpeaker() {
         speakerOn.toggle()
-        AudioManager.shared.audioSession.isSpeakerOutputPreferred = speakerOn
+        if callKitId != nil {
+            try? AVAudioSession.sharedInstance().overrideOutputAudioPort(speakerOn ? .speaker : .none)
+        } else {
+            AudioManager.shared.audioSession.isSpeakerOutputPreferred = speakerOn
+        }
     }
 
     func end() {
+        // The app's end button goes through CallKit; CallKit's CXEndCallAction comes back here.
+        if let callKitId, CallKitCenter.shared.activeId == callKitId {
+            CallKitCenter.shared.requestEnd(callKitId)
+            return
+        }
         Task { await finish(failed: false) }
     }
 
@@ -287,6 +316,9 @@ final class CallSession: ObservableObject, Identifiable {
             await widget.close()
         }
         widget = nil
+        if let callKitId {
+            CallKitCenter.shared.reportEnded(callKitId, reason: final == .noAnswer ? .unanswered : failed ? .failed : .remoteEnded)
+        }
         if !microphoneDenied { phase = final ?? (failed ? .failed : .ended) }
         if !failed {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
@@ -402,6 +434,10 @@ final class CallSession: ObservableObject, Identifiable {
         loadNames(for: others.map(\.userId))
         guard !leaving, connectedAt != nil, media?.connectionState != LiveKit.ConnectionState.reconnecting else { return }
         phase = others.isEmpty ? .calling : .connected
+        if !others.isEmpty, !reportedConnected, let callKitId {
+            reportedConnected = true
+            CallKitCenter.shared.reportConnected(callKitId)
+        }
     }
 
     private func loadNames(for userIds: [String]) {

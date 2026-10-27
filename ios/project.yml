@@ -102,7 +102,9 @@ targets:
         # The shell encrypts nothing itself. Revisit before end-to-end encryption ships.
         ITSAppUsesNonExemptEncryption: false
         # Voice messages play on with the screen locked (spec voice-message notes), and a call goes on in the background (spec call).
-        UIBackgroundModes: [audio]
+        # voip: PushKit and CallKit ring a locked phone (spec incoming-call, bipe-chat/bipe#760). The notification service
+        # extension hands a ring to the app with CXProvider.reportNewIncomingVoIPPushPayload; no VoIP pusher on the server.
+        UIBackgroundModes: [audio, voip]
         # Media viewer save (spec media-viewer). The system shows this text with the add-only photo permission.
         NSPhotoLibraryAddUsageDescription: O Bipe salva na sua galeria as fotos e os vídeos que você escolher salvar.
         # Composer (specs attachment-picker, voice-recording), calls (spec call). The transcript is made on this iPhone only (ADR 0023).
