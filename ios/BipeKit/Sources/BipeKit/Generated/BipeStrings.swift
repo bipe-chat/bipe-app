@@ -2554,6 +2554,20 @@ public enum BipeStrings {
 
     public static var chatsAppearanceDark: String { NSLocalizedString("bipe_chats_appearance_dark", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var chatsColors: String { NSLocalizedString("bipe_chats_colors", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsColorsFooter: String { NSLocalizedString("bipe_chats_colors_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var colorsAcai: String { NSLocalizedString("bipe_colors_acai", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var colorsPitanga: String { NSLocalizedString("bipe_colors_pitanga", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var colorsCaju: String { NSLocalizedString("bipe_colors_caju", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var colorsJabuticaba: String { NSLocalizedString("bipe_colors_jabuticaba", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var colorsJenipapo: String { NSLocalizedString("bipe_colors_jenipapo", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var notificationsEnable: String { NSLocalizedString("bipe_notifications_enable", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var notificationsNotifyAbout: String { NSLocalizedString("bipe_notifications_notify_about", tableName: "Bipe", bundle: .module, comment: "") }

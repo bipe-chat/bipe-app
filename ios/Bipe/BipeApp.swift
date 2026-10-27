@@ -12,6 +12,8 @@ struct BipeApp: App {
     init() {
         // Before any keychain read: the items move into the app-group group (bipe-chat/bipe#531).
         KeychainMove.run()
+        // Spec app-colors: the stored palette before the first view.
+        AppTheme.load()
         RoundedType.applyToBars()
     }
 

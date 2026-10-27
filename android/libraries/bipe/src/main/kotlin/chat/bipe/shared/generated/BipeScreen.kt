@@ -46,6 +46,9 @@ enum class BipeScreen(val id: String) {
     /** Set up the agenda (flow business). Spec: bipe-shared/product/screens/agenda-setup.json */
     AGENDA_SETUP("agenda-setup"),
 
+    /** App colours (flow settings). Spec: bipe-shared/product/screens/app-colors.json */
+    APP_COLORS("app-colors"),
+
     /** App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json */
     APP_LOCK("app-lock"),
 

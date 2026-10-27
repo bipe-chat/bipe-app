@@ -22,6 +22,8 @@ struct SettingsGroupView: View {
     @AppStorage(SettingsKeys.showMedia) private var showMedia = ShowMedia.always.rawValue
     /// chats.liveLocation: the update distance of live location (spec settings-group notes).
     @AppStorage(LiveLocationRule.distanceKey) private var liveDistance = BipeRegistries.mapsLiveDefaultDistanceMetres
+    /// chats.colors: the row value follows the palette (spec app-colors).
+    private let theme = BipeTheme.shared
     @StateObject private var export: DataExportModel
     @State private var page: WebPage?
     @State private var showsSignOut = false
@@ -248,6 +250,12 @@ struct SettingsGroupView: View {
                 ProblemReportView(model: model)
             } label: {
                 SettingsRowLabel(title: row.title)
+            }
+        case .chatsColors:
+            NavigationLink {
+                AppColorsView()
+            } label: {
+                SettingsRowLabel(title: row.title, value: theme.palette.title, footer: row.footer)
             }
         case .chatsShowMedia:
             NavigationLink {

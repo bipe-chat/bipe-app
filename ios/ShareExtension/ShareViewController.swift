@@ -14,6 +14,8 @@ final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         RoundedType.applyToBars()
+        // Spec app-colors: the same palette as the app.
+        AppTheme.load()
         let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? []).flatMap { $0.attachments ?? [] }
         let model = ShareRootModel(providers: providers)
         self.model = model
