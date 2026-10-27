@@ -180,7 +180,7 @@ final class ChatTimelineModel: ObservableObject {
     @Published var recording: VoiceRecordingModel?
     /// false: the composer is off, with the reason bar instead.
     @Published private(set) var canPost = true
-    /// The poll row of attachment-picker.
+    /// The poll row of attachment-picker. Never in a DM (ADR 0192).
     @Published private(set) var canPoll = true
     private let mentionDirectory = MentionDirectory()
     /// signup-done: the inviter while this chat has no first message (ADR 0034).
@@ -371,7 +371,7 @@ final class ChatTimelineModel: ObservableObject {
             facts.canRedactOwn = powerLevels.canOwnUserRedactOwn()
             facts.canRedactOther = powerLevels.canOwnUserRedactOther()
             canPost = powerLevels.canOwnUserSendMessage(message: .roomMessage)
-            canPoll = powerLevels.canOwnUserSendMessage(message: .pollStart)
+            canPoll = !facts.isDm && powerLevels.canOwnUserSendMessage(message: .pollStart)
         }
         isDm = facts.isDm
         isEncrypted = facts.isEncrypted
