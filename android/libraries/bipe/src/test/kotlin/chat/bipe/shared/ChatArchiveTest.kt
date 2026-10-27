@@ -5,6 +5,7 @@
 package chat.bipe.shared
 
 import chat.bipe.shared.generated.BipeChatArchive
+import com.google.common.truth.Truth.assertWithMessage
 import com.google.common.truth.Truth.assertThat
 import java.io.File
 import java.io.IOException
@@ -40,8 +41,8 @@ class ChatArchiveTest {
                 v.getValue("activity").jsonPrimitive.longOrNull,
                 v.getValue("incoming").jsonPrimitive.longOrNull,
             )
-            assertThat(listOf(result.marker, result.synced, result.tagWrite))
-                .named(v.getValue("name").jsonPrimitive.content)
+            assertWithMessage(v.getValue("name").jsonPrimitive.content)
+                .that(listOf(result.marker, result.synced, result.tagWrite))
                 .isEqualTo(listOf(expected.getValue("marker").jsonPrimitive.longOrNull,
                     expected.getValue("synced").jsonPrimitive.boolean,
                     expected.getValue("tagWrite").jsonPrimitive.booleanOrNull))
