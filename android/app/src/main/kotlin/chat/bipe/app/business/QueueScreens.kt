@@ -355,7 +355,7 @@ fun QueueOwnerScreen(business: BusinessApi, customers: List<Pair<String, String>
 
     LaunchedEffect(attempt, foreground) {
         load()
-        if (handle == null) handle = runCatching { business.withToken { business.api.myHandle(it) } }.getOrNull()?.handle
+        if (handle == null) handle = runCatching { business.withOpenId { myHandle(it) } }.getOrNull()?.handle
     }
     LaunchedEffect(Unit) {
         while (true) {

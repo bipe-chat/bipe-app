@@ -23,15 +23,21 @@ import kotlinx.serialization.json.jsonObject
 // Who can message me is in settings/BipeSettingsSupport.kt.
 
 /** `GET /v1/handles/{handle}`. Exact lookup (ADR 0013). */
-suspend fun BipeApiClient.handle(handle: String, accessToken: String): BipeHandleRecord =
-    send("GET", listOf("v1", "handles", handle), accessToken = accessToken, response = BipeHandleRecord.serializer())
+suspend fun BipeApiClient.handle(handle: String, openId: BipeOpenIdToken): BipeHandleRecord = send(
+    "GET",
+    listOf("v1", "handles", handle),
+    accessToken = openId.accessToken,
+    serverName = openId.matrixServerName,
+    response = BipeHandleRecord.serializer(),
+)
 
 /** `POST /v1/handles/resolve`. Matrix ID to handle; IDs without a handle are absent. */
-suspend fun BipeApiClient.resolveHandles(userIds: List<String>, accessToken: String): Map<String, String> = send(
+suspend fun BipeApiClient.resolveHandles(userIds: List<String>, openId: BipeOpenIdToken): Map<String, String> = send(
     "POST",
     listOf("v1", "handles", "resolve"),
     body = encode(ResolveRequest.serializer(), ResolveRequest(userIds)),
-    accessToken = accessToken,
+    accessToken = openId.accessToken,
+    serverName = openId.matrixServerName,
     response = ResolveResponse.serializer(),
 ).handles
 
@@ -105,11 +111,12 @@ suspend fun BipeApiClient.deleteMyProfilePhoto(accessToken: String): BipeMyProfi
  * `POST /v1/contacts/lookup` with at most 500 E.164 numbers. The server keeps none of the numbers; the app keeps no
  * copy of what it sent (ADR 0015).
  */
-suspend fun BipeApiClient.lookupContacts(phones: List<String>, accessToken: String): List<BipeContactMatch> = send(
+suspend fun BipeApiClient.lookupContacts(phones: List<String>, openId: BipeOpenIdToken): List<BipeContactMatch> = send(
     "POST",
     listOf("v1", "contacts", "lookup"),
     body = encode(ContactLookupRequest.serializer(), ContactLookupRequest(phones)),
-    accessToken = accessToken,
+    accessToken = openId.accessToken,
+    serverName = openId.matrixServerName,
     response = ContactLookupResponse.serializer(),
 ).matches
 

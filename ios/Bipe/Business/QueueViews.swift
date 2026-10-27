@@ -643,8 +643,8 @@ private struct QueueQrView: View {
         }
         .accessibilityIdentifier(BipeScreen.queueOwner.rawValue)
         .task {
-            let mine = try? await people.withToken { (token: String) async throws(BipeAPIError) -> BipeMyHandle in
-                try await people.api.myHandle(accessToken: token)
+            let mine = try? await people.withOpenID { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle in
+                try await people.api.myHandle(openID: token)
             }
             handle = mine?.handle
             loaded = true

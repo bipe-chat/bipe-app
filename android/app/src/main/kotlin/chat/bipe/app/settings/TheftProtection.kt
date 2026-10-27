@@ -40,6 +40,7 @@ import chat.bipe.app.people.Person
 import chat.bipe.app.people.PeopleService
 import chat.bipe.shared.BipeGuardianState
 import chat.bipe.shared.R
+import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.resolveHandles
 import chat.bipe.shared.clearTheftMark
@@ -219,7 +220,7 @@ class TheftProtectionModel(private val context: Context, private val model: Sett
     private suspend fun loadNames(userIds: List<String>) {
         val missing = userIds.distinct().filter { it !in names }
         if (missing.isEmpty()) return
-        val handles = runCatchingExceptions { model.authorized { model.api.resolveHandles(missing, it) } }.getOrDefault(emptyMap())
+        val handles = runCatchingExceptions { BipeApiClient.withOpenIdRetry(model.session.openId) { model.api.resolveHandles(missing, it) } }.getOrDefault(emptyMap())
         for (userId in missing) {
             val profile = runCatchingExceptions { model.session.client.getProfile(userId) }.getOrNull()
             names[userId] = PeopleService.displayName(null, profile?.displayName, handles[userId], userId)

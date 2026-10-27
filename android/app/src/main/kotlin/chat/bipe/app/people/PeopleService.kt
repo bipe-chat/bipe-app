@@ -16,6 +16,7 @@ import chat.bipe.shared.BipeTrustSources
 import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.api.lookupContacts
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.BipeOpenIdToken
 import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.shared.api.isCompany
 import chat.bipe.shared.company.BipeBrandMarks
@@ -84,7 +85,7 @@ class PeopleService(
     private val scope: CoroutineScope,
 ) {
     /** The @ of Matrix IDs (libraries/bipe, cached; [BipeHandleResolver.handles] emits on change). */
-    val handles = BipeHandleResolver(api, scope, accessToken = { session.accessToken() })
+    val handles = BipeHandleResolver(api, scope, openId = session.openId)
 
     /** Company seals, verified on the device against the account's master key (UserIdentity.masterKey). Fail closed. */
     val seals = BipeCompanySeals(
@@ -165,7 +166,7 @@ class PeopleService(
         val entries = mutableMapOf<String, String>()
         for (chunk in book.keys.toList().chunked(500)) {
             val found = try {
-                withToken { api.lookupContacts(chunk, it) }
+                withOpenId { api.lookupContacts(chunk, it) }
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
@@ -197,7 +198,7 @@ class PeopleService(
         val now = System.currentTimeMillis()
         profileFactsCache[userId]?.let { (read, facts) -> if (now - read < maxAgeMs) return facts }
         val list = try {
-            BipeApiClient.withTokenRetry({ session.accessToken() }) { token -> api.profileFacts(listOf(userId), token) }
+            withOpenId { token -> api.profileFacts(listOf(userId), token) }
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
@@ -248,6 +249,9 @@ class PeopleService(
 
     /** Calls bipe-api with the account's token, retrying once on 401. */
     suspend fun <T> withToken(request: suspend (String) -> T): T = BipeApiClient.withTokenRetry({ session.accessToken() }, request)
+
+    /** Runs [request] with the OpenID token, for the core routes (bipe-chat/bipe#646). */
+    suspend fun <T> withOpenId(request: suspend (BipeOpenIdToken) -> T): T = BipeApiClient.withOpenIdRetry(session.openId, request)
 
     /** A person: name and photo from Client.getProfile, the @ from bipe-api. [contactName] wins as the name. */
     suspend fun person(userId: String, contactName: String? = null): Person {

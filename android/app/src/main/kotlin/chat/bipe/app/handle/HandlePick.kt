@@ -107,7 +107,7 @@ class HandlePickModel(
 
     fun load() {
         scope.launch {
-            val mine = runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { api.myHandle(it) } }.getOrNull() ?: return@launch
+            val mine = runCatching { BipeApiClient.withOpenIdRetry(session.openId) { api.myHandle(it) } }.getOrNull() ?: return@launch
             _state.value = _state.value.copy(
                 currentHandle = mine.handle,
                 nextChangeAt = mine.changeableAt,

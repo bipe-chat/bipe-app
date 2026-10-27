@@ -20,7 +20,7 @@ public final class BipeHandleResolver {
     private var entries: [String: Entry] = [:]
     
     @ObservationIgnored private let apiClient: BipeAPIClient
-    @ObservationIgnored private let accessToken: @MainActor () -> String?
+    @ObservationIgnored private let openID: BipeOpenIDTokens
     @ObservationIgnored private var queued: Set<String> = []
     @ObservationIgnored private var inFlight: Set<String> = []
     @ObservationIgnored private var waiters: [String: [CheckedContinuation<String?, Never>]] = [:]
@@ -31,10 +31,10 @@ public final class BipeHandleResolver {
     private static let batchSize = 100
     private static let coalesceDelay: Duration = .milliseconds(80)
     
-    /// `accessToken` is read before every request, because Matrix access tokens are short-lived.
-    public init(apiClient: BipeAPIClient, accessToken: @escaping @MainActor () -> String?) {
+    /// `openID` gives the account's OpenID token for the core routes (bipe-chat/bipe#646).
+    public init(apiClient: BipeAPIClient, openID: BipeOpenIDTokens) {
         self.apiClient = apiClient
-        self.accessToken = accessToken
+        self.openID = openID
     }
     
     // MARK: - Matrix ID to handle
@@ -91,8 +91,8 @@ public final class BipeHandleResolver {
         guard BipeHandle.localProblem(for: handle) == nil else { return nil }
         
         do {
-            let record = try await withTokenRetry { [apiClient] (token: String) async throws(BipeAPIError) -> BipeHandleRecord in
-                try await apiClient.handle(handle, accessToken: token)
+            let record = try await BipeAPIClient.withOpenIDRetry(openID) { [apiClient] (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeHandleRecord in
+                try await apiClient.handle(handle, openID: token)
             }
             store(handle: record.handle, for: record.userId)
             return record.userId
@@ -131,8 +131,8 @@ public final class BipeHandleResolver {
         guard !batch.isEmpty else { return }
         
         do {
-            let handles = try await withTokenRetry { [apiClient] (token: String) async throws(BipeAPIError) -> [String: String] in
-                try await apiClient.resolveHandles(userIDs: batch, accessToken: token)
+            let handles = try await BipeAPIClient.withOpenIDRetry(openID) { [apiClient] (token: BipeOpenIDToken) async throws(BipeAPIError) -> [String: String] in
+                try await apiClient.resolveHandles(userIDs: batch, openID: token)
             }
             for userID in batch {
                 store(handle: handles[userID], for: userID)
@@ -149,10 +149,6 @@ public final class BipeHandleResolver {
             let handle = entries[userID]?.handle
             waiters.removeValue(forKey: userID)?.forEach { $0.resume(returning: handle) }
         }
-    }
-    
-    private func withTokenRetry<T>(_ request: (String) async throws(BipeAPIError) -> T) async throws(BipeAPIError) -> T {
-        try await BipeAPIClient.withTokenRetry(accessToken: accessToken, request)
     }
 }
 

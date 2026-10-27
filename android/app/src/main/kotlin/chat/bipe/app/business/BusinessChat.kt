@@ -179,7 +179,7 @@ class BusinessChatModel(val business: BusinessApi, private val media: MediaLoade
         business.withToken { myQueuePlaces(it) }.firstOrNull { it.place.customer.userId == peerUserId && it.place.placeStatus.isActive }
 
     private suspend fun loadCustomer() {
-        val handle = runCatching { business.withToken { resolveHandles(listOf(peerUserId), it) }[peerUserId] }.getOrNull()
+        val handle = runCatching { business.withOpenId { resolveHandles(listOf(peerUserId), it) }[peerUserId] }.getOrNull()
         val route = handle ?: peerUserId
         val name = business.displayName(peerUserId)
         val services = runCatching { business.api.publicServices(route) }.getOrNull().orEmpty()

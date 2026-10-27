@@ -235,7 +235,7 @@ fun MyBookingsScreen(session: AccountSession, onOpenChat: (String) -> Unit, onCl
 private suspend fun loadMyBookings(business: BusinessApi): List<BookingView> {
     val bookings = business.withToken { myBookings(it) }.filter { it.bookingStatus.isOpen }
     val businesses = bookings.map { it.businessId }.distinct()
-    val handles = if (businesses.isEmpty()) emptyMap() else runCatching { business.withToken { resolveHandles(businesses, it) } }.getOrNull().orEmpty()
+    val handles = if (businesses.isEmpty()) emptyMap() else runCatching { business.withOpenId { resolveHandles(businesses, it) } }.getOrNull().orEmpty()
     val names = mutableMapOf<String, Map<String, String>>()
     val agendas = mutableMapOf<String, Map<String, String>>()
     for (id in businesses) {

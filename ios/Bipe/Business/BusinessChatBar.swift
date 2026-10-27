@@ -169,8 +169,8 @@ final class BusinessChatModel: ObservableObject {
     private func loadTools(of peer: String) async {
         let client = client
         let session = session
-        let resolved = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> [String: String] in
-            try await client.resolveHandles(userIDs: [peer], accessToken: token)
+        let resolved = try? await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> [String: String] in
+            try await client.resolveHandles(userIDs: [peer], openID: token)
         }
         if let found = resolved?[peer] { handle = found }
         let services = (try? await api.services(business: business)) ?? []

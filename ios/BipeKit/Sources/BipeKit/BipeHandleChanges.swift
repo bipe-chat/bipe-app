@@ -88,7 +88,7 @@ public nonisolated enum BipeHandleChangePlacement {
 @MainActor
 public final class BipeHandleChangeStore {
     private let apiClient: BipeAPIClient
-    private let accessToken: @MainActor () -> String?
+    private let openID: BipeOpenIDTokens
     private let fileURL: URL?
     
     private var changesByUser: [String: [BipeHandleChange]]
@@ -108,9 +108,9 @@ public final class BipeHandleChangeStore {
     }
     
     /// `cacheDirectory`: where the per-account cache file lives. `nil` keeps it in memory only.
-    public init(apiClient: BipeAPIClient, userID: String, cacheDirectory: URL?, accessToken: @escaping @MainActor () -> String?) {
+    public init(apiClient: BipeAPIClient, userID: String, cacheDirectory: URL?, openID: BipeOpenIDTokens) {
         self.apiClient = apiClient
-        self.accessToken = accessToken
+        self.openID = openID
         let safeName = userID.unicodeScalars.map { CharacterSet.alphanumerics.contains($0) ? String($0) : "_" }.joined()
         fileURL = cacheDirectory?.appending(path: "bipe-handle-changes-\(safeName).json")
         
@@ -177,8 +177,8 @@ public final class BipeHandleChangeStore {
     /// `true` when the answer had a change the cache did not have.
     private func fetch(_ userIDs: [String], since: Date?) async -> Bool {
         do {
-            let changes = try await BipeAPIClient.withTokenRetry(accessToken: accessToken) { [apiClient] (token: String) async throws(BipeAPIError) -> [BipeHandleChange] in
-                try await apiClient.handleChanges(userIDs: userIDs, since: since, accessToken: token)
+            let changes = try await BipeAPIClient.withOpenIDRetry(openID) { [apiClient] (token: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeHandleChange] in
+                try await apiClient.handleChanges(userIDs: userIDs, since: since, openID: token)
             }
             fetchedUsers.formUnion(userIDs)
             var gotNew = false

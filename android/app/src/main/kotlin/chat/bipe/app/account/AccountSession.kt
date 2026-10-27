@@ -9,6 +9,7 @@ import android.util.Base64
 import chat.bipe.app.common.AppConfig
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.BipeRoomSubscriptions
+import chat.bipe.shared.api.BipeOpenIdTokens
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -54,6 +55,9 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
 
     /** The access token for bipe-api calls (spec handle-pick notes). Read each time: the SDK may refresh it. */
     fun accessToken(): String? = runCatching { client.session().accessToken }.getOrNull()
+
+    /** The Matrix OpenID token for the core bipe-api routes (bipe-chat/bipe#646). Memory only. */
+    val openId = BipeOpenIdTokens(client.homeserver(), userId, accessToken = { accessToken() })
 
     /** Signs out on the server and removes this account's session, store and hidden password from this phone. */
     suspend fun signOut(context: Context, sessionStore: SessionStore, vault: BipeAccountVault, alreadyLoggedOut: Boolean = false) {

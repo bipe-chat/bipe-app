@@ -6,6 +6,7 @@ package chat.bipe.shared
 
 import android.content.SharedPreferences
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.BipeOpenIdToken
 import chat.bipe.shared.generated.BipeRegistries
 import com.google.crypto.tink.subtle.Ed25519Verify
 import java.security.GeneralSecurityException
@@ -103,11 +104,12 @@ suspend fun BipeApiClient.clearTheftMark(userId: String, accessToken: String) {
 }
 
 /** `POST /v1/theft-marks`. At most 100 IDs. The statements are not verified here: see [BipeTheftMarkVerifier]. */
-suspend fun BipeApiClient.theftMarks(userIds: List<String>, accessToken: String): List<BadgeEnvelope> = send(
+suspend fun BipeApiClient.theftMarks(userIds: List<String>, openId: BipeOpenIdToken): List<BadgeEnvelope> = send(
     "POST",
     listOf("v1", "theft-marks"),
     body = encode(GuardiansRequest.serializer(), GuardiansRequest(userIds)),
-    accessToken = accessToken,
+    accessToken = openId.accessToken,
+    serverName = openId.matrixServerName,
     response = TheftMarksResponse.serializer(),
 ).marks
 
