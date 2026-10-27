@@ -50,6 +50,8 @@ class BipeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Spec app-colors: the stored palette before the first screen.
+        chat.bipe.app.common.AppTheme.load(this)
         // Spec incoming-call: the missed calls of the chat list previews.
         chat.bipe.app.calls.MissedCalls.init(this)
         // Before any SDK call. On Android, initPlatform is the only place where the SDK sets up rustls-platform-verifier:

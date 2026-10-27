@@ -22,13 +22,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
+import chat.bipe.app.common.AppTheme
 import chat.bipe.app.common.LocalReduceMotion
 import chat.bipe.app.common.reduceMotion
 import chat.bipe.shared.generated.BipeColors
-import chat.bipe.shared.generated.BipeDarkColors
-import chat.bipe.shared.generated.BipeDarkHighContrastColors
 import chat.bipe.shared.generated.BipeLightColors
-import chat.bipe.shared.generated.BipeLightHighContrastColors
+import chat.bipe.shared.generated.bipeColors
 
 private val LocalBipeColors = staticCompositionLocalOf { BipeLightColors }
 
@@ -41,8 +40,8 @@ object BipeTheme {
 }
 
 /**
- * Picks the token set from the system dark mode and, on Android 14 and later, the system contrast
- * setting. Material components get the same colours. No dynamic colour (identity.md: always açaí).
+ * Picks the token set from the palette of the app theme (spec app-colors, ADR 0196), the system dark mode and, on
+ * Android 14 and later, the system contrast setting. Material components get the same colours. No dynamic colour.
  * Every M3 surface role maps to a Bipe surface token, so no baseline (purple-tinted) default leaks into
  * lists, menus, sheets or fields; surfaceTint is the base surface, so elevation adds no tonal tint.
  */
@@ -50,12 +49,7 @@ object BipeTheme {
 fun BipeTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val highContrast = rememberHighContrast()
-    val colors = when {
-        dark && highContrast -> BipeDarkHighContrastColors
-        dark -> BipeDarkColors
-        highContrast -> BipeLightHighContrastColors
-        else -> BipeLightColors
-    }
+    val colors = bipeColors(AppTheme.palette, dark, highContrast)
     val scheme = if (dark) {
         darkColorScheme(
             primary = colors.accentFill,

@@ -25,6 +25,8 @@ let package = Package(
             name: "BipeKit",
             dependencies: [.product(name: "SwiftSoup", package: "SwiftSoup")],
             path: "Sources/BipeKit",
+            // The app icons belong to the Bipe app target (ios/project.yml), not to the package bundle.
+            exclude: ["Generated/AppIcons.xcassets"],
             resources: [.process("Resources")],
             swiftSettings: [
                 .enableUpcomingFeature("NonisolatedNonsendingByDefault"),

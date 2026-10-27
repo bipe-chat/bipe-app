@@ -126,6 +126,7 @@ sealed interface SettingsRoute {
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
+    data object AppColors : SettingsRoute
     data object DataUse : SettingsRoute
     data object LiveLocationDistance : SettingsRoute
     data object RecoveryKey : SettingsRoute
@@ -230,6 +231,7 @@ fun SettingsHost(
             openSupport = { stack.add(SettingsRoute.Support) },
             onBack = pop,
         )
+        SettingsRoute.AppColors -> AppColorsScreen(onBack = pop)
         SettingsRoute.ShowMediaChoice -> ChoiceListScreen(
             title = stringResource(R.string.bipe_chats_show_media),
             options = ShowMedia.entries.map { it.id to stringResource(it.title) },
@@ -383,6 +385,7 @@ fun SettingsGroupScreen(
             // account-new shows the cap on the personal choice when the phone is full, as from the switcher.
             BipeSettingsRow.ACCOUNT_ADD -> onNewAccount?.invoke()
             BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
+            BipeSettingsRow.CHATS_COLORS -> onOpen(SettingsRoute.AppColors)
             BipeSettingsRow.CHATS_DATA_USE -> onOpen(SettingsRoute.DataUse)
             BipeSettingsRow.CHATS_LIVE_LOCATION -> onOpen(SettingsRoute.LiveLocationDistance)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
@@ -553,6 +556,7 @@ private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSett
         context.getString((ShowMedia.entries.firstOrNull { it.id == id } ?: ShowMedia.ALWAYS).title)
     }
     BipeSettingsRow.CHATS_LIVE_LOCATION -> context.getString(R.string.bipe_chats_live_location_distance, "${LiveLocationRule.distance(context)} m")
+    BipeSettingsRow.CHATS_COLORS -> context.getString(chat.bipe.app.common.AppTheme.palette.title)
     else -> null
 }
 

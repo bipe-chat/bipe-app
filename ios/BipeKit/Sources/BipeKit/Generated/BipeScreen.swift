@@ -40,6 +40,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Set up the agenda (flow business). Spec: bipe-shared/product/screens/agenda-setup.json
     case agendaSetup = "agenda-setup"
 
+    /// App colours (flow settings). Spec: bipe-shared/product/screens/app-colors.json
+    case appColors = "app-colors"
+
     /// App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json
     case appLock = "app-lock"
 

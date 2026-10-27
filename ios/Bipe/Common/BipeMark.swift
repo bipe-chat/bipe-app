@@ -6,7 +6,7 @@ import SwiftUI
 
 /// Bipe's mark, the shape of the app icon: a rounded bubble whose top-leading corner stays tight as the
 /// notch (identity.md, artwork-brief.md "seal tail"). The radii are fractions of the side, measured on
-/// Assets.xcassets/AppIcon: 196 and 20 of a 528-point bubble. Use this shape for the brand; never a
+/// the app icon (BipeKit Generated/AppIcons.xcassets): 196 and 20 of a 528-point bubble. Use this shape for the brand; never a
 /// generic speech-bubble glyph.
 struct BipeMark: Shape {
     func path(in rect: CGRect) -> Path {
