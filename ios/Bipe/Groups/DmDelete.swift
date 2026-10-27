@@ -74,10 +74,6 @@ final class DmDeleteModel: ObservableObject {
         case failed
     }
 
-    enum DeleteError: Error {
-        case server
-    }
-
     @Published private(set) var phase = Phase.confirm
 
     let roomId: String
@@ -117,23 +113,10 @@ final class DmDeleteModel: ObservableObject {
         }
     }
 
-    /// The server copy, not Client.accountData: the SDK copy waits for the next sync, so a write from it could drop a
-    /// marker another device just added (bipe-chat/bipe#479). Matrix client-server API GET user account data.
+    /// The server copy of chat.bipe.cleared_chats (ServerAccountData, bipe-chat/bipe#479).
     private func serverContent() async throws -> [String: Any]? {
-        let auth = try session.client.session()
-        let user = auth.userId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed.subtracting(CharacterSet(charactersIn: "/@:")))
-            ?? auth.userId
-        guard let url = URL(string: "\(auth.homeserverUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/")))/_matrix/client/v3/user/\(user)/account_data/\(ClearedChats.eventType)") else {
-            throw DeleteError.server
-        }
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(auth.accessToken)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession.shared.data(for: request)
-        switch (response as? HTTPURLResponse)?.statusCode {
-        case 200: return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-        case 404: return nil
-        default: throw DeleteError.server
-        }
+        guard let json = try await ServerAccountData.json(client: session.client, eventType: ClearedChats.eventType) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any]
     }
 }
 

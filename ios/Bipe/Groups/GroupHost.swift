@@ -8,7 +8,7 @@ import SwiftUI
 
 /// The group and DM screens over chat-list: group-create and dm-delete, closeChat for group-leave and dm-delete, and
 /// the account work of these specs (quiet groups once per account, the cleared-DM markers at start and on each return
-/// to the foreground).
+/// to the foreground, the news room out of m.direct once per account, bipe-chat/bipe#809).
 private struct GroupHostModifier: ViewModifier {
     let session: AccountSession
     let api: BipeAPIClient
@@ -42,10 +42,12 @@ private struct GroupHostModifier: ViewModifier {
             }
             .toast($toast)
             .task { await QuietGroups.applyOnce(session: session) }
+            .task { await NewsRoomCleanup.applyOnce(session: session, api: api) }
             .task { await cleared.refresh(client: session.client) }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     Task { await cleared.refresh(client: session.client) }
+                    Task { await NewsRoomCleanup.applyOnce(session: session, api: api) }
                 }
             }
             // Last, so the sheets above get them too.
