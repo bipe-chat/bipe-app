@@ -844,6 +844,12 @@ public enum BipeRegistries {
     public static let mapsMaxZoom = 18
     public static let mapsMaxStaticSize = 1024
     public static let mapsCoordinateDecimals = 6
+    /// The area with full detail (west, south, east, north); outside it a map goes no deeper than mapsOutsideMaxZoom.
+    public static let mapsDetailWest = -74.1
+    public static let mapsDetailSouth = -33.8
+    public static let mapsDetailEast = -28.6
+    public static let mapsDetailNorth = 5.4
+    public static let mapsOutsideMaxZoom = 11
     /// Live location (MSC3489, bipe-chat/bipe#768; registries/maps.json live).
     public static let mapsLiveDurationsMinutes: [Int] = [
         15,

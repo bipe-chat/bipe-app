@@ -851,6 +851,12 @@ object BipeRegistries {
     const val MAPS_MAX_ZOOM = 18
     const val MAPS_MAX_STATIC_SIZE = 1024
     const val MAPS_COORDINATE_DECIMALS = 6
+    /** The area with full detail (west, south, east, north); outside it a map goes no deeper than MAPS_OUTSIDE_MAX_ZOOM. */
+    const val MAPS_DETAIL_WEST = -74.1
+    const val MAPS_DETAIL_SOUTH = -33.8
+    const val MAPS_DETAIL_EAST = -28.6
+    const val MAPS_DETAIL_NORTH = 5.4
+    const val MAPS_OUTSIDE_MAX_ZOOM = 11
     /** Live location (MSC3489, bipe-chat/bipe#768; registries/maps.json live). */
     val MAPS_LIVE_DURATIONS_MINUTES: List<Int> = listOf(15, 60, 480)
     val MAPS_LIVE_DISTANCES_METRES: List<Int> = listOf(10, 50, 100)
