@@ -1672,6 +1672,7 @@
     <string name="bipe_app_sticker_make_failed">Não deu para criar um sticker com essa foto. Tente outra.</string>
     <string name="bipe_archived_empty">Nenhuma conversa arquivada.</string>
     <string name="bipe_archive_error">Não deu para salvar as conversas arquivadas. Tente de novo.</string>
+    <string name="bipe_chat_list_own_preview">Você: %1$s</string>
     <string name="bipe_chat_list_more">Carregar mais conversas</string>
     <string name="bipe_chat_actions">Ações da conversa</string>
     <string name="bipe_message_actions">Ações da mensagem</string>
