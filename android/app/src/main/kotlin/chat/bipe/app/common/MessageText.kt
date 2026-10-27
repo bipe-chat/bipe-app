@@ -30,6 +30,7 @@ fun TimelineItemContent.previewText(undecryptable: String, label: (Int) -> Strin
             null -> if (kind.content.msgType is MessageType.Location) label(R.string.bipe_app_location_title) else kind.content.body
         }
         is MsgLikeKind.Sticker -> label(R.string.bipe_app_media_sticker)
+        is MsgLikeKind.LiveLocation -> label(R.string.bipe_app_location_live_title)
         is MsgLikeKind.UnableToDecrypt -> undecryptable
         else -> null
     }

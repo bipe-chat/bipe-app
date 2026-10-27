@@ -272,12 +272,43 @@ final class ChatListModel: ObservableObject {
         UInt64(max(0, (date.timeIntervalSince1970 * 1000).rounded()))
     }
 
-    /// The row text of an event: its preview, or "missed call" for an incoming call this account missed.
-    nonisolated static func rowPreview(of content: TimelineItemContent, isOwn: Bool, roomId: String, ownUserId: String) -> String? {
+    /// The row text of an event (spec chat-list, row text): "missed call" for an incoming call this account missed, a
+    /// line for a join, leave or room creation, else the preview, with "You: " before an own one.
+    nonisolated static func rowPreview(of content: TimelineItemContent, isOwn: Bool, senderName: String, roomId: String,
+                                       isDm: Bool, ownUserId: String) -> String? {
         if case .rtcNotification = content, !isOwn, MissedCalls.isMissed(accountUserId: ownUserId, roomId: roomId) {
             return BipeStrings.callMissed
         }
-        return content.previewText
+        if let line = membershipLine(of: content, senderName: senderName, isOwn: isOwn, isDm: isDm, ownUserId: ownUserId) {
+            return line
+        }
+        guard let preview = content.previewText else { return nil }
+        return isOwn ? BipeStrings.chatListOwnPreview(preview) : preview
+    }
+
+    /// A join (an accepted invite or knock included), a leave or the room creation. nil for other events.
+    private nonisolated static func membershipLine(of content: TimelineItemContent, senderName: String, isOwn: Bool,
+                                                   isDm: Bool, ownUserId: String) -> String? {
+        switch content {
+        case .roomMembership(let userId, let displayName, let change?, _):
+            let own = userId == ownUserId
+            let name = displayName.flatMap { $0.isEmpty ? nil : $0 } ?? userId
+            switch change {
+            case .joined, .invitationAccepted, .knockAccepted:
+                if isDm { return own ? BipeStrings.dmJoinedByYou : BipeStrings.dmJoined(name) }
+                return own ? BipeStrings.groupStateEventRoomJoinByYou : BipeStrings.groupStateEventRoomJoin(name)
+            case .left:
+                if isDm { return own ? BipeStrings.dmLeftByYou : BipeStrings.dmLeft(name) }
+                return own ? BipeStrings.groupStateEventRoomLeaveByYou : BipeStrings.groupStateEventRoomLeave(name)
+            default:
+                return nil
+            }
+        case .state(_, .roomCreate):
+            if isDm { return isOwn ? BipeStrings.dmCreatedByYou : BipeStrings.dmCreated(senderName) }
+            return isOwn ? BipeStrings.groupStateEventRoomCreatedByYou : BipeStrings.groupStateEventRoomCreated(senderName)
+        default:
+            return nil
+        }
     }
 
     static func summary(of room: Room, ownUserId: String) async -> ChatSummary? {
@@ -286,12 +317,14 @@ final class ChatListModel: ObservableObject {
         var lastActivity: Date?
         var latestIncomingMs: Int64?
         switch await room.latestEvent() {
-        case .remote(let timestamp, _, let isOwn, _, let content):
-            lastMessage = rowPreview(of: content, isOwn: isOwn, roomId: info.id, ownUserId: ownUserId)
+        case .remote(let timestamp, let sender, let isOwn, let profile, let content):
+            lastMessage = rowPreview(of: content, isOwn: isOwn, senderName: profile.displayName(or: sender), roomId: info.id,
+                                     isDm: info.isDm, ownUserId: ownUserId)
             lastActivity = Date(milliseconds: timestamp)
             if !isOwn, lastMessage != nil { latestIncomingMs = Int64(clamping: timestamp) }
-        case .local(let timestamp, _, _, let content, _):
-            lastMessage = content.previewText
+        case .local(let timestamp, let sender, let profile, let content, _):
+            lastMessage = rowPreview(of: content, isOwn: true, senderName: profile.displayName(or: sender), roomId: info.id,
+                                     isDm: info.isDm, ownUserId: ownUserId)
             lastActivity = Date(milliseconds: timestamp)
         case .remoteInvite(let timestamp, _, _):
             lastActivity = Date(milliseconds: timestamp)

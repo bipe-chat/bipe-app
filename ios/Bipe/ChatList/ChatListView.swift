@@ -35,7 +35,8 @@ struct ChatListView: View {
     @StateObject private var banner: RemoteBannerModel
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @StateObject private var encryption: EncryptionStatusModel
+    /// Spec encryption-status: one model per account, owned by AppTabsView, which also presents its sheet.
+    @ObservedObject private var encryption: EncryptionStatusModel
     @StateObject private var people: PeopleService
     /// One selection for both layouts. A wide window shows it beside the list; a narrow one pushes it.
     /// A change of window size keeps the same detail, timeline and path.
@@ -64,7 +65,8 @@ struct ChatListView: View {
     }
 
     /// initialRoomId: the chat to open at once (signup-done opens the chat with the inviter).
-    init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, initialRoomId: String? = nil) {
+    init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, encryption: EncryptionStatusModel,
+         initialRoomId: String? = nil) {
         self.api = api
         _model = ObservedObject(wrappedValue: model)
         _archive = ObservedObject(wrappedValue: model.archive)
@@ -75,7 +77,7 @@ struct ChatListView: View {
         let people = PeopleService(session: model.session, api: api, media: model.media)
         _requests = StateObject(wrappedValue: ChatRequestsModel(session: model.session, api: api, people: people))
         _banner = StateObject(wrappedValue: RemoteBannerModel(api: api))
-        _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: model.session))
+        _encryption = ObservedObject(wrappedValue: encryption)
         _people = StateObject(wrappedValue: people)
         _detail = State(initialValue: initialRoomId.map(ChatDetail.room))
         _compactColumn = State(initialValue: initialRoomId == nil ? .sidebar : .detail)
@@ -116,12 +118,7 @@ struct ChatListView: View {
         }
         .groupHost(session: model.session, api: api, media: model.media, openChat: openChat, closeChat: closeDetail,
                    creatingGroup: $creatingGroup, deletingDm: $deletingDm, showingInvites: $showingInvites)
-        .environment(\.openHistoryHelp, encryption.openSheet)
-        .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
-            EncryptionSheet(route: route, model: encryption, session: model.session)
-        }
         .accessibilityIdentifier(BipeScreen.chatList.rawValue)
-        .task { await encryption.observe() }
         .task {
             if scope != .grupos {
                 await handle.load()
@@ -306,6 +303,8 @@ struct ChatListView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
+            // Spec live-location-banner: this account shares its live location.
+            LiveLocationListRow(userId: model.session.userId)
             RemoteBannerView(model: banner)
                 .padding(.horizontal, 16)
                 .padding(.vertical, banner.state == .hidden ? 0 : 8)

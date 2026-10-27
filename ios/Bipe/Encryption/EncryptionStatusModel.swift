@@ -51,9 +51,15 @@ final class EncryptionStatusModel: ObservableObject {
         recoveryState == .enabled || recoveryState == .incomplete
     }
 
-    /// Spec notes: the banner shows only when this phone is unverified and the account has history elsewhere.
+    /// Spec notes: this phone is unverified and the account has history elsewhere. The settings row oldMessages
+    /// shows while this is true, also after Skip on the banner (bipe-chat/bipe#793).
+    var needsApproval: Bool {
+        verificationState == .unverified && (hasOtherDevices || canUseRecoveryKey)
+    }
+
+    /// The banner: needsApproval, unless the person tapped Skip less than bannerPause ago.
     var showsBanner: Bool {
-        verificationState == .unverified && (hasOtherDevices || canUseRecoveryKey) && !bannerDismissed
+        needsApproval && !bannerDismissed
     }
 
     /// Action observe: listens to the SDK verification, recovery and backup state.

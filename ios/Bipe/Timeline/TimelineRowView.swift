@@ -23,7 +23,7 @@ struct TimelineRowView: View {
         switch row.kind {
         case .message:
             if let message = row.message, let details = row.details {
-                if !message.isOwn, message.media == nil, message.voice == nil, message.location == nil,
+                if !message.isOwn, message.media == nil, message.voice == nil, message.location == nil, message.live == nil,
                    let institution = seals?.institution(for: message.senderId) {
                     NoticeCard(message: message, institution: institution)
                         .contentShape(Rectangle())
@@ -242,6 +242,9 @@ private struct MessageBubbleRow: View {
                              isPrivateRoom: model.isPrivateRoom,
                              openViewer: { openViewer(row.id) },
                              cancelUpload: { Task { await model.cancelUpload(id: row.id) } })
+        } else if let live = message.live {
+            // Spec location-view, live row: the tap opens the full map once a beacon came.
+            TimelineLiveLocationRow(live: live, openFull: { openViewer(row.id) })
         } else if let location = message.location {
             // Spec location-view: the tap opens the full map (ChatTimelineView shows it for a location row).
             TimelineLocationRow(location: location, openFull: { openViewer(row.id) })
@@ -249,7 +252,7 @@ private struct MessageBubbleRow: View {
             VoiceMessageRow(message: message, voice: voice, loader: media, player: voicePlayer,
                             voiceMedia: model.voiceMedia, hasScamWarning: row.details?.scamWarning != nil)
         } else {
-            Text(message.body ?? "")
+            Text(message.isEmote ? "* \(message.senderName) \(message.body ?? "")" : message.body ?? "")
                 .foregroundStyle(BipeColor.inkPrimary)
         }
     }

@@ -7,8 +7,11 @@ package chat.bipe.app.chatlist
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.common.applyDiff
+import chat.bipe.app.common.displayName
 import chat.bipe.app.common.previewText
 import chat.bipe.shared.R
+import org.matrix.rustcomponents.sdk.MembershipChange
+import org.matrix.rustcomponents.sdk.OtherState
 import org.matrix.rustcomponents.sdk.TimelineItemContent
 import chat.bipe.app.common.toVectorDiff
 import chat.bipe.shared.BipeOfficialAccounts
@@ -275,13 +278,46 @@ class ChatListModel(
         summary.copy(lastActivity = row.timestampMs, lastMessage = row.previewText, latestIncomingMs = row.latestIncomingMs)
     }
 
-    /** The row text of an event: its preview, or "missed call" for an incoming call this account missed. */
-    private fun rowPreview(content: TimelineItemContent, isOwn: Boolean, roomId: String): String? =
+    /**
+     * The row text of an event (spec chat-list, row text): "missed call" for an incoming call this account missed, a line
+     * for a join, leave or room creation, else the preview, with "You: " before an own one.
+     */
+    private fun rowPreview(content: TimelineItemContent, isOwn: Boolean, senderName: String, roomId: String, isDm: Boolean): String? {
         if (content is TimelineItemContent.RtcNotification && !isOwn && chat.bipe.app.calls.MissedCalls.isMissed(session.userId, roomId)) {
-            label(R.string.bipe_call_missed)
-        } else {
-            content.previewText(undecryptableText, label)
+            return label(R.string.bipe_call_missed)
         }
+        membershipLine(content, senderName, isOwn, isDm)?.let { return it }
+        val preview = content.previewText(undecryptableText, label) ?: return null
+        return if (isOwn) label(R.string.bipe_chat_list_own_preview).format(preview) else preview
+    }
+
+    /** A join (an accepted invite or knock included), a leave or the room creation. null for other events. */
+    private fun membershipLine(content: TimelineItemContent, senderName: String, isOwn: Boolean, isDm: Boolean): String? {
+        fun line(dm: Int, group: Int, name: String?): String =
+            if (name == null) label(if (isDm) dm else group) else label(if (isDm) dm else group).format(name)
+        return when (content) {
+            is TimelineItemContent.RoomMembership -> {
+                val own = content.userId == session.userId
+                val name = content.userDisplayName?.takeIf { it.isNotEmpty() } ?: content.userId
+                when (content.change) {
+                    MembershipChange.JOINED, MembershipChange.INVITATION_ACCEPTED, MembershipChange.KNOCK_ACCEPTED ->
+                        if (own) line(R.string.bipe_dm_joined_by_you, R.string.bipe_group_state_event_room_join_by_you, null)
+                        else line(R.string.bipe_dm_joined, R.string.bipe_group_state_event_room_join, name)
+                    MembershipChange.LEFT ->
+                        if (own) line(R.string.bipe_dm_left_by_you, R.string.bipe_group_state_event_room_leave_by_you, null)
+                        else line(R.string.bipe_dm_left, R.string.bipe_group_state_event_room_leave, name)
+                    else -> null
+                }
+            }
+            is TimelineItemContent.State -> if (content.content is OtherState.RoomCreate) {
+                if (isOwn) line(R.string.bipe_dm_created_by_you, R.string.bipe_group_state_event_room_created_by_you, null)
+                else line(R.string.bipe_dm_created, R.string.bipe_group_state_event_room_created, senderName)
+            } else {
+                null
+            }
+            else -> null
+        }
+    }
 
     suspend fun summary(room: Room): ChatSummary? {
         val info = runCatching { room.roomInfo() }.getOrNull() ?: return null
@@ -291,12 +327,12 @@ class ChatListModel(
         var latestIncomingMs: Long? = null
         when (val latest = room.latestEvent()) {
             is LatestEventValue.Remote -> {
-                lastMessage = rowPreview(latest.content, latest.isOwn, info.id)
+                lastMessage = rowPreview(latest.content, latest.isOwn, latest.profile.displayName(latest.sender), info.id, info.isDm)
                 lastActivity = latest.timestamp.toLong()
                 if (!latest.isOwn && lastMessage != null) latestIncomingMs = lastActivity
             }
             is LatestEventValue.Local -> {
-                lastMessage = latest.content.previewText(undecryptableText, label)
+                lastMessage = rowPreview(latest.content, true, latest.profile.displayName(latest.sender), info.id, info.isDm)
                 lastActivity = latest.timestamp.toLong()
             }
             is LatestEventValue.RemoteInvite -> lastActivity = latest.timestamp.toLong()

@@ -237,9 +237,6 @@ enum TimelineRowBuilder {
                     message.body = voice.transcript ?? (voice.isVoice ? BipeStrings.appMediaVoice : voice.filename)
                 case nil:
                     switch messageContent.msgType {
-                    case .text:
-                        message.kind = .text
-                        message.body = messageContent.body
                     case .location(let locationContent):
                         // Spec location-view: a geo URI the app cannot read stays unsupported.
                         guard let location = LocationMessage(locationContent) else { continue }
@@ -247,7 +244,10 @@ enum TimelineRowBuilder {
                         message.location = location
                         message.body = location.label
                     default:
-                        continue
+                        // Spec timeline-rows: notices and unknown message types keep their body.
+                        message.kind = .text
+                        message.body = messageContent.body
+                        if case .emote = messageContent.msgType { message.isEmote = true }
                     }
                 }
                 let isSent: Bool
@@ -291,6 +291,24 @@ enum TimelineRowBuilder {
                     canReply: event.canBeRepliedTo && message.sendState == .sent,
                     canEdit: false,
                     canDelete: event.isOwn ? (facts.canRedactOwn || message.sendState != .sent) : (!facts.isDm && facts.canRedactOther)
+                )
+                rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
+            case .liveLocation(let liveContent):
+                // Spec location-view, live row: the sender's beacon_info with the beacons the SDK put on it.
+                var message = base
+                message.kind = .liveLocation
+                message.live = LiveLocationMessage(liveContent)
+                message.body = BipeStrings.appLocationLiveTitle
+                let details = MessageDetails(
+                    eventId: eventId(event),
+                    reply: nil,
+                    reactions: reactions(content.reactions, facts: facts, name: name),
+                    isEdited: false,
+                    receipt: event.isOwn ? receipts[index] : nil,
+                    scamWarning: nil,
+                    canReply: event.canBeRepliedTo && message.sendState == .sent,
+                    canEdit: false,
+                    canDelete: false
                 )
                 rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
             case .poll(let question, let pollKind, let maxSelections, let answers, let votes, let endTime, _):
@@ -398,11 +416,9 @@ enum TimelineRowBuilder {
     static func isShownMessage(_ event: EventTimelineItem) -> Bool {
         guard case .msgLike(let content) = event.content else { return false }
         if MediaContent(content.kind) != nil { return true }
-        guard case .message(let message) = content.kind else { return false }
-        switch message.msgType {
-        case .text, .location: return true
-        default: return false
-        }
+        if case .liveLocation = content.kind { return true }
+        guard case .message = content.kind else { return false }
+        return true
     }
 
     static func eventId(_ event: EventTimelineItem) -> String? {
@@ -457,6 +473,7 @@ enum TimelineRowBuilder {
                 if case .location = message.msgType { return BipeStrings.appLocationTitle }
                 return message.body
             }
+        case .liveLocation: return BipeStrings.appLocationLiveTitle
         case .sticker: return BipeStrings.appMediaSticker
         case .redacted: return isOwn ? BipeStrings.appMessageDeletedOwn : BipeStrings.appMessageDeleted
         case .unableToDecrypt: return BipeStrings.appTimelineUndecryptable

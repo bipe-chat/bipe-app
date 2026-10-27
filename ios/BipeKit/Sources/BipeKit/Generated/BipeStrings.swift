@@ -2176,6 +2176,10 @@ public enum BipeStrings {
 
     public static var accountDevices: String { NSLocalizedString("bipe_account_devices", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var accountOldMessages: String { NSLocalizedString("bipe_account_old_messages", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountOldMessagesFooter: String { NSLocalizedString("bipe_account_old_messages_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var accountThisDevice: String { NSLocalizedString("bipe_account_this_device", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var linkedDevicesTitle: String { NSLocalizedString("bipe_linked_devices_title", tableName: "Bipe", bundle: .module, comment: "") }
@@ -3810,6 +3814,42 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_app_location_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var appLocationLiveStart: String { NSLocalizedString("bipe_app_location_live_start", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationLiveDurationTitle: String { NSLocalizedString("bipe_app_location_live_duration_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appLocationLiveMinutes(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_location_live_minutes", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appLocationLiveHours(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_location_live_hours", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appLocationLiveFooter: String { NSLocalizedString("bipe_app_location_live_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationLiveTitle: String { NSLocalizedString("bipe_app_location_live_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationLiveSharing: String { NSLocalizedString("bipe_app_location_live_sharing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationLiveStop: String { NSLocalizedString("bipe_app_location_live_stop", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appLocationLiveUntil(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_location_live_until", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appLocationLiveEnded: String { NSLocalizedString("bipe_app_location_live_ended", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationLiveWaiting: String { NSLocalizedString("bipe_app_location_live_waiting", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationLiveStartFailed: String { NSLocalizedString("bipe_app_location_live_start_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationLiveOpenOnly: String { NSLocalizedString("bipe_app_location_live_open_only", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationWhenInUseUsage: String { NSLocalizedString("bipe_app_location_when_in_use_usage", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLocationAlwaysUsage: String { NSLocalizedString("bipe_app_location_always_usage", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appAttachPhotosPermission: String { NSLocalizedString("bipe_app_attach_photos_permission", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appVoiceRecording: String { NSLocalizedString("bipe_app_voice_recording", tableName: "Bipe", bundle: .module, comment: "") }
@@ -3837,6 +3877,10 @@ public enum BipeStrings {
     public static var archivedEmpty: String { NSLocalizedString("bipe_archived_empty", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var archiveError: String { NSLocalizedString("bipe_archive_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func chatListOwnPreview(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_chat_list_own_preview", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 
     public static var chatListMore: String { NSLocalizedString("bipe_chat_list_more", tableName: "Bipe", bundle: .module, comment: "") }
 

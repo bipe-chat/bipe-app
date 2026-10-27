@@ -105,9 +105,16 @@ class EncryptionStatusModel(
     /** The recovery key row shows (state recoveryState enabled or incomplete). */
     fun canUseRecoveryKey(state: RecoveryState): Boolean = state == RecoveryState.ENABLED || state == RecoveryState.INCOMPLETE
 
-    /** Spec notes: the banner shows only when this phone is unverified and the account has history elsewhere. */
+    /**
+     * Spec notes: this phone is unverified and the account has history elsewhere. The settings row oldMessages shows
+     * while this is true, also after Skip on the banner (bipe-chat/bipe#793).
+     */
+    fun needsApproval(verification: VerificationState, recovery: RecoveryState, otherDevices: Boolean): Boolean =
+        verification == VerificationState.UNVERIFIED && (otherDevices || canUseRecoveryKey(recovery))
+
+    /** The banner: needsApproval, unless the person tapped Skip less than BANNER_PAUSE_MS ago. */
     fun showsBanner(verification: VerificationState, recovery: RecoveryState, otherDevices: Boolean, dismissed: Boolean): Boolean =
-        verification == VerificationState.UNVERIFIED && (otherDevices || canUseRecoveryKey(recovery)) && !dismissed
+        needsApproval(verification, recovery, otherDevices) && !dismissed
 
     /** Action openSheet. */
     fun openSheet() {

@@ -49,6 +49,7 @@ struct ChatTimelineView: View {
     var body: some View {
         VStack(spacing: 0) {
             OngoingCallBar(model: model, session: session)
+            LiveLocationChatBar(roomId: roomId, userId: session.userId)
             if model.isDm, let people, let peer = model.peerUserId {
                 CvmStopOrderCard(seals: people.seals, userId: peer)
             }
@@ -87,7 +88,7 @@ struct ChatTimelineView: View {
                           onLocation: { locationSend = LocationSendRequest(replyToEventId: model.takeReplyEventId()) },
                           onPoll: model.canPoll ? { creatingPoll = true } : nil)
         .fullScreenCover(item: $locationSend) { request in
-            LocationSendView(timeline: model, replyToEventId: request.replyToEventId, close: { locationSend = nil })
+            LocationSendView(timeline: model, session: session, replyToEventId: request.replyToEventId, close: { locationSend = nil })
         }
         .fullScreenCover(item: $upload) { upload in
             if let timeline = model.timeline {
@@ -167,6 +168,11 @@ struct ChatTimelineView: View {
             if let viewerRowId {
                 if let row = model.row(viewerRowId), let message = row.message, let location = message.location {
                     LocationFullView(location: location, senderName: message.senderName, sentAt: message.sentAt,
+                                     close: { self.viewerRowId = nil })
+                } else if let row = model.row(viewerRowId), let message = row.message, let live = message.live,
+                          let location = live.location {
+                    // Spec location-view: the pin follows the newest beacon while the full map is open.
+                    LocationFullView(location: location, senderName: message.senderName, sentAt: message.sentAt, live: live,
                                      close: { self.viewerRowId = nil })
                 } else {
                     MediaViewer(model: model, loader: media, close: { self.viewerRowId = nil }, rowId: viewerRowId)

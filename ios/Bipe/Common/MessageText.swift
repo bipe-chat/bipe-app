@@ -26,6 +26,8 @@ extension TimelineItemContent {
                 if case .location = message.msgType { return BipeStrings.appLocationTitle }
                 return message.body
             }
+        case .liveLocation:
+            return BipeStrings.appLocationLiveTitle
         case .sticker:
             return BipeStrings.appMediaSticker
         case .unableToDecrypt:
