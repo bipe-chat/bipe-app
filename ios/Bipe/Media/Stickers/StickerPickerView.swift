@@ -8,7 +8,8 @@ import Phosphor
 import PhotosUI
 import SwiftUI
 
-/// Spec sticker-picker: the user's pack, this chat's packs and the enabled room packs (ADR 0029, ADR 0033).
+/// Spec sticker-picker: favourites, recents, the user's pack, this chat's packs and the enabled room packs
+/// (ADR 0029, ADR 0033, ADR 0205).
 @MainActor
 final class StickerPickerModel: ObservableObject {
     enum Phase: Equatable {
@@ -18,6 +19,8 @@ final class StickerPickerModel: ObservableObject {
     }
 
     @Published private(set) var packs: [StickerPack] = []
+    @Published private(set) var favourites: [StickerRef] = []
+    @Published private(set) var recents: [StickerRef] = []
     @Published private(set) var phase = Phase.loading
     @Published private(set) var sendFailed = false
     @Published private(set) var isClosed = false
@@ -46,6 +49,26 @@ final class StickerPickerModel: ObservableObject {
         }
         packs = loaded
         phase = .loaded
+        // The lists are extras: a failed read shows the packs without them.
+        favourites = (try? await packClient.shortlist(BipeRegistries.stickerFavouritesEventType)) ?? favourites
+        recents = (try? await packClient.shortlist(BipeRegistries.stickerRecentsEventType)) ?? recents
+    }
+
+    /// State favourites: the favourites that are in a loaded pack.
+    var favouriteStickers: [Sticker] { StickerShortlist.resolve(favourites, in: packs) }
+
+    /// State recents: newest first, without the favourites.
+    var recentStickers: [Sticker] {
+        StickerShortlist.resolve(recents.filter { !favourites.contains($0) }, in: packs)
+    }
+
+    func isFavourite(_ sticker: Sticker) -> Bool { favourites.contains(StickerRef(sticker)) }
+
+    /// Action toggleFavourite. The whole list is written, so a failed write is carried by the next change.
+    func toggleFavourite(_ sticker: Sticker) {
+        favourites = StickerShortlist.toggleFavourite(StickerRef(sticker), in: favourites)
+        let list = favourites
+        Task { [packClient] in try? await packClient?.setShortlist(BipeRegistries.stickerFavouritesEventType, list) }
     }
 
     /// Action send: an m.sticker event through Room.sendRaw, which encrypts in an encrypted room. Then closes.
@@ -54,6 +77,9 @@ final class StickerPickerModel: ObservableObject {
         do {
             guard let room = try client.getRoom(roomId: roomId) else { throw CocoaError(.featureUnsupported) }
             try await room.sendRaw(eventType: "m.sticker", content: sticker.eventContentJSON())
+            recents = StickerShortlist.pushRecent(StickerRef(sticker), into: recents)
+            let list = recents
+            Task { [packClient] in try? await packClient?.setShortlist(BipeRegistries.stickerRecentsEventType, list) }
             isClosed = true
         } catch {
             sendFailed = true
@@ -140,24 +166,49 @@ struct StickerPickerView: View {
         case .loaded:
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
+                    let favourites = model.favouriteStickers
+                    if !favourites.isEmpty {
+                        section(BipeStrings.stickersFavourites, favourites)
+                    }
+                    let recents = model.recentStickers
+                    if !recents.isEmpty {
+                        section(BipeStrings.stickersRecents, recents)
+                    }
                     ForEach(model.packs) { pack in
-                        Text(title(pack))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BipeColor.inkSecondary)
-                        LazyVGrid(columns: columns, spacing: 8) {
-                            ForEach(pack.stickers) { sticker in
-                                Button {
-                                    Task { await model.send(sticker) }
-                                } label: {
-                                    StickerThumbnail(url: sticker.url, loader: loader)
-                                        .frame(width: 76, height: 76)
-                                }
-                                .accessibilityLabel(BipeStrings.a11yStickerSend(sticker.body))
-                            }
-                        }
+                        section(title(pack), pack.stickers)
                     }
                 }
                 .padding(16)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func section(_ title: String, _ stickers: [Sticker]) -> some View {
+        Text(title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(BipeColor.inkSecondary)
+        LazyVGrid(columns: columns, spacing: 8) {
+            ForEach(stickers) { sticker in
+                Button {
+                    Task { await model.send(sticker) }
+                } label: {
+                    StickerThumbnail(url: sticker.url, loader: loader)
+                        .frame(width: 76, height: 76)
+                }
+                .accessibilityLabel(BipeStrings.a11yStickerSend(sticker.body))
+                .contextMenu {
+                    // Long press (spec sticker-picker toggleFavourite).
+                    Button {
+                        model.toggleFavourite(sticker)
+                    } label: {
+                        if model.isFavourite(sticker) {
+                            Label(BipeStrings.stickerFavouriteRemove, systemImage: "star.slash")
+                        } else {
+                            Label(BipeStrings.stickerFavouriteAdd, systemImage: "star")
+                        }
+                    }
+                }
             }
         }
     }

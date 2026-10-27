@@ -93,6 +93,16 @@ class StickerPackClient(
         added
     }
 
+    /** A sticker list in global account data ([StickerShortlist]): recents or favourites. Empty when unset. */
+    suspend fun shortlist(eventType: String): List<StickerRef> = withTokenRetry { token ->
+        get(listOf("user", userId, "account_data", eventType), token)?.let(StickerShortlist::parse).orEmpty()
+    }
+
+    /** Writes the whole list, so a later write also carries changes from a failed one. */
+    suspend fun setShortlist(eventType: String, refs: List<StickerRef>) = withTokenRetry { token ->
+        put(listOf("user", userId, "account_data", eventType), StickerShortlist.content(refs), token)
+    }
+
     private suspend fun roomPacks(roomId: String, token: String): List<StickerPack> {
         val body = get(listOf("rooms", roomId, "state"), token) ?: return emptyList()
         val events = runCatching { Json.parseToJsonElement(body) as? JsonArray }.getOrNull() ?: return emptyList()
