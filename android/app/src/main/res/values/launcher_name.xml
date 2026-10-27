@@ -6,8 +6,8 @@
 -->
 <resources>
     <!--
-      Name under the launcher icon. Tester builds are "Bipe Next" (ADR 0147).
-      At the switch to the fork's IDs (ADR 0061) this becomes "Bipe".
+      Name under the launcher icon: "Bipe" for every build, like the iOS TestFlight app (ADR 0178, ADR 0190).
+      Only the tester application ID keeps .next until the Play release (ADR 0147).
     -->
-    <string name="app_launcher_name" translatable="false">Bipe Next</string>
+    <string name="app_launcher_name" translatable="false">Bipe</string>
 </resources>
