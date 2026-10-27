@@ -437,7 +437,7 @@ export const EXTERNAL_GROUP = 'Testers';
 export const BETA_LOCALE = 'pt-BR';
 export const BETA_TEXT = {
   description: 'O Bipe é um mensageiro brasileiro. Suas conversas e seus dados ficam no Brasil. Esta é a versão de testes do novo app.',
-  whatToTest: 'Crie sua conta, converse com alguém que já usa o Bipe e passe a conta para outro celular pelo QR. Se algo der errado, tire uma captura de tela e envie pelo TestFlight.',
+  whatToTest: 'Crie sua conta, converse com alguém que já usa o Bipe e passe a conta para outro celular pelo QR. Se você também tem o app antigo neste celular, use a chave de recuperação para ver suas mensagens antigas aqui. Por enquanto, aprovar pelo app antigo no mesmo celular não funciona. Se algo der errado, tire uma captura de tela e envie pelo TestFlight.',
   privacyPolicyUrl: 'https://bipe.chat/privacidade/',
 };
 // Records to copy beta information from, in order: the fork's store app, then its beta app
