@@ -403,6 +403,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Import stickers (flow chat). Spec: bipe-shared/product/screens/sticker-import.json
     case stickerImport = "sticker-import"
 
+    /// Sticker pack (flow chat). Spec: bipe-shared/product/screens/sticker-pack.json
+    case stickerPack = "sticker-pack"
+
     /// Stickers (flow chat). Spec: bipe-shared/product/screens/sticker-picker.json
     case stickerPicker = "sticker-picker"
 
