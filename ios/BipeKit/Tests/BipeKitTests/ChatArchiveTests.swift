@@ -60,6 +60,7 @@ struct ChatArchiveTests {
         #expect(!a.file.lastPathComponent.contains("@a"))
         try Data("corrupt".utf8).write(to: a.file)
         #expect(throws: (any Error).self) { try a.load() }
+        #expect(throws: (any Error).self) { try a.save([:]) }
         #expect(try String(contentsOf: a.file, encoding: .utf8) == "corrupt")
     }
 

@@ -44,6 +44,7 @@ class BipeChatArchiveStore(directory: File, accountId: String) {
     fun save(markers: Map<String, Long>, syncedRooms: Set<String> = emptySet()) {
         validate(markers)
         if (!markers.keys.containsAll(syncedRooms)) throw IOException("archive migration metadata")
+        loadState()
         val directory = file.parentFile ?: throw IOException("archive directory")
         if (!directory.isDirectory && !directory.mkdirs()) throw IOException("archive directory")
         val temporary = File.createTempFile("archive-", ".tmp", directory)

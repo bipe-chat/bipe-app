@@ -34,6 +34,7 @@ public nonisolated struct BipeChatArchiveStore {
 
     public func save(_ markers: [String: Int64], syncedRooms: Set<String> = []) throws {
         guard valid(markers), syncedRooms.isSubset(of: Set(markers.keys)) else { throw Failure.invalid }
+        _ = try loadState()
         var directory = file.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var values = URLResourceValues()

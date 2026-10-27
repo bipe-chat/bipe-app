@@ -81,6 +81,7 @@ class ChatArchiveTest {
             assertTrue(a.load().isEmpty())
             a.file.writeText("corrupt")
             assertThrows(Exception::class.java) { a.load() }
+            assertThrows(Exception::class.java) { a.save(emptyMap()) }
             assertEquals("corrupt", a.file.readText())
         } finally { directory.deleteRecursively() }
     }
