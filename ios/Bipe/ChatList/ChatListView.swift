@@ -193,6 +193,8 @@ struct ChatListView: View {
             switch link {
             case .chat(let roomId): openChat(roomId)
             case .profile(let handle): openingLink = handle
+            case .person(let userId): show(.people(.person(userId: userId, fromDm: false)))
+            case .queue(let handle): openingQueue = handle
             }
         }
         .onOpenURL { url in

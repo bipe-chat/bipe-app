@@ -161,11 +161,7 @@ fun TimelineRowItem(
                         voiceMedia = model.voiceMedia,
                         hasScamWarning = details.scamWarning != null,
                     )
-                    else -> Text(
-                        if (message.isEmote) "* ${message.senderName} ${message.body.orEmpty()}" else message.body.orEmpty(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = colors.inkPrimary,
-                    )
+                    else -> MessageRichText(message, canOpen = { model.pauseSecondsLeft(row.id) == 0 })
                 }
             }
         }

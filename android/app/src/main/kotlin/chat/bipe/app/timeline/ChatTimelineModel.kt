@@ -90,6 +90,8 @@ data class TimelineMessage(
     val live: LiveLocationMessage? = null,
     /** m.emote has a display prefix; body stays unchanged for edits and copying. */
     val isEmote: Boolean = false,
+    /** Sanitized native text runs; body remains the original text for editing and copying. */
+    val richText: chat.bipe.shared.BipeMessageText? = null,
 ) {
     enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, POLL, LOCATION, LIVE_LOCATION, UNSUPPORTED }
 

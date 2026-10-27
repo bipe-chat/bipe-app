@@ -248,6 +248,7 @@ enum TimelineRowBuilder {
                         message.kind = .text
                         message.body = messageContent.body
                         if case .emote = messageContent.msgType { message.isEmote = true }
+                        message.richText = BipeMessageText(body: messageContent.body, html: messageContent.msgType.bipeHTML)
                     }
                 }
                 let isSent: Bool
@@ -262,7 +263,7 @@ enum TimelineRowBuilder {
                     isEdited: messageContent.isEdited,
                     receipt: event.isOwn ? receipts[index] : nil,
                     // The detector runs on the device; the cache keys on the event and the body, so an edit runs it again.
-                    scamWarning: event.isOwn ? nil : ScamDetector.warningKind(for: messageContent.body, eventID: eventId(event) ?? id),
+                    scamWarning: event.isOwn ? nil : ScamDetector.warningKind(for: messageContent.body + "\n" + (message.richText?.safetyText ?? ""), eventID: eventId(event) ?? id),
                     canReply: event.canBeRepliedTo && isSent,
                     canEdit: event.isEditable && message.kind == .text,
                     canDelete: event.isOwn ? (facts.canRedactOwn || !isSent) : (!facts.isDm && facts.canRedactOther)

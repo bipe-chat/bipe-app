@@ -48,6 +48,7 @@ export function licenceList(platform, root = REPO_ROOT) {
     .map(([name, p]) => {
       const vendored = VENDORED_LICENCE[name]?.[platform];
       if ((p.ecosystem === 'vendored' || p.ecosystem === 'font') && !vendored) throw new Error(`oss-licences: no LICENSE path for vendored ${name}`);
+      if (p.copyright) return { name, licence: p.licence, text: `${p.copyright}\n\n${read(root, `tools/licence-texts/${p.licence}.txt`)}` };
       return vendored ? { name, licence: p.licence, text: read(root, vendored) } : { name, licence: textOf(p.licence) };
     });
   const bipe = {

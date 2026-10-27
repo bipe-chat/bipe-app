@@ -10,6 +10,8 @@ import SwiftUI
 enum TabsLink: Equatable {
     case chat(String)
     case profile(String)
+    case person(String)
+    case queue(String)
 }
 
 /// Hands a TabsLink from the app tabs to the Conversas chat list, as NotificationActions does for notifications.

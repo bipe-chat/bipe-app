@@ -19,9 +19,11 @@ let package = Package(
     products: [
         .library(name: "BipeKit", targets: ["BipeKit"]),
     ],
+    dependencies: [.package(url: "https://github.com/scinfu/SwiftSoup", exact: "2.14.3")],
     targets: [
         .target(
             name: "BipeKit",
+            dependencies: [.product(name: "SwiftSoup", package: "SwiftSoup")],
             path: "Sources/BipeKit",
             resources: [.process("Resources")],
             swiftSettings: [

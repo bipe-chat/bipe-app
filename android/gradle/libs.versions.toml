@@ -6,6 +6,7 @@
 # matrix-rust-sdk must equal ../../sdk-version (tools/sdk-version.mjs).
 
 [versions]
+jsoup = "1.23.2"
 agp = "8.13.0"
 kotlin = "2.2.21"
 matrix-rust-sdk = "26.08.11"
@@ -37,6 +38,7 @@ webrtc = "150.7871.04"
 core-telecom = "1.0.1"
 
 [libraries]
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 matrix-rust-sdk = { module = "org.matrix.rustcomponents:sdk-android", version.ref = "matrix-rust-sdk" }
 rustls-platform-verifier = { module = "rustls:rustls-platform-verifier", version.ref = "rustls-platform-verifier" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
