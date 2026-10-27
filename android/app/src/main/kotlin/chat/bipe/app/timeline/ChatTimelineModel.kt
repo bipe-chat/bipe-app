@@ -152,7 +152,7 @@ data class ComposerState(
     val suggestions: List<MentionSuggestion> = emptyList(),
     /** false: the composer is off, with the reason bar instead. */
     val canPost: Boolean = true,
-    /** The poll row of attachment-picker. */
+    /** The poll row of attachment-picker. Never in a DM (ADR 0192). */
     val canPoll: Boolean = true,
     /** mode recording: voice-recording replaces the field. */
     val recording: VoiceRecordingModel? = null,
@@ -333,7 +333,7 @@ class ChatTimelineModel(
             _composer.update {
                 it.copy(
                     canPost = powerLevels.canOwnUserSendMessage(MessageLikeEventType.RoomMessage),
-                    canPoll = powerLevels.canOwnUserSendMessage(MessageLikeEventType.PollStart),
+                    canPoll = !facts.isDm && powerLevels.canOwnUserSendMessage(MessageLikeEventType.PollStart),
                 )
             }
         }
