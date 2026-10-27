@@ -127,6 +127,7 @@ struct ChatListView: View {
         }
         .task { await requests.start() }
         .onReceive(model.$chats) { requests.rememberDmPartners($0) }
+        .onReceive(model.$hasUndecryptable) { if $0 { encryption.noteUndecryptable() } }
         .task { await banner.refresh() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -356,8 +357,9 @@ struct ChatListView: View {
     /// The requests row and the group invites above the chats (specs chat-requests and chat-list-filters).
     @ViewBuilder
     private var topRows: some View {
-        // Spec encryption-status: the banner is the first row, so it scrolls with the chats (MZ decision 25 Oct 2026).
-        if scope != .grupos && encryption.showsBanner && !showingArchived {
+        // Spec encryption-status: the banner is the first row, so it scrolls with the chats (MZ decision 25 Oct 2026),
+        // in every chat list (bipe-chat/bipe#853).
+        if encryption.showsBanner && !showingArchived {
             HistoryBanner(model: encryption)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(BipeColor.surfaceRaised)

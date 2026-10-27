@@ -171,6 +171,8 @@ fun HomeScreen(
     }
     // Spec chat-request contactCollision: the joined DMs are contacts (security rule 8).
     LaunchedEffect(requests, model) { model.chats.collect { requests.rememberDmPartners(it) } }
+    // Spec encryption-status noteUndecryptable: the chat list read an undecryptable message (bipe-chat/bipe#853).
+    LaunchedEffect(encryption, model) { model.hasUndecryptable.collect { if (it) encryption.noteUndecryptable() } }
     val app = context.applicationContext as BipeApplication
     DisposableEffect(encryption) {
         encryption.observe()

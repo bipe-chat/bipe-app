@@ -86,6 +86,8 @@ final class ChatListModel: ObservableObject {
     @Published private(set) var markingRoomId: String?
     @Published private(set) var favouriteFailed = false
     @Published private(set) var readActionFailed = false
+    /// A local read found an undecryptable message: feeds encryption-status noteUndecryptable (bipe-chat/bipe#853).
+    @Published private(set) var hasUndecryptable = false
     private var failedReadIntent: (roomId: String, unread: Bool)?
     private enum ReadFailure: Error { case unavailable }
     private var started = false
@@ -296,6 +298,9 @@ final class ChatListModel: ObservableObject {
     }
 
     private func refreshSummaries() {
+        if rowActivity?.sawUndecryptable == true, !hasUndecryptable {
+            hasUndecryptable = true
+        }
         extraRoomIds.formUnion(archive.markers.keys)
         var rooms = rooms
         var loadedIds = Set(rooms.map { $0.id() })

@@ -122,6 +122,9 @@ class ChatListModel(
     val readActionFailed = _readActionFailed.asStateFlow()
     private val _favouriteFailed = MutableStateFlow(false)
     val favouriteFailed = _favouriteFailed.asStateFlow()
+    /** A local read found an undecryptable message: feeds encryption-status noteUndecryptable (bipe-chat/bipe#853). */
+    private val _hasUndecryptable = MutableStateFlow(false)
+    val hasUndecryptable = _hasUndecryptable.asStateFlow()
     private var failedReadIntent: Pair<String, Boolean>? = null
     private var started = false
     private val clearChanges = scope.launch {
@@ -328,6 +331,7 @@ class ChatListModel(
     }
 
     private fun refreshSummaries() {
+        if (rowActivity.sawUndecryptable) _hasUndecryptable.value = true
         extraRoomIds += archive.markers.value.keys
         val snapshot = (rooms + archivedRooms + favouriteRooms).distinctBy { it.id() }.toMutableList()
         val loadedIds = snapshot.map { it.id() }.toSet()

@@ -542,6 +542,8 @@ private struct FlowRow: Layout {
 private struct UndecryptableRow: View {
     let message: TimelineMessage
     @Environment(\.openHistoryHelp) private var openHistoryHelp
+    @Environment(\.encryptionStatus) private var encryption
+    @Environment(\.phoneUnverified) private var phoneUnverified
 
     var body: some View {
         Bubble(isOwn: message.isOwn, trailingLast: true) {
@@ -560,8 +562,8 @@ private struct UndecryptableRow: View {
                     .font(.subheadline.italic())
                     .foregroundStyle(BipeColor.inkSecondary)
             }
-            // Action openHelp: only historyNotOnThisPhone has a way to help.
-            if message.cause == .historyNotOnThisPhone {
+            // Action openHelp: historyNotOnThisPhone, and on an unverified phone also waiting and notShared (bipe#853).
+            if showsHelp {
                 Button(action: openHistoryHelp) {
                     Text(BipeStrings.appUtdHelp)
                         .font(.subheadline)
@@ -572,6 +574,21 @@ private struct UndecryptableRow: View {
             MessageTimestamp(sentAt: message.sentAt)
         }
         .accessibilityIdentifier(BipeScreen.messageUndecryptable.rawValue)
+        .onAppear {
+            if approvalCanHelp { encryption?.noteUndecryptable() }
+        }
+    }
+
+    /// Causes that approval of this phone can fix (spec encryption-status noteUndecryptable).
+    private var approvalCanHelp: Bool {
+        switch message.cause {
+        case .waiting, .historyNotOnThisPhone, .notSharedWithThisPhone, .none: true
+        case .beforeJoined, .unapprovedSenderDevice: false
+        }
+    }
+
+    private var showsHelp: Bool {
+        message.cause == .historyNotOnThisPhone || (phoneUnverified && approvalCanHelp)
     }
 
     private var text: String {
