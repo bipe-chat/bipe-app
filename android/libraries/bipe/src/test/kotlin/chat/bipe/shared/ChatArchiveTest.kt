@@ -66,7 +66,7 @@ class ChatArchiveTest {
         for (count in 3 downTo 0) {
             val markers = (0 until count).associate { "!room$it:example.invalid" to limits[it] }
             for (mask in 0 until (1 shl count)) {
-                val synced = markers.keys.filterIndexed { index, _ -> mask and (1 shl index) != 0 }.toSet()
+                val synced = markers.keys.filterIndexed { index, _ -> (mask and (1 shl index)) != 0 }.toSet()
                 val expected = BipeChatArchiveStore.State(markers, synced)
                 archive.save(markers, synced)
                 check(store().loadState() == expected && archive.load() == markers) { "round trip count=$count mask=$mask" }
