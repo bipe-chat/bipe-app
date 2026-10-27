@@ -13,7 +13,7 @@ package chat.bipe.shared
  * never a guess.
  */
 object BipeRowActivity {
-    /** A message-like event (text, media, sticker, poll, deleted or undecryptable) or any other timeline event. */
+    /** A message-like event (text, media, sticker, poll, deleted or undecryptable, or a call) or any other timeline event. */
     enum class Kind { MESSAGE, OTHER }
 
     /**
@@ -29,24 +29,31 @@ object BipeRowActivity {
     data class Row(val timestampMs: Long?, val previewText: String?, val latestIncomingMs: Long?)
 
     /**
-     * The row of a room.
-     * 1. A message-like local event newer than the SDK latest event: its time and its preview.
-     * 2. Else the SDK latest event.
-     * 3. Without an SDK latest event: the newest message-like local event, undecryptable ones included, else the newest
-     *    local event of any kind (time only). A time known earlier in this account session is kept when it is newer.
+     * The row of a room. Only a local event with a preview can give the row its text (bipe-chat/bipe#592 follow-up: a
+     * call, a deleted message or a room change never blanks the text).
+     * 1. A message-like local event with a preview, newer than the SDK latest event: its time and its preview.
+     * 2. Else the SDK latest event. When it has no preview, the row keeps the newest local preview, else the known one.
+     * 3. Without an SDK latest event: the newest message-like local event with a preview, undecryptable ones included.
+     *    Else the newest local event of any kind (time only). A time known earlier in this account session is kept when
+     *    it is newer. Without a local preview the row keeps the known one: the local events are empty while a changed
+     *    room is read again.
      */
-    fun resolve(sdk: SdkLatest?, localEvents: List<LocalEvent>, knownMs: Long?): Row {
-        val newestMessage = localEvents.filter { it.kind == Kind.MESSAGE }.maxByOrNull { it.timestampMs }
+    fun resolve(sdk: SdkLatest?, localEvents: List<LocalEvent>, known: Row?): Row {
+        val newestMessage = localEvents.filter { it.kind == Kind.MESSAGE && it.previewText != null }.maxByOrNull { it.timestampMs }
+        val text = newestMessage?.let(::row) ?: known
         if (sdk != null) {
             if (newestMessage != null && newestMessage.timestampMs > sdk.timestampMs) return row(newestMessage)
+            if (sdk.previewText == null && text?.previewText != null) {
+                return Row(sdk.timestampMs, text.previewText, text.latestIncomingMs)
+            }
             return Row(sdk.timestampMs, sdk.previewText, if (sdk.isIncoming && sdk.previewText != null) sdk.timestampMs else null)
         }
         if (newestMessage != null) {
-            if (knownMs != null && knownMs > newestMessage.timestampMs) return Row(knownMs, null, null)
-            return row(newestMessage)
+            val message = row(newestMessage)
+            return Row(maxOf(newestMessage.timestampMs, known?.timestampMs ?: 0), message.previewText, message.latestIncomingMs)
         }
-        val time = listOfNotNull(localEvents.maxOfOrNull { it.timestampMs }, knownMs).maxOrNull()
-        return Row(time, null, null)
+        val time = (localEvents.map { it.timestampMs } + listOfNotNull(known?.timestampMs)).maxOrNull()
+        return Row(time, known?.previewText, known?.latestIncomingMs)
     }
 
     private fun row(event: LocalEvent): Row =
