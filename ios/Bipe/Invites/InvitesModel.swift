@@ -39,8 +39,9 @@ final class InvitesModel: ObservableObject {
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
                 guard let self else { return }
+                // Spec invites, join toast: a pending invite can be used at any moment, so check while one is open.
                 let waiting = await self.withStore { $0.notes() }
-                if !waiting.isEmpty { await self.refresh() }
+                if !waiting.isEmpty || !self.pending.isEmpty { await self.refresh() }
             }
         }
     }
