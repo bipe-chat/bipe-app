@@ -10,7 +10,8 @@ import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import chat.bipe.app.MainActivity
-import chat.bipe.app.R
+import chat.bipe.app.common.AppTheme
+import chat.bipe.app.common.launcherIcon
 import chat.bipe.app.chatlist.ChatSummary
 
 /**
@@ -47,7 +48,7 @@ object ShareShortcuts {
                     .setShortLabel(chat.name)
                     .setLongLived(true)
                     .setRank(rank)
-                    .setIcon(IconCompat.createWithResource(context, R.mipmap.ic_launcher))
+                    .setIcon(IconCompat.createWithResource(context, AppTheme.palette.launcherIcon))
                     .setCategories(setOf(CATEGORY))
                     .setIntent(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
                     .build()

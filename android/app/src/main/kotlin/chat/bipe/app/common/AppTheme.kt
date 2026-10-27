@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import chat.bipe.app.MainActivity
 import chat.bipe.app.settings.SettingsKeys
+import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipePalette
 
 /**
@@ -62,3 +63,13 @@ object AppTheme {
 
     private fun prefs(context: Context) = context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE)
 }
+
+/** The generated launcher icon of a palette (@mipmap/bipe_app_icon_<palette>, libraries/bipe). */
+val BipePalette.launcherIcon: Int
+    get() = when (this) {
+        BipePalette.ACAI -> R.mipmap.bipe_app_icon_acai
+        BipePalette.PITANGA -> R.mipmap.bipe_app_icon_pitanga
+        BipePalette.CAJU -> R.mipmap.bipe_app_icon_caju
+        BipePalette.JABUTICABA -> R.mipmap.bipe_app_icon_jabuticaba
+        BipePalette.JENIPAPO -> R.mipmap.bipe_app_icon_jenipapo
+    }
