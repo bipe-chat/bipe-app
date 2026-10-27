@@ -4,58 +4,40 @@
 
 package chat.bipe.shared
 
-import chat.bipe.shared.generated.BipeRegistries
+import chat.bipe.shared.generated.BipeRegistries.STICKER_FAVOURITES_MAX
+import chat.bipe.shared.generated.BipeRegistries.STICKER_RECENTS_MAX
 import chat.bipe.stickers.Sticker
 import chat.bipe.stickers.StickerPack
 import chat.bipe.stickers.StickerRef
-import chat.bipe.stickers.StickerShortlist
-import com.google.common.truth.Truth.assertThat
+import chat.bipe.stickers.StickerShortlist.content
+import chat.bipe.stickers.StickerShortlist.parse
+import chat.bipe.stickers.StickerShortlist.pushRecent
+import chat.bipe.stickers.StickerShortlist.resolve
+import chat.bipe.stickers.StickerShortlist.toggleFavourite
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /** Recents and favourites (spec sticker-picker, bipe-chat/bipe#838). StickerShortlistTests.swift checks the same cases. */
 class StickerShortlistTest {
-    private fun ref(n: Int) = StickerRef("user", "st_$n")
+    private val refs = (0..999).map { StickerRef("user", "st_$it") }
 
+    /** Each row: what the rule gave, what the spec wants, and the rule's name. */
     @Test
-    fun parseKeepsOrderDropsDuplicatesAndJunk() {
-        val json = """{"stickers":[{"pack":"user","shortcode":"st_1"},{"pack":"user"},{"pack":"user","shortcode":"st_1"},{"pack":"!r:x/","shortcode":"st_2"}]}"""
-        assertThat(StickerShortlist.parse(json)).containsExactly(ref(1), StickerRef("!r:x/", "st_2")).inOrder()
-        assertThat(StickerShortlist.parse("[]")).isEmpty()
-    }
-
-    @Test
-    fun contentRoundTrips() {
-        val list = listOf(ref(2), ref(1))
-        assertThat(StickerShortlist.parse(StickerShortlist.content(list))).isEqualTo(list)
-    }
-
-    @Test
-    fun recentGoesFirstOnceAndCaps() {
-        val full = (0 until BipeRegistries.STICKER_RECENTS_MAX).map(::ref)
-        val pushed = StickerShortlist.pushRecent(ref(5), full)
-        assertThat(pushed.first()).isEqualTo(ref(5))
-        assertThat(pushed.count { it == ref(5) }).isEqualTo(1)
-        val fresh = StickerShortlist.pushRecent(ref(999), full)
-        assertThat(fresh).hasSize(BipeRegistries.STICKER_RECENTS_MAX)
-        assertThat(fresh.first()).isEqualTo(ref(999))
-        assertThat(fresh).doesNotContain(full.last())
-    }
-
-    @Test
-    fun favouriteToggleAddsFirstRemovesAndDropsOldest() {
-        assertThat(StickerShortlist.toggleFavourite(ref(1), listOf(ref(2)))).containsExactly(ref(1), ref(2)).inOrder()
-        assertThat(StickerShortlist.toggleFavourite(ref(2), listOf(ref(1), ref(2)))).containsExactly(ref(1))
-        val full = (0 until BipeRegistries.STICKER_FAVOURITES_MAX).map(::ref)
-        val added = StickerShortlist.toggleFavourite(ref(999), full)
-        assertThat(added).hasSize(BipeRegistries.STICKER_FAVOURITES_MAX)
-        assertThat(added.first()).isEqualTo(ref(999))
-        assertThat(added).doesNotContain(full.last())
-    }
-
-    @Test
-    fun resolveDropsStickersThatAreInNoPack() {
+    fun shortlistRules() {
+        val fullRecents = refs.take(STICKER_RECENTS_MAX)
+        val fullFavourites = refs.take(STICKER_FAVOURITES_MAX)
         val sticker = Sticker("user", "st_1", "mxc://x/1", "a", null, null, null, null)
-        val pack = StickerPack(StickerPack.Source.User, null, listOf(sticker))
-        assertThat(StickerShortlist.resolve(listOf(ref(3), ref(1)), listOf(pack))).containsExactly(sticker)
+        val json = """{"stickers":[{"pack":"user","shortcode":"st_1"},{"pack":"user"},{"pack":"user","shortcode":"st_1"},{"pack":"!r:x/","shortcode":"st_2"}]}"""
+        listOf(
+            Triple(parse(json), listOf(refs[1], StickerRef("!r:x/", "st_2")), "parse keeps order, drops junk and duplicates"),
+            Triple(parse("[]"), emptyList<StickerRef>(), "parse of other content"),
+            Triple(parse(content(listOf(refs[2], refs[1]))), listOf(refs[2], refs[1]), "content round trip"),
+            Triple(pushRecent(refs[5], fullRecents), listOf(refs[5]) + fullRecents.filter { it != refs[5] }, "recent goes first once"),
+            Triple(pushRecent(refs[999], fullRecents), listOf(refs[999]) + fullRecents.dropLast(1), "recents cap"),
+            Triple(toggleFavourite(refs[1], listOf(refs[2])), listOf(refs[1], refs[2]), "favourite added first"),
+            Triple(toggleFavourite(refs[2], listOf(refs[1], refs[2])), listOf(refs[1]), "favourite removed"),
+            Triple(toggleFavourite(refs[999], fullFavourites), listOf(refs[999]) + fullFavourites.dropLast(1), "oldest favourite goes"),
+            Triple(resolve(listOf(refs[3], refs[1]), listOf(StickerPack(StickerPack.Source.User, null, listOf(sticker)))), listOf(sticker), "resolve drops stickers in no pack"),
+        ).forEach { (actual, expected, rule) -> assertEquals(rule, expected, actual) }
     }
 }
