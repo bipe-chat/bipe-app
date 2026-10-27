@@ -618,6 +618,11 @@ object BipeRegistries {
         "bipechat",
     )
 
+    /** Bipe homeservers (registries/bipe-servers.json, ADR 0168). Use [chat.bipe.shared.BipeServers.isBipeUserId], never a suffix check. */
+    val bipeServers: Set<String> = setOf(
+        "bipe.net.br",
+    )
+
     /** Full Matrix user IDs of official Bipe accounts. Match exactly; names and handles are not proof. */
     val officialAccountIds: Set<String> = setOf(
         "@suporte:bipe.net.br",
@@ -846,6 +851,12 @@ object BipeRegistries {
     const val MAPS_MAX_ZOOM = 18
     const val MAPS_MAX_STATIC_SIZE = 1024
     const val MAPS_COORDINATE_DECIMALS = 6
+    /** Live location (MSC3489, bipe-chat/bipe#768; registries/maps.json live). */
+    val MAPS_LIVE_DURATIONS_MINUTES: List<Int> = listOf(15, 60, 480)
+    val MAPS_LIVE_DISTANCES_METRES: List<Int> = listOf(10, 50, 100)
+    const val MAPS_LIVE_DEFAULT_DISTANCE_METRES = 50
+    const val MAPS_LIVE_MIN_INTERVAL_SECONDS = 10
+    const val MAPS_LIVE_MAX_INTERVAL_SECONDS = 120
 
     /** Voice transcript paragraphs (registries/voice-transcript.json). Rule: product/screens/voice-recording.json notes. */
     const val VOICE_TRANSCRIPT_PAUSE_SECONDS: Double = 1.2

@@ -61,6 +61,7 @@ import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.ProfileFactsLines
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeServers
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeNameLookalikes
 import chat.bipe.shared.BipePhotoMatch
@@ -285,8 +286,9 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
             inviterName = inviterName,
             avatarUrl = if (info.isDm) inviter?.avatarUrl else info.avatarUrl,
             // The verified seal needs the badge check (GET /v1/badges), which comes with the trust work of people and
-            // profiles (bipe-chat/bipe#568). Until then: external for another server, else unverified.
-            trust = if (inviterId.isEmpty() || server(inviterId) == server(session.userId)) {
+            // profiles (bipe-chat/bipe#568). Until then: external for a server outside bipe-servers.json (ADR 0168), else
+            // unverified.
+            trust = if (inviterId.isEmpty() || BipeServers.isBipeUserId(inviterId)) {
                 ChatRequestSummary.Trust.UNVERIFIED
             } else {
                 ChatRequestSummary.Trust.EXTERNAL
@@ -295,8 +297,6 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
             isDm = info.isDm,
         )
     }
-
-    private fun server(userId: String) = userId.substringAfter(':', "")
 
     /** Action accept: joins the room. Returns the room ID to open in chat-timeline, or null after a failure. */
     suspend fun accept(roomId: String): String? = if (run(roomId) { it.join() }) roomId else null

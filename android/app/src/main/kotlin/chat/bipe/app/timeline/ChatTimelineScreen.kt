@@ -107,6 +107,9 @@ import chat.bipe.app.media.upload.UploadPreviewScreen
 import chat.bipe.app.media.voice.MicrophoneDeniedBar
 import chat.bipe.app.media.voice.VoiceRecordingBar
 import chat.bipe.app.media.voice.VoiceMediaStore
+import chat.bipe.app.location.LiveLocationChatBar
+import chat.bipe.app.location.LocationFullScreen
+import chat.bipe.app.location.LocationSendScreen
 import chat.bipe.app.polls.PollCreateScreen
 import chat.bipe.app.polls.PollDetailScreen
 import chat.bipe.app.settings.SettingsKeys
@@ -143,6 +146,7 @@ fun ChatTimelineScreen(
         deletedOwn = stringResource(R.string.bipe_app_message_deleted_own),
         undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable),
         label = { context.getString(it) },
+        format = { id, arg -> context.getString(id, arg) },
     )
     val model = remember(session, roomId) {
         ChatTimelineModel(
@@ -153,6 +157,8 @@ fun ChatTimelineScreen(
         )
     }
     DisposableEffect(model) {
+        // Spec incoming-call: an opened chat shows its call kind again in the chat list.
+        chat.bipe.app.calls.MissedCalls.clear(session.userId, roomId)
         model.start()
         onDispose { model.close() }
     }
@@ -207,6 +213,12 @@ fun ChatTimelineScreen(
     var openPollId by rememberSaveable { mutableStateOf<String?>(null) }
     if (creatingPoll) {
         PollCreateScreen(model) { creatingPoll = false }
+        return
+    }
+    // Spec location-send, with the reply target taken when it opened.
+    var locationSend by remember { mutableStateOf<LocationSendRequest?>(null) }
+    locationSend?.let { request ->
+        LocationSendScreen(model, session, request.replyToEventId) { locationSend = null }
         return
     }
     openPollId?.let { eventId ->
@@ -302,6 +314,7 @@ fun ChatTimelineScreen(
                     }
                 }
                 OngoingCallBar(model, session, roomName)
+                LiveLocationChatBar(roomId, session.userId)
                 val sealInstitutions = people?.seals?.institutions?.collectAsState()
                 val cvmPeer = peerUserId
                 if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
@@ -468,6 +481,7 @@ fun ChatTimelineScreen(
                 upload = PickedUpload(files, model.takeReplyEventId())
             },
             onStickers = { showsStickers = true },
+            onLocation = { locationSend = LocationSendRequest(model.takeReplyEventId()) },
             onPoll = if (composer.canPoll) ({ creatingPoll = true }) else null,
             onDismiss = { attaching = false },
         )
@@ -481,7 +495,15 @@ fun ChatTimelineScreen(
     if (showsStickers) {
         StickerPicker(model.client, roomId, media, onClose = { showsStickers = false })
     }
-    viewerRowId?.let { rowId ->
+    val viewerMessage = viewerRowId?.let { id -> messages.firstOrNull { it.id == id } }
+    val viewerLocation = viewerMessage?.takeIf { it.location != null }
+    // Spec location-view: the full map of a live row; the pin follows the newest beacon while it is open.
+    val viewerLive = viewerMessage?.takeIf { it.live?.location != null }
+    if (viewerLocation != null) {
+        LocationFullScreen(viewerLocation.location!!, viewerLocation.senderName, viewerLocation.sentAt) { viewerRowId = null }
+    } else if (viewerLive != null) {
+        LocationFullScreen(viewerLive.live!!.location!!, viewerLive.senderName, viewerLive.sentAt, live = viewerLive.live) { viewerRowId = null }
+    } else viewerRowId?.let { rowId ->
         MediaViewer(
             messages = messages,
             startRowId = rowId,
@@ -491,6 +513,10 @@ fun ChatTimelineScreen(
         )
     }
 }
+
+
+/** An open location-send screen and its reply target. */
+private data class LocationSendRequest(val replyToEventId: String?)
 
 /** Spec typing-indicator sharesTyping: the presence setting (bipe_privacy_presence). On unless turned off. */
 private fun sharesTyping(context: Context): Boolean =

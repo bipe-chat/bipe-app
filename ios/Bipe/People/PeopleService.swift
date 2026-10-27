@@ -128,20 +128,14 @@ final class PeopleService: ObservableObject {
         self.session = session
         self.api = api
         self.media = media
-        let serverName = Self.serverName(of: session.userId)
-        handles = BipeHandleResolver(apiClient: api, serverName: serverName, accessToken: { session.accessToken() })
+        handles = BipeHandleResolver(apiClient: api, accessToken: { session.accessToken() })
         // The account's cross-signing master key from the SDK (UserIdentity.masterKey) binds a cnpj badge.
-        seals = BipeCompanySeals(apiClient: api, serverName: serverName, sessionUserID: session.userId) { userId in
+        seals = BipeCompanySeals(apiClient: api, sessionUserID: session.userId) { userId in
             try await session.client.encryption().userIdentity(userId: userId, fallbackToServer: true)?.masterKey()
         }
-        brandMarks = BipeBrandMarks(apiClient: api, serverName: serverName, sessionUserID: session.userId) { userId in
+        brandMarks = BipeBrandMarks(apiClient: api, sessionUserID: session.userId) { userId in
             try await session.client.encryption().userIdentity(userId: userId, fallbackToServer: true)?.masterKey()
         }
-    }
-
-    /// The server part of a Matrix ID: `bipe.net.br` in `@k7q2m9x4tp:bipe.net.br`.
-    static func serverName(of userId: String) -> String {
-        userId.split(separator: ":", maxSplits: 1).dropFirst().first.map(String.init) ?? ""
     }
 
     deinit {

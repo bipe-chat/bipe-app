@@ -9,6 +9,8 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.shared.calls.BipeCall
 import chat.bipe.shared.calls.BipeCallMember
 import chat.bipe.shared.calls.BipeCallOpenId
+import chat.bipe.shared.calls.BipeCallRing
+import org.matrix.rustcomponents.sdk.CallDeclineListener
 import com.twilio.audioswitch.AudioDevice
 import io.livekit.android.LiveKit
 import io.livekit.android.RoomOptions
@@ -56,6 +58,9 @@ data class CallTile(
     val track: VideoTrack?,
 )
 
+/** Who a new call rings (spec call start): the other person of a DM, or a notification to a group. */
+data class CallRingTarget(val isDm: Boolean, val peerUserId: String?)
+
 /** State of spec call. */
 data class CallUi(
     val phase: CallSession.Phase = CallSession.Phase.CONNECTING,
@@ -81,8 +86,10 @@ class CallSession(
     val roomName: String,
     private val focusUrl: String,
     val video: Boolean,
+    /** Who to ring when the room has no call yet; null when answering a ring. */
+    private val ringTarget: CallRingTarget? = null,
 ) {
-    enum class Phase { CONNECTING, CALLING, CONNECTED, RECONNECTING, ENDED, FAILED }
+    enum class Phase { CONNECTING, CALLING, CONNECTED, RECONNECTING, DECLINED, NO_ANSWER, ENDED, FAILED }
 
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -105,6 +112,9 @@ class CallSession(
     private var joined = false
     private var leaving = false
     private var stateSeen = false
+    private var reportedActive = false
+    private var declineHandle: org.matrix.rustcomponents.sdk.TaskHandle? = null
+    private var noAnswerJob: Job? = null
     /** Called once the call is over, so CallCenter can drop it. */
     var onFinished: (() -> Unit)? = null
 
@@ -134,7 +144,7 @@ class CallSession(
     }
 
     private suspend fun join(withCamera: Boolean) {
-        val widget = CallWidget(userId, deviceId, scope) { receive(it) }
+        val widget = CallWidget(userId, deviceId, scope, listOf(BipeCallRing.EVENT_TYPE), listOf(BipeCallRing.DECLINE_EVENT_TYPE)) { receive(it) }
         this.widget = widget
         widget.start(room)
         widget.ready()
@@ -145,9 +155,11 @@ class CallSession(
         val delayed = widget.sendEvent(BipeCall.MEMBER_EVENT_TYPE, JsonObject(emptyMap()), ownStateKey, BipeCall.LEAVE_DELAY_MS)
         delayId = delayed.text("delay_id")
         startRestarting()
-        widget.sendEvent(BipeCall.MEMBER_EVENT_TYPE,
+        val membership = widget.sendEvent(BipeCall.MEMBER_EVENT_TYPE,
             BipeCall.membershipContent(deviceId, roomId, focusUrl, System.currentTimeMillis(), video), ownStateKey)
         joined = true
+        val membershipId = membership.text("event_id")
+        if (members.keys.all { it == ownStateKey } && membershipId != null) ring(membershipId)
 
         ownKey = randomKey()
         keys.setRawKey(ownIdentity, BipeCall.OWN_KEY_INDEX, ownKey)
@@ -169,6 +181,35 @@ class CallSession(
         _ui.update { it.copy(connectedAt = System.currentTimeMillis()) }
         refresh()
     }
+
+    /** Spec call start: the ring event (MSC4075), the decline watch and the no-answer timer. */
+    private suspend fun ring(membershipId: String) {
+        val target = ringTarget ?: return
+        val widget = widget ?: return
+        val content = BipeCallRing.content(if (target.isDm) "ring" else "notification", System.currentTimeMillis(), membershipId,
+            if (target.isDm) listOfNotNull(target.peerUserId) else emptyList(), video)
+        val eventId = runCatching { widget.sendEvent(BipeCallRing.EVENT_TYPE, content) }.getOrNull()?.text("event_id") ?: return
+        if (target.isDm) {
+            declineHandle = runCatching {
+                room.subscribeToCallDeclineEvents(eventId, object : CallDeclineListener {
+                    override fun call(declinerUserId: String) {
+                        scope.launch { declined(declinerUserId) }
+                    }
+                })
+            }.getOrNull()
+        }
+        noAnswerJob = scope.launch {
+            delay(BipeCallRing.LIFETIME_MS)
+            if (otherMembers().isEmpty()) finish(failed = false, final = Phase.NO_ANSWER)
+        }
+    }
+
+    private suspend fun declined(userId: String) {
+        if (userId == this.userId || otherMembers().isNotEmpty()) return
+        finish(failed = false, final = Phase.DECLINED)
+    }
+
+    private fun otherMembers(): List<BipeCallMember> = members.filterKeys { it != ownStateKey }.values.toList()
 
     private suspend fun token(sfu: String): Pair<String, String> {
         val openId = session.client.requestOpenidToken()
@@ -253,10 +294,13 @@ class CallSession(
         scope.launch { finish(failed = false) }
     }
 
-    private suspend fun finish(failed: Boolean) {
+    private suspend fun finish(failed: Boolean, final: Phase? = null) {
         if (leaving) return
         leaving = true
         restartJob?.cancel()
+        noAnswerJob?.cancel()
+        declineHandle?.cancel()
+        declineHandle = null
         media?.let {
             it.disconnect()
             it.release()
@@ -269,7 +313,8 @@ class CallSession(
         }
         widget = null
         CallService.stop(appContext)
-        if (!_ui.value.microphoneDenied) _ui.update { it.copy(phase = if (failed) Phase.FAILED else Phase.ENDED) }
+        TelecomCalls.end()
+        if (!_ui.value.microphoneDenied) _ui.update { it.copy(phase = final ?: if (failed) Phase.FAILED else Phase.ENDED) }
         if (!failed) {
             delay(2_000)
             onFinished?.invoke()
@@ -376,6 +421,10 @@ class CallSession(
             )
         }
         val local = if (_ui.value.cameraOn) media?.localParticipant?.getTrackPublication(Track.Source.CAMERA)?.track as? VideoTrack else null
+        if (others.isNotEmpty() && !reportedActive && _ui.value.connectedAt != null) {
+            reportedActive = true
+            TelecomCalls.active()
+        }
         _ui.update { state ->
             val phase = when {
                 leaving || state.connectedAt == null || state.phase == Phase.RECONNECTING && stillReconnecting() -> state.phase

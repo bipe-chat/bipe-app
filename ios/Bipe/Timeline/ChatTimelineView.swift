@@ -26,6 +26,8 @@ struct ChatTimelineView: View {
     @State private var attaching = false
     @State private var upload: PickedUpload?
     @State private var showsStickers = false
+    /// Spec location-send, with the reply target taken when it opened.
+    @State private var locationSend: LocationSendRequest?
     private let media: MediaLoader
     /// Opens the chat's info: person-profile for a DM.
     private let openInfo: (() -> Void)?
@@ -47,6 +49,7 @@ struct ChatTimelineView: View {
     var body: some View {
         VStack(spacing: 0) {
             OngoingCallBar(model: model, session: session)
+            LiveLocationChatBar(roomId: roomId, userId: session.userId)
             if model.isDm, let people, let peer = model.peerUserId {
                 CvmStopOrderCard(seals: people.seals, userId: peer)
             }
@@ -82,7 +85,11 @@ struct ChatTimelineView: View {
         .attachmentPicker(isPresented: $attaching,
                           onPicked: { urls in upload = PickedUpload(urls: urls, replyToEventId: model.takeReplyEventId()) },
                           onStickers: { showsStickers = true },
+                          onLocation: { locationSend = LocationSendRequest(replyToEventId: model.takeReplyEventId()) },
                           onPoll: model.canPoll ? { creatingPoll = true } : nil)
+        .fullScreenCover(item: $locationSend) { request in
+            LocationSendView(timeline: model, session: session, replyToEventId: request.replyToEventId, close: { locationSend = nil })
+        }
         .fullScreenCover(item: $upload) { upload in
             if let timeline = model.timeline {
                 UploadPreviewView(model: UploadPreviewModel(urls: upload.urls, client: model.client, timeline: timeline,
@@ -159,7 +166,17 @@ struct ChatTimelineView: View {
         }
         .fullScreenCover(isPresented: Binding(get: { viewerRowId != nil }, set: { if !$0 { viewerRowId = nil } })) {
             if let viewerRowId {
-                MediaViewer(model: model, loader: media, close: { self.viewerRowId = nil }, rowId: viewerRowId)
+                if let row = model.row(viewerRowId), let message = row.message, let location = message.location {
+                    LocationFullView(location: location, senderName: message.senderName, sentAt: message.sentAt,
+                                     close: { self.viewerRowId = nil })
+                } else if let row = model.row(viewerRowId), let message = row.message, let live = message.live,
+                          let location = live.location {
+                    // Spec location-view: the pin follows the newest beacon while the full map is open.
+                    LocationFullView(location: location, senderName: message.senderName, sentAt: message.sentAt, live: live,
+                                     close: { self.viewerRowId = nil })
+                } else {
+                    MediaViewer(model: model, loader: media, close: { self.viewerRowId = nil }, rowId: viewerRowId)
+                }
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -198,7 +215,7 @@ struct ChatTimelineView: View {
             Text(BipeStrings.appMessageDeleteBody)
         }
         // Spec notification-service: an open chat has no notifications.
-        .onAppear { model.resumeMenuActions(); NotificationActions.shared.chatOpened(BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)) }
+        .onAppear { model.resumeMenuActions(); MissedCalls.clear(accountUserId: session.userId, roomId: model.roomId); NotificationActions.shared.chatOpened(BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)) }
         .onDisappear {
             let target = BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)
             if NotificationActions.shared.visibleRoom == target { NotificationActions.shared.chatOpened(nil) }
@@ -397,6 +414,12 @@ private struct PollSheetId: Identifiable {
 private struct PickedUpload: Identifiable {
     let id = UUID()
     let urls: [URL]
+    let replyToEventId: String?
+}
+
+/// An open location-send screen and its reply target.
+private struct LocationSendRequest: Identifiable {
+    let id = UUID()
     let replyToEventId: String?
 }
 

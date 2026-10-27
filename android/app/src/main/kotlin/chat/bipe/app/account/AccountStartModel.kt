@@ -329,6 +329,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         val session = _sessions.value.firstOrNull { it.userId == userId } ?: return
         _userId.value = userId
         accountList.current = userId
+        // Spec location-send notes, end: a switch to another account stops the live location shares.
+        chat.bipe.app.location.LiveLocationCenter.accountChanged(userId)
         // Spec push-registration: this phone's pusher follows the current account.
         (context.applicationContext as BipeApplication).push.attach(session)
     }
@@ -368,6 +370,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             _sessions.value = _sessions.value.filter { it !== current }
             val app = context.applicationContext as BipeApplication
             app.notifications.detach(current.userId)
+            // Spec location-send notes, end: sign-out stops this account's live location shares.
+            chat.bipe.app.location.LiveLocationCenter.stopAll(current.userId)
             if (app.roomToOpen.value?.accountUserId == current.userId) app.roomToOpen.value = null
             if (app.accountToOpen.value == current.userId) app.accountToOpen.value = null
             // The pusher still goes before the SDK session ends.
@@ -447,6 +451,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         val order = accountList.order
         watchAuthErrors(session)
         scope.launch { PhoneReport.report(context, session, api) }
+        // Spec location-send notes, end: shares that a closed app left for this account stop now.
+        scope.launch { chat.bipe.app.location.LiveLocationCenter.cleanUp(context, session) }
         _sessions.value = (_sessions.value + session).sortedBy { order.indexOf(it.userId).let { i -> if (i < 0) Int.MAX_VALUE else i } }
     }
 

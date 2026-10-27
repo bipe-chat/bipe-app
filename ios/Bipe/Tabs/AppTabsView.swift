@@ -19,9 +19,20 @@ struct AppTabsView: View {
     /// invite-signed-in: a bipe.chat/convite link opened on this signed-in phone.
     @State private var invitedCode: InviteCode?
     @State private var newAccountStart: SignupStart?
+    /// Spec encryption-status: one model for the account. The chat list banner, the undecryptable message help and
+    /// the oldMessages settings row all open its one sheet, presented here (bipe-chat/bipe#793).
+    @StateObject private var encryption: EncryptionStatusModel
     private struct InviteCode: Identifiable {
         let code: String
         var id: String { code }
+    }
+
+    init(model: AppTabsModel, session: AccountSession, api: BipeAPIClient, initialRoomId: String?) {
+        self.model = model
+        self.session = session
+        self.api = api
+        self.initialRoomId = initialRoomId
+        _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: session))
     }
 
     private static var searchRole: TabRole {
@@ -36,7 +47,7 @@ struct AppTabsView: View {
         TabView(selection: Binding(get: { model.selectedTab }, set: { model.selectTab($0) })) {
             Tab(value: AppTabsModel.Tab.conversas) {
                 ChatListView(model: chatList, scope: model.currentIsCompany ? .todas : .conversas, api: api,
-                             initialRoomId: initialRoomId)
+                             encryption: encryption, initialRoomId: initialRoomId)
             } label: {
                 Label(BipeStrings.tabChats, systemImage: "bubble.left.and.bubble.right")
             }
@@ -55,7 +66,7 @@ struct AppTabsView: View {
                 }
             } else {
                 Tab(value: AppTabsModel.Tab.grupos) {
-                    ChatListView(model: chatList, scope: .grupos, api: api)
+                    ChatListView(model: chatList, scope: .grupos, api: api, encryption: encryption)
                 } label: {
                     Label(BipeStrings.tabGroups, systemImage: "person.3")
                 }
@@ -77,7 +88,14 @@ struct AppTabsView: View {
             }
         }
         .environmentObject(model)
+        .environment(\.openHistoryHelp, encryption.openSheet)
+        .environment(\.encryptionStatus, encryption)
+        .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
+            EncryptionSheet(route: route, model: encryption, session: session)
+        }
+        .task { await encryption.observe() }
         .modifier(CallScreenCover())
+        .modifier(IncomingCallCover(session: session))
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
                                    menu: { AccountMenu.make(model: model) { showsNewAccount = true } },
@@ -87,6 +105,10 @@ struct AppTabsView: View {
                                    showsSwitchAction: model.accounts.count > 1))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
+        .shareToChat(chatList: chatList, openChat: { roomId in
+            model.selectTab(.conversas)
+            TabsLinks.shared.link = .chat(roomId)
+        })
         .modifier(InviteJoinNotice(model: model.invites(for: session)))
         .sheet(isPresented: $showsNewAccount, onDismiss: { newAccountStart = nil }) {
             AccountNewView(tabs: model, session: session, api: api, preset: newAccountStart) { showsNewAccount = false }

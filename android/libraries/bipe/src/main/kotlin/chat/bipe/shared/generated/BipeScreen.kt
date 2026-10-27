@@ -172,6 +172,9 @@ enum class BipeScreen(val id: String) {
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
+    /** Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json */
+    INCOMING_CALL("incoming-call"),
+
     /** Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
     INVITE_NOTE("invite-note"),
 
@@ -204,6 +207,9 @@ enum class BipeScreen(val id: String) {
 
     /** Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json */
     LINKED_DEVICES("linked-devices"),
+
+    /** My live location share (flow chat). Spec: bipe-shared/product/screens/live-location-banner.json */
+    LIVE_LOCATION_BANNER("live-location-banner"),
 
     /** Send location (flow chat). Spec: bipe-shared/product/screens/location-send.json */
     LOCATION_SEND("location-send"),

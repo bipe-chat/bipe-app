@@ -64,6 +64,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.location.TimelineLiveLocationRow
+import chat.bipe.app.location.TimelineLocationRow
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeMotion
@@ -122,7 +124,7 @@ fun TimelineRowItem(
         TimelineRow.Kind.MESSAGE -> {
             val message = row.message ?: return
             val details = row.details ?: return
-            if (institution != null && !message.isOwn && message.media == null && message.voice == null) {
+            if (institution != null && !message.isOwn && message.media == null && message.voice == null && message.location == null && message.live == null) {
                 var menu by remember(model, row.id) { mutableStateOf(false) }
                 val menuLabel = stringResource(R.string.bipe_message_actions)
                 Column(Modifier.semantics { customActions = listOf(CustomAccessibilityAction(menuLabel) { menu = true; true }) }) {
@@ -134,7 +136,13 @@ fun TimelineRowItem(
             MessageBubbleRow(row, message, details, isDm, isHighlighted, model, media, onLongPress) {
                 val mediaMessage = message.media
                 val voice = message.voice
+                val location = message.location
+                val live = message.live
                 when {
+                    // Spec location-view, live row: the tap opens the full map once a beacon came.
+                    live != null -> TimelineLiveLocationRow(live, onOpenFull = { onOpenViewer(row.id) })
+                    // Spec location-view: the tap opens the full map (ChatTimelineScreen shows it for a location row).
+                    location != null -> TimelineLocationRow(location, onOpenFull = { onOpenViewer(row.id) })
                     mediaMessage != null -> TimelineMediaRow(
                         message = message,
                         media = mediaMessage,
@@ -153,7 +161,11 @@ fun TimelineRowItem(
                         voiceMedia = model.voiceMedia,
                         hasScamWarning = details.scamWarning != null,
                     )
-                    else -> Text(message.body.orEmpty(), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                    else -> Text(
+                        if (message.isEmote) "* ${message.senderName} ${message.body.orEmpty()}" else message.body.orEmpty(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = colors.inkPrimary,
+                    )
                 }
             }
         }
@@ -209,6 +221,7 @@ fun TimelineRowItem(
         }
         TimelineRow.Kind.NOT_ENCRYPTED -> SystemLine(stringResource(R.string.bipe_app_timeline_not_encrypted))
         TimelineRow.Kind.CHAT_START -> SystemLine(stringResource(R.string.bipe_app_timeline_start))
+        TimelineRow.Kind.CALL -> row.callText?.let { SystemLine(it) }
     }
 }
 

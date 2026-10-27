@@ -166,6 +166,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
+    /// Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json
+    case incomingCall = "incoming-call"
+
     /// Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json
     case inviteNote = "invite-note"
 
@@ -198,6 +201,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json
     case linkedDevices = "linked-devices"
+
+    /// My live location share (flow chat). Spec: bipe-shared/product/screens/live-location-banner.json
+    case liveLocationBanner = "live-location-banner"
 
     /// Send location (flow chat). Spec: bipe-shared/product/screens/location-send.json
     case locationSend = "location-send"

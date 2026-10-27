@@ -45,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.location.MapPin
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -63,6 +64,8 @@ import java.io.File
 fun AttachmentPicker(
     onPicked: (List<Pair<File, String?>>) -> Unit,
     onStickers: () -> Unit,
+    /** Action location: opens location-send. */
+    onLocation: () -> Unit,
     /** Action poll: opens poll-create. null hides the row (canPoll false). */
     onPoll: (() -> Unit)?,
     onDismiss: () -> Unit,
@@ -104,7 +107,7 @@ fun AttachmentPicker(
                 color = colors.inkPrimary,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
-            // Order of rows: photos and videos, camera, file, sticker, poll (spec attachment-picker notes).
+            // Order of rows: photos and videos, camera, file, location, sticker, poll (spec attachment-picker notes).
             PickerRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_app_attach_photos)) {
                 photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
             }
@@ -127,6 +130,11 @@ fun AttachmentPicker(
             PickerRow(PhosphorIcon.FILE, stringResource(R.string.bipe_app_attach_file)) {
                 file.launch(arrayOf("*/*"))
             }
+            // Phosphor has no pin in tools/phosphor.json: the row draws the map pin.
+            PickerRow(stringResource(R.string.bipe_app_attach_location), icon = { MapPin() }) {
+                onDismiss()
+                onLocation()
+            }
             PickerRow(PhosphorIcon.STICKER, stringResource(R.string.bipe_action_stickers)) {
                 onDismiss()
                 onStickers()
@@ -144,13 +152,21 @@ fun AttachmentPicker(
 @Composable
 private fun PickerRow(icon: PhosphorIcon, title: String, onClick: () -> Unit) {
     val colors = BipeTheme.colors
+    PickerRow(title, icon = {
+        Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(22.dp))
+    }, onClick = onClick)
+}
+
+@Composable
+private fun PickerRow(title: String, icon: @Composable () -> Unit, onClick: () -> Unit) {
+    val colors = BipeTheme.colors
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(modifier = Modifier.size(40.dp).background(colors.accentWash, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(22.dp))
+            icon()
         }
         Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
     }

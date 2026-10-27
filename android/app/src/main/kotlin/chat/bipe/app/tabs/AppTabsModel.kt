@@ -172,6 +172,8 @@ class AppTabsModel(
             inviteModels.remove(gone)?.close()
         }
         sessions.forEach { chatList(it) }
+        // Spec incoming-call: ring events of every signed-in account while the app syncs.
+        sessions.forEach { chat.bipe.app.calls.IncomingCalls.watch(start.appContext, it) }
         refresh()
     }
 

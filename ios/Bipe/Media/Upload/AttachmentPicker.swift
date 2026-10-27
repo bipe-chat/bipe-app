@@ -18,6 +18,8 @@ struct AttachmentPicker: ViewModifier {
     let onPicked: ([URL]) -> Void
     /// Action sticker: opens sticker-picker.
     let onStickers: () -> Void
+    /// Action location: opens location-send.
+    let onLocation: () -> Void
     /// Action poll: opens poll-create. nil hides the row (canPoll false).
     let onPoll: (() -> Void)?
 
@@ -38,7 +40,7 @@ struct AttachmentPicker: ViewModifier {
         content
             .sheet(isPresented: $isPresented) {
                 sheet
-                    .presentationDetents([.height(380)])
+                    .presentationDetents([.height(436)])
                     .presentationDragIndicator(.visible)
             }
             .photosPicker(isPresented: $showsPhotos,
@@ -76,7 +78,7 @@ struct AttachmentPicker: ViewModifier {
         permissionProblem == .camera ? BipeStrings.cameraPermissionBody : BipeStrings.appAttachPhotosPermission
     }
 
-    /// Order of rows: photos and videos, camera, file, sticker (spec attachment-picker notes).
+    /// Order of rows: photos and videos, camera, file, location, sticker, poll (spec attachment-picker notes).
     private var sheet: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(BipeStrings.appComposerAttach)
@@ -97,6 +99,10 @@ struct AttachmentPicker: ViewModifier {
                 isPresented = false
                 showsFiles = true
             }
+            row(BipeStrings.appAttachLocation, icon: { MapPin().scaleEffect(0.8) }) {
+                isPresented = false
+                onLocation()
+            }
             row(.sticker, BipeStrings.actionStickers) {
                 isPresented = false
                 onStickers()
@@ -115,12 +121,19 @@ struct AttachmentPicker: ViewModifier {
     }
 
     private func row(_ icon: PhosphorIcon, _ title: String, action: @escaping () -> Void) -> some View {
+        row(title, icon: {
+            icon.image
+                .resizable()
+                .frame(width: 22, height: 22)
+                .foregroundStyle(BipeColor.accentInk)
+        }, action: action)
+    }
+
+    /// A row with any icon view; the location row draws the map pin (Phosphor has no pin in tools/phosphor.json).
+    private func row<Icon: View>(_ title: String, @ViewBuilder icon: () -> Icon, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                icon.image
-                    .resizable()
-                    .frame(width: 22, height: 22)
-                    .foregroundStyle(BipeColor.accentInk)
+                icon()
                     .frame(width: 40, height: 40)
                     .background(Circle().fill(BipeColor.accentWash))
                     .accessibilityHidden(true)
@@ -233,7 +246,8 @@ private struct CameraPicker: UIViewControllerRepresentable {
 
 extension View {
     func attachmentPicker(isPresented: Binding<Bool>, onPicked: @escaping ([URL]) -> Void, onStickers: @escaping () -> Void,
-                          onPoll: (() -> Void)?) -> some View {
-        modifier(AttachmentPicker(isPresented: isPresented, onPicked: onPicked, onStickers: onStickers, onPoll: onPoll))
+                          onLocation: @escaping () -> Void, onPoll: (() -> Void)?) -> some View {
+        modifier(AttachmentPicker(isPresented: isPresented, onPicked: onPicked, onStickers: onStickers,
+                                  onLocation: onLocation, onPoll: onPoll))
     }
 }

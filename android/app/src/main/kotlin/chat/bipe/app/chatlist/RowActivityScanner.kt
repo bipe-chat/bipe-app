@@ -6,6 +6,7 @@ package chat.bipe.app.chatlist
 
 import android.os.SystemClock
 import chat.bipe.app.common.applyDiff
+import chat.bipe.app.common.displayName
 import chat.bipe.app.common.toVectorDiff
 import chat.bipe.shared.BipeRowActivity
 import kotlinx.coroutines.CancellationException
@@ -29,8 +30,8 @@ import org.matrix.rustcomponents.sdk.TimelineListener
 class RowActivityScanner(
     private val client: Client,
     private val scope: CoroutineScope,
-    /** The chat-list preview of an event (previewText), null when the row shows no text for it. */
-    private val preview: (TimelineItemContent) -> String?,
+    /** The row text of an event (content, isOwn, sender name, roomId, isDm), null when the row shows no text for it. */
+    private val preview: (TimelineItemContent, Boolean, String, String, Boolean) -> String?,
     private val onResults: () -> Unit,
 ) {
     private val events = mutableMapOf<String, List<BipeRowActivity.LocalEvent>>()
@@ -107,6 +108,7 @@ class RowActivityScanner(
      * Timeline.add_listener). No pagination, no network.
      */
     private suspend fun read(room: Room): Read = try {
+        val isDm = runCatching { room.roomInfo().isDm }.getOrDefault(false)
         room.timeline().use { timeline ->
             val items = mutableListOf<TimelineItem>()
             val handle = timeline.addListener(object : TimelineListener {
@@ -118,9 +120,18 @@ class RowActivityScanner(
             synchronized(items) {
                 val events = items.mapNotNull { it.asEvent() }
                 val local = events.map { event ->
-                    // Message-like events, undecryptable ones included: the time of an encrypted event is not encrypted.
-                    val kind = if (event.content is TimelineItemContent.MsgLike) BipeRowActivity.Kind.MESSAGE else BipeRowActivity.Kind.OTHER
-                    BipeRowActivity.LocalEvent(event.timestamp.toLong(), kind, preview(event.content), event.isOwn)
+                    val text = preview(event.content, event.isOwn, event.senderProfile.displayName(event.sender), room.id(), isDm)
+                    // Message-like events, undecryptable ones included: the time of an encrypted event is not encrypted. A
+                    // call is a message too: the SDK takes it as a latest event, and the row shows it (spec incoming-call). A
+                    // join, leave or room creation with its line counts as a message: the row shows it when it is the newest.
+                    val kind = when (event.content) {
+                        is TimelineItemContent.MsgLike, is TimelineItemContent.RtcNotification, is TimelineItemContent.CallInvite ->
+                            BipeRowActivity.Kind.MESSAGE
+                        is TimelineItemContent.RoomMembership, is TimelineItemContent.State ->
+                            if (text == null) BipeRowActivity.Kind.OTHER else BipeRowActivity.Kind.MESSAGE
+                        else -> BipeRowActivity.Kind.OTHER
+                    }
+                    BipeRowActivity.LocalEvent(event.timestamp.toLong(), kind, text, event.isOwn)
                 }
                 Read(local, events.any { (it.content as? TimelineItemContent.MsgLike)?.content?.kind is MsgLikeKind.UnableToDecrypt })
             }

@@ -66,8 +66,8 @@ final class ChatListModel: ObservableObject {
     private var extraRoomIds: Set<String> = []
     private var rooms: [Room] = []
     private let subscriptionOwner = UUID().uuidString
-    /// One model belongs to one account session. Never replace a known time with an absent preview.
-    private var knownActivity: [String: Date] = [:]
+    /// One model belongs to one account session. Never replace a known time or text with an absent preview.
+    private var knownRows: [String: BipeRowActivity.Row] = [:]
     /// Rows take a newer message of the local timeline as their date and text (bipe-chat/bipe#592).
     private var rowActivity: RowActivityScanner?
     private var listLoaded = false
@@ -89,7 +89,7 @@ final class ChatListModel: ObservableObject {
         clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in
             self?.refreshSummaries()
         }
-        rowActivity = RowActivityScanner(client: session.client) { [weak self] in self?.refreshSummaries() }
+        rowActivity = RowActivityScanner(client: session.client, ownUserId: session.userId) { [weak self] in self?.refreshSummaries() }
     }
 
     /// The chats of one scope, in room list order.
@@ -257,11 +257,10 @@ final class ChatListModel: ObservableObject {
                                           isIncoming: summary.latestIncomingMs != nil)
             }
             let local = rowActivity?.localEvents(roomId: summary.roomId) ?? []
-            let known = knownActivity[summary.roomId].map(Self.milliseconds)
-            let row = BipeRowActivity.resolve(sdk: sdk, localEvents: local, knownMs: known)
+            let row = BipeRowActivity.resolve(sdk: sdk, localEvents: local, known: knownRows[summary.roomId])
             if let ms = row.timestampMs {
                 summary.lastActivity = Date(milliseconds: ms)
-                knownActivity[summary.roomId] = summary.lastActivity
+                knownRows[summary.roomId] = row
             }
             summary.lastMessage = row.previewText
             summary.latestIncomingMs = row.latestIncomingMs.map { Int64(clamping: $0) }
@@ -273,18 +272,59 @@ final class ChatListModel: ObservableObject {
         UInt64(max(0, (date.timeIntervalSince1970 * 1000).rounded()))
     }
 
+    /// The row text of an event (spec chat-list, row text): "missed call" for an incoming call this account missed, a
+    /// line for a join, leave or room creation, else the preview, with "You: " before an own one.
+    nonisolated static func rowPreview(of content: TimelineItemContent, isOwn: Bool, senderName: String, roomId: String,
+                                       isDm: Bool, ownUserId: String) -> String? {
+        if case .rtcNotification = content, !isOwn, MissedCalls.isMissed(accountUserId: ownUserId, roomId: roomId) {
+            return BipeStrings.callMissed
+        }
+        if let line = membershipLine(of: content, senderName: senderName, isOwn: isOwn, isDm: isDm, ownUserId: ownUserId) {
+            return line
+        }
+        guard let preview = content.previewText else { return nil }
+        return isOwn ? BipeStrings.chatListOwnPreview(preview) : preview
+    }
+
+    /// A join (an accepted invite or knock included), a leave or the room creation. nil for other events.
+    private nonisolated static func membershipLine(of content: TimelineItemContent, senderName: String, isOwn: Bool,
+                                                   isDm: Bool, ownUserId: String) -> String? {
+        switch content {
+        case .roomMembership(let userId, let displayName, let change?, _):
+            let own = userId == ownUserId
+            let name = displayName.flatMap { $0.isEmpty ? nil : $0 } ?? userId
+            switch change {
+            case .joined, .invitationAccepted, .knockAccepted:
+                if isDm { return own ? BipeStrings.dmJoinedByYou : BipeStrings.dmJoined(name) }
+                return own ? BipeStrings.groupStateEventRoomJoinByYou : BipeStrings.groupStateEventRoomJoin(name)
+            case .left:
+                if isDm { return own ? BipeStrings.dmLeftByYou : BipeStrings.dmLeft(name) }
+                return own ? BipeStrings.groupStateEventRoomLeaveByYou : BipeStrings.groupStateEventRoomLeave(name)
+            default:
+                return nil
+            }
+        case .state(_, .roomCreate):
+            if isDm { return isOwn ? BipeStrings.dmCreatedByYou : BipeStrings.dmCreated(senderName) }
+            return isOwn ? BipeStrings.groupStateEventRoomCreatedByYou : BipeStrings.groupStateEventRoomCreated(senderName)
+        default:
+            return nil
+        }
+    }
+
     static func summary(of room: Room, ownUserId: String) async -> ChatSummary? {
         guard let info = try? await room.roomInfo(), info.membership == .joined, !info.isSpace else { return nil }
         var lastMessage: String?
         var lastActivity: Date?
         var latestIncomingMs: Int64?
         switch await room.latestEvent() {
-        case .remote(let timestamp, _, let isOwn, _, let content):
-            lastMessage = content.previewText
+        case .remote(let timestamp, let sender, let isOwn, let profile, let content):
+            lastMessage = rowPreview(of: content, isOwn: isOwn, senderName: profile.displayName(or: sender), roomId: info.id,
+                                     isDm: info.isDm, ownUserId: ownUserId)
             lastActivity = Date(milliseconds: timestamp)
             if !isOwn, lastMessage != nil { latestIncomingMs = Int64(clamping: timestamp) }
-        case .local(let timestamp, _, _, let content, _):
-            lastMessage = content.previewText
+        case .local(let timestamp, let sender, let profile, let content, _):
+            lastMessage = rowPreview(of: content, isOwn: true, senderName: profile.displayName(or: sender), roomId: info.id,
+                                     isDm: info.isDm, ownUserId: ownUserId)
             lastActivity = Date(milliseconds: timestamp)
         case .remoteInvite(let timestamp, _, _):
             lastActivity = Date(milliseconds: timestamp)

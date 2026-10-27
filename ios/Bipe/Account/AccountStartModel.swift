@@ -23,6 +23,10 @@ private struct AccountStartupSnapshot: Sendable {
 /// is the one used last, else the oldest on the phone.
 @MainActor
 final class AccountStartModel: ObservableObject {
+    /// One model for the app: the window shows it, and CallKit opens the accounts with it when PushKit woke the app
+    /// without a window (bipe-chat/bipe#760).
+    static let shared = AccountStartModel()
+
     enum Phase: Equatable {
         case opening
         case noAccount
@@ -39,7 +43,11 @@ final class AccountStartModel: ObservableObject {
     /// The open accounts, oldest first.
     @Published private(set) var sessions: [AccountSession] = [] {
         // accountAvailable of spec pix-check-result, for the share extension.
-        didSet { PixHandoff.accountAvailable = !sessions.isEmpty }
+        didSet {
+            PixHandoff.accountAvailable = !sessions.isEmpty
+            // Spec share-to-chat: signed out, nothing is kept.
+            if sessions.isEmpty && !oldValue.isEmpty { ShareHandoff.deleteAll() }
+        }
     }
 
     /// Spec soft-logout needsPin: the account whose token the server refused and that the hidden password cannot
@@ -170,6 +178,8 @@ final class AccountStartModel: ObservableObject {
         self.userId = userId
         AccountList.current = userId
         attachServices(session)
+        // Spec location-send notes, end: a switch to another account stops the live location shares.
+        LiveLocationCenter.shared.accountChanged(to: userId)
     }
 
     /// signup-create made the account and signed in.
@@ -210,6 +220,8 @@ final class AccountStartModel: ObservableObject {
         NotificationActions.shared.detach(userId: session.userId)
         NotificationKeys.accountRoutes?.remove(userId: session.userId)
         sessions.removeAll { $0 === session }
+        // Spec location-send notes, end: sign-out stops this account's live location shares.
+        await LiveLocationCenter.shared.stopAll(userId: session.userId)
         if attachedUserId == session.userId {
             // Spec push-registration, action signOut: the pusher goes before the session ends.
             attachedUserId = nil
@@ -242,6 +254,7 @@ final class AccountStartModel: ObservableObject {
         NotificationActions.shared.attach(session)
         Task { await KeychainMove.report(session, api: api) }
         Task { await PhoneReport.report(session, api: api) }
+        Task { await LiveLocationCenter.shared.cleanUp(session) }
         sessions.append(session)
         sessions.sort { (order.firstIndex(of: $0.userId) ?? .max) < (order.firstIndex(of: $1.userId) ?? .max) }
     }

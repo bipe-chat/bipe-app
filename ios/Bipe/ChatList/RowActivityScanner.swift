@@ -11,6 +11,7 @@ import MatrixRustSDK
 @MainActor
 final class RowActivityScanner {
     private let client: Client
+    private let ownUserId: String
     private let onResults: @MainActor () -> Void
     private var events: [String: [BipeRowActivity.LocalEvent]] = [:]
     private var scannedAt: [String: ContinuousClock.Instant] = [:]
@@ -25,8 +26,9 @@ final class RowActivityScanner {
     /// An undecryptable message whose key has not come after this many reads stays as it is until the room changes.
     private static let maxUndecryptableReads = 10
 
-    init(client: Client, onResults: @escaping @MainActor () -> Void) {
+    init(client: Client, ownUserId: String, onResults: @escaping @MainActor () -> Void) {
         self.client = client
+        self.ownUserId = ownUserId
         self.onResults = onResults
     }
 
@@ -61,7 +63,7 @@ final class RowActivityScanner {
             while let self, !Task.isCancelled, !self.queue.isEmpty {
                 let roomId = self.queue.removeFirst()
                 var found: (events: [BipeRowActivity.LocalEvent], undecryptable: Bool) = ([], false)
-                if let room = try? self.client.getRoom(roomId: roomId) { found = await Self.read(room) }
+                if let room = try? self.client.getRoom(roomId: roomId) { found = await Self.read(room, ownUserId: self.ownUserId) }
                 guard !Task.isCancelled else { return }
                 self.events[roomId] = found.events
                 let reads = found.undecryptable ? self.undecryptableReads[roomId, default: 0] + 1 : 0
@@ -97,7 +99,7 @@ final class RowActivityScanner {
 
     /// The SDK sends the cached timeline items as the first update, before addListener returns (matrix-sdk-ffi
     /// Timeline.add_listener). No pagination, no network.
-    private static func read(_ room: Room) async -> (events: [BipeRowActivity.LocalEvent], undecryptable: Bool) {
+    private static func read(_ room: Room, ownUserId: String) async -> (events: [BipeRowActivity.LocalEvent], undecryptable: Bool) {
         guard let timeline = try? await room.timeline() else { return ([], false) }
         let stream = TimelineDiffStream()
         let handle = await timeline.addListener(listener: stream)
@@ -108,9 +110,14 @@ final class RowActivityScanner {
             break
         }
         let events = items.compactMap { $0.asEvent() }
+        let roomId = room.id()
+        let isDm = (try? await room.roomInfo())?.isDm ?? false
         let local = events.map { event in
-            BipeRowActivity.LocalEvent(timestampMs: event.timestamp, kind: kind(of: event.content),
-                                       previewText: event.content.previewText, isOwn: event.isOwn)
+            let preview = ChatListModel.rowPreview(of: event.content, isOwn: event.isOwn,
+                                                   senderName: event.senderProfile.displayName(or: event.sender),
+                                                   roomId: roomId, isDm: isDm, ownUserId: ownUserId)
+            return BipeRowActivity.LocalEvent(timestampMs: event.timestamp, kind: kind(of: event.content, preview: preview),
+                                              previewText: preview, isOwn: event.isOwn)
         }
         return (local, events.contains { isUndecryptable($0.content) })
     }
@@ -120,10 +127,13 @@ final class RowActivityScanner {
         return true
     }
 
-    /// Message-like events, undecryptable ones included: the time of an encrypted event is not encrypted.
-    private static func kind(of content: TimelineItemContent) -> BipeRowActivity.Kind {
+    /// Message-like events, undecryptable ones included: the time of an encrypted event is not encrypted. A call is a
+    /// message too: the SDK takes it as a latest event, and the row shows it (spec incoming-call). A join, leave or room
+    /// creation with its line counts as a message: the row shows it when it is the newest (spec chat-list, row text).
+    private static func kind(of content: TimelineItemContent, preview: String?) -> BipeRowActivity.Kind {
         switch content {
-        case .msgLike: .message
+        case .msgLike, .rtcNotification, .callInvite: .message
+        case .roomMembership, .state: preview == nil ? .other : .message
         default: .other
         }
     }

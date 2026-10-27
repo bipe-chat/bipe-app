@@ -6,6 +6,7 @@ package chat.bipe.app.common
 
 import chat.bipe.app.media.MediaContent
 import chat.bipe.shared.R
+import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.ProfileDetails
 import org.matrix.rustcomponents.sdk.TimelineItemContent
@@ -15,14 +16,21 @@ import org.matrix.rustcomponents.sdk.TimelineItemContent
  * label resolves the media kind labels (spec timeline-media notes, voice-message notes).
  */
 fun TimelineItemContent.previewText(undecryptable: String, label: (Int) -> String): String? {
+    // Spec incoming-call: a call shows as the call kind; ChatListModel shows a missed one as missed.
+    if (this is TimelineItemContent.RtcNotification) {
+        if (activeMembers.isNotEmpty()) return label(R.string.bipe_call_ongoing)
+        return label(if (callIntent == "video") R.string.bipe_call_video else R.string.bipe_call_voice)
+    }
     val content = (this as? TimelineItemContent.MsgLike)?.content ?: return null
     return when (val kind = content.kind) {
         is MsgLikeKind.Message -> when (val media = MediaContent.of(kind.content.msgType)) {
             is MediaContent.Media -> label(media.media.kindLabel)
             is MediaContent.Voice -> if (media.voice.isVoice) label(R.string.bipe_app_media_voice) else media.voice.filename
-            null -> kind.content.body
+            // Spec location-view notes: the chat list says "Location".
+            null -> if (kind.content.msgType is MessageType.Location) label(R.string.bipe_app_location_title) else kind.content.body
         }
         is MsgLikeKind.Sticker -> label(R.string.bipe_app_media_sticker)
+        is MsgLikeKind.LiveLocation -> label(R.string.bipe_app_location_live_title)
         is MsgLikeKind.UnableToDecrypt -> undecryptable
         else -> null
     }

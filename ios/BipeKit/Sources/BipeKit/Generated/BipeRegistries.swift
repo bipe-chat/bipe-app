@@ -610,6 +610,11 @@ public enum BipeRegistries {
         "bipechat",
     ]
 
+    /// Bipe homeservers (registries/bipe-servers.json, ADR 0168). Use ``BipeServers/isBipeUserID(_:)``, never a suffix check.
+    public static let bipeServers: Set<String> = [
+        "bipe.net.br",
+    ]
+
     /// Full Matrix user IDs of official Bipe accounts. Match exactly; names and handles are not proof.
     public static let officialAccountIDs: Set<String> = [
         "@suporte:bipe.net.br",
@@ -839,6 +844,20 @@ public enum BipeRegistries {
     public static let mapsMaxZoom = 18
     public static let mapsMaxStaticSize = 1024
     public static let mapsCoordinateDecimals = 6
+    /// Live location (MSC3489, bipe-chat/bipe#768; registries/maps.json live).
+    public static let mapsLiveDurationsMinutes: [Int] = [
+        15,
+        60,
+        480,
+    ]
+    public static let mapsLiveDistancesMetres: [Int] = [
+        10,
+        50,
+        100,
+    ]
+    public static let mapsLiveDefaultDistanceMetres = 50
+    public static let mapsLiveMinIntervalSeconds = 10
+    public static let mapsLiveMaxIntervalSeconds = 120
 
     /// Voice transcript paragraphs (registries/voice-transcript.json). Rule: product/screens/voice-recording.json notes.
     public static let voiceTranscriptPauseSeconds: Double = 1.2

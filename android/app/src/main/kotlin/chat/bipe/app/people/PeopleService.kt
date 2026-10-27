@@ -83,15 +83,12 @@ class PeopleService(
     val media: MediaLoader,
     private val scope: CoroutineScope,
 ) {
-    private val serverName = session.userId.substringAfter(':', "")
-
     /** The @ of Matrix IDs (libraries/bipe, cached; [BipeHandleResolver.handles] emits on change). */
-    val handles = BipeHandleResolver(api, serverName, scope, accessToken = { session.accessToken() })
+    val handles = BipeHandleResolver(api, scope, accessToken = { session.accessToken() })
 
     /** Company seals, verified on the device against the account's master key (UserIdentity.masterKey). Fail closed. */
     val seals = BipeCompanySeals(
         apiClient = api,
-        serverName = serverName,
         scope = scope,
         masterKey = { userId -> session.client.encryption().userIdentity(userId, true)?.masterKey() },
         seen = BipeCompanySealsSeen(
@@ -103,7 +100,6 @@ class PeopleService(
     /** Brand marks for resellers (ADR 0162), verified against the same master key as the seal. Fail closed. */
     val brandMarks = BipeBrandMarks(
         apiClient = api,
-        serverName = serverName,
         scope = scope,
         masterKey = { userId -> session.client.encryption().userIdentity(userId, true)?.masterKey() },
         seen = BipeBrandMarksSeen(

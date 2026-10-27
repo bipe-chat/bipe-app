@@ -68,6 +68,10 @@
       "licence": "Apache-2.0"
     },
     {
+      "name": "androidx.core:core-telecom",
+      "licence": "Apache-2.0"
+    },
+    {
       "name": "androidx.media3:media3-common",
       "licence": "Apache-2.0"
     },

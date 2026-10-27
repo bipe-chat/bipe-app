@@ -219,7 +219,8 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
                 runCatching { controller?.startSasVerification() }.onFailure { _phase.value = Phase.FAILED }
             }
             Event.StartedSas -> Unit
-            is Event.ReceivedData -> if (!isFinished) {
+            // After match the flow waits for the other device; data that arrives again does not undo the match.
+            is Event.ReceivedData -> if (!isFinished && _phase.value != Phase.WAITING_FOR_MATCH) {
                 _symbols.value = symbols(event.data)
                 _phase.value = Phase.COMPARE
             }

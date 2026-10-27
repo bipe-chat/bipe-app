@@ -25,6 +25,12 @@ struct CallTile: Identifiable, Equatable {
     }
 }
 
+/// Who a new call rings (spec call start): the other person of a DM, or a notification to a group.
+struct CallRingTarget {
+    var isDm: Bool
+    var peerUserId: String?
+}
+
 /// Spec call (bipe-chat/bipe#758, ADR 0186): one MatrixRTC call of one room. Membership with a delayed leave
 /// (MSC4143, MSC4140), the SFU token (MSC4195), LiveKit media with a per-participant key for each device.
 @MainActor
@@ -34,6 +40,8 @@ final class CallSession: ObservableObject, Identifiable {
         case calling
         case connected
         case reconnecting
+        case declined
+        case noAnswer
         case ended
         case failed
     }
@@ -75,15 +83,24 @@ final class CallSession: ObservableObject, Identifiable {
     private var joined = false
     private var stateSeen = false
     private var leaving = false
+    private let ringTarget: CallRingTarget?
+    private var ringEventId: String?
+    private var declineHandle: TaskHandle?
+    private var noAnswerTask: Task<Void, Never>?
     /// Called once the call is over, so CallCenter can drop it.
     var onFinished: (() -> Void)?
+    /// The CallKit call (bipe-chat/bipe#760). nil: CallKit refused, and LiveKit runs the audio session itself.
+    var callKitId: UUID?
+    private var reportedConnected = false
 
     var ownStateKey: String { BipeCall.stateKey(userId: userId, deviceId: deviceId) }
     var ownIdentity: String { BipeCall.livekitIdentity(userId: userId, deviceId: deviceId) }
     /// Members after the first `maxTiles`, for the list.
     var extraMembers: [CallTile] { Array(tiles.dropFirst(Self.maxTiles)) }
 
-    init(session: AccountSession, room: MatrixRustSDK.Room, roomName: String, focusUrl: String, video: Bool) throws {
+    init(session: AccountSession, room: MatrixRustSDK.Room, roomName: String, focusUrl: String, video: Bool,
+         ring: CallRingTarget? = nil) throws {
+        ringTarget = ring
         self.session = session
         self.room = room
         roomId = room.id()
@@ -98,6 +115,7 @@ final class CallSession: ObservableObject, Identifiable {
     // MARK: Join
 
     func start() async {
+        if callKitId == nil { AudioManager.shared.audioSession.isAutomaticConfigurationEnabled = true }
         guard await AVAudioApplication.requestRecordPermission() else {
             microphoneDenied = true
             phase = .failed
@@ -116,7 +134,8 @@ final class CallSession: ObservableObject, Identifiable {
     }
 
     private func join(withCamera: Bool) async throws {
-        let widget = try CallWidget(userId: userId, deviceId: deviceId) { [weak self] incoming in
+        let widget = try CallWidget(userId: userId, deviceId: deviceId, extraSend: [BipeCallRing.eventType],
+                                    extraRead: [BipeCallRing.declineEventType]) { [weak self] incoming in
             Task { @MainActor in self?.receive(incoming) }
         }
         self.widget = widget
@@ -131,9 +150,12 @@ final class CallSession: ObservableObject, Identifiable {
         delayId = delayed["delay_id"] as? String
         startRestarting()
         let created = Int64(Date().timeIntervalSince1970 * 1000)
-        try await widget.sendEvent(type: BipeCall.memberEventType, stateKey: ownStateKey,
+        let membership = try await widget.sendEvent(type: BipeCall.memberEventType, stateKey: ownStateKey,
             content: BipeCall.membershipContent(deviceId: deviceId, roomId: roomId, focusUrl: focusUrl, createdTs: created, video: video))
         joined = true
+        if members.keys.allSatisfy({ $0 == ownStateKey }), let membershipId = membership["event_id"] as? String {
+            await ring(after: membershipId)
+        }
 
         ownKey = Self.randomKey()
         keys.setKey(keyData: ownKey, participantId: ownIdentity, index: BipeCall.ownKeyIndex)
@@ -148,6 +170,7 @@ final class CallSession: ObservableObject, Identifiable {
                                                                                    e2eeOptions: E2EEOptions(keyProvider: keys)))
         self.media = media
         try await media.connect(url: url, token: jwt)
+        if callKitId != nil, speakerOn { try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker) }
         try await media.localParticipant.setMicrophone(enabled: true)
         if withCamera {
             try await media.localParticipant.setCamera(enabled: true)
@@ -156,6 +179,34 @@ final class CallSession: ObservableObject, Identifiable {
         connectedAt = Date()
         refresh()
     }
+
+    /// Spec call start: the ring event (MSC4075), the decline watch and the no-answer timer.
+    private func ring(after membershipId: String) async {
+        guard let target = ringTarget, let widget else { return }
+        let userIds = target.isDm ? [target.peerUserId].compactMap { $0 } : []
+        let content = BipeCallRing.content(notificationType: target.isDm ? "ring" : "notification",
+            senderTs: Int64(Date().timeIntervalSince1970 * 1000), membershipEventId: membershipId, userIds: userIds, video: video)
+        guard let sent = try? await widget.sendEvent(type: BipeCallRing.eventType, content: content),
+              let eventId = sent["event_id"] as? String else { return }
+        ringEventId = eventId
+        if target.isDm {
+            declineHandle = try? room.subscribeToCallDeclineEvents(rtcNotificationEventId: eventId, listener: CallDeclines { [weak self] decliner in
+                Task { @MainActor in self?.declined(by: decliner) }
+            })
+        }
+        noAnswerTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(BipeCallRing.lifetimeMs) * 1_000_000)
+            guard !Task.isCancelled, let self, self.otherMembers.isEmpty else { return }
+            await self.finish(failed: false, final: .noAnswer)
+        }
+    }
+
+    private func declined(by userId: String) {
+        guard userId != self.userId, otherMembers.isEmpty else { return }
+        Task { await finish(failed: false, final: .declined) }
+    }
+
+    private var otherMembers: [BipeCallMember] { members.filter { $0.key != ownStateKey }.map(\.value) }
 
     private func token(sfu: String) async throws -> (String, String) {
         let openId = try await session.client.requestOpenidToken()
@@ -188,9 +239,24 @@ final class CallSession: ObservableObject, Identifiable {
     // MARK: Controls
 
     func toggleMicrophone() {
-        guard let media else { return }
-        let on = !microphoneOn
+        if let callKitId, CallKitCenter.shared.activeId == callKitId {
+            CallKitCenter.shared.requestMute(callKitId, muted: microphoneOn)
+        } else {
+            setMicrophone(on: !microphoneOn)
+        }
+    }
+
+    /// The microphone, from the app's control or from CallKit (CXSetMutedCallAction).
+    func setMicrophone(on: Bool) {
         microphoneOn = on
+        guard let media else { return }
+        Task { try? await media.localParticipant.setMicrophone(enabled: on) }
+    }
+
+    /// CallKit activated the audio session (didActivate): the microphone track starts now.
+    func audioActivated() {
+        guard let media else { return }
+        let on = microphoneOn
         Task { try? await media.localParticipant.setMicrophone(enabled: on) }
     }
 
@@ -216,17 +282,29 @@ final class CallSession: ObservableObject, Identifiable {
 
     func toggleSpeaker() {
         speakerOn.toggle()
-        AudioManager.shared.audioSession.isSpeakerOutputPreferred = speakerOn
+        if callKitId != nil {
+            try? AVAudioSession.sharedInstance().overrideOutputAudioPort(speakerOn ? .speaker : .none)
+        } else {
+            AudioManager.shared.audioSession.isSpeakerOutputPreferred = speakerOn
+        }
     }
 
     func end() {
+        // The app's end button goes through CallKit; CallKit's CXEndCallAction comes back here.
+        if let callKitId, CallKitCenter.shared.activeId == callKitId {
+            CallKitCenter.shared.requestEnd(callKitId)
+            return
+        }
         Task { await finish(failed: false) }
     }
 
-    private func finish(failed: Bool) async {
+    private func finish(failed: Bool, final: Phase? = nil) async {
         guard !leaving else { return }
         leaving = true
         restartTask?.cancel()
+        noAnswerTask?.cancel()
+        declineHandle?.cancel()
+        declineHandle = nil
         if let media {
             await media.localParticipant.unpublishAll()
             await media.disconnect()
@@ -238,7 +316,10 @@ final class CallSession: ObservableObject, Identifiable {
             await widget.close()
         }
         widget = nil
-        if !microphoneDenied { phase = failed ? .failed : .ended }
+        if let callKitId {
+            CallKitCenter.shared.reportEnded(callKitId, reason: final == .noAnswer ? .unanswered : failed ? .failed : .remoteEnded)
+        }
+        if !microphoneDenied { phase = final ?? (failed ? .failed : .ended) }
         if !failed {
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             onFinished?()
@@ -353,6 +434,10 @@ final class CallSession: ObservableObject, Identifiable {
         loadNames(for: others.map(\.userId))
         guard !leaving, connectedAt != nil, media?.connectionState != LiveKit.ConnectionState.reconnecting else { return }
         phase = others.isEmpty ? .calling : .connected
+        if !others.isEmpty, !reportedConnected, let callKitId {
+            reportedConnected = true
+            CallKitCenter.shared.reportConnected(callKitId)
+        }
     }
 
     private func loadNames(for userIds: [String]) {
@@ -368,6 +453,18 @@ final class CallSession: ObservableObject, Identifiable {
             }
             refresh()
         }
+    }
+}
+
+private final class CallDeclines: CallDeclineListener, @unchecked Sendable {
+    private let onDecline: (String) -> Void
+
+    init(onDecline: @escaping (String) -> Void) {
+        self.onDecline = onDecline
+    }
+
+    func call(declinerUserId: String) {
+        onDecline(declinerUserId)
     }
 }
 

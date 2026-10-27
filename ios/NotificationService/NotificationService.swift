@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import CallKit
 import MatrixRustSDK
 import UserNotifications
 
@@ -91,6 +92,15 @@ final class NotificationService: UNNotificationServiceExtension {
         var kind = "message"
         switch item.event {
         case .timeline(let event):
+            if room.isDm, let ring = ring(event: event, sender: senderName ?? event.senderId(), target: target, route: route, eventId: eventId) {
+                return ring
+            }
+            // Spec location-view notes: a live location update (MSC3672 beacon) never shows a notification.
+            if case .messageLike(.beacon)? = try? event.content() {
+                let empty = UNMutableNotificationContent()
+                empty.badge = unreadCount.map { NSNumber(value: $0) }
+                return empty
+            }
             guard let text = messageText(event) else {
                 return fallback(target: target, route: route, eventId: eventId, unreadCount: unreadCount)
             }
@@ -127,6 +137,32 @@ final class NotificationService: UNNotificationServiceExtension {
         return content
     }
 
+    /// Spec incoming-call on a locked phone (bipe-chat/bipe#760): a DM ring for this account, inside its lifetime, goes
+    /// to CallKit in the app, which rings with the system ringtone. The notification itself stays quiet.
+    private static func ring(event: TimelineEvent, sender: String, target: BipeNotificationTarget, route: String,
+                             eventId: String) -> UNNotificationContent? {
+        guard case .messageLike(.rtcNotification(let type, let expiresAt, let intent))? = try? event.content(), type == .ring,
+              event.senderId() != target.accountUserId,
+              Double(expiresAt) > Date().timeIntervalSince1970 * 1000 else { return nil }
+        let video = intent == .video
+        let payload: [AnyHashable: Any] = [
+            CallPushKeys.account: target.accountUserId,
+            CallPushKeys.roomId: target.roomId,
+            CallPushKeys.eventId: eventId,
+            CallPushKeys.caller: sender,
+            CallPushKeys.video: video,
+            CallPushKeys.expiresAt: Double(expiresAt),
+        ]
+        CXProvider.reportNewIncomingVoIPPushPayload(payload) { _ in }
+        let content = UNMutableNotificationContent()
+        content.title = sender
+        content.body = video ? BipeStrings.callIncomingVideo(sender) : BipeStrings.callIncomingVoice(sender)
+        content.threadIdentifier = target.identifier
+        content.userInfo = NotificationKeys.payload(target, route: route, eventId: eventId, kind: "call")
+        content.filterCriteria = target.accountUserId
+        return content
+    }
+
     /// The account's Focus criteria and sound, and outside a work account's opening hours no sound and no banner (ADR 0138 rule 4):
     /// interruptionLevel passive keeps the notification in the list only.
     private static func apply(sound: UNNotificationSound?, to content: UNMutableNotificationContent, userId: String) {
@@ -142,6 +178,8 @@ final class NotificationService: UNNotificationServiceExtension {
 
     /// Plain text and media kind/caption from the decrypted event; no attachment fetch or raw filename.
     private static func messageText(_ event: TimelineEvent) -> String? {
+        // The start of a live location share (MSC3672 beacon_info state event).
+        if case .state(.beaconInfo)? = try? event.content() { return BipeStrings.appLocationLiveTitle }
         guard case .messageLike(let content)? = try? event.content() else { return nil }
         switch content {
         case .sticker: return BipeStrings.appMediaSticker
@@ -154,6 +192,7 @@ final class NotificationService: UNNotificationServiceExtension {
             case .video(let value): return BipeNotificationPreview.attachment(label: BipeStrings.appMediaVideo, caption: value.caption)
             case .file(let value): return BipeNotificationPreview.attachment(label: BipeStrings.appMediaFile, caption: value.caption)
             case .audio(let value): return BipeNotificationPreview.attachment(label: value.voice != nil ? BipeStrings.appMediaVoice : BipeStrings.appMediaFile, caption: value.caption)
+            case .location: return BipeStrings.appLocationTitle
             default: return nil
             }
         default: return nil

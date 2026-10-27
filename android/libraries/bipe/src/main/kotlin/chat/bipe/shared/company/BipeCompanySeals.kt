@@ -10,18 +10,19 @@ import chat.bipe.shared.BadgeLevel
 import chat.bipe.shared.BadgePayload
 import chat.bipe.shared.BadgeVerificationResult
 import chat.bipe.shared.BadgeVerifier
+import chat.bipe.shared.BipeServers
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeBadgeGoneReason
 import chat.bipe.shared.api.BipeBadgeLookup
 import chat.bipe.shared.api.badge
 import chat.bipe.shared.runCatchingExceptions
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.minutes
 
 /** The company seal of one user (ADR 0042, bipe#252). The iOS store has the same states. */
 @Immutable
@@ -48,8 +49,6 @@ sealed interface BipeCompanySealState {
  */
 class BipeCompanySeals(
     private val apiClient: BipeApiClient,
-    /** Only Matrix IDs on this server can have a seal. */
-    private val serverName: String,
     private val scope: CoroutineScope,
     /** The user's cross-signing master key, null when unknown. Throws when the lookup fails. */
     private val masterKey: suspend (String) -> String?,
@@ -75,7 +74,7 @@ class BipeCompanySeals(
 
     /** The cached seal of [userId]. Queues a fetch when the entry is stale. */
     fun seal(userId: String): BipeCompanySealState {
-        if (!userId.startsWith("@") || !userId.endsWith(":$serverName")) return BipeCompanySealState.None
+        if (!BipeServers.isBipeUserId(userId)) return BipeCompanySealState.None
         val now = clock()
         val entry = entries.value[userId]
         if (entry == null || entry.expiryMillis <= now) fetch(userId)

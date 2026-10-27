@@ -50,7 +50,8 @@ fun CallHeaderButtons(model: ChatTimelineModel, session: AccountSession, roomNam
     for (video in listOf(false, true)) {
         IconButton(onClick = {
             val room = model.matrixRoom ?: return@IconButton
-            scope.launch { CallCenter.start(context, session, room, roomName, video) }
+            val ring = CallRingTarget(model.isDm.value, model.peerUserId.value)
+            scope.launch { CallCenter.start(context, session, room, roomName, video, ring) }
         }) {
             Icon(
                 painterResource(if (video) PhosphorIcon.VIDEO_CAMERA.drawable else PhosphorIcon.PHONE.drawable),

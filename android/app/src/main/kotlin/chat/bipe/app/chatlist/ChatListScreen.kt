@@ -69,6 +69,7 @@ import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
+import chat.bipe.app.encryption.LocalEncryptionStatus
 import chat.bipe.app.groups.CreateGroupButton
 import chat.bipe.app.groups.GroupHost
 import chat.bipe.app.groups.Person as GroupPerson
@@ -110,6 +111,10 @@ import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeOnboardingTarget
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.app.share.ShareShortcuts
+import chat.bipe.app.share.ShareToChatScreen
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 
@@ -210,6 +215,15 @@ fun HomeScreen(
     val pixPreview by app.pixPreview.collectAsState()
     val pendingPix = remember(pixPreview) { pixPreview?.let { PixPreview.resolve(context, it) } }
     LaunchedEffect(Unit) { PixPreview.deleteStale(context) }
+    // Spec share-to-chat: a share from another app, for the current account, shown under the app lock.
+    val pendingShare by app.pendingShare.collectAsState()
+    // Spec share-to-chat notes: the newest chats of this account are the sharing shortcuts.
+    LaunchedEffect(model) {
+        model.chats
+            .map { chats -> chats.take(ShareShortcuts.COUNT).map { it.roomId to it.name } }
+            .distinctUntilChanged()
+            .collect { ShareShortcuts.update(context.applicationContext, session.userId, model.chats.value) }
+    }
     LaunchedEffect(roomToOpen) {
         roomToOpen?.takeIf { it.accountUserId == session.userId }?.let {
             var opensChat = false
@@ -239,12 +253,23 @@ fun HomeScreen(
     }
     val roomId = openRoomId
     // Spec brand-mark: chat list rows read the session's brand marks.
-    CompositionLocalProvider(LocalBipeBrandMarks provides people.brandMarks) {
+    // LocalEncryptionStatus: the oldMessages settings row opens the same EncryptionSheet (bipe-chat/bipe#793).
+    CompositionLocalProvider(LocalBipeBrandMarks provides people.brandMarks, LocalEncryptionStatus provides encryption) {
         when {
             termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
             pendingPix != null -> PixSendScreen(pendingPix, model, media) {
                 pendingPix.delete()
                 app.pixPreview.value = null
+            }
+            pendingShare?.takeIf { !it.isExpired } != null -> ShareToChatScreen(pendingShare!!, model, media) { sentTo ->
+                // Sent: the send queue keeps the files. Cancelled: every copy goes.
+                if (sentTo == null) pendingShare?.delete()
+                app.pendingShare.value = null
+                if (sentTo != null) {
+                    tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+                    peopleStack = emptyList()
+                    openRoomId = sentTo
+                }
             }
             alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
             showsNewAccount -> AccountNewScreen(tabs, session, api, onClose = { showsNewAccount = false; newAccountPreset = null },
@@ -436,6 +461,8 @@ fun ChatListScreen(
                     )
                 }
             }
+            // Spec live-location-banner: this account shares its live location.
+            chat.bipe.app.location.LiveLocationListRow(model.session.userId)
             remoteBanner?.let { RemoteBannerCard(it, context) }
             run {
                 if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)

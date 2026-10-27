@@ -17,9 +17,6 @@ public final class BipeHandleResolver {
         let expiry: Date
     }
     
-    /// Only Matrix IDs on this server have handles.
-    public let serverName: String
-    
     private var entries: [String: Entry] = [:]
     
     @ObservationIgnored private let apiClient: BipeAPIClient
@@ -35,17 +32,16 @@ public final class BipeHandleResolver {
     private static let coalesceDelay: Duration = .milliseconds(80)
     
     /// `accessToken` is read before every request, because Matrix access tokens are short-lived.
-    public init(apiClient: BipeAPIClient, serverName: String, accessToken: @escaping @MainActor () -> String?) {
+    public init(apiClient: BipeAPIClient, accessToken: @escaping @MainActor () -> String?) {
         self.apiClient = apiClient
-        self.serverName = serverName
         self.accessToken = accessToken
     }
     
     // MARK: - Matrix ID to handle
     
-    /// `true` for a user ID on the Bipe server, e.g. `@k7q2m9x4tp:bipe.net.br`.
+    /// `true` for a user ID on a Bipe server, e.g. `@k7q2m9x4tp:bipe.net.br` (``BipeServers``). Only these have handles.
     public func isBipeUserID(_ userID: String) -> Bool {
-        userID.hasPrefix("@") && userID.hasSuffix(":\(serverName)")
+        BipeServers.isBipeUserID(userID)
     }
     
     /// The cached handle (without "@"). Queues a lookup when the cache has no fresh value.

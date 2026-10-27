@@ -20,6 +20,8 @@ struct SettingsGroupView: View {
     @AppStorage(SettingsKeys.hideRequestPhotos) private var hideRequestPhotos = true
     @AppStorage(SettingsKeys.sharePresence) private var sharePresence = true
     @AppStorage(SettingsKeys.showMedia) private var showMedia = ShowMedia.always.rawValue
+    /// chats.liveLocation: the update distance of live location (spec settings-group notes).
+    @AppStorage(LiveLocationRule.distanceKey) private var liveDistance = BipeRegistries.mapsLiveDefaultDistanceMetres
     @StateObject private var export: DataExportModel
     @State private var page: WebPage?
     @State private var showsSignOut = false
@@ -30,6 +32,8 @@ struct SettingsGroupView: View {
     @State private var showsLockSetup = false
     @State private var pinCheck: PinCheckRequest?
     @State private var notice: String?
+    /// Spec encryption-status, from AppTabsView. The oldMessages row opens its sheet.
+    @Environment(\.encryptionStatus) private var encryption
 
     init(model: SettingsModel, group: BipeSettingsGroup, onSignedOut: @escaping () -> Void,
          onNewAccount: (() -> Void)? = nil) {
@@ -137,6 +141,8 @@ struct SettingsGroupView: View {
         // While a deletion waits, the banner (or the alert on the other devices) takes its place.
         case .accountDelete: model.account?.deletion == nil
         case .accountAdd: onNewAccount != nil
+        // Shown while the model says needsApproval; OldMessagesRow follows it (bipe-chat/bipe#793).
+        case .accountOldMessages: encryption != nil
         default: true
         }
     }
@@ -251,6 +257,15 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title, value: ShowMedia(rawValue: showMedia)?.title)
             }
+        case .chatsLiveLocation:
+            NavigationLink {
+                ChoiceListView(title: row.title,
+                               options: BipeRegistries.mapsLiveDistancesMetres.map { (id: String($0), title: Self.distanceLabel($0)) },
+                               selection: Binding(get: { String(LiveLocationRule.distance) },
+                                                  set: { liveDistance = Int($0) ?? BipeRegistries.mapsLiveDefaultDistanceMetres }))
+            } label: {
+                SettingsRowLabel(title: row.title, value: Self.distanceLabel(LiveLocationRule.distance), footer: row.footer)
+            }
         case .chatsDataUse:
             NavigationLink {
                 DataUseView()
@@ -265,6 +280,10 @@ struct SettingsGroupView: View {
             }
         case .helpSupport:
             NavigationLink(value: SettingsRoute.support) { SettingsRowLabel(title: row.title) }
+        case .accountOldMessages:
+            if let encryption {
+                OldMessagesRow(model: encryption) { tapButton(row) }
+            }
         default:
             switch row.kind {
             case .switch:
@@ -275,28 +294,33 @@ struct SettingsGroupView: View {
                 SettingsRowLabel(title: row.title, value: value(of: row), footer: row.footer,
                                  isWarning: row == .privacyNumber && model.phone?.needsAttention == true)
             default:
-                Button {
-                    tap(row)
-                } label: {
-                    HStack {
-                        SettingsRowLabel(title: row.title,
-                                         value: value(of: row),
-                                         footer: row.footer,
-                                         isDestructive: row.kind == .destructive)
-                        if row.kind == .link || row.kind == .choice {
-                            Spacer()
-                            PhosphorIcon.caretRight.image
-                                .resizable()
-                                .frame(width: 14, height: 14)
-                                .foregroundStyle(BipeColor.glyphSecondary)
-                                .accessibilityHidden(true)
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                tapButton(row)
             }
         }
+    }
+
+    /// A link, choice, url, action or destructive row: a button that runs tapRow.
+    private func tapButton(_ row: BipeSettingsRow) -> some View {
+        Button {
+            tap(row)
+        } label: {
+            HStack {
+                SettingsRowLabel(title: row.title,
+                                 value: value(of: row),
+                                 footer: row.footer,
+                                 isDestructive: row.kind == .destructive)
+                if row.kind == .link || row.kind == .choice {
+                    Spacer()
+                    PhosphorIcon.caretRight.image
+                        .resizable()
+                        .frame(width: 14, height: 14)
+                        .foregroundStyle(BipeColor.glyphSecondary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// The linked providers, for the linkedAccounts row (ADR 0096).
@@ -331,6 +355,9 @@ struct SettingsGroupView: View {
             showsDelete = true
         case .accountRecoveryKey:
             showsRecoveryKey = true
+        case .accountOldMessages:
+            // Spec encryption-status, action openSheet: the same sheet as the chat list banner.
+            encryption?.openSheet()
         case .accountEmail:
             showsEmail = true
         case .accountAdd:
@@ -389,11 +416,29 @@ struct SettingsGroupView: View {
         model.refreshLock()
     }
 
+    /// "A cada 50 m" (bipe_chats_live_location_distance).
+    private static func distanceLabel(_ metres: Int) -> String {
+        BipeStrings.chatsLiveLocationDistance("\(metres) m")
+    }
+
     private func copyDeviceId() {
         guard let deviceId = try? model.session.client.deviceId() else { return }
         UIPasteboard.general.string = deviceId
         BipeHaptics.play(.tap)
         notice = BipeStrings.helpDeviceIdCopied
+    }
+}
+
+/// Spec settings-group, row oldMessages: shown only while this phone needs approval for old messages
+/// (EncryptionStatusModel.needsApproval). Skip on the banner does not hide it. It goes when the phone is verified.
+private struct OldMessagesRow<Content: View>: View {
+    @ObservedObject var model: EncryptionStatusModel
+    @ViewBuilder let label: () -> Content
+
+    var body: some View {
+        if model.needsApproval {
+            label()
+        }
     }
 }
 

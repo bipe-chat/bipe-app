@@ -20,6 +20,8 @@ struct TimelineRow: Identifiable, Equatable {
         case handleChange
         case notEncrypted
         case chatStart
+        /// A call line (spec incoming-call notes): the ring event with the memberships after it.
+        case call
     }
 
     var id: String
@@ -32,6 +34,8 @@ struct TimelineRow: Identifiable, Equatable {
     var day: Date?
     /// kind handleChange only.
     var handleChange: HandleChangeLine?
+    /// kind call only.
+    var callText: String?
 }
 
 /// Type HandleChangeLine of spec handle-change-line.
@@ -202,6 +206,11 @@ enum TimelineRowBuilder {
                 }
                 continue
             }
+            if let event = item.asEvent(), case .rtcNotification(let intent, let declinedBy, let activeMembers, _, _) = event.content {
+                rows.append(contentsOf: callRows(id: id, event: event, video: intent == "video", declinedBy: declinedBy,
+                                                 active: !activeMembers.isEmpty, items: items, from: index, facts: facts, name: name))
+                continue
+            }
             guard let event = item.asEvent(), case .msgLike(let content) = event.content else { continue }
             let base = message(id: id, event: event, senderName: name(event.sender))
             // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
@@ -227,9 +236,19 @@ enum TimelineRowBuilder {
                     message.voice = voice
                     message.body = voice.transcript ?? (voice.isVoice ? BipeStrings.appMediaVoice : voice.filename)
                 case nil:
-                    guard case .text = messageContent.msgType else { continue }
-                    message.kind = .text
-                    message.body = messageContent.body
+                    switch messageContent.msgType {
+                    case .location(let locationContent):
+                        // Spec location-view: a geo URI the app cannot read stays unsupported.
+                        guard let location = LocationMessage(locationContent) else { continue }
+                        message.kind = .location
+                        message.location = location
+                        message.body = location.label
+                    default:
+                        // Spec timeline-rows: notices and unknown message types keep their body.
+                        message.kind = .text
+                        message.body = messageContent.body
+                        if case .emote = messageContent.msgType { message.isEmote = true }
+                    }
                 }
                 let isSent: Bool
                 switch event.localSendState {
@@ -272,6 +291,24 @@ enum TimelineRowBuilder {
                     canReply: event.canBeRepliedTo && message.sendState == .sent,
                     canEdit: false,
                     canDelete: event.isOwn ? (facts.canRedactOwn || message.sendState != .sent) : (!facts.isDm && facts.canRedactOther)
+                )
+                rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
+            case .liveLocation(let liveContent):
+                // Spec location-view, live row: the sender's beacon_info with the beacons the SDK put on it.
+                var message = base
+                message.kind = .liveLocation
+                message.live = LiveLocationMessage(liveContent)
+                message.body = BipeStrings.appLocationLiveTitle
+                let details = MessageDetails(
+                    eventId: eventId(event),
+                    reply: nil,
+                    reactions: reactions(content.reactions, facts: facts, name: name),
+                    isEdited: false,
+                    receipt: event.isOwn ? receipts[index] : nil,
+                    scamWarning: nil,
+                    canReply: event.canBeRepliedTo && message.sendState == .sent,
+                    canEdit: false,
+                    canDelete: false
                 )
                 rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
             case .poll(let question, let pollKind, let maxSelections, let answers, let votes, let endTime, _):
@@ -331,6 +368,36 @@ enum TimelineRowBuilder {
         return result
     }
 
+    /// Spec incoming-call notes: one line for a ring event and the call memberships after it (up to the next ring),
+    /// and in a group one line for each member who joined.
+    private static func callRows(id: String, event: EventTimelineItem, video: Bool, declinedBy: [String], active: Bool,
+                                 items: [TimelineItem], from index: Int, facts: RoomFacts,
+                                 name: (String) -> String) -> [TimelineRow] {
+        var memberEvents: [(userId: String, ts: Int64)] = []
+        for item in items.dropFirst(index + 1) {
+            guard let other = item.asEvent() else { continue }
+            if case .rtcNotification = other.content { break }
+            if case .state(_, .custom(let eventType)) = other.content, eventType == BipeCall.memberEventType {
+                memberEvents.append((other.sender, Int64(other.timestamp)))
+            }
+        }
+        let line = BipeCallRing.line(isDm: facts.isDm, sender: event.sender, ringTs: Int64(event.timestamp), active: active,
+                                     declinedBy: declinedBy, memberEvents: memberEvents)
+        let label = video ? BipeStrings.callVideo : BipeStrings.callVoice
+        let text: String
+        switch line.outcome {
+        case .ongoing: text = BipeStrings.callOngoing
+        case .missed: text = BipeStrings.callMissed
+        case .declined: text = BipeStrings.callDeclined
+        case .ended: text = "\(label), \(BipeStrings.callDuration(String(line.minutes ?? 1)))"
+        }
+        var rows = [TimelineRow(id: id, kind: .call, callText: text)]
+        for userId in line.joined {
+            rows.append(TimelineRow(id: "\(id)-joined-\(userId)", kind: .call, callText: BipeStrings.callJoined(name(userId))))
+        }
+        return rows
+    }
+
     /// A date separator whose day has no row left (only hidden events) goes away.
     private static func dropEmptyDays(_ rows: [TimelineRow]) -> [TimelineRow] {
         var result: [TimelineRow] = []
@@ -349,7 +416,8 @@ enum TimelineRowBuilder {
     static func isShownMessage(_ event: EventTimelineItem) -> Bool {
         guard case .msgLike(let content) = event.content else { return false }
         if MediaContent(content.kind) != nil { return true }
-        guard case .message(let message) = content.kind, case .text = message.msgType else { return false }
+        if case .liveLocation = content.kind { return true }
+        guard case .message = content.kind else { return false }
         return true
     }
 
@@ -401,8 +469,11 @@ enum TimelineRowBuilder {
             switch MediaContent(message.msgType) {
             case .media(let media): return media.caption?.nilIfBlank ?? media.kindLabel
             case .voice(let voice): return voice.isVoice ? BipeStrings.appMediaVoice : voice.filename
-            case nil: return message.body
+            case nil:
+                if case .location = message.msgType { return BipeStrings.appLocationTitle }
+                return message.body
             }
+        case .liveLocation: return BipeStrings.appLocationLiveTitle
         case .sticker: return BipeStrings.appMediaSticker
         case .redacted: return isOwn ? BipeStrings.appMessageDeletedOwn : BipeStrings.appMessageDeleted
         case .unableToDecrypt: return BipeStrings.appTimelineUndecryptable
