@@ -6,6 +6,7 @@ import BipeKit
 import Foundation
 import LocalAuthentication
 import MatrixRustSDK
+import UIKit
 
 /// Type VerificationSymbol of spec device-verification.
 struct VerificationSymbol: Identifiable, Equatable {
@@ -44,7 +45,9 @@ final class DeviceVerificationModel: ObservableObject {
 
     @Published private(set) var role: Role = .newPhone
     /// No flow runs yet: the idle model counts as finished (isFinished).
-    @Published private(set) var phase: Phase = .cancelled
+    @Published private(set) var phase: Phase = .cancelled {
+        didSet { holdBackgroundTime() }
+    }
     @Published private(set) var otherDevice: RequestingDevice?
     @Published private(set) var symbols: [VerificationSymbol] = []
     /// The flow ended with noMatch: the screen shows bipe_app_verify_mismatch.
@@ -61,9 +64,23 @@ final class DeviceVerificationModel: ObservableObject {
     private let delegate = SessionVerificationStream()
     private var controller: SessionVerificationController?
     private var started = false
+    /// Background time while a flow runs (bipe-chat/bipe#794). iOS suspends the app under 1 s after it
+    /// leaves the foreground; without this task the SAS key, MAC and done to-device sends and the sync stop,
+    /// and the other device cancels. The sync service keeps running while the process runs.
+    private var backgroundTask = UIBackgroundTaskIdentifier.invalid
+    private var activeObserver: NSObjectProtocol?
 
     init(session: AccountSession) {
         self.session = session
+        // An expired task ends; the next foreground takes a new one while the flow still runs.
+        activeObserver = NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification,
+                                                                object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.holdBackgroundTime() }
+        }
+    }
+
+    deinit {
+        if let activeObserver { NotificationCenter.default.removeObserver(activeObserver) }
     }
 
     /// The flow has ended or has not started; a new request may begin.
@@ -186,6 +203,23 @@ final class DeviceVerificationModel: ObservableObject {
         try? await controller?.cancelVerification()
     }
 
+    /// Holds a background task while the flow runs and ends it on done, cancelled and failed.
+    private func holdBackgroundTime() {
+        if isFinished {
+            endBackgroundTime()
+        } else if backgroundTask == .invalid {
+            backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "device-verification") { [weak self] in
+                MainActor.assumeIsolated { self?.endBackgroundTime() }
+            }
+        }
+    }
+
+    private func endBackgroundTime() {
+        guard backgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTask)
+        backgroundTask = .invalid
+    }
+
     /// The controller, after start got it. A tap on the banner can come before that.
     private func readyController() async -> SessionVerificationController? {
         for _ in 0..<30 where controller == nil {
@@ -223,7 +257,8 @@ final class DeviceVerificationModel: ObservableObject {
         case .startedSas:
             break
         case .receivedData(let data):
-            guard !isFinished else { return }
+            // After match the flow waits for the other device; data that arrives again does not undo the match.
+            guard !isFinished, phase != .waitingForMatch else { return }
             symbols = Self.symbols(of: data)
             phase = .compare
         case .finished:
