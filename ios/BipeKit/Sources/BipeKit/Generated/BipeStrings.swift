@@ -3908,6 +3908,12 @@ public enum BipeStrings {
 
     public static var chatMarkUnread: String { NSLocalizedString("bipe_chat_mark_unread", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var chatFavouriteAction: String { NSLocalizedString("bipe_chat_favourite_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatUnfavouriteAction: String { NSLocalizedString("bipe_chat_unfavourite_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavourites: String { NSLocalizedString("bipe_chat_favourites", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var chatUnreadState: String { NSLocalizedString("bipe_chat_unread_state", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatDetails: String { NSLocalizedString("bipe_chat_details", tableName: "Bipe", bundle: .module, comment: "") }

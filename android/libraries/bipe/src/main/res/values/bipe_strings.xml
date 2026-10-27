@@ -1702,6 +1702,9 @@
     <string name="bipe_chat_actions">Ações da conversa</string>
     <string name="bipe_message_actions">Ações da mensagem</string>
     <string name="bipe_chat_mark_unread">Marcar como não lida</string>
+    <string name="bipe_chat_favourite_action">Favoritar</string>
+    <string name="bipe_chat_unfavourite_action">Remover dos favoritos</string>
+    <string name="bipe_chat_favourites">Favoritos</string>
     <string name="bipe_chat_unread_state">Não lida</string>
     <string name="bipe_chat_details">Ver informações</string>
     <string name="bipe_chat_read_error">Não deu para marcar a conversa. Tente de novo.</string>
