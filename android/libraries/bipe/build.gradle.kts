@@ -34,6 +34,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(libs.jsoup)
     implementation(libs.androidx.annotation)
     implementation(libs.kotlinx.serialization.core)
     // Sticker packs (stickers/StickerPacks.kt).

@@ -29,6 +29,8 @@ import org.matrix.rustcomponents.sdk.EventSendState
 import org.matrix.rustcomponents.sdk.EventTimelineItem
 import org.matrix.rustcomponents.sdk.InReplyToDetails
 import org.matrix.rustcomponents.sdk.MessageType
+import org.matrix.rustcomponents.sdk.MessageFormat
+import chat.bipe.shared.BipeMessageText
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.OtherState
 import org.matrix.rustcomponents.sdk.Reaction
@@ -248,6 +250,7 @@ object TimelineRowBuilder {
                                             kind = TimelineMessage.Kind.TEXT,
                                             body = kind.content.body,
                                             isEmote = type is MessageType.Emote,
+                                            richText = BipeMessageText.parse(kind.content.body, type.bipeHTML()),
                                         )
                                     }
                                 }
@@ -261,7 +264,7 @@ object TimelineRowBuilder {
                                 isEdited = isEdited,
                                 receipt = if (event.isOwn) receipts[index] else null,
                                 // The detector runs on the device; the cache keys on the event and the body, so an edit runs it again.
-                                scamWarning = if (event.isOwn) null else message.body?.let { ScamDetector.warningKind(it, eventId(event) ?: id) },
+                                scamWarning = if (event.isOwn) null else message.body?.let { ScamDetector.warningKind(it + "\n" + message.richText?.safetyText.orEmpty(), eventId(event) ?: id) },
                                 canReply = event.canBeRepliedTo && isSent,
                                 canEdit = event.isEditable && message.kind == TimelineMessage.Kind.TEXT,
                                 canDelete = if (event.isOwn) facts.canRedactOwn || !isSent else !facts.isDm && facts.canRedactOther,
@@ -482,4 +485,15 @@ object TimelineRowBuilder {
             else -> TimelineMessage.UndecryptableCause.WAITING
         }
     }
+}
+
+/** Ignore unknown formatting types, as required by Matrix's plain-body fallback. */
+private fun MessageType.bipeHTML(): String? {
+    val formatted = when (this) {
+        is MessageType.Text -> content.formatted
+        is MessageType.Notice -> content.formatted
+        is MessageType.Emote -> content.formatted
+        else -> null
+    }
+    return formatted?.takeIf { it.format is MessageFormat.Html }?.body
 }

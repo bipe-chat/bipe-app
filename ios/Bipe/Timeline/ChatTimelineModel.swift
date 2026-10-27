@@ -61,6 +61,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var live: LiveLocationMessage? = nil
     /// m.emote has a display prefix; body stays unchanged for edits and copying.
     var isEmote = false
+    /// Native, sanitized text runs. The original body stays available to edit and copy.
+    var richText: BipeMessageText? = nil
 }
 
 /// Type MessageAction of spec message-actions, in the order of the sheet.

@@ -88,6 +88,23 @@ struct AppTabsView: View {
             }
         }
         .environmentObject(model)
+        .environment(\.openURL, OpenURLAction { url in
+            // Message links use the same signed-in destinations as links received from the system.
+            if let code = BipeInviteLink.code(from: url) {
+                invitedCode = InviteCode(code: code)
+                return .handled
+            }
+            let link: TabsLink
+            switch PeopleLink(url: url) {
+            case .handle(let handle): link = .profile(handle)
+            case .userId(let userId): link = .person(userId)
+            case .queue(let handle): link = .queue(handle)
+            case nil: return .systemAction
+            }
+            model.selectTab(.conversas)
+            TabsLinks.shared.link = link
+            return .handled
+        })
         .environment(\.openHistoryHelp, encryption.openSheet)
         .environment(\.encryptionStatus, encryption)
         .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in

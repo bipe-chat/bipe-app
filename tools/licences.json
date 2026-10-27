@@ -274,6 +274,20 @@
       "source": "https://developer.android.com/jetpack/androidx/releases/core",
       "checked": "2026-10-26",
       "note": "Jetpack core-telecom for calls on a locked phone (bipe-chat/bipe#760). Its POM names Apache-2.0."
+    },
+    "swiftsoup": {
+      "ecosystem": "swiftpm",
+      "licence": "MIT",
+      "source": "https://github.com/scinfu/SwiftSoup",
+      "checked": "2026-10-27",
+      "copyright": "Copyright (c) 2009-2025 Jonathan Hedley <https://jsoup.org/>\nCopyright (c) 2016-2025 Nabil Chatbi (Swift port)"
+    },
+    "org.jsoup:jsoup": {
+      "ecosystem": "gradle",
+      "licence": "MIT",
+      "source": "https://github.com/jhy/jsoup",
+      "checked": "2026-10-27",
+      "copyright": "Copyright (c) 2009-2026 Jonathan Hedley <https://jsoup.org/>"
     }
   }
 }

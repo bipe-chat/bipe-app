@@ -6,6 +6,20 @@ import BipeKit
 import Foundation
 import MatrixRustSDK
 
+extension MessageType {
+    /// Only the Matrix HTML format is rendered; unknown formats keep the plain body.
+    var bipeHTML: String? {
+        let value: FormattedBody?
+        switch self {
+        case .text(let content): value = content.formatted
+        case .notice(let content): value = content.formatted
+        case .emote(let content): value = content.formatted
+        default: value = nil
+        }
+        return value?.format == .html ? value?.body : nil
+    }
+}
+
 extension TimelineItemContent {
     /// The plain text of a message, for the chat list preview. nil for anything the slice does not show.
     var previewText: String? {

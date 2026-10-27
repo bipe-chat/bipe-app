@@ -2,10 +2,12 @@
 # Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 # Copyright 2026 Bipe contributors
 
-# Every [libraries] entry needs a row in tools/licences.json.
+# Every [libraries]
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" } entry needs a row in tools/licences.json.
 # matrix-rust-sdk must equal ../../sdk-version (tools/sdk-version.mjs).
 
 [versions]
+jsoup = "1.23.2"
 agp = "8.13.0"
 kotlin = "2.2.21"
 matrix-rust-sdk = "26.08.11"

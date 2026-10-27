@@ -1,41 +1,50 @@
 {
-  "pins" : [
+  "pins": [
     {
-      "identity" : "client-sdk-swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/livekit/client-sdk-swift",
-      "state" : {
-        "revision" : "93a7251057bdb6a80a7b1f6d11464d578ebdc09b",
-        "version" : "2.18.0"
+      "identity": "client-sdk-swift",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/livekit/client-sdk-swift",
+      "state": {
+        "revision": "93a7251057bdb6a80a7b1f6d11464d578ebdc09b",
+        "version": "2.18.0"
       }
     },
     {
-      "identity" : "livekit-uniffi-xcframework",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/livekit/livekit-uniffi-xcframework.git",
-      "state" : {
-        "revision" : "7a9bf91b1601d5c408ae0cac7dc2047b5a4f615e",
-        "version" : "0.1.9"
+      "identity": "livekit-uniffi-xcframework",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/livekit/livekit-uniffi-xcframework.git",
+      "state": {
+        "revision": "7a9bf91b1601d5c408ae0cac7dc2047b5a4f615e",
+        "version": "0.1.9"
       }
     },
     {
-      "identity" : "matrix-rust-components-swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/matrix-org/matrix-rust-components-swift",
-      "state" : {
-        "revision" : "462ae1a446cd3294158c8353468a6d6fe66c71d9",
-        "version" : "26.08.11"
+      "identity": "matrix-rust-components-swift",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/matrix-org/matrix-rust-components-swift",
+      "state": {
+        "revision": "462ae1a446cd3294158c8353468a6d6fe66c71d9",
+        "version": "26.08.11"
       }
     },
     {
-      "identity" : "webrtc-xcframework",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/livekit/webrtc-xcframework.git",
-      "state" : {
-        "revision" : "a41df9e9bcc7ab1d62131fda75c123ea391e5188",
-        "version" : "150.7871.03"
+      "identity": "swiftsoup",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/scinfu/SwiftSoup",
+      "state": {
+        "revision": "e7f85f4d3dd91ca9a1e94d3328aa1ed5120a8c0f",
+        "version": "2.14.3"
+      }
+    },
+    {
+      "identity": "webrtc-xcframework",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/livekit/webrtc-xcframework.git",
+      "state": {
+        "revision": "a41df9e9bcc7ab1d62131fda75c123ea391e5188",
+        "version": "150.7871.03"
       }
     }
   ],
-  "version" : 2
+  "version": 2
 }
