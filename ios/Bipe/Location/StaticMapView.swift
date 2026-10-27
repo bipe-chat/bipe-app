@@ -156,7 +156,7 @@ struct DraggableMapView: View {
                     .frame(width: 18, height: 18)
                     .bipeTapTarget()
             }
-            .disabled(centre.zoom >= BipeRegistries.mapsMaxZoom)
+            .disabled(centre.zoom >= centre.maxZoom)
             .accessibilityLabel(BipeStrings.appLocationZoomIn)
             Divider().frame(width: 28)
             Button { zoom(by: -1) } label: {

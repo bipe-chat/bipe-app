@@ -279,7 +279,7 @@ fun DraggableMap(
                 .background(colors.surfaceRaised, RoundedCornerShape(10.dp)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            IconButton(onClick = { zoom(1) }, enabled = centre.zoom < BipeRegistries.MAPS_MAX_ZOOM) {
+            IconButton(onClick = { zoom(1) }, enabled = centre.zoom < centre.maxZoom) {
                 Icon(painterResource(PhosphorIcon.PLUS.drawable), contentDescription = zoomInLabel, tint = colors.inkPrimary, modifier = Modifier.size(18.dp))
             }
             HorizontalDivider(Modifier.width(28.dp), color = colors.lineSubtle)

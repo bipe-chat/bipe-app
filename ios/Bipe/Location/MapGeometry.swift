@@ -15,8 +15,11 @@ struct MapPoint: Equatable, Hashable {
     init(latitude: Double, longitude: Double, zoom: Int = BipeRegistries.mapsDefaultZoom) {
         self.latitude = latitude
         self.longitude = longitude
-        self.zoom = BipeMap.clampZoom(zoom)
+        self.zoom = BipeMap.clampZoom(zoom, latitude: latitude, longitude: longitude)
     }
+
+    /// maxZoom inside detailBounds, outsideMaxZoom outside it.
+    var maxZoom: Int { BipeMap.maxZoom(latitude: latitude, longitude: longitude) }
 
     /// The centre of Brazil at minZoom: the start of location-send until the position comes.
     static let brazil = MapPoint(latitude: -14.2, longitude: -51.9, zoom: BipeRegistries.mapsMinZoom)
@@ -31,8 +34,16 @@ struct MapPoint: Equatable, Hashable {
 enum BipeMap {
     private static let maxLatitude = 85.05112878
 
-    static func clampZoom(_ zoom: Int) -> Int {
-        min(max(zoom, BipeRegistries.mapsMinZoom), BipeRegistries.mapsMaxZoom)
+    /// The server has detailBounds (Brazil) at every zoom and the world only to a low zoom (registries/maps.json).
+    /// Deeper than outsideMaxZoom a map abroad is an empty area, so it stops there.
+    static func maxZoom(latitude: Double, longitude: Double) -> Int {
+        let inside = (BipeRegistries.mapsDetailSouth...BipeRegistries.mapsDetailNorth).contains(latitude)
+            && (BipeRegistries.mapsDetailWest...BipeRegistries.mapsDetailEast).contains(longitude)
+        return inside ? BipeRegistries.mapsMaxZoom : BipeRegistries.mapsOutsideMaxZoom
+    }
+
+    static func clampZoom(_ zoom: Int, latitude: Double, longitude: Double) -> Int {
+        min(max(zoom, BipeRegistries.mapsMinZoom), maxZoom(latitude: latitude, longitude: longitude))
     }
 
     private static func worldSize(_ zoom: Int) -> Double {
