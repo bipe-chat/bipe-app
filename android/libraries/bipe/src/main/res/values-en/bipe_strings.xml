@@ -508,7 +508,7 @@
     <string name="bipe_recovery_waiting_pin_body">Your new PIN takes effect on %1$s. Your other devices got a notice and can cancel.</string>
     <string name="bipe_recovery_ready">Your account is on this phone.</string>
     <string name="bipe_recovery_pin_ready">Done. Your new PIN works now.</string>
-    <string name="bipe_recovery_history_note">To see old messages, approve this phone on a connected device or use your recovery key.</string>
+    <string name="bipe_recovery_history_note">To read messages on this phone, approve it on a device that is already signed in, or use your recovery key.</string>
     <string name="bipe_recovery_cancelled">Getting back into the account was cancelled on one of your devices.</string>
     <string name="bipe_error_recovery_invalid">You can\'t continue from here anymore. Start again.</string>
     <string name="bipe_recovery_alert_title">Your account is moving to a new device</string>
@@ -745,7 +745,7 @@
     <string name="bipe_recovery_linked_wait">Your account will be available on this phone in %1$s. Your other devices received an alert and can cancel.</string>
     <string name="bipe_recovery_linked_pin_blocked">This account cannot unblock or reset your Bipe PIN. Choose another recovery method.</string>
     <string name="bipe_recovery_linked_invalid">Could not use this account for Bipe recovery. Check that it is the account you linked.</string>
-    <string name="bipe_recovery_linked_history">To read old messages, approve this phone on a device that is already signed in, or use your recovery key.</string>
+    <string name="bipe_recovery_linked_history">To read messages on this phone, approve it on a device that is already signed in, or use your recovery key.</string>
     <string name="bipe_linked_apple_alert">An Apple account was linked to Bipe. If this was not you, unlink it in You.</string>
     <string name="bipe_linked_google_alert">A Google account was linked to Bipe. If this was not you, unlink it in You.</string>
     <string name="bipe_unlinked_apple_alert">The Apple account was unlinked from Bipe. If this was not you, check your signed-in devices.</string>
@@ -1442,11 +1442,11 @@
     <string name="bipe_app_verify_cancelled">The approval was cancelled.</string>
     <string name="bipe_app_verify_nudge_body">A device that signed in to your account asked to read your messages. Open Bipe to approve or decline.</string>
     <string name="bipe_app_verify_notify_again">Notify again</string>
-    <string name="bipe_app_history_banner">Old messages aren\'t on this phone yet.</string>
-    <string name="bipe_app_history_title">Old messages</string>
+    <string name="bipe_app_history_banner">Approve this phone to read your messages.</string>
+    <string name="bipe_app_history_title">Your messages</string>
     <string name="bipe_app_history_approve">Approve with another device</string>
     <string name="bipe_app_history_use_key">Use the recovery key</string>
-    <string name="bipe_app_history_none">Old chats stay on the old phone. New messages arrive here as usual.</string>
+    <string name="bipe_app_history_none">This phone still needs approval. You need a device that is already signed in, or your recovery key.</string>
     <string name="bipe_app_utd_before_joined">This message is from before you joined the chat.</string>
     <string name="bipe_app_utd_history">This message is from before this phone. Approve this phone to read it.</string>
     <string name="bipe_app_utd_not_shared">The sender\'s device didn\'t share this message with this phone.</string>
