@@ -29,8 +29,6 @@ import kotlin.time.Duration.Companion.minutes
  */
 class BipeHandleResolver(
     private val apiClient: BipeApiClient,
-    /** Only Matrix IDs on this server have handles. */
-    val serverName: String,
     private val scope: CoroutineScope,
     /** Read before every request, because Matrix access tokens are short-lived. */
     private val accessToken: suspend () -> String?,
@@ -53,8 +51,8 @@ class BipeHandleResolver(
 
     // Matrix ID to handle
 
-    /** `true` for a user ID on the Bipe server, e.g. `@k7q2m9x4tp:bipe.net.br`. */
-    fun isBipeUserId(userId: String): Boolean = userId.startsWith("@") && userId.endsWith(":$serverName")
+    /** `true` for a user ID on a Bipe server, e.g. `@k7q2m9x4tp:bipe.net.br` ([BipeServers]). Only these have handles. */
+    fun isBipeUserId(userId: String): Boolean = BipeServers.isBipeUserId(userId)
 
     /** The cached handle (without "@"). Queues a lookup when the cache has no fresh value. */
     fun handle(userId: String): String? {

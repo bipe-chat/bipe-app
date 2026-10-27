@@ -618,6 +618,11 @@ object BipeRegistries {
         "bipechat",
     )
 
+    /** Bipe homeservers (registries/bipe-servers.json, ADR 0168). Use [chat.bipe.shared.BipeServers.isBipeUserId], never a suffix check. */
+    val bipeServers: Set<String> = setOf(
+        "bipe.net.br",
+    )
+
     /** Full Matrix user IDs of official Bipe accounts. Match exactly; names and handles are not proof. */
     val officialAccountIds: Set<String> = setOf(
         "@suporte:bipe.net.br",
