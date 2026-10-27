@@ -62,7 +62,7 @@ enum class BipeSettingsRow(
     CHATS_MEDIA_QUALITY("chats.mediaQuality", BipeSettingsRowKind.LINK, R.string.bipe_chats_media_quality, null, null, null, null),
     CHATS_SHOW_MEDIA("chats.showMedia", BipeSettingsRowKind.CHOICE, R.string.bipe_chats_show_media, null, null, null, null),
     CHATS_DATA_USE("chats.dataUse", BipeSettingsRowKind.LINK, R.string.bipe_chats_data_use, null, null, null, null),
-    CHATS_LIVE_LOCATION("chats.liveLocation", BipeSettingsRowKind.LINK, R.string.bipe_chats_live_location, R.string.bipe_chats_live_location_footer, "planned:768", null, null),
+    CHATS_LIVE_LOCATION("chats.liveLocation", BipeSettingsRowKind.LINK, R.string.bipe_chats_live_location, R.string.bipe_chats_live_location_footer, null, null, null),
     HELP_SUPPORT("help.support", BipeSettingsRowKind.ACTION, R.string.bipe_settings_support, null, null, null, null),
     HELP_DOCS("help.docs", BipeSettingsRowKind.URL, R.string.bipe_help_docs, null, null, "https://bipe.chat/docs/", "https://bipe.chat/en/docs/"),
     HELP_TERMS("help.terms", BipeSettingsRowKind.URL, R.string.bipe_help_terms, null, null, "https://bipe.chat/termos/", "https://bipe.chat/en/terms/"),

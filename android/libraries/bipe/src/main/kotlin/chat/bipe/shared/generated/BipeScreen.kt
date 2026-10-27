@@ -208,6 +208,9 @@ enum class BipeScreen(val id: String) {
     /** Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json */
     LINKED_DEVICES("linked-devices"),
 
+    /** My live location share (flow chat). Spec: bipe-shared/product/screens/live-location-banner.json */
+    LIVE_LOCATION_BANNER("live-location-banner"),
+
     /** Send location (flow chat). Spec: bipe-shared/product/screens/location-send.json */
     LOCATION_SEND("location-send"),
 
