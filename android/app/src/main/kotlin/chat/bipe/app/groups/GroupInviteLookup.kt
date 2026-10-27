@@ -28,16 +28,24 @@ internal class GroupInviteLookup(private val context: Context, private val peopl
      */
     suspend fun moreContacts(except: Set<String>): List<Person> {
         val names = linkedMapOf<String, String?>()
+        val entries = mutableMapOf<String, String>()
+        var lookedUp = false
         runCatching { people.withToken { people.api.inviteConnections(it) } }.getOrNull()?.forEach { names[it] = null }
         val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
         if (granted) {
             val book = readAddressBook(context)
             for (chunk in book.keys.toList().chunked(LOOKUP_CHUNK)) {
                 val found = runCatching { people.withToken { people.api.lookupContacts(chunk, it) } }.getOrNull() ?: break
-                found.forEach { names[it.userId] = book[it.phone] }
+                lookedUp = true
+                found.forEach { match ->
+                    val entry = book[match.phone] ?: return@forEach
+                    names[match.userId] = entry.name
+                    entries[match.userId] = entry.id
+                }
             }
         }
         people.rememberContactNames(names.mapNotNull { (id, name) -> name?.let { id to it } }.toMap())
+        if (lookedUp) people.rememberContactEntries(entries)
         return names.filterKeys { it != people.session.userId && it !in except }.map { (userId, name) ->
             runCatching { people.person(userId, contactName = name) }.getOrNull()
                 ?.let { Person(it.userId, it.displayName, it.avatarUrl, it.handle) }

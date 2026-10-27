@@ -52,6 +52,8 @@ final class PersonProfileModel: ObservableObject {
     @Published private(set) var identityRead = false
     @Published private(set) var bio: String?
     @Published private(set) var dmRoomId: String?
+    /// Spec savedNumbers (ADR 0191): the numbers the user saved for this person in the own address book. Empty: no row.
+    @Published private(set) var savedNumbers: [String] = []
     /// A one-line notice after an action (invite sent, refused, already a member).
     @Published var notice: String?
 
@@ -84,6 +86,8 @@ final class PersonProfileModel: ObservableObject {
             let text = profile.bio?.trimmingCharacters(in: .whitespacesAndNewlines)
             bio = text?.isEmpty == false ? text : nil
         }
+        // Spec savedNumbers: may run one address-book lookup first, so it comes last.
+        savedNumbers = await people.savedNumbers(of: userId)
     }
 
     /// Action message: the DM, created when missing. Returns the room to open.

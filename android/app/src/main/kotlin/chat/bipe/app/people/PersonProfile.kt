@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,7 @@ import androidx.compose.material3.AlertDialog
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -103,6 +105,8 @@ class PersonProfileModel(
         val reservedNameWarning: Boolean = false,
         val bio: String? = null,
         val dmRoomId: String? = null,
+        /** Spec savedNumbers (ADR 0191): the numbers the user saved for this person in the own address book. Empty: no row. */
+        val savedNumbers: List<String> = emptyList(),
         val notice: String? = null,
         val openingChat: Boolean = false,
     )
@@ -122,6 +126,8 @@ class PersonProfileModel(
             _state.value = _state.value.copy(phase = Phase.LOADED, person = person)
             val isCompany = people.isCompany(userId)
             _state.value = _state.value.copy(isCompany = isCompany)
+            // Spec savedNumbers: may run one address-book lookup first, so it fills in on its own.
+            scope.launch { _state.value = _state.value.copy(savedNumbers = people.savedNumbers(userId)) }
             readIdentityNow()
             // The seal store answers later and emits; it fails closed.
             scope.launch { people.seals.states.collect { applySeal(people.seals.seal(userId)) } }
@@ -282,6 +288,7 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
                 Header(model, state, isBlocked, onOpenSeal = { showsSeal = true })
                 // Spec business-chat-bar: a company's tools under its name (ADR 0103: Agendar).
                 if (state.isCompany) BusinessProfileButtons(people.session, people.media, userId)
+                SavedNumbers(state.savedNumbers)
                 RowGroup {
                     IconRow(PhosphorIcon.CHAT_TEXT, stringResource(R.string.bipe_app_person_message), enabled = !state.openingChat) {
                         model.message(routes.openChat)
@@ -384,6 +391,31 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
             Text(bio, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary, textAlign = TextAlign.Center)
             Text(stringResource(R.string.bipe_public_profile_not_verified), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
         }
+    }
+}
+
+/** Spec savedNumbers (ADR 0191, bipe-chat/bipe#788): only from the user's own address book. Empty: no row. */
+@Composable
+private fun SavedNumbers(numbers: List<String>) {
+    if (numbers.isEmpty()) return
+    val colors = BipeTheme.colors
+    RowGroup {
+        SelectionContainer {
+            Column {
+                numbers.forEach { number ->
+                    ListItem(
+                        overlineContent = { Text(stringResource(R.string.bipe_person_number), color = colors.inkSecondary) },
+                        headlineContent = { Text(number, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary) },
+                    )
+                }
+            }
+        }
+        Text(
+            stringResource(R.string.bipe_person_number_footer),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.inkSecondary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
     }
 }
 

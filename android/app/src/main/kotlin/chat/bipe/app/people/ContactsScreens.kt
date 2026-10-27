@@ -65,20 +65,54 @@ private enum class ContactsPermission { NOT_ASKED, GRANTED, DENIED }
 /** State phase of spec profile-link-open. */
 private enum class LinkPhase { RESOLVING, NOT_FOUND, FAILED }
 
-/** The address book: E.164 to the saved name. Numbers that do not normalise and duplicates are dropped. */
-internal suspend fun readAddressBook(context: Context): Map<String, String> = withContext(Dispatchers.IO) {
-    val names = mutableMapOf<String, String>()
-    val projection = arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+/**
+ * One address-book entry for a normalised number: the saved name and the contact ID (`ContactsContract.Contacts._ID`).
+ * The ID lets person-profile read the entry again; the app keeps no copy of the numbers (ADR 0191).
+ */
+internal data class AddressBookEntry(val name: String, val id: String)
+
+/** The address book: E.164 to the entry that holds it. Numbers that do not normalise and duplicates are dropped. */
+internal suspend fun readAddressBook(context: Context): Map<String, AddressBookEntry> = withContext(Dispatchers.IO) {
+    val entries = mutableMapOf<String, AddressBookEntry>()
+    val projection = arrayOf(
+        ContactsContract.CommonDataKinds.Phone.NUMBER,
+        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+        ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+    )
     runCatching {
         context.contentResolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, projection, null, null, null)?.use { cursor ->
             while (cursor.moveToNext()) {
                 val number = cursor.getString(0) ?: continue
                 val e164 = BipePhoneNumber.normalize(number) ?: continue
-                if (e164 !in names) names[e164] = cursor.getString(1).orEmpty()
+                val id = cursor.getString(2) ?: continue
+                if (e164 !in entries) entries[e164] = AddressBookEntry(cursor.getString(1).orEmpty(), id)
             }
         }
     }
-    names
+    entries
+}
+
+/**
+ * Spec person-profile savedNumbers (ADR 0191): the numbers of one address-book entry, read again now, formatted for
+ * reading, without duplicates. Empty when the entry is gone or access is not given.
+ */
+internal suspend fun readSavedNumbers(context: Context, entryId: String): List<String> = withContext(Dispatchers.IO) {
+    val numbers = mutableListOf<String>()
+    runCatching {
+        context.contentResolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+            "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
+            arrayOf(entryId),
+            null,
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val shown = BipePhoneNumber.displaySaved(cursor.getString(0) ?: continue)
+                if (shown.isNotEmpty() && shown !in numbers) numbers.add(shown)
+            }
+        }
+    }
+    numbers
 }
 
 /**
@@ -103,14 +137,19 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
         checking = true
         failure = null
         scope.launch {
-            val names = readAddressBook(context)
-            val phones = names.keys.toList()
+            val book = readAddressBook(context)
+            val phones = book.keys.toList()
             val found = linkedMapOf<String, String>()
+            val entries = mutableMapOf<String, String>()
             val result = runCatching {
                 // At most 500 numbers per POST /v1/contacts/lookup.
                 phones.chunked(500).forEach { chunk ->
                     people.withToken { people.api.lookupContacts(chunk, it) }.forEach { match ->
-                        if (match.userId != people.session.userId && match.userId !in found) found[match.userId] = names[match.phone].orEmpty()
+                        val entry = book[match.phone]
+                        if (match.userId != people.session.userId && match.userId !in found && entry != null) {
+                            found[match.userId] = entry.name
+                            entries[match.userId] = entry.id
+                        }
                     }
                 }
             }
@@ -121,6 +160,7 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                 return@launch
             }
             people.rememberContactNames(found)
+            people.rememberContactEntries(entries)
             val invited = runCatching { people.withToken { people.api.inviteConnections(it) }.toSet() }.getOrDefault(emptySet())
             matches = found.map { (userId, name) ->
                 val person = runCatching { people.person(userId, contactName = name) }.getOrElse { Person(userId, name) }

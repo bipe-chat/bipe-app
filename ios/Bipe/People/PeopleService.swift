@@ -66,6 +66,61 @@ final class PeopleService: ObservableObject {
         return contactNames[userId]
     }
 
+    /// User ID to the address-book entry ID that the contact lookup matched (ADR 0191, spec person-profile savedNumbers).
+    /// Memory only, this account. Never a number: person-profile reads the entry again.
+    private var contactEntries: [String: String] = [:]
+    /// A lookup of the address book ran in this session, so person-profile does not spend the daily budget again.
+    private var addressBookLookedUp = false
+
+    func rememberContactEntries(_ entries: [String: String]) {
+        guard ContactsModel.currentPermission() == .granted || ContactsModel.currentPermission() == .limited else {
+            contactEntries = [:]
+            return
+        }
+        contactEntries = entries
+        addressBookLookedUp = true
+    }
+
+    /// Spec person-profile savedNumbers (ADR 0191, bipe-chat/bipe#788): the numbers the user saved for this person, from
+    /// the user's own address book. Without contacts access or without a match: empty. Without a match in this session,
+    /// one lookup of the whole address book (as contacts check), once per session.
+    func savedNumbers(of userId: String) async -> [String] {
+        guard userId != session.userId else { return [] }
+        guard ContactsModel.currentPermission() == .granted || ContactsModel.currentPermission() == .limited else {
+            contactEntries = [:]
+            return []
+        }
+        if contactEntries[userId] == nil, !addressBookLookedUp {
+            await lookUpAddressBook()
+        }
+        guard let entryId = contactEntries[userId] else { return [] }
+        return await Task.detached(priority: .userInitiated) { ContactsModel.savedNumbers(ofEntry: entryId) }.value
+    }
+
+    /// POST /v1/contacts/lookup for the whole address book, in chunks. Keeps the names and entry IDs of the matches.
+    /// Stops at the first failure and keeps what it has; never runs twice in a session.
+    private func lookUpAddressBook() async {
+        addressBookLookedUp = true
+        let book = await Task.detached(priority: .userInitiated) { ContactsModel.readAddressBook() }.value
+        let phones = Array(book.keys)
+        var names: [String: String] = [:]
+        var entries: [String: String] = [:]
+        let api = api
+        for start in stride(from: 0, to: phones.count, by: ContactsModel.lookupChunk) {
+            let chunk = Array(phones[start..<min(start + ContactsModel.lookupChunk, phones.count)])
+            guard let found = try? await withToken({ (token: String) async throws(BipeAPIError) -> [BipeContactMatch] in
+                try await api.lookupContacts(phones: chunk, accessToken: token)
+            }) else { break }
+            for match in found where match.userId != session.userId && entries[match.userId] == nil {
+                guard let entry = book[match.phone] else { continue }
+                names[match.userId] = entry.name
+                entries[match.userId] = entry.id
+            }
+        }
+        rememberContactNames(contactNames.merging(names) { _, new in new })
+        rememberContactEntries(entries)
+    }
+
     private var ignoredHandle: TaskHandle?
     private var ignoredTask: Task<Void, Never>?
 
