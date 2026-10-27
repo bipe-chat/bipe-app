@@ -306,6 +306,8 @@ struct ChatListView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
+            // Spec live-location-banner: this account shares its live location.
+            LiveLocationListRow(userId: model.session.userId)
             RemoteBannerView(model: banner)
                 .padding(.horizontal, 16)
                 .padding(.vertical, banner.state == .hidden ? 0 : 8)

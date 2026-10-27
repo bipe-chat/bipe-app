@@ -105,6 +105,12 @@ data class LocationMessage(val point: MapPoint, val isPin: Boolean, val descript
     }
 
     companion object {
+        /** A beacon of a live location share (MSC3489): the sender's own position at the default zoom. */
+        fun of(geoUri: String, description: String?): LocationMessage? {
+            val (latitude, longitude) = GeoUri.parse(geoUri) ?: return null
+            return LocationMessage(MapPoint.of(latitude, longitude), isPin = false, description = description?.takeIf { it.isNotBlank() })
+        }
+
         /** null when the geo URI cannot be read (the row is then unsupported). */
         fun of(content: LocationContent): LocationMessage? {
             val (latitude, longitude) = GeoUri.parse(content.geoUri) ?: return null
@@ -317,15 +323,20 @@ fun TimelineLocationRow(location: LocationMessage, onOpenFull: () -> Unit) {
 
 /** Spec location-view: the full-screen map of one location. */
 @Composable
-fun LocationFullScreen(location: LocationMessage, senderName: String, sentAt: Long, onClose: () -> Unit) {
+fun LocationFullScreen(location: LocationMessage, senderName: String, sentAt: Long, live: LiveLocationMessage? = null, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
-    var centre by remember(location) { mutableStateOf(location.point) }
-    val label = stringResource(location.labelRes)
+    // A live row moves the pin with each beacon; the centre stays where the person put it (spec location-view notes).
+    var centre by remember(if (live == null) location else Unit) { mutableStateOf(location.point) }
+    val label = if (live == null) stringResource(location.labelRes) else stringResource(R.string.bipe_app_location_live_title)
     BackHandler(onBack = onClose)
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.LOCATION_VIEW.id), color = colors.surfaceBase) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-            GroupTopBar(stringResource(R.string.bipe_app_location_title), onBack = onClose, backIcon = PhosphorIcon.X)
+            GroupTopBar(
+                stringResource(if (live == null) R.string.bipe_app_location_title else R.string.bipe_app_location_live_title),
+                onBack = onClose,
+                backIcon = PhosphorIcon.X,
+            )
             DraggableMap(centre, onCentreChange = { centre = it }, pinAt = location.point, modifier = Modifier.weight(1f).fillMaxWidth())
             Column(
                 Modifier.fillMaxWidth().background(colors.surfaceRaised).padding(16.dp),
@@ -337,7 +348,7 @@ fun LocationFullScreen(location: LocationMessage, senderName: String, sentAt: Lo
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(senderName, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, maxLines = 1)
                         Text(
-                            DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(sentAt)),
+                            live?.statusLine(context) ?: DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(sentAt)),
                             style = MaterialTheme.typography.bodySmall,
                             color = colors.inkSecondary,
                         )

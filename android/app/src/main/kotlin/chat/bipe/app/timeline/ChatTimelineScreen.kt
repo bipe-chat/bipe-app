@@ -107,6 +107,7 @@ import chat.bipe.app.media.upload.UploadPreviewScreen
 import chat.bipe.app.media.voice.MicrophoneDeniedBar
 import chat.bipe.app.media.voice.VoiceRecordingBar
 import chat.bipe.app.media.voice.VoiceMediaStore
+import chat.bipe.app.location.LiveLocationChatBar
 import chat.bipe.app.location.LocationFullScreen
 import chat.bipe.app.location.LocationSendScreen
 import chat.bipe.app.polls.PollCreateScreen
@@ -217,7 +218,7 @@ fun ChatTimelineScreen(
     // Spec location-send, with the reply target taken when it opened.
     var locationSend by remember { mutableStateOf<LocationSendRequest?>(null) }
     locationSend?.let { request ->
-        LocationSendScreen(model, request.replyToEventId) { locationSend = null }
+        LocationSendScreen(model, session, request.replyToEventId) { locationSend = null }
         return
     }
     openPollId?.let { eventId ->
@@ -313,6 +314,7 @@ fun ChatTimelineScreen(
                     }
                 }
                 OngoingCallBar(model, session, roomName)
+                LiveLocationChatBar(roomId, session.userId)
                 val sealInstitutions = people?.seals?.institutions?.collectAsState()
                 val cvmPeer = peerUserId
                 if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
@@ -493,9 +495,14 @@ fun ChatTimelineScreen(
     if (showsStickers) {
         StickerPicker(model.client, roomId, media, onClose = { showsStickers = false })
     }
-    val viewerLocation = viewerRowId?.let { id -> messages.firstOrNull { it.id == id } }?.takeIf { it.location != null }
+    val viewerMessage = viewerRowId?.let { id -> messages.firstOrNull { it.id == id } }
+    val viewerLocation = viewerMessage?.takeIf { it.location != null }
+    // Spec location-view: the full map of a live row; the pin follows the newest beacon while it is open.
+    val viewerLive = viewerMessage?.takeIf { it.live?.location != null }
     if (viewerLocation != null) {
         LocationFullScreen(viewerLocation.location!!, viewerLocation.senderName, viewerLocation.sentAt) { viewerRowId = null }
+    } else if (viewerLive != null) {
+        LocationFullScreen(viewerLive.live!!.location!!, viewerLive.senderName, viewerLive.sentAt, live = viewerLive.live) { viewerRowId = null }
     } else viewerRowId?.let { rowId ->
         MediaViewer(
             messages = messages,

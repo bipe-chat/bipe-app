@@ -20,6 +20,8 @@ struct TimelineMessage: Identifiable, Equatable {
         case poll
         /// m.location (spec location-view).
         case location
+        /// MSC3489 live location share (spec location-view, live row).
+        case liveLocation
         case unsupported
     }
 
@@ -55,6 +57,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var voice: VoiceMessage? = nil
     /// Kind location.
     var location: LocationMessage? = nil
+    /// Kind liveLocation.
+    var live: LiveLocationMessage? = nil
 }
 
 /// Type MessageAction of spec message-actions, in the order of the sheet.

@@ -40,6 +40,7 @@ import org.matrix.rustcomponents.sdk.NotificationItem
 import org.matrix.rustcomponents.sdk.NotificationProcessSetup
 import org.matrix.rustcomponents.sdk.NotificationStatus
 import org.matrix.rustcomponents.sdk.TimelineEvent
+import org.matrix.rustcomponents.sdk.StateEventContent
 import org.matrix.rustcomponents.sdk.TimelineEventContent
 
 /** The message sound of an account on this phone (spec notification-settings, state sound). A phone setting, not a push rule. */
@@ -247,6 +248,9 @@ class PhoneNotifications(private val context: Context) {
         val senderName = item.senderInfo.displayName?.takeIf { it.isNotEmpty() }
         when (val event = item.event) {
             is NotificationEvent.Timeline -> {
+                // Spec location-view notes: a live location update (MSC3672 beacon) never shows a notification.
+                val eventContent = runCatching { event.event.content() }.getOrNull()
+                if ((eventContent as? TimelineEventContent.MessageLike)?.content is MessageLikeEventContent.Beacon) return
                 // bipe-chat/bipe#511: without this account's preview, no sender and no text.
                 if (!preview(target.accountUserId)) return showFallback(target, route, eventId)
                 val text = messageText(event.event) ?: return showFallback(target, route, eventId)
@@ -469,7 +473,12 @@ class PhoneNotifications(private val context: Context) {
 
     /** Plain body or decrypted attachment kind/caption; never fetch a file or use its computed filename. */
     private fun messageText(event: TimelineEvent): String? {
-        val content = (runCatching { event.content() }.getOrNull() as? TimelineEventContent.MessageLike)?.content ?: return null
+        val eventContent = runCatching { event.content() }.getOrNull()
+        // The start of a live location share (MSC3672 beacon_info state event).
+        if ((eventContent as? TimelineEventContent.State)?.content is StateEventContent.BeaconInfo) {
+            return context.getString(R.string.bipe_app_location_live_title)
+        }
+        val content = (eventContent as? TimelineEventContent.MessageLike)?.content ?: return null
         if (content is MessageLikeEventContent.Sticker) return context.getString(R.string.bipe_app_media_sticker)
         val message = content as? MessageLikeEventContent.RoomMessage ?: return null
         return when (val type = message.messageType) {

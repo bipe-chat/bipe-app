@@ -459,6 +459,8 @@ fun ChatListScreen(
                     )
                 }
             }
+            // Spec live-location-banner: this account shares its live location.
+            chat.bipe.app.location.LiveLocationListRow(model.session.userId)
             remoteBanner?.let { RemoteBannerCard(it, context) }
             run {
                 if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)

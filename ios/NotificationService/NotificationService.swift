@@ -95,6 +95,12 @@ final class NotificationService: UNNotificationServiceExtension {
             if room.isDm, let ring = ring(event: event, sender: senderName ?? event.senderId(), target: target, route: route, eventId: eventId) {
                 return ring
             }
+            // Spec location-view notes: a live location update (MSC3672 beacon) never shows a notification.
+            if case .messageLike(.beacon)? = try? event.content() {
+                let empty = UNMutableNotificationContent()
+                empty.badge = unreadCount.map { NSNumber(value: $0) }
+                return empty
+            }
             guard let text = messageText(event) else {
                 return fallback(target: target, route: route, eventId: eventId, unreadCount: unreadCount)
             }
@@ -172,6 +178,8 @@ final class NotificationService: UNNotificationServiceExtension {
 
     /// Plain text and media kind/caption from the decrypted event; no attachment fetch or raw filename.
     private static func messageText(_ event: TimelineEvent) -> String? {
+        // The start of a live location share (MSC3672 beacon_info state event).
+        if case .state(.beaconInfo)? = try? event.content() { return BipeStrings.appLocationLiveTitle }
         guard case .messageLike(let content)? = try? event.content() else { return nil }
         switch content {
         case .sticker: return BipeStrings.appMediaSticker

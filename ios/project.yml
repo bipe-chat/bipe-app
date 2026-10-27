@@ -104,7 +104,8 @@ targets:
         # Voice messages play on with the screen locked (spec voice-message notes), and a call goes on in the background (spec call).
         # voip: PushKit and CallKit ring a locked phone (spec incoming-call, bipe-chat/bipe#760). The notification service
         # extension hands a ring to the app with CXProvider.reportNewIncomingVoIPPushPayload; no VoIP pusher on the server.
-        UIBackgroundModes: [audio, voip]
+        # location: a live location share goes on with the screen locked, only with "Always" (spec location-send, bipe-chat/bipe#768).
+        UIBackgroundModes: [audio, voip, location]
         # Media viewer save (spec media-viewer). The system shows this text with the add-only photo permission.
         NSPhotoLibraryAddUsageDescription: O Bipe salva na sua galeria as fotos e os vídeos que você escolher salvar.
         # Composer (specs attachment-picker, voice-recording), calls (spec call). The transcript is made on this iPhone only (ADR 0023).
@@ -113,8 +114,10 @@ targets:
         NSCameraUsageDescription: O Bipe usa a câmera nas chamadas de vídeo, para fotos e vídeos nas conversas e para ler QR codes, como o do computador ou de um convite.
         NSMicrophoneUsageDescription: O Bipe usa o microfone nas chamadas e quando você grava uma mensagem de voz ou um vídeo.
         NSSpeechRecognitionUsageDescription: O Bipe transcreve suas mensagens de voz neste iPhone, sem enviar o áudio para nenhum servidor.
-        # Spec location-send (bipe-chat/bipe#768): "when in use" only, asked at the first send. No background access.
-        NSLocationWhenInUseUsageDescription: O Bipe usa sua localização só quando você escolhe enviar onde está numa conversa.
+        # Spec location-send (bipe-chat/bipe#768): "when in use" at the first send; "Always" only when a live share starts.
+        # The texts are bipe-shared bipe_app_location_when_in_use_usage and bipe_app_location_always_usage (pt-BR).
+        NSLocationWhenInUseUsageDescription: O Bipe usa sua localização quando você envia onde está numa conversa ou compartilha sua localização em tempo real.
+        NSLocationAlwaysAndWhenInUseUsageDescription: Quando você compartilha sua localização em tempo real numa conversa, o Bipe continua enviando onde você está com a tela bloqueada, até o fim do tempo que você escolheu.
     entitlements:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:
