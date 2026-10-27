@@ -6,6 +6,7 @@ package chat.bipe.shared.account
 
 import android.content.Context
 import android.text.format.DateUtils
+import chat.bipe.shared.BipePhoneNumber
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.InstantSerializer
@@ -15,7 +16,7 @@ import java.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** `GET /v1/me/phone`: the state of the linked number, never the number. */
+/** `GET /v1/me/phone`: the state of the caller's own linked number, and the number (ADR 0191). */
 @Serializable
 data class BipeMyPhone(
     @SerialName("linked") val linked: Boolean = false,
@@ -23,6 +24,8 @@ data class BipeMyPhone(
     @Serializable(with = InstantSerializer::class) @SerialName("linked_at") val linkedAt: Instant? = null,
     /** After this the number stops being findable until it is confirmed again. */
     @Serializable(with = InstantSerializer::class) @SerialName("confirm_by") val confirmBy: Instant? = null,
+    /** The caller's own linked number in E.164 (ADR 0191). Null when not linked or for a link made before the server stored it. */
+    @SerialName("number") val number: String? = null,
 )
 
 /** `GET /v1/me/phone`. */
@@ -77,6 +80,15 @@ sealed class BipePhoneLinkState {
             ?: context.getString(R.string.bipe_privacy_number_linked)
         is ConfirmSoon -> context.getString(R.string.bipe_phone_confirm_soon, format(context, by))
         is Expired -> context.getString(R.string.bipe_phone_confirm_expired)
+    }
+
+    /**
+     * The value of the privacy row number with the own linked number (ADR 0191, bipe-chat/bipe#787): the number formatted
+     * for reading next to the state. Without a number (not linked, or a link made before the server stored it): the state only.
+     */
+    fun summary(context: Context, number: String?): String {
+        if (this == NotLinked || number.isNullOrEmpty()) return summary(context)
+        return context.getString(R.string.bipe_privacy_number_value, BipePhoneNumber.display(number), summary(context))
     }
 
     companion object {

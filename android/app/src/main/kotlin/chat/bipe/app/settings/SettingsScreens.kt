@@ -542,7 +542,7 @@ private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSett
     BipeSettingsRow.PRIVACY_MESSAGING -> state.whoCanMessage?.let { context.getString(it.settingsSummary) }
     BipeSettingsRow.PRIVACY_READ_RECEIPTS -> context.getString(R.string.bipe_privacy_read_receipts_value)
     BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS -> state.waysBack?.summary(context)
-    BipeSettingsRow.PRIVACY_NUMBER -> state.phone?.summary(context)
+    BipeSettingsRow.PRIVACY_NUMBER -> state.phone?.summary(context, state.phoneNumber)
     BipeSettingsRow.ACCOUNT_EMAIL -> state.account?.let { it.email ?: context.getString(R.string.bipe_account_email_none) }
     BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> context.getString(
         if (state.hasRecoveryKey) R.string.bipe_account_recovery_key_saved else R.string.bipe_account_recovery_key_missing,

@@ -334,7 +334,7 @@ struct SettingsGroupView: View {
         switch row {
         case .privacyReadReceipts: BipeStrings.privacyReadReceiptsValue
         case .accountWaysBackStatus: model.waysBack?.summary
-        case .privacyNumber: model.phone?.summary
+        case .privacyNumber: model.phone?.summary(number: model.phoneNumber)
         case .accountEmail: model.account.map { $0.email ?? BipeStrings.accountEmailNone }
         case .accountRecoveryKey: model.hasRecoveryKey ? BipeStrings.accountRecoveryKeySaved : BipeStrings.accountRecoveryKeyMissing
         case .accountThisDevice: UIDevice.current.model

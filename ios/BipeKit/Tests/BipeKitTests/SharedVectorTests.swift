@@ -26,6 +26,22 @@ struct SharedVectorTests {
     }
 
     @Test
+    func phoneNumbers() throws {
+        let cases = try SharedVectors.array("phone-numbers.json", key: "vectors")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let input = try #require(vector["input"] as? String)
+            #expect(BipePhoneNumber.normalize(input) == vector["e164"] as? String, "normalizePhone \(input)")
+        }
+        let display = try SharedVectors.array("phone-numbers.json", key: "display")
+        #expect(!display.isEmpty)
+        for vector in display {
+            let e164 = try #require(vector["e164"] as? String)
+            #expect(BipePhoneNumber.display(e164) == vector["display"] as? String, "displayPhone \(e164)")
+        }
+    }
+
+    @Test
     func relationshipNames() throws {
         let vectors = try SharedVectors.array("relationship-names.json", key: "vectors")
         #expect(!vectors.isEmpty)

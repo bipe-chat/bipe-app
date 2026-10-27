@@ -44,4 +44,26 @@ object BipePhoneNumber {
         if (area !in BipeRegistries.phoneAreaCodes || !subscriber.startsWith(BipeRegistries.PHONE_MOBILE_PREFIX)) return null
         return "+$countryCode$area$subscriber"
     }
+
+    /**
+     * An E.164 number formatted for reading (ADR 0191): `+5511987654321` gives `+55 11 98765-4321`. The first entry of
+     * [BipeRegistries.phoneDisplayFormats] that fits wins; else the E.164 number as it is. Other text comes back unchanged.
+     * Cases: test-vectors/phone-numbers.json `display`.
+     */
+    fun display(e164: String): String {
+        if (e164.length < 2 || !e164.startsWith("+") || !e164.drop(1).all { it in '0'..'9' }) return e164
+        val digits = e164.drop(1)
+        for ((countryCode, prefix, pattern) in BipeRegistries.phoneDisplayFormats) {
+            if (!digits.startsWith(countryCode)) continue
+            val rest = digits.drop(countryCode.length)
+            if (!rest.startsWith(prefix) || pattern.count { it == '#' } != rest.length) continue
+            var index = 0
+            val body = pattern.map { if (it == '#') rest[index++] else it }.joinToString("")
+            return "+$countryCode $body"
+        }
+        return e164
+    }
+
+    /** A number as saved in the address book, for reading: formatted when it normalises, else as saved. */
+    fun displaySaved(text: String): String = normalize(text)?.let(::display) ?: text.trim()
 }

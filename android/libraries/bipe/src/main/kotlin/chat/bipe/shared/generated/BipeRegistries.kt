@@ -731,6 +731,16 @@ object BipeRegistries {
     /** Yearly confirmation of a linked number (bipe-chat/bipe#470): months findable, and the warning days before confirm_by. */
     const val PHONE_LINK_CONFIRM_MONTHS = 12
     const val PHONE_LINK_CONFIRM_WARN_DAYS = 30
+    /** Number formats for reading (ADR 0191): country code, prefix, pattern; the first entry that fits wins. */
+    val phoneDisplayFormats: List<Triple<String, String, String>> = listOf(
+        Triple("55", "", "## #####-####"),
+        Triple("1", "", "### ###-####"),
+        Triple("31", "6", "# #### ####"),
+        Triple("351", "", "### ### ###"),
+        Triple("44", "7", "#### ######"),
+        Triple("34", "", "### ## ## ##"),
+        Triple("33", "", "# ## ## ## ##"),
+    )
 
     /** Work side opening hours (registries/work-hours.json, bipe-chat/bipe#511). */
     const val WORK_HOURS_DEFAULT_TIME_ZONE = "America/Sao_Paulo"

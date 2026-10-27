@@ -200,6 +200,12 @@ class SharedVectorTest {
             val input = vector.string("input")!!
             assertWithMessage("normalizePhone($input)").that(BipePhoneNumber.normalize(input)).isEqualTo(vector.string("e164"))
         }
+        val display = vectors("phone-numbers.json", "display")
+        assertWithMessage("phone-numbers.json display is empty").that(display).isNotEmpty()
+        for (vector in display) {
+            val e164 = vector.string("e164")!!
+            assertWithMessage("displayPhone($e164)").that(BipePhoneNumber.display(e164)).isEqualTo(vector.string("display"))
+        }
     }
 
     @Test

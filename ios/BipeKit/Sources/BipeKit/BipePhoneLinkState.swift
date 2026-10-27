@@ -52,6 +52,13 @@ public enum BipePhoneLinkState: Equatable, Sendable {
         }
     }
     
+    /// The value of the privacy row number with the own linked number (ADR 0191, bipe-chat/bipe#787): the number formatted
+    /// for reading next to the state. Without a number (not linked, or a link made before the server stored it): the state only.
+    public func summary(number: String?) -> String {
+        guard self != .notLinked, let number, !number.isEmpty else { return summary }
+        return BipeStrings.privacyNumberValue(BipePhoneNumber.display(number), summary)
+    }
+
     private static func format(_ date: Date) -> String {
         date.formatted(date: .long, time: .omitted)
     }

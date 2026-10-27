@@ -40,4 +40,29 @@ public nonisolated enum BipePhoneNumber {
         guard BipeRegistries.phoneAreaCodes.contains(area), subscriber.hasPrefix(BipeRegistries.phoneMobilePrefix) else { return nil }
         return "+\(countryCode)\(area)\(subscriber)"
     }
+
+    /// An E.164 number formatted for reading (ADR 0191): `+5511987654321` gives `+55 11 98765-4321`. The first entry of
+    /// `BipeRegistries.phoneDisplayFormats` that fits wins; else the E.164 number as it is. Other text comes back unchanged.
+    /// Cases: test-vectors/phone-numbers.json `display`.
+    public static func display(_ e164: String) -> String {
+        guard e164.hasPrefix("+"), e164.count > 1, e164.dropFirst().allSatisfy({ $0.isASCII && $0.isNumber }) else { return e164 }
+        let digits = String(e164.dropFirst())
+        for format in BipeRegistries.phoneDisplayFormats where digits.hasPrefix(format.countryCode) {
+            let rest = Array(digits.dropFirst(format.countryCode.count))
+            guard String(rest).hasPrefix(format.prefix), format.pattern.filter({ $0 == "#" }).count == rest.count else { continue }
+            var index = 0
+            let body = String(format.pattern.map { character -> Character in
+                guard character == "#" else { return character }
+                defer { index += 1 }
+                return rest[index]
+            })
+            return "+\(format.countryCode) \(body)"
+        }
+        return e164
+    }
+
+    /// A number as saved in the address book, for reading: formatted when it normalises, else as saved.
+    public static func displaySaved(_ text: String) -> String {
+        normalize(text).map(display) ?? text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
