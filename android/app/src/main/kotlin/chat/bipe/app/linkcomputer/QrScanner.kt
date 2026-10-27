@@ -23,14 +23,15 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
 import com.google.zxing.PlanarYUVLuminanceSource
-import com.google.zxing.ResultMetadataType
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
 import java.util.concurrent.Executors
 
 /**
- * Camera preview that reads QR codes and hands over their raw bytes. The MSC4108 code is binary, so the bytes come
- * from the byte segments of the decoded code, not from its text.
+ * Camera preview that reads QR codes and hands over their raw bytes. The MSC4108 code is binary. ZXing decodes every
+ * segment as ISO-8859-1, which maps each character back to one byte, so the bytes come back as they are. The byte
+ * segments alone are not enough: iOS CoreImage puts the "MATRIX" prefix in alphanumeric mode, and the byte segments
+ * drop it, so the code from an iPhone did not parse.
  *
  * readText: a text code, such as an invite link (bipe-chat/bipe#621). The bytes are the UTF-8 of the decoded text of
  * all segments; iOS puts an uppercase tail such as the invite code in alphanumeric mode, which the byte segments drop.
@@ -84,11 +85,14 @@ private fun decode(reader: QRCodeReader, image: ImageProxy, readText: Boolean): 
         buffer.get(data, row * width, width)
     }
     val source = PlanarYUVLuminanceSource(data, width, height, 0, 0, width, height, false)
-    val hints = mapOf(DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE), DecodeHintType.TRY_HARDER to true)
+    val hints = buildMap<DecodeHintType, Any> {
+        put(DecodeHintType.POSSIBLE_FORMATS, listOf(BarcodeFormat.QR_CODE))
+        put(DecodeHintType.TRY_HARDER, true)
+        if (!readText) put(DecodeHintType.CHARACTER_SET, "ISO-8859-1")
+    }
     val result = runCatching { reader.decode(BinaryBitmap(HybridBinarizer(source)), hints) }.getOrNull()
     reader.reset()
-    if (readText) return result?.text?.encodeToByteArray()?.takeIf { it.isNotEmpty() }
-    @Suppress("UNCHECKED_CAST")
-    val segments = result?.resultMetadata?.get(ResultMetadataType.BYTE_SEGMENTS) as? List<ByteArray> ?: return null
-    return segments.fold(ByteArray(0)) { all, segment -> all + segment }.takeIf { it.isNotEmpty() }
+    val text = result?.text ?: return null
+    val bytes = if (readText) text.encodeToByteArray() else text.toByteArray(Charsets.ISO_8859_1)
+    return bytes.takeIf { it.isNotEmpty() }
 }
