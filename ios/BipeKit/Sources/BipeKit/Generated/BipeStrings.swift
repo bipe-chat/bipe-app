@@ -880,6 +880,78 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_a11y_sticker_send", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var stickersFavourites: String { NSLocalizedString("bipe_stickers_favourites", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickersRecents: String { NSLocalizedString("bipe_stickers_recents", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickersSearchPlaceholder: String { NSLocalizedString("bipe_stickers_search_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickersSearchEmpty: String { NSLocalizedString("bipe_stickers_search_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerFavouriteAdd: String { NSLocalizedString("bipe_sticker_favourite_add", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerFavouriteRemove: String { NSLocalizedString("bipe_sticker_favourite_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerEditTags: String { NSLocalizedString("bipe_sticker_edit_tags", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickersPackShare: String { NSLocalizedString("bipe_stickers_pack_share", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickersPackShareFailed: String { NSLocalizedString("bipe_stickers_pack_share_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagRiso: String { NSLocalizedString("bipe_sticker_tag_riso", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagAmor: String { NSLocalizedString("bipe_sticker_tag_amor", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagBomDia: String { NSLocalizedString("bipe_sticker_tag_bom_dia", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagBoaTarde: String { NSLocalizedString("bipe_sticker_tag_boa_tarde", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagBoaNoite: String { NSLocalizedString("bipe_sticker_tag_boa_noite", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagParabens: String { NSLocalizedString("bipe_sticker_tag_parabens", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagObrigado: String { NSLocalizedString("bipe_sticker_tag_obrigado", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagSextou: String { NSLocalizedString("bipe_sticker_tag_sextou", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagTmj: String { NSLocalizedString("bipe_sticker_tag_tmj", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagAmem: String { NSLocalizedString("bipe_sticker_tag_amem", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagChoro: String { NSLocalizedString("bipe_sticker_tag_choro", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagRaiva: String { NSLocalizedString("bipe_sticker_tag_raiva", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagSurpresa: String { NSLocalizedString("bipe_sticker_tag_surpresa", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagOk: String { NSLocalizedString("bipe_sticker_tag_ok", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagTchau: String { NSLocalizedString("bipe_sticker_tag_tchau", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagFesta: String { NSLocalizedString("bipe_sticker_tag_festa", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagFome: String { NSLocalizedString("bipe_sticker_tag_fome", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagCansado: String { NSLocalizedString("bipe_sticker_tag_cansado", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerTagDuvida: String { NSLocalizedString("bipe_sticker_tag_duvida", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerPackAdd: String { NSLocalizedString("bipe_sticker_pack_add", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerPackAdded: String { NSLocalizedString("bipe_sticker_pack_added", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func stickerPackBy(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_sticker_pack_by", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var stickerPackFailed: String { NSLocalizedString("bipe_sticker_pack_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var actionViewStickerPack: String { NSLocalizedString("bipe_action_view_sticker_pack", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var stickerSuggestionsDismiss: String { NSLocalizedString("bipe_sticker_suggestions_dismiss", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yStickerPlay: String { NSLocalizedString("bipe_a11y_sticker_play", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var groupMissedTitle: String { NSLocalizedString("bipe_group_missed_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func groupMissedMention(_ p1: String) -> String {
@@ -2493,6 +2565,10 @@ public enum BipeStrings {
     public static var chatsShowMediaNever: String { NSLocalizedString("bipe_chats_show_media_never", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatsDataUse: String { NSLocalizedString("bipe_chats_data_use", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsStickerSuggestions: String { NSLocalizedString("bipe_chats_sticker_suggestions", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsStickerSuggestionsFooter: String { NSLocalizedString("bipe_chats_sticker_suggestions_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func dataUseBudget(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_data_use_budget", tableName: "Bipe", bundle: .module, comment: ""), p1)

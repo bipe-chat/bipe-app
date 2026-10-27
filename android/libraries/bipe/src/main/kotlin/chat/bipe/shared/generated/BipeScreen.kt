@@ -409,6 +409,9 @@ enum class BipeScreen(val id: String) {
     /** Import stickers (flow chat). Spec: bipe-shared/product/screens/sticker-import.json */
     STICKER_IMPORT("sticker-import"),
 
+    /** Sticker pack (flow chat). Spec: bipe-shared/product/screens/sticker-pack.json */
+    STICKER_PACK("sticker-pack"),
+
     /** Stickers (flow chat). Spec: bipe-shared/product/screens/sticker-picker.json */
     STICKER_PICKER("sticker-picker"),
 
