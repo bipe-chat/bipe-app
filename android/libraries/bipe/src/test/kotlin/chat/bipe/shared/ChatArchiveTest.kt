@@ -4,8 +4,10 @@
 
 package chat.bipe.shared
 
-import java.nio.file.Files
+import chat.bipe.shared.generated.BipeChatArchive
+import com.google.common.truth.Truth.assertThat
 import java.io.File
+import java.io.IOException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonArray
@@ -13,76 +15,74 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
-import org.junit.Assert.*
+import org.junit.Assert.assertThrows
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 class ChatArchiveTest {
+    @get:Rule val disk = TemporaryFolder()
+    private val room = "!room:example.invalid"
+    private val saved = mapOf(room to 100L)
+    private fun store(owner: String = "@a:example.invalid") = BipeChatArchiveStore(disk.root, owner)
+    private fun state(synced: Boolean = false) = BipeChatArchiveStore.State(saved, if (synced) setOf(room) else emptySet())
+
     @Test fun serverSyncCases() {
         val file = File(System.getenv("BIPE_SHARED") ?: "../../../../bipe-shared", "test-vectors/archive-sync.json")
         val cases = Json.parseToJsonElement(file.readText()).jsonObject.getValue("cases").jsonArray
         for (item in cases) {
             val v = item.jsonObject
             val expected = v.getValue("expected").jsonObject
-            val result = chat.bipe.shared.generated.BipeChatArchive.reconcile(
+            val result = BipeChatArchive.reconcile(
                 v.getValue("marker").jsonPrimitive.longOrNull,
                 v.getValue("synced").jsonPrimitive.boolean,
                 v.getValue("serverArchived").jsonPrimitive.boolean,
                 v.getValue("activity").jsonPrimitive.longOrNull,
                 v.getValue("incoming").jsonPrimitive.longOrNull,
             )
-            val name = v.getValue("name").jsonPrimitive.content
-            assertEquals(name, expected.getValue("marker").jsonPrimitive.longOrNull, result.marker)
-            assertEquals(name, expected.getValue("synced").jsonPrimitive.boolean, result.synced)
-            assertEquals(name, expected.getValue("tagWrite").jsonPrimitive.booleanOrNull, result.tagWrite)
+            assertThat(listOf(result.marker, result.synced, result.tagWrite))
+                .named(v.getValue("name").jsonPrimitive.content)
+                .isEqualTo(listOf(expected.getValue("marker").jsonPrimitive.longOrNull,
+                    expected.getValue("synced").jsonPrimitive.boolean,
+                    expected.getValue("tagWrite").jsonPrimitive.booleanOrNull))
         }
     }
 
-    @Test fun migrationMetadataIsAtomicAndLegacyCompatible() {
-        val directory = Files.createTempDirectory("bipe-archive-migration").toFile()
-        try {
-            val store = BipeChatArchiveStore(directory, "@a:example.invalid")
-            store.save(mapOf("!room:example.invalid" to 100L))
-            assertTrue(store.loadState().syncedRooms.isEmpty())
-            store.save(mapOf("!room:example.invalid" to 100L), setOf("!room:example.invalid"))
-            assertEquals(setOf("!room:example.invalid"), store.loadState().syncedRooms)
-            assertThrows(Exception::class.java) { store.save(emptyMap(), setOf("!room:example.invalid")) }
-            assertEquals(mapOf("!room:example.invalid" to 100L), store.loadState().markers)
-            assertEquals(setOf("!room:example.invalid"), store.loadState().syncedRooms)
-            store.save(emptyMap())
-            assertTrue(store.loadState().syncedRooms.isEmpty())
-            store.file.writeText("""{"version":1,"markers":{"!old:example.invalid":50}}""")
-            assertEquals(mapOf("!old:example.invalid" to 50L), store.loadState().markers)
-            assertTrue(store.loadState().syncedRooms.isEmpty())
-        } finally { directory.deleteRecursively() }
+    @Test fun migrationMetadataTravelsWithItsMarker() {
+        val archive = store()
+        archive.save(saved)
+        assertThat(archive.loadState()).isEqualTo(state())
+        archive.save(saved, setOf(room))
+        assertThat(store().loadState()).isEqualTo(state(synced = true))
+        val beforeInvalidSave = archive.file.readBytes().toList()
+        assertThrows(IOException::class.java) { archive.save(emptyMap(), setOf(room)) }
+        assertThat(archive.file.readBytes().toList()).isEqualTo(beforeInvalidSave)
+        assertThat(archive.loadState()).isEqualTo(state(synced = true))
+        archive.save(emptyMap())
+        assertThat(archive.loadState()).isEqualTo(BipeChatArchiveStore.State(emptyMap(), emptySet()))
+        archive.file.writeText("""{"version":1,"markers":{"!old:example.invalid":50}}""")
+        assertThat(archive.loadState()).isEqualTo(BipeChatArchiveStore.State(mapOf("!old:example.invalid" to 50L), emptySet()))
     }
 
-    @Test fun incomingRestoresButOwnOrOldActivityDoesNot() {
-        val policy = chat.bipe.shared.generated.BipeChatArchive
-        assertTrue(policy.isArchived(100L, null))
-        assertTrue(policy.isArchived(100L, 100L))
-        assertTrue(policy.isArchived(100L, 99L))
-        assertFalse(policy.isArchived(100L, 101L))
-        assertTrue(policy.isArchived(0L, null))
-        assertFalse(policy.isArchived(null, 100L))
+    @Test fun incomingTimestampMustBeNewerThanTheArchiveBaseline() {
+        val input = listOf(100L to null, 100L to 100L, 100L to 99L, 100L to 101L, 0L to null, null to 100L)
+        val result = input.map { (marker, incoming) -> BipeChatArchive.isArchived(marker, incoming) }
+        assertThat(result).containsExactly(true, true, true, false, true, false).inOrder()
     }
 
-    @Test fun persistsOfflineAndIsolatesOwners() {
-        val directory = Files.createTempDirectory("bipe-archive-test").toFile()
-        try {
-            val a = BipeChatArchiveStore(directory, "@a:example.invalid")
-            val b = BipeChatArchiveStore(directory, "@b:example.invalid")
-            a.save(mapOf("!room:example.invalid" to 100L))
-            assertEquals(mapOf("!room:example.invalid" to 100L), BipeChatArchiveStore(directory, "@a:example.invalid").load())
-            assertTrue(b.load().isEmpty())
-            assertFalse(a.file.name.contains("@a"))
-            assertThrows(Exception::class.java) { a.save(mapOf("!invalid" to -1L)) }
-            assertEquals(mapOf("!room:example.invalid" to 100L), a.load())
-            a.save(emptyMap())
-            assertTrue(a.load().isEmpty())
-            a.file.writeText("corrupt")
-            assertThrows(Exception::class.java) { a.load() }
-            assertThrows(Exception::class.java) { a.save(emptyMap()) }
-            assertEquals("corrupt", a.file.readText())
-        } finally { directory.deleteRecursively() }
+    @Test fun accountFilesSurviveReopeningAndRejectedWrites() {
+        val archive = store()
+        archive.save(saved)
+        assertThat(store().load()).isEqualTo(saved)
+        assertThat(store("@b:example.invalid").load()).isEmpty()
+        assertThat(archive.file.name).doesNotContain("@a")
+        assertThrows(IOException::class.java) { archive.save(mapOf("!invalid" to -1L)) }
+        assertThat(archive.load()).isEqualTo(saved)
+        archive.save(emptyMap())
+        assertThat(archive.load()).isEmpty()
+        archive.file.writeText("corrupt")
+        assertThrows(Exception::class.java) { archive.load() }
+        assertThrows(Exception::class.java) { archive.save(emptyMap()) }
+        assertThat(archive.file.readText()).isEqualTo("corrupt")
     }
 }
