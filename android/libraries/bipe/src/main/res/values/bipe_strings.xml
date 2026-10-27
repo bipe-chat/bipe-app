@@ -932,6 +932,8 @@
     <string name="bipe_account_recovery_key_missing">Não salva</string>
     <string name="bipe_account_recovery_key_footer">Sem um aparelho que já tenha as mensagens, você precisa desta chave para ver o histórico. Ninguém do Bipe vai pedir a chave.</string>
     <string name="bipe_account_devices">Aparelhos</string>
+    <string name="bipe_account_old_messages">Mensagens antigas</string>
+    <string name="bipe_account_old_messages_footer">Aprove este celular para ver suas conversas antigas aqui.</string>
     <string name="bipe_account_this_device">Este celular</string>
     <string name="bipe_linked_devices_title">Aparelhos conectados</string>
     <string name="bipe_linked_devices_link_computer">Conectar um computador</string>
