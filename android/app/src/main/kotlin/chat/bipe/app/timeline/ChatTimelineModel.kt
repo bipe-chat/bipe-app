@@ -21,6 +21,7 @@ import chat.bipe.app.media.voice.VoiceMediaExpiry
 import chat.bipe.app.media.voice.VoiceMediaStore
 import chat.bipe.app.media.voice.VoiceRecordingModel
 import chat.bipe.shared.api.BipeKeptMedia
+import chat.bipe.app.location.LiveLocationMessage
 import chat.bipe.app.location.LocationMessage
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.app.media.VoiceMessage
@@ -85,8 +86,10 @@ data class TimelineMessage(
     val voice: VoiceMessage? = null,
     /** Kind LOCATION: m.location (spec location-view). */
     val location: LocationMessage? = null,
+    /** Kind LIVE_LOCATION: an MSC3489 live location share (spec location-view, live row). */
+    val live: LiveLocationMessage? = null,
 ) {
-    enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, POLL, LOCATION, UNSUPPORTED }
+    enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, POLL, LOCATION, LIVE_LOCATION, UNSUPPORTED }
 
     enum class SendState { SENT, SENDING, FAILED }
 

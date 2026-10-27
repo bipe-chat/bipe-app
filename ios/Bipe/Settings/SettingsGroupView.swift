@@ -20,6 +20,8 @@ struct SettingsGroupView: View {
     @AppStorage(SettingsKeys.hideRequestPhotos) private var hideRequestPhotos = true
     @AppStorage(SettingsKeys.sharePresence) private var sharePresence = true
     @AppStorage(SettingsKeys.showMedia) private var showMedia = ShowMedia.always.rawValue
+    /// chats.liveLocation: the update distance of live location (spec settings-group notes).
+    @AppStorage(LiveLocationRule.distanceKey) private var liveDistance = BipeRegistries.mapsLiveDefaultDistanceMetres
     @StateObject private var export: DataExportModel
     @State private var page: WebPage?
     @State private var showsSignOut = false
@@ -251,6 +253,15 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title, value: ShowMedia(rawValue: showMedia)?.title)
             }
+        case .chatsLiveLocation:
+            NavigationLink {
+                ChoiceListView(title: row.title,
+                               options: BipeRegistries.mapsLiveDistancesMetres.map { (id: String($0), title: Self.distanceLabel($0)) },
+                               selection: Binding(get: { String(LiveLocationRule.distance) },
+                                                  set: { liveDistance = Int($0) ?? BipeRegistries.mapsLiveDefaultDistanceMetres }))
+            } label: {
+                SettingsRowLabel(title: row.title, value: Self.distanceLabel(LiveLocationRule.distance), footer: row.footer)
+            }
         case .chatsDataUse:
             NavigationLink {
                 DataUseView()
@@ -387,6 +398,11 @@ struct SettingsGroupView: View {
         }
         AppLockModel.shared.store.setBiometricUnlock(isOn)
         model.refreshLock()
+    }
+
+    /// "A cada 50 m" (bipe_chats_live_location_distance).
+    private static func distanceLabel(_ metres: Int) -> String {
+        BipeStrings.chatsLiveLocationDistance("\(metres) m")
     }
 
     private func copyDeviceId() {

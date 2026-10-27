@@ -75,6 +75,7 @@ final class OnePosition: NSObject, ObservableObject, CLLocationManagerDelegate {
 /// Spec location-send: send the current location, or drag the map and send the place under the pin.
 struct LocationSendView: View {
     @ObservedObject var timeline: ChatTimelineModel
+    let session: AccountSession
     let replyToEventId: String?
     let close: () -> Void
 
@@ -84,6 +85,9 @@ struct LocationSendView: View {
     @State private var centredOnce = false
     @State private var isSending = false
     @State private var sendFailed = false
+    @State private var choosingDuration = false
+    @State private var liveFailed = false
+    @ObservedObject private var live = LiveLocationCenter.shared
 
     private var ownLocation: CLLocation? {
         if case .found(let location) = position.state { return location }
@@ -184,6 +188,11 @@ struct LocationSendView: View {
                     .font(.footnote)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
+            if liveFailed {
+                Text(BipeStrings.appLocationLiveStartFailed)
+                    .font(.footnote)
+                    .foregroundStyle(BipeColor.trustDangerInk)
+            }
             Text(BipeStrings.appLocationDragHint)
                 .font(.footnote)
                 .foregroundStyle(BipeColor.inkSecondary)
@@ -201,10 +210,54 @@ struct LocationSendView: View {
             }
             .buttonStyle(.bipeProminent)
             .disabled(isSending)
+            // Spec location-send action startLive; a chat that already gets this account's share shows the banner instead.
+            if live.share(in: timeline.roomId, userId: session.userId) == nil {
+                Button {
+                    if position.state == .denied || position.state == .idle {
+                        position.request()
+                    } else {
+                        choosingDuration = true
+                    }
+                } label: {
+                    Text(BipeStrings.appLocationLiveStart)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bipeBordered)
+                .disabled(isSending || position.state == .denied)
+                .confirmationDialog(BipeStrings.appLocationLiveDurationTitle, isPresented: $choosingDuration,
+                                    titleVisibility: .visible) {
+                    ForEach(BipeRegistries.mapsLiveDurationsMinutes, id: \.self) { minutes in
+                        Button(LiveLocationRule.durationLabel(minutes: minutes)) {
+                            Task { await startLive(minutes: minutes) }
+                        }
+                    }
+                    Button(BipeStrings.appCancel, role: .cancel) {}
+                }
+                Text(BipeStrings.appLocationLiveFooter)
+                    .font(.footnote)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(BipeColor.surfaceRaised)
+    }
+
+    /// Action startLive: Room.startLiveLocationShare, then the screen closes and live-location-banner shows.
+    private func startLive(minutes: Int) async {
+        guard let room = timeline.matrixRoom else {
+            liveFailed = true
+            return
+        }
+        isSending = true
+        liveFailed = false
+        defer { isSending = false }
+        do {
+            try await LiveLocationCenter.shared.start(session: session, room: room, minutes: minutes)
+            close()
+        } catch {
+            liveFailed = true
+        }
     }
 
     /// Action send: m.location through Timeline.sendLocation, asset sender at the own position, else pin.

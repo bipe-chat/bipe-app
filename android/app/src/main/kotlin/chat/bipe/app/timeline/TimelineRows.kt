@@ -7,6 +7,7 @@ package chat.bipe.app.timeline
 import chat.bipe.app.common.displayName
 import chat.bipe.app.media.MediaContent
 import chat.bipe.app.media.MediaFormat
+import chat.bipe.app.location.LiveLocationMessage
 import chat.bipe.app.location.LocationMessage
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.shared.media.BipeImageDescription
@@ -269,6 +270,27 @@ object TimelineRowBuilder {
                             base.copy(kind = TimelineMessage.Kind.UNDECRYPTABLE, cause = undecryptableCause(kind.msg)),
                         )
                         MsgLikeKind.Redacted -> rows += TimelineRow(id, TimelineRow.Kind.DELETED, base)
+                        // Spec location-view, live row: the sender's beacon_info with the beacons the SDK put on it.
+                        is MsgLikeKind.LiveLocation -> {
+                            val message = base.copy(
+                                kind = TimelineMessage.Kind.LIVE_LOCATION,
+                                live = LiveLocationMessage.of(kind.content),
+                                body = strings.label(R.string.bipe_app_location_live_title),
+                            )
+                            val isSent = event.localSendState.let { it == null || it is EventSendState.Sent }
+                            val details = MessageDetails(
+                                eventId = eventId(event),
+                                reply = null,
+                                reactions = reactions(content.reactions, facts, ::name),
+                                isEdited = false,
+                                receipt = if (event.isOwn) receipts[index] else null,
+                                scamWarning = null,
+                                canReply = event.canBeRepliedTo && isSent,
+                                canEdit = false,
+                                canDelete = false,
+                            )
+                            rows += TimelineRow(id, TimelineRow.Kind.MESSAGE, message, details)
+                        }
                         // A poll (spec poll-detail, groups lane).
                         is MsgLikeKind.Poll -> eventId(event)?.let { pollEventId ->
                             val poll = PollData.of(pollEventId, kind, isOwnPoll = event.isOwn, ownUserId = facts.ownUserId)
@@ -363,6 +385,7 @@ object TimelineRowBuilder {
     fun isShownMessage(event: EventTimelineItem): Boolean {
         val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
         if (kind != null && MediaContent.of(kind) != null) return true
+        if (kind is MsgLikeKind.LiveLocation) return true
         return kind is MsgLikeKind.Message && (kind.content.msgType is MessageType.Text || kind.content.msgType is MessageType.Location)
     }
 
@@ -418,6 +441,7 @@ object TimelineRowBuilder {
                 null -> if (kind.content.msgType is MessageType.Location) strings.label(R.string.bipe_app_location_title) else kind.content.body
             }
             is MsgLikeKind.Sticker -> strings.label(R.string.bipe_app_media_sticker)
+            is MsgLikeKind.LiveLocation -> strings.label(R.string.bipe_app_location_live_title)
             MsgLikeKind.Redacted -> if (isOwn) strings.deletedOwn else strings.deleted
             is MsgLikeKind.UnableToDecrypt -> strings.undecryptable
             else -> ""

@@ -202,6 +202,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Linked devices (flow devices). Spec: bipe-shared/product/screens/linked-devices.json
     case linkedDevices = "linked-devices"
 
+    /// My live location share (flow chat). Spec: bipe-shared/product/screens/live-location-banner.json
+    case liveLocationBanner = "live-location-banner"
+
     /// Send location (flow chat). Spec: bipe-shared/product/screens/location-send.json
     case locationSend = "location-send"
 

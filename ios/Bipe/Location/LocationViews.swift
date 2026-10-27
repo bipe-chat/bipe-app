@@ -24,6 +24,14 @@ struct LocationMessage: Equatable {
         description = content.description?.nilIfBlank
     }
 
+    /// A beacon of a live location share (MSC3489): the sender's own position at the default zoom.
+    init?(geoUri: String, description: String?) {
+        guard let place = GeoURI.parse(geoUri) else { return nil }
+        point = MapPoint(latitude: place.latitude, longitude: place.longitude)
+        isPin = false
+        self.description = description?.nilIfBlank
+    }
+
     var label: String {
         isPin ? BipeStrings.appLocationPinned : BipeStrings.appLocationCurrent
     }
@@ -83,14 +91,18 @@ struct LocationFullView: View {
     let location: LocationMessage
     let senderName: String
     let sentAt: Date
+    /// Set for a live location row: the title, the label and the end line follow it (spec location-view notes).
+    var live: LiveLocationMessage? = nil
     let close: () -> Void
 
     @State private var centre: MapPoint
 
-    init(location: LocationMessage, senderName: String, sentAt: Date, close: @escaping () -> Void) {
+    init(location: LocationMessage, senderName: String, sentAt: Date, live: LiveLocationMessage? = nil,
+         close: @escaping () -> Void) {
         self.location = location
         self.senderName = senderName
         self.sentAt = sentAt
+        self.live = live
         self.close = close
         _centre = State(initialValue: location.point)
     }
@@ -101,7 +113,7 @@ struct LocationFullView: View {
                 DraggableMapView(centre: $centre, pinAt: location.point)
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(location.label)
+                        Text(live == nil ? location.label : BipeStrings.appLocationLiveTitle)
                             .font(.headline)
                             .foregroundStyle(BipeColor.inkPrimary)
                         if let description = location.description {
@@ -111,7 +123,7 @@ struct LocationFullView: View {
                         HStack(spacing: 6) {
                             Text(senderName)
                                 .lineLimit(1)
-                            Text(sentAt.formatted(date: .abbreviated, time: .shortened))
+                            Text(live?.statusLine() ?? sentAt.formatted(date: .abbreviated, time: .shortened))
                         }
                         .font(.footnote)
                         .foregroundStyle(BipeColor.inkSecondary)
@@ -128,7 +140,7 @@ struct LocationFullView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(BipeColor.surfaceRaised)
             }
-            .navigationTitle(BipeStrings.appLocationTitle)
+            .navigationTitle(live == nil ? BipeStrings.appLocationTitle : BipeStrings.appLocationLiveTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

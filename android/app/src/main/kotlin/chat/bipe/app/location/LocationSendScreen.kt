@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,11 +59,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.BipeButton
+import chat.bipe.app.common.BipeOutlinedButton
 import chat.bipe.app.groups.GroupTopBar
 import chat.bipe.app.timeline.ChatTimelineModel
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.AssetType
@@ -108,7 +113,7 @@ private fun readOnePosition(context: Context, done: (Location?) -> Unit): () -> 
 
 /** Spec location-send: send the current location, or drag the map and send the place under the pin. */
 @Composable
-fun LocationSendScreen(timeline: ChatTimelineModel, replyToEventId: String?, onClose: () -> Unit) {
+fun LocationSendScreen(timeline: ChatTimelineModel, session: AccountSession, replyToEventId: String?, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -118,6 +123,9 @@ fun LocationSendScreen(timeline: ChatTimelineModel, replyToEventId: String?, onC
     var isSending by remember { mutableStateOf(false) }
     var sendFailed by remember { mutableStateOf(false) }
     var readRequest by remember { mutableStateOf(0) }
+    var choosingDuration by remember { mutableStateOf(false) }
+    var liveFailed by remember { mutableStateOf(false) }
+    val liveShares by LiveLocationCenter.shares.collectAsState()
     BackHandler(enabled = !isSending, onBack = onClose)
 
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -227,6 +235,9 @@ fun LocationSendScreen(timeline: ChatTimelineModel, replyToEventId: String?, onC
                 if (sendFailed) {
                     Text(stringResource(R.string.bipe_app_location_send_failed), style = MaterialTheme.typography.bodySmall, color = colors.trustDangerInk)
                 }
+                if (liveFailed) {
+                    Text(stringResource(R.string.bipe_app_location_live_start_failed), style = MaterialTheme.typography.bodySmall, color = colors.trustDangerInk)
+                }
                 Text(stringResource(R.string.bipe_app_location_drag_hint), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                 BipeButton(
                     enabled = !isSending,
@@ -271,7 +282,56 @@ fun LocationSendScreen(timeline: ChatTimelineModel, replyToEventId: String?, onC
                         )
                     }
                 }
+                // Spec location-send action startLive; a chat that already gets this account's share shows the banner instead.
+                if (liveShares.none { it.roomId == timeline.roomId && it.userId == session.userId }) {
+                    BipeOutlinedButton(
+                        enabled = !isSending && position != PositionState.Denied,
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { if (LiveLocationCenter.hasPermission(context)) choosingDuration = true else request() },
+                    ) {
+                        Text(stringResource(R.string.bipe_app_location_live_start))
+                    }
+                    Text(stringResource(R.string.bipe_app_location_live_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+                }
             }
         }
+    }
+    if (choosingDuration) {
+        AlertDialog(
+            onDismissRequest = { choosingDuration = false },
+            title = { Text(stringResource(R.string.bipe_app_location_live_duration_title)) },
+            text = {
+                Column {
+                    BipeRegistries.MAPS_LIVE_DURATIONS_MINUTES.forEach { minutes ->
+                        TextButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                choosingDuration = false
+                                val room = timeline.matrixRoom
+                                if (room == null) {
+                                    liveFailed = true
+                                    return@TextButton
+                                }
+                                isSending = true
+                                liveFailed = false
+                                scope.launch {
+                                    // Action startLive: Room.startLiveLocationShare, then the screen closes and the banner shows.
+                                    runCatching { LiveLocationCenter.start(context, session, room, minutes) }
+                                        .onSuccess { onClose() }
+                                        .onFailure { liveFailed = true }
+                                    isSending = false
+                                }
+                            },
+                        ) {
+                            Text(LiveLocationRule.durationLabel(context, minutes))
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { choosingDuration = false }) { Text(stringResource(R.string.bipe_app_cancel)) }
+            },
+        )
     }
 }

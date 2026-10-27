@@ -4,6 +4,7 @@
 
 package chat.bipe.app.settings
 
+import chat.bipe.app.location.LiveLocationRule
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
@@ -124,6 +125,7 @@ sealed interface SettingsRoute {
     data object Licences : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
     data object DataUse : SettingsRoute
+    data object LiveLocationDistance : SettingsRoute
     data object RecoveryKey : SettingsRoute
     /** Spec recovery-email-add, from the e-mail row of Ways back (bipe-chat/bipe#531). */
     data object RecoveryEmail : SettingsRoute
@@ -231,6 +233,14 @@ fun SettingsHost(
             options = ShowMedia.entries.map { it.id to stringResource(it.title) },
             key = SettingsKeys.SHOW_MEDIA,
             default = ShowMedia.ALWAYS.id,
+            onBack = pop,
+        )
+        // chats.liveLocation: the update distance of live location (spec settings-group notes).
+        SettingsRoute.LiveLocationDistance -> ChoiceListScreen(
+            title = stringResource(R.string.bipe_chats_live_location),
+            options = BipeRegistries.MAPS_LIVE_DISTANCES_METRES.map { it.toString() to stringResource(R.string.bipe_chats_live_location_distance, "$it m") },
+            key = LiveLocationRule.DISTANCE_KEY,
+            default = BipeRegistries.MAPS_LIVE_DEFAULT_DISTANCE_METRES.toString(),
             onBack = pop,
         )
         SettingsRoute.ProblemReport -> ProblemReportScreen(
@@ -365,6 +375,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_ADD -> onNewAccount?.invoke()
             BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
             BipeSettingsRow.CHATS_DATA_USE -> onOpen(SettingsRoute.DataUse)
+            BipeSettingsRow.CHATS_LIVE_LOCATION -> onOpen(SettingsRoute.LiveLocationDistance)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
             // The screens of the other rows come with their own specs (see settings-group notes).
             else -> Unit
@@ -523,6 +534,7 @@ private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSett
         val id = context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE).getString(SettingsKeys.SHOW_MEDIA, null)
         context.getString((ShowMedia.entries.firstOrNull { it.id == id } ?: ShowMedia.ALWAYS).title)
     }
+    BipeSettingsRow.CHATS_LIVE_LOCATION -> context.getString(R.string.bipe_chats_live_location_distance, "${LiveLocationRule.distance(context)} m")
     else -> null
 }
 

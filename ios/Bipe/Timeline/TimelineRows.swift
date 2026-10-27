@@ -293,6 +293,24 @@ enum TimelineRowBuilder {
                     canDelete: event.isOwn ? (facts.canRedactOwn || message.sendState != .sent) : (!facts.isDm && facts.canRedactOther)
                 )
                 rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
+            case .liveLocation(let liveContent):
+                // Spec location-view, live row: the sender's beacon_info with the beacons the SDK put on it.
+                var message = base
+                message.kind = .liveLocation
+                message.live = LiveLocationMessage(liveContent)
+                message.body = BipeStrings.appLocationLiveTitle
+                let details = MessageDetails(
+                    eventId: eventId(event),
+                    reply: nil,
+                    reactions: reactions(content.reactions, facts: facts, name: name),
+                    isEdited: false,
+                    receipt: event.isOwn ? receipts[index] : nil,
+                    scamWarning: nil,
+                    canReply: event.canBeRepliedTo && message.sendState == .sent,
+                    canEdit: false,
+                    canDelete: false
+                )
+                rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
             case .poll(let question, let pollKind, let maxSelections, let answers, let votes, let endTime, _):
                 guard let eventId = eventId(event) else { continue }
                 var message = base
@@ -398,6 +416,7 @@ enum TimelineRowBuilder {
     static func isShownMessage(_ event: EventTimelineItem) -> Bool {
         guard case .msgLike(let content) = event.content else { return false }
         if MediaContent(content.kind) != nil { return true }
+        if case .liveLocation = content.kind { return true }
         guard case .message(let message) = content.kind else { return false }
         switch message.msgType {
         case .text, .location: return true
@@ -457,6 +476,7 @@ enum TimelineRowBuilder {
                 if case .location = message.msgType { return BipeStrings.appLocationTitle }
                 return message.body
             }
+        case .liveLocation: return BipeStrings.appLocationLiveTitle
         case .sticker: return BipeStrings.appMediaSticker
         case .redacted: return isOwn ? BipeStrings.appMessageDeletedOwn : BipeStrings.appMessageDeleted
         case .unableToDecrypt: return BipeStrings.appTimelineUndecryptable
