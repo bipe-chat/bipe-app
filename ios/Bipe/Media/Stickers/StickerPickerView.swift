@@ -21,6 +21,9 @@ final class StickerPickerModel: ObservableObject {
     @Published private(set) var packs: [StickerPack] = []
     @Published private(set) var favourites: [StickerRef] = []
     @Published private(set) var recents: [StickerRef] = []
+    /// State query: the search text. Search runs on the phone only (StickerSearch).
+    @Published var query = ""
+    @Published private(set) var tagsFailed = false
     @Published private(set) var phase = Phase.loading
     @Published private(set) var sendFailed = false
     @Published private(set) var isClosed = false
@@ -64,6 +67,26 @@ final class StickerPickerModel: ObservableObject {
 
     func isFavourite(_ sticker: Sticker) -> Bool { favourites.contains(StickerRef(sticker)) }
 
+    var isSearching: Bool { !StickerSearch.fold(query).isEmpty || !StickerSearch.emojiKey(query).isEmpty }
+
+    /// State results: favourites first, then recents, then pack order, without duplicates.
+    func results(packTitle: (StickerPack) -> String) -> [Sticker] {
+        let titles = Dictionary(packs.map { ($0.id, packTitle($0)) }, uniquingKeysWith: { first, _ in first })
+        return StickerSearch.results(query, in: [favouriteStickers, recentStickers] + packs.map(\.stickers)) { titles[$0] }
+    }
+
+    /// Action editTags: writes the tags into the user's pack, then reads the packs again without a spinner.
+    func saveTags(_ sticker: Sticker, tags: [String]) async {
+        tagsFailed = false
+        guard let packClient else { return }
+        do {
+            try await packClient.setTags(shortcode: sticker.shortcode, tags: tags)
+            if let loaded = try? await packClient.packs(roomId: roomId) { packs = loaded }
+        } catch {
+            tagsFailed = true
+        }
+    }
+
     /// Action toggleFavourite. The whole list is written, so a failed write is carried by the next change.
     func toggleFavourite(_ sticker: Sticker) {
         favourites = StickerShortlist.toggleFavourite(StickerRef(sticker), in: favourites)
@@ -94,6 +117,7 @@ struct StickerPickerView: View {
 
     @State private var showsImport = false
     @State private var showsFromPhoto = false
+    @State private var editingTags: Sticker?
 
     private let columns = [GridItem(.adaptive(minimum: 76), spacing: 8)]
 
@@ -109,6 +133,11 @@ struct StickerPickerView: View {
                 }
                 .safeAreaInset(edge: .bottom) {
                     VStack(spacing: 4) {
+                        if model.tagsFailed {
+                            Text(BipeStrings.appSaveError)
+                                .font(.footnote)
+                                .foregroundStyle(BipeColor.trustDangerInk)
+                        }
                         if model.sendFailed {
                             Text(BipeStrings.appStickerSendFailed)
                                 .font(.footnote)
@@ -126,6 +155,7 @@ struct StickerPickerView: View {
                     .background(BipeColor.surfaceRaised)
                 }
         }
+        .searchable(text: $model.query, placement: .navigationBarDrawer(displayMode: .always), prompt: BipeStrings.stickersSearchPlaceholder)
         .accessibilityIdentifier(BipeScreen.stickerPicker.rawValue)
         .task { await model.appear() }
         .onChange(of: model.isClosed) { _, closed in
@@ -136,6 +166,12 @@ struct StickerPickerView: View {
         }
         .sheet(isPresented: $showsFromPhoto, onDismiss: { Task { await model.appear() } }) {
             StickerFromPhotoView(packClient: model.packClient) { showsFromPhoto = false }
+        }
+        .sheet(item: $editingTags) { sticker in
+            StickerTagsView(selected: Set(sticker.tags)) { tags in
+                editingTags = nil
+                if let tags { Task { await model.saveTags(sticker, tags: tags) } }
+            }
         }
     }
 
@@ -163,6 +199,21 @@ struct StickerPickerView: View {
             }
             .padding(24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .loaded where model.isSearching:
+            let results = model.results(packTitle: title)
+            if results.isEmpty {
+                Text(BipeStrings.stickersSearchEmpty)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                    .padding(24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        grid(results)
+                    }
+                    .padding(16)
+                }
+            }
         case .loaded:
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
@@ -188,6 +239,10 @@ struct StickerPickerView: View {
         Text(title)
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(BipeColor.inkSecondary)
+        grid(stickers)
+    }
+
+    private func grid(_ stickers: [Sticker]) -> some View {
         LazyVGrid(columns: columns, spacing: 8) {
             ForEach(stickers) { sticker in
                 Button {
@@ -206,6 +261,13 @@ struct StickerPickerView: View {
                             Label(BipeStrings.stickerFavouriteRemove, systemImage: "star.slash")
                         } else {
                             Label(BipeStrings.stickerFavouriteAdd, systemImage: "star")
+                        }
+                    }
+                    if sticker.packId == "user" {
+                        Button {
+                            editingTags = sticker
+                        } label: {
+                            Label(BipeStrings.stickerEditTags, systemImage: "tag")
                         }
                     }
                 }
@@ -456,5 +518,57 @@ private struct CheckerBoard: View {
             }
         }
         .background(BipeColor.surfaceRaised)
+    }
+}
+
+/// Action editTags of spec sticker-picker: the registry tags, several can be on. done(nil) cancels.
+private struct StickerTagsView: View {
+    @State var selected: Set<String>
+    let done: ([String]?) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List(BipeRegistries.stickerTags, id: \.self) { tag in
+                Toggle(stickerTagName(tag), isOn: Binding(
+                    get: { selected.contains(tag) },
+                    set: { on in if on { selected.insert(tag) } else { selected.remove(tag) } }))
+            }
+            .navigationTitle(BipeStrings.stickerEditTags)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(BipeStrings.appCancel) { done(nil) }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(BipeStrings.appSave) { done(BipeRegistries.stickerTags.filter(selected.contains)) }
+                }
+            }
+        }
+    }
+}
+
+/// The display name of a tag id of registries/stickers.json (string key bipe_sticker_tag_<id, - as _>).
+func stickerTagName(_ tag: String) -> String {
+    switch tag {
+    case "riso": BipeStrings.stickerTagRiso
+    case "amor": BipeStrings.stickerTagAmor
+    case "bom-dia": BipeStrings.stickerTagBomDia
+    case "boa-tarde": BipeStrings.stickerTagBoaTarde
+    case "boa-noite": BipeStrings.stickerTagBoaNoite
+    case "parabens": BipeStrings.stickerTagParabens
+    case "obrigado": BipeStrings.stickerTagObrigado
+    case "sextou": BipeStrings.stickerTagSextou
+    case "tmj": BipeStrings.stickerTagTmj
+    case "amem": BipeStrings.stickerTagAmem
+    case "choro": BipeStrings.stickerTagChoro
+    case "raiva": BipeStrings.stickerTagRaiva
+    case "surpresa": BipeStrings.stickerTagSurpresa
+    case "ok": BipeStrings.stickerTagOk
+    case "tchau": BipeStrings.stickerTagTchau
+    case "festa": BipeStrings.stickerTagFesta
+    case "fome": BipeStrings.stickerTagFome
+    case "cansado": BipeStrings.stickerTagCansado
+    case "duvida": BipeStrings.stickerTagDuvida
+    default: tag
     }
 }
