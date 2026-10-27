@@ -27,6 +27,7 @@ struct ChatSummary: Identifiable, Equatable {
     var isMuted = false
     var isMarkedUnread = false
     var isUnread: Bool { unreadCount > 0 || isMarkedUnread }
+    var isLowPriority = false
     var latestIncomingMs: Int64? = nil
 
     var id: String { roomId }
@@ -65,6 +66,9 @@ final class ChatListModel: ObservableObject {
     let archive: ChatArchiveModel
     private var extraRoomIds: Set<String> = []
     private var rooms: [Room] = []
+    private var archivedRooms: [Room] = []
+    private var archiveEntries: RoomListEntriesWithDynamicAdaptersResult?
+    private var archiveTask: Task<Void, Never>?
     private let subscriptionOwner = UUID().uuidString
     /// One model belongs to one account session. Never replace a known time or text with an absent preview.
     private var knownRows: [String: BipeRowActivity.Row] = [:]
@@ -83,7 +87,7 @@ final class ChatListModel: ObservableObject {
 
     init(session: AccountSession) {
         self.session = session
-        archive = ChatArchiveModel(accountId: session.userId)
+        archive = ChatArchiveModel(session: session)
         media = MediaLoader(client: session.client)
         notes = NotesRoom(session: session)
         clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in
@@ -106,6 +110,9 @@ final class ChatListModel: ObservableObject {
     deinit {
         handles.forEach { $0.cancel() }
         summaryTask?.cancel()
+        archiveTask?.cancel()
+        let archive = archive
+        Task { @MainActor in archive.close() }
         let subscriptions = session.roomSubscriptions
         let owner = subscriptionOwner
         Task { await subscriptions.remove(owner: owner) }
@@ -129,6 +136,29 @@ final class ChatListModel: ObservableObject {
         handles.append(result.entriesStream())
         entries = result
 
+        // A dedicated tag-filtered stream finds archives outside the active first page.
+        let archiveStream = RoomListEntriesStream()
+        let archived = roomList.entriesWithDynamicAdapters(pageSize: Self.pageSize, listener: archiveStream)
+        _ = archived.controller().setFilter(kind: .all(filters: [.joined, .nonSpace, .lowPriority, .deduplicateVersions]))
+        handles.append(archived.entriesStream())
+        archiveEntries = archived
+        archiveTask = Task { [weak self] in
+            for await updates in archiveStream.updates {
+                guard let self else { return }
+                for update in updates {
+                    switch update {
+                    case .set(_, let room), .insert(_, let room), .pushFront(let room), .pushBack(let room):
+                        rowActivity?.invalidate(roomId: room.id())
+                    default: break
+                    }
+                    archivedRooms.apply(update.vectorDiff)
+                }
+                refreshSummaries()
+                await session.roomSubscriptions.update(owner: subscriptionOwner,
+                    roomIDs: rooms.map { $0.id() } + archivedRooms.map { $0.id() } + Array(archive.markers.keys))
+            }
+        }
+
         Task { [weak self] in
             for await state in loading.updates {
                 self?.onLoadingState(state)
@@ -148,7 +178,7 @@ final class ChatListModel: ObservableObject {
             refreshSummaries()
             // Cached rows publish first. The SDK hydrates latest events in the background, even offline.
             await session.roomSubscriptions.update(owner: subscriptionOwner,
-                roomIDs: rooms.map { $0.id() } + Array(archive.markers.keys))
+                roomIDs: rooms.map { $0.id() } + archivedRooms.map { $0.id() } + Array(archive.markers.keys))
         }
     }
 
@@ -158,6 +188,7 @@ final class ChatListModel: ObservableObject {
     /// Action loadMore: the next page, when the list scrolls near its end.
     func loadMore(in scope: ChatScope) {
         entries?.controller().addOnePage()
+        archiveEntries?.controller().addOnePage()
     }
 
     /// Resolve actions in this account's room list, never a global current account.
@@ -221,7 +252,8 @@ final class ChatListModel: ObservableObject {
     private func refreshSummaries() {
         extraRoomIds.formUnion(archive.markers.keys)
         var rooms = rooms
-        let loadedIds = Set(rooms.map { $0.id() })
+        var loadedIds = Set(rooms.map { $0.id() })
+        for room in archivedRooms where loadedIds.insert(room.id()).inserted { rooms.append(room) }
         for id in extraRoomIds.subtracting(loadedIds).sorted() {
             if let room = try? session.client.getRoom(roomId: id) { rooms.append(room) }
         }
@@ -349,6 +381,7 @@ final class ChatListModel: ObservableObject {
                            isDm: info.isDm,
                            isMuted: info.cachedUserDefinedNotificationMode == .mute,
                            isMarkedUnread: info.isMarkedUnread,
+                           isLowPriority: info.isLowPriority,
                            latestIncomingMs: latestIncomingMs)
     }
 }

@@ -57,6 +57,7 @@ data class ChatSummary(
     val isDm: Boolean = false,
     val isMuted: Boolean = false,
     val isMarkedUnread: Boolean = false,
+    val isLowPriority: Boolean = false,
     val latestIncomingMs: Long? = null,
 ) {
     val isUnread: Boolean get() = unreadCount > 0 || isMarkedUnread
@@ -97,6 +98,9 @@ class ChatListModel(
     val chats: StateFlow<List<ChatSummary>> = _chats.asStateFlow()
 
     private val rooms = mutableListOf<Room>()
+    private val archivedRooms = mutableListOf<Room>()
+    private var archiveEntries: RoomListEntriesWithDynamicAdaptersResult? = null
+    private var archiveJob: Job? = null
     private val subscriptionOwner = UUID.randomUUID().toString()
     /** One model belongs to one account session; absent previews must not erase a known time or text. */
     private val knownRows = mutableMapOf<String, BipeRowActivity.Row>()
@@ -147,6 +151,34 @@ class ChatListModel(
             result.controller().setFilter(filter())
             handles += result.entriesStream()
             entries = result
+            // A dedicated tag-filtered stream finds archives outside the active first page.
+            val archiveUpdates = Channel<List<RoomListEntriesUpdate>>(Channel.UNLIMITED)
+            val archived = roomList.entriesWithDynamicAdapters(PAGE_SIZE, object : RoomListEntriesListener {
+                override fun onUpdate(roomEntriesUpdate: List<RoomListEntriesUpdate>) { archiveUpdates.trySend(roomEntriesUpdate) }
+            })
+            archived.controller().setFilter(RoomListEntriesDynamicFilterKind.All(listOf(
+                RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace,
+                RoomListEntriesDynamicFilterKind.LowPriority, RoomListEntriesDynamicFilterKind.DeduplicateVersions,
+            )))
+            handles += archived.entriesStream()
+            archiveEntries = archived
+            archiveJob = launch {
+                for (batch in archiveUpdates) {
+                    batch.forEach { update ->
+                        when (update) {
+                            is RoomListEntriesUpdate.Set -> rowActivity.invalidate(update.value.id())
+                            is RoomListEntriesUpdate.Insert -> rowActivity.invalidate(update.value.id())
+                            is RoomListEntriesUpdate.PushFront -> rowActivity.invalidate(update.value.id())
+                            is RoomListEntriesUpdate.PushBack -> rowActivity.invalidate(update.value.id())
+                            else -> Unit
+                        }
+                        archivedRooms.applyDiff(update.toVectorDiff())
+                    }
+                    refreshSummaries()
+                    session.roomSubscriptions.update(subscriptionOwner,
+                        (rooms + archivedRooms).map { it.id() } + archive.markers.value.keys)
+                }
+            }
             launch {
                 for (state in loading) onLoadingState(state)
             }
@@ -164,7 +196,7 @@ class ChatListModel(
                 }
                 refreshSummaries()
                 // Publish cached rows first; subscription enables SDK latest-event calculation and online catchup.
-                session.roomSubscriptions.update(subscriptionOwner, rooms.map { it.id() } + archive.markers.value.keys)
+                session.roomSubscriptions.update(subscriptionOwner, (rooms + archivedRooms).map { it.id() } + archive.markers.value.keys)
             }
         }
     }
@@ -187,6 +219,7 @@ class ChatListModel(
     @Suppress("UNUSED_PARAMETER")
     fun loadMore(tab: ChatScope) {
         entries?.controller()?.addOnePage()
+        archiveEntries?.controller()?.addOnePage()
     }
 
     /** Resolve actions in the immutable owner's room list. */
@@ -230,6 +263,8 @@ class ChatListModel(
         rowActivity.close()
         handles.forEach { it.cancel() }
         summaryJob?.cancel()
+        archiveJob?.cancel()
+        archive.close()
         session.releaseRoomSubscriptions(subscriptionOwner)
     }
 
@@ -248,7 +283,7 @@ class ChatListModel(
 
     private fun refreshSummaries() {
         extraRoomIds += archive.markers.value.keys
-        val snapshot = rooms.toMutableList()
+        val snapshot = (rooms + archivedRooms).distinctBy { it.id() }.toMutableList()
         val loadedIds = snapshot.map { it.id() }.toSet()
         for (id in (extraRoomIds - loadedIds).sorted()) runCatching { session.client.getRoom(id) }.getOrNull()?.let { snapshot += it }
         summaryJob?.cancel()
@@ -356,6 +391,7 @@ class ChatListModel(
             isDm = info.isDm,
             isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
             isMarkedUnread = info.isMarkedUnread,
+            isLowPriority = info.isLowPriority,
             latestIncomingMs = latestIncomingMs,
         )
     }
