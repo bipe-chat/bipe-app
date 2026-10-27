@@ -19,6 +19,7 @@ import chat.bipe.shared.weblink.webLinkPlace
 import java.time.Instant
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.matrix.rustcomponents.sdk.CheckCodeSender
 import org.matrix.rustcomponents.sdk.ContinuationMessageSender
 import org.matrix.rustcomponents.sdk.GrantGeneratedQrLoginProgress
@@ -167,7 +169,8 @@ class LinkComputerModel(
         }
         grantJob = scope.launch {
             try {
-                handler.scan(data, listener)
+                // Off the main thread: the TLS check fetches CRLs, and Android forbids network on main.
+                withContext(Dispatchers.IO) { handler.scan(data, listener) }
                 progress(GrantQrLoginProgress.Done)
             } catch (e: CancellationException) {
                 // Scan again or cancel dropped the task.
@@ -193,7 +196,7 @@ class LinkComputerModel(
         }
         grantJob = scope.launch {
             try {
-                handler.generate(listener)
+                withContext(Dispatchers.IO) { handler.generate(listener) }
                 if (codeAttempt == current) generatedProgress(GrantGeneratedQrLoginProgress.Done)
             } catch (e: CancellationException) {
                 // A new code or cancel dropped the task.
