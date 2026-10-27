@@ -29,8 +29,8 @@ import org.matrix.rustcomponents.sdk.TimelineListener
 class RowActivityScanner(
     private val client: Client,
     private val scope: CoroutineScope,
-    /** The chat-list preview of an event (previewText), null when the row shows no text for it. */
-    private val preview: (TimelineItemContent) -> String?,
+    /** The row text of an event (content, isOwn, roomId), null when the row shows no text for it. */
+    private val preview: (TimelineItemContent, Boolean, String) -> String?,
     private val onResults: () -> Unit,
 ) {
     private val events = mutableMapOf<String, List<BipeRowActivity.LocalEvent>>()
@@ -118,9 +118,14 @@ class RowActivityScanner(
             synchronized(items) {
                 val events = items.mapNotNull { it.asEvent() }
                 val local = events.map { event ->
-                    // Message-like events, undecryptable ones included: the time of an encrypted event is not encrypted.
-                    val kind = if (event.content is TimelineItemContent.MsgLike) BipeRowActivity.Kind.MESSAGE else BipeRowActivity.Kind.OTHER
-                    BipeRowActivity.LocalEvent(event.timestamp.toLong(), kind, preview(event.content), event.isOwn)
+                    // Message-like events, undecryptable ones included: the time of an encrypted event is not encrypted. A
+                    // call is a message too: the SDK takes it as a latest event, and the row shows it (spec incoming-call).
+                    val kind = when (event.content) {
+                        is TimelineItemContent.MsgLike, is TimelineItemContent.RtcNotification, is TimelineItemContent.CallInvite ->
+                            BipeRowActivity.Kind.MESSAGE
+                        else -> BipeRowActivity.Kind.OTHER
+                    }
+                    BipeRowActivity.LocalEvent(event.timestamp.toLong(), kind, preview(event.content, event.isOwn, room.id()), event.isOwn)
                 }
                 Read(local, events.any { (it.content as? TimelineItemContent.MsgLike)?.content?.kind is MsgLikeKind.UnableToDecrypt })
             }

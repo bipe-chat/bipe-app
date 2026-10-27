@@ -9,7 +9,7 @@
 /// event there gives the row its time and its preview. The time of an event is never encrypted. Never the current time,
 /// never a guess.
 public enum BipeRowActivity {
-    /// A message-like event (text, media, sticker, poll, deleted or undecryptable) or any other timeline event.
+    /// A message-like event (text, media, sticker, poll, deleted or undecryptable, or a call) or any other timeline event.
     public enum Kind: Sendable, Equatable {
         case message
         case other
@@ -57,32 +57,35 @@ public enum BipeRowActivity {
         }
     }
 
-    /// The row of a room.
-    /// 1. A message-like local event newer than the SDK latest event: its time and its preview.
-    /// 2. Else the SDK latest event.
-    /// 3. Without an SDK latest event: the newest message-like local event, undecryptable ones included, else the newest
-    ///    local event of any kind (time only). A time known earlier in this account session is kept when it is newer.
-    public static func resolve(sdk: SDKLatest?, localEvents: [LocalEvent], knownMs: UInt64?) -> Row {
-        let newestMessage = localEvents.filter { $0.kind == .message }.max { $0.timestampMs < $1.timestampMs }
+    /// The row of a room. Only a local event with a preview can give the row its text (bipe-chat/bipe#592 follow-up: a
+    /// call, a deleted message or a room change never blanks the text).
+    /// 1. A message-like local event with a preview, newer than the SDK latest event: its time and its preview.
+    /// 2. Else the SDK latest event. When it has no preview, the row keeps the newest local preview, else the known one.
+    /// 3. Without an SDK latest event: the newest message-like local event with a preview, undecryptable ones included.
+    ///    Else the newest local event of any kind (time only). A time known earlier in this account session is kept when
+    ///    it is newer. Without a local preview the row keeps the known one: the local events are empty while a changed
+    ///    room is read again.
+    public static func resolve(sdk: SDKLatest?, localEvents: [LocalEvent], known: Row?) -> Row {
+        let newestMessage = localEvents.filter { $0.kind == .message && $0.previewText != nil }
+            .max { $0.timestampMs < $1.timestampMs }
+        let text = newestMessage.map(row(from:)) ?? known
         if let sdk {
             if let newestMessage, newestMessage.timestampMs > sdk.timestampMs {
                 return row(from: newestMessage)
+            }
+            if sdk.previewText == nil, let text, text.previewText != nil {
+                return Row(timestampMs: sdk.timestampMs, previewText: text.previewText, latestIncomingMs: text.latestIncomingMs)
             }
             return Row(timestampMs: sdk.timestampMs, previewText: sdk.previewText,
                        latestIncomingMs: sdk.isIncoming && sdk.previewText != nil ? sdk.timestampMs : nil)
         }
         if let newestMessage {
-            if let knownMs, knownMs > newestMessage.timestampMs {
-                return Row(timestampMs: knownMs, previewText: nil, latestIncomingMs: nil)
-            }
-            return row(from: newestMessage)
+            let message = row(from: newestMessage)
+            let time = max(newestMessage.timestampMs, known?.timestampMs ?? 0)
+            return Row(timestampMs: time, previewText: message.previewText, latestIncomingMs: message.latestIncomingMs)
         }
-        let local = localEvents.map(\.timestampMs).max()
-        let time: UInt64? = switch (local, knownMs) {
-        case let (local?, known?): max(local, known)
-        case let (local, known): local ?? known
-        }
-        return Row(timestampMs: time, previewText: nil, latestIncomingMs: nil)
+        let time = (localEvents.map(\.timestampMs) + [known?.timestampMs].compactMap { $0 }).max()
+        return Row(timestampMs: time, previewText: known?.previewText, latestIncomingMs: known?.latestIncomingMs)
     }
 
     private static func row(from event: LocalEvent) -> Row {

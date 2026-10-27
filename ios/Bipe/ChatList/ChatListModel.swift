@@ -66,8 +66,8 @@ final class ChatListModel: ObservableObject {
     private var extraRoomIds: Set<String> = []
     private var rooms: [Room] = []
     private let subscriptionOwner = UUID().uuidString
-    /// One model belongs to one account session. Never replace a known time with an absent preview.
-    private var knownActivity: [String: Date] = [:]
+    /// One model belongs to one account session. Never replace a known time or text with an absent preview.
+    private var knownRows: [String: BipeRowActivity.Row] = [:]
     /// Rows take a newer message of the local timeline as their date and text (bipe-chat/bipe#592).
     private var rowActivity: RowActivityScanner?
     private var listLoaded = false
@@ -89,7 +89,7 @@ final class ChatListModel: ObservableObject {
         clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in
             self?.refreshSummaries()
         }
-        rowActivity = RowActivityScanner(client: session.client) { [weak self] in self?.refreshSummaries() }
+        rowActivity = RowActivityScanner(client: session.client, ownUserId: session.userId) { [weak self] in self?.refreshSummaries() }
     }
 
     /// The chats of one scope, in room list order.
@@ -257,11 +257,10 @@ final class ChatListModel: ObservableObject {
                                           isIncoming: summary.latestIncomingMs != nil)
             }
             let local = rowActivity?.localEvents(roomId: summary.roomId) ?? []
-            let known = knownActivity[summary.roomId].map(Self.milliseconds)
-            let row = BipeRowActivity.resolve(sdk: sdk, localEvents: local, knownMs: known)
+            let row = BipeRowActivity.resolve(sdk: sdk, localEvents: local, known: knownRows[summary.roomId])
             if let ms = row.timestampMs {
                 summary.lastActivity = Date(milliseconds: ms)
-                knownActivity[summary.roomId] = summary.lastActivity
+                knownRows[summary.roomId] = row
             }
             summary.lastMessage = row.previewText
             summary.latestIncomingMs = row.latestIncomingMs.map { Int64(clamping: $0) }
@@ -273,6 +272,14 @@ final class ChatListModel: ObservableObject {
         UInt64(max(0, (date.timeIntervalSince1970 * 1000).rounded()))
     }
 
+    /// The row text of an event: its preview, or "missed call" for an incoming call this account missed.
+    nonisolated static func rowPreview(of content: TimelineItemContent, isOwn: Bool, roomId: String, ownUserId: String) -> String? {
+        if case .rtcNotification = content, !isOwn, MissedCalls.isMissed(accountUserId: ownUserId, roomId: roomId) {
+            return BipeStrings.callMissed
+        }
+        return content.previewText
+    }
+
     static func summary(of room: Room, ownUserId: String) async -> ChatSummary? {
         guard let info = try? await room.roomInfo(), info.membership == .joined, !info.isSpace else { return nil }
         var lastMessage: String?
@@ -280,10 +287,7 @@ final class ChatListModel: ObservableObject {
         var latestIncomingMs: Int64?
         switch await room.latestEvent() {
         case .remote(let timestamp, _, let isOwn, _, let content):
-            lastMessage = content.previewText
-            if case .rtcNotification = content, !isOwn, MissedCalls.isMissed(accountUserId: ownUserId, roomId: info.id) {
-                lastMessage = BipeStrings.callMissed
-            }
+            lastMessage = rowPreview(of: content, isOwn: isOwn, roomId: info.id, ownUserId: ownUserId)
             lastActivity = Date(milliseconds: timestamp)
             if !isOwn, lastMessage != nil { latestIncomingMs = Int64(clamping: timestamp) }
         case .local(let timestamp, _, _, let content, _):
