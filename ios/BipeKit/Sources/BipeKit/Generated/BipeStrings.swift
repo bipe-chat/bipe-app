@@ -2434,6 +2434,10 @@ public enum BipeStrings {
 
     public static var privacyNumberLinked: String { NSLocalizedString("bipe_privacy_number_linked", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func privacyNumberValue(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_privacy_number_value", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
     public static var privacyNumberNotLinked: String { NSLocalizedString("bipe_privacy_number_not_linked", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var privacyWhatOthersSee: String { NSLocalizedString("bipe_privacy_what_others_see", tableName: "Bipe", bundle: .module, comment: "") }

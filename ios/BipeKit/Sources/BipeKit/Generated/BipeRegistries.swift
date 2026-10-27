@@ -724,6 +724,16 @@ public enum BipeRegistries {
     /// and the apps warn this many days before confirm_by.
     public static let phoneLinkConfirmMonths = 12
     public static let phoneLinkConfirmWarnDays = 30
+    /// Number formats for reading (ADR 0191): the first entry whose country code, prefix and digit count fit.
+    public static let phoneDisplayFormats: [(countryCode: String, prefix: String, pattern: String)] = [
+        (countryCode: "55", prefix: "", pattern: "## #####-####"),
+        (countryCode: "1", prefix: "", pattern: "### ###-####"),
+        (countryCode: "31", prefix: "6", pattern: "# #### ####"),
+        (countryCode: "351", prefix: "", pattern: "### ### ###"),
+        (countryCode: "44", prefix: "7", pattern: "#### ######"),
+        (countryCode: "34", prefix: "", pattern: "### ## ## ##"),
+        (countryCode: "33", prefix: "", pattern: "# ## ## ## ##"),
+    ]
 
     /// Work side opening hours (registries/work-hours.json, bipe-chat/bipe#511).
     public static let workHoursDefaultTimeZone = "America/Sao_Paulo"
