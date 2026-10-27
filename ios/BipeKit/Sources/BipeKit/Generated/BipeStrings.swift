@@ -2176,6 +2176,10 @@ public enum BipeStrings {
 
     public static var accountDevices: String { NSLocalizedString("bipe_account_devices", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var accountOldMessages: String { NSLocalizedString("bipe_account_old_messages", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountOldMessagesFooter: String { NSLocalizedString("bipe_account_old_messages_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var accountThisDevice: String { NSLocalizedString("bipe_account_this_device", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var linkedDevicesTitle: String { NSLocalizedString("bipe_linked_devices_title", tableName: "Bipe", bundle: .module, comment: "") }

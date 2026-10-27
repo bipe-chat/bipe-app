@@ -136,3 +136,15 @@ extension EnvironmentValues {
         set { self[OpenHistoryHelpKey.self] = newValue }
     }
 }
+
+/// The account's encryption-status model, for the oldMessages settings row. Nil outside AppTabsView.
+private struct EncryptionStatusKey: EnvironmentKey {
+    static let defaultValue: EncryptionStatusModel? = nil
+}
+
+extension EnvironmentValues {
+    var encryptionStatus: EncryptionStatusModel? {
+        get { self[EncryptionStatusKey.self] }
+        set { self[EncryptionStatusKey.self] = newValue }
+    }
+}

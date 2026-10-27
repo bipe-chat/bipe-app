@@ -69,6 +69,7 @@ import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
+import chat.bipe.app.encryption.LocalEncryptionStatus
 import chat.bipe.app.groups.CreateGroupButton
 import chat.bipe.app.groups.GroupHost
 import chat.bipe.app.groups.Person as GroupPerson
@@ -252,7 +253,8 @@ fun HomeScreen(
     }
     val roomId = openRoomId
     // Spec brand-mark: chat list rows read the session's brand marks.
-    CompositionLocalProvider(LocalBipeBrandMarks provides people.brandMarks) {
+    // LocalEncryptionStatus: the oldMessages settings row opens the same EncryptionSheet (bipe-chat/bipe#793).
+    CompositionLocalProvider(LocalBipeBrandMarks provides people.brandMarks, LocalEncryptionStatus provides encryption) {
         when {
             termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
             pendingPix != null -> PixSendScreen(pendingPix, model, media) {
