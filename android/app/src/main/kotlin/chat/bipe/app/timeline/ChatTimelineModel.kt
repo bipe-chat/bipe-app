@@ -88,6 +88,8 @@ data class TimelineMessage(
     val location: LocationMessage? = null,
     /** Kind LIVE_LOCATION: an MSC3489 live location share (spec location-view, live row). */
     val live: LiveLocationMessage? = null,
+    /** m.emote has a display prefix; body stays unchanged for edits and copying. */
+    val isEmote: Boolean = false,
 ) {
     enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, POLL, LOCATION, LIVE_LOCATION, UNSUPPORTED }
 

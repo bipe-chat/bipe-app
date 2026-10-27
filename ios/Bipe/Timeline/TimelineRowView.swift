@@ -252,7 +252,7 @@ private struct MessageBubbleRow: View {
             VoiceMessageRow(message: message, voice: voice, loader: media, player: voicePlayer,
                             voiceMedia: model.voiceMedia, hasScamWarning: row.details?.scamWarning != nil)
         } else {
-            Text(message.body ?? "")
+            Text(message.isEmote ? "* \(message.senderName) \(message.body ?? "")" : message.body ?? "")
                 .foregroundStyle(BipeColor.inkPrimary)
         }
     }
