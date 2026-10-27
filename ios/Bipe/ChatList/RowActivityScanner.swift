@@ -111,11 +111,13 @@ final class RowActivityScanner {
         }
         let events = items.compactMap { $0.asEvent() }
         let roomId = room.id()
+        let isDm = (try? await room.roomInfo())?.isDm ?? false
         let local = events.map { event in
-            BipeRowActivity.LocalEvent(timestampMs: event.timestamp, kind: kind(of: event.content),
-                                       previewText: ChatListModel.rowPreview(of: event.content, isOwn: event.isOwn,
-                                                                             roomId: roomId, ownUserId: ownUserId),
-                                       isOwn: event.isOwn)
+            let preview = ChatListModel.rowPreview(of: event.content, isOwn: event.isOwn,
+                                                   senderName: event.senderProfile.displayName(or: event.sender),
+                                                   roomId: roomId, isDm: isDm, ownUserId: ownUserId)
+            return BipeRowActivity.LocalEvent(timestampMs: event.timestamp, kind: kind(of: event.content, preview: preview),
+                                              previewText: preview, isOwn: event.isOwn)
         }
         return (local, events.contains { isUndecryptable($0.content) })
     }
@@ -126,10 +128,12 @@ final class RowActivityScanner {
     }
 
     /// Message-like events, undecryptable ones included: the time of an encrypted event is not encrypted. A call is a
-    /// message too: the SDK takes it as a latest event, and the row shows it (spec incoming-call).
-    private static func kind(of content: TimelineItemContent) -> BipeRowActivity.Kind {
+    /// message too: the SDK takes it as a latest event, and the row shows it (spec incoming-call). A join, leave or room
+    /// creation with its line counts as a message: the row shows it when it is the newest (spec chat-list, row text).
+    private static func kind(of content: TimelineItemContent, preview: String?) -> BipeRowActivity.Kind {
         switch content {
         case .msgLike, .rtcNotification, .callInvite: .message
+        case .roomMembership, .state: preview == nil ? .other : .message
         default: .other
         }
     }
