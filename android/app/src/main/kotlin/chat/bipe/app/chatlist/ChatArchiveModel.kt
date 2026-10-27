@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.Membership
 
-/** One instance per account. Only the m.lowpriority tag and local baselines change. */
+/** One instance per account. Uses SDK low-priority semantics (including removing favourites) and local baselines. */
 class ChatArchiveModel(
     private val store: BipeChatArchiveStore,
     private val session: AccountSession,

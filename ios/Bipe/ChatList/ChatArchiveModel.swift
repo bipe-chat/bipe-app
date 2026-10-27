@@ -7,7 +7,7 @@ import Foundation
 import Combine
 import MatrixRustSDK
 
-/// One instance per account. Only the m.lowpriority tag and local baselines change.
+/// One instance per account. Uses SDK low-priority semantics (including removing favourites) and local baselines.
 @MainActor
 final class ChatArchiveModel: ObservableObject {
     @Published private(set) var markers: [String: Int64] = [:]
