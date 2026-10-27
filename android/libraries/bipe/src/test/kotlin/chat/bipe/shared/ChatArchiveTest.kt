@@ -5,8 +5,6 @@
 package chat.bipe.shared
 
 import chat.bipe.shared.generated.BipeChatArchive
-import com.google.common.truth.Truth.assertWithMessage
-import com.google.common.truth.Truth.assertThat
 import java.io.File
 import java.io.IOException
 import kotlinx.serialization.json.Json
@@ -16,22 +14,25 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 class ChatArchiveTest {
     @get:Rule val disk = TemporaryFolder()
-    private val room = "!room:example.invalid"
-    private val saved = mapOf(room to 100L)
     private fun store(owner: String = "@a:example.invalid") = BipeChatArchiveStore(disk.root, owner)
-    private fun state(synced: Boolean = false) = BipeChatArchiveStore.State(saved, if (synced) setOf(room) else emptySet())
 
-    @Test fun serverSyncCases() {
-        val file = File(System.getenv("BIPE_SHARED") ?: "../../../../bipe-shared", "test-vectors/archive-sync.json")
-        val cases = Json.parseToJsonElement(file.readText()).jsonObject.getValue("cases").jsonArray
-        for (item in cases) {
+    @Test fun sharedArchiveContracts() {
+        val root = File(System.getenv("BIPE_SHARED") ?: "../../../../bipe-shared")
+        val legacy = Json.parseToJsonElement(File(root, "test-vectors/chat-archive.json").readText())
+        for (item in legacy.jsonObject.getValue("vectors").jsonArray) {
+            val v = item.jsonObject
+            val result = BipeChatArchive.isArchived(v.getValue("marker").jsonPrimitive.longOrNull,
+                v.getValue("incoming").jsonPrimitive.longOrNull)
+            check(result == v.getValue("expected").jsonPrimitive.boolean) { v.getValue("name").toString() }
+        }
+        val sync = Json.parseToJsonElement(File(root, "test-vectors/archive-sync.json").readText())
+        for (item in sync.jsonObject.getValue("cases").jsonArray) {
             val v = item.jsonObject
             val expected = v.getValue("expected").jsonObject
             val result = BipeChatArchive.reconcile(
@@ -41,49 +42,59 @@ class ChatArchiveTest {
                 v.getValue("activity").jsonPrimitive.longOrNull,
                 v.getValue("incoming").jsonPrimitive.longOrNull,
             )
-            assertWithMessage(v.getValue("name").jsonPrimitive.content)
-                .that(listOf(result.marker, result.synced, result.tagWrite))
-                .isEqualTo(listOf(expected.getValue("marker").jsonPrimitive.longOrNull,
-                    expected.getValue("synced").jsonPrimitive.boolean,
-                    expected.getValue("tagWrite").jsonPrimitive.booleanOrNull))
+            val actual = listOf(result.marker, result.synced, result.tagWrite)
+            val wanted = listOf(expected.getValue("marker").jsonPrimitive.longOrNull,
+                expected.getValue("synced").jsonPrimitive.boolean,
+                expected.getValue("tagWrite").jsonPrimitive.booleanOrNull)
+            check(actual == wanted) { "${v.getValue("name")}: expected $wanted, got $actual" }
         }
     }
 
-    @Test fun migrationMetadataTravelsWithItsMarker() {
+    @Test fun snapshotPropertiesAcrossMigrationStatesAndRejectedWrites() {
         val archive = store()
-        archive.save(saved)
-        assertThat(archive.loadState()).isEqualTo(state())
-        archive.save(saved, setOf(room))
-        assertThat(store().loadState()).isEqualTo(state(synced = true))
-        val beforeInvalidSave = archive.file.readBytes().toList()
-        assertThrows(IOException::class.java) { archive.save(emptyMap(), setOf(room)) }
-        assertThat(archive.file.readBytes().toList()).isEqualTo(beforeInvalidSave)
-        assertThat(archive.loadState()).isEqualTo(state(synced = true))
-        archive.save(emptyMap())
-        assertThat(archive.loadState()).isEqualTo(BipeChatArchiveStore.State(emptyMap(), emptySet()))
+        val other = store("@b:example.invalid")
+        val otherState = BipeChatArchiveStore.State(mapOf("!other:example.invalid" to 22L), emptySet())
+        other.save(otherState.markers, otherState.syncedRooms)
+        check(archive.file != other.file && !archive.file.name.contains("@a"))
+        val limits = listOf(0L, 100L, 9_007_199_254_740_991L)
+        val rejected = listOf(
+            BipeChatArchiveStore.State(mapOf("!bad" to -1L), emptySet()),
+            BipeChatArchiveStore.State(mapOf("!bad" to 9_007_199_254_740_992L), emptySet()),
+            BipeChatArchiveStore.State(emptyMap(), setOf("!orphan")),
+        )
+        // Each subset of up to three markers can be migrated independently. Include clearing to empty.
+        for (count in 3 downTo 0) {
+            val markers = (0 until count).associate { "!room$it:example.invalid" to limits[it] }
+            for (mask in 0 until (1 shl count)) {
+                val synced = markers.keys.filterIndexed { index, _ -> mask and (1 shl index) != 0 }.toSet()
+                val expected = BipeChatArchiveStore.State(markers, synced)
+                archive.save(markers, synced)
+                check(store().loadState() == expected && archive.load() == markers) { "round trip count=$count mask=$mask" }
+                check(other.loadState() == otherState) { "write crossed account boundary" }
+                val bytes = archive.file.readBytes()
+                for (invalid in rejected) {
+                    val error = runCatching { archive.save(invalid.markers, invalid.syncedRooms) }.exceptionOrNull()
+                    check(error is IOException) { "invalid snapshot accepted: $invalid" }
+                    check(bytes.contentEquals(archive.file.readBytes()) && store().loadState() == expected) {
+                        "rejected write replaced snapshot count=$count mask=$mask"
+                    }
+                }
+            }
+        }
         archive.file.writeText("""{"version":1,"markers":{"!old:example.invalid":50}}""")
-        assertThat(archive.loadState()).isEqualTo(BipeChatArchiveStore.State(mapOf("!old:example.invalid" to 50L), emptySet()))
-    }
-
-    @Test fun incomingTimestampMustBeNewerThanTheArchiveBaseline() {
-        val input = listOf(100L to null, 100L to 100L, 100L to 99L, 100L to 101L, 0L to null, null to 100L)
-        val result = input.map { (marker, incoming) -> BipeChatArchive.isArchived(marker, incoming) }
-        assertThat(result).containsExactly(true, true, true, false, true, false).inOrder()
-    }
-
-    @Test fun accountFilesSurviveReopeningAndRejectedWrites() {
-        val archive = store()
-        archive.save(saved)
-        assertThat(store().load()).isEqualTo(saved)
-        assertThat(store("@b:example.invalid").load()).isEmpty()
-        assertThat(archive.file.name).doesNotContain("@a")
-        assertThrows(IOException::class.java) { archive.save(mapOf("!invalid" to -1L)) }
-        assertThat(archive.load()).isEqualTo(saved)
-        archive.save(emptyMap())
-        assertThat(archive.load()).isEmpty()
-        archive.file.writeText("corrupt")
-        assertThrows(Exception::class.java) { archive.load() }
-        assertThrows(Exception::class.java) { archive.save(emptyMap()) }
-        assertThat(archive.file.readText()).isEqualTo("corrupt")
+        val legacy = archive.loadState()
+        check(legacy.markers == mapOf("!old:example.invalid" to 50L) && legacy.syncedRooms.isEmpty())
+        val corruptSnapshots = listOf(
+            "corrupt",
+            """{"version":2,"markers":{}}""",
+            """{"version":1,"markers":[]}""",
+            """{"version":1,"markers":{},"syncedRooms":["!orphan"]}""",
+        )
+        for ((index, corrupt) in corruptSnapshots.withIndex()) {
+            archive.file.writeText(corrupt)
+            val read = runCatching { archive.loadState() }
+            val write = runCatching { archive.save(emptyMap()) }
+            check(read.isFailure && write.isFailure && archive.file.readText() == corrupt) { "corrupt case $index replaced" }
+        }
     }
 }
