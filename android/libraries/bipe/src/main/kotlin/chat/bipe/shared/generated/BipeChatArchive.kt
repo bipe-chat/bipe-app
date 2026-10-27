@@ -11,7 +11,19 @@
 
 package chat.bipe.shared.generated
 
+data class BipeArchiveDecision(val marker: Long?, val synced: Boolean, val tagWrite: Boolean?)
+
 object BipeChatArchive {
-    fun isArchived(marker: Long?, incoming: Long?): Boolean =
-        marker != null && marker >= 0 && (incoming == null || incoming <= marker)
+    const val echoGraceMs: Long = 20000L
+    private fun valid(value: Long?): Boolean = value != null && value >= 0 && value <= 9_007_199_254_740_991L
+    fun isArchived(marker: Long?, incoming: Long?): Boolean = valid(marker) && (!valid(incoming) || incoming!! <= marker!!)
+    fun reconcile(marker: Long?, synced: Boolean, serverArchived: Boolean, activity: Long?, incoming: Long?): BipeArchiveDecision {
+        if (valid(marker)) {
+            if (synced && !serverArchived) return BipeArchiveDecision(null, false, null)
+            if (!isArchived(marker, incoming)) return BipeArchiveDecision(null, false, if (serverArchived) false else null)
+            return BipeArchiveDecision(marker, serverArchived, if (serverArchived) null else true)
+        }
+        val baseline = maxOf(if (valid(activity)) activity!! else 0L, if (valid(incoming)) incoming!! else 0L)
+        return BipeArchiveDecision(if (serverArchived) baseline else null, serverArchived, null)
+    }
 }
