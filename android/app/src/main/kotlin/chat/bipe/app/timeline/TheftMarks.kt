@@ -60,7 +60,7 @@ object TheftMarkChecks {
         }
         val verifier = verifier ?: return null
         val envelopes = runCatchingExceptions {
-            BipeApiClient.withTokenRetry({ session.accessToken() }) { api.theftMarks(listOf(userId), it) }
+            BipeApiClient.withOpenIdRetry(session.openId) { api.theftMarks(listOf(userId), it) }
         }.getOrNull() ?: return null
         val statement = verifier.statement(userId, envelopes, nowMillis)
         synchronized(entries) { entries[key] = Entry(nowMillis, statement) }

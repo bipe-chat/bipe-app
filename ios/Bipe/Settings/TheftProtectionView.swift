@@ -182,8 +182,8 @@ final class TheftProtectionModel: ObservableObject {
         guard !missing.isEmpty else { return }
         let session = settings.session
         let api = settings.api
-        let handles = (try? await settings.authorized { (token: String) async throws(BipeAPIError) -> [String: String] in
-            try await api.resolveHandles(userIDs: missing, accessToken: token)
+        let handles = (try? await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> [String: String] in
+            try await api.resolveHandles(userIDs: missing, openID: token)
         }) ?? [:]
         for userId in missing {
             let profile = try? await session.client.getProfile(userId: userId)

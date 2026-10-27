@@ -64,6 +64,7 @@ import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeBookingStatus
 import chat.bipe.shared.api.BipeCatalogPrice
 import chat.bipe.shared.api.BipeCommerceLine
+import chat.bipe.shared.api.BipeOpenIdToken
 import chat.bipe.shared.api.BipeOrderRefuseReason
 import chat.bipe.shared.api.BipeOrderStatus
 import chat.bipe.shared.api.BipeQueuePlaceStatus
@@ -97,6 +98,10 @@ class BusinessApi(val session: AccountSession) {
     /** Runs [request] with the account's token, retrying once on 401 (the SDK may have refreshed it). */
     suspend fun <T> withToken(request: suspend BipeApiClient.(String) -> T): T =
         BipeApiClient.withTokenRetry({ session.accessToken() }) { token -> api.request(token) }
+
+    /** Runs [request] with the OpenID token, for the core routes (bipe-chat/bipe#646). */
+    suspend fun <T> withOpenId(request: suspend BipeApiClient.(BipeOpenIdToken) -> T): T =
+        BipeApiClient.withOpenIdRetry(session.openId) { token -> api.request(token) }
 
     /** A display name of a Matrix account: the profile name, else the ID's localpart. Never the full Matrix ID. */
     suspend fun displayName(userId: String): String {

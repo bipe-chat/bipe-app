@@ -85,8 +85,8 @@ final class HandlePickModel: ObservableObject {
     }
 
     func load() async {
-        let mine = try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeMyHandle in
-            try await self.api.myHandle(accessToken: token)
+        let mine = try? await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle in
+            try await self.api.myHandle(openID: token)
         }
         if let mine {
             currentHandle = mine.handle

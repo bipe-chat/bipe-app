@@ -7,6 +7,7 @@ package chat.bipe.shared
 import android.content.Context
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeHandleChange
+import chat.bipe.shared.api.BipeOpenIdTokens
 import java.io.File
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
@@ -78,7 +79,8 @@ class BipeHandleChangeStore(
     private val api: BipeApiClient,
     userId: String,
     cacheDirectory: File?,
-    private val accessToken: suspend () -> String?,
+    /** The account's OpenID token for the core routes (bipe-chat/bipe#646). */
+    private val openId: BipeOpenIdTokens,
 ) {
     private val file: File? = cacheDirectory?.let { dir ->
         val safeName = userId.map { if (it.isLetterOrDigit()) it else '_' }.joinToString("")
@@ -135,7 +137,7 @@ class BipeHandleChangeStore(
     /** `true` when the answer had a change the cache did not have. */
     private suspend fun fetch(userIds: List<String>, since: Instant?): Boolean {
         val answer = runCatching {
-            BipeApiClient.withTokenRetry(accessToken) { token -> api.handleChanges(userIds, since, token) }
+            BipeApiClient.withOpenIdRetry(openId) { token -> api.handleChanges(userIds, since, token) }
         }.getOrNull() ?: return false
         return mutex.withLock {
             fetchedUsers += userIds

@@ -32,8 +32,8 @@ enum TheftMarkChecks {
         guard let verifier else { return nil }
         let api = api
         do {
-            let envelopes = try await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> [BadgeEnvelope] in
-                try await api.theftMarks(userIDs: [userId], accessToken: token)
+            let envelopes = try await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> [BadgeEnvelope] in
+                try await api.theftMarks(userIDs: [userId], openID: token)
             }
             let statement = verifier.statement(for: userId, in: envelopes, now: now)
             entries[key] = Entry(checkedAt: now, statement: statement)

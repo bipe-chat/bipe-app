@@ -66,8 +66,8 @@ final class InviteSignedInModel: ObservableObject {
         inviterHandle = preview.inviterHandle
         if let handle = preview.inviterHandle {
             inviterName = "@\(handle)"
-            let record = try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeHandleRecord in
-                try await self.api.handle(handle, accessToken: token)
+            let record = try? await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeHandleRecord in
+                try await self.api.handle(handle, openID: token)
             }
             if let userId = record?.userId {
                 if let name = try? await session.client.getProfile(userId: userId).displayName, !name.isEmpty {

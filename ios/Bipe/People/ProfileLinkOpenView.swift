@@ -99,8 +99,8 @@ struct ProfileLinkOpenView: View {
     private func open() async {
         phase = .resolving
         do throws(BipeAPIError) {
-            let record = try await people.withToken { (token: String) async throws(BipeAPIError) -> BipeHandleRecord in
-                try await people.api.handle(handle, accessToken: token)
+            let record = try await people.withOpenID { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeHandleRecord in
+                try await people.api.handle(handle, openID: token)
             }
             phase = .found
             dismiss()

@@ -72,8 +72,13 @@ class BipeApiClient(baseUrl: String) {
         send("GET", listOf("v1", "handles", handle, "availability"), response = BipeHandleAvailability.serializer())
 
     /** `GET /v1/me/handle`. */
-    suspend fun myHandle(accessToken: String): BipeMyHandle =
-        send("GET", listOf("v1", "me", "handle"), accessToken = accessToken, response = BipeMyHandle.serializer())
+    suspend fun myHandle(openId: BipeOpenIdToken): BipeMyHandle = send(
+        "GET",
+        listOf("v1", "me", "handle"),
+        accessToken = openId.accessToken,
+        serverName = openId.matrixServerName,
+        response = BipeMyHandle.serializer(),
+    )
 
     /** `PUT /v1/me/handle`. */
     suspend fun setMyHandle(handle: String, accessToken: String): BipeMyHandle = send(
@@ -85,20 +90,22 @@ class BipeApiClient(baseUrl: String) {
     )
 
     /** `POST /v1/handle-changes` (ADR 0066). At most [BipeHandleChange.BATCH_SIZE] IDs. Oldest first. */
-    suspend fun handleChanges(userIds: List<String>, since: java.time.Instant?, accessToken: String): List<BipeHandleChange> = send(
+    suspend fun handleChanges(userIds: List<String>, since: java.time.Instant?, openId: BipeOpenIdToken): List<BipeHandleChange> = send(
         "POST",
         listOf("v1", "handle-changes"),
         body = encode(BipeHandleChangesRequest.serializer(), BipeHandleChangesRequest(userIds, since?.toString())),
-        accessToken = accessToken,
+        accessToken = openId.accessToken,
+        serverName = openId.matrixServerName,
         response = BipeHandleChangesResponse.serializer(),
     ).changes
 
     /** `POST /v1/profile-facts` (ADR 0049). At most [BipeProfileFacts.BATCH_SIZE] IDs. IDs the API does not know are absent. */
-    suspend fun profileFacts(userIds: List<String>, accessToken: String): List<BipeProfileFacts> = send(
+    suspend fun profileFacts(userIds: List<String>, openId: BipeOpenIdToken): List<BipeProfileFacts> = send(
         "POST",
         listOf("v1", "profile-facts"),
         body = encode(BipeProfileFactsRequest.serializer(), BipeProfileFactsRequest(userIds)),
-        accessToken = accessToken,
+        accessToken = openId.accessToken,
+        serverName = openId.matrixServerName,
         response = BipeProfileFactsResponse.serializer(),
     ).facts
 
@@ -249,6 +256,8 @@ class BipeApiClient(baseUrl: String) {
         accessToken: String? = null,
         response: KSerializer<T>?,
         query: List<Pair<String, String>> = emptyList(),
+        /** With a Matrix OpenID token: the server that issued it (contract scheme matrixServerName). */
+        serverName: String? = null,
     ): T = withContext(Dispatchers.IO) {
         // Each segment is percent-encoded, so a handle or a code cannot add path segments.
         val encodedQuery = query.joinToString(separator = "&", prefix = if (query.isEmpty()) "" else "?") { (name, value) ->
@@ -266,6 +275,7 @@ class BipeApiClient(baseUrl: String) {
             connection.readTimeout = TIMEOUT_MS
             connection.setRequestProperty("Accept", "application/json")
             accessToken?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
+            serverName?.let { connection.setRequestProperty("X-Matrix-Server-Name", it) }
             if (body != null) {
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json")
@@ -324,6 +334,20 @@ class BipeApiClient(baseUrl: String) {
             } catch (error: BipeApiException) {
                 val fresh = if (error.isUnauthorized) accessToken() else null
                 request(fresh ?: throw error)
+            }
+        }
+
+        /**
+         * Runs [request] with the account's OpenID token, for the core routes (bipe-chat/bipe#646). On HTTP 401 it asks
+         * for a new token and retries once.
+         */
+        suspend fun <T> withOpenIdRetry(tokens: BipeOpenIdTokens, request: suspend (BipeOpenIdToken) -> T): T {
+            val token = tokens.token()
+            return try {
+                request(token)
+            } catch (error: BipeApiException) {
+                if (!error.isUnauthorized) throw error
+                request(tokens.token(replacing = token))
             }
         }
     }

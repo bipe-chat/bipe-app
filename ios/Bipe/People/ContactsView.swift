@@ -102,8 +102,8 @@ final class ContactsModel: ObservableObject {
         do throws(BipeAPIError) {
             for start in stride(from: 0, to: phones.count, by: Self.lookupChunk) {
                 let chunk = Array(phones[start..<min(start + Self.lookupChunk, phones.count)])
-                let result = try await people.withToken { (token: String) async throws(BipeAPIError) -> [BipeContactMatch] in
-                    try await people.api.lookupContacts(phones: chunk, accessToken: token)
+                let result = try await people.withOpenID { (token: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeContactMatch] in
+                    try await people.api.lookupContacts(phones: chunk, openID: token)
                 }
                 for match in result where match.userId != people.session.userId && found[match.userId] == nil {
                     guard let entry = book[match.phone] else { continue }

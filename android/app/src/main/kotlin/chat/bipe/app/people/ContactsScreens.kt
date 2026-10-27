@@ -144,7 +144,7 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
             val result = runCatching {
                 // At most 500 numbers per POST /v1/contacts/lookup.
                 phones.chunked(500).forEach { chunk ->
-                    people.withToken { people.api.lookupContacts(chunk, it) }.forEach { match ->
+                    people.withOpenId { people.api.lookupContacts(chunk, it) }.forEach { match ->
                         val entry = book[match.phone]
                         if (match.userId != people.session.userId && match.userId !in found && entry != null) {
                             found[match.userId] = entry.name
@@ -250,7 +250,7 @@ fun ProfileLinkOpenScreen(people: PeopleService, handle: String, openPerson: (St
     var attempt by remember { mutableStateOf(0) }
     LaunchedEffect(attempt) {
         phase = LinkPhase.RESOLVING
-        runCatching { people.withToken { people.api.handle(handle, it) } }
+        runCatching { people.withOpenId { people.api.handle(handle, it) } }
             .onSuccess { record -> if (record.userId == people.session.userId) openOwnLink() else openPerson(record.userId) }
             .onFailure { error ->
                 val status = (error as? BipeApiException.Server)?.statusCode ?: (error as? BipeApiException.UnexpectedResponse)?.statusCode

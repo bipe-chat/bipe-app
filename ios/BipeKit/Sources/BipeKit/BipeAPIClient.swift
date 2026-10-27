@@ -179,10 +179,10 @@ public struct BipeAPIClient: Sendable {
     // MARK: - Handle changes (ADR 0066)
     
     /// `POST /v1/handle-changes`. At most ``BipeHandleChange/batchSize`` IDs. Oldest first.
-    public func handleChanges(userIDs: [String], since: Date?, accessToken: String) async throws(BipeAPIError) -> [BipeHandleChange] {
+    public func handleChanges(userIDs: [String], since: Date?, openID: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeHandleChange] {
         let response: HandleChangesResponse = try await send(method: "POST", path: ["v1", "handle-changes"],
                                                              body: HandleChangesRequest(userIds: userIDs, since: since.map(Self.formatDate)),
-                                                             accessToken: accessToken)
+                                                             accessToken: openID.accessToken, serverName: openID.matrixServerName)
         return response.changes
     }
     
@@ -194,10 +194,10 @@ public struct BipeAPIClient: Sendable {
     // MARK: - Profile facts (ADR 0049)
     
     /// `POST /v1/profile-facts`. At most ``BipeProfileFacts/batchSize`` IDs. IDs the API does not know are absent.
-    public func profileFacts(userIDs: [String], accessToken: String) async throws(BipeAPIError) -> [BipeProfileFacts] {
+    public func profileFacts(userIDs: [String], openID: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeProfileFacts] {
         let response: ProfileFactsResponse = try await send(method: "POST", path: ["v1", "profile-facts"],
                                                             body: ProfileFactsRequest(userIds: userIDs),
-                                                            accessToken: accessToken)
+                                                            accessToken: openID.accessToken, serverName: openID.matrixServerName)
         return response.facts
     }
     
@@ -221,8 +221,9 @@ public struct BipeAPIClient: Sendable {
     // MARK: - Phone-number discovery
     
     /// `POST /v1/contacts/lookup`. At most 500 numbers, already normalised with ``BipePhoneNumber``.
-    public func lookupContacts(phones: [String], accessToken: String) async throws(BipeAPIError) -> [BipeContactMatch] {
-        let response: LookupResponse = try await send(method: "POST", path: ["v1", "contacts", "lookup"], body: LookupRequest(phones: phones), accessToken: accessToken)
+    public func lookupContacts(phones: [String], openID: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeContactMatch] {
+        let response: LookupResponse = try await send(method: "POST", path: ["v1", "contacts", "lookup"], body: LookupRequest(phones: phones),
+                                                      accessToken: openID.accessToken, serverName: openID.matrixServerName)
         return response.matches
     }
     
@@ -274,22 +275,24 @@ public struct BipeAPIClient: Sendable {
     }
     
     /// `GET /v1/handles/{handle}`. Exact lookup.
-    public func handle(_ handle: String, accessToken: String) async throws(BipeAPIError) -> BipeHandleRecord {
-        try await send(method: "GET", path: ["v1", "handles", handle], body: Empty?.none, accessToken: accessToken)
+    public func handle(_ handle: String, openID: BipeOpenIDToken) async throws(BipeAPIError) -> BipeHandleRecord {
+        try await send(method: "GET", path: ["v1", "handles", handle], body: Empty?.none,
+                       accessToken: openID.accessToken, serverName: openID.matrixServerName)
     }
     
     /// `POST /v1/handles/resolve`. Returns Matrix ID to handle. IDs without a handle are absent.
-    public func resolveHandles(userIDs: [String], accessToken: String) async throws(BipeAPIError) -> [String: String] {
+    public func resolveHandles(userIDs: [String], openID: BipeOpenIDToken) async throws(BipeAPIError) -> [String: String] {
         let response: ResolveResponse = try await send(method: "POST",
                                                        path: ["v1", "handles", "resolve"],
                                                        body: ResolveRequest(userIds: userIDs),
-                                                       accessToken: accessToken)
+                                                       accessToken: openID.accessToken, serverName: openID.matrixServerName)
         return response.handles
     }
     
     /// `GET /v1/me/handle`.
-    public func myHandle(accessToken: String) async throws(BipeAPIError) -> BipeMyHandle {
-        try await send(method: "GET", path: ["v1", "me", "handle"], body: Empty?.none, accessToken: accessToken)
+    public func myHandle(openID: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle {
+        try await send(method: "GET", path: ["v1", "me", "handle"], body: Empty?.none,
+                       accessToken: openID.accessToken, serverName: openID.matrixServerName)
     }
     
     /// `PUT /v1/me/handle`.
@@ -540,7 +543,8 @@ public struct BipeAPIClient: Sendable {
     func send<Body: Encodable, Response: Decodable>(method: String,
                                                             path: [String],
                                                             body: Body?,
-                                                            accessToken: String? = nil) async throws(BipeAPIError) -> Response {
+                                                            accessToken: String? = nil,
+                                                            serverName: String? = nil) async throws(BipeAPIError) -> Response {
         var rawBody: (data: Data, contentType: String)?
         if let body {
             do {
@@ -549,7 +553,7 @@ public struct BipeAPIClient: Sendable {
                 throw .unexpectedResponse(statusCode: nil)
             }
         }
-        return try await send(method: method, path: path, rawBody: rawBody, accessToken: accessToken)
+        return try await send(method: method, path: path, rawBody: rawBody, accessToken: accessToken, serverName: serverName)
     }
     
     /// Sends the request and returns the body of a 2xx answer. Other answers throw the contract's error.
@@ -557,8 +561,10 @@ public struct BipeAPIClient: Sendable {
                          path: [String],
                          query: [URLQueryItem] = [],
                          rawBody: (data: Data, contentType: String)?,
-                         accessToken: String?) async throws(BipeAPIError) -> (Data, HTTPURLResponse) {
-        let (data, httpResponse) = try await exchange(method: method, path: path, query: query, rawBody: rawBody, accessToken: accessToken)
+                         accessToken: String?,
+                         serverName: String? = nil) async throws(BipeAPIError) -> (Data, HTTPURLResponse) {
+        let (data, httpResponse) = try await exchange(method: method, path: path, query: query, rawBody: rawBody,
+                                                      accessToken: accessToken, serverName: serverName)
         guard (200..<300).contains(httpResponse.statusCode) else {
             if let errorBody = try? Self.decoder.decode(ErrorBody.self, from: data) {
                 let code = BipeAPIErrorCode(rawValue: errorBody.error) ?? .internal
@@ -576,7 +582,8 @@ public struct BipeAPIClient: Sendable {
                           path: [String],
                           query: [URLQueryItem] = [],
                           rawBody: (data: Data, contentType: String)?,
-                          accessToken: String?) async throws(BipeAPIError) -> (Data, HTTPURLResponse) {
+                          accessToken: String?,
+                          serverName: String? = nil) async throws(BipeAPIError) -> (Data, HTTPURLResponse) {
         // appending(path:) percent-encodes each component, so a handle cannot add path segments.
         var url = path.reduce(baseURL) { $0.appending(path: $1, directoryHint: .notDirectory) }
         if !query.isEmpty {
@@ -587,6 +594,10 @@ public struct BipeAPIClient: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        // With a Matrix OpenID token: the server that issued it (contract scheme matrixServerName).
+        if let serverName {
+            request.setValue(serverName, forHTTPHeaderField: "X-Matrix-Server-Name")
         }
         if let rawBody {
             request.setValue(rawBody.contentType, forHTTPHeaderField: "Content-Type")
@@ -611,8 +622,10 @@ public struct BipeAPIClient: Sendable {
                                            path: [String],
                                            query: [URLQueryItem] = [],
                                            rawBody: (data: Data, contentType: String)?,
-                                           accessToken: String? = nil) async throws(BipeAPIError) -> Response {
-        let (data, httpResponse) = try await perform(method: method, path: path, query: query, rawBody: rawBody, accessToken: accessToken)
+                                           accessToken: String? = nil,
+                                           serverName: String? = nil) async throws(BipeAPIError) -> Response {
+        let (data, httpResponse) = try await perform(method: method, path: path, query: query, rawBody: rawBody,
+                                                     accessToken: accessToken, serverName: serverName)
         
         // 204, and 202 without a body.
         if httpResponse.statusCode == 204 || data.isEmpty, let noContent = NoContent() as? Response {
