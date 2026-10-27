@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import chat.bipe.app.common.BipeButton
+import chat.bipe.app.common.serverAccountData
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,17 +36,12 @@ import chat.bipe.shared.clearedchats.ClearedChats
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Room
@@ -137,26 +133,8 @@ class DmDeleteModel(
         LatestEventValue.None -> System.currentTimeMillis()
     }
 
-    /**
-     * The server copy, not Client.accountData: the SDK copy waits for the next sync, so a write from it could drop a
-     * marker another device just added (bipe-chat/bipe#479). Matrix client-server API GET user account data.
-     */
-    private suspend fun serverContent(): String? = withContext(Dispatchers.IO) {
-        val auth = session.client.session()
-        val user = URLEncoder.encode(auth.userId, "UTF-8")
-        val url = URL("${auth.homeserverUrl.trimEnd('/')}/_matrix/client/v3/user/$user/account_data/${ClearedChatsStore.EVENT_TYPE}")
-        val connection = url.openConnection() as HttpURLConnection
-        try {
-            connection.setRequestProperty("Authorization", "Bearer ${auth.accessToken}")
-            when (connection.responseCode) {
-                200 -> connection.inputStream.bufferedReader().use { it.readText() }
-                404 -> null
-                else -> error("account data: HTTP ${connection.responseCode}")
-            }
-        } finally {
-            connection.disconnect()
-        }
-    }
+    /** The server copy of chat.bipe.cleared_chats (serverAccountData, bipe-chat/bipe#479). */
+    private suspend fun serverContent(): String? = serverAccountData(session.client, ClearedChatsStore.EVENT_TYPE)
 }
 
 /** Spec dm-delete: a confirm sheet. DM only (RoomInfo.isDm true). */

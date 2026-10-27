@@ -35,6 +35,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.invites.InvitesScreen
+import chat.bipe.app.notifications.NewsRoomCleanup
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -57,8 +58,9 @@ val LocalBipeApi = staticCompositionLocalOf<BipeApiClient?> { null }
 
 /**
  * The group and DM screens over chat-list and chat-timeline: group-create, group-details (with the screens behind
- * it) and dm-delete. Also runs the account work of these specs: quiet groups once per account, and the cleared-DM
- * markers at start and on each return to the foreground. content draws chat-list or chat-timeline.
+ * it) and dm-delete. Also runs the account work of these specs: quiet groups once per account, the cleared-DM
+ * markers at start and on each return to the foreground, and the news room out of m.direct once per account
+ * (bipe-chat/bipe#809). content draws chat-list or chat-timeline.
  */
 @Composable
 fun GroupHost(
@@ -80,6 +82,7 @@ fun GroupHost(
     val invitesFailed = stringResource(R.string.bipe_app_group_create_invites_failed)
     LaunchedEffect(session) { QuietGroups.applyOnce(context, session) }
     LaunchedEffect(session, foregroundCount) { ClearedChatsStore.refresh(session.client) }
+    LaunchedEffect(session, foregroundCount) { NewsRoomCleanup.applyOnce(context, session, api) }
 
     deletingDm?.let { dm ->
         DmDeleteSheet(session, dm, onDismiss = { deletingDm = null }, onDeleted = {
