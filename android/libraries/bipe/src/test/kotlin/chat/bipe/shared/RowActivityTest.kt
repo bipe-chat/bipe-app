@@ -17,13 +17,13 @@ import org.junit.Test
  * RowActivityTests.swift.
  */
 class RowActivityTest {
-    private class Case(val name: String, val sdk: SdkLatest?, val events: List<LocalEvent>, val knownMs: Long?, val row: Row)
+    private class Case(val name: String, val sdk: SdkLatest?, val events: List<LocalEvent>, val known: Row?, val row: Row)
 
     private val t = 1_700_000_000_000L
 
     private val cases = listOf(
         Case("the SDK latest event wins when it is the newest",
-            SdkLatest(t, "oi", true), listOf(LocalEvent(t - 100_000_000_000, MESSAGE, "old")), t + 200_000_000_000,
+            SdkLatest(t, "oi", true), listOf(LocalEvent(t - 100_000_000_000, MESSAGE, "old")), Row(t + 200_000_000_000, null, null),
             Row(t, "oi", t)),
         // The device test of 26 Oct 2026: the message arrived before its room key, so the SDK kept the own join.
         Case("a newer decrypted local message replaces the SDK join",
@@ -45,19 +45,30 @@ class RowActivityTest {
         Case("a room with only state events uses the newest event",
             null, listOf(LocalEvent(t - 100_000_000_000, OTHER), LocalEvent(t - 99_999_900_000, OTHER)), null,
             Row(t - 99_999_900_000, null, null)),
-        Case("a known time stays when the timeline is older",
-            null, listOf(LocalEvent(t - 60_000_000_000, MESSAGE, "old")), t - 50_000_000_000,
-            Row(t - 50_000_000_000, null, null)),
-        Case("a known time stays when the timeline is empty",
-            null, emptyList(), t - 50_000_000_000,
-            Row(t - 50_000_000_000, null, null)),
+        // A changed room is read again: its local events are empty meanwhile, and the row keeps its time and text.
+        Case("a known row stays when the timeline is empty",
+            null, emptyList(), Row(t - 50_000_000_000, "oi", t - 50_000_000_000),
+            Row(t - 50_000_000_000, "oi", t - 50_000_000_000)),
+        Case("a newer known time keeps the local text",
+            null, listOf(LocalEvent(t - 60_000_000_000, MESSAGE, "old")), Row(t - 50_000_000_000, null, null),
+            Row(t - 50_000_000_000, "old", t - 60_000_000_000)),
+        // MZ's device test of 27 Oct 2026 (build 205): no SDK latest event, the last event an own call.
+        Case("an own call gives the row its text",
+            null, listOf(LocalEvent(t, MESSAGE, "oi"), LocalEvent(t + 60_000, MESSAGE, "Voice call", isOwn = true), LocalEvent(t + 120_000, OTHER)), null,
+            Row(t + 60_000, "Voice call", null)),
+        Case("a newer message without a preview keeps the SDK text",
+            SdkLatest(t, "oi", true), listOf(LocalEvent(t + 100_000, MESSAGE)), null,
+            Row(t, "oi", t)),
+        Case("an SDK latest event without a preview keeps the local text",
+            SdkLatest(t + 100_000, null, false), listOf(LocalEvent(t, MESSAGE, "oi")), null,
+            Row(t + 100_000, "oi", t)),
         // No local data: the row has no date. It never takes the current time.
         Case("unknown stays unknown", null, emptyList(), null, Row(null, null, null)),
     )
 
     @Test fun everyCaseResolvesToItsRow() {
         for (case in cases) {
-            assertWithMessage(case.name).that(BipeRowActivity.resolve(case.sdk, case.events, case.knownMs)).isEqualTo(case.row)
+            assertWithMessage(case.name).that(BipeRowActivity.resolve(case.sdk, case.events, case.known)).isEqualTo(case.row)
         }
     }
 }

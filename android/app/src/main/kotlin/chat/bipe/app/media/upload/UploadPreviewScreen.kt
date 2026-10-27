@@ -78,10 +78,13 @@ fun UploadPreviewScreen(
     timeline: Timeline,
     replyToEventId: String?,
     onClose: () -> Unit,
+    /** share-to-chat: the optional message as the first caption, and whether the items went out. */
+    caption: String = "",
+    onSent: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val model = remember(files) { UploadPreviewModel(context.applicationContext, files, client, timeline, replyToEventId, scope) }
+    val model = remember(files) { UploadPreviewModel(context.applicationContext, files, client, timeline, replyToEventId, scope, caption) }
     val items by model.items.collectAsState()
     val caption by model.caption.collectAsState()
     val isPreparing by model.isPreparing.collectAsState()
@@ -92,7 +95,11 @@ fun UploadPreviewScreen(
     val pager = rememberPagerState { items.size }
 
     LaunchedEffect(model) { model.appear() }
-    LaunchedEffect(isClosed) { if (isClosed) onClose() }
+    LaunchedEffect(isClosed) {
+        if (isClosed) {
+            if (model.didSend && onSent != null) onSent() else onClose()
+        }
+    }
 
     Dialog(onDismissRequest = model::cancel, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Column(

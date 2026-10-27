@@ -55,12 +55,17 @@ object CallCenter {
 
     fun isInCall(roomId: String): Boolean = _active.value?.roomId == roomId
 
-    /** Starts or joins the call of a room. A call in another room stays; its screen shows instead. */
-    suspend fun start(context: Context, session: AccountSession, room: MatrixRoom, roomName: String, video: Boolean) {
+    /**
+     * Starts or joins the call of a room. A call in another room stays; its screen shows instead.
+     * [ring]: who to ring when the room has no call yet (spec call start); null when answering a ring.
+     */
+    suspend fun start(context: Context, session: AccountSession, room: MatrixRoom, roomName: String, video: Boolean, ring: CallRingTarget? = null) {
         if (_active.value == null) {
             val focus = focusUrl(session) ?: return
-            val call = runCatching { CallSession(context, session, room, roomName, focus, video) }.getOrNull() ?: return
+            val call = runCatching { CallSession(context, session, room, roomName, focus, video, ring) }.getOrNull() ?: return
             call.onFinished = { if (_active.value === call) _active.value = null }
+            // A call this phone starts goes to the system too (core-telecom, bipe-chat/bipe#760); an answered ring is there already.
+            if (ring != null) TelecomCalls.outgoing(context, roomName, video) { call.end() }
             media = MediaLoader(session.client)
             _active.value = call
         }

@@ -43,10 +43,15 @@ class BipeApplication : Application() {
     /** Spec pix-check-result, action sendToChat: the preview the home screen offers next. */
     val pixPreview = MutableStateFlow<PixPreview?>(null)
 
+    /** Spec share-to-chat: the share the home screen offers next. */
+    val pendingShare = MutableStateFlow<chat.bipe.app.share.PendingShare?>(null)
+
     private var watchingAccounts = false
 
     override fun onCreate() {
         super.onCreate()
+        // Spec incoming-call: the missed calls of the chat list previews.
+        chat.bipe.app.calls.MissedCalls.init(this)
         // Before any SDK call. On Android, initPlatform is the only place where the SDK sets up rustls-platform-verifier:
         // without it the first HTTPS request (the login) panics, and Kotlin gets InternalException. It also sends SDK
         // warnings, errors and panics to logcat.
@@ -89,7 +94,17 @@ class BipeApplication : Application() {
         if (watchingAccounts) return
         watchingAccounts = true
         scope.launch {
-            accountStart.sessions.collect { sessions -> PixPreview.setAccountAvailable(this@BipeApplication, sessions.isNotEmpty()) }
+            var hadAccount = false
+            accountStart.sessions.collect { sessions ->
+                PixPreview.setAccountAvailable(this@BipeApplication, sessions.isNotEmpty())
+                // Spec share-to-chat: signed out, nothing is kept and the sharing shortcuts go.
+                if (sessions.isEmpty() && hadAccount) {
+                    chat.bipe.app.share.ShareShortcuts.clear(this@BipeApplication)
+                    pendingShare.value?.delete()
+                    pendingShare.value = null
+                }
+                hadAccount = sessions.isNotEmpty()
+            }
         }
     }
 

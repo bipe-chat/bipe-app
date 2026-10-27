@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.setNotificationCategories([NotificationActions.messageCategory])
+        // Spec incoming-call (bipe-chat/bipe#760): PushKit and CallKit, also when a VoIP push woke the app.
+        MainActor.assumeIsolated { CallKitCenter.shared.register() }
         return true
     }
 

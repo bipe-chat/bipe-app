@@ -78,6 +78,7 @@ struct AppTabsView: View {
         }
         .environmentObject(model)
         .modifier(CallScreenCover())
+        .modifier(IncomingCallCover(session: session))
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
                                    menu: { AccountMenu.make(model: model) { showsNewAccount = true } },
@@ -87,6 +88,10 @@ struct AppTabsView: View {
                                    showsSwitchAction: model.accounts.count > 1))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
+        .shareToChat(chatList: chatList, openChat: { roomId in
+            model.selectTab(.conversas)
+            TabsLinks.shared.link = .chat(roomId)
+        })
         .modifier(InviteJoinNotice(model: model.invites(for: session)))
         .sheet(isPresented: $showsNewAccount, onDismiss: { newAccountStart = nil }) {
             AccountNewView(tabs: model, session: session, api: api, preset: newAccountStart) { showsNewAccount = false }

@@ -118,7 +118,10 @@ class PhoneNotifications(private val context: Context) {
         }.getOrNull()
         if (!isActive(session) || !owns(target, route) || target == visibleRoom) return
         when (status) {
-            is NotificationStatus.Event -> show(status.item, target, route, eventId)
+            is NotificationStatus.Event -> {
+                // Spec incoming-call (bipe-chat/bipe#760): a ring rings the phone instead of a message notification.
+                if (!chat.bipe.app.calls.IncomingCalls.fromPush(context, session, status.item, roomId)) show(status.item, target, route, eventId)
+            }
             NotificationStatus.EventFilteredOut, NotificationStatus.EventRedacted, NotificationStatus.EventNotFound -> Unit
             null -> showFallback(target, route, eventId)
         }
@@ -344,6 +347,24 @@ class PhoneNotifications(private val context: Context) {
         return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
+    /** Spec incoming-call timeout: a ring nobody answered, on its own channel. Opens the chat. */
+    @SuppressLint("MissingPermission")
+    fun missedCall(target: BipeNotificationTarget, callerName: String, eventId: String) {
+        val system = context.getSystemService(NotificationManager::class.java)
+        system.createNotificationChannel(
+            NotificationChannel(MISSED_CALLS_CHANNEL, context.getString(R.string.bipe_call_channel_missed), NotificationManager.IMPORTANCE_DEFAULT),
+        )
+        val notification = NotificationCompat.Builder(context, MISSED_CALLS_CHANNEL)
+            .setSmallIcon(chat.bipe.app.R.drawable.ic_notification)
+            .setContentTitle(callerName)
+            .setContentText(context.getString(R.string.bipe_call_missed))
+            .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
+            .setAutoCancel(true)
+            .setContentIntent(openIntent(target, accountRoute(target.accountUserId), "missedCall"))
+            .build()
+        runCatching { NotificationManagerCompat.from(context).notify(eventId, MISSED_CALL_ID, notification) }
+    }
+
     /** Account sign-out invalidates only this account's cache and delivered notifications. */
     fun detach(userId: String) {
         accountRoutes.remove(userId)
@@ -459,6 +480,7 @@ class PhoneNotifications(private val context: Context) {
             is MessageType.Video -> attachmentPreview(R.string.bipe_app_media_video, type.content.caption)
             is MessageType.File -> attachmentPreview(R.string.bipe_app_media_file, type.content.caption)
             is MessageType.Audio -> attachmentPreview(if (type.content.voice != null) R.string.bipe_app_media_voice else R.string.bipe_app_media_file, type.content.caption)
+            is MessageType.Location -> context.getString(R.string.bipe_app_location_title)
             else -> null
         }
     }
@@ -478,6 +500,8 @@ class PhoneNotifications(private val context: Context) {
         private const val KEY_PREVIEW = "preview"
         private const val KEY_WORK_HOURS = "workHours"
         private const val FALLBACK_CHANNEL = "messages"
+        private const val MISSED_CALLS_CHANNEL = "calls_missed"
+        private const val MISSED_CALL_ID = 4
 
         /** A short stable digest of a Matrix ID, for channel IDs. */
         private fun groupId(userId: String): String = "account_" + accountDigest(userId)

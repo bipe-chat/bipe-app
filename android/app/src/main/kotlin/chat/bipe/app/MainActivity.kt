@@ -7,6 +7,11 @@ package chat.bipe.app
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.Bundle
+import android.widget.Toast
+import chat.bipe.app.share.ShareIntake
+import chat.bipe.shared.R
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import chat.bipe.app.pixcheck.PixPreview
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -32,6 +37,8 @@ class MainActivity : ComponentActivity() {
         readDevAccount(intent)
         readOpenChat(intent)
         readPixPreview(intent)
+        // A recreated activity keeps its intent: read a share only once.
+        if (savedInstanceState == null) readShare(intent)
         (application as BipeApplication).watchAccountsForPixCheck()
         accountStart.start()
         setContent {
@@ -49,6 +56,33 @@ class MainActivity : ComponentActivity() {
         readDevAccount(intent)
         readOpenChat(intent)
         readPixPreview(intent)
+        readShare(intent)
+    }
+
+    /**
+     * Spec share-to-chat, action receive: copies the items while the grant exists, then the home screen shows the
+     * chat picker after the app lock. With no account on the phone, a message, and nothing is kept.
+     */
+    private fun readShare(intent: Intent?) {
+        val shared = intent?.let(ShareIntake::take) ?: return
+        val app = application as BipeApplication
+        app.scope.launch {
+            val share = ShareIntake.read(applicationContext, shared)
+            if (share == null) {
+                Toast.makeText(applicationContext, R.string.bipe_share_nothing, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            accountStart.start()
+            val phase = accountStart.phase.first { it != AccountStartModel.Phase.OPENING }
+            // FAILED keeps the share: the account is on the phone, and the share expires by itself.
+            if (phase == AccountStartModel.Phase.NO_ACCOUNT) {
+                share.delete()
+                Toast.makeText(applicationContext, R.string.bipe_share_signed_out, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            app.pendingShare.value?.delete()
+            app.pendingShare.value = share
+        }
     }
 
     /** Spec pix-check-result, action sendToChat: the preview from PixCheckActivity waits for chat choice and Send. */

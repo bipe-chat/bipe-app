@@ -8,6 +8,8 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.previewText
+import chat.bipe.shared.R
+import org.matrix.rustcomponents.sdk.TimelineItemContent
 import chat.bipe.app.common.toVectorDiff
 import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.shared.BipeRowActivity
@@ -93,10 +95,10 @@ class ChatListModel(
 
     private val rooms = mutableListOf<Room>()
     private val subscriptionOwner = UUID.randomUUID().toString()
-    /** One model belongs to one account session; absent previews must not erase a known time. */
-    private val knownActivity = mutableMapOf<String, Long>()
+    /** One model belongs to one account session; absent previews must not erase a known time or text. */
+    private val knownRows = mutableMapOf<String, BipeRowActivity.Row>()
     /** Rows take a newer message of the local timeline as their date and text (bipe-chat/bipe#592). */
-    private val rowActivity = RowActivityScanner(session.client, scope, { it.previewText(undecryptableText, label) }) { refreshSummaries() }
+    private val rowActivity = RowActivityScanner(session.client, scope, ::rowPreview) { refreshSummaries() }
     private val extraRoomIds = mutableSetOf<String>()
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult? = null
@@ -268,10 +270,18 @@ class ChatListModel(
             BipeRowActivity.SdkLatest(it, summary.lastMessage, isIncoming = summary.latestIncomingMs != null)
         }
         val local = rowActivity.localEvents(summary.roomId).orEmpty()
-        val row = BipeRowActivity.resolve(sdk, local, knownActivity[summary.roomId])
-        row.timestampMs?.let { knownActivity[summary.roomId] = it }
+        val row = BipeRowActivity.resolve(sdk, local, knownRows[summary.roomId])
+        if (row.timestampMs != null) knownRows[summary.roomId] = row
         summary.copy(lastActivity = row.timestampMs, lastMessage = row.previewText, latestIncomingMs = row.latestIncomingMs)
     }
+
+    /** The row text of an event: its preview, or "missed call" for an incoming call this account missed. */
+    private fun rowPreview(content: TimelineItemContent, isOwn: Boolean, roomId: String): String? =
+        if (content is TimelineItemContent.RtcNotification && !isOwn && chat.bipe.app.calls.MissedCalls.isMissed(session.userId, roomId)) {
+            label(R.string.bipe_call_missed)
+        } else {
+            content.previewText(undecryptableText, label)
+        }
 
     suspend fun summary(room: Room): ChatSummary? {
         val info = runCatching { room.roomInfo() }.getOrNull() ?: return null
@@ -281,7 +291,7 @@ class ChatListModel(
         var latestIncomingMs: Long? = null
         when (val latest = room.latestEvent()) {
             is LatestEventValue.Remote -> {
-                lastMessage = latest.content.previewText(undecryptableText, label)
+                lastMessage = rowPreview(latest.content, latest.isOwn, info.id)
                 lastActivity = latest.timestamp.toLong()
                 if (!latest.isOwn && lastMessage != null) latestIncomingMs = lastActivity
             }

@@ -33,6 +33,8 @@ installreferrer = "2.2"
 # Calls (spec call, ADR 0186): LiveKit and the WebRTC build its POM names.
 livekit = "2.29.2"
 webrtc = "150.7871.04"
+# A locked phone rings (bipe-chat/bipe#760): the call in the system.
+core-telecom = "1.0.1"
 
 [libraries]
 matrix-rust-sdk = { module = "org.matrix.rustcomponents:sdk-android", version.ref = "matrix-rust-sdk" }
@@ -66,6 +68,7 @@ androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 livekit-android = { module = "io.livekit:livekit-android", version.ref = "livekit" }
 webrtc-android = { module = "io.github.webrtc-sdk:android-prefixed", version.ref = "webrtc" }
+androidx-core-telecom = { module = "androidx.core:core-telecom", version.ref = "core-telecom" }
 # Play flavour only (ADR 0150): closed source, "scope": "play" in tools/licences.json, playImplementation lines only.
 play-services-auth-blockstore = { module = "com.google.android.gms:play-services-auth-blockstore", version.ref = "play-services-auth-blockstore" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebase-messaging" }

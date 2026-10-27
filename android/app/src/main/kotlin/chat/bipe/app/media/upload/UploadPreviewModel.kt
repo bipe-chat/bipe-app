@@ -55,6 +55,8 @@ class UploadPreviewModel(
     private val timeline: Timeline,
     val replyToEventId: String?,
     private val scope: CoroutineScope,
+    /** The composer has none; share-to-chat passes its optional message. */
+    caption: String = "",
 ) {
     private val _items = MutableStateFlow(
         files.take(MAX_ITEMS).map { (file, mime) ->
@@ -69,7 +71,7 @@ class UploadPreviewModel(
         },
     )
     val items: StateFlow<List<PickedMedia>> = _items.asStateFlow()
-    private val _caption = MutableStateFlow("")
+    private val _caption = MutableStateFlow(caption)
     val caption: StateFlow<String> = _caption.asStateFlow()
     private val _isPreparing = MutableStateFlow(false)
     val isPreparing: StateFlow<Boolean> = _isPreparing.asStateFlow()
@@ -77,6 +79,10 @@ class UploadPreviewModel(
     val maxUploadLabel: StateFlow<String?> = _maxUploadLabel.asStateFlow()
     private val _isClosed = MutableStateFlow(false)
     val isClosed: StateFlow<Boolean> = _isClosed.asStateFlow()
+
+    /** true once send handed the items to the send queue (spec share-to-chat opens the chat then). */
+    var didSend = false
+        private set
 
     val quality = MediaQuality.current(context)
 
@@ -155,6 +161,7 @@ class UploadPreviewModel(
                     }
                 }
             }
+            didSend = true
             _isClosed.value = true
         }
     }

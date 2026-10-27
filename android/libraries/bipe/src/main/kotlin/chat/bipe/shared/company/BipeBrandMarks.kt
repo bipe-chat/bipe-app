@@ -6,14 +6,16 @@ package chat.bipe.shared.company
 
 import android.content.SharedPreferences
 import androidx.compose.runtime.Immutable
-import chat.bipe.shared.Base64Url
 import chat.bipe.shared.BadgeLevel
 import chat.bipe.shared.BadgeVerificationResult
 import chat.bipe.shared.BadgeVerifier
+import chat.bipe.shared.Base64Url
+import chat.bipe.shared.BipeServers
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.brandMarks
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.runCatchingExceptions
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +27,6 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlin.time.Duration.Companion.minutes
 
 /** One verified brand mark on a reseller's work account (ADR 0162, spec brand-mark). The iOS store has the same. */
 @Immutable
@@ -56,8 +57,6 @@ data class BipeBrandMarksState(val marks: List<BipeBrandMark> = emptyList(), val
  */
 class BipeBrandMarks(
     private val apiClient: BipeApiClient,
-    /** Only Matrix IDs on this server can have a mark. */
-    private val serverName: String,
     private val scope: CoroutineScope,
     /** The user's cross-signing master key, null when unknown. Throws when the lookup fails. */
     private val masterKey: suspend (String) -> String?,
@@ -79,7 +78,7 @@ class BipeBrandMarks(
 
     /** The cached marks of [userId]. Queues a fetch when the entry is stale. */
     fun state(userId: String): BipeBrandMarksState {
-        if (!userId.startsWith("@") || !userId.endsWith(":$serverName")) return BipeBrandMarksState()
+        if (!BipeServers.isBipeUserId(userId)) return BipeBrandMarksState()
         val entry = entries.value[userId]
         if (entry == null || entry.expiryMillis <= clock()) fetch(userId)
         return entry?.state ?: BipeBrandMarksState()

@@ -23,6 +23,10 @@ private struct AccountStartupSnapshot: Sendable {
 /// is the one used last, else the oldest on the phone.
 @MainActor
 final class AccountStartModel: ObservableObject {
+    /// One model for the app: the window shows it, and CallKit opens the accounts with it when PushKit woke the app
+    /// without a window (bipe-chat/bipe#760).
+    static let shared = AccountStartModel()
+
     enum Phase: Equatable {
         case opening
         case noAccount
@@ -39,7 +43,11 @@ final class AccountStartModel: ObservableObject {
     /// The open accounts, oldest first.
     @Published private(set) var sessions: [AccountSession] = [] {
         // accountAvailable of spec pix-check-result, for the share extension.
-        didSet { PixHandoff.accountAvailable = !sessions.isEmpty }
+        didSet {
+            PixHandoff.accountAvailable = !sessions.isEmpty
+            // Spec share-to-chat: signed out, nothing is kept.
+            if sessions.isEmpty && !oldValue.isEmpty { ShareHandoff.deleteAll() }
+        }
     }
 
     /// Spec soft-logout needsPin: the account whose token the server refused and that the hidden password cannot

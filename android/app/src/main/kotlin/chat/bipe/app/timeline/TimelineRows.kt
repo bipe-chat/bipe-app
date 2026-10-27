@@ -7,11 +7,15 @@ package chat.bipe.app.timeline
 import chat.bipe.app.common.displayName
 import chat.bipe.app.media.MediaContent
 import chat.bipe.app.media.MediaFormat
+import chat.bipe.app.location.LocationMessage
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.shared.media.BipeImageDescription
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeHandleChangePlacement
 import chat.bipe.shared.api.BipeHandleChange
+import chat.bipe.shared.calls.BipeCall
+import chat.bipe.shared.calls.BipeCallLine
+import chat.bipe.shared.calls.BipeCallRing
 import java.time.Instant
 import org.matrix.rustcomponents.sdk.MembershipChange
 import chat.bipe.app.polls.PollData
@@ -25,6 +29,7 @@ import org.matrix.rustcomponents.sdk.EventTimelineItem
 import org.matrix.rustcomponents.sdk.InReplyToDetails
 import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.OtherState
 import org.matrix.rustcomponents.sdk.Reaction
 import org.matrix.rustcomponents.sdk.Receipt
 import org.matrix.rustcomponents.sdk.TimelineItem
@@ -44,8 +49,10 @@ data class TimelineRow(
     val day: Long? = null,
     /** kind handleChange only (spec handle-change-line, ADR 0066). */
     val handleChange: HandleChangeLine? = null,
+    /** kind call only (spec incoming-call notes). */
+    val callText: String? = null,
 ) {
-    enum class Kind { MESSAGE, UNDECRYPTABLE, DELETED, POLL, DATE_SEPARATOR, READ_MARKER, HANDLE_CHANGE, NOT_ENCRYPTED, CHAT_START }
+    enum class Kind { MESSAGE, UNDECRYPTABLE, DELETED, POLL, DATE_SEPARATOR, READ_MARKER, HANDLE_CHANGE, NOT_ENCRYPTED, CHAT_START, CALL }
 }
 
 /** Type HandleChangeLine of spec handle-change-line. */
@@ -131,6 +138,8 @@ data class RowStrings(
     val undecryptable: String,
     /** A string resource, for the kind labels of media (spec timeline-media notes). */
     val label: (Int) -> String = { "" },
+    /** A string resource with one argument (the call lines of spec incoming-call). */
+    val format: (Int, String) -> String = { _, _ -> "" },
 )
 
 class BuiltRows(val rows: List<TimelineRow>, val hitStart: Boolean, val unknownUsers: Set<String>)
@@ -191,6 +200,10 @@ object TimelineRowBuilder {
                 }
                 null -> {
                     val event = item.asEvent() ?: return@forEachIndexed
+                    (event.content as? TimelineItemContent.RtcNotification)?.let { call ->
+                        rows += callRows(id, event, call, items, index, facts, strings, ::name)
+                        return@forEachIndexed
+                    }
                     val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return@forEachIndexed
                     val base = message(id, event, name(event.sender))
                     // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
@@ -222,8 +235,16 @@ object TimelineRowBuilder {
                                     body = mediaContent.voice.transcript,
                                 )
                                 null -> {
-                                    if (kind !is MsgLikeKind.Message || kind.content.msgType !is MessageType.Text) return@forEachIndexed
-                                    base.copy(kind = TimelineMessage.Kind.TEXT, body = kind.content.body)
+                                    if (kind !is MsgLikeKind.Message) return@forEachIndexed
+                                    when (val type = kind.content.msgType) {
+                                        is MessageType.Text -> base.copy(kind = TimelineMessage.Kind.TEXT, body = kind.content.body)
+                                        // Spec location-view: a geo URI the app cannot read stays unsupported.
+                                        is MessageType.Location -> {
+                                            val location = LocationMessage.of(type.content) ?: return@forEachIndexed
+                                            base.copy(kind = TimelineMessage.Kind.LOCATION, location = location, body = strings.label(location.labelRes))
+                                        }
+                                        else -> return@forEachIndexed
+                                    }
                                 }
                             }
                             val isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited ?: false
@@ -273,6 +294,41 @@ object TimelineRowBuilder {
      * Spec handle-change-line: local lines before the first row newer than the change, inside the loaded range.
      * The timeline is live, so a change newer than the last row shows at the end.
      */
+    /**
+     * Spec incoming-call notes: one line for a ring event and the call memberships after it (up to the next ring),
+     * and in a group one line for each member who joined.
+     */
+    private fun callRows(
+        id: String,
+        event: EventTimelineItem,
+        call: TimelineItemContent.RtcNotification,
+        items: List<TimelineItem>,
+        index: Int,
+        facts: RoomFacts,
+        strings: RowStrings,
+        name: (String) -> String,
+    ): List<TimelineRow> {
+        val memberEvents = mutableListOf<Pair<String, Long>>()
+        for (item in items.drop(index + 1)) {
+            val other = item.asEvent() ?: continue
+            if (other.content is TimelineItemContent.RtcNotification) break
+            val state = other.content as? TimelineItemContent.State ?: continue
+            if ((state.content as? OtherState.Custom)?.eventType == BipeCall.MEMBER_EVENT_TYPE) {
+                memberEvents += other.sender to other.timestamp.toLong()
+            }
+        }
+        val line = BipeCallRing.line(facts.isDm, event.sender, event.timestamp.toLong(), call.activeMembers.isNotEmpty(), call.declinedBy, memberEvents)
+        val label = strings.label(if (call.callIntent == "video") R.string.bipe_call_video else R.string.bipe_call_voice)
+        val text = when (line.outcome) {
+            BipeCallLine.Outcome.ONGOING -> strings.label(R.string.bipe_call_ongoing)
+            BipeCallLine.Outcome.MISSED -> strings.label(R.string.bipe_call_missed)
+            BipeCallLine.Outcome.DECLINED -> strings.label(R.string.bipe_call_declined)
+            BipeCallLine.Outcome.ENDED -> "$label, " + strings.format(R.string.bipe_call_duration, (line.minutes ?: 1).toString())
+        }
+        return listOf(TimelineRow(id, TimelineRow.Kind.CALL, callText = text)) +
+            line.joined.map { TimelineRow("$id-joined-$it", TimelineRow.Kind.CALL, callText = strings.format(R.string.bipe_call_joined, name(it))) }
+    }
+
     private fun placeHandleChanges(rows: MutableList<TimelineRow>, items: List<TimelineItem>, facts: RoomFacts, name: (String) -> String) {
         if (facts.handleChanges.isEmpty()) return
         // Join times seen in the loaded items: a change before the person joined gets no line.
@@ -307,7 +363,7 @@ object TimelineRowBuilder {
     fun isShownMessage(event: EventTimelineItem): Boolean {
         val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
         if (kind != null && MediaContent.of(kind) != null) return true
-        return kind is MsgLikeKind.Message && kind.content.msgType is MessageType.Text
+        return kind is MsgLikeKind.Message && (kind.content.msgType is MessageType.Text || kind.content.msgType is MessageType.Location)
     }
 
     fun eventId(event: EventTimelineItem): String? = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
@@ -359,7 +415,7 @@ object TimelineRowBuilder {
             is MsgLikeKind.Message -> when (val media = MediaContent.of(kind.content.msgType)) {
                 is MediaContent.Media -> media.media.caption?.takeIf { it.isNotBlank() } ?: strings.label(media.media.kindLabel)
                 is MediaContent.Voice -> if (media.voice.isVoice) strings.label(R.string.bipe_app_media_voice) else media.voice.filename
-                null -> kind.content.body
+                null -> if (kind.content.msgType is MessageType.Location) strings.label(R.string.bipe_app_location_title) else kind.content.body
             }
             is MsgLikeKind.Sticker -> strings.label(R.string.bipe_app_media_sticker)
             MsgLikeKind.Redacted -> if (isOwn) strings.deletedOwn else strings.deleted

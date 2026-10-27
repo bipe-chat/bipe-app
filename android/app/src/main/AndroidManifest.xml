@@ -28,6 +28,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <!-- Spec incoming-call: the ring vibrates. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- A locked phone rings (bipe-chat/bipe#760): the full-screen call notification, the phoneCall foreground service and
+         the call in the system (core-telecom). Play Console declarations: bipe-chat/bipe#763. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
 
     <application
         android:name=".BipeApplication"
@@ -117,10 +124,19 @@
             android:taskAffinity="chat.bipe.app.call"
             android:excludeFromRecents="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden" />
+        <!-- Spec incoming-call: the ringing screen, also over the lock screen. -->
+        <activity
+            android:name=".calls.IncomingCallActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="chat.bipe.app.call"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true" />
         <service
             android:name=".calls.CallService"
             android:exported="false"
-            android:foregroundServiceType="microphone|camera" />
+            android:foregroundServiceType="microphone|camera|phoneCall" />
         <!-- Spec notification-service: reply and mark as read from a notification. -->
         <receiver
             android:name=".notifications.NotificationActionReceiver"

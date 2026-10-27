@@ -144,6 +144,8 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
                 stateDescription = stringResource(R.string.bipe_notifications_tone_current, soundLabel),
                 onSelect = model::setSound,
             )
+            // Spec incoming-call: the ringtone of calls, from the system ringtone picker. A phone setting.
+            CallSoundRow()
             // bipe-chat/bipe#511: per account on this phone.
             SwitchRow(stringResource(R.string.bipe_notifications_preview), state.preview, true, model::setPreview)
             Text(
@@ -284,5 +286,41 @@ private fun SwitchRow(title: String, isOn: Boolean, enabled: Boolean, onChange: 
     ) {
         Text(title, style = MaterialTheme.typography.bodyLarge, color = BipeTheme.colors.inkPrimary, modifier = Modifier.weight(1f))
         Switch(checked = isOn, onCheckedChange = onChange, enabled = enabled)
+    }
+}
+
+/** "Toque de chamada": the system ringtone picker (spec incoming-call notes). */
+@Composable
+private fun CallSoundRow() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val colors = BipeTheme.colors
+    var current by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(chat.bipe.app.calls.CallSound.uri(context)) }
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode != android.app.Activity.RESULT_OK) return@rememberLauncherForActivityResult
+        @Suppress("DEPRECATION")
+        val uri = result.data?.getParcelableExtra<android.net.Uri>(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        chat.bipe.app.calls.CallSound.set(context, uri)
+        current = uri
+    }
+    val title = stringResource(R.string.bipe_notifications_call_sound)
+    val name = androidx.compose.runtime.remember(current) {
+        val uri = current ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE)
+        runCatching { android.media.RingtoneManager.getRingtone(context, uri)?.getTitle(context) }.getOrNull()
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth().clickable {
+            val intent = android.content.Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_RINGTONE)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TITLE, title)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, current)
+            runCatching { picker.launch(intent) }
+        }.padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+        if (name != null) Text(name, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
     }
 }

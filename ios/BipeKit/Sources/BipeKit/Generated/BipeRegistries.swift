@@ -610,6 +610,11 @@ public enum BipeRegistries {
         "bipechat",
     ]
 
+    /// Bipe homeservers (registries/bipe-servers.json, ADR 0168). Use ``BipeServers/isBipeUserID(_:)``, never a suffix check.
+    public static let bipeServers: Set<String> = [
+        "bipe.net.br",
+    ]
+
     /// Full Matrix user IDs of official Bipe accounts. Match exactly; names and handles are not proof.
     public static let officialAccountIDs: Set<String> = [
         "@suporte:bipe.net.br",
