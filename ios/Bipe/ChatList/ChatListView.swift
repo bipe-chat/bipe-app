@@ -422,12 +422,13 @@ struct ChatListView: View {
             let favourites = showingArchived ? [] : model.favourites(in: scope)
                 .filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }
             List {
-                topRows
+                // The first item of the list, above banners, cards, Archived, requests and invites.
                 if !favourites.isEmpty {
                     FavouritesGrid(chats: favourites, media: model.media, open: openChat) { rowMenu($0) }
                         .listRowBackground(BipeColor.surfaceBase)
                         .listRowSeparator(.hidden)
                 }
+                topRows
                 ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
                     .buttonStyle(.plain)
