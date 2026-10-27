@@ -482,24 +482,16 @@ fun ChatListScreen(
             run {
                 if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
                 else if (scope != ChatScope.GRUPOS) recoveryCard()
-                TextButton(onClick = { showingArchived = !showingArchived }) {
-                    Text(stringResource(if (!showingArchived) R.string.bipe_archived_title else if (scope == ChatScope.GRUPOS) R.string.bipe_tab_groups else R.string.bipe_app_chat_list_title))
-                }
-                if (readFailed) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.bipe_chat_read_error), color = colors.trustDangerInk, modifier = Modifier.weight(1f).padding(16.dp))
-                    TextButton(onClick = model::retryReadAction, enabled = markingRoomId == null) { Text(stringResource(R.string.bipe_app_retry)) }
-                }
-                if (favouriteFailed) Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk, modifier = Modifier.padding(16.dp))
-                if (archiveFailed) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.bipe_archive_error), color = colors.trustDangerInk, modifier = Modifier.weight(1f).padding(16.dp))
-                    TextButton(onClick = { model.archive.retry(allChats) }) { Text(stringResource(R.string.bipe_app_retry)) }
-                }
                 when (phase) {
                     ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = colors.accentFill)
                     }
                     ChatListModel.Phase.EMPTY, ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        // Spec encryption-status: the first row, so it scrolls with the chats (MZ decision 25 Oct 2026).
+                        // Spec chat-list favourites: the first item, above banners, cards, requests and invites.
+                        if (favourites.isNotEmpty()) item(key = "favourites") {
+                            FavouritesGrid(favourites, media, model.session.userId, ::commands, onOpenChat)
+                        }
+                        // Spec encryption-status: under the favourites, so it scrolls with the chats (MZ decision 25 Oct 2026).
                         if (!showingArchived) item(key = "history-banner") { banner() }
                         // Spec chat-list-cards: the first-list cards at the top of Conversas.
                         if (!showingArchived && scope != ChatScope.GRUPOS) {
@@ -530,6 +522,27 @@ fun ChatListScreen(
                                 }
                             }
                         }
+                        // The Archived button and the action errors scroll with the list, after the cards (same order as iOS).
+                        item(key = "archived-toggle") {
+                            TextButton(onClick = { showingArchived = !showingArchived }) {
+                                Text(stringResource(if (!showingArchived) R.string.bipe_archived_title else if (scope == ChatScope.GRUPOS) R.string.bipe_tab_groups else R.string.bipe_app_chat_list_title))
+                            }
+                        }
+                        if (readFailed) item(key = "read-error") {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.bipe_chat_read_error), color = colors.trustDangerInk, modifier = Modifier.weight(1f).padding(16.dp))
+                                TextButton(onClick = model::retryReadAction, enabled = markingRoomId == null) { Text(stringResource(R.string.bipe_app_retry)) }
+                            }
+                        }
+                        if (favouriteFailed) item(key = "favourite-error") {
+                            Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk, modifier = Modifier.padding(16.dp))
+                        }
+                        if (archiveFailed) item(key = "archive-error") {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.bipe_archive_error), color = colors.trustDangerInk, modifier = Modifier.weight(1f).padding(16.dp))
+                                TextButton(onClick = { model.archive.retry(allChats) }) { Text(stringResource(R.string.bipe_app_retry)) }
+                            }
+                        }
                         // The requests row and the group invites (specs chat-requests and chat-list-filters).
                         if (!showingArchived && scope != ChatScope.GRUPOS && rowCount > 0) item(key = "requests") { ChatRequestsRow(rowCount, onOpenRequests) }
                         if (!showingArchived && scope != ChatScope.CONVERSAS && requests != null) {
@@ -539,9 +552,6 @@ fun ChatListScreen(
                         }
                         if (requestsError) item(key = "requests-error") {
                             Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk, modifier = Modifier.padding(16.dp))
-                        }
-                        if (favourites.isNotEmpty()) item(key = "favourites") {
-                            FavouritesGrid(favourites, media, model.session.userId, ::commands, onOpenChat)
                         }
                         if (phase == ChatListModel.Phase.EMPTY) item(key = "empty") {
                             if (showingArchived) Text(stringResource(R.string.bipe_archived_empty), color = colors.inkSecondary, modifier = Modifier.padding(16.dp))
