@@ -59,6 +59,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var location: LocationMessage? = nil
     /// Kind liveLocation.
     var live: LiveLocationMessage? = nil
+    /// m.emote has a display prefix; body stays unchanged for edits and copying.
+    var isEmote = false
 }
 
 /// Type MessageAction of spec message-actions, in the order of the sheet.

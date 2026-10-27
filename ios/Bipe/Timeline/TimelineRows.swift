@@ -237,9 +237,6 @@ enum TimelineRowBuilder {
                     message.body = voice.transcript ?? (voice.isVoice ? BipeStrings.appMediaVoice : voice.filename)
                 case nil:
                     switch messageContent.msgType {
-                    case .text:
-                        message.kind = .text
-                        message.body = messageContent.body
                     case .location(let locationContent):
                         // Spec location-view: a geo URI the app cannot read stays unsupported.
                         guard let location = LocationMessage(locationContent) else { continue }
@@ -247,7 +244,10 @@ enum TimelineRowBuilder {
                         message.location = location
                         message.body = location.label
                     default:
-                        continue
+                        // Spec timeline-rows: notices and unknown message types keep their body.
+                        message.kind = .text
+                        message.body = messageContent.body
+                        if case .emote = messageContent.msgType { message.isEmote = true }
                     }
                 }
                 let isSent: Bool
@@ -417,11 +417,8 @@ enum TimelineRowBuilder {
         guard case .msgLike(let content) = event.content else { return false }
         if MediaContent(content.kind) != nil { return true }
         if case .liveLocation = content.kind { return true }
-        guard case .message(let message) = content.kind else { return false }
-        switch message.msgType {
-        case .text, .location: return true
-        default: return false
-        }
+        guard case .message = content.kind else { return false }
+        return true
     }
 
     static func eventId(_ event: EventTimelineItem) -> String? {

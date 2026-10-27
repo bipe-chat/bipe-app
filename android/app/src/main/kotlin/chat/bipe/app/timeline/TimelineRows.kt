@@ -238,13 +238,17 @@ object TimelineRowBuilder {
                                 null -> {
                                     if (kind !is MsgLikeKind.Message) return@forEachIndexed
                                     when (val type = kind.content.msgType) {
-                                        is MessageType.Text -> base.copy(kind = TimelineMessage.Kind.TEXT, body = kind.content.body)
                                         // Spec location-view: a geo URI the app cannot read stays unsupported.
                                         is MessageType.Location -> {
                                             val location = LocationMessage.of(type.content) ?: return@forEachIndexed
                                             base.copy(kind = TimelineMessage.Kind.LOCATION, location = location, body = strings.label(location.labelRes))
                                         }
-                                        else -> return@forEachIndexed
+                                        // Spec timeline-rows: notices and unknown message types keep their body.
+                                        else -> base.copy(
+                                            kind = TimelineMessage.Kind.TEXT,
+                                            body = kind.content.body,
+                                            isEmote = type is MessageType.Emote,
+                                        )
                                     }
                                 }
                             }
@@ -386,7 +390,7 @@ object TimelineRowBuilder {
         val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
         if (kind != null && MediaContent.of(kind) != null) return true
         if (kind is MsgLikeKind.LiveLocation) return true
-        return kind is MsgLikeKind.Message && (kind.content.msgType is MessageType.Text || kind.content.msgType is MessageType.Location)
+        return kind is MsgLikeKind.Message
     }
 
     fun eventId(event: EventTimelineItem): String? = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
