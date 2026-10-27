@@ -87,6 +87,21 @@ public struct StickerPackClient: Sendable {
         }
     }
 
+    /// A sticker list in global account data (StickerShortlist): recents or favourites. Empty when unset.
+    public func shortlist(_ eventType: String) async throws -> [StickerRef] {
+        try await withTokenRetry { token in
+            try await get(["user", userId, "account_data", eventType], token: token).map(StickerShortlist.parse) ?? []
+        }
+    }
+
+    /// Writes the whole list, so a later write also carries changes from a failed one.
+    public func setShortlist(_ eventType: String, _ refs: [StickerRef]) async throws {
+        try await withTokenRetry { token in
+            _ = try await perform("PUT", clientURL(["user", userId, "account_data", eventType]), token: token,
+                                  body: StickerShortlist.content(refs), contentType: "application/json")
+        }
+    }
+
     private func roomPacks(_ roomId: String, token: String) async throws -> [StickerPack] {
         guard let data = try await get(["rooms", roomId, "state"], token: token),
               let events = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
