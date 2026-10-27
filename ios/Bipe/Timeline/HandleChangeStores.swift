@@ -17,7 +17,7 @@ enum HandleChangeStores {
         let store = BipeHandleChangeStore(apiClient: BipeAPIClient(baseURL: AppConfig.apiBaseURL),
                                           userID: session.userId,
                                           cacheDirectory: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first,
-                                          accessToken: { session.accessToken() })
+                                          openID: session.openID)
         stores[session.userId] = store
         return store
     }

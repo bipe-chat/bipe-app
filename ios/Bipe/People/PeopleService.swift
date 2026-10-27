@@ -108,8 +108,8 @@ final class PeopleService: ObservableObject {
         let api = api
         for start in stride(from: 0, to: phones.count, by: ContactsModel.lookupChunk) {
             let chunk = Array(phones[start..<min(start + ContactsModel.lookupChunk, phones.count)])
-            guard let found = try? await withToken({ (token: String) async throws(BipeAPIError) -> [BipeContactMatch] in
-                try await api.lookupContacts(phones: chunk, accessToken: token)
+            guard let found = try? await withOpenID({ (token: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeContactMatch] in
+                try await api.lookupContacts(phones: chunk, openID: token)
             }) else { break }
             for match in found where match.userId != session.userId && entries[match.userId] == nil {
                 guard let entry = book[match.phone] else { continue }
@@ -128,7 +128,7 @@ final class PeopleService: ObservableObject {
         self.session = session
         self.api = api
         self.media = media
-        handles = BipeHandleResolver(apiClient: api, accessToken: { session.accessToken() })
+        handles = BipeHandleResolver(apiClient: api, openID: session.openID)
         // The account's cross-signing master key from the SDK (UserIdentity.masterKey) binds a cnpj badge.
         seals = BipeCompanySeals(apiClient: api, sessionUserID: session.userId) { userId in
             try await session.client.encryption().userIdentity(userId: userId, fallbackToServer: true)?.masterKey()
@@ -181,6 +181,11 @@ final class PeopleService: ObservableObject {
         try await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }, request)
     }
 
+    /// Runs `request` with the OpenID token, for the core routes (bipe-chat/bipe#646).
+    func withOpenID<T>(_ request: (BipeOpenIDToken) async throws(BipeAPIError) -> T) async throws(BipeAPIError) -> T {
+        try await BipeAPIClient.withOpenIDRetry(session.openID, request)
+    }
+
     // MARK: - Profile facts (ADR 0049)
 
     /// Facts read from POST /v1/profile-facts per person, with the time of the read. Memory only, this account.
@@ -193,8 +198,8 @@ final class PeopleService: ObservableObject {
             return cached.facts
         }
         let api = api
-        guard let list = try? await withToken({ (token: String) async throws(BipeAPIError) -> [BipeProfileFacts] in
-            try await api.profileFacts(userIDs: [userId], accessToken: token)
+        guard let list = try? await withOpenID({ (token: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeProfileFacts] in
+            try await api.profileFacts(userIDs: [userId], openID: token)
         }) else { return nil }
         let facts = list.first { $0.userId == userId }
         profileFactsCache[userId] = (Date(), facts)

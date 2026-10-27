@@ -89,8 +89,8 @@ struct ProfileLinkView: View {
 
     /// GET /v1/me/handle and MyProfile.enabled.
     private func appear() async {
-        let mine = try? await people.withToken { (token: String) async throws(BipeAPIError) -> BipeMyHandle in
-            try await people.api.myHandle(accessToken: token)
+        let mine = try? await people.withOpenID { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle in
+            try await people.api.myHandle(openID: token)
         }
         handle = mine?.handle
         loaded = true

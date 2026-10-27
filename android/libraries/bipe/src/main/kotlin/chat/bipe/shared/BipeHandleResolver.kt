@@ -6,6 +6,7 @@ package chat.bipe.shared
 
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiException
+import chat.bipe.shared.api.BipeOpenIdTokens
 import chat.bipe.shared.api.handle
 import chat.bipe.shared.api.resolveHandles
 import kotlinx.coroutines.CompletableDeferred
@@ -30,8 +31,8 @@ import kotlin.time.Duration.Companion.minutes
 class BipeHandleResolver(
     private val apiClient: BipeApiClient,
     private val scope: CoroutineScope,
-    /** Read before every request, because Matrix access tokens are short-lived. */
-    private val accessToken: suspend () -> String?,
+    /** The account's OpenID token for the core routes (bipe-chat/bipe#646). */
+    private val openId: BipeOpenIdTokens,
     /** Milliseconds since the epoch. Tests can pass a fake. */
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -100,7 +101,7 @@ class BipeHandleResolver(
         if (BipeHandle.localProblem(handle) != null) return null
 
         return try {
-            val record = BipeApiClient.withTokenRetry(accessToken) { token -> apiClient.handle(handle, token) }
+            val record = BipeApiClient.withOpenIdRetry(openId) { token -> apiClient.handle(handle, token) }
             store(record.handle, record.userId)
             record.userId
         } catch (error: BipeApiException.Server) {
@@ -144,7 +145,7 @@ class BipeHandleResolver(
         if (batch.isEmpty()) return
 
         try {
-            val handles = BipeApiClient.withTokenRetry(accessToken) { token -> apiClient.resolveHandles(batch, token) }
+            val handles = BipeApiClient.withOpenIdRetry(openId) { token -> apiClient.resolveHandles(batch, token) }
             for (userId in batch) store(handles[userId], userId)
         } catch (_: BipeApiException) {
             // Keep the old values, with a short expiry so views do not retry on every render while offline.

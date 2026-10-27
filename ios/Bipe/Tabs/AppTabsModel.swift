@@ -170,8 +170,8 @@ final class AppTabsModel: ObservableObject {
         let displayName = (try? await session.client.displayName()) ?? ""
         let avatarUrl = try? await session.client.avatarUrl()
         let api = start.api
-        let mine = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeMyHandle in
-            try await api.myHandle(accessToken: token)
+        let mine = try? await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle in
+            try await api.myHandle(openID: token)
         }
         let status = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeAccountStatus in
             try await api.account(accessToken: token)

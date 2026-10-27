@@ -384,7 +384,7 @@ fun ProfileLinkScreen(people: PeopleService, pickHandle: () -> Unit, onBack: () 
     var showingQr by remember { mutableStateOf(showQr) }
     var notice by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
-        handle = runCatching { people.withToken { people.api.myHandle(it) } }.getOrNull()?.handle
+        handle = runCatching { people.withOpenId { people.api.myHandle(it) } }.getOrNull()?.handle
         loaded = true
     }
     PeopleScaffold(

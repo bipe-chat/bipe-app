@@ -73,7 +73,7 @@ class InviteSignedInModel(
             return null
         }
         var name = "@$handle"
-        val userId = runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { api.handle(handle, it) }.userId }.getOrNull()
+        val userId = runCatching { BipeApiClient.withOpenIdRetry(session.openId) { api.handle(handle, it) }.userId }.getOrNull()
         var canChat = true
         if (userId != null) {
             runCatching { session.client.getProfile(userId).displayName }.getOrNull()?.takeIf { it.isNotBlank() }?.let { name = it }

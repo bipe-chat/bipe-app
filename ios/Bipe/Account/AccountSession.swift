@@ -31,6 +31,8 @@ final class AccountSession {
     let syncService: SyncService
     let userId: String
     let roomSubscriptions: BipeRoomSubscriptions
+    /// The Matrix OpenID token for the core bipe-api routes (bipe-chat/bipe#646). Memory only.
+    let openID: BipeOpenIDTokens
     /// Spec soft-logout: the SDK reports a refused token here. Set by account-start.
     var onAuthError: ((_ isSoftLogout: Bool) -> Void)? {
         get { authErrors.handler }
@@ -43,6 +45,9 @@ final class AccountSession {
         self.client = client
         self.syncService = syncService
         self.userId = userId
+        openID = BipeOpenIDTokens(homeserverURL: client.homeserver(), userID: userId) {
+            try? client.session().accessToken
+        }
         roomSubscriptions = BipeRoomSubscriptions { ids in
             try await syncService.roomListService().subscribeToRooms(roomIds: ids)
         }

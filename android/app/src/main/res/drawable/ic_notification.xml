@@ -6,7 +6,7 @@
 -->
 <!--
   The Bipe mark (bipe-web public/brand/mark.svg, 64-unit viewBox) as the notification small icon.
-  The system tints it, so the fill is white. The path is the same as ic_launcher_foreground.
+  The system tints it, so the fill is white. The path is the same as bipe_app_icon_mark (libraries/bipe).
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"

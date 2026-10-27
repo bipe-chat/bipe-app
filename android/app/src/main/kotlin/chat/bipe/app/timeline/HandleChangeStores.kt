@@ -16,8 +16,6 @@ object HandleChangeStores {
 
     @Synchronized
     fun store(context: Context, session: AccountSession): BipeHandleChangeStore = stores.getOrPut(session.userId) {
-        BipeHandleChangeStore(BipeApiClient(AppConfig.API_BASE_URL), session.userId, context.applicationContext.cacheDir) {
-            session.accessToken()
-        }
+        BipeHandleChangeStore(BipeApiClient(AppConfig.API_BASE_URL), session.userId, context.applicationContext.cacheDir, session.openId)
     }
 }

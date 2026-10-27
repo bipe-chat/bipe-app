@@ -72,6 +72,9 @@ targets:
       # bipe-chat/bipe#512: the Focus filter's titles are App Intents metadata, read from the app bundle's Bipe table.
       - path: BipeKit/Sources/BipeKit/Resources
         buildPhase: resources
+      # Spec app-colors (bipe-chat/bipe#811): the app icon of each palette, generated from bipe-shared design/tokens.json.
+      - path: BipeKit/Sources/BipeKit/Generated/AppIcons.xcassets
+        buildPhase: resources
     info:
       path: SupportFiles/Bipe/Info.plist
       properties:
@@ -142,8 +145,10 @@ targets:
         CODE_SIGN_STYLE: $(BIPE_SIGN_STYLE)
         CODE_SIGN_IDENTITY: $(BIPE_SIGN_IDENTITY)
         BIPE_APS_ENVIRONMENT: development
-        # Bipe/Assets.xcassets, from Bipe artwork (bipe-web public/brand/app-icon.svg).
+        # BipeKit Generated/AppIcons.xcassets (bipe-shared appThemes): AppIcon is açaí; every other icon set there is an
+        # alternate icon for UIApplication.setAlternateIconName (spec app-colors).
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
     dependencies:
       - package: MatrixRustSDK
         product: MatrixRustSDK
@@ -217,6 +222,7 @@ targets:
       - path: Bipe/Common/AppConfig.swift
       - path: Bipe/Common/RoundedType.swift
       - path: Bipe/Common/ButtonSize.swift
+      - path: Bipe/Common/AppTheme.swift
     info:
       path: SupportFiles/BipeShare/Info.plist
       properties:

@@ -35,7 +35,7 @@ internal class GroupInviteLookup(private val context: Context, private val peopl
         if (granted) {
             val book = readAddressBook(context)
             for (chunk in book.keys.toList().chunked(LOOKUP_CHUNK)) {
-                val found = runCatching { people.withToken { people.api.lookupContacts(chunk, it) } }.getOrNull() ?: break
+                val found = runCatching { people.withOpenId { people.api.lookupContacts(chunk, it) } }.getOrNull() ?: break
                 lookedUp = true
                 found.forEach { match ->
                     val entry = book[match.phone] ?: return@forEach

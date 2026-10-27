@@ -181,7 +181,7 @@ class AppTabsModel(
         chatLists[session.userId]?.refreshNotes()
         val displayName = runCatching { session.client.displayName() }.getOrNull().orEmpty()
         val avatarUrl = runCatching { session.client.avatarUrl() }.getOrNull()
-        val mine = runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { start.api.myHandle(it) } }.getOrNull()
+        val mine = runCatching { BipeApiClient.withOpenIdRetry(session.openId) { start.api.myHandle(it) } }.getOrNull()
         val status = runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { start.api.account(it) } }.getOrNull()
         val loader = mediaLoaders[session.userId] ?: return
         val company = loader.isCompany(session.userId)

@@ -36,8 +36,8 @@ struct GroupInviteLookup {
             let phones = Array(book.keys)
             for start in stride(from: 0, to: phones.count, by: ContactsModel.lookupChunk) {
                 let chunk = Array(phones[start..<min(start + ContactsModel.lookupChunk, phones.count)])
-                guard let found = try? await people.withToken({ (token: String) async throws(BipeAPIError) -> [BipeContactMatch] in
-                    try await people.api.lookupContacts(phones: chunk, accessToken: token)
+                guard let found = try? await people.withOpenID({ (token: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeContactMatch] in
+                    try await people.api.lookupContacts(phones: chunk, openID: token)
                 }) else { break }
                 lookedUp = true
                 for match in found {
