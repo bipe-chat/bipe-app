@@ -94,6 +94,7 @@ public struct BipeMessageText: Equatable, Sendable {
         private enum Limit: Error { case depth }
         var runs: [Run] = []
         var lists: [(ordered: Bool, next: Int)] = []
+        var prefixPending = false
 
         func parse(_ html: String) throws -> [Run] {
             let document = try SwiftSoup.parseBodyFragment(html)
@@ -114,10 +115,12 @@ public struct BipeMessageText: Equatable, Sendable {
             var run = style
             run.text = value
             runs.append(run)
+            prefixPending = false
         }
 
         func line() {
             if let last = runs.last, !last.text.hasSuffix("\n") { runs.append(Run(text: "\n")) }
+            prefixPending = false
         }
 
         func visit(_ node: SwiftSoup.Node, style: Run, depth: Int) throws {
@@ -129,7 +132,7 @@ public struct BipeMessageText: Equatable, Sendable {
             guard let element = node as? SwiftSoup.Element else { return }
             let tag = element.tagName().lowercased()
             guard !BipeMessageFormatting.dropContentTags.contains(tag) else { return }
-            if tag == "br" { runs.append(Run(text: "\n")); return }
+            if tag == "br" { runs.append(Run(text: "\n")); prefixPending = false; return }
             var next = style
             next.bold = next.bold || BipeMessageFormatting.boldTags.contains(tag)
             next.italic = next.italic || BipeMessageFormatting.italicTags.contains(tag)
@@ -137,8 +140,8 @@ public struct BipeMessageText: Equatable, Sendable {
             next.code = next.code || BipeMessageFormatting.codeTags.contains(tag)
             if tag == "a" { next.link = BipeMessageText.safeLink(try element.attr("href")) }
             let block = BipeMessageFormatting.blockTags.contains(tag)
-            if block { line() }
-            if tag == "blockquote" { append("│ ", style: Run(text: "")) }
+            if block && !prefixPending { line() }
+            if tag == "blockquote" { append("│ ", style: Run(text: "")); prefixPending = true }
             if tag == "ul" || tag == "ol" {
                 line()
                 lists.append((tag == "ol", max(1, min(1000, Int(try element.attr("start")) ?? 1))))
@@ -149,6 +152,7 @@ public struct BipeMessageText: Equatable, Sendable {
                 let prefix = String(repeating: "  ", count: max(0, lists.count - 1)) +
                     (item?.ordered == true ? "\(item!.next). " : "• ")
                 append(prefix, style: Run(text: ""), preserve: true)
+                prefixPending = true
                 if !lists.isEmpty { lists[lists.count - 1].next += 1 }
             }
             for child in element.getChildNodes() { try visit(child, style: next, depth: depth + 1) }

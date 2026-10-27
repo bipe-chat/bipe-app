@@ -77,6 +77,7 @@ data class BipeMessageText(val runs: List<Run>) {
     private class Builder {
         val runs = mutableListOf<Run>()
         val lists = mutableListOf<Pair<Boolean, Int>>()
+        var prefixPending = false
         fun parse(html: String): List<Run> {
             visit(Jsoup.parseBodyFragment(html).body(), Run(""), 0)
             while (runs.lastOrNull()?.text?.lastOrNull()?.isWhitespace() == true) {
@@ -88,10 +89,14 @@ data class BipeMessageText(val runs: List<Run>) {
         fun append(raw: String, style: Run, preserve: Boolean = false) {
             var value = if (preserve) raw else raw.replace(Regex("[\\t\\r\\n ]+"), " ")
             if (!preserve && (runs.isEmpty() || runs.last().text.lastOrNull()?.isWhitespace() == true)) value = value.trimStart(' ')
-            if (value.isNotEmpty()) runs += style.copy(text = value)
+            if (value.isNotEmpty()) {
+                runs += style.copy(text = value)
+                prefixPending = false
+            }
         }
         fun line() {
             if (runs.isNotEmpty() && !runs.last().text.endsWith("\n")) runs += Run("\n")
+            prefixPending = false
         }
         fun visit(node: Node, style: Run, depth: Int) {
             require(depth <= BipeMessageFormatting.maxDepth)
@@ -99,7 +104,7 @@ data class BipeMessageText(val runs: List<Run>) {
             if (node !is Element) return
             val tag = node.normalName()
             if (tag in BipeMessageFormatting.dropContentTags) return
-            if (tag == "br") { runs += Run("\n"); return }
+            if (tag == "br") { runs += Run("\n"); prefixPending = false; return }
             val next = style.copy(
                 bold = style.bold || tag in BipeMessageFormatting.boldTags,
                 italic = style.italic || tag in BipeMessageFormatting.italicTags,
@@ -108,8 +113,8 @@ data class BipeMessageText(val runs: List<Run>) {
                 link = if (tag == "a") safeLink(node.attr("href")) else style.link,
             )
             val block = tag in BipeMessageFormatting.blockTags
-            if (block) line()
-            if (tag == "blockquote") append("│ ", Run(""))
+            if (block && !prefixPending) line()
+            if (tag == "blockquote") { append("│ ", Run("")); prefixPending = true }
             if (tag == "ul" || tag == "ol") {
                 line()
                 lists += (tag == "ol") to (node.attr("start").toIntOrNull() ?: 1).coerceIn(1, 1000)
@@ -119,6 +124,7 @@ data class BipeMessageText(val runs: List<Run>) {
                 val item = lists.lastOrNull()
                 val prefix = "  ".repeat((lists.size - 1).coerceAtLeast(0)) + if (item?.first == true) "${item.second}. " else "• "
                 append(prefix, Run(""), preserve = true)
+                prefixPending = true
                 if (item != null) lists[lists.lastIndex] = item.first to item.second + 1
             }
             node.childNodes().forEach { visit(it, next, depth + 1) }
