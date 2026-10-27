@@ -154,13 +154,15 @@ final class ChatRequestsModel: ObservableObject {
     }
 
     /// ADR 0034: read the per-account cache first; an unavailable API keeps the last confirmed pairs.
-    private func loadInvitePairs() async {
+    /// minimumInterval: seconds since the last API call. A DM invite from someone not in the cache asks again
+    /// after 5 seconds, so the invite from a person who just joined with this account's invite joins at once.
+    private func loadInvitePairs(minimumInterval: TimeInterval = 60) async {
         guard !checkingPairs else { return }
         checkingPairs = true
         defer { checkingPairs = false }
         let userId = session.userId
         invitePairs = await Task.detached { BipeInviteStore(userID: userId).invitePairs() }.value
-        guard Date().timeIntervalSince(lastPairAttempt) >= 60, !Task.isCancelled else { return }
+        guard Date().timeIntervalSince(lastPairAttempt) >= minimumInterval, !Task.isCancelled else { return }
         lastPairAttempt = Date()
         pairTask = Task { [weak self] in
             guard let self else { return }
@@ -198,6 +200,10 @@ final class ChatRequestsModel: ObservableObject {
                 }
             }
             guard !Task.isCancelled else { return }
+            if !groups, summaries.contains(where: { $0.isDm && !$0.inviterId.isEmpty && !invitePairs.contains($0.inviterId) }) {
+                // The API answer runs refresh again, which joins the invite of a new pair.
+                await loadInvitePairs(minimumInterval: 5)
+            }
             summaries.sort { ($0.invitedAt ?? .distantPast) > ($1.invitedAt ?? .distantPast) }
             if groups {
                 groupInvites = summaries

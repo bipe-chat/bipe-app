@@ -66,7 +66,9 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
             refresh()
             while (isActive) {
                 delay(30_000)
-                if (runCatching { memory.read().notes.isNotEmpty() }.getOrDefault(false)) refresh()
+                // Spec invites, join toast: a pending invite can be used at any moment, so check while one is open.
+                val waiting = runCatching { memory.read().notes.isNotEmpty() }.getOrDefault(false)
+                if (waiting || _state.value.pending.isNotEmpty()) refresh()
             }
         }
     }

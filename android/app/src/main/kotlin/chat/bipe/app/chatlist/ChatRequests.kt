@@ -213,8 +213,12 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         groupInviteList.close()
     }
 
-    /** ADR 0034: use only this account's cached/API-confirmed pairs; an API outage keeps the cache. */
-    private suspend fun loadInvitePairs() {
+    /**
+     * ADR 0034: use only this account's cached/API-confirmed pairs; an API outage keeps the cache.
+     * minimumIntervalMs: time since the last API call. A DM invite from someone not in the cache asks again
+     * after 5 seconds, so the invite from a person who just joined with this account's invite joins at once.
+     */
+    private suspend fun loadInvitePairs(minimumIntervalMs: Long = 60_000) {
         if (checkingPairs) return
         checkingPairs = true
         try {
@@ -223,7 +227,7 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
                     .getStringSet("pairs_${session.userId}", emptySet()).orEmpty().toSet()
             }
             val now = System.currentTimeMillis()
-            if (now - lastPairAttempt < 60_000) return
+            if (now - lastPairAttempt < minimumIntervalMs) return
             lastPairAttempt = now
             pairJob = scope.launch {
                 try {
@@ -253,6 +257,10 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
                 if (run(request.roomId) { it.join() }) continue
             }
             visible += request
+        }
+        if (visible.any { it.isDm && it.inviterId.isNotEmpty() && it.inviterId !in invitePairs }) {
+            // The API answer runs dmSummaries again, which joins the invite of a new pair.
+            loadInvitePairs(minimumIntervalMs = 5_000)
         }
         return visible.sortedByDescending { it.invitedAt ?: 0 }
     }
