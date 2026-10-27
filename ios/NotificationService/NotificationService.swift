@@ -256,6 +256,12 @@ private actor NotificationClients {
             throw ClientError.Generic(msg: "no saved session", details: nil)
         }
         if owner == userId, deviceId == session.deviceId, let notificationClient { return notificationClient }
+        // The keychain outlives a deleted app, the store does not. Restoring the saved session into a new, empty store
+        // makes a second encryption identity for the old device ID, and that device then cannot receive keys. Only the
+        // app signs in again (AccountSession.restore, noStore).
+        guard AccountSession.hasStore(userId: session.userId) else {
+            throw ClientError.Generic(msg: "no store for the saved session", details: nil)
+        }
         let client = try await AccountSession.makeClient(userId: session.userId, process: .notificationService, homeserverURL: session.homeserverUrl)
         try await client.restoreSession(session: session)
         let notificationClient = try await client.notificationClient(processSetup: .multipleProcesses)
