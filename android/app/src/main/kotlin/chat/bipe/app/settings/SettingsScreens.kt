@@ -73,7 +73,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.notifications.NotificationSettingsScreen
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.encryption.LocalEncryptionStatus
 import chat.bipe.app.encryption.RecoveryKeySaveScreen
+import chat.bipe.app.encryption.collectNeedsApproval
 import chat.bipe.app.recovery.RecoveryEmailAddScreen
 import chat.bipe.app.account.AccountList
 import chat.bipe.app.account.AccountSession
@@ -333,9 +335,14 @@ fun SettingsGroupScreen(
     val export = remember { DataExportState() }
     val hasDeletion = state.deletion != null
     val canAddAccount = onNewAccount != null
-    val sections = remember(group, lockOn, hasDeletion, canAddAccount) {
+    // Spec encryption-status, from HomeScreen. The oldMessages row opens its sheet (bipe-chat/bipe#793).
+    val encryption = LocalEncryptionStatus.current
+    val needsApproval = encryption?.collectNeedsApproval() ?: false
+    val sections = remember(group, lockOn, hasDeletion, canAddAccount, needsApproval) {
         group.sections.mapNotNull { section ->
-            val rows = section.rows.filter { it.isShownOnAndroid() && isAvailable(it, lockOn, hasBiometrics, hasDeletion, canAddAccount) }
+            val rows = section.rows.filter {
+                it.isShownOnAndroid() && isAvailable(it, lockOn, hasBiometrics, hasDeletion, canAddAccount, needsApproval)
+            }
             if (rows.isEmpty()) null else section to rows
         }
     }
@@ -370,6 +377,8 @@ fun SettingsGroupScreen(
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
             BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)
+            // Spec encryption-status, action openSheet: the same sheet as the chat list banner.
+            BipeSettingsRow.ACCOUNT_OLD_MESSAGES -> encryption?.openSheet()
             BipeSettingsRow.ACCOUNT_EMAIL -> onOpen(SettingsRoute.RecoveryEmail)
             // account-new shows the cap on the personal choice when the phone is full, as from the switcher.
             BipeSettingsRow.ACCOUNT_ADD -> onNewAccount?.invoke()
@@ -510,12 +519,21 @@ fun SettingsGroupScreen(
 }
 
 /** Rows that exist only in some states. */
-private fun isAvailable(row: BipeSettingsRow, lockOn: Boolean, hasBiometrics: Boolean, hasDeletion: Boolean, canAddAccount: Boolean): Boolean = when (row) {
+private fun isAvailable(
+    row: BipeSettingsRow,
+    lockOn: Boolean,
+    hasBiometrics: Boolean,
+    hasDeletion: Boolean,
+    canAddAccount: Boolean,
+    needsApproval: Boolean,
+): Boolean = when (row) {
     // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
     BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK -> lockOn && hasBiometrics
     // While a deletion waits, the banner (or the alert on the other devices) takes its place (spec account-delete).
     BipeSettingsRow.ACCOUNT_DELETE -> !hasDeletion
     BipeSettingsRow.ACCOUNT_ADD -> canAddAccount
+    // Only while this phone needs approval for old messages; Skip on the banner does not hide it (spec settings-group notes).
+    BipeSettingsRow.ACCOUNT_OLD_MESSAGES -> needsApproval
     else -> true
 }
 

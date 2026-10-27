@@ -26,6 +26,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -37,6 +38,18 @@ import chat.bipe.app.common.edgeToEdge
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
+
+/** The account's encryption-status model, for the oldMessages settings row. Null outside HomeScreen. */
+val LocalEncryptionStatus = staticCompositionLocalOf<EncryptionStatusModel?> { null }
+
+/** EncryptionStatusModel.needsApproval, from the current state. */
+@Composable
+fun EncryptionStatusModel.collectNeedsApproval(): Boolean {
+    val verificationState by verificationState.collectAsState()
+    val recoveryState by recoveryState.collectAsState()
+    val hasOtherDevices by hasOtherDevices.collectAsState()
+    return needsApproval(verificationState, recoveryState, hasOtherDevices)
+}
 
 /** Spec encryption-status: the quiet banner, the first row of the chat list. Shows nothing when it does not apply. */
 @Composable
