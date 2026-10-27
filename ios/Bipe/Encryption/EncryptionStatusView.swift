@@ -137,6 +137,19 @@ extension EnvironmentValues {
     }
 }
 
+/// Spec encryption-status verificationState is unverified: undecryptable rows offer openHelp for more causes
+/// (message-undecryptable, bipe-chat/bipe#853).
+private struct PhoneUnverifiedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var phoneUnverified: Bool {
+        get { self[PhoneUnverifiedKey.self] }
+        set { self[PhoneUnverifiedKey.self] = newValue }
+    }
+}
+
 /// The account's encryption-status model, for the oldMessages settings row. Nil outside AppTabsView.
 private struct EncryptionStatusKey: EnvironmentKey {
     static let defaultValue: EncryptionStatusModel? = nil

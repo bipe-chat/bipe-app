@@ -18,6 +18,8 @@ final class RowActivityScanner {
     /// Rooms whose last read held an undecryptable message: its key can arrive later.
     private var undecryptable: Set<String> = []
     private var undecryptableReads: [String: Int] = [:]
+    /// A read found an undecryptable message in this run (spec encryption-status seesUndecryptable).
+    private(set) var sawUndecryptable = false
     private var retryTask: Task<Void, Never>?
     private var queue: [String] = []
     private var worker: Task<Void, Never>?
@@ -68,6 +70,7 @@ final class RowActivityScanner {
                 self.events[roomId] = found.events
                 let reads = found.undecryptable ? self.undecryptableReads[roomId, default: 0] + 1 : 0
                 self.undecryptableReads[roomId] = reads
+                if found.undecryptable { self.sawUndecryptable = true }
                 if found.undecryptable, reads < Self.maxUndecryptableReads {
                     self.undecryptable.insert(roomId)
                 } else {

@@ -45,6 +45,9 @@ class EncryptionStatusModel(
     val backupState: StateFlow<BackupState> = _backupState.asStateFlow()
     private val _hasOtherDevices = MutableStateFlow(false)
     val hasOtherDevices: StateFlow<Boolean> = _hasOtherDevices.asStateFlow()
+    /** State seesUndecryptable: this phone met an undecryptable message in this app run (bipe-chat/bipe#853). */
+    private val _seesUndecryptable = MutableStateFlow(false)
+    val seesUndecryptable: StateFlow<Boolean> = _seesUndecryptable.asStateFlow()
     private val _bannerDismissed = MutableStateFlow(System.currentTimeMillis() - prefs.getLong(bannerKey, 0) < BANNER_PAUSE_MS)
     val bannerDismissed: StateFlow<Boolean> = _bannerDismissed.asStateFlow()
     private val _route = MutableStateFlow<Route?>(null)
@@ -106,15 +109,25 @@ class EncryptionStatusModel(
     fun canUseRecoveryKey(state: RecoveryState): Boolean = state == RecoveryState.ENABLED || state == RecoveryState.INCOMPLETE
 
     /**
-     * Spec notes: this phone is unverified and the account has history elsewhere. The settings row oldMessages shows
-     * while this is true, also after Skip on the banner (bipe-chat/bipe#793).
+     * Spec notes: this phone is unverified and the account has history elsewhere, or messages already fail on this
+     * phone. The settings row oldMessages shows while this is true, also after Skip on the banner (bipe-chat/bipe#793).
      */
-    fun needsApproval(verification: VerificationState, recovery: RecoveryState, otherDevices: Boolean): Boolean =
-        verification == VerificationState.UNVERIFIED && (otherDevices || canUseRecoveryKey(recovery))
+    fun needsApproval(verification: VerificationState, recovery: RecoveryState, otherDevices: Boolean, undecryptable: Boolean): Boolean =
+        verification == VerificationState.UNVERIFIED && (otherDevices || canUseRecoveryKey(recovery) || undecryptable)
 
     /** The banner: needsApproval, unless the person tapped Skip less than BANNER_PAUSE_MS ago. */
-    fun showsBanner(verification: VerificationState, recovery: RecoveryState, otherDevices: Boolean, dismissed: Boolean): Boolean =
-        needsApproval(verification, recovery, otherDevices) && !dismissed
+    fun showsBanner(
+        verification: VerificationState,
+        recovery: RecoveryState,
+        otherDevices: Boolean,
+        undecryptable: Boolean,
+        dismissed: Boolean,
+    ): Boolean = needsApproval(verification, recovery, otherDevices, undecryptable) && !dismissed
+
+    /** Action noteUndecryptable: an undecryptable row showed, or the chat list read one. */
+    fun noteUndecryptable() {
+        _seesUndecryptable.value = true
+    }
 
     /** Action openSheet. */
     fun openSheet() {

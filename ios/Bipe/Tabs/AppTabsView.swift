@@ -107,6 +107,7 @@ struct AppTabsView: View {
         })
         .environment(\.openHistoryHelp, encryption.openSheet)
         .environment(\.encryptionStatus, encryption)
+        .environment(\.phoneUnverified, encryption.verificationState == .unverified)
         .sheet(item: $encryption.route, onDismiss: encryption.sheetClosed) { route in
             EncryptionSheet(route: route, model: encryption, session: session)
         }

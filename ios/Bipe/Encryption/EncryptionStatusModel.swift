@@ -25,6 +25,8 @@ final class EncryptionStatusModel: ObservableObject {
     @Published private(set) var recoveryState: RecoveryState = .unknown
     @Published private(set) var backupState: BackupState = .unknown
     @Published private(set) var hasOtherDevices = false
+    /// State seesUndecryptable: this phone met an undecryptable message in this app run (bipe-chat/bipe#853).
+    @Published private(set) var seesUndecryptable = false
     @Published private(set) var bannerDismissed = false
     @Published var route: Route?
 
@@ -51,10 +53,10 @@ final class EncryptionStatusModel: ObservableObject {
         recoveryState == .enabled || recoveryState == .incomplete
     }
 
-    /// Spec notes: this phone is unverified and the account has history elsewhere. The settings row oldMessages
-    /// shows while this is true, also after Skip on the banner (bipe-chat/bipe#793).
+    /// Spec notes: this phone is unverified and the account has history elsewhere, or messages already fail on this
+    /// phone. The settings row oldMessages shows while this is true, also after Skip on the banner (bipe-chat/bipe#793).
     var needsApproval: Bool {
-        verificationState == .unverified && (hasOtherDevices || canUseRecoveryKey)
+        verificationState == .unverified && (hasOtherDevices || canUseRecoveryKey || seesUndecryptable)
     }
 
     /// The banner: needsApproval, unless the person tapped Skip less than bannerPause ago.
@@ -94,6 +96,13 @@ final class EncryptionStatusModel: ObservableObject {
         for await state in verificationStream.updates {
             verificationState = state
             await refreshOtherDevices()
+        }
+    }
+
+    /// Action noteUndecryptable: an undecryptable row showed, or the chat list read one.
+    func noteUndecryptable() {
+        if !seesUndecryptable {
+            seesUndecryptable = true
         }
     }
 

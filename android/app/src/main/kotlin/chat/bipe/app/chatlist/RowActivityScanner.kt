@@ -39,6 +39,9 @@ class RowActivityScanner(
     /** Rooms whose last read held an undecryptable message: its key can arrive later. */
     private val undecryptable = mutableSetOf<String>()
     private val undecryptableReads = mutableMapOf<String, Int>()
+    /** A read found an undecryptable message in this run (spec encryption-status seesUndecryptable). */
+    var sawUndecryptable = false
+        private set
     private var retryJob: Job? = null
     private val queue = ArrayDeque<String>()
     private var worker: Job? = null
@@ -79,6 +82,7 @@ class RowActivityScanner(
                 events[roomId] = found.events
                 val reads = if (found.undecryptable) (undecryptableReads[roomId] ?: 0) + 1 else 0
                 undecryptableReads[roomId] = reads
+                if (found.undecryptable) sawUndecryptable = true
                 if (found.undecryptable && reads < MAX_UNDECRYPTABLE_READS) undecryptable += roomId else undecryptable -= roomId
                 scannedAt[roomId] = SystemClock.elapsedRealtime()
                 sinceUpdate += 1

@@ -48,7 +48,8 @@ fun EncryptionStatusModel.collectNeedsApproval(): Boolean {
     val verificationState by verificationState.collectAsState()
     val recoveryState by recoveryState.collectAsState()
     val hasOtherDevices by hasOtherDevices.collectAsState()
-    return needsApproval(verificationState, recoveryState, hasOtherDevices)
+    val seesUndecryptable by seesUndecryptable.collectAsState()
+    return needsApproval(verificationState, recoveryState, hasOtherDevices, seesUndecryptable)
 }
 
 /** Spec encryption-status: the quiet banner, the first row of the chat list. Shows nothing when it does not apply. */
@@ -57,8 +58,9 @@ fun HistoryBanner(model: EncryptionStatusModel) {
     val verificationState by model.verificationState.collectAsState()
     val recoveryState by model.recoveryState.collectAsState()
     val hasOtherDevices by model.hasOtherDevices.collectAsState()
+    val seesUndecryptable by model.seesUndecryptable.collectAsState()
     val bannerDismissed by model.bannerDismissed.collectAsState()
-    if (!model.showsBanner(verificationState, recoveryState, hasOtherDevices, bannerDismissed)) return
+    if (!model.showsBanner(verificationState, recoveryState, hasOtherDevices, seesUndecryptable, bannerDismissed)) return
     val colors = BipeTheme.colors
     Row(
         modifier = Modifier

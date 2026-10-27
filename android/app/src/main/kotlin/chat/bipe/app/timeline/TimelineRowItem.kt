@@ -70,6 +70,7 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeMotion
 import chat.bipe.app.common.bipeTapTarget
+import chat.bipe.app.encryption.LocalEncryptionStatus
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.app.media.TimelineMediaRow
 import chat.bipe.app.media.VoiceMessage
@@ -96,6 +97,8 @@ import androidx.compose.runtime.collectAsState
 import chat.bipe.shared.company.BipeCompanySeals
 import chat.bipe.shared.company.BipeCompanySealState
 import chat.bipe.app.polls.QuestionCard
+import kotlinx.coroutines.flow.MutableStateFlow
+import org.matrix.rustcomponents.sdk.VerificationState
 
 /** One row of spec timeline-rows. */
 @Composable
@@ -555,6 +558,20 @@ private fun MessageTimestamp(sentAt: Long, modifier: Modifier = Modifier) {
 @Composable
 private fun UndecryptableRow(message: TimelineMessage, onHistoryHelp: () -> Unit) {
     val colors = BipeTheme.colors
+    val encryption = LocalEncryptionStatus.current
+    val verificationFlow = remember(encryption) { encryption?.verificationState ?: MutableStateFlow(VerificationState.UNKNOWN) }
+    val verificationState by verificationFlow.collectAsState()
+    val unverified = verificationState == VerificationState.UNVERIFIED
+    // Causes that approval of this phone can fix (spec encryption-status noteUndecryptable, bipe-chat/bipe#853).
+    val approvalCanHelp = when (message.cause) {
+        TimelineMessage.UndecryptableCause.WAITING,
+        TimelineMessage.UndecryptableCause.HISTORY_NOT_ON_THIS_PHONE,
+        TimelineMessage.UndecryptableCause.NOT_SHARED_WITH_THIS_PHONE,
+        null -> true
+        TimelineMessage.UndecryptableCause.BEFORE_JOINED,
+        TimelineMessage.UndecryptableCause.UNAPPROVED_SENDER_DEVICE -> false
+    }
+    LaunchedEffect(message.id, encryption) { if (approvalCanHelp) encryption?.noteUndecryptable() }
     Bubble(message.isOwn, modifier = Modifier.testTag(BipeScreen.MESSAGE_UNDECRYPTABLE.id)) {
         if (!message.isOwn) {
             Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
@@ -563,8 +580,8 @@ private fun UndecryptableRow(message: TimelineMessage, onHistoryHelp: () -> Unit
             Icon(painterResource(PhosphorIcon.LOCK_SIMPLE.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(14.dp).padding(top = 2.dp))
             Text(undecryptableText(message), style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, color = colors.inkSecondary)
         }
-        // Action openHelp: only historyNotOnThisPhone has a way to help.
-        if (message.cause == TimelineMessage.UndecryptableCause.HISTORY_NOT_ON_THIS_PHONE) {
+        // Action openHelp: historyNotOnThisPhone, and on an unverified phone also waiting and notShared (bipe#853).
+        if (message.cause == TimelineMessage.UndecryptableCause.HISTORY_NOT_ON_THIS_PHONE || (unverified && approvalCanHelp)) {
             Text(
                 stringResource(R.string.bipe_app_utd_help),
                 style = MaterialTheme.typography.bodyMedium,
