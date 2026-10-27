@@ -63,6 +63,8 @@ final class AccountSession {
     /// Signs in with the hidden password (MAS compatibility login, m.login.password), saves the session and starts the sync.
     /// Every step has a time limit (AccountStep).
     static func signIn(userId: String, password: String) async throws -> AccountSession {
+        // The old saved session goes first, so the notification service never opens the new store with the old device ID.
+        SessionStore.delete(userId: userId)
         deleteStore(userId: userId)
         let client = try await AccountStep.run("build client") { try await makeClient(userId: userId) }
         try await AccountStep.run("login") {
