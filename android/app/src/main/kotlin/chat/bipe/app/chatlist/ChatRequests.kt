@@ -87,7 +87,7 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
-import org.matrix.rustcomponents.sdk.RoomListFilterCategory
+import org.matrix.rustcomponents.sdk.RoomInfo
 
 /** Type ChatRequestSummary of spec chat-requests, also used for the group invites of chat-list-filters. */
 data class ChatRequestSummary(
@@ -196,9 +196,10 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         started = true
         trustJob = scope.launch {
             loadInvitePairs()
-            // A request is an invite with Category People; a group invite is an invite with Category Group.
-            dmInvites.start(session, inviteFilter(RoomListFilterCategory.PEOPLE))
-            groupInviteList.start(session, inviteFilter(RoomListFilterCategory.GROUP))
+            // Both lists hold every invite; requests keep DM invites, group invites the rest (isDirectInvite).
+            // Not the Category filter: it reads m.direct, which the invitee writes only on join, so a DM invite is a group.
+            dmInvites.start(session, inviteFilter())
+            groupInviteList.start(session, inviteFilter())
             while (isActive) {
                 delay(30_000)
                 if (_requests.value.isNotEmpty()) refreshTrust()
@@ -252,6 +253,7 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         for (room in rooms) {
             currentCoroutineContext().ensureActive()
             val request = summary(room) ?: continue // Ignored inviters are excluded before pair trust.
+            if (!request.isDm) continue
             if (BipeInviteTrust.acceptsAutomatically(request.isDm, request.inviterId, false, invitePairs)) {
                 if (request.roomId in _pending.value) continue
                 if (run(request.roomId) { it.join() }) continue
@@ -265,17 +267,16 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         return visible.sortedByDescending { it.invitedAt ?: 0 }
     }
 
-    private fun inviteFilter(category: RoomListFilterCategory) = RoomListEntriesDynamicFilterKind.All(
+    private fun inviteFilter() = RoomListEntriesDynamicFilterKind.All(
         listOf(
             RoomListEntriesDynamicFilterKind.Invite,
             RoomListEntriesDynamicFilterKind.NonSpace,
             RoomListEntriesDynamicFilterKind.DeduplicateVersions,
-            RoomListEntriesDynamicFilterKind.Category(category),
         ),
     )
 
     private suspend fun summaries(rooms: List<Room>): List<ChatRequestSummary> =
-        rooms.mapNotNull { summary(it) }.sortedByDescending { it.invitedAt ?: 0 }
+        rooms.mapNotNull { summary(it) }.filter { !it.isDm }.sortedByDescending { it.invitedAt ?: 0 }
 
     private suspend fun summary(room: Room): ChatRequestSummary? {
         val info = runCatching { room.roomInfo() }.getOrNull() ?: return null
@@ -286,13 +287,14 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         val inviterId = inviter?.userId.orEmpty()
         val inviterName = inviter?.displayName?.takeIf { it.isNotBlank() }
             ?: inviterId.takeIf { it.isNotEmpty() }?.let { chat.bipe.app.people.Person.localpart(it) }
+        val isDm = isDirectInvite(info)
         return ChatRequestSummary(
             roomId = info.id,
             inviterId = inviterId,
-            name = if (info.isDm) inviterName ?: context.getString(R.string.bipe_dm_no_name)
+            name = if (isDm) inviterName ?: context.getString(R.string.bipe_dm_no_name)
                 else info.displayName ?: context.getString(R.string.bipe_tab_groups),
             inviterName = inviterName,
-            avatarUrl = if (info.isDm) inviter?.avatarUrl else info.avatarUrl,
+            avatarUrl = if (isDm) inviter?.avatarUrl else info.avatarUrl,
             // The verified seal needs the badge check (GET /v1/badges), which comes with the trust work of people and
             // profiles (bipe-chat/bipe#568). Until then: external for a server outside bipe-servers.json (ADR 0168), else
             // unverified.
@@ -302,9 +304,17 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
                 ChatRequestSummary.Trust.EXTERNAL
             },
             invitedAt = invitedAt,
-            isDm = info.isDm,
+            isDm = isDm,
         )
     }
+
+    /**
+     * Spec chat-requests: a DM invite. RoomInfo.isDm reads m.direct, which the invitee writes only when joining, so
+     * it is false for every invite. The invite's own is_direct (RoomInfo.isDirect) and at most two people decide.
+     * After the join the SDK writes m.direct, and RoomInfo.isDm stays the one DM test (ADR 0141).
+     */
+    private fun isDirectInvite(info: RoomInfo): Boolean =
+        info.isDirect && info.activeMembersCount - minOf(info.activeServiceMembersCount, info.activeMembersCount) <= 2uL
 
     /** Action accept: joins the room. Returns the room ID to open in chat-timeline, or null after a failure. */
     suspend fun accept(roomId: String): String? = if (run(roomId) { it.join() }) roomId else null

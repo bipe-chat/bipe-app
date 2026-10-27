@@ -141,9 +141,10 @@ final class ChatRequestsModel: ObservableObject {
         let groups = FilteredRoomList { [weak self] rooms in self?.refresh(rooms, groups: true) }
         dmInvites = dms
         groupInviteList = groups
-        // A request is an invite with Category People; a group invite is an invite with Category Group.
-        await dms.start(session: session, filter: .all(filters: [.invite, .nonSpace, .deduplicateVersions, .category(expect: .people)]))
-        await groups.start(session: session, filter: .all(filters: [.invite, .nonSpace, .deduplicateVersions, .category(expect: .group)]))
+        // Both lists hold every invite; refresh keeps requests in one and group invites in the other (isDirectInvite).
+        // Not the Category filter: it reads m.direct, which the invitee writes only on join, so a DM invite is a group.
+        await dms.start(session: session, filter: .all(filters: [.invite, .nonSpace, .deduplicateVersions]))
+        await groups.start(session: session, filter: .all(filters: [.invite, .nonSpace, .deduplicateVersions]))
         trustTask = Task { [weak self] in
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(30)) } catch { return }
@@ -190,7 +191,7 @@ final class ChatRequestsModel: ObservableObject {
             var summaries: [ChatRequestSummary] = []
             for room in rooms {
                 guard !Task.isCancelled else { return }
-                if let summary = await Self.summary(of: room) {
+                if let summary = await Self.summary(of: room), summary.isDm != groups {
                     if !groups && BipeInviteTrust.acceptsAutomatically(isDm: summary.isDm, inviterID: summary.inviterId,
                                                                        isIgnored: false, pairs: invitePairs) {
                         if pending.contains(summary.roomId) { continue }
@@ -224,16 +225,24 @@ final class ChatRequestsModel: ObservableObject {
         }
         let inviterId = inviter?.userId ?? ""
         let inviterName = inviter?.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? (inviterId.isEmpty ? nil : Person.localpart(of: inviterId))
+        let isDm = isDirectInvite(info)
         return ChatRequestSummary(
             roomId: info.id,
             inviterId: inviterId,
-            name: info.isDm ? (inviterName ?? BipeStrings.dmNoName) : (info.displayName ?? BipeStrings.tabGroups),
+            name: isDm ? (inviterName ?? BipeStrings.dmNoName) : (info.displayName ?? BipeStrings.tabGroups),
             inviterName: inviterName,
-            avatarUrl: info.isDm ? inviter?.avatarUrl : info.avatarUrl,
+            avatarUrl: isDm ? inviter?.avatarUrl : info.avatarUrl,
             // Local requests start unverified; views observe the shared, verified company-seal store.
             trust: BipeServers.isBipeUserID(inviterId) || inviterId.isEmpty ? .unverified : .external,
             invitedAt: invitedAt,
-            isDm: info.isDm)
+            isDm: isDm)
+    }
+
+    /// Spec chat-requests: a DM invite. RoomInfo.isDm reads m.direct, which the invitee writes only when joining, so
+    /// it is false for every invite. The invite's own is_direct (RoomInfo.isDirect) and at most two people decide.
+    /// After the join the SDK writes m.direct, and RoomInfo.isDm stays the one DM test (ADR 0141).
+    static func isDirectInvite(_ info: RoomInfo) -> Bool {
+        info.isDirect && info.activeMembersCount - min(info.activeServiceMembersCount, info.activeMembersCount) <= 2
     }
 
     // MARK: - Actions (chat-request, and the invite rows of chat-list-filters)
