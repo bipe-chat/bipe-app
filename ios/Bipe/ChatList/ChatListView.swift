@@ -373,6 +373,9 @@ struct ChatListView: View {
                     .disabled(model.markingRoomId != nil)
             }
         }
+        if model.favouriteFailed {
+            Text(BipeStrings.errorGeneric).foregroundStyle(BipeColor.trustDangerInk)
+        }
         if archive.failed {
             VStack(alignment: .leading) {
                 Text(BipeStrings.archiveError).foregroundStyle(BipeColor.trustDangerInk)
@@ -412,9 +415,17 @@ struct ChatListView: View {
             }
             .listStyle(.plain)
         case .loaded:
-            let chats = model.chats(in: scope, archived: showingArchived)
+            // Spec chat-list favourites: a favourite shows in the row at the top, not again below it.
+            let chats = model.chats(in: scope, archived: showingArchived).filter { showingArchived || !$0.isFavourite }
+            let favourites = showingArchived ? [] : model.favourites(in: scope)
+                .filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }
             List {
                 topRows
+                if !favourites.isEmpty {
+                    FavouritesGrid(chats: favourites, media: model.media, open: openChat) { rowMenu($0) }
+                        .listRowBackground(BipeColor.surfaceBase)
+                        .listRowSeparator(.hidden)
+                }
                 ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
                     Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
                     .buttonStyle(.plain)
@@ -437,6 +448,15 @@ struct ChatListView: View {
     @ViewBuilder private func rowMenu(_ roomId: String) -> some View {
         if let chat = model.currentChat(roomId) {
             archiveAction(chat)
+            // Spec chat-row-actions favourite. The SDK drops m.lowpriority when it sets m.favourite: not for an archive.
+            if !archive.contains(chat) {
+                Button {
+                    Task { await model.setFavourite(roomId: roomId, favourite: !chat.isFavourite) }
+                } label: {
+                    Label(chat.isFavourite ? BipeStrings.chatUnfavouriteAction : BipeStrings.chatFavouriteAction,
+                          systemImage: chat.isFavourite ? "star.slash" : "star")
+                }
+            }
             Button {
                 Task { await model.setUnread(roomId: roomId, unread: !chat.isUnread) }
             } label: {
@@ -646,6 +666,49 @@ struct ChatRow: View {
         Calendar.current.isDateInToday(date)
             ? .dateTime.hour().minute()
             : .dateTime.day().month(.abbreviated)
+    }
+}
+
+/// Spec chat-list favourites: large avatars, three per line, the name under each.
+private struct FavouritesGrid<MenuContent: View>: View {
+    let chats: [ChatSummary]
+    let media: MediaLoader
+    let open: (String) -> Void
+    @ViewBuilder let menu: (String) -> MenuContent
+    @ScaledMetric(relativeTo: .caption) private var avatarSize: CGFloat = 72
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
+            ForEach(chats) { chat in
+                Button { open(chat.roomId) } label: { cell(chat) }
+                    .buttonStyle(.plain)
+                    .contextMenu { menu(chat.roomId) }
+                    .accessibilityActions { menu(chat.roomId) }
+                    .accessibilityLabel(chat.isUnread ? chat.name + ", " + BipeStrings.chatUnreadState : chat.name)
+            }
+        }
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(BipeStrings.chatFavourites)
+    }
+
+    private func cell(_ chat: ChatSummary) -> some View {
+        VStack(spacing: 6) {
+            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: avatarSize, userId: chat.peerUserId)
+                .overlay(alignment: .topTrailing) {
+                    if chat.isUnread {
+                        Circle().fill(BipeColor.accentFill)
+                            .frame(width: avatarSize * 0.2, height: avatarSize * 0.2)
+                            .overlay(Circle().stroke(BipeColor.surfaceBase, lineWidth: 2))
+                    }
+                }
+            Text(chat.name)
+                .font(.caption)
+                .foregroundStyle(BipeColor.inkPrimary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
     }
 }
 

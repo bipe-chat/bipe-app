@@ -28,6 +28,8 @@ struct ChatSummary: Identifiable, Equatable {
     var isMarkedUnread = false
     var isUnread: Bool { unreadCount > 0 || isMarkedUnread }
     var isLowPriority = false
+    /// RoomInfo.isFavourite (m.favourite): the chat shows in the favourites row (spec chat-list).
+    var isFavourite = false
     var latestIncomingMs: Int64? = nil
 
     var id: String { roomId }
@@ -67,8 +69,11 @@ final class ChatListModel: ObservableObject {
     private var extraRoomIds: Set<String> = []
     private var rooms: [Room] = []
     private var archivedRooms: [Room] = []
+    private var favouriteRooms: [Room] = []
     private var archiveEntries: RoomListEntriesWithDynamicAdaptersResult?
+    private var favouriteEntries: RoomListEntriesWithDynamicAdaptersResult?
     private var archiveTask: Task<Void, Never>?
+    private var favouriteTask: Task<Void, Never>?
     private let subscriptionOwner = UUID().uuidString
     /// One model belongs to one account session. Never replace a known time or text with an absent preview.
     private var knownRows: [String: BipeRowActivity.Row] = [:]
@@ -79,6 +84,7 @@ final class ChatListModel: ObservableObject {
     private var handles: [TaskHandle] = []
     private var summaryTask: Task<Void, Never>?
     @Published private(set) var markingRoomId: String?
+    @Published private(set) var favouriteFailed = false
     @Published private(set) var readActionFailed = false
     private var failedReadIntent: (roomId: String, unread: Bool)?
     private enum ReadFailure: Error { case unavailable }
@@ -101,6 +107,11 @@ final class ChatListModel: ObservableObject {
         chats.filter { (scope == .todas || $0.scope == scope) && archive.contains($0) == archived }
     }
 
+    /// State favourites of spec chat-list: the favourites of one scope that are not archived.
+    func favourites(in scope: ChatScope) -> [ChatSummary] {
+        chats(in: scope).filter(\.isFavourite)
+    }
+
     /// The phase of one scope: empty when the list loaded and the scope has no chat.
     func phase(in scope: ChatScope, archived: Bool = false) -> Phase {
         guard phase != .loading else { return .loading }
@@ -111,6 +122,7 @@ final class ChatListModel: ObservableObject {
         handles.forEach { $0.cancel() }
         summaryTask?.cancel()
         archiveTask?.cancel()
+        favouriteTask?.cancel()
         let archive = archive
         Task { @MainActor in archive.close() }
         let subscriptions = session.roomSubscriptions
@@ -136,28 +148,13 @@ final class ChatListModel: ObservableObject {
         handles.append(result.entriesStream())
         entries = result
 
-        // A dedicated tag-filtered stream finds archives outside the active first page.
-        let archiveStream = RoomListEntriesStream()
-        let archived = roomList.entriesWithDynamicAdapters(pageSize: Self.pageSize, listener: archiveStream)
-        _ = archived.controller().setFilter(kind: .all(filters: [.joined, .nonSpace, .lowPriority, .deduplicateVersions]))
-        handles.append(archived.entriesStream())
-        archiveEntries = archived
-        archiveTask = Task { [weak self] in
-            for await updates in archiveStream.updates {
-                guard let self else { return }
-                for update in updates {
-                    switch update {
-                    case .set(_, let room), .insert(_, let room), .pushFront(let room), .pushBack(let room):
-                        rowActivity?.invalidate(roomId: room.id())
-                    default: break
-                    }
-                    archivedRooms.apply(update.vectorDiff)
-                }
-                refreshSummaries()
-                await session.roomSubscriptions.update(owner: subscriptionOwner,
-                    roomIDs: rooms.map { $0.id() } + archivedRooms.map { $0.id() } + Array(archive.markers.keys))
-            }
-        }
+        // Dedicated tag-filtered streams find archives and favourites outside the active first page.
+        let archived = tagStream(roomList, tag: .lowPriority) { $0.archivedRooms.apply($1) }
+        archiveEntries = archived.0
+        archiveTask = archived.1
+        let favourites = tagStream(roomList, tag: .favourite) { $0.favouriteRooms.apply($1) }
+        favouriteEntries = favourites.0
+        favouriteTask = favourites.1
 
         Task { [weak self] in
             for await state in loading.updates {
@@ -177,9 +174,40 @@ final class ChatListModel: ObservableObject {
             }
             refreshSummaries()
             // Cached rows publish first. The SDK hydrates latest events in the background, even offline.
-            await session.roomSubscriptions.update(owner: subscriptionOwner,
-                roomIDs: rooms.map { $0.id() } + archivedRooms.map { $0.id() } + Array(archive.markers.keys))
+            await updateSubscriptions()
         }
+    }
+
+    /// A room list stream of joined rooms with one tag (m.lowpriority or m.favourite).
+    private func tagStream(_ roomList: RoomList, tag: RoomListEntriesDynamicFilterKind,
+                           apply: @escaping @MainActor (ChatListModel, VectorDiff<Room>) -> Void)
+        -> (RoomListEntriesWithDynamicAdaptersResult, Task<Void, Never>) {
+        let stream = RoomListEntriesStream()
+        let entries = roomList.entriesWithDynamicAdapters(pageSize: Self.pageSize, listener: stream)
+        _ = entries.controller().setFilter(kind: .all(filters: [.joined, .nonSpace, tag, .deduplicateVersions]))
+        handles.append(entries.entriesStream())
+        let task = Task { [weak self] in
+            for await updates in stream.updates {
+                guard let self else { return }
+                for update in updates {
+                    switch update {
+                    case .set(_, let room), .insert(_, let room), .pushFront(let room), .pushBack(let room):
+                        rowActivity?.invalidate(roomId: room.id())
+                    default: break
+                    }
+                    apply(self, update.vectorDiff)
+                }
+                refreshSummaries()
+                await updateSubscriptions()
+            }
+        }
+        return (entries, task)
+    }
+
+    private func updateSubscriptions() async {
+        await session.roomSubscriptions.update(owner: subscriptionOwner,
+            roomIDs: rooms.map { $0.id() } + archivedRooms.map { $0.id() } + favouriteRooms.map { $0.id() }
+                + Array(archive.markers.keys))
     }
 
     /// Requests stay outside the joined list; badges always observe the unfiltered stream.
@@ -189,6 +217,7 @@ final class ChatListModel: ObservableObject {
     func loadMore(in scope: ChatScope) {
         entries?.controller().addOnePage()
         archiveEntries?.controller().addOnePage()
+        favouriteEntries?.controller().addOnePage()
     }
 
     /// Resolve actions in this account's room list, never a global current account.
@@ -216,6 +245,23 @@ final class ChatListModel: ObservableObject {
         } catch {
             failedReadIntent = (roomId, unread)
             readActionFailed = true
+        }
+    }
+
+    /// Action setFavourite of spec chat-list: the m.favourite tag, so it syncs to the account's other phones.
+    func setFavourite(roomId: String, favourite: Bool) async {
+        favouriteFailed = false
+        do {
+            guard currentChat(roomId) != nil, let room = try? session.client.getRoom(roomId: roomId) else {
+                throw ReadFailure.unavailable
+            }
+            let info = try await room.roomInfo()
+            guard info.membership == .joined, !info.isSpace else { throw ReadFailure.unavailable }
+            try await room.setIsFavourite(isFavourite: favourite, tagOrder: nil)
+            refreshSummaries()
+        } catch is CancellationError {
+        } catch {
+            favouriteFailed = true
         }
     }
 
@@ -253,7 +299,7 @@ final class ChatListModel: ObservableObject {
         extraRoomIds.formUnion(archive.markers.keys)
         var rooms = rooms
         var loadedIds = Set(rooms.map { $0.id() })
-        for room in archivedRooms where loadedIds.insert(room.id()).inserted { rooms.append(room) }
+        for room in archivedRooms + favouriteRooms where loadedIds.insert(room.id()).inserted { rooms.append(room) }
         for id in extraRoomIds.subtracting(loadedIds).sorted() {
             if let room = try? session.client.getRoom(roomId: id) { rooms.append(room) }
         }
@@ -382,6 +428,7 @@ final class ChatListModel: ObservableObject {
                            isMuted: info.cachedUserDefinedNotificationMode == .mute,
                            isMarkedUnread: info.isMarkedUnread,
                            isLowPriority: info.isLowPriority,
+                           isFavourite: info.isFavourite,
                            latestIncomingMs: latestIncomingMs)
     }
 }

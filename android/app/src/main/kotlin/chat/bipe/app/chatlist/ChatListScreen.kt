@@ -428,11 +428,24 @@ fun ChatListScreen(
     val archiveFailed by model.archive.failed.collectAsState()
     val readFailed by model.readActionFailed.collectAsState()
     val markingRoomId by model.markingRoomId.collectAsState()
+    val favouriteFailed by model.favouriteFailed.collectAsState()
     var showingArchived by rememberSaveable(model.session.userId, scope) { mutableStateOf(false) }
     LaunchedEffect(listOpenRequest) { if (listOpenRequest > 0) showingArchived = false }
     val visibleChats = withoutClearedDms(allChats, { it.roomId }, { it.lastActivity })
     val chats = visibleChats.filter { scope.shows(it.scope) && archiveMarkers.containsKey(it.roomId) == showingArchived }
     val phase = model.phase(scope, allPhase, chats)
+    // Spec chat-list favourites: a favourite shows in the row at the top, not again below it.
+    val favourites = if (showingArchived) emptyList() else chats.filter { it.isFavourite }
+    val listChats = if (showingArchived) chats else chats.filterNot { it.isFavourite }
+    fun commands(chat: ChatSummary) = ChatRowCommands(
+        archived = archiveMarkers.containsKey(chat.roomId), readPending = markingRoomId != null,
+        onArchive = { model.currentChat(chat.roomId)?.let { model.archive.set(it, !archiveMarkers.containsKey(it.roomId)) } },
+        onRead = { model.setUnread(chat.roomId, !chat.isUnread) },
+        onNotifications = { if (model.currentChat(chat.roomId) != null) onChatNotifications(chat.roomId) },
+        onInfo = if (!chat.isDm || chat.peerUserId != null) ({ model.currentChat(chat.roomId)?.let(onChatInfo) }) else null,
+        onDelete = if (chat.isDm) ({ if (model.currentChat(chat.roomId)?.isDm == true) onDeleteDm(chat.roomId) }) else null,
+        onFavourite = if (archiveMarkers.containsKey(chat.roomId)) null else ({ model.setFavourite(chat.roomId, !chat.isFavourite) }),
+    )
     val handleState by handle.state.collectAsState()
     val requestList = requests?.requests?.collectAsState()?.value.orEmpty()
     val groupInvites = requests?.groupInvites?.collectAsState()?.value.orEmpty()
@@ -474,6 +487,7 @@ fun ChatListScreen(
                     Text(stringResource(R.string.bipe_chat_read_error), color = colors.trustDangerInk, modifier = Modifier.weight(1f).padding(16.dp))
                     TextButton(onClick = model::retryReadAction, enabled = markingRoomId == null) { Text(stringResource(R.string.bipe_app_retry)) }
                 }
+                if (favouriteFailed) Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk, modifier = Modifier.padding(16.dp))
                 if (archiveFailed) Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.bipe_archive_error), color = colors.trustDangerInk, modifier = Modifier.weight(1f).padding(16.dp))
                     TextButton(onClick = { model.archive.retry(allChats) }) { Text(stringResource(R.string.bipe_app_retry)) }
@@ -524,23 +538,17 @@ fun ChatListScreen(
                         if (requestsError) item(key = "requests-error") {
                             Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk, modifier = Modifier.padding(16.dp))
                         }
+                        if (favourites.isNotEmpty()) item(key = "favourites") {
+                            FavouritesGrid(favourites, media, model.session.userId, ::commands, onOpenChat)
+                        }
                         if (phase == ChatListModel.Phase.EMPTY) item(key = "empty") {
                             if (showingArchived) Text(stringResource(R.string.bipe_archived_empty), color = colors.inkSecondary, modifier = Modifier.padding(16.dp))
                             else EmptyState(scope, onStartChat = { onOpenPeople(PeopleRoute.Contacts) }, onCreateGroup = onCreateGroup)
                         }
-                        items(chats, key = { it.roomId }) { chat ->
-                            ArchivedChatRow(
-                                chat, media, ownerId = model.session.userId,
-                                archived = archiveMarkers.containsKey(chat.roomId), readPending = markingRoomId != null,
-                                onArchive = { model.currentChat(chat.roomId)?.let { model.archive.set(it, !archiveMarkers.containsKey(it.roomId)) } },
-                                onOpen = { onOpenChat(chat.roomId) },
-                                onRead = { model.setUnread(chat.roomId, !chat.isUnread) },
-                                onNotifications = { if (model.currentChat(chat.roomId) != null) onChatNotifications(chat.roomId) },
-                                onInfo = if (!chat.isDm || chat.peerUserId != null) ({ model.currentChat(chat.roomId)?.let(onChatInfo) }) else null,
-                                onDelete = if (chat.isDm) ({ if (model.currentChat(chat.roomId)?.isDm == true) onDeleteDm(chat.roomId) }) else null,
-                            )
-                            if (!showingArchived && chat.roomId == chats.lastOrNull()?.roomId) {
-                                LaunchedEffect(chats.size) { model.loadMore(scope) }
+                        items(listChats, key = { it.roomId }) { chat ->
+                            ArchivedChatRow(chat, media, ownerId = model.session.userId, commands = commands(chat), onOpen = { onOpenChat(chat.roomId) })
+                            if (!showingArchived && chat.roomId == listChats.lastOrNull()?.roomId) {
+                                LaunchedEffect(listChats.size) { model.loadMore(scope) }
                             }
                         }
                         if (!showingArchived) item(key = "load-more") {

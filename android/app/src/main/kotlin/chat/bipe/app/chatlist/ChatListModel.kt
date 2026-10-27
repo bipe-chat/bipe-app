@@ -58,6 +58,8 @@ data class ChatSummary(
     val isMuted: Boolean = false,
     val isMarkedUnread: Boolean = false,
     val isLowPriority: Boolean = false,
+    /** RoomInfo.isFavourite (m.favourite): the chat shows in the favourites row (spec chat-list). */
+    val isFavourite: Boolean = false,
     val latestIncomingMs: Long? = null,
 ) {
     val isUnread: Boolean get() = unreadCount > 0 || isMarkedUnread
@@ -99,8 +101,11 @@ class ChatListModel(
 
     private val rooms = mutableListOf<Room>()
     private val archivedRooms = mutableListOf<Room>()
+    private val favouriteRooms = mutableListOf<Room>()
     private var archiveEntries: RoomListEntriesWithDynamicAdaptersResult? = null
+    private var favouriteEntries: RoomListEntriesWithDynamicAdaptersResult? = null
     private var archiveJob: Job? = null
+    private var favouriteJob: Job? = null
     private val subscriptionOwner = UUID.randomUUID().toString()
     /** One model belongs to one account session; absent previews must not erase a known time or text. */
     private val knownRows = mutableMapOf<String, BipeRowActivity.Row>()
@@ -115,6 +120,8 @@ class ChatListModel(
     val markingRoomId = _markingRoomId.asStateFlow()
     private val _readActionFailed = MutableStateFlow(false)
     val readActionFailed = _readActionFailed.asStateFlow()
+    private val _favouriteFailed = MutableStateFlow(false)
+    val favouriteFailed = _favouriteFailed.asStateFlow()
     private var failedReadIntent: Pair<String, Boolean>? = null
     private var started = false
     private val clearChanges = scope.launch {
@@ -151,33 +158,14 @@ class ChatListModel(
             result.controller().setFilter(filter())
             handles += result.entriesStream()
             entries = result
-            // A dedicated tag-filtered stream finds archives outside the active first page.
-            val archiveUpdates = Channel<List<RoomListEntriesUpdate>>(Channel.UNLIMITED)
-            val archived = roomList.entriesWithDynamicAdapters(PAGE_SIZE, object : RoomListEntriesListener {
-                override fun onUpdate(roomEntriesUpdate: List<RoomListEntriesUpdate>) { archiveUpdates.trySend(roomEntriesUpdate) }
-            })
-            archived.controller().setFilter(RoomListEntriesDynamicFilterKind.All(listOf(
-                RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace,
-                RoomListEntriesDynamicFilterKind.LowPriority, RoomListEntriesDynamicFilterKind.DeduplicateVersions,
-            )))
-            handles += archived.entriesStream()
-            archiveEntries = archived
-            archiveJob = launch {
-                for (batch in archiveUpdates) {
-                    batch.forEach { update ->
-                        when (update) {
-                            is RoomListEntriesUpdate.Set -> rowActivity.invalidate(update.value.id())
-                            is RoomListEntriesUpdate.Insert -> rowActivity.invalidate(update.value.id())
-                            is RoomListEntriesUpdate.PushFront -> rowActivity.invalidate(update.value.id())
-                            is RoomListEntriesUpdate.PushBack -> rowActivity.invalidate(update.value.id())
-                            else -> Unit
-                        }
-                        archivedRooms.applyDiff(update.toVectorDiff())
-                    }
-                    refreshSummaries()
-                    session.roomSubscriptions.update(subscriptionOwner,
-                        (rooms + archivedRooms).map { it.id() } + archive.markers.value.keys)
-                }
+            // Dedicated tag-filtered streams find archives and favourites outside the active first page.
+            tagStream(roomList, RoomListEntriesDynamicFilterKind.LowPriority, archivedRooms).let { (entries, job) ->
+                archiveEntries = entries
+                archiveJob = job
+            }
+            tagStream(roomList, RoomListEntriesDynamicFilterKind.Favourite, favouriteRooms).let { (entries, job) ->
+                favouriteEntries = entries
+                favouriteJob = job
             }
             launch {
                 for (state in loading) onLoadingState(state)
@@ -196,9 +184,46 @@ class ChatListModel(
                 }
                 refreshSummaries()
                 // Publish cached rows first; subscription enables SDK latest-event calculation and online catchup.
-                session.roomSubscriptions.update(subscriptionOwner, (rooms + archivedRooms).map { it.id() } + archive.markers.value.keys)
+                updateSubscriptions()
             }
         }
+    }
+
+    /** A room list stream of joined rooms with one tag (m.lowpriority or m.favourite), applied to [target]. */
+    private fun CoroutineScope.tagStream(
+        roomList: org.matrix.rustcomponents.sdk.RoomList, tag: RoomListEntriesDynamicFilterKind, target: MutableList<Room>,
+    ): Pair<RoomListEntriesWithDynamicAdaptersResult, Job> {
+        val updates = Channel<List<RoomListEntriesUpdate>>(Channel.UNLIMITED)
+        val entries = roomList.entriesWithDynamicAdapters(PAGE_SIZE, object : RoomListEntriesListener {
+            override fun onUpdate(roomEntriesUpdate: List<RoomListEntriesUpdate>) { updates.trySend(roomEntriesUpdate) }
+        })
+        entries.controller().setFilter(RoomListEntriesDynamicFilterKind.All(listOf(
+            RoomListEntriesDynamicFilterKind.Joined, RoomListEntriesDynamicFilterKind.NonSpace,
+            tag, RoomListEntriesDynamicFilterKind.DeduplicateVersions,
+        )))
+        handles += entries.entriesStream()
+        val job = launch {
+            for (batch in updates) {
+                batch.forEach { update ->
+                    when (update) {
+                        is RoomListEntriesUpdate.Set -> rowActivity.invalidate(update.value.id())
+                        is RoomListEntriesUpdate.Insert -> rowActivity.invalidate(update.value.id())
+                        is RoomListEntriesUpdate.PushFront -> rowActivity.invalidate(update.value.id())
+                        is RoomListEntriesUpdate.PushBack -> rowActivity.invalidate(update.value.id())
+                        else -> Unit
+                    }
+                    target.applyDiff(update.toVectorDiff())
+                }
+                refreshSummaries()
+                updateSubscriptions()
+            }
+        }
+        return entries to job
+    }
+
+    private suspend fun updateSubscriptions() {
+        session.roomSubscriptions.update(subscriptionOwner,
+            (rooms + archivedRooms + favouriteRooms).map { it.id() } + archive.markers.value.keys)
     }
 
     /** Badges and both tabs use this one unfiltered joined stream. */
@@ -220,6 +245,7 @@ class ChatListModel(
     fun loadMore(tab: ChatScope) {
         entries?.controller()?.addOnePage()
         archiveEntries?.controller()?.addOnePage()
+        favouriteEntries?.controller()?.addOnePage()
     }
 
     /** Resolve actions in the immutable owner's room list. */
@@ -249,6 +275,25 @@ class ChatListModel(
         }
     }
 
+    /** Action setFavourite of spec chat-list: the m.favourite tag, so it syncs to the account's other phones. */
+    fun setFavourite(roomId: String, favourite: Boolean) {
+        _favouriteFailed.value = false
+        scope.launch {
+            try {
+                check(currentChat(roomId) != null)
+                val room = session.client.getRoom(roomId) ?: error("room unavailable")
+                val info = room.roomInfo()
+                check(info.membership == org.matrix.rustcomponents.sdk.Membership.JOINED && !info.isSpace)
+                room.setIsFavourite(favourite, null)
+                refreshSummaries()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                _favouriteFailed.value = true
+            }
+        }
+    }
+
     fun retryReadAction() { failedReadIntent?.let { (roomId, unread) -> setUnread(roomId, unread) } }
 
     suspend fun refreshNotes() {
@@ -264,6 +309,7 @@ class ChatListModel(
         handles.forEach { it.cancel() }
         summaryJob?.cancel()
         archiveJob?.cancel()
+        favouriteJob?.cancel()
         archive.close()
         session.releaseRoomSubscriptions(subscriptionOwner)
     }
@@ -283,7 +329,7 @@ class ChatListModel(
 
     private fun refreshSummaries() {
         extraRoomIds += archive.markers.value.keys
-        val snapshot = (rooms + archivedRooms).distinctBy { it.id() }.toMutableList()
+        val snapshot = (rooms + archivedRooms + favouriteRooms).distinctBy { it.id() }.toMutableList()
         val loadedIds = snapshot.map { it.id() }.toSet()
         for (id in (extraRoomIds - loadedIds).sorted()) runCatching { session.client.getRoom(id) }.getOrNull()?.let { snapshot += it }
         summaryJob?.cancel()
@@ -392,6 +438,7 @@ class ChatListModel(
             isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
             isMarkedUnread = info.isMarkedUnread,
             isLowPriority = info.isLowPriority,
+            isFavourite = info.isFavourite,
             latestIncomingMs = latestIncomingMs,
         )
     }
