@@ -45,11 +45,17 @@ public struct BipeMessageText: Equatable, Sendable {
         return runs.flatMap { run -> [Run] in
             guard run.link == nil, !run.code else { return [run] }
             let ns = run.text as NSString
-            let candidates = patterns.enumerated().flatMap { index, pattern in
-                (try? NSRegularExpression(pattern: pattern, options: .caseInsensitive))?
-                    .matches(in: run.text, range: NSRange(location: 0, length: ns.length))
-                    .map { ($0.range, index) } ?? []
-            }.sorted { $0.0.location == $1.0.location ? $0.1 < $1.1 : $0.0.location < $1.0.location }
+            var candidates: [(NSRange, Int)] = []
+            for (index, pattern) in patterns.enumerated() {
+                guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { continue }
+                for match in regex.matches(in: run.text, range: NSRange(location: 0, length: ns.length)) {
+                    candidates.append((match.range, index))
+                }
+            }
+            candidates.sort {
+                if $0.0.location == $1.0.location { return $0.1 < $1.1 }
+                return $0.0.location < $1.0.location
+            }
             var result: [Run] = []
             var cursor = 0
             for (range, kind) in candidates where range.location >= cursor {
