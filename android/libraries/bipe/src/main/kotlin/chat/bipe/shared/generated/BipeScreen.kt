@@ -148,7 +148,7 @@ enum class BipeScreen(val id: String) {
     /** Delete a DM (Apagar conversa) (flow chat). Spec: bipe-shared/product/screens/dm-delete.json */
     DM_DELETE("dm-delete"),
 
-    /** Old messages (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
+    /** Messages on this phone (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
     ENCRYPTION_STATUS("encryption-status"),
 
     /** Create a group (flow groups). Spec: bipe-shared/product/screens/group-create.json */

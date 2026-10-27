@@ -164,6 +164,10 @@ final class AccountSession {
             // Spec encryption-status: a new account gets cross-signing and key backup with no screen.
             .autoEnableCrossSigning(autoEnableCrossSigning: true)
             .autoEnableBackups(autoEnableBackups: true)
+            // Security rule 13: a server-added device receives no keys without its owner's signature.
+            .roomKeyRecipientStrategy(strategy: .identityBasedStrategy)
+            // Keep pre-trust-metadata history readable; current senders must be cross-signed.
+            .decryptionSettings(decryptionSettings: DecryptionSettings(senderDeviceTrustRequirement: .crossSignedOrLegacy))
             // Old messages decrypt from the key backup once this phone has the backup key (recovery-key-enter).
             .backupDownloadStrategy(backupDownloadStrategy: .afterDecryptionFailure)
         if process == .notificationService {

@@ -25,6 +25,9 @@ import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
 import org.matrix.rustcomponents.sdk.SyncService
 import org.matrix.rustcomponents.sdk.TaskHandle
 import uniffi.matrix_sdk.BackupDownloadStrategy
+import uniffi.matrix_sdk_crypto.CollectStrategy
+import uniffi.matrix_sdk_crypto.DecryptionSettings
+import uniffi.matrix_sdk_crypto.TrustRequirement
 import uniffi.matrix_sdk_common.BackgroundTaskFailureReason
 
 /** A signed-in account: the SDK client and its sync service. */
@@ -143,6 +146,10 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 // Spec encryption-status: a new account gets cross-signing and key backup with no screen.
                 .autoEnableCrossSigning(true)
                 .autoEnableBackups(true)
+                // Security rule 13: a server-added device receives no keys without its owner's signature.
+                .roomKeyRecipientStrategy(CollectStrategy.IDENTITY_BASED_STRATEGY)
+                // Keep pre-trust-metadata history readable; current senders must be cross-signed.
+                .decryptionSettings(DecryptionSettings(TrustRequirement.CROSS_SIGNED_OR_LEGACY))
                 // Old messages decrypt from the key backup once this phone has the backup key (recovery-key-enter).
                 .backupDownloadStrategy(BackupDownloadStrategy.AFTER_DECRYPTION_FAILURE)
         }
