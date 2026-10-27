@@ -68,9 +68,10 @@ class ChatArchiveModel(
             val decision = BipeChatArchive.reconcile(next[chat.roomId], chat.roomId in synced, chat.isLowPriority,
                 chat.lastActivity, chat.latestIncomingMs)
             val archived = decision.tagWrite
+            val marker = decision.marker
             if (archived != null) enqueue(Action(chat.roomId, archived, decision.marker))
             else {
-                if (decision.marker == null) next.remove(chat.roomId) else next[chat.roomId] = decision.marker
+                if (marker == null) next.remove(chat.roomId) else next[chat.roomId] = marker
                 if (decision.synced) synced += chat.roomId else synced -= chat.roomId
             }
         }
