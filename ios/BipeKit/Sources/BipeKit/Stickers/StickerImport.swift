@@ -14,6 +14,8 @@ public struct StickerImportCandidate: Equatable, Sendable {
     public let height: Int
     /// st_ plus the first 8 bytes of the SHA-256 in hex: the same file imported twice is one sticker.
     public let shortcode: String
+    /// Tags from the emoji a WhatsApp WebP carries (spec sticker-import notes). Empty when it carries none.
+    public var tags: [String] = []
 }
 
 /// Imports stickers from a WhatsApp chat export or from loose image files (ADR 0029, ADR 0033).
@@ -46,7 +48,30 @@ public enum StickerImporter {
               let height = properties[kCGImagePropertyPixelHeight] as? Int,
               (1...maxSide).contains(width), (1...maxSide).contains(height) else { return nil }
         let digest = SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
-        return StickerImportCandidate(data: data, mimeType: mimeType, width: width, height: height, shortcode: "st_\(digest)")
+        return StickerImportCandidate(data: data, mimeType: mimeType, width: width, height: height, shortcode: "st_\(digest)",
+                                      tags: mimeType == "image/webp" ? emojiTags(webp: data) : [])
+    }
+
+    /// WhatsApp puts {"emojis": [...]} as JSON in the EXIF chunk of a sticker WebP. Its emoji map to tags through
+    /// BipeRegistries.stickerEmoji, in registry order. Empty for any other file.
+    public static func emojiTags(webp data: Data) -> [String] {
+        let bytes = [UInt8](data)
+        var offset = 12
+        while offset + 8 <= bytes.count {
+            let size = Int(bytes[offset + 4]) | Int(bytes[offset + 5]) << 8 | Int(bytes[offset + 6]) << 16 | Int(bytes[offset + 7]) << 24
+            let start = offset + 8
+            guard size >= 0, start + size <= bytes.count else { return [] }
+            if bytes[offset..<offset + 4].elementsEqual("EXIF".utf8) {
+                let chunk = bytes[start..<start + size]
+                guard let open = chunk.firstIndex(of: UInt8(ascii: "{")), let close = chunk.lastIndex(of: UInt8(ascii: "}")), open < close,
+                      let object = try? JSONSerialization.jsonObject(with: Data(chunk[open...close])) as? [String: Any],
+                      let emojis = object["emojis"] as? [String] else { return [] }
+                let tags = Set(emojis.flatMap { BipeRegistries.stickerEmoji[StickerSearch.emojiKey($0)] ?? [] })
+                return BipeRegistries.stickerTags.filter(tags.contains)
+            }
+            offset = start + size + (size & 1)
+        }
+        return []
     }
 
     private static func mimeType(_ data: Data) -> String? {

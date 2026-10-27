@@ -9,6 +9,11 @@ package chat.bipe.stickers
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
+import chat.bipe.shared.generated.BipeRegistries
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.security.MessageDigest
@@ -23,6 +28,8 @@ class StickerImportCandidate(
     val height: Int,
     /** Derived from the file's SHA-256, so the same file imported twice gets the same shortcode. */
     val shortcode: String,
+    /** Tags from the emoji a WhatsApp WebP carries (spec sticker-import notes). Empty when it carries none. */
+    val tags: List<String> = emptyList(),
 )
 
 /** Imports stickers from a WhatsApp chat export or from loose image files (ADR 0029, 0033). */
@@ -59,7 +66,34 @@ object StickerImporter {
         val height = options.outHeight
         if (width !in 1..MAX_SIDE || height !in 1..MAX_SIDE) return null
         val digest = MessageDigest.getInstance("SHA-256").digest(bytes).take(8).joinToString("") { "%02x".format(it) }
-        return StickerImportCandidate(bytes, mimeType, width, height, "st_$digest")
+        return StickerImportCandidate(bytes, mimeType, width, height, "st_$digest", if (mimeType == "image/webp") emojiTags(bytes) else emptyList())
+    }
+
+    /**
+     * WhatsApp puts {"emojis": [...]} as JSON in the EXIF chunk of a sticker WebP. Its emoji map to tags through
+     * BipeRegistries.STICKER_EMOJI, in registry order. Empty for any other file.
+     */
+    fun emojiTags(webp: ByteArray): List<String> {
+        var offset = 12
+        while (offset + 8 <= webp.size) {
+            val size = (webp[offset + 4].toInt() and 0xFF) or ((webp[offset + 5].toInt() and 0xFF) shl 8) or
+                ((webp[offset + 6].toInt() and 0xFF) shl 16) or ((webp[offset + 7].toInt() and 0xFF) shl 24)
+            val start = offset + 8
+            if (size < 0 || start + size > webp.size) return emptyList()
+            if (String(webp, offset, 4, Charsets.US_ASCII) == "EXIF") {
+                val chunk = webp.copyOfRange(start, start + size)
+                val open = chunk.indexOf('{'.code.toByte())
+                val close = chunk.lastIndexOf('}'.code.toByte())
+                if (open < 0 || close <= open) return emptyList()
+                val json = runCatching { Json.parseToJsonElement(String(chunk, open, close - open + 1, Charsets.UTF_8)) as? JsonObject }.getOrNull()
+                val emojis = (json?.get("emojis") as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.content }
+                    ?: return emptyList()
+                val tags = emojis.flatMap { BipeRegistries.STICKER_EMOJI[StickerSearch.emojiKey(it)].orEmpty() }.toSet()
+                return BipeRegistries.STICKER_TAGS.filter { it in tags }
+            }
+            offset = start + size + (size and 1)
+        }
+        return emptyList()
     }
 
     /**

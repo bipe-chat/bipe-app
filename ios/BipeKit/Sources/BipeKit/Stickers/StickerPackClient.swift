@@ -65,12 +65,14 @@ public struct StickerPackClient: Sendable {
                 do {
                     let ext = candidate.mimeType == "image/png" ? "png" : "webp"
                     let url = try await upload(candidate.data, mimeType: candidate.mimeType, fileName: "\(candidate.shortcode).\(ext)", token: token)
-                    images[candidate.shortcode] = [
+                    var image: [String: Any] = [
                         "url": url,
                         "body": "Sticker",
                         "usage": ["sticker"],
                         "info": ["w": candidate.width, "h": candidate.height, "mimetype": candidate.mimeType, "size": candidate.data.count],
-                    ] as [String: Any]
+                    ]
+                    if !candidate.tags.isEmpty { image[BipeRegistries.stickerTagsField] = candidate.tags }
+                    images[candidate.shortcode] = image
                     added += 1
                 } catch {
                     uploadError = error
@@ -84,6 +86,38 @@ public struct StickerPackClient: Sendable {
             }
             if let uploadError { throw uploadError }
             return added
+        }
+    }
+
+    /// Action editTags of spec sticker-picker: writes the tags of one image of the user's pack with a
+    /// read-merge-write on the server copy, keeping every other field. An empty list removes the field.
+    public func setTags(shortcode: String, tags: [String]) async throws {
+        try await withTokenRetry { token in
+            let path = ["user", userId, "account_data", StickerPackEventType.userPack]
+            guard let data = try await get(path, token: token),
+                  var content = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  var images = content["images"] as? [String: Any],
+                  var image = images[shortcode] as? [String: Any] else { throw ClientError.http(404) }
+            let known = BipeRegistries.stickerTags.filter(tags.contains)
+            image[BipeRegistries.stickerTagsField] = known.isEmpty ? nil : known
+            images[shortcode] = image
+            content["images"] = images
+            _ = try await perform("PUT", clientURL(path), token: token, body: try JSONSerialization.data(withJSONObject: content), contentType: "application/json")
+        }
+    }
+
+    /// A sticker list in global account data (StickerShortlist): recents or favourites. Empty when unset.
+    public func shortlist(_ eventType: String) async throws -> [StickerRef] {
+        try await withTokenRetry { token in
+            try await get(["user", userId, "account_data", eventType], token: token).map(StickerShortlist.parse) ?? []
+        }
+    }
+
+    /// Writes the whole list, so a later write also carries changes from a failed one.
+    public func setShortlist(_ eventType: String, _ refs: [StickerRef]) async throws {
+        try await withTokenRetry { token in
+            _ = try await perform("PUT", clientURL(["user", userId, "account_data", eventType]), token: token,
+                                  body: StickerShortlist.content(refs), contentType: "application/json")
         }
     }
 

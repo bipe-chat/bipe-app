@@ -7,6 +7,7 @@
 package chat.bipe.stickers
 
 import androidx.compose.runtime.Immutable
+import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -42,6 +43,8 @@ data class Sticker(
     val height: Int?,
     val mimeType: String?,
     val size: Int?,
+    /** The image's BipeRegistries.STICKER_TAGS_FIELD: known tag ids only (ADR 0205). */
+    val tags: List<String> = emptyList(),
 ) {
     val id: String get() = "$packId/$shortcode"
 
@@ -109,6 +112,7 @@ data class StickerPack(
                     height = info?.get("h").int(),
                     mimeType = info?.get("mimetype").string(),
                     size = info?.get("size").int(),
+                    tags = image[BipeRegistries.STICKER_TAGS_FIELD].stringList().orEmpty().filter { it in BipeRegistries.STICKER_TAGS },
                 )
             }
             if (stickers.isEmpty()) return null

@@ -26,6 +26,8 @@ public struct Sticker: Identifiable, Equatable, Sendable {
     public let height: Int?
     public let mimeType: String?
     public let size: Int?
+    /// The image's BipeRegistries.stickerTagsField: known tag ids only (ADR 0205).
+    public var tags: [String] = []
 
     public var id: String { "\(packId)/\(shortcode)" }
 
@@ -80,7 +82,8 @@ public struct StickerPack: Identifiable, Equatable, Sendable {
                            width: info?["w"] as? Int,
                            height: info?["h"] as? Int,
                            mimeType: info?["mimetype"] as? String,
-                           size: info?["size"] as? Int)
+                           size: info?["size"] as? Int,
+                           tags: (image[BipeRegistries.stickerTagsField] as? [String] ?? []).filter(BipeRegistries.stickerTags.contains))
         }
         guard !stickers.isEmpty else { return nil }
         return StickerPack(source: source, displayName: pack?["display_name"] as? String, stickers: stickers)

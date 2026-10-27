@@ -15,25 +15,35 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items as listItems
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,7 +63,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -63,13 +75,19 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.stickers.Sticker
 import chat.bipe.stickers.StickerImportCandidate
 import chat.bipe.stickers.StickerImporter
 import chat.bipe.stickers.StickerPack
 import chat.bipe.stickers.StickerPackClient
+import chat.bipe.stickers.StickerRef
+import chat.bipe.stickers.StickerSearch
+import chat.bipe.stickers.StickerShortlist
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -82,15 +100,24 @@ fun stickerPackClient(client: Client): StickerPackClient? {
     return StickerPackClient(session.homeserverUrl, session.userId) { runCatching { client.session().accessToken }.getOrNull() }
 }
 
-private enum class Screen { PICKER, IMPORT, FROM_PHOTO }
+private enum class Screen { PICKER, IMPORT, FROM_PHOTO, TAGS }
 
-/** Spec sticker-picker: the user's pack, this chat's packs and the enabled room packs (ADR 0029, ADR 0033). */
+/**
+ * Spec sticker-picker: favourites, recents, the user's pack, this chat's packs and the enabled room packs
+ * (ADR 0029, ADR 0033, ADR 0205).
+ */
 @Composable
 fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
     val packClient = remember(client) { stickerPackClient(client) }
     var packs by remember { mutableStateOf<List<StickerPack>>(emptyList()) }
+    var favourites by remember { mutableStateOf<List<StickerRef>>(emptyList()) }
+    var recents by remember { mutableStateOf<List<StickerRef>>(emptyList()) }
+    // State query of spec sticker-picker: search runs on the phone only (StickerSearch).
+    var query by remember { mutableStateOf("") }
+    var editingTags by remember { mutableStateOf<Sticker?>(null) }
+    var tagsFailed by remember { mutableStateOf(false) }
     // phase of spec sticker-picker: null is loading, true loaded, false failed.
     var loaded by remember { mutableStateOf<Boolean?>(null) }
     var sendFailed by remember { mutableStateOf(false) }
@@ -103,6 +130,18 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
         val result = packClient?.let { runCatching { it.packs(roomId) }.getOrNull() }
         if (result != null) packs = result
         loaded = result != null
+        // The lists are extras: a failed read shows the packs without them.
+        if (result != null && packClient != null) {
+            runCatching { packClient.shortlist(BipeRegistries.STICKER_FAVOURITES_EVENT_TYPE) }.onSuccess { favourites = it }
+            runCatching { packClient.shortlist(BipeRegistries.STICKER_RECENTS_EVENT_TYPE) }.onSuccess { recents = it }
+        }
+    }
+
+    /** Action toggleFavourite. The whole list is written, so a failed write is carried by the next change. */
+    fun toggleFavourite(sticker: Sticker) {
+        favourites = StickerShortlist.toggleFavourite(StickerRef(sticker), favourites)
+        val list = favourites
+        scope.launch { runCatching { packClient?.setShortlist(BipeRegistries.STICKER_FAVOURITES_EVENT_TYPE, list) } }
     }
 
     /** Action send: an m.sticker event through Room.sendRaw, which encrypts in an encrypted room. Then closes. */
@@ -113,7 +152,15 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
                 val room = client.getRoom(roomId) ?: error("no room")
                 room.sendRaw("m.sticker", sticker.eventContentJson())
             }.isSuccess
-            if (ok) onClose() else sendFailed = true
+            if (ok) {
+                recents = StickerShortlist.pushRecent(StickerRef(sticker), recents)
+                val list = recents
+                // The picker closes; the write gets its own scope so that it outlives the composition.
+                packClient?.let { client -> CoroutineScope(Dispatchers.IO).launch { runCatching { client.setShortlist(BipeRegistries.STICKER_RECENTS_EVENT_TYPE, list) } } }
+                onClose()
+            } else {
+                sendFailed = true
+            }
         }
     }
 
@@ -122,8 +169,33 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
             when (screen) {
                 Screen.IMPORT -> StickerImport(packClient, onClose = { screen = Screen.PICKER })
                 Screen.FROM_PHOTO -> StickerFromPhoto(packClient, onClose = { screen = Screen.PICKER })
+                Screen.TAGS -> editingTags?.let { sticker ->
+                    StickerTags(sticker.tags.toSet()) { tags ->
+                        if (tags == null) {
+                            screen = Screen.PICKER
+                        } else {
+                            scope.launch {
+                                // Action editTags; going back to the picker reads the packs again.
+                                tagsFailed = runCatching { packClient?.setTags(sticker.shortcode, tags) ?: error("no session") }.isFailure
+                                screen = Screen.PICKER
+                            }
+                        }
+                    }
+                }
                 Screen.PICKER -> {
                     Header(stringResource(R.string.bipe_stickers_title), stringResource(R.string.bipe_app_close), onClose)
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        placeholder = { Text(stringResource(R.string.bipe_stickers_search_placeholder)) },
+                        singleLine = true,
+                        trailingIcon = if (query.isEmpty()) null else ({
+                            IconButton(onClick = { query = "" }) {
+                                Icon(painterResource(PhosphorIcon.X.drawable), contentDescription = stringResource(R.string.bipe_a11y_clear_search), tint = colors.glyphSecondary)
+                            }
+                        }),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
                     Box(modifier = Modifier.weight(1f).fillMaxWidth().testTag(BipeScreen.STICKER_PICKER.id), contentAlignment = Alignment.Center) {
                         when {
                             loaded == null -> CircularProgressIndicator(color = colors.accentFill)
@@ -139,6 +211,32 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
                                 Text(stringResource(R.string.bipe_stickers_empty_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
                                 Text(stringResource(R.string.bipe_stickers_empty_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
                             }
+                            StickerSearch.fold(query).isNotEmpty() || StickerSearch.emojiKey(query).isNotEmpty() -> {
+                                val favouriteStickers = StickerShortlist.resolve(favourites, packs)
+                                val recentStickers = StickerShortlist.resolve(recents.filter { it !in favourites }, packs)
+                                val titles = packs.associate { it.id to packTitle(it, roomId) }
+                                val results = StickerSearch.results(query, listOf(favouriteStickers, recentStickers) + packs.map { it.stickers }) { titles[it] }
+                                if (results.isEmpty()) {
+                                    Text(stringResource(R.string.bipe_stickers_search_empty), color = colors.inkSecondary, modifier = Modifier.padding(24.dp))
+                                } else {
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Adaptive(76.dp),
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        items(results, key = { "result-${it.id}" }) { sticker ->
+                                            StickerThumbnail(
+                                                sticker, loader, StickerRef(sticker) in favourites,
+                                                onClick = { send(sticker) },
+                                                onToggleFavourite = { toggleFavourite(sticker) },
+                                                onEditTags = editTags(sticker) { editingTags = sticker; screen = Screen.TAGS },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             else -> LazyVerticalGrid(
                                 columns = GridCells.Adaptive(76.dp),
                                 modifier = Modifier.fillMaxSize(),
@@ -146,18 +244,33 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                packs.forEach { pack ->
-                                    item(key = "title-${pack.id}", span = { GridItemSpan(maxLineSpan) }) {
-                                        Text(
-                                            packTitle(pack, roomId),
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = colors.inkSecondary,
-                                            modifier = Modifier.padding(top = 8.dp),
+                                val favouriteStickers = StickerShortlist.resolve(favourites, packs)
+                                val recentStickers = StickerShortlist.resolve(recents.filter { it !in favourites }, packs)
+                                val sections = buildList {
+                                    if (favouriteStickers.isNotEmpty()) add(Triple("favourites", R.string.bipe_stickers_favourites, favouriteStickers))
+                                    if (recentStickers.isNotEmpty()) add(Triple("recents", R.string.bipe_stickers_recents, recentStickers))
+                                }
+                                // Keys carry the section: one sticker can show in favourites, recents and its pack.
+                                sections.forEach { (section, titleRes, stickers) ->
+                                    item(key = "title-$section", span = { GridItemSpan(maxLineSpan) }) { SectionTitle(stringResource(titleRes)) }
+                                    items(stickers, key = { "$section-${it.id}" }) { sticker ->
+                                        StickerThumbnail(
+                                            sticker, loader, StickerRef(sticker) in favourites,
+                                            onClick = { send(sticker) },
+                                            onToggleFavourite = { toggleFavourite(sticker) },
+                                            onEditTags = editTags(sticker) { editingTags = sticker; screen = Screen.TAGS },
                                         )
                                     }
-                                    items(pack.stickers, key = { it.id }) { sticker ->
-                                        StickerThumbnail(sticker, loader, onClick = { send(sticker) })
+                                }
+                                packs.forEach { pack ->
+                                    item(key = "title-${pack.id}", span = { GridItemSpan(maxLineSpan) }) { SectionTitle(packTitle(pack, roomId)) }
+                                    items(pack.stickers, key = { "pack-${it.id}" }) { sticker ->
+                                        StickerThumbnail(
+                                            sticker, loader, StickerRef(sticker) in favourites,
+                                            onClick = { send(sticker) },
+                                            onToggleFavourite = { toggleFavourite(sticker) },
+                                            onEditTags = editTags(sticker) { editingTags = sticker; screen = Screen.TAGS },
+                                        )
                                     }
                                 }
                             }
@@ -167,6 +280,9 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
                         modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised).padding(12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        if (tagsFailed) {
+                            Text(stringResource(R.string.bipe_app_save_error), style = MaterialTheme.typography.labelMedium, color = colors.trustDangerInk)
+                        }
                         if (sendFailed) {
                             Text(stringResource(R.string.bipe_app_sticker_send_failed), style = MaterialTheme.typography.labelMedium, color = colors.trustDangerInk)
                         }
@@ -181,6 +297,9 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
     }
 }
 
+/** Tags are edited only in the user's own pack (spec sticker-picker editTags). */
+private fun editTags(sticker: Sticker, open: () -> Unit): (() -> Unit)? = if (sticker.packId == "user") open else null
+
 @Composable
 private fun packTitle(pack: StickerPack, roomId: String): String = when (val source = pack.source) {
     StickerPack.Source.User -> stringResource(R.string.bipe_stickers_pack_personal)
@@ -192,19 +311,46 @@ private fun packTitle(pack: StickerPack, roomId: String): String = when (val sou
 }
 
 @Composable
-private fun StickerThumbnail(sticker: Sticker, loader: MediaLoader, onClick: () -> Unit) {
+private fun SectionTitle(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = BipeTheme.colors.inkSecondary,
+        modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+/** A sticker cell. A long press opens the favourite toggle (spec sticker-picker toggleFavourite). */
+@Composable
+private fun StickerThumbnail(
+    sticker: Sticker,
+    loader: MediaLoader,
+    isFavourite: Boolean,
+    onClick: () -> Unit,
+    onToggleFavourite: () -> Unit,
+    onEditTags: (() -> Unit)?,
+) {
     val colors = BipeTheme.colors
     var image by remember(sticker.url) { mutableStateOf<ImageBitmap?>(null) }
+    var menu by remember { mutableStateOf(false) }
     LaunchedEffect(sticker.url) { image = loader.thumbnail(sticker.url, 228) }
     val label = stringResource(R.string.bipe_a11y_sticker_send, sticker.body)
+    val favouriteLabel = stringResource(if (isFavourite) R.string.bipe_sticker_favourite_remove else R.string.bipe_sticker_favourite_add)
     Box(
         modifier = Modifier
             .size(76.dp)
             .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = { menu = true }, onLongClickLabel = favouriteLabel)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text(favouriteLabel) }, onClick = { menu = false; onToggleFavourite() })
+            onEditTags?.let { edit ->
+                DropdownMenuItem(text = { Text(stringResource(R.string.bipe_sticker_edit_tags)) }, onClick = { menu = false; edit() })
+            }
+        }
         val bitmap = image
         if (bitmap != null) {
             Image(bitmap, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
@@ -212,6 +358,58 @@ private fun StickerThumbnail(sticker: Sticker, loader: MediaLoader, onClick: () 
             Box(Modifier.fillMaxSize().background(colors.surfaceSunken))
         }
     }
+}
+
+/** Action editTags of spec sticker-picker: the registry tags, several can be on. done(null) cancels. */
+@Composable
+private fun ColumnScope.StickerTags(initial: Set<String>, done: (List<String>?) -> Unit) {
+    val colors = BipeTheme.colors
+    var selected by remember { mutableStateOf(initial) }
+    Header(stringResource(R.string.bipe_sticker_edit_tags), stringResource(R.string.bipe_app_cancel)) { done(null) }
+    LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+        listItems(BipeRegistries.STICKER_TAGS, key = { it }) { tag ->
+            val on = tag in selected
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(value = on, role = Role.Switch, onValueChange = { selected = if (it) selected + tag else selected - tag })
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stickerTagName(tag), color = colors.inkPrimary, modifier = Modifier.weight(1f))
+                Switch(checked = on, onCheckedChange = null)
+            }
+        }
+    }
+    BipeButton(
+        onClick = { done(BipeRegistries.STICKER_TAGS.filter { it in selected }) },
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+    ) { Text(stringResource(R.string.bipe_app_save)) }
+}
+
+/** The display name of a tag id of registries/stickers.json (string key bipe_sticker_tag_<id, - as _>). */
+@Composable
+fun stickerTagName(tag: String): String = when (tag) {
+    "riso" -> stringResource(R.string.bipe_sticker_tag_riso)
+    "amor" -> stringResource(R.string.bipe_sticker_tag_amor)
+    "bom-dia" -> stringResource(R.string.bipe_sticker_tag_bom_dia)
+    "boa-tarde" -> stringResource(R.string.bipe_sticker_tag_boa_tarde)
+    "boa-noite" -> stringResource(R.string.bipe_sticker_tag_boa_noite)
+    "parabens" -> stringResource(R.string.bipe_sticker_tag_parabens)
+    "obrigado" -> stringResource(R.string.bipe_sticker_tag_obrigado)
+    "sextou" -> stringResource(R.string.bipe_sticker_tag_sextou)
+    "tmj" -> stringResource(R.string.bipe_sticker_tag_tmj)
+    "amem" -> stringResource(R.string.bipe_sticker_tag_amem)
+    "choro" -> stringResource(R.string.bipe_sticker_tag_choro)
+    "raiva" -> stringResource(R.string.bipe_sticker_tag_raiva)
+    "surpresa" -> stringResource(R.string.bipe_sticker_tag_surpresa)
+    "ok" -> stringResource(R.string.bipe_sticker_tag_ok)
+    "tchau" -> stringResource(R.string.bipe_sticker_tag_tchau)
+    "festa" -> stringResource(R.string.bipe_sticker_tag_festa)
+    "fome" -> stringResource(R.string.bipe_sticker_tag_fome)
+    "cansado" -> stringResource(R.string.bipe_sticker_tag_cansado)
+    "duvida" -> stringResource(R.string.bipe_sticker_tag_duvida)
+    else -> tag
 }
 
 @Composable

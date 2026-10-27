@@ -7,6 +7,7 @@
 
 package chat.bipe.stickers
 
+import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -70,6 +71,7 @@ class StickerPackClient(
                 val extension = if (candidate.mimeType == "image/png") "png" else "webp"
                 val url = upload(candidate.bytes, candidate.mimeType, "${candidate.shortcode}.$extension", token)
                 images[candidate.shortcode] = buildJsonObject {
+                    if (candidate.tags.isNotEmpty()) putJsonArray(BipeRegistries.STICKER_TAGS_FIELD) { candidate.tags.forEach { add(it) } }
                     put("url", url)
                     put("body", "Sticker")
                     putJsonArray("usage") { add("sticker") }
@@ -91,6 +93,35 @@ class StickerPackClient(
         }
         uploadError?.let { throw it }
         added
+    }
+
+    /**
+     * Action editTags of spec sticker-picker: writes the tags of one image of the user's pack with a
+     * read-merge-write on the server copy, keeping every other field. An empty list removes the field.
+     */
+    suspend fun setTags(shortcode: String, tags: List<String>) = withTokenRetry { token ->
+        val path = listOf("user", userId, "account_data", StickerPackEventType.USER_PACK)
+        val content = get(path, token)?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?: throw IOException("No sticker pack")
+        val images = content["images"] as? JsonObject ?: throw IOException("No sticker pack")
+        val image = images[shortcode] as? JsonObject ?: throw IOException("No sticker $shortcode")
+        val known = BipeRegistries.STICKER_TAGS.filter { it in tags }
+        val updated = if (known.isEmpty()) {
+            JsonObject(image - BipeRegistries.STICKER_TAGS_FIELD)
+        } else {
+            JsonObject(image + (BipeRegistries.STICKER_TAGS_FIELD to JsonArray(known.map { JsonPrimitive(it) })))
+        }
+        put(path, JsonObject(content + ("images" to JsonObject(images + (shortcode to updated)))).toString(), token)
+    }
+
+    /** A sticker list in global account data ([StickerShortlist]): recents or favourites. Empty when unset. */
+    suspend fun shortlist(eventType: String): List<StickerRef> = withTokenRetry { token ->
+        get(listOf("user", userId, "account_data", eventType), token)?.let(StickerShortlist::parse).orEmpty()
+    }
+
+    /** Writes the whole list, so a later write also carries changes from a failed one. */
+    suspend fun setShortlist(eventType: String, refs: List<StickerRef>) = withTokenRetry { token ->
+        put(listOf("user", userId, "account_data", eventType), StickerShortlist.content(refs), token)
     }
 
     private suspend fun roomPacks(roomId: String, token: String): List<StickerPack> {
