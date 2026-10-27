@@ -18,11 +18,14 @@ import kotlin.math.sinh
 
 /** Type MapCentre of spec location-send: a place and a zoom. */
 data class MapPoint(val latitude: Double, val longitude: Double, val zoom: Int) {
-    fun withZoom(zoom: Int): MapPoint = copy(zoom = BipeMap.clampZoom(zoom))
+    fun withZoom(zoom: Int): MapPoint = copy(zoom = BipeMap.clampZoom(zoom, latitude, longitude))
+
+    /** maxZoom inside detailBounds, outsideMaxZoom outside it. */
+    val maxZoom: Int get() = BipeMap.maxZoom(latitude, longitude)
 
     companion object {
         fun of(latitude: Double, longitude: Double, zoom: Int = BipeRegistries.MAPS_DEFAULT_ZOOM): MapPoint =
-            MapPoint(latitude, longitude, BipeMap.clampZoom(zoom))
+            MapPoint(latitude, longitude, BipeMap.clampZoom(zoom, latitude, longitude))
 
         /** The centre of Brazil at minZoom: the start of location-send until the position comes. */
         val BRAZIL = MapPoint(-14.2, -51.9, BipeRegistries.MAPS_MIN_ZOOM)
@@ -39,7 +42,18 @@ data class MapOffset(val x: Double, val y: Double)
 object BipeMap {
     private const val MAX_LATITUDE = 85.05112878
 
-    fun clampZoom(zoom: Int): Int = zoom.coerceIn(BipeRegistries.MAPS_MIN_ZOOM, BipeRegistries.MAPS_MAX_ZOOM)
+    /**
+     * The server has detailBounds (Brazil) at every zoom and the world only to a low zoom (registries/maps.json).
+     * Deeper than outsideMaxZoom a map abroad is an empty area, so it stops there.
+     */
+    fun maxZoom(latitude: Double, longitude: Double): Int {
+        val inside = latitude in BipeRegistries.MAPS_DETAIL_SOUTH..BipeRegistries.MAPS_DETAIL_NORTH &&
+            longitude in BipeRegistries.MAPS_DETAIL_WEST..BipeRegistries.MAPS_DETAIL_EAST
+        return if (inside) BipeRegistries.MAPS_MAX_ZOOM else BipeRegistries.MAPS_OUTSIDE_MAX_ZOOM
+    }
+
+    fun clampZoom(zoom: Int, latitude: Double, longitude: Double): Int =
+        zoom.coerceIn(BipeRegistries.MAPS_MIN_ZOOM, maxZoom(latitude, longitude))
 
     private fun worldSize(zoom: Int): Double = 512.0 * 2.0.pow(zoom)
 
@@ -58,7 +72,7 @@ object BipeMap {
         longitude = ((longitude + 180) % 360 + 360) % 360 - 180
         val n = PI - 2 * PI * (origin.y + offset.y) / size
         val latitude = (atan(sinh(n)) * 180 / PI).coerceIn(-MAX_LATITUDE, MAX_LATITUDE)
-        return MapPoint(latitude, longitude, centre.zoom)
+        return MapPoint.of(latitude, longitude, centre.zoom)
     }
 
     /** Where a place shows, in points from the view centre, on a map centred at `centre` (at the zoom of `centre`). */
