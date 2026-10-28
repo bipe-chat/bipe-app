@@ -27,7 +27,11 @@ import kotlinx.serialization.json.Json
 /**
  * The app lock PIN and the biometric unlock flag (spec app-lock, ADR 0137): one file in `noBackupFilesDir`, encrypted
  * with an Android Keystore key, never synced, never sent. The PIN is kept as a salted PBKDF2 hash and checked on the
- * device; a wrong app lock PIN never counts against the account. Never logged.
+ * device; a wrong app lock PIN never counts against the account, but it counts against the local try limit
+ * ([BipeAppLockTries]). Never logged.
+ *
+ * A lock file that cannot be read (a Keystore or decrypt error, a broken file) keeps the lock on (bipe-chat/bipe#777):
+ * only a file that is not there means off.
  */
 class BipeAppLock(context: Context) {
     private val file = File(context.noBackupFilesDir, FILE_NAME)
@@ -38,31 +42,86 @@ class BipeAppLock(context: Context) {
         @SerialName("salt") val salt: String,
         @SerialName("hash") val hash: String,
         @SerialName("biometric_unlock") val biometricUnlock: Boolean = false,
+        /** Wrong tries in a row; 0 in a file from before the try limit. */
+        @SerialName("failures") val failures: Int = 0,
+        @SerialName("last_failure") val lastFailure: Long = 0,
     ) {
         override fun toString(): String = "BipeAppLock.Stored"
     }
 
-    /** The lock is on while an app lock PIN is set. Off by default (ADR 0137). */
-    val isOn: Boolean get() = read() != null
+    /** The result of a PIN check. */
+    sealed interface Check {
+        data object Match : Check
 
-    val biometricUnlock: Boolean get() = read()?.biometricUnlock ?: false
+        data object Wrong : Check
 
-    /** Sets the app lock PIN. Keeps the biometric flag when the lock was already on. Runs PBKDF2: call off the main thread. */
+        /** Too many wrong tries: no check until [until] (wall-clock milliseconds). */
+        data class Wait(val until: Long) : Check
+    }
+
+    private sealed interface Record {
+        data object None : Record
+
+        data class Present(val stored: Stored) : Record
+
+        /** The Keystore or the file failed: the lock stays on. */
+        data object Unreadable : Record
+    }
+
+    /** The lock is on while an app lock PIN is set, or while the lock file cannot be read. Off by default (ADR 0137). */
+    val isOn: Boolean get() = read() != Record.None
+
+    val biometricUnlock: Boolean get() = (read() as? Record.Present)?.stored?.biometricUnlock ?: false
+
+    /** Sets the app lock PIN. Keeps the biometric flag when the lock was already on. Clears the wrong tries. Runs PBKDF2: call off the main thread. */
     fun setPin(pin: String): Boolean {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
-        val stored = Stored(encode(salt), encode(hash(pin, salt)), read()?.biometricUnlock ?: false)
+        val stored = Stored(encode(salt), encode(hash(pin, salt)), biometricUnlock)
         return runCatching { write(stored) }.isSuccess
     }
 
-    /** Checks a PIN on the device. Runs PBKDF2: call off the main thread. */
-    fun verifyPin(pin: String): Boolean {
-        val stored = read() ?: return false
-        return MessageDigest.isEqual(hash(pin, decode(stored.salt)), decode(stored.hash))
+    /**
+     * Checks a PIN on the device, with the try limit. A wrong PIN is counted before the answer, so closing the app does
+     * not undo it. An unreadable file never matches. Runs PBKDF2: call off the main thread.
+     */
+    @Synchronized
+    fun checkPin(pin: String, now: Long = System.currentTimeMillis()): Check {
+        var stored = (read() as? Record.Present)?.stored ?: return Check.Wrong
+        stored = clockChecked(stored, now)
+        BipeAppLockTries.waitEnd(stored.failures, stored.lastFailure, now)?.let { return Check.Wait(it) }
+        if (MessageDigest.isEqual(hash(pin, decode(stored.salt)), decode(stored.hash))) {
+            if (stored.failures > 0) runCatching { write(stored.copy(failures = 0, lastFailure = 0)) }
+            return Check.Match
+        }
+        val failed = stored.copy(failures = stored.failures + 1, lastFailure = now)
+        runCatching { write(failed) }
+        return BipeAppLockTries.waitEnd(failed.failures, now, now)?.let { Check.Wait(it) } ?: Check.Wrong
+    }
+
+    /** The end of the current wait (wall-clock milliseconds), or null when a PIN can be typed. */
+    @Synchronized
+    fun waitUntil(now: Long = System.currentTimeMillis()): Long? {
+        val stored = (read() as? Record.Present)?.stored ?: return null
+        val checked = clockChecked(stored, now)
+        return BipeAppLockTries.waitEnd(checked.failures, checked.lastFailure, now)
+    }
+
+    /** After a biometric unlock: the owner is back, so the wrong tries start again from zero. */
+    @Synchronized
+    fun clearFailures() {
+        val stored = (read() as? Record.Present)?.stored ?: return
+        if (stored.failures > 0) runCatching { write(stored.copy(failures = 0, lastFailure = 0)) }
     }
 
     fun setBiometricUnlock(isOn: Boolean) {
-        val stored = read() ?: return
+        val stored = (read() as? Record.Present)?.stored ?: return
         runCatching { write(stored.copy(biometricUnlock = isOn)) }
+    }
+
+    /** A clock set back before the last wrong try restarts the wait from now, so it cannot shorten the wait. */
+    private fun clockChecked(stored: Stored, now: Long): Stored {
+        if (stored.failures == 0 || stored.lastFailure <= now) return stored
+        return stored.copy(lastFailure = now).also { runCatching { write(it) } }
     }
 
     /** Turns the lock off: removes the app lock PIN and biometric unlock. */
@@ -79,14 +138,15 @@ class BipeAppLock(context: Context) {
         }
     }
 
-    private fun read(): Stored? {
-        if (!file.exists()) return null
+    /** Only a missing file means no lock; any error keeps the lock on. */
+    private fun read(): Record {
+        if (!file.exists()) return Record.None
         return runCatching {
             val sealed = decode(file.readText())
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(TAG_BITS, sealed, 0, IV_SIZE))
             json.decodeFromString(Stored.serializer(), cipher.doFinal(sealed, IV_SIZE, sealed.size - IV_SIZE).decodeToString())
-        }.getOrNull()
+        }.fold({ Record.Present(it) }, { Record.Unreadable })
     }
 
     private fun write(stored: Stored) {
