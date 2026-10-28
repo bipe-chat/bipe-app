@@ -27,6 +27,35 @@ object BipeWebLink {
     /** The localpart of a Matrix ID: "@ana:bipe.net.br" → "ana". */
     fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
 
+    /**
+     * The rendezvous URL of a scanned sign-in code (bipe-chat/bipe#785, ADR 0116). An MSC4108 code (`MATRIX`, version
+     * 0x02) carries it after the intent byte and the 32-byte key, as a big-endian u16 length and UTF-8 text
+     * (matrix-sdk-crypto qr_login msc_4108). An MSC4388 code carries the homeserver base URL instead
+     * (QrCodeData.baseUrl). Null when the code has neither.
+     */
+    fun rendezvousUrl(qrBytes: ByteArray, baseUrl: String?): java.net.URI? {
+        val prefix = "MATRIX".encodeToByteArray()
+        if (qrBytes.size < prefix.size || !qrBytes.copyOfRange(0, prefix.size).contentEquals(prefix)) {
+            return baseUrl?.let { runCatching { java.net.URI(it) }.getOrNull() }
+        }
+        val start = prefix.size + 2 + 32
+        if (qrBytes.size < start + 2 || qrBytes[prefix.size] != 0x02.toByte()) return null
+        val length = (qrBytes[start].toInt() and 0xff shl 8) or (qrBytes[start + 1].toInt() and 0xff)
+        if (qrBytes.size < start + 2 + length) return null
+        val text = qrBytes.copyOfRange(start + 2, start + 2 + length).decodeToString()
+        return runCatching { java.net.URI(text) }.getOrNull()
+    }
+
+    /**
+     * Link a computer approves only a code whose rendezvous is on the account's own homeserver, over https, so a code
+     * shown by a client of another server never gets a session for this account.
+     */
+    fun isOwnRendezvous(qrBytes: ByteArray, baseUrl: String?, homeserver: String): Boolean {
+        val url = rendezvousUrl(qrBytes, baseUrl) ?: return false
+        val own = runCatching { java.net.URI(homeserver).host }.getOrNull() ?: return false
+        return url.scheme.equals("https", ignoreCase = true) && url.host?.equals(own, ignoreCase = true) == true
+    }
+
     /** The web view loads only https pages on the MAS host. */
     fun isAllowed(url: String, host: String): Boolean {
         val uri = Uri.parse(url)
@@ -80,6 +109,8 @@ data class BipeMatrixDevice(
     @SerialName("device_id") val deviceId: String,
     @SerialName("display_name") val displayName: String? = null,
     @SerialName("last_seen_ts") val lastSeenTs: Long? = null,
+    /** The IP of the device's last request, for its approximate place on the approval screen (rule 5). */
+    @SerialName("last_seen_ip") val lastSeenIp: String? = null,
 )
 
 @Serializable

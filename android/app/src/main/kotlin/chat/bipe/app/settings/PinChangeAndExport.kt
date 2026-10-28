@@ -50,6 +50,7 @@ import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.settings.checkPin
 import chat.bipe.shared.settings.exportMyData
 import chat.bipe.shared.settings.setPin
 import java.io.File
@@ -58,7 +59,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Spec pin-change, phase. PIN_CHECK: the app lock PIN on a phone with no screen lock. */
+/** Spec pin-change, phase. PIN_CHECK: the Bipe PIN, checked by the server, on a phone with no strong biometrics. */
 enum class PinChangePhase { CONFIRM_IDENTITY, PIN_CHECK, ENTERING, SAVING, FAILED, DONE }
 
 /** Spec pin-change: changes the account PIN after the owner check. No old PIN is needed (ADR 0057). */
@@ -101,20 +102,27 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
         }
     }
 
-    // Action confirmIdentity. A phone with no screen lock uses the app lock PIN when the lock is on; else the screen
-    // closes (fail closed, as in data-export).
+    // Action confirmIdentity (rule 14 tier 3, bipe-chat/bipe#785): strong biometrics, or the current Bipe PIN checked by
+    // the server on a phone without them; never the screen lock. A phone with no screen lock cannot change the PIN; the
+    // screen closes (fail closed).
     LaunchedEffect(Unit) {
-        when {
-            OwnerCheck.canCheckOwner(context) -> if (OwnerCheck.owner(context, reason)) phase = PinChangePhase.ENTERING else onClose()
-            lock.store.isOn -> phase = PinChangePhase.PIN_CHECK
-            else -> onClose()
+        when (OwnerCheck.approvalMethod(context)) {
+            OwnerCheck.ApprovalMethod.BIOMETRICS ->
+                if (OwnerCheck.strongBiometrics(context, reason, context.getString(R.string.bipe_app_cancel))) phase = PinChangePhase.ENTERING else onClose()
+            OwnerCheck.ApprovalMethod.ACCOUNT_PIN -> phase = PinChangePhase.PIN_CHECK
+            OwnerCheck.ApprovalMethod.NONE -> onClose()
         }
     }
 
     val colors = BipeTheme.colors
     when (phase) {
         PinChangePhase.CONFIRM_IDENTITY -> Surface(Modifier.fillMaxSize().testTag(BipeScreen.PIN_CHANGE.id), color = colors.surfaceBase) {}
-        PinChangePhase.PIN_CHECK -> AppLockPinCheck(stringResource(R.string.bipe_pin_change_title), onPass = { phase = PinChangePhase.ENTERING }, onCancel = onClose)
+        PinChangePhase.PIN_CHECK -> AccountPinCheck(
+            title = stringResource(R.string.bipe_pin_change_title),
+            check = { pin -> model.authorized { model.api.checkPin(pin, it) } },
+            onPass = { phase = PinChangePhase.ENTERING },
+            onCancel = onClose,
+        )
         PinChangePhase.ENTERING, PinChangePhase.SAVING -> PinPad(
             title = setup.title(context),
             pin = setup.pin,
