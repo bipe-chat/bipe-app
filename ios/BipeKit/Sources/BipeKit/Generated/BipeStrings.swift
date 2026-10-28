@@ -3350,6 +3350,66 @@ public enum BipeStrings {
 
     public static var appTimelineStart: String { NSLocalizedString("bipe_app_timeline_start", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func appStateNamesTwo(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_names_two", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func appStateNamesMore(_ p1: String, _ p2: String, _ p3: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_names_more", tableName: "Bipe", bundle: .module, comment: ""), p1, p2, p3)
+    }
+
+    public static func appStateJoinedOne(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_joined_one", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appStateJoinedMany(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_joined_many", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appStateLeftOne(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_left_one", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appStateLeftMany(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_left_many", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appStateInvited(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_invited", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func appStateRemoved(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_removed", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func appStateBanned(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_banned", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func appStateRenamed(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_renamed", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func appStateNameRemoved(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_name_removed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appStatePhotoChanged(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_photo_changed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appStatePhotoRemoved(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_photo_removed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appStateDescriptionChanged(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_description_changed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func appStateDescriptionRemoved(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_description_removed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var appName: String { NSLocalizedString("bipe_app_name", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func appSdkVersion(_ p1: String) -> String {
