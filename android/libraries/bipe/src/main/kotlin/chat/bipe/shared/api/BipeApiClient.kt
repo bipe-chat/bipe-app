@@ -230,6 +230,17 @@ class BipeApiClient(baseUrl: String) {
         )
     }
 
+    /**
+     * `POST /v1/beta/login`. No auth (bipe-chat/bipe#627). The Matrix ID of the beta account whose login email and
+     * password these are. Unknown email and wrong password are the same `unauthorized`.
+     */
+    suspend fun betaLogin(email: String, password: String): String = send(
+        "POST",
+        listOf("v1", "beta", "login"),
+        body = encode(BipeBetaLoginRequest.serializer(), BipeBetaLoginRequest(email, password)),
+        response = BipeBetaLoginResponse.serializer(),
+    ).userId
+
     /** `POST /v1/recovery/email/confirm`. No auth. The link token and exactly one of [pin] (access) or [newPin] (PIN reset). */
     suspend fun confirmRecoveryEmail(linkToken: String, pin: String?, newPin: String?): BipeRecoveryStarted = send(
         "POST",
