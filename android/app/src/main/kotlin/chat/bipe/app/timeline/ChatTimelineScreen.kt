@@ -147,6 +147,7 @@ fun ChatTimelineScreen(
         undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable),
         label = { context.getString(it) },
         format = { id, arg -> context.getString(id, arg) },
+        formatArgs = { id, args -> context.getString(id, *args.toTypedArray()) },
     )
     val model = remember(session, roomId) {
         ChatTimelineModel(

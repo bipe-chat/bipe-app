@@ -54,8 +54,12 @@ data class TimelineRow(
     val handleChange: HandleChangeLine? = null,
     /** kind call only (spec incoming-call notes). */
     val callText: String? = null,
+    /** kind stateLine only (bipe-chat/bipe#661). */
+    val stateLine: StateLine? = null,
+    /** kind stateLine only: the line as the person reads it. */
+    val stateText: String? = null,
 ) {
-    enum class Kind { MESSAGE, UNDECRYPTABLE, DELETED, POLL, DATE_SEPARATOR, READ_MARKER, HANDLE_CHANGE, NOT_ENCRYPTED, CHAT_START, CALL }
+    enum class Kind { MESSAGE, UNDECRYPTABLE, DELETED, POLL, DATE_SEPARATOR, READ_MARKER, HANDLE_CHANGE, NOT_ENCRYPTED, CHAT_START, CALL, STATE_LINE }
 }
 
 /** Type HandleChangeLine of spec handle-change-line. */
@@ -143,6 +147,8 @@ data class RowStrings(
     val label: (Int) -> String = { "" },
     /** A string resource with one argument (the call lines of spec incoming-call). */
     val format: (Int, String) -> String = { _, _ -> "" },
+    /** A string resource with its arguments in order (the state lines of spec timeline-rows). */
+    val formatArgs: (Int, List<String>) -> String = { _, _ -> "" },
 )
 
 class BuiltRows(val rows: List<TimelineRow>, val hitStart: Boolean, val unknownUsers: Set<String>)
@@ -203,6 +209,19 @@ object TimelineRowBuilder {
                 }
                 null -> {
                     val event = item.asEvent() ?: return@forEachIndexed
+                    // Spec timeline-rows stateLine: group lines only; consecutive membership lines fold into one row.
+                    if (!facts.isDm) {
+                        StateLines.line(event)?.let { line ->
+                            val previous = rows.lastOrNull()?.takeIf { it.kind == TimelineRow.Kind.STATE_LINE }?.stateLine
+                            val folded = previous?.let { StateLines.folded(line, it) }
+                            if (folded != null) {
+                                rows[rows.lastIndex] = rows.last().copy(stateLine = folded, stateText = StateLines.text(folded, ::name, strings.formatArgs))
+                            } else {
+                                rows += TimelineRow(id, TimelineRow.Kind.STATE_LINE, stateLine = line, stateText = StateLines.text(line, ::name, strings.formatArgs))
+                            }
+                            return@forEachIndexed
+                        }
+                    }
                     (event.content as? TimelineItemContent.RtcNotification)?.let { call ->
                         rows += callRows(id, event, call, items, index, facts, strings, ::name)
                         return@forEachIndexed
