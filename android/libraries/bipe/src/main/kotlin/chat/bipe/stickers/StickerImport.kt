@@ -9,6 +9,7 @@ package chat.bipe.stickers
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
+import chat.bipe.shared.generated.BipeRegistries
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.security.MessageDigest
@@ -28,8 +29,8 @@ class StickerImportCandidate(
 /** Imports stickers from a WhatsApp chat export or from loose image files (ADR 0029, 0033). */
 object StickerImporter {
     /** WhatsApp stickers are 512 × 512, static up to 100 KB, animated up to 500 KB. These limits leave room. */
-    const val MAX_FILE_SIZE = 1_000_000
-    const val MAX_SIDE = 1024
+    const val MAX_FILE_SIZE = BipeRegistries.STICKER_IMPORT_MAX_BYTES
+    const val MAX_SIDE = BipeRegistries.STICKER_IMPORT_MAX_PIXELS
 
     /** WhatsApp's sticker size. */
     const val STICKER_SIDE = 512
@@ -49,10 +50,14 @@ object StickerImporter {
         }.orEmpty()
     }
 
-    /** Checks the format by its magic bytes and the size with BitmapFactory. Returns null when the file is not a usable sticker. */
+    /**
+     * Checks the format by its magic bytes and the size with BitmapFactory. Returns null when the file is not a usable sticker.
+     * Animated WebP passes; an animated PNG does not (ADR 0205: animated WebP is the one animated format).
+     */
     fun candidate(bytes: ByteArray): StickerImportCandidate? {
         if (bytes.size > MAX_FILE_SIZE) return null
         val mimeType = mimeType(bytes) ?: return null
+        if (StickerFormat.isAnimatedPng(bytes)) return null
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
         val width = options.outWidth

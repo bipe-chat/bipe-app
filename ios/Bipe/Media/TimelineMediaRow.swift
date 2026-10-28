@@ -32,6 +32,11 @@ struct TimelineMediaRow: View {
     @State private var image: UIImage?
     @State private var fileURL: URL?
     @State private var isOpeningFile = false
+    /// Action playAnimation: the person tapped play on an animated sticker.
+    @State private var playTapped = false
+    /// Data saver on mobile data: the server's still of a sticker shows; its file loads on play.
+    @State private var waitsForPlay = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let maxWidth: CGFloat = 260
     private static let stickerWidth: CGFloat = 160
@@ -77,7 +82,23 @@ struct TimelineMediaRow: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(media.accessibilityLabel)
             .accessibilityAddTraits(.isButton)
+            .accessibilityActions {
+                if showsPlayMark {
+                    Button(BipeStrings.a11yStickerPlay, action: play)
+                }
+            }
             .task(id: "\(media.source.url)#\(revealed)") { await appear() }
+    }
+
+    /// Spec timeline-media notes: an animated sticker plays in a loop, except with the data saver on mobile
+    /// data or Reduce Motion; then it waits for a tap. A tap to show the media counts as one.
+    private var playsAnimation: Bool {
+        playTapped || revealed || (!reduceMotion && !DataUseMeter.shared.savesData)
+    }
+
+    /// The first frame of an animated sticker that waits for a tap.
+    private var showsPlayMark: Bool {
+        media.kind == .sticker && display == .shown && (waitsForPlay || (image?.isAnimatedImage == true && !playsAnimation))
     }
 
     private var visualContent: some View {
@@ -89,9 +110,13 @@ struct TimelineMediaRow: View {
                 BipeColor.surfaceSunken
             }
             if display == .shown, let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: media.kind == .sticker ? .fit : .fill)
+                if image.isAnimatedImage, playsAnimation {
+                    AnimatedImageView(image: image)
+                } else {
+                    Image(uiImage: image.firstFrame)
+                        .resizable()
+                        .aspectRatio(contentMode: media.kind == .sticker ? .fit : .fill)
+                }
             }
             overlay
         }
@@ -128,6 +153,12 @@ struct TimelineMediaRow: View {
             case .shown:
                 if media.kind == .video {
                     videoBadge
+                } else if showsPlayMark {
+                    PhosphorIcon.play.image
+                        .resizable()
+                        .frame(width: 22, height: 22)
+                        .padding(12)
+                        .mediaScrim(Circle())
                 }
             }
         }
@@ -230,11 +261,22 @@ struct TimelineMediaRow: View {
         guard media.kind != .file else { return }
         // Spec data-use: on mobile data with the data saver, photos and stickers wait for a tap.
         let savesData = (media.kind == .image || media.kind == .sticker) && DataUseMeter.shared.savesData
-        guard revealed || (ShowMedia.current.shows(inPrivateRoom: isPrivateRoom) && !savesData) || message.isOwn else {
-            display = .tapToShow
+        let shows = ShowMedia.current.shows(inPrivateRoom: isPrivateRoom)
+        guard revealed || (shows && !savesData) || message.isOwn else {
+            // An animated sticker shows the server's still of its first frame with a play mark instead
+            // (spec timeline-media notes). Without a still (an encrypted file), it waits as a photo does.
+            if media.mayBeAnimated, shows, display != .shown,
+               let still = await loader.thumbnail(mxcUrl: media.source.url, size: 480) {
+                image = still
+                waitsForPlay = true
+                display = .shown
+            } else if !waitsForPlay {
+                display = .tapToShow
+            }
             return
         }
-        guard display != .shown else { return }
+        guard display != .shown || waitsForPlay else { return }
+        waitsForPlay = false
         display = image == nil && media.blurhash == nil ? .loading : .placeholder
         if let loaded = await loader.previewImage(media, maxPixel: media.kind == .sticker ? 480 : 900) {
             image = loaded
@@ -247,6 +289,10 @@ struct TimelineMediaRow: View {
     private func tap() {
         if media.uploadProgress != nil, message.sendState == .sending {
             cancelUpload()
+            return
+        }
+        if showsPlayMark {
+            play()
             return
         }
         switch display {
@@ -262,6 +308,14 @@ struct TimelineMediaRow: View {
             } else {
                 openFile()
             }
+        }
+    }
+
+    /// Action playAnimation: loads the file when only the still shows, then plays.
+    private func play() {
+        playTapped = true
+        if waitsForPlay {
+            revealed = true
         }
     }
 
