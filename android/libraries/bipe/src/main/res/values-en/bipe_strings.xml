@@ -604,6 +604,11 @@
     <string name="bipe_pix_check_private">The check runs only on your phone.</string>
     <string name="bipe_pix_check_send_to_chat">Send to a chat</string>
     <string name="bipe_pix_check_close">Close</string>
+    <string name="bipe_pix_check_share_result">Send result</string>
+    <string name="bipe_pix_check_share_code">I checked on Bipe: this Pix goes to %1$s, %2$s. Your bank will show the name. If it shows another name, do not pay. bipe.chat</string>
+    <string name="bipe_pix_check_share_code_open_amount">I checked on Bipe: this Pix goes to %1$s, with no amount in the code. Your bank will show the name. If it shows another name, do not pay. bipe.chat</string>
+    <string name="bipe_pix_check_share_key">I checked on Bipe: the message has the Pix key %1$s. Your bank will show the recipient\'s name. If it is not the person who asked, do not pay. bipe.chat</string>
+    <string name="bipe_pix_check_share_altered">I checked on Bipe: this Pix code is changed or incomplete.</string>
     <string name="bipe_agenda_book">Book</string>
     <string name="bipe_agenda_pick_service">Pick a service</string>
     <string name="bipe_agenda_pick_person">With whom?</string>
