@@ -4,6 +4,7 @@
 
 package chat.bipe.app.pixcheck
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -109,6 +111,7 @@ private fun Message(text: String, onRetry: (() -> Unit)?) {
 @Composable
 fun PixCheckResult(results: List<PixCheckedItem>, accountAvailable: Boolean, onSendToChat: (PixCheckedItem) -> Unit) {
     val colors = BipeTheme.colors
+    val context = LocalContext.current
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).testTag(BipeScreen.PIX_CHECK_RESULT.id),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -124,6 +127,17 @@ fun PixCheckResult(results: List<PixCheckedItem>, accountAvailable: Boolean, onS
                 item.code?.let { CodeReport(it) }
                 if (item.keys.isNotEmpty()) KeysReport(item.keys)
                 item.warningKind?.let { WarningCard(it) }
+                // Action shareResult: works signed out and offline; the person picks the app and the chat.
+                val shareText = if (item.check.foundPix) PixShareResult.text(context, item) else null
+                if (shareText != null) {
+                    TextButton(onClick = {
+                        if (!PixShareResult.share(context, shareText)) {
+                            Toast.makeText(context, context.getString(R.string.bipe_error_generic), Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Text(stringResource(R.string.bipe_pix_check_share_result), color = colors.accentInk)
+                    }
+                }
                 if (accountAvailable && item.check.foundPix) {
                     TextButton(onClick = { onSendToChat(item) }) {
                         Text(stringResource(R.string.bipe_pix_check_send_to_chat), color = colors.accentInk)
@@ -244,7 +258,7 @@ private fun WarningCard(kind: ScamWarningKind) {
 }
 
 /** The decimal amount of the code in BRL, from its digits: no binary rounding. */
-private fun formatAmount(value: String): String {
+internal fun formatAmount(value: String): String {
     val decimal = value.toBigDecimalOrNull() ?: return value
     val format = NumberFormat.getCurrencyInstance(Locale.getDefault()).apply { currency = Currency.getInstance("BRL") }
     return format.format(decimal)

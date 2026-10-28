@@ -1408,6 +1408,22 @@ public enum BipeStrings {
 
     public static var pixCheckClose: String { NSLocalizedString("bipe_pix_check_close", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var pixCheckShareResult: String { NSLocalizedString("bipe_pix_check_share_result", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func pixCheckShareCode(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_pix_check_share_code", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func pixCheckShareCodeOpenAmount(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pix_check_share_code_open_amount", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func pixCheckShareKey(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pix_check_share_key", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var pixCheckShareAltered: String { NSLocalizedString("bipe_pix_check_share_altered", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var agendaBook: String { NSLocalizedString("bipe_agenda_book", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var agendaPickService: String { NSLocalizedString("bipe_agenda_pick_service", tableName: "Bipe", bundle: .module, comment: "") }
