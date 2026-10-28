@@ -83,6 +83,8 @@ struct PixCheckResultView: View {
     let results: [PixCheckedItem]
     let accountAvailable: Bool
     var sendToChat: ((PixCheckedItem) -> Void)?
+    /// Action shareResult: the share sheet of one report, after the tap only.
+    @State private var sharing: PixSharePayload?
 
     var body: some View {
         ScrollView {
@@ -105,6 +107,9 @@ struct PixCheckResultView: View {
             .padding(16)
         }
         .accessibilityIdentifier(BipeScreen.pixCheckResult.rawValue)
+        .sheet(item: $sharing) { payload in
+            PixShareSheet(items: payload.items)
+        }
     }
 
     @ViewBuilder
@@ -118,6 +123,16 @@ struct PixCheckResultView: View {
             }
             if let warning = item.warningKind {
                 WarningCard(kind: warning)
+            }
+            // Works signed out and offline: the person picks the app and the chat in the share sheet.
+            if item.check.foundPix, PixShareResult.text(for: item) != nil {
+                Button {
+                    sharing = PixSharePayload(item: item)
+                } label: {
+                    Text(BipeStrings.pixCheckShareResult)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BipeColor.accentInk)
+                }
             }
             if accountAvailable, let sendToChat, item.check.foundPix {
                 Button {

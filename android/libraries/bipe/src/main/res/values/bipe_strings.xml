@@ -604,6 +604,11 @@
     <string name="bipe_pix_check_private">A conferência acontece só no seu celular.</string>
     <string name="bipe_pix_check_send_to_chat">Enviar para uma conversa</string>
     <string name="bipe_pix_check_close">Fechar</string>
+    <string name="bipe_pix_check_share_result">Enviar resultado</string>
+    <string name="bipe_pix_check_share_code">Conferi no Bipe: este Pix vai para %1$s, %2$s. Seu banco vai mostrar o nome. Se for outro nome, não pague. bipe.chat</string>
+    <string name="bipe_pix_check_share_code_open_amount">Conferi no Bipe: este Pix vai para %1$s, sem valor no código. Seu banco vai mostrar o nome. Se for outro nome, não pague. bipe.chat</string>
+    <string name="bipe_pix_check_share_key">Conferi no Bipe: a mensagem tem a chave Pix %1$s. Seu banco vai mostrar o nome de quem recebe. Se não for quem pediu, não pague. bipe.chat</string>
+    <string name="bipe_pix_check_share_altered">Conferi no Bipe: este código Pix está alterado ou incompleto.</string>
     <string name="bipe_agenda_book">Agendar</string>
     <string name="bipe_agenda_pick_service">Escolha o serviço</string>
     <string name="bipe_agenda_pick_person">Com quem?</string>

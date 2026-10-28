@@ -48,6 +48,7 @@ class PixCheckActivity : ComponentActivity() {
                     },
                     onClose = {
                         model.close()
+                        PixShareResult.clear(this)
                         finish()
                     },
                     onRetry = model::retry,
@@ -75,7 +76,10 @@ class PixCheckActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (isFinishing) model.close()
+        if (isFinishing) {
+            model.close()
+            PixShareResult.clear(this)
+        }
         scope.cancel()
         super.onDestroy()
     }
