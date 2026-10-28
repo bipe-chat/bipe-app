@@ -104,6 +104,20 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/recuperar" />
             </intent-filter>
+            <!-- Group and person links (spec room-link-open): the matrix: scheme, and https://matrix.to without autoVerify.
+                 Bipe cannot verify matrix.to, so these open only after the person picks Bipe. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="matrix" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="matrix.to" />
+            </intent-filter>
         </activity>
         <!-- Spec app-colors (bipe-chat/bipe#811): one launcher entry per palette of bipe-shared appThemes, each with the
              generated icon @mipmap/bipe_app_icon_<palette>. Only the alias of the stored palette is enabled (AppTheme). -->

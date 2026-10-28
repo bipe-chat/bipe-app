@@ -1684,6 +1684,13 @@
     <string name="bipe_app_group_reported">Group reported</string>
     <string name="bipe_app_profile_link">Profile link</string>
     <string name="bipe_app_profile_link_opening">Opening the profile…</string>
+    <string name="bipe_app_room_link_opening">Opening the group…</string>
+    <string name="bipe_app_room_link_members">Members: %1$s</string>
+    <string name="bipe_app_room_link_join">Join the group</string>
+    <string name="bipe_app_room_link_knock">Ask to join</string>
+    <string name="bipe_app_room_link_knock_sent">You join the group when someone there accepts your request.</string>
+    <string name="bipe_app_room_link_invite_only">Only invited people can join this group.</string>
+    <string name="bipe_app_room_link_not_found">Bipe could not find this group.</string>
     <string name="bipe_app_contacts_loading">Checking your contacts…</string>
     <string name="bipe_app_seal_title">Business seal</string>
     <string name="bipe_app_composer_attach">Attach</string>

@@ -1684,6 +1684,13 @@
     <string name="bipe_app_group_reported">Grupo denunciado</string>
     <string name="bipe_app_profile_link">Link do perfil</string>
     <string name="bipe_app_profile_link_opening">Abrindo o perfil…</string>
+    <string name="bipe_app_room_link_opening">Abrindo o grupo…</string>
+    <string name="bipe_app_room_link_members">Membros: %1$s</string>
+    <string name="bipe_app_room_link_join">Entrar no grupo</string>
+    <string name="bipe_app_room_link_knock">Pedir para entrar</string>
+    <string name="bipe_app_room_link_knock_sent">Você entra no grupo quando alguém de lá aceitar seu pedido.</string>
+    <string name="bipe_app_room_link_invite_only">Este grupo só aceita quem foi convidado.</string>
+    <string name="bipe_app_room_link_not_found">O Bipe não achou este grupo.</string>
     <string name="bipe_app_contacts_loading">Conferindo seus contatos…</string>
     <string name="bipe_app_seal_title">Selo de empresa</string>
     <string name="bipe_app_composer_attach">Anexar</string>

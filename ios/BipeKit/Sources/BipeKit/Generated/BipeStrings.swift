@@ -3866,6 +3866,22 @@ public enum BipeStrings {
 
     public static var appProfileLinkOpening: String { NSLocalizedString("bipe_app_profile_link_opening", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appRoomLinkOpening: String { NSLocalizedString("bipe_app_room_link_opening", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appRoomLinkMembers(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_room_link_members", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appRoomLinkJoin: String { NSLocalizedString("bipe_app_room_link_join", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appRoomLinkKnock: String { NSLocalizedString("bipe_app_room_link_knock", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appRoomLinkKnockSent: String { NSLocalizedString("bipe_app_room_link_knock_sent", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appRoomLinkInviteOnly: String { NSLocalizedString("bipe_app_room_link_invite_only", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appRoomLinkNotFound: String { NSLocalizedString("bipe_app_room_link_not_found", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appContactsLoading: String { NSLocalizedString("bipe_app_contacts_loading", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appSealTitle: String { NSLocalizedString("bipe_app_seal_title", tableName: "Bipe", bundle: .module, comment: "") }
