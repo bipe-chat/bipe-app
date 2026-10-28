@@ -78,6 +78,7 @@ class StickerPackClient(
                         put("h", candidate.height)
                         put("mimetype", candidate.mimeType)
                         put("size", candidate.bytes.size)
+                        if (candidate.isAnimated) put("is_animated", true)
                     }
                 }
                 added++

@@ -51,7 +51,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -65,7 +64,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.LocalReduceMotion
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.media.AnimatedImage
+import chat.bipe.app.media.DataUseMeter
+import chat.bipe.app.media.LoadedImage
+import chat.bipe.app.media.stickerImage
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
@@ -277,13 +281,22 @@ private fun SectionTitle(title: String, onShare: (() -> Unit)? = null) {
     }
 }
 
-/** A sticker cell. A long press opens the favourite toggle (spec sticker-picker toggleFavourite). */
+/**
+ * A sticker cell. A long press opens the favourite toggle (spec sticker-picker toggleFavourite). An animated WebP
+ * plays in a loop, except with the data saver on mobile data or animations off: then its first frame shows.
+ */
 @Composable
 private fun StickerThumbnail(sticker: Sticker, loader: MediaLoader, isFavourite: Boolean, onClick: () -> Unit, onToggleFavourite: () -> Unit) {
     val colors = BipeTheme.colors
-    var image by remember(sticker.url) { mutableStateOf<ImageBitmap?>(null) }
+    val context = LocalContext.current
+    var image by remember(sticker.url) { mutableStateOf<LoadedImage?>(null) }
     var menu by remember { mutableStateOf(false) }
-    LaunchedEffect(sticker.url) { image = loader.thumbnail(sticker.url, 228) }
+    val plays = !LocalReduceMotion.current && !DataUseMeter.savesData(context)
+    LaunchedEffect(sticker.url, plays) {
+        // Only a sticker that plays needs its file; the server's still is smaller.
+        val animated = if (sticker.mayBeAnimated && plays) loader.stickerImage(sticker.url, 228) else null
+        image = animated ?: image ?: loader.thumbnail(sticker.url, 228)?.let { LoadedImage(it) }
+    }
     val label = stringResource(R.string.bipe_a11y_sticker_send, sticker.body)
     val favouriteLabel = stringResource(if (isFavourite) R.string.bipe_sticker_favourite_remove else R.string.bipe_sticker_favourite_add)
     Box(
@@ -297,14 +310,20 @@ private fun StickerThumbnail(sticker: Sticker, loader: MediaLoader, isFavourite:
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text(favouriteLabel) }, onClick = { menu = false; onToggleFavourite() })
         }
-        val bitmap = image
-        if (bitmap != null) {
-            Image(bitmap, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+        val loaded = image
+        if (loaded != null && loaded.isAnimated && plays) {
+            AnimatedImage(loaded, Modifier.fillMaxSize())
+        } else if (loaded != null) {
+            Image(loaded.bitmap, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
         } else {
             Box(Modifier.fillMaxSize().background(colors.surfaceSunken))
         }
     }
 }
+
+/** An animated WebP as far as the pack says: is_animated, or a WebP whose info does not say (ADR 0205). */
+private val Sticker.mayBeAnimated: Boolean
+    get() = isAnimated ?: (mimeType == null || mimeType == "image/webp")
 
 @Composable
 internal fun Header(title: String, closeLabel: String, onClose: () -> Unit) {

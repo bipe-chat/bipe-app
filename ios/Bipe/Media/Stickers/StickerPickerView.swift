@@ -240,7 +240,7 @@ struct StickerPickerView: View {
                 Button {
                     Task { await model.send(sticker) }
                 } label: {
-                    StickerThumbnail(url: sticker.url, loader: loader)
+                    StickerThumbnail(url: sticker.url, mayBeAnimated: sticker.mayBeAnimated, loader: loader)
                         .frame(width: 76, height: 76)
                 }
                 .accessibilityLabel(BipeStrings.a11yStickerSend(sticker.body))
@@ -275,21 +275,43 @@ private struct SharedPackLink: Identifiable {
     var id: URL { url }
 }
 
+/// One sticker of the picker. An animated WebP plays in a loop, except with the data saver on mobile data or
+/// Reduce Motion: then its first frame shows (spec sticker-picker notes).
 private struct StickerThumbnail: View {
     let url: String
+    let mayBeAnimated: Bool
     let loader: MediaLoader
 
     @State private var image: UIImage?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var plays: Bool { !reduceMotion && !DataUseMeter.shared.savesData }
 
     var body: some View {
         ZStack {
-            if let image {
-                Image(uiImage: image).resizable().scaledToFit()
+            if let image, image.isAnimatedImage, plays {
+                AnimatedImageView(image: image)
+            } else if let image {
+                Image(uiImage: image.firstFrame).resizable().scaledToFit()
             } else {
                 RoundedRectangle(cornerRadius: 10).fill(BipeColor.surfaceSunken)
             }
         }
-        .task(id: url) { image = await loader.thumbnail(mxcUrl: url, size: 228) }
+        .task(id: "\(url)#\(plays)") {
+            // Only a sticker that plays needs its file; the server's still is smaller.
+            if mayBeAnimated, plays, let animated = await loader.stickerImage(mxcUrl: url, maxPixel: 228) {
+                image = animated
+            } else if image == nil {
+                image = await loader.thumbnail(mxcUrl: url, size: 228)
+            }
+        }
+    }
+}
+
+extension Sticker {
+    /// An animated WebP as far as the pack says: is_animated, or a WebP whose info does not say (ADR 0205).
+    var mayBeAnimated: Bool {
+        isAnimated ?? (mimeType == nil || mimeType == "image/webp")
     }
 }
 
