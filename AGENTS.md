@@ -72,7 +72,7 @@ The workflow `.github/workflows/licence.yml` runs these jobs on every PR. All of
   - **Threshold: 0.5 (50 %) average similarity and at least 100 matched tokens.** JPlag's own default threshold is 0.0 (it keeps every pair), so it cannot be a gate. 0.5 means half of the two files' tokens are in shared matches: low enough to catch a copied file with renamed symbols. A small file of plain Compose or SwiftUI setup also reaches 0.5 against many unrelated files: on bipe-app#5 a 49-token `MainActivity.kt` scored 0.51 to 0.55 against 46 Element files. So a pair fails only when it also shares at least 100 tokens (`MIN_MATCHED_TOKENS`; matched = average × (tokens of both files) / 2, token counts from JPlag's `submissionFileIndex.json`). A pair above 0.5 under that minimum, or with maximum similarity above 0.5 (a small file mostly inside a large one), prints a warning to review, not a failure. JPlag tokens are coarse: a 150-line Compose screen has about 90 Kotlin tokens, so a copy of a file that small only warns. Read the warnings. Change the values in `tools/similarity.mjs` and here together, with the reason.
   - A file that JPlag cannot parse (its Swift grammar is Swift 5.4, beta) is listed as a warning, not compared.
 - `sdk-version`: `node tools/sdk-version.mjs`. The file `sdk-version` at the repo root holds the matrix-rust-sdk release for both platforms. Fails when the `exactVersion` in `ios/project.yml`, the pin in `ios/Package.resolved` or `matrix-rust-sdk` in `android/gradle/libs.versions.toml` differs from it. To update the SDK, change all four in one PR.
-- `provenance`: `PR_BODY="..." node tools/provenance.mjs`. Fails unless the PR body has a line that starts with `Provenance:`.
+- `provenance`: `PR_TITLE="..." PR_BODY="..." node tools/provenance.mjs`. Fails unless the PR body has a line that starts with `Provenance:` and an issue line (see "Pull requests"). Generated "Regenerate from bipe-shared" PRs need no issue line.
 
 ## Commits
 
@@ -116,7 +116,7 @@ adb install -r Bipe-Next-<n>.apk
 ## Pull requests
 
 - One PR per issue. The PR covers iOS and Android together ([ADR 0031](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0031-platform-lockstep.md)).
-- The PR body links `bipe-chat/bipe#N`.
+- The PR body names its issue on a line of its own kind: `Fixes bipe-chat/bipe#N` when this PR finishes the issue (GitHub closes it on merge), `Part of bipe-chat/bipe#N` when work is left, or `No issue: <reason>`. A bare `bipe-chat/bipe#N` or `(bipe#N)` in the title closes nothing: on 28 Oct 2026, 18 issues were still open after all their work merged. When the issue also has a bipe-shared or bipe-api PR, the bipe-app PR merges last and carries `Fixes`. When only MZ's device test is left, write `Part of` and put `mz-manual` on the issue.
 - The PR body carries a `Provenance:` line. The line names every source of the change: a spec id in bipe-shared `product/screens`, a Matrix spec section, a `matrix-sdk-ffi` API, an ADR, or a Bipe file. Example: `Provenance: bipe-shared product/screens/chat-list; Matrix spec client-server 10.2 (sync); matrix-sdk-ffi RoomListService`.
 
 ## Specs and generated files
