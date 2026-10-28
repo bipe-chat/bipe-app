@@ -243,6 +243,8 @@ data class BipePublicProfile(
     @SerialName("name") val name: String,
     @SerialName("bio") val bio: String? = null,
     @SerialName("photo_url") val photoUrl: String? = null,
+    /** The same envelope as `GET /v1/badges/{userId}`. Absent when that call would not answer 200. */
+    @SerialName("badge") val badge: chat.bipe.shared.BadgeEnvelope? = null,
 )
 
 /** One match of `POST /v1/contacts/lookup`. */
