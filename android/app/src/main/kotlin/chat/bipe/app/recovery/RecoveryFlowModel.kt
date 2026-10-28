@@ -502,17 +502,22 @@ class RecoveryFlowModel(
 
     fun canSubmitBeta(email: String, password: String, busy: Boolean): Boolean = !busy && email.isNotBlank() && password.isNotEmpty()
 
+    /** An e-mail has an @ inside; a Matrix ID (@localpart:server) starts with it. */
+    fun isBetaEmail(input: String): Boolean = !input.startsWith("@") && input.contains("@")
+
     /**
-     * Action chooseBeta: Client.login with the e-mail as user and the password, then the move to device-first
-     * (POST /v1/me/device-first). The password is never stored; the move gives the hidden password and the token.
+     * Action chooseBeta: an e-mail goes through POST /v1/beta/login for the Matrix ID (bipe-chat/bipe#627); a localpart
+     * or a Matrix ID goes to Client.login as it is. Then the move to device-first (POST /v1/me/device-first). The
+     * password is never stored; the move gives the hidden password and the token. Every failure shows the same text.
      */
     fun submitBeta() {
         if (!canSubmitBeta(_betaEmail.value, _betaPassword.value, _betaBusy.value)) return
         _betaBusy.value = true
-        val user = _betaEmail.value.trim()
+        val input = _betaEmail.value.trim()
         val password = _betaPassword.value
         scope.launch {
             try {
+                val user = if (isBetaEmail(input)) api.betaLogin(input, password) else input
                 val session = AccountSession.signIn(context, user, password, sessionStore)
                 _betaPassword.value = ""
                 runCatching {

@@ -315,6 +315,17 @@ internal data class BipeTokenRecoveryRequest(
 }
 
 @Serializable
+internal data class BipeBetaLoginRequest(
+    @SerialName("email") val email: String,
+    @SerialName("password") val password: String,
+) {
+    override fun toString(): String = "BipeBetaLoginRequest"
+}
+
+@Serializable
+internal data class BipeBetaLoginResponse(@SerialName("user_id") val userId: String)
+
+@Serializable
 internal data class BipeRecoveryEmailRequest(@SerialName("email") val email: String) {
     override fun toString(): String = "BipeRecoveryEmailRequest"
 }
