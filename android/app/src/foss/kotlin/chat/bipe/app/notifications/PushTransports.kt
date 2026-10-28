@@ -6,7 +6,7 @@ package chat.bipe.app.notifications
 
 import chat.bipe.app.BipeApplication
 
-/** No Google Play services in this build, so no push transport (a later UnifiedPush transport goes here). */
+/** No Google Play services in this build, so no push transport. No UnifiedPush either (ADR 0208). */
 object PushTransports {
     @Suppress("UNUSED_PARAMETER")
     fun create(app: BipeApplication): PushTransport? = null
