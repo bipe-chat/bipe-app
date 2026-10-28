@@ -47,6 +47,8 @@ struct ChatListView: View {
     @State private var openingLink: String?
     /// queue-customer from the counter QR code (https://bipe.chat/@handle?fila).
     @State private var openingQueue: String?
+    /// A pack link (spec sticker-pack).
+    @State private var openingPack: StickerPackRef?
     @State private var newGroupWith: [Person]?
     @State private var notificationsRoom: String?
     @State private var groupDetailsRoom: String?
@@ -165,6 +167,10 @@ struct ChatListView: View {
                                 openPerson: { show(.people(.person(userId: $0, fromDm: false))) },
                                 openOwnLink: { show(.people(.profileLink)) })
         }
+        .sheet(item: $openingPack) { pack in
+            StickerPackView(model: StickerPackModel(ref: pack, client: model.session.client, handles: people.handles),
+                            loader: model.media) { openingPack = nil }
+        }
         .sheet(item: Binding(get: { openingQueue.map(HandleLink.init) }, set: { openingQueue = $0?.handle })) { link in
             QueueCustomerView(api: model.session.business(api), business: link.handle, close: { _ in openingQueue = nil })
         }
@@ -201,6 +207,10 @@ struct ChatListView: View {
         .onOpenURL { url in
             // Both tabs show a chat list; the Conversas one takes profile links.
             guard scope != .grupos else { return }
+            if let pack = StickerPackRef.fromLink(url.absoluteString) {
+                openingPack = pack
+                return
+            }
             switch PeopleLink(url: url) {
             case .handle(let handle): openingLink = handle
             case .userId(let userId): show(.people(.person(userId: userId, fromDm: false)))

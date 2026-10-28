@@ -5,6 +5,7 @@
 package chat.bipe.app.timeline
 
 import chat.bipe.app.common.displayName
+import chat.bipe.stickers.StickerPackRef
 import chat.bipe.app.media.MediaContent
 import chat.bipe.app.media.MediaFormat
 import chat.bipe.app.location.LiveLocationMessage
@@ -217,6 +218,12 @@ object TimelineRowBuilder {
                                 // The SDK types have no field for the image description; it comes from the event JSON (bipe-chat/bipe#501).
                                 description = if (found.media.kind == MediaMessage.Kind.IMAGE) {
                                     BipeImageDescription.read(event.lazyProvider.debugInfo().originalJson)
+                                } else {
+                                    null
+                                },
+                                // stickerPackField has no SDK field either (spec message-actions viewStickerPack).
+                                stickerPack = if (found.media.kind == MediaMessage.Kind.STICKER) {
+                                    event.lazyProvider.debugInfo().originalJson?.let(StickerPackRef::read)
                                 } else {
                                     null
                                 },

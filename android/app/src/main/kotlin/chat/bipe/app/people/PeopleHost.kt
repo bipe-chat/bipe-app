@@ -25,9 +25,11 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.business.QUEUE_LINK_QUERY
 import chat.bipe.app.business.QueueLinkScreen
+import chat.bipe.app.media.stickers.StickerPackScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.R
+import chat.bipe.stickers.StickerPackRef
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,11 +41,12 @@ object PeopleLinks {
 
     /**
      * Takes [uri] when it is a profile link (bipe.chat/@handle or a matrix.to user link). A business's counter QR link,
-     * bipe.chat/@handle?fila, opens queue-customer.
+     * bipe.chat/@handle?fila, opens queue-customer. A pack link bipe.chat/s/<room ID> opens sticker-pack.
      */
     fun offer(uri: Uri): Boolean {
         val queue = runCatching { QUEUE_LINK_QUERY in uri.queryParameterNames }.getOrDefault(false)
-        val route = BipeProfileLink.handle(uri.toString())?.let { PeopleRoute.ProfileLinkOpen(it, queue) }
+        val route = StickerPackRef.fromLink(uri.toString())?.let { PeopleRoute.StickerPackLink(it) }
+            ?: BipeProfileLink.handle(uri.toString())?.let { PeopleRoute.ProfileLinkOpen(it, queue) }
             ?: BipeProfileLink.matrixUserId(uri.toString())?.let { PeopleRoute.PersonProfile(it, fromDm = false) }
             ?: return false
         _pending.value = route
@@ -119,6 +122,7 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
             openPerson = { navigation.push(PeopleRoute.PersonProfile(it, fromDm = false)) },
             onBack = navigation.pop,
         )
+        is PeopleRoute.StickerPackLink -> StickerPackScreen(people.session.client, route.ref, people.media, people.handles, onClose = navigation.pop)
         is PeopleRoute.ReportChat -> {
             val context = LocalContext.current
             ReportChatScreen(

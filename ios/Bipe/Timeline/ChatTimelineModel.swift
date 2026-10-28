@@ -70,6 +70,7 @@ enum MessageAction: CaseIterable, Identifiable {
     case reply
     case edit
     case copy
+    case viewStickerPack
     case keepAudio
     case unkeepAudio
     case retry
@@ -204,6 +205,8 @@ final class ChatTimelineModel: ObservableObject {
     @Published var confirmDeleteRowId: String?
     // message-report
     @Published var report: MessageReport?
+    /// message-actions viewStickerPack: opens sticker-pack.
+    @Published var openingStickerPack: StickerPackRef?
     // read-receipts
     @Published var readersSheet: [ReceiptReader]?
     // typing-indicator
@@ -527,6 +530,8 @@ final class ChatTimelineModel: ObservableObject {
             case .edit: details.canEdit
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
+            // A sent sticker with stickerPackField (spec message-actions notes, ADR 0205).
+            case .viewStickerPack: isSent && message.media?.stickerPack != nil
             // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
             case .keepAudio: keepable(message, isSent: isSent) && voiceMedia.kept[message.voice!.source.url] == nil
             case .unkeepAudio: message.voice.map { voiceMedia.kept[$0.source.url] != nil } ?? false
@@ -592,6 +597,7 @@ final class ChatTimelineModel: ObservableObject {
                 case .failed: self.show(.keepFailed)
                 }
             }
+        case .viewStickerPack: openingStickerPack = current.message?.media?.stickerPack
         case .retry: Task { await retrySend(id: rowId) }
         case .delete: askDelete(rowId: rowId)
         case .report: openReport(rowId: rowId)

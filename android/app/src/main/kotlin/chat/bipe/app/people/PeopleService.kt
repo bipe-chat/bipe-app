@@ -18,6 +18,7 @@ import chat.bipe.shared.api.lookupContacts
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeOpenIdToken
 import chat.bipe.shared.api.BipeProfileFacts
+import chat.bipe.stickers.StickerPackRef
 import chat.bipe.shared.api.isCompany
 import chat.bipe.shared.company.BipeBrandMarks
 import chat.bipe.shared.company.BipeBrandMarksSeen
@@ -67,6 +68,8 @@ sealed interface PeopleRoute {
     data object WhoCanMessage : PeopleRoute
     data object BlockedList : PeopleRoute
     data class ReportChat(val roomId: String, val isDm: Boolean, val otherUserId: String?) : PeopleRoute
+    /** A pack link bipe.chat/s/<room ID> (spec sticker-pack). */
+    data class StickerPackLink(val ref: StickerPackRef) : PeopleRoute
 }
 
 class PeopleException(val kind: Kind) : Exception(kind.name) {

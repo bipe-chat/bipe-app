@@ -101,6 +101,12 @@ struct ChatTimelineView: View {
             StickerPickerView(model: StickerPickerModel(client: model.client, roomId: roomId), loader: media,
                               close: { showsStickers = false })
         }
+        // message-actions viewStickerPack (spec sticker-pack).
+        .sheet(item: $model.openingStickerPack) { pack in
+            StickerPackView(model: StickerPackModel(ref: pack, client: model.client, handles: people?.handles), loader: media) {
+                model.openingStickerPack = nil
+            }
+        }
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .overlay(alignment: .bottom) { noticeView }
         .navigationTitle(model.roomName)

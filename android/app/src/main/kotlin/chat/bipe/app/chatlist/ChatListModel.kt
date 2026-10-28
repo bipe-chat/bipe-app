@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Room
+import org.matrix.rustcomponents.sdk.RoomHistoryVisibility
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 import org.matrix.rustcomponents.sdk.RoomListEntriesListener
 import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
@@ -421,7 +422,8 @@ class ChatListModel(
                 lastActivity = latest.timestamp.toLong()
             }
             is LatestEventValue.RemoteInvite -> lastActivity = latest.timestamp.toLong()
-            LatestEventValue.None -> Unit
+            // A sticker pack room has no messages (spec sticker-picker notes, Pack room): the chat list hides it.
+            LatestEventValue.None -> if (info.isPublic == true && info.historyVisibility is RoomHistoryVisibility.WorldReadable) return null
         }
         val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
         val name = BipeChatRowName.resolve(info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText,
