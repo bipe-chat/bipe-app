@@ -364,6 +364,9 @@ enum class BipeScreen(val id: String) {
     /** Report a chat (flow people). Spec: bipe-shared/product/screens/report-chat.json */
     REPORT_CHAT("report-chat"),
 
+    /** Open a group link (flow groups). Spec: bipe-shared/product/screens/room-link-open.json */
+    ROOM_LINK_OPEN("room-link-open"),
+
     /** Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json */
     SCAM_WARNING("scam-warning"),
 

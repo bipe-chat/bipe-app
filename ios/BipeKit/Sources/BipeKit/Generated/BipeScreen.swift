@@ -358,6 +358,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Report a chat (flow people). Spec: bipe-shared/product/screens/report-chat.json
     case reportChat = "report-chat"
 
+    /// Open a group link (flow groups). Spec: bipe-shared/product/screens/room-link-open.json
+    case roomLinkOpen = "room-link-open"
+
     /// Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json
     case scamWarning = "scam-warning"
 

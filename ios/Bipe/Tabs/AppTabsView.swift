@@ -99,7 +99,9 @@ struct AppTabsView: View {
             case .handle(let handle): link = .profile(handle)
             case .userId(let userId): link = .person(userId)
             case .queue(let handle): link = .queue(handle)
-            case nil: return .systemAction
+            case nil:
+                guard let room = RoomLink(url: url) else { return .systemAction }
+                link = .room(room)
             }
             model.selectTab(.conversas)
             TabsLinks.shared.link = link

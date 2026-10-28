@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.business.QUEUE_LINK_QUERY
 import chat.bipe.app.business.QueueLinkScreen
+import chat.bipe.app.groups.RoomLink
+import chat.bipe.app.groups.RoomLinkOpenScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.R
@@ -39,12 +41,13 @@ object PeopleLinks {
 
     /**
      * Takes [uri] when it is a profile link (bipe.chat/@handle or a matrix.to user link). A business's counter QR link,
-     * bipe.chat/@handle?fila, opens queue-customer.
+     * bipe.chat/@handle?fila, opens queue-customer. A matrix.to or matrix: group link opens room-link-open.
      */
     fun offer(uri: Uri): Boolean {
         val queue = runCatching { QUEUE_LINK_QUERY in uri.queryParameterNames }.getOrDefault(false)
         val route = BipeProfileLink.handle(uri.toString())?.let { PeopleRoute.ProfileLinkOpen(it, queue) }
             ?: BipeProfileLink.matrixUserId(uri.toString())?.let { PeopleRoute.PersonProfile(it, fromDm = false) }
+            ?: RoomLink.of(uri.toString())?.let { PeopleRoute.RoomLinkOpen(it) }
             ?: return false
         _pending.value = route
         return true
@@ -75,6 +78,7 @@ class PeopleNavigation(
 @Composable
 fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNavigation) {
     when (route) {
+        is PeopleRoute.RoomLinkOpen -> RoomLinkOpenScreen(people, route.link, openChat = navigation.openChat, onClose = navigation.pop)
         is PeopleRoute.PersonProfile -> PersonProfileScreen(
             people,
             route.userId,
