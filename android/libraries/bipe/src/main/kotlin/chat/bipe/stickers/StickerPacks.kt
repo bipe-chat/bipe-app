@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -38,6 +39,8 @@ data class Sticker(
     /** The `mxc://` URI of the image. */
     val url: String,
     val body: String,
+    /** info.is_animated of the image; null when the pack does not say (ADR 0205). */
+    val isAnimated: Boolean? = null,
     val width: Int?,
     val height: Int?,
     val mimeType: String?,
@@ -53,6 +56,7 @@ data class Sticker(
             height?.let { put("h", it) }
             mimeType?.let { put("mimetype", it) }
             size?.let { put("size", it) }
+            isAnimated?.let { put("is_animated", it) }
         }
         if (threadRootId != null) {
             putJsonObject("m.relates_to") {
@@ -105,6 +109,7 @@ data class StickerPack(
                     shortcode = shortcode,
                     url = url,
                     body = image["body"].string() ?: shortcode,
+                    isAnimated = (info?.get("is_animated") as? JsonPrimitive)?.booleanOrNull,
                     width = info?.get("w").int(),
                     height = info?.get("h").int(),
                     mimeType = info?.get("mimetype").string(),

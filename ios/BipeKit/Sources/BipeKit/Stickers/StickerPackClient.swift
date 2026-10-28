@@ -69,7 +69,7 @@ public struct StickerPackClient: Sendable {
                         "url": url,
                         "body": "Sticker",
                         "usage": ["sticker"],
-                        "info": ["w": candidate.width, "h": candidate.height, "mimetype": candidate.mimeType, "size": candidate.data.count],
+                        "info": candidate.info,
                     ] as [String: Any]
                     added += 1
                 } catch {

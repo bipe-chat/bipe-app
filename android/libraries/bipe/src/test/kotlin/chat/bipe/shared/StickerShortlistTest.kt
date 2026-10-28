@@ -26,7 +26,7 @@ class StickerShortlistTest {
     fun shortlistRules() {
         val fullRecents = refs.take(STICKER_RECENTS_MAX)
         val fullFavourites = refs.take(STICKER_FAVOURITES_MAX)
-        val sticker = Sticker("user", "st_1", "mxc://x/1", "a", null, null, null, null)
+        val sticker = Sticker("user", "st_1", "mxc://x/1", "a", width = null, height = null, mimeType = null, size = null)
         val json = """{"stickers":[{"pack":"user","shortcode":"st_1"},{"pack":"user"},{"pack":"user","shortcode":"st_1"},{"pack":"!r:x/","shortcode":"st_2"}]}"""
         listOf(
             Triple(parse(json), listOf(refs[1], StickerRef("!r:x/", "st_2")), "parse keeps order, drops junk and duplicates"),

@@ -38,6 +38,8 @@ data class MediaMessage(
     /** Own media while sending: percent 0 to 100. */
     val uploadProgress: Int? = null,
     val isAnimated: Boolean = false,
+    /** info.is_animated as sent; null when the sender did not say. */
+    val animationHint: Boolean? = null,
     val source: MediaRef,
     val thumbnailSource: MediaRef? = null,
     /** image only: the sender's description for screen readers (bipe-chat/bipe#501, registries/image-descriptions.json). */
@@ -58,6 +60,10 @@ data class MediaMessage(
             Kind.FILE -> R.string.bipe_app_media_file
             Kind.STICKER -> R.string.bipe_app_media_sticker
         }
+
+    /** A sticker that can be an animated WebP (ADR 0205): said so by the sender, or a WebP that did not say. */
+    val mayBeAnimated: Boolean
+        get() = kind == Kind.STICKER && (animationHint ?: (mimeType == null || mimeType == "image/webp"))
 
     /** image, video and sticker open media-viewer; a file opens the system preview. */
     val opensInViewer: Boolean get() = kind != Kind.FILE
@@ -155,6 +161,7 @@ sealed interface MediaContent {
             height = info?.height?.toInt(),
             blurhash = info?.blurhash,
             isAnimated = info?.isAnimated ?: false,
+            animationHint = info?.isAnimated,
             source = MediaRef(source),
             thumbnailSource = info?.thumbnailSource?.let(::MediaRef),
         )

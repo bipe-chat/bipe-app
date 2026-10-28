@@ -22,6 +22,8 @@ public struct Sticker: Identifiable, Equatable, Sendable {
     /// The mxc:// URI of the image.
     public let url: String
     public let body: String
+    /// info.is_animated of the image; nil when the pack does not say (ADR 0205).
+    public var isAnimated: Bool? = nil
     public let width: Int?
     public let height: Int?
     public let mimeType: String?
@@ -36,6 +38,7 @@ public struct Sticker: Identifiable, Equatable, Sendable {
         if let height { info["h"] = height }
         if let mimeType { info["mimetype"] = mimeType }
         if let size { info["size"] = size }
+        if let isAnimated { info["is_animated"] = isAnimated }
         let content: [String: Any] = ["body": body, "info": info, "url": url]
         let data = (try? JSONSerialization.data(withJSONObject: content, options: [.sortedKeys])) ?? Data("{}".utf8)
         return String(decoding: data, as: UTF8.self)
@@ -77,6 +80,7 @@ public struct StickerPack: Identifiable, Equatable, Sendable {
                            shortcode: shortcode,
                            url: url,
                            body: image["body"] as? String ?? shortcode,
+                           isAnimated: info?["is_animated"] as? Bool,
                            width: info?["w"] as? Int,
                            height: info?["h"] as? Int,
                            mimeType: info?["mimetype"] as? String,
