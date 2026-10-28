@@ -120,7 +120,7 @@ struct AccountPinCheckView: View {
                 try await request.check(typed)
                 BipeHaptics.play(.success)
                 onPass()
-            } catch {
+            } catch let error as BipeAPIError {
                 BipeHaptics.play(.error)
                 switch error {
                 case .server(.pinWrong, let triesLeft, _):
@@ -135,6 +135,9 @@ struct AccountPinCheckView: View {
                 default:
                     self.error = BipeStrings.errorGeneric
                 }
+            } catch {
+                BipeHaptics.play(.error)
+                self.error = BipeStrings.errorGeneric
             }
         }
     }
