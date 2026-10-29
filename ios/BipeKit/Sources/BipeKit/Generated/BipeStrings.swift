@@ -4539,4 +4539,6 @@ public enum BipeStrings {
     public static var searchRecent: String { NSLocalizedString("bipe_search_recent", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var searchRecentClear: String { NSLocalizedString("bipe_search_recent_clear", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var searchInChat: String { NSLocalizedString("bipe_search_in_chat", tableName: "Bipe", bundle: .module, comment: "") }
 }

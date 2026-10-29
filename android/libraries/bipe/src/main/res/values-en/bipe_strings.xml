@@ -1969,4 +1969,5 @@
     <string name="bipe_search_messages">Messages</string>
     <string name="bipe_search_recent">Recent searches</string>
     <string name="bipe_search_recent_clear">Clear</string>
+    <string name="bipe_search_in_chat">Search in chat</string>
 </resources>

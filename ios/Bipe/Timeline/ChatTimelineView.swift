@@ -13,6 +13,10 @@ struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var deletingDm = false
+    /// Spec chat-timeline searchInChat (bipe-chat/bipe#861).
+    @State private var searchingChat = false
+    /// The group menu's group-details row.
+    @State private var showsGroupDetails = false
     @ObservedObject private var cleared = ClearedChatsStore.shared
     @Environment(\.closeChat) private var closeChat
     @Environment(\.openOtherChat) private var openOtherChat
@@ -123,8 +127,10 @@ struct ChatTimelineView: View {
             }
             if model.isGroup {
                 ToolbarItem(placement: .primaryAction) {
-                    NavigationLink {
-                        GroupDetailsView(session: session, media: media, roomId: roomId)
+                    // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
+                    Menu {
+                        Button { showsGroupDetails = true } label: { Label(BipeStrings.appGroupDetailsTitle, systemImage: "info.circle") }
+                        Button { searchingChat = true } label: { Label(BipeStrings.searchInChat, systemImage: "magnifyingglass") }
                     } label: {
                         Label {
                             Text(BipeStrings.appGroupDetailsTitle)
@@ -139,6 +145,7 @@ struct ChatTimelineView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         BusinessMenuItems(model: business)
+                        Button { searchingChat = true } label: { Label(BipeStrings.searchInChat, systemImage: "magnifyingglass") }
                         Button(BipeStrings.dmDeleteAction, role: .destructive) {
                             deletingDm = true
                         }
@@ -155,6 +162,15 @@ struct ChatTimelineView: View {
         }
         .sheet(isPresented: $deletingDm) {
             DmDeleteView(session: session, roomId: roomId) { closeChat() }
+        }
+        .navigationDestination(isPresented: $showsGroupDetails) {
+            GroupDetailsView(session: session, media: media, roomId: roomId)
+        }
+        // Spec chat-search with roomId: a message hit scrolls this chat to it.
+        .sheet(isPresented: $searchingChat) {
+            ChatMessageSearchView(session: session, roomId: roomId) { eventId in
+                Task { await model.openOriginal(eventId: eventId) }
+            }
         }
         .sheet(isPresented: $creatingPoll) {
             PollCreateView(timeline: model)
