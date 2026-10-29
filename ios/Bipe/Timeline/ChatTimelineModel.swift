@@ -701,7 +701,6 @@ final class ChatTimelineModel: ObservableObject {
                     show(.pinFailed)
                 }
             }
-        case .forward: forwardingRowId = rowId
         case .saveSticker:
             guard let sticker = current.message?.media, let packClient = StickerPickerModel.packClient(client) else { return }
             Task {

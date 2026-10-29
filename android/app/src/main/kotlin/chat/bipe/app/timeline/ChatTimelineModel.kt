@@ -727,7 +727,6 @@ class ChatTimelineModel(
                         .onFailure { show(TimelineNotice.PIN_FAILED) }
                 }
             }
-            MessageAction.FORWARD -> _ui.update { it.copy(forwardingRowId = rowId) }
             MessageAction.SAVE_STICKER -> {
                 val sticker = current.message?.media ?: return
                 val packClient = chat.bipe.app.media.stickers.stickerPackClient(session.client) ?: return
