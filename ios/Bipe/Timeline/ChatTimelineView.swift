@@ -35,10 +35,14 @@ struct ChatTimelineView: View {
     private let openInfo: (() -> Void)?
     private let session: AccountSession
     private let roomId: String
+    /// Spec chat-search openMessage: the message to scroll to after the chat opens.
+    private let focusEventId: String?
     /// The account's people service, for the blocked bar of a DM (block-person). nil: no bar.
     private let people: PeopleService?
 
-    init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil, openInfo: (() -> Void)? = nil) {
+    init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil,
+         focusEventId: String? = nil, openInfo: (() -> Void)? = nil) {
+        self.focusEventId = focusEventId
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
         _identity = StateObject(wrappedValue: IdentityChangeModel(session: session, roomId: roomId))
@@ -160,6 +164,14 @@ struct ChatTimelineView: View {
         }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
+        // Spec chat-search openMessage (bipe#671): scroll to the message once the first rows are in.
+        .task(id: focusEventId) {
+            guard let focusEventId else { return }
+            for _ in 0..<20 where model.rows.isEmpty {
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            await model.openOriginal(eventId: focusEventId)
+        }
         .task { await identity.observe() }
         .businessChatTools(business)
         .task(id: "\(model.isDm)|\(model.peerUserId ?? "")|\(model.roomName)") {

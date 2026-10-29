@@ -4533,4 +4533,10 @@ public enum BipeStrings {
     public static var galleryEmptyMedia: String { NSLocalizedString("bipe_gallery_empty_media", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var galleryEmptyFiles: String { NSLocalizedString("bipe_gallery_empty_files", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var searchMessages: String { NSLocalizedString("bipe_search_messages", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var searchRecent: String { NSLocalizedString("bipe_search_recent", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var searchRecentClear: String { NSLocalizedString("bipe_search_recent_clear", tableName: "Bipe", bundle: .module, comment: "") }
 }

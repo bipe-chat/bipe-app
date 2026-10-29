@@ -1966,4 +1966,7 @@
     <string name="bipe_gallery_files">Arquivos</string>
     <string name="bipe_gallery_empty_media">Nenhuma foto ou vídeo nesta conversa ainda.</string>
     <string name="bipe_gallery_empty_files">Nenhum arquivo nesta conversa ainda.</string>
+    <string name="bipe_search_messages">Mensagens</string>
+    <string name="bipe_search_recent">Buscas recentes</string>
+    <string name="bipe_search_recent_clear">Limpar</string>
 </resources>

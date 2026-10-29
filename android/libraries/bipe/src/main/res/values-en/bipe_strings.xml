@@ -1966,4 +1966,7 @@
     <string name="bipe_gallery_files">Files</string>
     <string name="bipe_gallery_empty_media">No photos or videos in this chat yet.</string>
     <string name="bipe_gallery_empty_files">No files in this chat yet.</string>
+    <string name="bipe_search_messages">Messages</string>
+    <string name="bipe_search_recent">Recent searches</string>
+    <string name="bipe_search_recent_clear">Clear</string>
 </resources>
