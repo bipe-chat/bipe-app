@@ -135,6 +135,14 @@ struct GroupDetailsView: View {
                     row(icon: .userPlus, title: BipeStrings.appGroupAddPeople, chevron: false)
                 }
             }
+            if model.canChangePrivacy {
+                // Spec group-privacy (bipe#772).
+                NavigationLink {
+                    GroupPrivacyView(session: model.session, media: media, roomId: model.roomId)
+                } label: {
+                    row(icon: .lockSimple, title: BipeStrings.groupPrivacyTitle, chevron: false)
+                }
+            }
             // Spec chat-media-gallery (bipe#672).
             Button {
                 showsGallery = true

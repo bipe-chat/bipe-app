@@ -1991,4 +1991,15 @@
     <string name="bipe_room_upgrade_replaced">Este grupo foi trocado por um grupo novo. As mensagens novas ficam lá.</string>
     <string name="bipe_room_upgrade_go">Ir para o grupo novo</string>
     <string name="bipe_room_upgrade_continues">Continuação de %1$s. Toque para ver as mensagens antigas.</string>
+    <string name="bipe_group_privacy_title">Privacidade do grupo</string>
+    <string name="bipe_group_privacy_join">Quem pode entrar</string>
+    <string name="bipe_group_privacy_join_invite">Só quem for convidado</string>
+    <string name="bipe_group_privacy_join_knock">Quem tem o link pode pedir para entrar</string>
+    <string name="bipe_group_privacy_history">Mensagens antigas para quem entra</string>
+    <string name="bipe_group_privacy_history_joined">Só a partir da entrada</string>
+    <string name="bipe_group_privacy_history_shared">Todas as mensagens do grupo</string>
+    <string name="bipe_group_privacy_history_footer">A mudança vale para as mensagens enviadas daqui em diante.</string>
+    <string name="bipe_group_requests">Pedidos para entrar</string>
+    <string name="bipe_group_request_accept">Aceitar</string>
+    <string name="bipe_group_request_decline">Recusar</string>
 </resources>

@@ -61,7 +61,7 @@ import java.text.NumberFormat
 import kotlinx.coroutines.launch
 
 /** The screens behind group-details. */
-private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, GALLERY, REPORT, POLLS }
+private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, GALLERY, REPORT, POLLS, PRIVACY }
 
 /** Spec group-details, with group-members, group-invite-members, chat-notifications and group-leave behind it. */
 @Composable
@@ -117,6 +117,11 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
             chat.bipe.app.polls.PollHistoryScreen(session, roomId, onBack = back)
             return
         }
+        // Spec group-privacy (bipe-chat/bipe#772).
+        GroupSubScreen.PRIVACY -> {
+            GroupPrivacyScreen(session, media, roomId, onBack = back)
+            return
+        }
         GroupSubScreen.NONE -> Unit
     }
     if (leaving) {
@@ -137,6 +142,7 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val notificationMode by model.notificationMode.collectAsState()
     val canEdit by model.canEdit.collectAsState()
     val canInvite by model.canInvite.collectAsState()
+    val canChangePrivacy by model.canChangePrivacy.collectAsState()
     val phase by model.phase.collectAsState()
     val saveError by model.saveError.collectAsState()
     val editName by model.editName.collectAsState()
@@ -224,6 +230,9 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     GroupRow(PhosphorIcon.USERS_THREE, stringResource(R.string.bipe_app_group_details_people, count)) { sub = GroupSubScreen.MEMBERS }
                     if (canInvite) {
                         GroupRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_app_group_add_people)) { sub = GroupSubScreen.INVITE }
+                    }
+                    if (canChangePrivacy) {
+                        GroupRow(PhosphorIcon.LOCK_SIMPLE, stringResource(R.string.bipe_group_privacy_title)) { sub = GroupSubScreen.PRIVACY }
                     }
                     GroupRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_gallery_title)) { sub = GroupSubScreen.GALLERY }
                     GroupRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_poll_history)) { sub = GroupSubScreen.POLLS }
