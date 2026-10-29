@@ -530,6 +530,8 @@ internal fun copyToClipboard(context: Context, text: String) {
 
 @Composable
 private fun noticeText(notice: TimelineNotice): String = when (notice) {
+    TimelineNotice.STICKER_SAVED -> stringResource(R.string.bipe_sticker_saved)
+    TimelineNotice.STICKER_SAVE_FAILED -> stringResource(R.string.bipe_sticker_save_failed)
     TimelineNotice.COPIED -> stringResource(R.string.bipe_app_copied)
     TimelineNotice.REACTION_FAILED -> stringResource(R.string.bipe_app_reaction_failed)
     TimelineNotice.EDIT_FAILED -> stringResource(R.string.bipe_app_message_edit_failed)
