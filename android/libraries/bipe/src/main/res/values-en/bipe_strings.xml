@@ -1947,4 +1947,10 @@
     <string name="bipe_app_notification_checkup_help_samsung">On Samsung, take Bipe off the sleeping apps list in the battery settings.</string>
     <string name="bipe_app_notification_checkup_help_motorola">On Motorola, set Bipe\'s battery use to unrestricted in the app settings.</string>
     <string name="bipe_app_notification_checkup_open_app_settings">Open app settings</string>
+    <string name="bipe_pin_action">Pin</string>
+    <string name="bipe_unpin_action">Unpin</string>
+    <string name="bipe_pinned_banner_title">Pinned message</string>
+    <string name="bipe_pinned_banner_count">Pinned %1$s of %2$s</string>
+    <string name="bipe_pinned_list_title">Pinned messages</string>
+    <string name="bipe_pinned_view_all">View all</string>
 </resources>

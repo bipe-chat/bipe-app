@@ -315,6 +315,8 @@ fun ChatTimelineScreen(
                     }
                 }
                 OngoingCallBar(model, session, roomName)
+                // Spec message-pins (bipe-chat/bipe#665): groups only.
+                if (isGroup) PinnedBanner(session, roomId) { model.openOriginal(it) }
                 LiveLocationChatBar(roomId, session.userId)
                 val sealInstitutions = people?.seals?.institutions?.collectAsState()
                 val cvmPeer = peerUserId
@@ -529,6 +531,7 @@ internal fun copyToClipboard(context: Context, text: String) {
 
 @Composable
 private fun noticeText(notice: TimelineNotice): String = when (notice) {
+    TimelineNotice.PIN_FAILED -> stringResource(R.string.bipe_error_generic)
     TimelineNotice.COPIED -> stringResource(R.string.bipe_app_copied)
     TimelineNotice.REACTION_FAILED -> stringResource(R.string.bipe_app_reaction_failed)
     TimelineNotice.EDIT_FAILED -> stringResource(R.string.bipe_app_message_edit_failed)

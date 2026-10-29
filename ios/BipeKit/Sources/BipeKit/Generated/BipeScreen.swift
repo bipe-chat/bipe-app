@@ -226,6 +226,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Edit a message (flow chat). Spec: bipe-shared/product/screens/message-edit.json
     case messageEdit = "message-edit"
 
+    /// Pinned messages (flow chat). Spec: bipe-shared/product/screens/message-pins.json
+    case messagePins = "message-pins"
+
     /// Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json
     case messageReactions = "message-reactions"
 

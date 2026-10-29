@@ -232,6 +232,9 @@ enum class BipeScreen(val id: String) {
     /** Edit a message (flow chat). Spec: bipe-shared/product/screens/message-edit.json */
     MESSAGE_EDIT("message-edit"),
 
+    /** Pinned messages (flow chat). Spec: bipe-shared/product/screens/message-pins.json */
+    MESSAGE_PINS("message-pins"),
+
     /** Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json */
     MESSAGE_REACTIONS("message-reactions"),
 
