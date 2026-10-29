@@ -280,9 +280,9 @@ fun MediaViewer(
     }
 }
 
-/** One photo or video of the viewer. */
+/** One photo or video of the viewer; the chat-media-gallery pager uses it too. */
 @Composable
-private fun MediaPage(media: MediaMessage, loader: MediaLoader, onTap: () -> Unit) {
+internal fun MediaPage(media: MediaMessage, loader: MediaLoader, onTap: () -> Unit) {
     val colors = BipeDarkColors
     val context = LocalContext.current
     var preview by remember(media.source) { mutableStateOf<LoadedImage?>(null) }

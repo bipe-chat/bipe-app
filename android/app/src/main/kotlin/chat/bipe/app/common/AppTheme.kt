@@ -25,9 +25,29 @@ object AppTheme {
     var palette by mutableStateOf(BipePalette.DEFAULT)
         private set
 
+    /** Settings chats.appearance (bipe-chat/bipe#676): system, light or dark for the whole app, on this phone. */
+    enum class Appearance(val id: String, val title: Int) {
+        SYSTEM("system", R.string.bipe_chats_appearance_system),
+        LIGHT("light", R.string.bipe_chats_appearance_light),
+        DARK("dark", R.string.bipe_chats_appearance_dark),
+        ;
+
+        companion object {
+            fun of(id: String?): Appearance = entries.firstOrNull { it.id == id } ?: SYSTEM
+        }
+    }
+
+    var appearance by mutableStateOf(Appearance.SYSTEM)
+        private set
+
+    fun setAppearance(id: String) {
+        appearance = Appearance.of(id)
+    }
+
     /** Shows the stored palette. A missing or unknown id is the default palette. Call in Application.onCreate. */
     fun load(context: Context) {
         palette = BipePalette.fromId(prefs(context).getString(PALETTE_KEY, null))
+        appearance = Appearance.of(prefs(context).getString(chat.bipe.shared.generated.BipeSettingsRow.CHATS_APPEARANCE.id, null))
     }
 
     /** Keeps the palette, shows it and switches the launcher icon to it. */

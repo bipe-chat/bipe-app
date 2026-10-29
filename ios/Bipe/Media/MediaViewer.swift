@@ -202,7 +202,8 @@ struct MediaViewer: View {
 }
 
 /// One photo or video of the viewer.
-private struct MediaPage: View {
+/// One page of spec media-viewer; the chat-media-gallery pager uses it too.
+struct MediaPage: View {
     let media: MediaMessage
     let loader: MediaLoader
 

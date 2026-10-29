@@ -174,6 +174,9 @@ final class AccountSession {
             .backupDownloadStrategy(backupDownloadStrategy: .afterDecryptionFailure)
         if process == .notificationService {
             builder = builder.systemIsMemoryConstrained()
+        } else if let index = searchIndexPath(data: paths.data) {
+            // Spec chat-search notes (bipe#671): the SDK's local message index, main app only.
+            builder = builder.withSearchIndexStore(path: index.path, password: nil)
         }
         return builder
     }
@@ -204,6 +207,12 @@ final class AccountSession {
 
     private static func storePaths(userId: String) throws -> (data: URL, cache: URL) {
         try storePaths(folder: folderName(userId: userId))
+    }
+
+    /// The folder of the local message search index, inside the account's data folder, made when missing.
+    private static func searchIndexPath(data: URL) -> URL? {
+        let index = data.appendingPathComponent("SearchIndex", isDirectory: true)
+        return (try? FileManager.default.createDirectory(at: index, withIntermediateDirectories: true)) != nil ? index : nil
     }
 
     /// The data and cache folders of one store, made when missing.

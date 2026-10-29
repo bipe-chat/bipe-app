@@ -58,6 +58,15 @@ struct GroupMembersView: View {
                     Text(BipeStrings.appGroupMembersInvited)
                 }
             }
+            if !model.banned.isEmpty {
+                Section {
+                    ForEach(model.banned) { member in
+                        memberRow(member)
+                    }
+                } header: {
+                    Text(BipeStrings.appGroupMembersBanned)
+                }
+            }
         }
         .searchable(text: Binding(get: { model.query }, set: { model.setQuery($0) }), prompt: BipeStrings.appPeopleSearch)
         .navigationTitle(BipeStrings.appGroupMembersTitle)
@@ -68,7 +77,7 @@ struct GroupMembersView: View {
                             presenting: sheetMember) { member in
             ForEach(model.actions(for: member), id: \.self) { action in
                 Button(title(of: action), role: isDestructive(action) ? .destructive : nil) {
-                    if action == .remove || action == .ban {
+                    if action == .remove || action == .ban || action == .unban {
                         confirm = (action, member)
                     } else {
                         Task { await model.perform(action, on: member) }
@@ -80,14 +89,16 @@ struct GroupMembersView: View {
         .alert(confirm.map { title(of: $0.action) } ?? "",
                isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }),
                presenting: confirm) { pending in
-            Button(title(of: pending.action), role: .destructive) {
+            Button(title(of: pending.action), role: pending.action == .unban ? nil : .destructive) {
                 Task { await model.perform(pending.action, on: pending.member) }
             }
             Button(BipeStrings.appCancel, role: .cancel) {}
         } message: { pending in
-            Text(pending.action == .ban
-                 ? BipeStrings.appGroupMemberBanBody(pending.member.person.displayName)
-                 : BipeStrings.appGroupMemberRemoveBody(pending.member.person.displayName))
+            switch pending.action {
+            case .ban: Text(BipeStrings.appGroupMemberBanBody(pending.member.person.displayName))
+            case .unban: Text(BipeStrings.appGroupMemberUnbanBody(pending.member.person.displayName))
+            default: Text(BipeStrings.appGroupMemberRemoveBody(pending.member.person.displayName))
+            }
         }
         .alert(BipeStrings.appGroupMemberError, isPresented: $model.showsError) {
             Button(BipeStrings.appClose, role: .cancel) {}
@@ -131,6 +142,7 @@ struct GroupMembersView: View {
         case .removeAdmin: BipeStrings.appGroupMemberRemoveAdmin
         case .remove: BipeStrings.appGroupMemberRemove
         case .ban: BipeStrings.appGroupMemberBan
+        case .unban: BipeStrings.appGroupMemberUnban
         case .cancelInvite: BipeStrings.appGroupMemberCancelInvite
         }
     }

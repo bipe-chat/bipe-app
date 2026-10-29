@@ -152,6 +152,8 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 .decryptionSettings(DecryptionSettings(TrustRequirement.CROSS_SIGNED_OR_LEGACY))
                 // Old messages decrypt from the key backup once this phone has the backup key (recovery-key-enter).
                 .backupDownloadStrategy(BackupDownloadStrategy.AFTER_DECRYPTION_FAILURE)
+                // Spec chat-search notes (bipe-chat/bipe#671): the SDK's local message index.
+                .withSearchIndexStore(File(data, "SearchIndex").apply { mkdirs() }.path, null)
         }
 
         /** Deletes the store of an account. A new sign-in needs an empty store: the crypto store belongs to one device. */

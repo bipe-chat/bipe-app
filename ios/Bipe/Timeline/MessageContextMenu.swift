@@ -38,7 +38,11 @@ extension MessageAction {
         switch self {
         case .reply: BipeStrings.appMessageActionReply
         case .edit: BipeStrings.appMessageActionEdit
+        case .removeCaption: BipeStrings.captionRemove
         case .copy: BipeStrings.appCopy
+        case .pin: BipeStrings.pinAction
+        case .unpin: BipeStrings.unpinAction
+        case .forward: BipeStrings.forwardAction
         case .saveSticker: BipeStrings.actionSaveSticker
         case .keepAudio: BipeStrings.voiceKeep
         case .unkeepAudio: BipeStrings.voiceUnkeep
@@ -52,7 +56,10 @@ extension MessageAction {
         switch self {
         case .reply: .arrowBendUpLeft
         case .edit: .pencilSimple
+        case .removeCaption: .x
         case .copy: .copy
+        case .pin, .unpin: .chatText
+        case .forward: .paperPlaneRight
         case .saveSticker: .sticker
         case .keepAudio: .downloadSimple
         case .unkeepAudio: .x
@@ -67,7 +74,11 @@ extension MessageAction {
         switch self {
         case .reply: "arrowshape.turn.up.left"
         case .edit: "pencil"
+        case .removeCaption: "text.badge.minus"
         case .copy: "doc.on.doc"
+        case .pin: "pin"
+        case .unpin: "pin.slash"
+        case .forward: "arrowshape.turn.up.right"
         case .saveSticker: "square.and.arrow.down"
         case .keepAudio: "bookmark"
         case .unkeepAudio: "bookmark.slash"

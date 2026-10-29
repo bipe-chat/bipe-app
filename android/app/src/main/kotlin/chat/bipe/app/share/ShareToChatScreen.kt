@@ -83,8 +83,8 @@ fun ShareToChatScreen(share: PendingShare, chatList: ChatListModel, media: Media
 
     // The room list order is newest activity first.
     val shown = remember(chats, query) {
-        val wanted = fold(query.trim())
-        if (wanted.isEmpty()) chats else chats.filter { fold(it.name).contains(wanted) }
+        val wanted = searchFold(query.trim())
+        if (wanted.isEmpty()) chats else chats.filter { searchFold(it.name).contains(wanted) }
     }
 
     /** Action pick: with files, upload-preview for that chat; else the chat is selected for Send. */
@@ -229,6 +229,6 @@ fun ShareToChatScreen(share: PendingShare, chatList: ChatListModel, media: Media
     }
 }
 
-/** Search ignores case and accents. */
-private fun fold(text: String): String =
+/** Search ignores case and accents: share-to-chat and message-forward. */
+internal fun searchFold(text: String): String =
     Normalizer.normalize(text, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "").lowercase()

@@ -47,7 +47,13 @@ import java.text.Normalizer
 
 /** Search, the top-bar action: the current account's chats whose name matches. */
 @Composable
-internal fun ChatSearchScreen(model: ChatSearchModel, media: MediaLoader, onOpenChat: (String) -> Unit, onFindHandle: (String) -> Unit) {
+internal fun ChatSearchScreen(
+    model: ChatSearchModel,
+    media: MediaLoader,
+    onOpenChat: (String) -> Unit,
+    onFindHandle: (String) -> Unit,
+    onOpenMessage: (String, String) -> Unit = { _, _ -> },
+) {
     val colors = BipeTheme.colors
     val state by model.state.collectAsState()
     val focus = remember { FocusRequester() }
@@ -71,7 +77,7 @@ internal fun ChatSearchScreen(model: ChatSearchModel, media: MediaLoader, onOpen
                 shape = CircleShape,
                 modifier = Modifier.fillMaxWidth().padding(16.dp).focusRequester(focus),
             )
-            ChatSearchResults(model, media, onOpenChat, onFindHandle)
+            ChatSearchResults(model, media, onOpenChat, onFindHandle, onOpenMessage)
         }
     }
 }

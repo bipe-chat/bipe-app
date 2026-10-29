@@ -25,6 +25,7 @@ struct PersonProfileView: View {
     private let routes: PersonProfileRoutes
 
     @State private var showsBlock = false
+    @State private var showsGallery = false
     @State private var showsReport = false
     @State private var showsSeal = false
     @State private var inviteTargets: [InviteTarget]?
@@ -283,6 +284,17 @@ struct PersonProfileView: View {
 
     @ViewBuilder
     private func dmRows(roomId: String) -> some View {
+        Section {
+            // Spec chat-media-gallery (bipe#672).
+            Button {
+                showsGallery = true
+            } label: {
+                IconLabel(icon: .image, text: BipeStrings.galleryTitle)
+            }
+            .sheet(isPresented: $showsGallery) {
+                ChatMediaGalleryView(session: people.session, media: people.media, roomId: roomId)
+            }
+        }
         if routes.notifications != nil || routes.deleteChat != nil {
             Section {
                 if let notifications = routes.notifications {

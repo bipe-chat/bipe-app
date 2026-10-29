@@ -263,6 +263,7 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
     val colors = BipeTheme.colors
     var showsBlock by remember { mutableStateOf(false) }
     var showsSeal by remember { mutableStateOf(false) }
+    var showsGallery by remember { mutableStateOf(false) }
     var targets by remember { mutableStateOf<List<InviteTarget>?>(null) }
 
     PeopleScaffold(
@@ -304,6 +305,15 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
                     }
                 }
                 val dmRoomId = state.dmRoomId
+                // Spec chat-media-gallery (bipe-chat/bipe#672).
+                if (fromDm && dmRoomId != null) {
+                    RowGroup {
+                        IconRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_gallery_title)) { showsGallery = true }
+                    }
+                    if (showsGallery) {
+                        chat.bipe.app.media.ChatMediaGalleryScreen(people.session, people.media, dmRoomId, onClose = { showsGallery = false })
+                    }
+                }
                 if (fromDm && dmRoomId != null && (routes.notifications != null || routes.deleteChat != null)) {
                     RowGroup {
                         routes.notifications?.let { open ->

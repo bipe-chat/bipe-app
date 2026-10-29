@@ -153,7 +153,7 @@ fun HomeScreen(
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     val people = remember(session) { PeopleService(context, session, api, media, scope) }
     val requests = remember(session) { ChatRequestsModel(context.applicationContext, session, api, scope, people) }
-    val search = remember(session) { ChatSearchModel(session, model, scope) }
+    val search = remember(session) { ChatSearchModel(session, model, scope, context.applicationContext) }
     val remoteBanner = remember(session) { RemoteBannerModel(context.applicationContext, api, scope) }
     var showsRequests by rememberSaveable { mutableStateOf(false) }
     var notificationListOpen by rememberSaveable { mutableStateOf(0) }
@@ -162,6 +162,8 @@ fun HomeScreen(
     val alertNotice by recoveryAlert.notice.collectAsState()
     val phoneNotice = remember(session) { PhoneConfirmNoticeModel(context.applicationContext, api, session, scope) }
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
+    // Spec chat-search openMessage (bipe-chat/bipe#671): the message the opened chat scrolls to.
+    var focusEventId by rememberSaveable { mutableStateOf<String?>(null) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
     // invite-signed-in: a sign-up with someone else's invite from a link.
@@ -347,12 +349,13 @@ fun HomeScreen(
                     )
                     PeopleScreen(peopleStack.last(), people, withGroups)
                 } else if (roomId != null) {
-                    BackHandler { openRoomId = null }
+                    BackHandler { openRoomId = null; focusEventId = null }
                     ChatTimelineScreen(
                         session,
                         media,
                         roomId,
-                        onBack = { openRoomId = null },
+                        onBack = { openRoomId = null; focusEventId = null },
+                        focusEventId = focusEventId,
                         onHistoryHelp = encryption::openSheet,
                         onOpenGroupDetails = groups.openGroupDetails,
                         onOpenInfo = {
@@ -385,6 +388,10 @@ fun HomeScreen(
                         requests = requests, search = search, remoteBanner = remoteBanner,
                         onOpenRequests = { showsRequests = true },
                         onFindHandle = { navigation.push(PeopleRoute.ProfileLinkOpen(it.trim().removePrefix("@"))) },
+                        onOpenMessage = { room, event ->
+                            focusEventId = event
+                            openRoomId = room
+                        },
                         onInvite = groups.openInvites,
                         onOpenPeople = navigation.push,
                     )
