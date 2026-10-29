@@ -4489,4 +4489,26 @@ public enum BipeStrings {
     public static func voiceSpeedLabel(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_voice_speed_label", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var groupPrivacyTitle: String { NSLocalizedString("bipe_group_privacy_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupPrivacyJoin: String { NSLocalizedString("bipe_group_privacy_join", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupPrivacyJoinInvite: String { NSLocalizedString("bipe_group_privacy_join_invite", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupPrivacyJoinKnock: String { NSLocalizedString("bipe_group_privacy_join_knock", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupPrivacyHistory: String { NSLocalizedString("bipe_group_privacy_history", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupPrivacyHistoryJoined: String { NSLocalizedString("bipe_group_privacy_history_joined", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupPrivacyHistoryShared: String { NSLocalizedString("bipe_group_privacy_history_shared", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupPrivacyHistoryFooter: String { NSLocalizedString("bipe_group_privacy_history_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupRequests: String { NSLocalizedString("bipe_group_requests", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupRequestAccept: String { NSLocalizedString("bipe_group_request_accept", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupRequestDecline: String { NSLocalizedString("bipe_group_request_decline", tableName: "Bipe", bundle: .module, comment: "") }
 }

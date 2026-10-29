@@ -1947,3 +1947,14 @@
 "bipe_app_notification_checkup_open_app_settings" = "Open app settings";
 "bipe_voice_speed" = "%1$@×";
 "bipe_voice_speed_label" = "Speed: %1$@ times";
+"bipe_group_privacy_title" = "Group privacy";
+"bipe_group_privacy_join" = "Who can join";
+"bipe_group_privacy_join_invite" = "Only invited people";
+"bipe_group_privacy_join_knock" = "People with the link can ask to join";
+"bipe_group_privacy_history" = "Older messages for new members";
+"bipe_group_privacy_history_joined" = "Only from when they join";
+"bipe_group_privacy_history_shared" = "All messages of the group";
+"bipe_group_privacy_history_footer" = "The change applies to messages sent from now on.";
+"bipe_group_requests" = "Requests to join";
+"bipe_group_request_accept" = "Accept";
+"bipe_group_request_decline" = "Decline";

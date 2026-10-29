@@ -169,6 +169,9 @@ enum class BipeScreen(val id: String) {
     /** People in a group (flow groups). Spec: bipe-shared/product/screens/group-members.json */
     GROUP_MEMBERS("group-members"),
 
+    /** Group privacy (flow groups). Spec: bipe-shared/product/screens/group-privacy.json */
+    GROUP_PRIVACY("group-privacy"),
+
     /** Handle change line (flow chat). Spec: bipe-shared/product/screens/handle-change-line.json */
     HANDLE_CHANGE_LINE("handle-change-line"),
 
