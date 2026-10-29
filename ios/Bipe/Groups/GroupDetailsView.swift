@@ -142,6 +142,7 @@ struct GroupDetailsView: View {
                 } label: {
                     row(icon: .lockSimple, title: BipeStrings.groupPrivacyTitle, chevron: false)
                 }
+            }
             // Spec chat-media-gallery (bipe#672).
             Button {
                 showsGallery = true

@@ -61,7 +61,7 @@ import java.text.NumberFormat
 import kotlinx.coroutines.launch
 
 /** The screens behind group-details. */
-private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, PRIVACY, GALLERY, REPORT, POLLS }
+private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, GALLERY, REPORT, POLLS, PRIVACY }
 
 /** Spec group-details, with group-members, group-invite-members, chat-notifications and group-leave behind it. */
 @Composable
@@ -97,9 +97,6 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
             ChatNotificationsScreen(session, roomId, onBack = back)
             return
         }
-        // Spec group-privacy (bipe-chat/bipe#772).
-        GroupSubScreen.PRIVACY -> {
-            GroupPrivacyScreen(session, media, roomId, onBack = back)
         // Spec chat-media-gallery (bipe-chat/bipe#672).
         GroupSubScreen.GALLERY -> chat.bipe.app.media.ChatMediaGalleryScreen(session, media, roomId, onClose = back)
         // Spec group-details notes, report (bipe-chat/bipe#674).
@@ -118,6 +115,11 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
         // Spec poll-history (bipe-chat/bipe#669).
         GroupSubScreen.POLLS -> {
             chat.bipe.app.polls.PollHistoryScreen(session, roomId, onBack = back)
+            return
+        }
+        // Spec group-privacy (bipe-chat/bipe#772).
+        GroupSubScreen.PRIVACY -> {
+            GroupPrivacyScreen(session, media, roomId, onBack = back)
             return
         }
         GroupSubScreen.NONE -> Unit
