@@ -29,11 +29,12 @@ final class MessageForwardModel: ObservableObject {
     @Published var showsLimit = false
 
     private let client: Client
-    private let msgType: MessageType
+    /// The content to send: the original content with the forward mark (BipeForwardMark, bipe-chat/bipe#83).
+    private let contentJson: String
 
-    init(client: Client, msgType: MessageType) {
+    init(client: Client, contentJson: String) {
         self.client = client
-        self.msgType = msgType
+        self.contentJson = contentJson
     }
 
     /// State chats: joined chats, spaces left out, by name.
@@ -70,8 +71,8 @@ final class MessageForwardModel: ObservableObject {
         for roomId in picked {
             do {
                 guard let room = try client.getRoom(roomId: roomId) else { throw CancellationError() }
-                let timeline = try await room.timeline()
-                _ = try await timeline.send(msg: try messageEventContentNew(msgtype: msgType))
+                // Room.sendRaw encrypts in an encrypted room. Media keeps its source: nothing is uploaded again.
+                try await room.sendRaw(eventType: "m.room.message", content: contentJson)
             } catch {
                 failed.append(chats.first { $0.roomId == roomId }?.name ?? roomId)
             }
@@ -87,8 +88,8 @@ struct MessageForwardSheet: View {
     /// Called after the send with the names of the chats that failed; nil when the person cancelled.
     let close: ([String]?) -> Void
 
-    init(client: Client, msgType: MessageType, media: MediaLoader, close: @escaping ([String]?) -> Void) {
-        _model = StateObject(wrappedValue: MessageForwardModel(client: client, msgType: msgType))
+    init(client: Client, contentJson: String, media: MediaLoader, close: @escaping ([String]?) -> Void) {
+        _model = StateObject(wrappedValue: MessageForwardModel(client: client, contentJson: contentJson))
         self.media = media
         self.close = close
     }

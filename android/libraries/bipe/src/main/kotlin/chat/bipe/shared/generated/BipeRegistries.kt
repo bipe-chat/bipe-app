@@ -839,6 +839,9 @@ object BipeRegistries {
     const val VOICE_MEDIA_TRANSCRIPT_DAYS = 30
     const val VOICE_MEDIA_NO_TRANSCRIPT_DAYS = 90
     const val VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT = 200
+    /** Forward marks (bipe-chat/bipe#83; registries/voice-media.json): the content field and the many-times threshold. Rules: BipeForwardMark, test-vectors/forward-marks.json. */
+    const val FORWARD_KEY = "chat.bipe.forward"
+    const val FORWARDED_MANY_TIMES = 5
 
     /** Stickers (bipe ADR 0205, bipe-chat/bipe#837; registries/stickers.json). Search rules: test-vectors/sticker-search.json. */
     const val STICKER_IMPORT_MAX_BYTES = 1000000

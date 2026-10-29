@@ -240,6 +240,11 @@ enum TimelineRowBuilder {
                 }
                 mediaContent = .media(media)
             }
+            // Spec voice-message forwardCount: the SDK types have no field for the forward mark (bipe-chat/bipe#83).
+            if case .voice(var voice) = mediaContent {
+                voice.forwardCount = BipeForwardMark.count(eventJson: event.lazyProvider.debugInfo().originalJson)
+                mediaContent = .voice(voice)
+            }
             switch content.kind {
             case .message(let messageContent):
                 var message = base

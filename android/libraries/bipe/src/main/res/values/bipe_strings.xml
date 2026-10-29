@@ -1969,4 +1969,10 @@
     <string name="bipe_search_messages">Mensagens</string>
     <string name="bipe_search_recent">Buscas recentes</string>
     <string name="bipe_search_recent_clear">Limpar</string>
+    <string name="bipe_voice_source_forwarded">Encaminhado</string>
+    <string name="bipe_voice_source_forwarded_many">Encaminhado muitas vezes</string>
+    <string name="bipe_voice_source_recorded">Gravado no app</string>
+    <string name="bipe_voice_source_file">Arquivo de áudio</string>
+    <string name="bipe_voice_source_title">Sobre esta marca</string>
+    <string name="bipe_voice_source_body">O app de quem enviou coloca esta marca, e um app alterado pode falsificar. Para saber quem mandou, veja se a conta é verificada.</string>
 </resources>

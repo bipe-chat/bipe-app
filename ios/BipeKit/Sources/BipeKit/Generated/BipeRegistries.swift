@@ -832,6 +832,9 @@ public enum BipeRegistries {
     public static let voiceMediaTranscriptDays = 30
     public static let voiceMediaNoTranscriptDays = 90
     public static let voiceMediaMaxKeptPerAccount = 200
+    /// Forward marks (bipe-chat/bipe#83; registries/voice-media.json): the content field and the many-times threshold. Rules: BipeForwardMark, test-vectors/forward-marks.json.
+    public static let forwardKey = "chat.bipe.forward"
+    public static let forwardedManyTimes = 5
 
     /// Stickers (bipe ADR 0205, bipe-chat/bipe#837; registries/stickers.json). Search rules: test-vectors/sticker-search.json.
     public static let stickerImportMaxBytes = 1000000

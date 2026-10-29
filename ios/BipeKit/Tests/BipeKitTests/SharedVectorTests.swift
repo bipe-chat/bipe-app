@@ -279,6 +279,34 @@ struct SharedVectorTests {
     }
 
     @Test
+    func forwardMarks() throws {
+        let file = try SharedVectors.object("forward-marks.json")
+        #expect(file["forwardKey"] as? String == BipeRegistries.forwardKey)
+        #expect((file["forwardedManyTimes"] as? NSNumber)?.intValue == BipeRegistries.forwardedManyTimes)
+        let counts = try #require(file["count"] as? [[String: Any]])
+        #expect(!counts.isEmpty)
+        for vector in counts {
+            let content = try #require(vector["content"] as? [String: Any])
+            #expect(BipeForwardMark.count(content: content) == (vector["expected"] as? NSNumber)?.intValue, "count \(vector["name"] ?? "")")
+        }
+        let forwards = try #require(file["forward"] as? [[String: Any]])
+        #expect(!forwards.isEmpty)
+        for vector in forwards {
+            let content = try #require(vector["content"] as? [String: Any])
+            let sent = BipeForwardMark.forwardedContent(original: content, newContent: vector["newContent"] as? [String: Any])
+            let expected = try #require(vector["expected"] as? [String: Any])
+            #expect(NSDictionary(dictionary: sent).isEqual(to: expected), "forward \(vector["name"] ?? "")")
+        }
+        let sources = try #require(file["source"] as? [[String: Any]])
+        #expect(!sources.isEmpty)
+        for vector in sources {
+            let isVoice = try #require(vector["isVoice"] as? Bool)
+            let count = try #require((vector["count"] as? NSNumber)?.intValue)
+            #expect(BipeForwardMark.source(isVoice: isVoice, count: count).rawValue == vector["expected"] as? String, "source \(isVoice) \(count)")
+        }
+    }
+
+    @Test
     func clearedChats() throws {
         let file = try SharedVectors.object("cleared-chats.json")
         #expect(file["event_type"] as? String == ClearedChats.eventType)

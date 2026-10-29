@@ -4539,4 +4539,16 @@ public enum BipeStrings {
     public static var searchRecent: String { NSLocalizedString("bipe_search_recent", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var searchRecentClear: String { NSLocalizedString("bipe_search_recent_clear", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceForwarded: String { NSLocalizedString("bipe_voice_source_forwarded", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceForwardedMany: String { NSLocalizedString("bipe_voice_source_forwarded_many", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceRecorded: String { NSLocalizedString("bipe_voice_source_recorded", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceFile: String { NSLocalizedString("bipe_voice_source_file", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceTitle: String { NSLocalizedString("bipe_voice_source_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceBody: String { NSLocalizedString("bipe_voice_source_body", tableName: "Bipe", bundle: .module, comment: "") }
 }

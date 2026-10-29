@@ -866,11 +866,14 @@ final class ChatTimelineModel: ObservableObject {
 
     // MARK: message-forward
 
-    /// The original message type of a row, sent again as it is (spec message-forward send).
-    func forwardContent(rowId: String) -> MessageType? {
-        guard case .msgLike(let content)? = item(rowId)?.asEvent()?.content,
-              case .message(let message) = content.kind else { return nil }
-        return message.msgType
+    /// The content JSON a forward of a row sends (spec message-forward send, bipe-chat/bipe#83): the original content with
+    /// the forward mark. nil without the event JSON (a local echo), so that no copy goes out without its mark.
+    func forwardContent(rowId: String) -> String? {
+        guard let event = item(rowId)?.asEvent(),
+              case .msgLike(let content) = event.content,
+              case .message = content.kind else { return nil }
+        let debugInfo = event.lazyProvider.debugInfo()
+        return BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson)
     }
 
     /// The picker closed: nil when cancelled, else the names of the chats that failed.

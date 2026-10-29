@@ -21,6 +21,8 @@ struct VoiceMessageRow: View {
     @ObservedObject private var expiry = VoiceMediaExpiry.shared
 
     @State private var transcriptExpanded = false
+    /// State sourceSheet of spec voice-message (bipe-chat/bipe#83).
+    @State private var sourceSheet = false
 
     /// Over this many characters the transcript folds to 3 lines (same rule as the forks).
     private static let foldLength = 140
@@ -47,6 +49,7 @@ struct VoiceMessageRow: View {
                     .font(.caption)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
+            sourceLine
             if let transcript = voice.transcript {
                 transcriptBlock(transcript)
             } else if voice.isVoice, !message.isOwn, !expiry.isExpired(voice) {
@@ -67,6 +70,7 @@ struct VoiceMessageRow: View {
         }
         .frame(maxWidth: 256, alignment: .leading)
         .accessibilityIdentifier(BipeScreen.voiceMessage.rawValue)
+        .sheet(isPresented: $sourceSheet) { VoiceSourceSheet { sourceSheet = false } }
         .task(id: "\(voice.source.url)|\(message.sendState == .sent)") { await expiryTasks() }
     }
 
@@ -78,6 +82,28 @@ struct VoiceMessageRow: View {
             await voiceMedia.register(url: voice.source.url, transcript: voice.transcript != nil)
         } else if !message.isOwn, hasScamWarning {
             await voiceMedia.keepForScam(url: voice.source.url)
+        }
+    }
+
+    /// The source line under the player (spec voice-message notes, bipe-chat/bipe#83). Action openSource on a tap.
+    private var sourceLine: some View {
+        Button {
+            sourceSheet = true
+        } label: {
+            Text(Self.text(BipeForwardMark.source(isVoice: voice.isVoice, count: voice.forwardCount)))
+                .font(.caption)
+                .foregroundStyle(BipeColor.inkSecondary)
+                .bipeTapTarget()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private static func text(_ source: BipeForwardMark.Source) -> String {
+        switch source {
+        case .forwarded: BipeStrings.voiceSourceForwarded
+        case .forwardedManyTimes: BipeStrings.voiceSourceForwardedMany
+        case .recorded: BipeStrings.voiceSourceRecorded
+        case .file: BipeStrings.voiceSourceFile
         }
     }
 
@@ -204,6 +230,28 @@ struct VoiceMessageRow: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+}
+
+/// Spec voice-message state sourceSheet: what the source line can and cannot prove.
+private struct VoiceSourceSheet: View {
+    let close: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(BipeStrings.voiceSourceTitle)
+                .font(.headline)
+                .foregroundStyle(BipeColor.inkPrimary)
+            Text(BipeStrings.voiceSourceBody)
+                .font(.body)
+                .foregroundStyle(BipeColor.inkPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(BipeStrings.appClose, action: close)
+                .buttonStyle(.bipeBordered)
+                .frame(maxWidth: .infinity)
+        }
+        .padding(24)
+        .presentationDetents([.medium])
     }
 }
 
