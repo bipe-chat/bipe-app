@@ -81,6 +81,8 @@ enum MessageAction: CaseIterable, Identifiable {
     case edit
     case copy
     case forward
+    /// Spec message-forward startSelection (bipe#860).
+    case select
     case saveSticker
     case keepAudio
     case unkeepAudio
@@ -121,6 +123,9 @@ enum TimelineNotice: Equatable {
     case keepFailed
     case forwarded
     case forwardFailed(String)
+    case selectionForwarded
+    case selectionLimit
+    case selectionDeleteFailed
     case stickerSaved
     case stickerSaveFailed
 
@@ -128,6 +133,9 @@ enum TimelineNotice: Equatable {
         switch self {
         case .forwarded: BipeStrings.forwardDone
         case .forwardFailed(let names): BipeStrings.forwardFailed(names)
+        case .selectionForwarded: BipeStrings.selectForwardDone
+        case .selectionLimit: BipeStrings.selectLimit(String(ChatTimelineModel.selectionLimit))
+        case .selectionDeleteFailed: BipeStrings.selectDeleteFailed
         case .stickerSaved: BipeStrings.stickerSaved
         case .stickerSaveFailed: BipeStrings.stickerSaveFailed
         case .copied: BipeStrings.appCopied
@@ -165,6 +173,8 @@ final class ChatTimelineModel: ObservableObject {
     static let originalSearchPages = 5
     /// Spec typing-indicator: typing on at most once every 4 seconds.
     static let typingInterval: TimeInterval = 4
+    /// Spec message-forward selection: at most this many messages.
+    nonisolated static let selectionLimit = 10
 
     // chat-timeline and timeline-rows
     @Published private(set) var roomName = BipeStrings.dmNoName
@@ -207,8 +217,12 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var inviterHint: BipeInviterGreeting?
     // message-actions
     @Published var actionsRowId: String?
-    /// Spec message-forward: the message the picker is open for.
-    @Published var forwardingRowId: String?
+    /// Spec message-forward: the messages the picker is open for.
+    @Published var forwardingRowIds: [String]?
+    /// Spec message-forward selection (bipe#860): the picked rows in tap order. nil while the mode is off.
+    @Published private(set) var selection: [String]?
+    /// Spec message-forward deleteSelection: the dialog is open.
+    @Published var confirmsDeleteSelection = false
     /// Spec scam-warning money pause: one per message while this chat is open.
     @Published private(set) var moneyPause = BipeMoneyPause()
     // message-reply
@@ -345,6 +359,7 @@ final class ChatTimelineModel: ObservableObject {
         acceptsMenuActions = false
         actionsRowId = nil
         pickerOpenFor = nil
+        cancelSelection()
         sendTyping(false)
         leave()
     }
@@ -559,6 +574,7 @@ final class ChatTimelineModel: ObservableObject {
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
             // Spec message-forward notes: sent messages of kind message; no stickers or polls.
             case .forward: isSent && forwardContent(rowId: row.id) != nil
+            case .select: canSelect(row)
             // Spec message-actions notes (bipe#670): every sent sticker.
             case .saveSticker: isSent && message.media?.kind == .sticker
             // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
@@ -627,7 +643,8 @@ final class ChatTimelineModel: ObservableObject {
                 case .failed: self.show(.keepFailed)
                 }
             }
-        case .forward: forwardingRowId = rowId
+        case .forward: forwardingRowIds = [rowId]
+        case .select: startSelection(rowId: rowId)
         case .saveSticker:
             guard let sticker = current.message?.media, let packClient = StickerPickerModel.packClient(client) else { return }
             Task {
@@ -873,16 +890,114 @@ final class ChatTimelineModel: ObservableObject {
         return message.msgType
     }
 
+    /// The message types of rows, in timeline order (spec message-forward send).
+    func forwardContents(rowIds: [String]) -> [MessageType] {
+        let wanted = Set(rowIds)
+        return rows.filter { wanted.contains($0.id) }.compactMap { forwardContent(rowId: $0.id) }
+    }
+
     /// The picker closed: nil when cancelled, else the names of the chats that failed.
     func forwardClosed(failed: [String]?) {
-        forwardingRowId = nil
+        let count = forwardingRowIds?.count ?? 0
+        forwardingRowIds = nil
         guard let failed else { return }
+        // A sent forward ends selection mode; a cancelled picker keeps it.
+        cancelSelection()
         if failed.isEmpty {
             BipeHaptics.play(.tap)
-            show(.forwarded)
+            show(count > 1 ? .selectionForwarded : .forwarded)
         } else {
             show(.forwardFailed(failed.joined(separator: ", ")))
         }
+    }
+
+    // MARK: message-forward selection (bipe#860)
+
+    /// A selectable row: a sent message that can be forwarded, or an own message the account can delete.
+    func canSelect(_ row: TimelineRow) -> Bool {
+        guard row.kind == .message, let message = row.message, message.sendState == .sent,
+              row.details?.eventId != nil else { return false }
+        return forwardContent(rowId: row.id) != nil || deletesInSelection(row)
+    }
+
+    private func deletesInSelection(_ row: TimelineRow) -> Bool {
+        row.message?.isOwn == true && row.message?.sendState == .sent && row.details?.canDelete == true
+    }
+
+    /// The picked rows that are still in the timeline and selectable, in timeline order.
+    private var selectedRows: [TimelineRow] {
+        guard let selection else { return [] }
+        let picked = Set(selection)
+        return rows.filter { picked.contains($0.id) && canSelect($0) }
+    }
+
+    /// Action startSelection: the mode starts with the long-pressed message picked.
+    func startSelection(rowId: String) {
+        guard acceptsMenuActions, let row = row(rowId), canSelect(row) else { return }
+        actionsRowId = nil
+        selection = [rowId]
+    }
+
+    /// Action toggleSelection: an 11th message shows the limit; removing the last one ends the mode.
+    func toggleSelection(rowId: String) {
+        guard var picked = selection else { return }
+        if let index = picked.firstIndex(of: rowId) {
+            picked.remove(at: index)
+        } else if picked.count >= Self.selectionLimit {
+            show(.selectionLimit)
+            return
+        } else if let row = row(rowId), canSelect(row) {
+            picked.append(rowId)
+        } else {
+            return
+        }
+        BipeHaptics.play(.tick)
+        selection = picked.isEmpty ? nil : picked
+    }
+
+    /// Action cancelSelection.
+    func cancelSelection() {
+        selection = nil
+        confirmsDeleteSelection = false
+    }
+
+    /// bipe_forward_action of the bar: on only when every picked message can be forwarded.
+    var canForwardSelection: Bool {
+        let picked = selectedRows
+        return !picked.isEmpty && picked.allSatisfy { forwardContent(rowId: $0.id) != nil }
+    }
+
+    /// bipe_app_message_action_delete of the bar: on when one picked message is own and can be deleted.
+    var canDeleteSelection: Bool {
+        selectedRows.contains { deletesInSelection($0) }
+    }
+
+    /// Action forwardSelection: the picker opens with the picked messages.
+    func forwardSelection() {
+        guard canForwardSelection else { return }
+        forwardingRowIds = selectedRows.map(\.id)
+    }
+
+    /// Action deleteSelection: one dialog for all own picked messages.
+    func askDeleteSelection() {
+        guard canDeleteSelection else { return }
+        confirmsDeleteSelection = true
+    }
+
+    /// The dialog of deleteSelection confirmed: deletes each own picked message for everyone, without a reason.
+    func confirmDeleteSelection() async {
+        let targets = selectedRows.filter { deletesInSelection($0) }.compactMap { item($0.id)?.asEvent()?.eventOrTransactionId }
+        cancelSelection()
+        guard let timeline, !targets.isEmpty else { return }
+        var failed = false
+        for target in targets {
+            do {
+                try await timeline.redactEvent(eventOrTransactionId: target, reason: nil)
+            } catch {
+                failed = true
+            }
+        }
+        if failed { show(.selectionDeleteFailed) }
     }
 
     // MARK: theftMark

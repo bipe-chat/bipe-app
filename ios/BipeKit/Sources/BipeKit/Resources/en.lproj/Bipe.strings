@@ -1959,3 +1959,10 @@
 "bipe_forward_limit" = "Pick up to %1$@ chats.";
 "bipe_forward_done" = "Message forwarded";
 "bipe_forward_failed" = "Could not forward to %1$@.";
+"bipe_select_action" = "Select";
+"bipe_select_count" = "Selected: %1$@";
+"bipe_select_limit" = "Pick up to %1$@ messages.";
+"bipe_select_forward_done" = "Messages forwarded";
+"bipe_select_delete_title" = "Delete your messages?";
+"bipe_select_delete_body" = "Your selected messages disappear for everyone in the chat. Messages from other people stay.";
+"bipe_select_delete_failed" = "Couldn't delete the messages. Try again.";

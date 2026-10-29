@@ -1961,4 +1961,11 @@
     <string name="bipe_forward_limit">Pick up to %1$s chats.</string>
     <string name="bipe_forward_done">Message forwarded</string>
     <string name="bipe_forward_failed">Could not forward to %1$s.</string>
+    <string name="bipe_select_action">Select</string>
+    <string name="bipe_select_count">Selected: %1$s</string>
+    <string name="bipe_select_limit">Pick up to %1$s messages.</string>
+    <string name="bipe_select_forward_done">Messages forwarded</string>
+    <string name="bipe_select_delete_title">Delete your messages?</string>
+    <string name="bipe_select_delete_body">Your selected messages disappear for everyone in the chat. Messages from other people stay.</string>
+    <string name="bipe_select_delete_failed">Couldn\'t delete the messages. Try again.</string>
 </resources>

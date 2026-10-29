@@ -9,6 +9,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
@@ -341,24 +342,35 @@ fun ChatTimelineScreen(
                         row.message?.takeUnless { it.isOwn }?.let { message -> people?.seals?.institution(message.senderId) }
                     }
                     items(newestFirst, key = { it.id }) { row ->
-                        TimelineRowItem(
-                            row = row,
-                            isDm = isDm,
-                            isHighlighted = ui.highlightedRowId == row.id,
-                            model = model,
-                            media = media,
-                            onLongPress = { if (model.openActions(row.id)) view.bipeHaptic(BipeHaptic.Hold) },
-                            onHistoryHelp = onHistoryHelp,
-                            onOpenPoll = { openPollId = it },
-                            isPrivateRoom = isPrivateRoom,
-                            voiceState = voiceState,
-                            onTogglePlay = voicePlayer::togglePlay,
-                            onSeek = voicePlayer::seek,
-                            onCycleSpeed = voicePlayer::cycleSpeed,
-                            onOpenViewer = { viewerRowId = it },
-                            seals = people?.seals,
-                            institution = institutionOf(row),
-                        )
+                        // Spec message-forward selection (bipe-chat/bipe#860).
+                        SelectableTimelineRow(
+                            selection = ui.selection,
+                            rowId = row.id,
+                            selectable = ui.selection != null && model.canSelect(row),
+                            onToggle = {
+                                view.bipeHaptic(BipeHaptic.Tick)
+                                model.toggleSelection(row.id)
+                            },
+                        ) {
+                            TimelineRowItem(
+                                row = row,
+                                isDm = isDm,
+                                isHighlighted = ui.highlightedRowId == row.id,
+                                model = model,
+                                media = media,
+                                onLongPress = { if (model.openActions(row.id)) view.bipeHaptic(BipeHaptic.Hold) },
+                                onHistoryHelp = onHistoryHelp,
+                                onOpenPoll = { openPollId = it },
+                                isPrivateRoom = isPrivateRoom,
+                                voiceState = voiceState,
+                                onTogglePlay = voicePlayer::togglePlay,
+                                onSeek = voicePlayer::seek,
+                                onCycleSpeed = voicePlayer::cycleSpeed,
+                                onOpenViewer = { viewerRowId = it },
+                                seals = people?.seals,
+                                institution = institutionOf(row),
+                            )
+                        }
                     }
                     item(key = "history") {
                         // Composed while the top of the list is on screen, again after each load and each change of the rows
@@ -419,7 +431,22 @@ fun ChatTimelineScreen(
                     ) }
                 }
                 val peer = peerUserId
-                if (isDm && people != null && peer != null) DmComposerSlot(people, peer, roomName, composerBar) else composerBar()
+                val selection = ui.selection
+                if (selection != null) {
+                    // Spec message-forward selection: the bar takes the place of the composer.
+                    MessageSelectionBar(
+                        count = selection.size,
+                        canForward = model.canForwardSelection(),
+                        canDelete = model.canDeleteSelection(),
+                        onCancel = model::cancelSelection,
+                        onForward = model::forwardSelection,
+                        onDelete = model::askDeleteSelection,
+                    )
+                } else if (isDm && people != null && peer != null) {
+                    DmComposerSlot(people, peer, roomName, composerBar)
+                } else {
+                    composerBar()
+                }
             }
             ui.notice?.let { notice ->
                 Text(
@@ -437,6 +464,8 @@ fun ChatTimelineScreen(
         }
     }
     business?.Sheets()
+    // Spec message-forward cancelSelection: Android back ends selection mode first.
+    BackHandler(enabled = ui.selection != null) { model.cancelSelection() }
 
     model.row(ui.actionsRowId)?.let { row ->
         MessageActionsSheet(
@@ -456,8 +485,8 @@ fun ChatTimelineScreen(
         )
     }
     ui.reactionSheet?.let { ReactionSendersSheet(it, onDismiss = model::closeSenders) }
-    ui.forwardingRowId?.let(model::forwardContent)?.let { msgType ->
-        MessageForwardSheet(session.client, msgType, media, onClose = model::forwardClosed)
+    ui.forwardingRowIds?.let(model::forwardContents)?.takeIf { it.isNotEmpty() }?.let { msgTypes ->
+        MessageForwardSheet(session.client, msgTypes, media, onClose = model::forwardClosed)
     }
     ui.readersSheet?.let { ReadersSheet(it, media, onDismiss = model::closeReaders) }
     ui.report?.let { report ->
@@ -481,6 +510,25 @@ fun ChatTimelineScreen(
             },
             dismissButton = {
                 TextButton(onClick = model::cancelDelete) { Text(stringResource(R.string.bipe_app_cancel)) }
+            },
+            containerColor = colors.surfaceRaised,
+            titleContentColor = colors.inkPrimary,
+            textContentColor = colors.inkSecondary,
+        )
+    }
+    // Spec message-forward deleteSelection: one dialog for all own picked messages.
+    if (ui.confirmsDeleteSelection) {
+        AlertDialog(
+            onDismissRequest = model::dismissDeleteSelection,
+            title = { Text(stringResource(R.string.bipe_select_delete_title)) },
+            text = { Text(stringResource(R.string.bipe_select_delete_body)) },
+            confirmButton = {
+                TextButton(onClick = model::confirmDeleteSelection) {
+                    Text(stringResource(R.string.bipe_app_message_action_delete), color = colors.trustDangerInk)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = model::dismissDeleteSelection) { Text(stringResource(R.string.bipe_app_cancel)) }
             },
             containerColor = colors.surfaceRaised,
             titleContentColor = colors.inkPrimary,
@@ -553,6 +601,9 @@ private fun noticeText(notice: TimelineNotice, arg: String?): String = when (not
     TimelineNotice.INVITE_AGAIN_FAILED -> stringResource(R.string.bipe_dm_invite_again_failed)
     TimelineNotice.KEEP_LIMIT -> stringResource(R.string.bipe_voice_keep_limit, BipeRegistries.VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT.toString())
     TimelineNotice.KEEP_FAILED -> stringResource(R.string.bipe_error_generic)
+    TimelineNotice.SELECTION_FORWARDED -> stringResource(R.string.bipe_select_forward_done)
+    TimelineNotice.SELECTION_LIMIT -> stringResource(R.string.bipe_select_limit, MESSAGE_SELECTION_LIMIT.toString())
+    TimelineNotice.SELECTION_DELETE_FAILED -> stringResource(R.string.bipe_select_delete_failed)
 }
 
 /** Spec typing-indicator: who is typing, above the composer. */
