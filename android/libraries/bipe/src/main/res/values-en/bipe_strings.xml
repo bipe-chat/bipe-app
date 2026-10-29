@@ -1956,4 +1956,9 @@
     <string name="bipe_identity_change_learn_more">Learn more</string>
     <string name="bipe_identity_change_help">This happens when the person signs in to Bipe on a new phone without the old one, or sets up account recovery again. It can also be someone pretending to be them. If the change is a surprise, call them or talk in person before you send money, codes or documents.</string>
     <string name="bipe_identity_change_send_anyway">Send anyway</string>
+    <string name="bipe_forward_action">Forward</string>
+    <string name="bipe_forward_title">Forward to</string>
+    <string name="bipe_forward_limit">Pick up to %1$s chats.</string>
+    <string name="bipe_forward_done">Message forwarded</string>
+    <string name="bipe_forward_failed">Could not forward to %1$s.</string>
 </resources>

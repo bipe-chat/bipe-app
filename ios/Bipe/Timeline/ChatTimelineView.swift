@@ -193,6 +193,11 @@ struct ChatTimelineView: View {
                 MessageActionsSheet(model: model, row: row)
             }
         }
+        .sheet(isPresented: presence(\.forwardingRowId)) {
+            if let rowId = model.forwardingRowId, let msgType = model.forwardContent(rowId: rowId) {
+                MessageForwardSheet(client: model.client, msgType: msgType, media: media) { model.forwardClosed(failed: $0) }
+            }
+        }
         .sheet(isPresented: presence(\.pickerOpenFor)) {
             EmojiPickerSheet { model.pickEmoji($0) }
         }

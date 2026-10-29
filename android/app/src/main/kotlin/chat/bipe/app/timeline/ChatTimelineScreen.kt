@@ -423,7 +423,7 @@ fun ChatTimelineScreen(
             }
             ui.notice?.let { notice ->
                 Text(
-                    noticeText(notice),
+                    noticeText(notice, ui.noticeArg),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.inkPrimary,
                     modifier = Modifier
@@ -456,6 +456,9 @@ fun ChatTimelineScreen(
         )
     }
     ui.reactionSheet?.let { ReactionSendersSheet(it, onDismiss = model::closeSenders) }
+    ui.forwardingRowId?.let(model::forwardContent)?.let { msgType ->
+        MessageForwardSheet(session.client, msgType, media, onClose = model::forwardClosed)
+    }
     ui.readersSheet?.let { ReadersSheet(it, media, onDismiss = model::closeReaders) }
     ui.report?.let { report ->
         MessageReportSheet(
@@ -537,7 +540,9 @@ internal fun copyToClipboard(context: Context, text: String) {
 }
 
 @Composable
-private fun noticeText(notice: TimelineNotice): String = when (notice) {
+private fun noticeText(notice: TimelineNotice, arg: String?): String = when (notice) {
+    TimelineNotice.FORWARDED -> stringResource(R.string.bipe_forward_done)
+    TimelineNotice.FORWARD_FAILED -> stringResource(R.string.bipe_forward_failed, arg.orEmpty())
     TimelineNotice.STICKER_SAVED -> stringResource(R.string.bipe_sticker_saved)
     TimelineNotice.STICKER_SAVE_FAILED -> stringResource(R.string.bipe_sticker_save_failed)
     TimelineNotice.COPIED -> stringResource(R.string.bipe_app_copied)

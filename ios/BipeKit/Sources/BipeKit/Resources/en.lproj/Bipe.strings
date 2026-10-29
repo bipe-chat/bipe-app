@@ -1954,3 +1954,8 @@
 "bipe_identity_change_learn_more" = "Learn more";
 "bipe_identity_change_help" = "This happens when the person signs in to Bipe on a new phone without the old one, or sets up account recovery again. It can also be someone pretending to be them. If the change is a surprise, call them or talk in person before you send money, codes or documents.";
 "bipe_identity_change_send_anyway" = "Send anyway";
+"bipe_forward_action" = "Forward";
+"bipe_forward_title" = "Forward to";
+"bipe_forward_limit" = "Pick up to %1$@ chats.";
+"bipe_forward_done" = "Message forwarded";
+"bipe_forward_failed" = "Could not forward to %1$@.";

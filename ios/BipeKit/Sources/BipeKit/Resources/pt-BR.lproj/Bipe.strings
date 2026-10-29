@@ -1954,3 +1954,8 @@
 "bipe_identity_change_learn_more" = "Saiba mais";
 "bipe_identity_change_help" = "Isso acontece quando a pessoa entra no Bipe num celular novo sem o antigo, ou faz a recuperação da conta de novo. Também pode ser alguém tentando se passar por ela. Se a mudança for uma surpresa, ligue ou fale com a pessoa pessoalmente antes de mandar dinheiro, códigos ou documentos.";
 "bipe_identity_change_send_anyway" = "Enviar mesmo assim";
+"bipe_forward_action" = "Encaminhar";
+"bipe_forward_title" = "Encaminhar para";
+"bipe_forward_limit" = "Escolha até %1$@ conversas.";
+"bipe_forward_done" = "Mensagem encaminhada";
+"bipe_forward_failed" = "Não deu para encaminhar para %1$@.";
