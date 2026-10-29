@@ -4481,4 +4481,14 @@ public enum BipeStrings {
     public static var appNotificationCheckupHelpMotorola: String { NSLocalizedString("bipe_app_notification_checkup_help_motorola", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appNotificationCheckupOpenAppSettings: String { NSLocalizedString("bipe_app_notification_checkup_open_app_settings", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var galleryTitle: String { NSLocalizedString("bipe_gallery_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var galleryMedia: String { NSLocalizedString("bipe_gallery_media", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var galleryFiles: String { NSLocalizedString("bipe_gallery_files", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var galleryEmptyMedia: String { NSLocalizedString("bipe_gallery_empty_media", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var galleryEmptyFiles: String { NSLocalizedString("bipe_gallery_empty_files", tableName: "Bipe", bundle: .module, comment: "") }
 }

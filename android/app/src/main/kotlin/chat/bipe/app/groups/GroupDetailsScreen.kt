@@ -61,7 +61,7 @@ import java.text.NumberFormat
 import kotlinx.coroutines.launch
 
 /** The screens behind group-details. */
-private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS }
+private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, GALLERY }
 
 /** Spec group-details, with group-members, group-invite-members, chat-notifications and group-leave behind it. */
 @Composable
@@ -97,6 +97,8 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
             ChatNotificationsScreen(session, roomId, onBack = back)
             return
         }
+        // Spec chat-media-gallery (bipe-chat/bipe#672).
+        GroupSubScreen.GALLERY -> chat.bipe.app.media.ChatMediaGalleryScreen(session, media, roomId, onClose = back)
         GroupSubScreen.NONE -> Unit
     }
     if (leaving) {
@@ -205,6 +207,7 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     if (canInvite) {
                         GroupRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_app_group_add_people)) { sub = GroupSubScreen.INVITE }
                     }
+                    GroupRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_gallery_title)) { sub = GroupSubScreen.GALLERY }
                     GroupRow(
                         PhosphorIcon.BELL,
                         stringResource(R.string.bipe_settings_notifications),
