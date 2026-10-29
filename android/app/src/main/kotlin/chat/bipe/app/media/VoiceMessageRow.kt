@@ -28,6 +28,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -82,6 +83,8 @@ fun VoiceMessageRow(
     state: VoicePlayer.State,
     onTogglePlay: () -> Unit,
     onSeek: (Float) -> Unit,
+    /** Action cycleSpeed (bipe#824). */
+    onCycleSpeed: () -> Unit = {},
     /** The media loader, for the listener transcript (bipe#500). null: no Transcrever button. */
     loader: MediaLoader? = null,
     /** Expiry and keep state of the account (ADR 0164). null: no keep line. */
@@ -155,6 +158,16 @@ fun VoiceMessageRow(
                 modifier = Modifier.weight(1f).height(32.dp).semantics { contentDescription = voiceLabel },
             )
             Text(voice.durationLabel, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
+            // Action cycleSpeed (bipe#824).
+            val speedLabel = stringResource(R.string.bipe_voice_speed_label, state.speed.label)
+            TextButton(onClick = onCycleSpeed, modifier = Modifier.semantics { contentDescription = speedLabel }) {
+                Text(
+                    stringResource(R.string.bipe_voice_speed, state.speed.label),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.accentInk,
+                )
+            }
         }
         if (playback == VoicePlayer.Playback.FAILED && !expired) {
             Text(stringResource(R.string.bipe_app_media_failed), style = MaterialTheme.typography.labelSmall, color = colors.trustDangerInk)

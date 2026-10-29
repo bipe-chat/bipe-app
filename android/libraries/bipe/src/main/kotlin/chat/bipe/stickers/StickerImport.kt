@@ -63,9 +63,12 @@ object StickerImporter {
         val width = options.outWidth
         val height = options.outHeight
         if (width !in 1..MAX_SIDE || height !in 1..MAX_SIDE) return null
-        val digest = MessageDigest.getInstance("SHA-256").digest(bytes).take(8).joinToString("") { "%02x".format(it) }
-        return StickerImportCandidate(bytes, mimeType, width, height, "st_$digest")
+        return StickerImportCandidate(bytes, mimeType, width, height, shortcode(bytes))
     }
+
+    /** st_ plus the first 8 bytes of the SHA-256 in hex. A saved received sticker hashes its mxc:// URL. */
+    fun shortcode(bytes: ByteArray): String =
+        "st_" + MessageDigest.getInstance("SHA-256").digest(bytes).take(8).joinToString("") { "%02x".format(it) }
 
     /**
      * "Make from a photo": crops a centred square, scales it to 512 × 512 and encodes WebP.
