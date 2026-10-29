@@ -35,6 +35,20 @@ class VoicePlayer(
     /** playback of spec voice-message. */
     enum class Playback { IDLE, LOADING, PLAYING, PAUSED, FAILED }
 
+    /** State speed of spec voice-message: one speed for every row on this phone (bipe#824). */
+    enum class Speed(val rate: Float) {
+        NORMAL(1f),
+        ONE_AND_HALF(1.5f),
+        DOUBLE(2f),
+        ;
+
+        /** Action cycleSpeed: normal, oneAndHalf, double, then normal again. */
+        val next: Speed get() = entries[(ordinal + 1) % entries.size]
+
+        /** The number with the phone's decimal sign ("1,5" in pt-BR), for bipe_voice_speed. */
+        val label: String get() = java.text.NumberFormat.getNumberInstance().apply { maximumFractionDigits = 1 }.format(rate)
+    }
+
     data class State(
         val rowId: String? = null,
         val playback: Playback = Playback.IDLE,
@@ -43,6 +57,7 @@ class VoicePlayer(
         val failedRows: Set<String> = emptySet(),
         /** Played part of rows that are not playing, so a row resumes where it stopped. */
         val positions: Map<String, Float> = emptyMap(),
+        val speed: Speed = Speed.NORMAL,
     ) {
         fun playback(id: String): Playback = when {
             rowId == id -> playback
@@ -53,7 +68,10 @@ class VoicePlayer(
         fun progress(id: String): Float = if (rowId == id) progress else positions[id] ?: 0f
     }
 
-    private val _state = MutableStateFlow(State())
+    private val prefs = context.getSharedPreferences("voice_player", Context.MODE_PRIVATE)
+    private val _state = MutableStateFlow(
+        State(speed = Speed.entries.firstOrNull { it.name == prefs.getString(KEY_SPEED, null) } ?: Speed.NORMAL),
+    )
     val state: StateFlow<State> = _state.asStateFlow()
 
     private var player: MediaPlayer? = null
@@ -155,6 +173,20 @@ class VoicePlayer(
         start(next)
     }
 
+    /** Action cycleSpeed. A playing row changes speed at once; PlaybackParams keeps the pitch. */
+    fun cycleSpeed() {
+        val speed = _state.value.speed.next
+        prefs.edit().putString(KEY_SPEED, speed.name).apply()
+        _state.value = _state.value.copy(speed = speed)
+        // On a paused or prepared player a new speed would start playback, so it waits for start().
+        val current = player
+        if (current != null && _state.value.playback == Playback.PLAYING) applySpeed(current)
+    }
+
+    private fun applySpeed(player: MediaPlayer) {
+        runCatching { player.playbackParams = player.playbackParams.setSpeed(_state.value.speed.rate) }
+    }
+
     /** Action seek. */
     fun seek(id: String, fraction: Float) {
         val value = fraction.coerceIn(0f, 1f)
@@ -195,6 +227,7 @@ class VoicePlayer(
         audioManager?.requestAudioFocus(focusRequest)
         proximity?.let { sensorManager?.registerListener(proximityListener, it, SensorManager.SENSOR_DELAY_NORMAL) }
         player.start()
+        applySpeed(player)
         _state.value = _state.value.copy(playback = Playback.PLAYING)
         ticker?.cancel()
         ticker = scope.launch {
@@ -211,6 +244,10 @@ class VoicePlayer(
     private fun abandonFocus() {
         audioManager?.abandonAudioFocusRequest(focusRequest)
         sensorManager?.unregisterListener(proximityListener)
+    }
+
+    private companion object {
+        const val KEY_SPEED = "speed"
     }
 
     private fun attributes(usage: Int): AudioAttributes = AudioAttributes.Builder()

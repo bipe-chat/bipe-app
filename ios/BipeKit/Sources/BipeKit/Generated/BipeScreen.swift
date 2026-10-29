@@ -241,6 +241,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json
     case messageUndecryptable = "message-undecryptable"
 
+    /// Notification checkup (flow settings). Spec: bipe-shared/product/screens/notification-checkup.json
+    case notificationCheckup = "notification-checkup"
+
     /// Notification on the phone (flow notifications). Spec: bipe-shared/product/screens/notification-service.json
     case notificationService = "notification-service"
 

@@ -354,6 +354,7 @@ fun ChatTimelineScreen(
                             voiceState = voiceState,
                             onTogglePlay = voicePlayer::togglePlay,
                             onSeek = voicePlayer::seek,
+                            onCycleSpeed = voicePlayer::cycleSpeed,
                             onOpenViewer = { viewerRowId = it },
                             seals = people?.seals,
                             institution = institutionOf(row),
