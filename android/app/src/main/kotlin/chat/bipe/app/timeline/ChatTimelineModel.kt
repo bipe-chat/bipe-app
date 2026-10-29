@@ -102,7 +102,7 @@ data class TimelineMessage(
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, EDIT, COPY, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, EDIT, COPY, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -120,7 +120,7 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED }
+enum class TimelineNotice { STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED }
 
 /** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
 enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
@@ -570,6 +570,8 @@ class ChatTimelineModel(
                 MessageAction.EDIT -> details.canEdit
                 // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
                 MessageAction.COPY -> !message.body.isNullOrBlank()
+                // Spec message-actions notes (bipe-chat/bipe#670): every sent sticker.
+                MessageAction.SAVE_STICKER -> isSent && message.media?.kind == chat.bipe.app.media.MediaMessage.Kind.STICKER
                 // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
                 MessageAction.KEEP_AUDIO -> keepable(message, isSent) && message.voice!!.source.url !in kept()
                 MessageAction.UNKEEP_AUDIO -> message.voice?.source?.url?.let { it in kept() } ?: false
@@ -631,6 +633,15 @@ class ChatTimelineModel(
                         VoiceMediaStore.KeepResult.LIMIT -> show(TimelineNotice.KEEP_LIMIT)
                         VoiceMediaStore.KeepResult.FAILED -> show(TimelineNotice.KEEP_FAILED)
                     }
+                }
+            }
+            MessageAction.SAVE_STICKER -> {
+                val sticker = current.message?.media ?: return
+                val packClient = chat.bipe.app.media.stickers.stickerPackClient(session.client) ?: return
+                scope.launch {
+                    runCatching { packClient.saveToUserPack(sticker.source.url, sticker.width, sticker.height, sticker.mimeType, sticker.size) }
+                        .onSuccess { show(TimelineNotice.STICKER_SAVED) }
+                        .onFailure { show(TimelineNotice.STICKER_SAVE_FAILED) }
                 }
             }
             MessageAction.RETRY -> retrySend(rowId)

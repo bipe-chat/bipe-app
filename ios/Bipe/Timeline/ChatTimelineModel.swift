@@ -70,6 +70,7 @@ enum MessageAction: CaseIterable, Identifiable {
     case reply
     case edit
     case copy
+    case saveSticker
     case keepAudio
     case unkeepAudio
     case retry
@@ -107,9 +108,13 @@ enum TimelineNotice: Equatable {
     case inviteAgainFailed
     case keepLimit
     case keepFailed
+    case stickerSaved
+    case stickerSaveFailed
 
     var text: String {
         switch self {
+        case .stickerSaved: BipeStrings.stickerSaved
+        case .stickerSaveFailed: BipeStrings.stickerSaveFailed
         case .copied: BipeStrings.appCopied
         case .keepLimit: BipeStrings.voiceKeepLimit(String(BipeRegistries.voiceMediaMaxKeptPerAccount))
         case .keepFailed: BipeStrings.errorGeneric
@@ -527,6 +532,8 @@ final class ChatTimelineModel: ObservableObject {
             case .edit: details.canEdit
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
+            // Spec message-actions notes (bipe#670): every sent sticker.
+            case .saveSticker: isSent && message.media?.kind == .sticker
             // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
             case .keepAudio: keepable(message, isSent: isSent) && voiceMedia.kept[message.voice!.source.url] == nil
             case .unkeepAudio: message.voice.map { voiceMedia.kept[$0.source.url] != nil } ?? false
@@ -590,6 +597,18 @@ final class ChatTimelineModel: ObservableObject {
                 case .done: BipeHaptics.play(.tap)
                 case .limit: self.show(.keepLimit)
                 case .failed: self.show(.keepFailed)
+                }
+            }
+        case .saveSticker:
+            guard let sticker = current.message?.media, let packClient = StickerPickerModel.packClient(client) else { return }
+            Task {
+                do {
+                    _ = try await packClient.saveToUserPack(url: sticker.source.url, width: sticker.width, height: sticker.height,
+                                                            mimeType: sticker.mimeType, size: nil)
+                    BipeHaptics.play(.tap)
+                    show(.stickerSaved)
+                } catch {
+                    show(.stickerSaveFailed)
                 }
             }
         case .retry: Task { await retrySend(id: rowId) }
