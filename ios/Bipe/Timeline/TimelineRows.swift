@@ -63,6 +63,10 @@ struct MessageDetails: Equatable {
     var canReply: Bool
     var canEdit: Bool
     var canDelete: Bool
+    /// Spec threads: replies under a root message in the main timeline.
+    var threadReplies: Int? = nil
+    /// The message is a reply inside a thread.
+    var inThread = false
 }
 
 /// Type MessageReply of spec message-reply.
@@ -283,7 +287,9 @@ enum TimelineRowBuilder {
                     scamWarning: event.isOwn ? nil : ScamDetector.warningKind(for: messageContent.body + "\n" + (message.richText?.safetyText ?? ""), eventID: eventId(event) ?? id),
                     canReply: event.canBeRepliedTo && isSent,
                     canEdit: event.isEditable && message.kind == .text,
-                    canDelete: event.isOwn ? (facts.canRedactOwn || !isSent) : (!facts.isDm && facts.canRedactOther)
+                    canDelete: event.isOwn ? (facts.canRedactOwn || !isSent) : (!facts.isDm && facts.canRedactOther),
+                    threadReplies: content.threadSummary.map { Int($0.numReplies()) }.flatMap { $0 > 0 ? $0 : nil },
+                    inThread: content.threadRoot != nil
                 )
                 rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
             case .unableToDecrypt(let encrypted):

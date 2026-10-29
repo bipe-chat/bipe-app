@@ -78,6 +78,10 @@ data class MessageDetails(
     val canReply: Boolean,
     val canEdit: Boolean,
     val canDelete: Boolean,
+    /** Spec threads: replies under a root message in the main timeline. */
+    val threadReplies: Int? = null,
+    /** The message is a reply inside a thread. */
+    val inThread: Boolean = false,
 )
 
 /** Type MessageReply of spec message-reply. */
@@ -288,6 +292,8 @@ object TimelineRowBuilder {
                                 canReply = event.canBeRepliedTo && isSent,
                                 canEdit = event.isEditable && message.kind == TimelineMessage.Kind.TEXT,
                                 canDelete = if (event.isOwn) facts.canRedactOwn || !isSent else !facts.isDm && facts.canRedactOther,
+                                threadReplies = content.threadSummary?.numReplies()?.toInt()?.takeIf { it > 0 },
+                                inThread = content.threadRoot != null,
                             )
                             rows += TimelineRow(id, TimelineRow.Kind.MESSAGE, message, details)
                         }

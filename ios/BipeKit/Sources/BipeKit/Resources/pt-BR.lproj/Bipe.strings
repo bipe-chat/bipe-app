@@ -1959,3 +1959,6 @@
 "bipe_forward_limit" = "Escolha até %1$@ conversas.";
 "bipe_forward_done" = "Mensagem encaminhada";
 "bipe_forward_failed" = "Não deu para encaminhar para %1$@.";
+"bipe_thread_reply_action" = "Responder em conversa";
+"bipe_thread_title" = "Conversa";
+"bipe_thread_replies" = "Respostas: %1$@";

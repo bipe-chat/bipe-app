@@ -1959,3 +1959,6 @@
 "bipe_forward_limit" = "Pick up to %1$@ chats.";
 "bipe_forward_done" = "Message forwarded";
 "bipe_forward_failed" = "Could not forward to %1$@.";
+"bipe_thread_reply_action" = "Reply in thread";
+"bipe_thread_title" = "Thread";
+"bipe_thread_replies" = "Replies: %1$@";

@@ -136,6 +136,8 @@ fun ChatTimelineScreen(
     people: PeopleService? = null,
     /** Opens another chat in place of this one (a new DM from inviteAgain). */
     onOpenChat: (String) -> Unit = {},
+    /** Spec threads (bipe-chat/bipe#667): the root event of the thread view; null for the main timeline. */
+    threadRoot: String? = null,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -149,13 +151,24 @@ fun ChatTimelineScreen(
         format = { id, arg -> context.getString(id, arg) },
         formatArgs = { id, args -> context.getString(id, *args.toTypedArray()) },
     )
-    val model = remember(session, roomId) {
+    val model = remember(session, roomId, threadRoot) {
         ChatTimelineModel(
             session, roomId, scope, InviterGreetings(context, session.userId), strings, context.getString(R.string.bipe_dm_no_name),
             sharesTyping = { sharesTyping(context) },
             handleChanges = HandleChangeStores.store(context, session),
             voiceMedia = VoiceMediaStore.store(context, session),
+            threadRoot = threadRoot,
         )
+    }
+    // Spec threads openThread: the thread view over the main timeline.
+    val openThreadRoot by model.openThreadRoot.collectAsState()
+    openThreadRoot?.let { root ->
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { model.openThread(null) },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            ChatTimelineScreen(session, media, roomId, onBack = { model.openThread(null) }, people = people, threadRoot = root)
+        }
     }
     // Spec identity-change (bipe-chat/bipe#770).
     val identity = remember(session, roomId) { IdentityChangeModel(session, roomId, scope) }
@@ -273,7 +286,7 @@ fun ChatTimelineScreen(
                         Column(modifier = Modifier.weight(1f, fill = false)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    roomName,
+                                    if (threadRoot == null) roomName else stringResource(R.string.bipe_thread_title),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = colors.inkPrimary,
                                     maxLines = 1,
@@ -289,8 +302,8 @@ fun ChatTimelineScreen(
                             if (isDm) BrandMarkHeaderLine(peerUserId, people?.brandMarks)
                         }
                     }
-                    CallHeaderButtons(model, session, roomName)
-                    if (isGroup && onOpenGroupDetails != null) {
+                    if (threadRoot == null) CallHeaderButtons(model, session, roomName)
+                    if (isGroup && onOpenGroupDetails != null && threadRoot == null) {
                         IconButton(onClick = onOpenGroupDetails) {
                             Icon(
                                 painterResource(PhosphorIcon.INFO.drawable),
@@ -321,13 +334,14 @@ fun ChatTimelineScreen(
                         }
                     }
                 }
-                OngoingCallBar(model, session, roomName)
-                LiveLocationChatBar(roomId, session.userId)
+                // Spec threads notes: the thread view shows none of the chat bars.
+                if (threadRoot == null) OngoingCallBar(model, session, roomName)
+                if (threadRoot == null) LiveLocationChatBar(roomId, session.userId)
                 val sealInstitutions = people?.seals?.institutions?.collectAsState()
                 val cvmPeer = peerUserId
                 if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
                 // Booking cards pinned above the timeline (agenda-booking-card); they are not room events (ADR 0102).
-                business?.Cards()
+                if (threadRoot == null) business?.Cards()
                 LazyColumn(
                     state = listState,
                     reverseLayout = true,
@@ -385,7 +399,7 @@ fun ChatTimelineScreen(
                     ProfileNoticeBar(people, noticePeer, roomName)
                 }
                 if (isDm && theftMark != null) TheftMarkBanner(roomName)
-                IdentityChangeBar(identity)
+                if (threadRoot == null) IdentityChangeBar(identity)
                 val composerBar: @Composable () -> Unit = {
                     // The other person left the DM: the bar stays above the composer, which stays on (ADR 0141).
                     if (peerAway != PeerAway.NONE) {

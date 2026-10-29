@@ -1961,4 +1961,7 @@
     <string name="bipe_forward_limit">Escolha até %1$s conversas.</string>
     <string name="bipe_forward_done">Mensagem encaminhada</string>
     <string name="bipe_forward_failed">Não deu para encaminhar para %1$s.</string>
+    <string name="bipe_thread_reply_action">Responder em conversa</string>
+    <string name="bipe_thread_title">Conversa</string>
+    <string name="bipe_thread_replies">Respostas: %1$s</string>
 </resources>

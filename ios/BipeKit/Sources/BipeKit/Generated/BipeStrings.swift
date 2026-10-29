@@ -4523,4 +4523,12 @@ public enum BipeStrings {
     public static func forwardFailed(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_forward_failed", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var threadReplyAction: String { NSLocalizedString("bipe_thread_reply_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var threadTitle: String { NSLocalizedString("bipe_thread_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func threadReplies(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_thread_replies", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }

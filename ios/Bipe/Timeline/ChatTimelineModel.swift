@@ -78,6 +78,7 @@ struct TimelineMessage: Identifiable, Equatable {
 /// Type MessageAction of spec message-actions, in the order of the sheet.
 enum MessageAction: CaseIterable, Identifiable {
     case reply
+    case replyInThread
     case edit
     case copy
     case forward
@@ -251,9 +252,15 @@ final class ChatTimelineModel: ObservableObject {
     private var lastReadEventId: String?
     private var noticeTask: Task<Void, Never>?
 
-    init(session: AccountSession, roomId: String) {
+    /// Spec threads (bipe#667): the root event of the thread view; nil for the main timeline.
+    let threadRoot: String?
+    /// The thread the main timeline asks the view to open (spec threads openThread).
+    @Published var openThreadRoot: String?
+
+    init(session: AccountSession, roomId: String, threadRoot: String? = nil) {
         self.session = session
         self.roomId = roomId
+        self.threadRoot = threadRoot
         facts = RoomFacts(ownUserId: session.userId, isDm: false, isEncrypted: true, joinedMembers: 2,
                           canRedactOwn: true, canRedactOther: false, members: [:], replyLoadsTried: [])
     }
@@ -294,7 +301,10 @@ final class ChatTimelineModel: ObservableObject {
         started = true
         guard let room = try? session.client.getRoom(roomId: roomId) else { return }
         self.room = room
-        let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: false),
+        // Spec threads notes: a group's main timeline hides thread replies; a DM shows them as plain messages.
+        let isDmRoom = (try? await room.roomInfo())?.isDm ?? false
+        let focus: TimelineFocus = threadRoot.map { .thread(rootEventId: $0) } ?? .live(hideThreadedEvents: !isDmRoom)
+        let configuration = TimelineConfiguration(focus: focus,
                                                   filter: .all,
                                                   internalIdPrefix: nil,
                                                   dateDividerMode: .daily,
@@ -308,7 +318,7 @@ final class ChatTimelineModel: ObservableObject {
         }
         await loadRoomFacts(room)
         // Action appear of spec composer: a saved newMessage draft fills the field.
-        if draft.isEmpty, let saved = await room.newMessageDraft() {
+        if draft.isEmpty, let saved = await room.newMessageDraft(threadRoot: threadRoot) {
             draft = saved
         }
         if !facts.isDm {
@@ -353,7 +363,7 @@ final class ChatTimelineModel: ObservableObject {
     func leave() {
         guard let room, editing == nil else { return }
         let text = draft
-        Task { await room.keepDraft(text) }
+        Task { [threadRoot] in await room.keepDraft(text, threadRoot: threadRoot) }
     }
 
     /// The room, for spec call.
@@ -466,7 +476,7 @@ final class ChatTimelineModel: ObservableObject {
         draft = ""
         mentions = []
         suggestions = []
-        if let room { Task { try? await room.clearComposerDraft(threadRoot: nil) } }
+        if let room { Task { [threadRoot] in try? await room.clearComposerDraft(threadRoot: threadRoot) } }
         sendTyping(false)
         BipeHaptics.play(.tap)
         if let replyingTo {
@@ -554,6 +564,8 @@ final class ChatTimelineModel: ObservableObject {
         return MessageAction.allCases.filter { action in
             switch action {
             case .reply: details.canReply && isSent
+            // Spec threads: groups only, not inside a thread view, not a reply that is in a thread already.
+            case .replyInThread: !isDm && threadRoot == nil && isSent && !details.inThread
             case .edit: details.canEdit
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
@@ -607,6 +619,7 @@ final class ChatTimelineModel: ObservableObject {
         guard acceptsMenuActions, let current = row(rowId), actions(for: current).contains(action) else { return }
         switch action {
         case .reply: startReply(rowId: rowId)
+        case .replyInThread: openThreadRoot = current.details?.eventId
         case .edit: startEdit(rowId: rowId)
         case .copy:
             guard pauseSecondsLeft(rowId: rowId) == 0 else { return }
