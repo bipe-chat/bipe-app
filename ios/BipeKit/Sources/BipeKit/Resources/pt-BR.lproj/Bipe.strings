@@ -2003,3 +2003,10 @@
 "bipe_thread_reply_action" = "Responder em conversa";
 "bipe_thread_title" = "Conversa";
 "bipe_thread_replies" = "Respostas: %1$@";
+"bipe_select_action" = "Selecionar";
+"bipe_select_count" = "Selecionadas: %1$@";
+"bipe_select_limit" = "Escolha até %1$@ mensagens.";
+"bipe_select_forward_done" = "Mensagens encaminhadas";
+"bipe_select_delete_title" = "Apagar suas mensagens?";
+"bipe_select_delete_body" = "Suas mensagens escolhidas somem para todo mundo na conversa. As mensagens de outras pessoas continuam lá.";
+"bipe_select_delete_failed" = "Não deu para apagar as mensagens. Tente de novo.";

@@ -93,7 +93,10 @@ struct ChatTimelineView: View {
             if model.threadRoot == nil {
                 IdentityChangeBar(model: identity)
             }
-            if model.successorRoomId != nil {
+            if model.selection != nil {
+                // Spec message-forward selection: the bar takes the place of the composer.
+                MessageSelectionBar(model: model)
+            } else if model.successorRoomId != nil {
                 RoomUpgradeBar(model: model) { openOtherChat($0) }
             } else if model.isDm, let people, let peer = model.peerUserId {
                 DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
@@ -236,9 +239,9 @@ struct ChatTimelineView: View {
                 MessageActionsSheet(model: model, row: row)
             }
         }
-        .sheet(isPresented: presence(\.forwardingRowId)) {
-            if let rowId = model.forwardingRowId, let msgType = model.forwardContent(rowId: rowId) {
-                MessageForwardSheet(client: model.client, msgType: msgType, media: media) { model.forwardClosed(failed: $0) }
+        .sheet(isPresented: presence(\.forwardingRowIds)) {
+            if let rowIds = model.forwardingRowIds, case let msgTypes = model.forwardContents(rowIds: rowIds), !msgTypes.isEmpty {
+                MessageForwardSheet(client: model.client, msgTypes: msgTypes, media: media) { model.forwardClosed(failed: $0) }
             }
         }
         .sheet(isPresented: presence(\.pickerOpenFor)) {
@@ -267,6 +270,15 @@ struct ChatTimelineView: View {
         } message: {
             Text(BipeStrings.appMessageDeleteBody)
         }
+        // Spec message-forward deleteSelection: one dialog for all own picked messages.
+        .alert(BipeStrings.selectDeleteTitle, isPresented: $model.confirmsDeleteSelection) {
+            Button(BipeStrings.appMessageActionDelete, role: .destructive) {
+                Task { await model.confirmDeleteSelection() }
+            }
+            Button(BipeStrings.appCancel, role: .cancel) {}
+        } message: {
+            Text(BipeStrings.selectDeleteBody)
+        }
         // Spec notification-service: an open chat has no notifications.
         .onAppear { model.resumeMenuActions(); MissedCalls.clear(accountUserId: session.userId, roomId: model.roomId); NotificationActions.shared.chatOpened(BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)) }
         .onDisappear {
@@ -293,20 +305,22 @@ struct ChatTimelineView: View {
                 LazyVStack(spacing: 6) {
                     historyHeader
                     ForEach(shownRows) { row in
-                        TimelineRowView(row: row,
-                                        isDm: model.isDm,
-                                        isHighlighted: model.highlightedRowId == row.id,
-                                        model: model,
-                                        media: media,
-                                        voicePlayer: voicePlayer,
-                                        openPoll: { openPollId = $0 },
-                                        openViewer: { viewerRowId = $0 })
-                            .id(row.id)
-                            .onAppear {
-                                if row.id == model.rows.last?.id {
-                                    Task { await model.markAsRead() }
-                                }
+                        SelectableTimelineRow(model: model, row: row) {
+                            TimelineRowView(row: row,
+                                            isDm: model.isDm,
+                                            isHighlighted: model.highlightedRowId == row.id,
+                                            model: model,
+                                            media: media,
+                                            voicePlayer: voicePlayer,
+                                            openPoll: { openPollId = $0 },
+                                            openViewer: { viewerRowId = $0 })
+                        }
+                        .id(row.id)
+                        .onAppear {
+                            if row.id == model.rows.last?.id {
+                                Task { await model.markAsRead() }
                             }
+                        }
                     }
                 }
                 .padding(.horizontal, 12)

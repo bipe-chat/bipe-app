@@ -4619,4 +4619,22 @@ public enum BipeStrings {
     public static func threadReplies(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_thread_replies", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var selectAction: String { NSLocalizedString("bipe_select_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func selectCount(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_select_count", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func selectLimit(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_select_limit", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var selectForwardDone: String { NSLocalizedString("bipe_select_forward_done", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var selectDeleteTitle: String { NSLocalizedString("bipe_select_delete_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var selectDeleteBody: String { NSLocalizedString("bipe_select_delete_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var selectDeleteFailed: String { NSLocalizedString("bipe_select_delete_failed", tableName: "Bipe", bundle: .module, comment: "") }
 }

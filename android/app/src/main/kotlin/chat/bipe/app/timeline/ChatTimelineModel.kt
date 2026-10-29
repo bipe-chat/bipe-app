@@ -115,7 +115,7 @@ data class TimelineMessage(
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, REPLY_IN_THREAD, EDIT, REMOVE_CAPTION, COPY, PIN, UNPIN, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, REPLY_IN_THREAD, EDIT, REMOVE_CAPTION, COPY, PIN, UNPIN, FORWARD, SELECT, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -133,7 +133,7 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { PIN_FAILED, STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED }
+enum class TimelineNotice { PIN_FAILED, STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED, SELECTION_FORWARDED, SELECTION_LIMIT, SELECTION_DELETE_FAILED }
 
 /** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
 enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
@@ -164,8 +164,12 @@ data class TimelineInteractions(
     val notice: TimelineNotice? = null,
     /** The placeholder of [notice]: the chat names of FORWARD_FAILED. */
     val noticeArg: String? = null,
-    // message-forward: the message the picker is open for.
-    val forwardingRowId: String? = null,
+    // message-forward: the messages the picker is open for.
+    val forwardingRowIds: List<String>? = null,
+    /** Spec message-forward selection (bipe-chat/bipe#860): the picked rows in tap order. null while the mode is off. */
+    val selection: List<String>? = null,
+    /** Spec message-forward deleteSelection: the dialog is open. */
+    val confirmsDeleteSelection: Boolean = false,
 )
 
 /** State of spec composer that the timeline does not hold already (text is the draft). */
@@ -351,7 +355,7 @@ class ChatTimelineModel(
     /** Called when the screen goes away: typing off (spec typing-indicator draftChanged). */
     fun close() {
         acceptsMenuActions = false
-        _ui.update { it.copy(actionsRowId = null, pickerOpenFor = null) }
+        _ui.update { it.copy(actionsRowId = null, pickerOpenFor = null, selection = null, confirmsDeleteSelection = false) }
         sendTyping(false)
         leave()
         handle?.cancel()
@@ -645,6 +649,7 @@ class ChatTimelineModel(
                 MessageAction.UNPIN -> canPin && isSent && details.eventId in pinnedEventIds
                 // Spec message-forward notes: sent messages of kind message; no stickers or polls.
                 MessageAction.FORWARD -> isSent && forwardContent(row.id) != null
+                MessageAction.SELECT -> canSelect(row)
                 // Spec message-actions notes (bipe-chat/bipe#670): every sent sticker.
                 MessageAction.SAVE_STICKER -> isSent && message.media?.kind == chat.bipe.app.media.MediaMessage.Kind.STICKER
                 // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
@@ -712,6 +717,8 @@ class ChatTimelineModel(
                     }
                 }
             }
+            MessageAction.FORWARD -> _ui.update { it.copy(forwardingRowIds = listOf(rowId)) }
+            MessageAction.SELECT -> startSelection(rowId)
             MessageAction.PIN, MessageAction.UNPIN -> {
                 val timeline = timeline ?: return
                 val eventId = current.details?.eventId ?: return
@@ -720,7 +727,6 @@ class ChatTimelineModel(
                         .onFailure { show(TimelineNotice.PIN_FAILED) }
                 }
             }
-            MessageAction.FORWARD -> _ui.update { it.copy(forwardingRowId = rowId) }
             MessageAction.SAVE_STICKER -> {
                 val sticker = current.message?.media ?: return
                 val packClient = chat.bipe.app.media.stickers.stickerPackClient(session.client) ?: return
@@ -1148,13 +1154,103 @@ class ChatTimelineModel(
         return (content.content.kind as? MsgLikeKind.Message)?.content?.msgType
     }
 
+    /** The message types of rows, in timeline order (spec message-forward send). */
+    fun forwardContents(rowIds: List<String>): List<MessageType> {
+        val wanted = rowIds.toSet()
+        return _rows.value.filter { it.id in wanted }.mapNotNull { forwardContent(it.id) }
+    }
+
     /** The picker closed: null when cancelled, else the names of the chats that failed. */
     fun forwardClosed(failed: List<String>?) {
-        _ui.update { it.copy(forwardingRowId = null) }
+        val count = _ui.value.forwardingRowIds?.size ?: 0
+        _ui.update { it.copy(forwardingRowIds = null) }
+        // A sent forward ends selection mode; a cancelled picker keeps it.
+        if (failed != null) cancelSelection()
         when {
             failed == null -> Unit
-            failed.isEmpty() -> show(TimelineNotice.FORWARDED)
+            failed.isEmpty() -> show(if (count > 1) TimelineNotice.SELECTION_FORWARDED else TimelineNotice.FORWARDED)
             else -> show(TimelineNotice.FORWARD_FAILED, failed.joinToString(", "))
+        }
+    }
+
+    // message-forward selection (bipe-chat/bipe#860)
+
+    /** A selectable row: a sent message that can be forwarded, or an own message the account can delete. */
+    fun canSelect(row: TimelineRow): Boolean {
+        val message = row.message ?: return false
+        if (row.kind != TimelineRow.Kind.MESSAGE || message.sendState != TimelineMessage.SendState.SENT || row.details?.eventId == null) return false
+        return forwardContent(row.id) != null || deletesInSelection(row)
+    }
+
+    private fun deletesInSelection(row: TimelineRow): Boolean {
+        val message = row.message ?: return false
+        return message.isOwn && message.sendState == TimelineMessage.SendState.SENT && row.details?.canDelete == true
+    }
+
+    /** The picked rows that are still in the timeline and selectable, in timeline order. */
+    private fun selectedRows(): List<TimelineRow> {
+        val picked = _ui.value.selection?.toSet() ?: return emptyList()
+        return _rows.value.filter { it.id in picked && canSelect(it) }
+    }
+
+    /** Action startSelection: the mode starts with the long-pressed message picked. */
+    fun startSelection(rowId: String) {
+        val row = row(rowId) ?: return
+        if (!acceptsMenuActions || !canSelect(row)) return
+        _ui.update { it.copy(actionsRowId = null, selection = listOf(rowId)) }
+    }
+
+    /** Action toggleSelection: an 11th message shows the limit; removing the last one ends the mode. */
+    fun toggleSelection(rowId: String) {
+        val picked = _ui.value.selection ?: return
+        val next = when {
+            rowId in picked -> picked - rowId
+            picked.size >= MESSAGE_SELECTION_LIMIT -> return show(TimelineNotice.SELECTION_LIMIT)
+            row(rowId)?.let(::canSelect) == true -> picked + rowId
+            else -> return
+        }
+        _ui.update { it.copy(selection = next.ifEmpty { null }) }
+    }
+
+    /** Action cancelSelection. */
+    fun cancelSelection() {
+        _ui.update { it.copy(selection = null, confirmsDeleteSelection = false) }
+    }
+
+    /** bipe_forward_action of the bar: on only when every picked message can be forwarded. */
+    fun canForwardSelection(): Boolean {
+        val picked = selectedRows()
+        return picked.isNotEmpty() && picked.all { forwardContent(it.id) != null }
+    }
+
+    /** bipe_app_message_action_delete of the bar: on when one picked message is own and can be deleted. */
+    fun canDeleteSelection(): Boolean = selectedRows().any(::deletesInSelection)
+
+    /** Action forwardSelection: the picker opens with the picked messages. */
+    fun forwardSelection() {
+        if (!canForwardSelection()) return
+        val rowIds = selectedRows().map { it.id }
+        _ui.update { it.copy(forwardingRowIds = rowIds) }
+    }
+
+    /** Action deleteSelection: one dialog for all own picked messages. */
+    fun askDeleteSelection() {
+        if (canDeleteSelection()) _ui.update { it.copy(confirmsDeleteSelection = true) }
+    }
+
+    fun dismissDeleteSelection() {
+        _ui.update { it.copy(confirmsDeleteSelection = false) }
+    }
+
+    /** The dialog of deleteSelection confirmed: deletes each own picked message for everyone, without a reason. */
+    fun confirmDeleteSelection() {
+        val targets = selectedRows().filter(::deletesInSelection).mapNotNull { item(it.id)?.asEvent()?.eventOrTransactionId }
+        cancelSelection()
+        val timeline = timeline ?: return
+        if (targets.isEmpty()) return
+        scope.launch {
+            val failed = targets.count { target -> runCatching { timeline.redactEvent(target, null) }.isFailure }
+            if (failed > 0) show(TimelineNotice.SELECTION_DELETE_FAILED)
         }
     }
 

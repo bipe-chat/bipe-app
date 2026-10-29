@@ -44,6 +44,7 @@ extension MessageAction {
         case .pin: BipeStrings.pinAction
         case .unpin: BipeStrings.unpinAction
         case .forward: BipeStrings.forwardAction
+        case .select: BipeStrings.selectAction
         case .saveSticker: BipeStrings.actionSaveSticker
         case .keepAudio: BipeStrings.voiceKeep
         case .unkeepAudio: BipeStrings.voiceUnkeep
@@ -62,6 +63,7 @@ extension MessageAction {
         case .copy: .copy
         case .pin, .unpin: .chatText
         case .forward: .paperPlaneRight
+        case .select: .checkCircle
         case .saveSticker: .sticker
         case .keepAudio: .downloadSimple
         case .unkeepAudio: .x
@@ -82,6 +84,7 @@ extension MessageAction {
         case .pin: "pin"
         case .unpin: "pin.slash"
         case .forward: "arrowshape.turn.up.right"
+        case .select: "checkmark.circle"
         case .saveSticker: "square.and.arrow.down"
         case .keepAudio: "bookmark"
         case .unkeepAudio: "bookmark.slash"
