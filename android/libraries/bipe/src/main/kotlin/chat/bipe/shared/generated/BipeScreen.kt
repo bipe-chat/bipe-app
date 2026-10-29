@@ -109,6 +109,9 @@ enum class BipeScreen(val id: String) {
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 
+    /** Media and files of a chat (flow chat). Spec: bipe-shared/product/screens/chat-media-gallery.json */
+    CHAT_MEDIA_GALLERY("chat-media-gallery"),
+
     /** Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json */
     CHAT_NOTIFICATIONS("chat-notifications"),
 
@@ -168,6 +171,9 @@ enum class BipeScreen(val id: String) {
 
     /** People in a group (flow groups). Spec: bipe-shared/product/screens/group-members.json */
     GROUP_MEMBERS("group-members"),
+
+    /** Group privacy (flow groups). Spec: bipe-shared/product/screens/group-privacy.json */
+    GROUP_PRIVACY("group-privacy"),
 
     /** Handle change line (flow chat). Spec: bipe-shared/product/screens/handle-change-line.json */
     HANDLE_CHANGE_LINE("handle-change-line"),
@@ -238,6 +244,9 @@ enum class BipeScreen(val id: String) {
     /** Forward a message (flow chat). Spec: bipe-shared/product/screens/message-forward.json */
     MESSAGE_FORWARD("message-forward"),
 
+    /** Pinned messages (flow chat). Spec: bipe-shared/product/screens/message-pins.json */
+    MESSAGE_PINS("message-pins"),
+
     /** Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json */
     MESSAGE_REACTIONS("message-reactions"),
 
@@ -297,6 +306,9 @@ enum class BipeScreen(val id: String) {
 
     /** Poll (flow chat). Spec: bipe-shared/product/screens/poll-detail.json */
     POLL_DETAIL("poll-detail"),
+
+    /** Polls of a group (flow groups). Spec: bipe-shared/product/screens/poll-history.json */
+    POLL_HISTORY("poll-history"),
 
     /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
     PROBLEM_REPORT("problem-report"),
@@ -435,6 +447,9 @@ enum class BipeScreen(val id: String) {
 
     /** Theft protection (flow settings). Spec: bipe-shared/product/screens/theft-protection.json */
     THEFT_PROTECTION("theft-protection"),
+
+    /** Threads in groups (flow chat). Spec: bipe-shared/product/screens/threads.json */
+    THREADS("threads"),
 
     /** Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json */
     TIMELINE_MEDIA("timeline-media"),
