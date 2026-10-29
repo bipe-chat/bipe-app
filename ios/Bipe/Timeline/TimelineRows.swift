@@ -446,9 +446,17 @@ enum TimelineRowBuilder {
 
     private static func message(id: String, event: EventTimelineItem, senderName: String) -> TimelineMessage {
         let sendState: TimelineMessage.SendState
+        var sendFailure: TimelineMessage.SendFailure?
         switch event.localSendState {
         case .some(.notSentYet): sendState = .sending
-        case .some(.sendingFailed): sendState = .failed
+        case .some(.sendingFailed(let error, _)):
+            sendState = .failed
+            // Spec identity-change sendAnyway.
+            switch error {
+            case .identityViolations(let users): sendFailure = .identity(users: users)
+            case .insecureDevices(let devices): sendFailure = .devices(devices)
+            default: sendFailure = nil
+            }
         case .some(.sent), .none: sendState = .sent
         }
         return TimelineMessage(id: id,
@@ -459,6 +467,7 @@ enum TimelineRowBuilder {
                                isOwn: event.isOwn,
                                sentAt: Date(milliseconds: event.timestamp),
                                sendState: event.isOwn ? sendState : .sent,
+                               sendFailure: event.isOwn ? sendFailure : nil,
                                cause: nil,
                                poll: nil)
     }

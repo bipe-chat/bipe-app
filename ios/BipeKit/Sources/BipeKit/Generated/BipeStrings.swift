@@ -4489,4 +4489,24 @@ public enum BipeStrings {
     public static func voiceSpeedLabel(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_voice_speed_label", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static func identityChangeBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_identity_change_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func identityChangeVerifiedBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_identity_change_verified_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func identityChangeMore(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_identity_change_more", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var identityChangeOk: String { NSLocalizedString("bipe_identity_change_ok", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var identityChangeLearnMore: String { NSLocalizedString("bipe_identity_change_learn_more", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var identityChangeHelp: String { NSLocalizedString("bipe_identity_change_help", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var identityChangeSendAnyway: String { NSLocalizedString("bipe_identity_change_send_anyway", tableName: "Bipe", bundle: .module, comment: "") }
 }

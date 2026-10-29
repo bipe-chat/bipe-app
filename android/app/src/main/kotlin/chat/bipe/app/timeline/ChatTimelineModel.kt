@@ -78,6 +78,8 @@ data class TimelineMessage(
     val sentAt: Long,
     val sendState: SendState,
     val cause: UndecryptableCause?,
+    /** sendState FAILED only: the send queue held the message because of a member's identity (spec identity-change). */
+    val sendFailure: SendFailure? = null,
     /** Kind POLL: the data of spec poll-detail. */
     val poll: PollData? = null,
     /** Kind MEDIA: image, video, file or sticker (spec timeline-media). */
@@ -96,6 +98,15 @@ data class TimelineMessage(
     enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, POLL, LOCATION, LIVE_LOCATION, UNSUPPORTED }
 
     enum class SendState { SENT, SENDING, FAILED }
+
+    /** Spec identity-change sendAnyway. */
+    sealed interface SendFailure {
+        /** QueueWedgeError identityViolations: users that were verified and are not any more. */
+        data class Identity(val users: List<String>) : SendFailure
+
+        /** QueueWedgeError insecureDevices: user ID to device IDs. */
+        data class Devices(val devices: Map<String, List<String>>) : SendFailure
+    }
 
     /** Bipe's grouping of the SDK UtdCause (spec message-undecryptable). */
     enum class UndecryptableCause { WAITING, BEFORE_JOINED, HISTORY_NOT_ON_THIS_PHONE, NOT_SHARED_WITH_THIS_PHONE, UNAPPROVED_SENDER_DEVICE }
@@ -511,10 +522,23 @@ class ChatTimelineModel(
         scope.launch { runCatching { timeline.send(messageEventContentNew(MessageType.Text(TextMessageContent(greeting, null)))) } }
     }
 
-    /** Action retrySend: sends a failed own message again. */
+    /**
+     * Action retrySend: sends a failed own message again. A message held for an identity change is sent anyway
+     * (spec identity-change sendAnyway).
+     */
     fun retrySend(id: String) {
         val sendHandle = item(id)?.asEvent()?.lazyProvider?.getSendHandle() ?: return
-        scope.launch { runCatching { sendHandle.tryResend() } }
+        val failure = row(id)?.message?.sendFailure
+        val room = room
+        scope.launch {
+            runCatching {
+                when (failure) {
+                    is TimelineMessage.SendFailure.Identity -> room?.withdrawVerificationAndResend(failure.users, sendHandle)
+                    is TimelineMessage.SendFailure.Devices -> room?.ignoreDeviceTrustAndResend(failure.devices, sendHandle)
+                    null -> sendHandle.tryResend()
+                }
+            }
+        }
     }
 
     /** Action cancelUpload of spec timeline-media: cancels the send of own media and removes the row. */
