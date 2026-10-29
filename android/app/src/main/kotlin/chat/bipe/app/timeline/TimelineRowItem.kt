@@ -378,6 +378,19 @@ private fun MessageBubbleRow(
         MessageContextMenu(model, row.id, menu, onDismiss = { menu = false })
         val theftMark by model.theftMark.collectAsState()
         if (model.showsTheftMarker(message, theftMark)) TheftMessageMarker()
+        // Spec threads: the count under a root, which opens the thread.
+        val replies = details.threadReplies
+        val rootId = details.eventId
+        if (replies != null && rootId != null && model.threadRoot == null) {
+            androidx.compose.material3.TextButton(onClick = { model.openThread(rootId) }) {
+                Text(
+                    stringResource(R.string.bipe_thread_replies, replies.toString()),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    color = BipeTheme.colors.accentInk,
+                )
+            }
+        }
         if (details.reactions.isNotEmpty()) {
             ReactionPills(
                 reactions = details.reactions,

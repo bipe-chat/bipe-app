@@ -13,6 +13,9 @@ struct GroupDetailsView: View {
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var leaving = false
     @State private var openMembers = false
+    @State private var showsGallery = false
+    /// The icon of the chat-media-gallery row.
+    private static let galleryIcon = PhosphorIcon.image
     @State private var reporting = false
     @State private var toast: String?
     private let media: MediaLoader
@@ -131,6 +134,29 @@ struct GroupDetailsView: View {
                 } label: {
                     row(icon: .userPlus, title: BipeStrings.appGroupAddPeople, chevron: false)
                 }
+            }
+            if model.canChangePrivacy {
+                // Spec group-privacy (bipe#772).
+                NavigationLink {
+                    GroupPrivacyView(session: model.session, media: media, roomId: model.roomId)
+                } label: {
+                    row(icon: .lockSimple, title: BipeStrings.groupPrivacyTitle, chevron: false)
+                }
+            }
+            // Spec chat-media-gallery (bipe#672).
+            Button {
+                showsGallery = true
+            } label: {
+                row(icon: Self.galleryIcon, title: BipeStrings.galleryTitle)
+            }
+            .sheet(isPresented: $showsGallery) {
+                ChatMediaGalleryView(session: model.session, media: media, roomId: model.roomId)
+            }
+            // Spec poll-history (bipe#669).
+            NavigationLink {
+                PollHistoryView(session: model.session, roomId: model.roomId)
+            } label: {
+                row(icon: .chartBar, title: BipeStrings.pollHistory, chevron: false)
             }
             NavigationLink {
                 ChatNotificationsView(session: model.session, roomId: model.roomId)

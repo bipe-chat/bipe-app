@@ -129,6 +129,14 @@ jobs:
         working-directory: ios
         run: |
           /usr/libexec/PlistBuddy -c "Add :com.apple.developer.applesignin array" -c "Add :com.apple.developer.applesignin:0 string Default" SupportFiles/Bipe/Bipe.entitlements
+      # Communication notifications (bipe-chat/bipe#771): the sender's photo on notifications and Focus per person. Added
+      # only when the owner has turned the capability on for the app ID and set BIPE_COMM_NOTIFICATIONS to true: a
+      # profile without the capability fails the archive. Off, notifications show as before.
+      - name: Communication notifications entitlement
+        if: vars.BIPE_COMM_NOTIFICATIONS == 'true'
+        working-directory: ios
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.usernotifications.communication bool true" SupportFiles/Bipe/Bipe.entitlements
       - name: Use the committed package pins
         run: |
           dir=ios/Bipe.xcodeproj/project.xcworkspace/xcshareddata/swiftpm

@@ -101,19 +101,19 @@ class MentionDirectory {
 }
 
 /** Action appear of spec composer: the saved newMessage draft, if any. */
-suspend fun Room.newMessageDraft(): String? {
-    val draft = runCatching { loadComposerDraft(null) }.getOrNull() ?: return null
+suspend fun Room.newMessageDraft(threadRoot: String? = null): String? {
+    val draft = runCatching { loadComposerDraft(threadRoot) }.getOrNull() ?: return null
     if (draft.draftType !is ComposerDraftType.NewMessage) return null
     return draft.plainText.takeIf { it.isNotBlank() }
 }
 
 /** Action leave of spec composer: saves the text when not blank, else clears the draft. */
-suspend fun Room.keepDraft(text: String) {
+suspend fun Room.keepDraft(text: String, threadRoot: String? = null) {
     runCatching {
         if (text.isBlank()) {
-            clearComposerDraft(null)
+            clearComposerDraft(threadRoot)
         } else {
-            saveComposerDraft(ComposerDraft(text, null, ComposerDraftType.NewMessage, emptyList()), null)
+            saveComposerDraft(ComposerDraft(text, null, ComposerDraftType.NewMessage, emptyList()), threadRoot)
         }
     }
 }
