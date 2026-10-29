@@ -37,6 +37,7 @@ extension MessageAction {
     var menuTitle: String {
         switch self {
         case .reply: BipeStrings.appMessageActionReply
+        case .replyInThread: BipeStrings.threadReplyAction
         case .edit: BipeStrings.appMessageActionEdit
         case .removeCaption: BipeStrings.captionRemove
         case .copy: BipeStrings.appCopy
@@ -55,6 +56,7 @@ extension MessageAction {
     var menuIcon: PhosphorIcon {
         switch self {
         case .reply: .arrowBendUpLeft
+        case .replyInThread: .chatText
         case .edit: .pencilSimple
         case .removeCaption: .x
         case .copy: .copy
@@ -73,6 +75,7 @@ extension MessageAction {
     var menuSymbol: String {
         switch self {
         case .reply: "arrowshape.turn.up.left"
+        case .replyInThread: "bubble.left.and.text.bubble.right"
         case .edit: "pencil"
         case .removeCaption: "text.badge.minus"
         case .copy: "doc.on.doc"

@@ -115,7 +115,7 @@ data class TimelineMessage(
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, EDIT, REMOVE_CAPTION, COPY, PIN, UNPIN, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, REPLY_IN_THREAD, EDIT, REMOVE_CAPTION, COPY, PIN, UNPIN, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -199,7 +199,17 @@ class ChatTimelineModel(
     private val handleChanges: BipeHandleChangeStore? = null,
     /** Expiry and keep state of this account's voice messages (ADR 0164). */
     val voiceMedia: VoiceMediaStore? = null,
+    /** Spec threads (bipe-chat/bipe#667): the root event of the thread view; null for the main timeline. */
+    val threadRoot: String? = null,
 ) {
+    private val _openThreadRoot = MutableStateFlow<String?>(null)
+    /** The thread the main timeline asks the screen to open (spec threads openThread). */
+    val openThreadRoot: StateFlow<String?> = _openThreadRoot.asStateFlow()
+
+    fun openThread(rootEventId: String?) {
+        _openThreadRoot.value = rootEventId
+    }
+
     private val _roomName = MutableStateFlow("")
     val roomName: StateFlow<String> = _roomName.asStateFlow()
     private val _roomAvatarUrl = MutableStateFlow<String?>(null)
@@ -293,7 +303,9 @@ class ChatTimelineModel(
                 if (runCatching { session.client.getDmRoom(greeting.userId) }.getOrNull()?.id() == roomId) _inviterHint.value = greeting
             }
             val configuration = TimelineConfiguration(
-                focus = TimelineFocus.Live(hideThreadedEvents = false),
+                // Spec threads notes: a group's main timeline hides thread replies; a DM shows them as plain messages.
+                focus = threadRoot?.let { TimelineFocus.Thread(it) }
+                    ?: TimelineFocus.Live(hideThreadedEvents = runCatching { room.roomInfo().isDm }.getOrNull() == false),
                 filter = TimelineFilter.All,
                 internalIdPrefix = null,
                 dateDividerMode = DateDividerMode.DAILY,
@@ -304,7 +316,7 @@ class ChatTimelineModel(
             this@ChatTimelineModel.timeline = timeline
             loadRoomFacts(room)
             // Action appear of spec composer: a saved newMessage draft fills the field.
-            if (_draft.value.isEmpty()) room.newMessageDraft()?.let { _draft.value = it }
+            if (_draft.value.isEmpty()) room.newMessageDraft(threadRoot)?.let { _draft.value = it }
             if (!facts.isDm) launch { mentionDirectory.load(room, session.userId) }
             loadHandleChanges(room)
             // The partner's theft mark when the chat opens, then every checkMinutes while it stays open.
@@ -456,7 +468,7 @@ class ChatTimelineModel(
         draftSave?.cancel()
         draftSave = scope.launch {
             delay(DRAFT_SAVE_DELAY_MS)
-            room?.keepDraft(text)
+            room?.keepDraft(text, threadRoot)
         }
         // Spec composer editText: pills that left the text go; an @word in a group filters the members.
         val query = if (facts.isDm) null else ComposerMarkdown.mentionQuery(text)
@@ -492,7 +504,7 @@ class ChatTimelineModel(
         _ui.update { it.copy(replyingTo = null, replyingToRowId = null) }
         val room = room
         scope.launch {
-            room?.let { runCatching { it.clearComposerDraft(null) } }
+            room?.let { runCatching { it.clearComposerDraft(threadRoot) } }
             runCatching {
                 val content = ComposerMarkdown.content(text, mentions)
                 if (replyingTo != null) timeline.sendReply(content, replyingTo.eventId) else timeline.send(content)
@@ -506,7 +518,7 @@ class ChatTimelineModel(
         if (_ui.value.editing != null) return
         val text = _draft.value
         // Runs also when the screen scope is gone (the chat closed).
-        CoroutineScope(Dispatchers.IO + NonCancellable).launch { room.keepDraft(text) }
+        CoroutineScope(Dispatchers.IO + NonCancellable).launch { room.keepDraft(text, threadRoot) }
     }
 
     /** Action pickSuggestion of spec composer: the @word becomes a pill. */
@@ -621,6 +633,8 @@ class ChatTimelineModel(
         return MessageAction.entries.filter { action ->
             when (action) {
                 MessageAction.REPLY -> details.canReply && isSent
+                // Spec threads: groups only, not inside a thread view, not a reply that is in a thread already.
+                MessageAction.REPLY_IN_THREAD -> !facts.isDm && threadRoot == null && isSent && !details.inThread
                 MessageAction.EDIT -> details.canEdit
                 // Spec message-edit removeCaption (bipe-chat/bipe#668).
                 MessageAction.REMOVE_CAPTION -> details.canEdit && !message.media?.caption.isNullOrBlank()
@@ -676,6 +690,7 @@ class ChatTimelineModel(
         if (!acceptsMenuActions || action !in actions(current)) return
         when (action) {
             MessageAction.REPLY -> startReply(rowId)
+            MessageAction.REPLY_IN_THREAD -> openThread(current.details?.eventId)
             MessageAction.EDIT -> startEdit(rowId)
             MessageAction.REMOVE_CAPTION -> removeCaption(rowId)
             MessageAction.COPY -> if (pauseSecondsLeft(rowId) == 0) row(rowId)?.message?.body?.let {

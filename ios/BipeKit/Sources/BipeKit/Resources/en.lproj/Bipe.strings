@@ -2000,3 +2000,6 @@
 "bipe_group_requests" = "Requests to join";
 "bipe_group_request_accept" = "Accept";
 "bipe_group_request_decline" = "Decline";
+"bipe_thread_reply_action" = "Reply in thread";
+"bipe_thread_title" = "Thread";
+"bipe_thread_replies" = "Replies: %1$@";

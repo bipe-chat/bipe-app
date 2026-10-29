@@ -143,6 +143,7 @@ internal val QUICK_REACTIONS = listOf("👍", "❤️", "😂", "😮", "😢", 
 
 internal fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
     MessageAction.REPLY -> PhosphorIcon.ARROW_BEND_UP_LEFT
+    MessageAction.REPLY_IN_THREAD -> PhosphorIcon.CHAT_TEXT
     MessageAction.EDIT -> PhosphorIcon.PENCIL_SIMPLE
     MessageAction.REMOVE_CAPTION -> PhosphorIcon.X
     MessageAction.COPY -> PhosphorIcon.COPY
@@ -161,6 +162,7 @@ internal fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
 internal fun actionTitle(action: MessageAction, message: TimelineMessage? = null): Int = when (action) {
     MessageAction.RETRY -> if (message?.sendFailure != null) R.string.bipe_identity_change_send_anyway else R.string.bipe_app_retry
     MessageAction.REPLY -> R.string.bipe_app_message_action_reply
+    MessageAction.REPLY_IN_THREAD -> R.string.bipe_thread_reply_action
     MessageAction.EDIT -> when {
         message?.media == null -> R.string.bipe_app_message_action_edit
         message.media.caption.isNullOrBlank() -> R.string.bipe_caption_add

@@ -78,6 +78,10 @@ data class MessageDetails(
     val canReply: Boolean,
     val canEdit: Boolean,
     val canDelete: Boolean,
+    /** Spec threads: replies under a root message in the main timeline. */
+    val threadReplies: Int? = null,
+    /** The message is a reply inside a thread. */
+    val inThread: Boolean = false,
 )
 
 /** Type MessageReply of spec message-reply. */
@@ -289,6 +293,8 @@ object TimelineRowBuilder {
                                 // Captions of own photos, videos and files are editable too (bipe-chat/bipe#668).
                                 canEdit = event.isEditable && (message.kind == TimelineMessage.Kind.TEXT || message.media?.let { it.kind != MediaMessage.Kind.STICKER } == true),
                                 canDelete = if (event.isOwn) facts.canRedactOwn || !isSent else !facts.isDm && facts.canRedactOther,
+                                threadReplies = content.threadSummary?.numReplies()?.toInt()?.takeIf { it > 0 },
+                                inThread = content.threadRoot != null,
                             )
                             rows += TimelineRow(id, TimelineRow.Kind.MESSAGE, message, details)
                         }

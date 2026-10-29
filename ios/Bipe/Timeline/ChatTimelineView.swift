@@ -42,10 +42,11 @@ struct ChatTimelineView: View {
     /// The account's people service, for the blocked bar of a DM (block-person). nil: no bar.
     private let people: PeopleService?
 
+    /// threadRoot: the thread view of spec threads (bipe#667); nil for the main timeline.
     init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil,
-         focusEventId: String? = nil, openInfo: (() -> Void)? = nil) {
+         focusEventId: String? = nil, threadRoot: String? = nil, openInfo: (() -> Void)? = nil) {
         self.focusEventId = focusEventId
-        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
+        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId, threadRoot: threadRoot))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
         _pinned = StateObject(wrappedValue: PinnedMessagesModel(session: session, roomId: roomId))
         _identity = StateObject(wrappedValue: IdentityChangeModel(session: session, roomId: roomId))
@@ -58,19 +59,22 @@ struct ChatTimelineView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            OngoingCallBar(model: model, session: session)
-            if let predecessor = model.predecessor {
-                PredecessorLine(name: predecessor.name) { openOtherChat(predecessor.roomId) }
+            // Spec threads notes: the thread view shows none of the chat bars.
+            if model.threadRoot == nil {
+                OngoingCallBar(model: model, session: session)
+                if let predecessor = model.predecessor {
+                    PredecessorLine(name: predecessor.name) { openOtherChat(predecessor.roomId) }
+                }
+                if model.isGroup {
+                    PinnedBanner(model: pinned) { eventId in Task { await model.openOriginal(eventId: eventId) } }
+                }
+                LiveLocationChatBar(roomId: roomId, userId: session.userId)
+                if model.isDm, let people, let peer = model.peerUserId {
+                    CvmStopOrderCard(seals: people.seals, userId: peer)
+                }
+                // The open bookings with the business, pinned above the timeline (ADR 0102).
+                BookingCardStack(model: business)
             }
-            if model.isGroup {
-                PinnedBanner(model: pinned) { eventId in Task { await model.openOriginal(eventId: eventId) } }
-            }
-            LiveLocationChatBar(roomId: roomId, userId: session.userId)
-            if model.isDm, let people, let peer = model.peerUserId {
-                CvmStopOrderCard(seals: people.seals, userId: peer)
-            }
-            // The open bookings with the business, pinned above the timeline (ADR 0102).
-            BookingCardStack(model: business)
             rowList
                 .environment(\.bipeCompanySeals, people?.seals)
             if let hint = model.inviterHint {
@@ -86,7 +90,9 @@ struct ChatTimelineView: View {
             if model.isDm, model.theftMark != nil {
                 TheftMarkBanner(name: model.roomName)
             }
-            IdentityChangeBar(model: identity)
+            if model.threadRoot == nil {
+                IdentityChangeBar(model: identity)
+            }
             if model.successorRoomId != nil {
                 RoomUpgradeBar(model: model) { openOtherChat($0) }
             } else if model.isDm, let people, let peer = model.peerUserId {
@@ -122,17 +128,30 @@ struct ChatTimelineView: View {
         }
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .overlay(alignment: .bottom) { noticeView }
-        .navigationTitle(model.roomName)
+        .navigationTitle(model.threadRoot == nil ? model.roomName : BipeStrings.threadTitle)
         .navigationBarTitleDisplayMode(.inline)
+        // Spec threads openThread: the thread view as a sheet over the main timeline.
+        .sheet(item: Binding(get: { model.openThreadRoot.map(ThreadSheetId.init) }, set: { model.openThreadRoot = $0?.id })) { thread in
+            NavigationStack {
+                ChatTimelineView(session: session, media: media, roomId: roomId, people: people, threadRoot: thread.id)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(BipeStrings.appClose) { model.openThreadRoot = nil }
+                        }
+                    }
+            }
+        }
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
-                else { chatTitle }
+            if model.threadRoot == nil {
+                ToolbarItem(placement: .principal) {
+                    if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
+                    else { chatTitle }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    CallHeaderButtons(model: model, session: session)
+                }
             }
-            ToolbarItem(placement: .primaryAction) {
-                CallHeaderButtons(model: model, session: session)
-            }
-            if model.isGroup {
+            if model.isGroup, model.threadRoot == nil {
                 ToolbarItem(placement: .primaryAction) {
                     NavigationLink {
                         GroupDetailsView(session: session, media: media, roomId: roomId)
@@ -711,4 +730,9 @@ private struct CvmStopOrderCard: View {
             .accessibilityElement(children: .combine)
         }
     }
+}
+
+/// The sheet item of spec threads openThread: the root event ID.
+private struct ThreadSheetId: Identifiable {
+    let id: String
 }

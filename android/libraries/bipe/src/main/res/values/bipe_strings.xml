@@ -2002,4 +2002,7 @@
     <string name="bipe_group_requests">Pedidos para entrar</string>
     <string name="bipe_group_request_accept">Aceitar</string>
     <string name="bipe_group_request_decline">Recusar</string>
+    <string name="bipe_thread_reply_action">Responder em conversa</string>
+    <string name="bipe_thread_title">Conversa</string>
+    <string name="bipe_thread_replies">Respostas: %1$s</string>
 </resources>
