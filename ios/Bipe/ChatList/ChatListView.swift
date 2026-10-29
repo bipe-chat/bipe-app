@@ -681,7 +681,8 @@ struct ChatRow: View {
         .contentShape(Rectangle())
     }
 
-    private static func timeFormat(for date: Date) -> Date.FormatStyle {
+    /// The chat-list date: the time today, else day and month. chat-search message hits use it too.
+    static func timeFormat(for date: Date) -> Date.FormatStyle {
         Calendar.current.isDateInToday(date)
             ? .dateTime.hour().minute()
             : .dateTime.day().month(.abbreviated)

@@ -21,6 +21,8 @@ struct ChatTimelineView: View {
     @StateObject private var voicePlayer = VoicePlayer()
     /// Spec business-chat-bar: the tools and booking cards of a DM with a company, or of its customer.
     @StateObject private var business: BusinessChatModel
+    /// Spec message-pins (bipe#665).
+    @StateObject private var pinned: PinnedMessagesModel
     /// Spec identity-change (bipe#770).
     @StateObject private var identity: IdentityChangeModel
     @State private var viewerRowId: String?
@@ -35,12 +37,18 @@ struct ChatTimelineView: View {
     private let openInfo: (() -> Void)?
     private let session: AccountSession
     private let roomId: String
+    /// Spec chat-search openMessage: the message to scroll to after the chat opens.
+    private let focusEventId: String?
     /// The account's people service, for the blocked bar of a DM (block-person). nil: no bar.
     private let people: PeopleService?
 
-    init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil, openInfo: (() -> Void)? = nil) {
-        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
+    /// threadRoot: the thread view of spec threads (bipe#667); nil for the main timeline.
+    init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil,
+         focusEventId: String? = nil, threadRoot: String? = nil, openInfo: (() -> Void)? = nil) {
+        self.focusEventId = focusEventId
+        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId, threadRoot: threadRoot))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
+        _pinned = StateObject(wrappedValue: PinnedMessagesModel(session: session, roomId: roomId))
         _identity = StateObject(wrappedValue: IdentityChangeModel(session: session, roomId: roomId))
         self.media = media
         self.openInfo = openInfo
@@ -51,13 +59,22 @@ struct ChatTimelineView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            OngoingCallBar(model: model, session: session)
-            LiveLocationChatBar(roomId: roomId, userId: session.userId)
-            if model.isDm, let people, let peer = model.peerUserId {
-                CvmStopOrderCard(seals: people.seals, userId: peer)
+            // Spec threads notes: the thread view shows none of the chat bars.
+            if model.threadRoot == nil {
+                OngoingCallBar(model: model, session: session)
+                if let predecessor = model.predecessor {
+                    PredecessorLine(name: predecessor.name) { openOtherChat(predecessor.roomId) }
+                }
+                if model.isGroup {
+                    PinnedBanner(model: pinned) { eventId in Task { await model.openOriginal(eventId: eventId) } }
+                }
+                LiveLocationChatBar(roomId: roomId, userId: session.userId)
+                if model.isDm, let people, let peer = model.peerUserId {
+                    CvmStopOrderCard(seals: people.seals, userId: peer)
+                }
+                // The open bookings with the business, pinned above the timeline (ADR 0102).
+                BookingCardStack(model: business)
             }
-            // The open bookings with the business, pinned above the timeline (ADR 0102).
-            BookingCardStack(model: business)
             rowList
                 .environment(\.bipeCompanySeals, people?.seals)
             if let hint = model.inviterHint {
@@ -73,8 +90,15 @@ struct ChatTimelineView: View {
             if model.isDm, model.theftMark != nil {
                 TheftMarkBanner(name: model.roomName)
             }
-            IdentityChangeBar(model: identity)
-            if model.isDm, let people, let peer = model.peerUserId {
+            if model.threadRoot == nil {
+                IdentityChangeBar(model: identity)
+            }
+            if model.selection != nil {
+                // Spec message-forward selection: the bar takes the place of the composer.
+                MessageSelectionBar(model: model)
+            } else if model.successorRoomId != nil {
+                RoomUpgradeBar(model: model) { openOtherChat($0) }
+            } else if model.isDm, let people, let peer = model.peerUserId {
                 DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
                     leftBar
                     composerBar
@@ -113,17 +137,30 @@ struct ChatTimelineView: View {
         }
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .overlay(alignment: .bottom) { noticeView }
-        .navigationTitle(model.roomName)
+        .navigationTitle(model.threadRoot == nil ? model.roomName : BipeStrings.threadTitle)
         .navigationBarTitleDisplayMode(.inline)
+        // Spec threads openThread: the thread view as a sheet over the main timeline.
+        .sheet(item: Binding(get: { model.openThreadRoot.map(ThreadSheetId.init) }, set: { model.openThreadRoot = $0?.id })) { thread in
+            NavigationStack {
+                ChatTimelineView(session: session, media: media, roomId: roomId, people: people, threadRoot: thread.id)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(BipeStrings.appClose) { model.openThreadRoot = nil }
+                        }
+                    }
+            }
+        }
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
-                else { chatTitle }
+            if model.threadRoot == nil {
+                ToolbarItem(placement: .principal) {
+                    if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
+                    else { chatTitle }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    CallHeaderButtons(model: model, session: session)
+                }
             }
-            ToolbarItem(placement: .primaryAction) {
-                CallHeaderButtons(model: model, session: session)
-            }
-            if model.isGroup {
+            if model.isGroup, model.threadRoot == nil {
                 ToolbarItem(placement: .primaryAction) {
                     NavigationLink {
                         GroupDetailsView(session: session, media: media, roomId: roomId)
@@ -166,6 +203,15 @@ struct ChatTimelineView: View {
         }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
+        .task(id: model.isGroup) { if model.isGroup { await pinned.observe() } }
+        // Spec chat-search openMessage (bipe#671): scroll to the message once the first rows are in.
+        .task(id: focusEventId) {
+            guard let focusEventId else { return }
+            for _ in 0..<20 where model.rows.isEmpty {
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            await model.openOriginal(eventId: focusEventId)
+        }
         .task { await identity.observe() }
         .businessChatTools(business)
         .task(id: "\(model.isDm)|\(model.peerUserId ?? "")|\(model.roomName)") {
@@ -199,9 +245,9 @@ struct ChatTimelineView: View {
                 MessageActionsSheet(model: model, row: row)
             }
         }
-        .sheet(isPresented: presence(\.forwardingRowId)) {
-            if let rowId = model.forwardingRowId, let msgType = model.forwardContent(rowId: rowId) {
-                MessageForwardSheet(client: model.client, msgType: msgType, media: media) { model.forwardClosed(failed: $0) }
+        .sheet(isPresented: presence(\.forwardingRowIds)) {
+            if let rowIds = model.forwardingRowIds, case let msgTypes = model.forwardContents(rowIds: rowIds), !msgTypes.isEmpty {
+                MessageForwardSheet(client: model.client, msgTypes: msgTypes, media: media) { model.forwardClosed(failed: $0) }
             }
         }
         .sheet(isPresented: presence(\.pickerOpenFor)) {
@@ -230,6 +276,15 @@ struct ChatTimelineView: View {
         } message: {
             Text(BipeStrings.appMessageDeleteBody)
         }
+        // Spec message-forward deleteSelection: one dialog for all own picked messages.
+        .alert(BipeStrings.selectDeleteTitle, isPresented: $model.confirmsDeleteSelection) {
+            Button(BipeStrings.appMessageActionDelete, role: .destructive) {
+                Task { await model.confirmDeleteSelection() }
+            }
+            Button(BipeStrings.appCancel, role: .cancel) {}
+        } message: {
+            Text(BipeStrings.selectDeleteBody)
+        }
         // Spec notification-service: an open chat has no notifications.
         .onAppear { model.resumeMenuActions(); MissedCalls.clear(accountUserId: session.userId, roomId: model.roomId); NotificationActions.shared.chatOpened(BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)) }
         .onDisappear {
@@ -256,20 +311,22 @@ struct ChatTimelineView: View {
                 LazyVStack(spacing: 6) {
                     historyHeader
                     ForEach(shownRows) { row in
-                        TimelineRowView(row: row,
-                                        isDm: model.isDm,
-                                        isHighlighted: model.highlightedRowId == row.id,
-                                        model: model,
-                                        media: media,
-                                        voicePlayer: voicePlayer,
-                                        openPoll: { openPollId = $0 },
-                                        openViewer: { viewerRowId = $0 })
-                            .id(row.id)
-                            .onAppear {
-                                if row.id == model.rows.last?.id {
-                                    Task { await model.markAsRead() }
-                                }
+                        SelectableTimelineRow(model: model, row: row) {
+                            TimelineRowView(row: row,
+                                            isDm: model.isDm,
+                                            isHighlighted: model.highlightedRowId == row.id,
+                                            model: model,
+                                            media: media,
+                                            voicePlayer: voicePlayer,
+                                            openPoll: { openPollId = $0 },
+                                            openViewer: { viewerRowId = $0 })
+                        }
+                        .id(row.id)
+                        .onAppear {
+                            if row.id == model.rows.last?.id {
+                                Task { await model.markAsRead() }
                             }
+                        }
                     }
                 }
                 .padding(.horizontal, 12)
@@ -693,4 +750,9 @@ private struct CvmStopOrderCard: View {
             .accessibilityElement(children: .combine)
         }
     }
+}
+
+/// The sheet item of spec threads openThread: the root event ID.
+private struct ThreadSheetId: Identifiable {
+    let id: String
 }
