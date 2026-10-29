@@ -16,10 +16,13 @@
 #   the phone panels and feature graphic from the bipe-web store image builder, in one edit (tools/play.mjs listing).
 #   It fails closed while a panel uses an iPhone capture: the phone panels need native Android captures in bipe-web
 #   appstore/raw/play-phone (store-captures.yml makes them).
+# - App Store accessibility labels (bipe-chat/bipe#503): the declaration from bipe-shared product/appstore.md
+#   (tools/asc.mjs accessibility), only when the repository variable BIPE_ACCESSIBILITY_TESTED is "true". MZ sets
+#   it after the hand test of the common tasks with VoiceOver, larger text and Reduce Motion (Apple's rule).
 # Owner-only setup (MZ): secrets DIST_CERT_P12, DIST_CERT_PASSWORD, ASC_KEY_P8, ANDROID_UPLOAD_KEYSTORE
 # (base64), ANDROID_UPLOAD_KEYSTORE_PASSWORD, ANDROID_UPLOAD_KEY_ALIAS, ANDROID_UPLOAD_KEY_PASSWORD,
 # PLAY_SERVICE_ACCOUNT_JSON; variables ASC_KEY_ID, ASC_ISSUER_ID, STORE_FIREBASE_APP_ID,
-# STORE_FIREBASE_PROJECT_ID, STORE_FIREBASE_API_KEY, STORE_FIREBASE_SENDER_ID, BIPE_SWITCH_READY.
+# STORE_FIREBASE_PROJECT_ID, STORE_FIREBASE_API_KEY, STORE_FIREBASE_SENDER_ID, BIPE_SWITCH_READY, BIPE_ACCESSIBILITY_TESTED.
 name: store-release
 
 on:
@@ -325,3 +328,40 @@ jobs:
       - name: Remove the key
         if: always()
         run: rm -f "$RUNNER_TEMP/play.json"
+
+  app-store-accessibility:
+    needs: gate
+    if: inputs.platforms != 'android' && vars.BIPE_ACCESSIBILITY_TESTED == 'true'
+    runs-on: ubuntu-latest
+    environment: store
+    timeout-minutes: 15
+    env:
+      ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+      BIPE_ID_SET: store
+      BIPE_ACCESSIBILITY_TESTED: ${{ vars.BIPE_ACCESSIBILITY_TESTED }}
+      BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-shared
+          path: bipe-shared
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check the declaration
+        run: node tools/asc.mjs accessibility --dry-run
+      - name: Write the API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          umask 077
+          key="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$key"
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+      - name: Send the declaration
+        run: node tools/asc.mjs accessibility
+      - name: Remove the API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8

@@ -119,6 +119,11 @@ adb install -r Bipe-Next-<n>.apk
 - Android captures: `android/app/src/screenshotTest/kotlin/chat/bipe/app/store/StoreCaptureTests.kt` has one preview per slug of the appstore.md screenshot table and locale, named `Store<Slug><PtBR|EnUS>`, built from the app's own screens with a null `MediaLoader` (initials, no account). The Compose Preview Screenshot Testing plugin (`com.android.compose.screenshot`, Google, Apache-2.0) renders them on the JVM. The sample data is `store/generated/StoreCaptures.kt` from bipe-shared `product/store-captures.json`; never hand-edit it. `store-captures.yml` (on demand, and on PRs that touch the previews) runs `./gradlew :app:updatePlayDebugScreenshotTest`, then `node tools/store-captures.mjs` writes the artifact `play-phone-captures` in the bipe-web layout `play-phone/light/<locale>/<slug>.png`. A screen that a capture uses keeps a stateless entry point (`ChatRequestsList`, `ProfileLinkContent`, `PixCheckScreen`).
 - Google marks the standalone screenshot plugin as no longer maintained in favour of AGP test suites (AGP 9.5 and later). Move the captures there when AGP moves to 9.5.
 
+## Store accessibility labels
+
+- `node tools/asc.mjs accessibility --dry-run` prints Apple's accessibility labels per device family with Bipe's answer, from the `## Accessibility` table of bipe-shared `product/appstore.md` (`BIPE_SHARED`, default `../bipe-shared`). bipe-shared writes that table from `product/accessibility.json`, the register behind `/acessibilidade/` (bipe-chat/bipe#503). It needs no key and sends nothing.
+- Without `--dry-run` it makes or changes the DRAFT declaration of the app record and publishes it (App Store Connect API `accessibilityDeclarations`). It refuses unless `BIPE_ACCESSIBILITY_TESTED=true`. The `app-store-accessibility` job of `store-release.yml` runs it after the `BIPE_SWITCH_READY` gate, only when that repository variable is true. MZ sets it after the hand test; never set it.
+
 ## Pull requests
 
 - One PR per issue. The PR covers iOS and Android together ([ADR 0031](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0031-platform-lockstep.md)).

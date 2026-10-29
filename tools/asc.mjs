@@ -23,6 +23,15 @@
 //                                        extensions) with their capabilities, its App Store
 //                                        Connect record, its last build number and version.
 //                                        With <n>: fails unless build <n> is higher.
+//   node tools/asc.mjs accessibility --dry-run
+//                                        Prints the accessibility declaration per device family
+//                                        (bipe-chat/bipe#503) from the `## Accessibility` table of
+//                                        bipe-shared product/appstore.md. Needs no key, sends nothing.
+//   node tools/asc.mjs accessibility     Sends it to the app record (accessibilityDeclarations: a
+//                                        DRAFT is changed or made, then published). Refuses unless
+//                                        BIPE_ACCESSIBILITY_TESTED=true: Apple asks that a label is
+//                                        declared only after the common tasks pass with it (MZ's
+//                                        hand test). store-release.yml runs it behind BIPE_SWITCH_READY.
 // Environment: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH (path of the .p8 key). BIPE_ID_SET=store
 // (bipe-chat/bipe#604, store-release.yml) runs prepare, signing and distribute on the fork's store
 // app (chat.bipe.app, record "Bipe"): there the script never registers a bundle ID, never changes a
@@ -31,8 +40,9 @@
 
 import { createPrivateKey, sign } from 'node:crypto';
 import { readFileSync, appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { isMain } from './lib.mjs';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { isMain, REPO_ROOT } from './lib.mjs';
 
 export const API = 'https://api.appstoreconnect.apple.com';
 export const BUNDLE_ID = 'chat.bipe.app.next';
@@ -560,7 +570,74 @@ export async function external(call, buildNumber, { enable = false, publicLink =
   return { group, state, missing };
 }
 
+// --- Accessibility declarations (bipe-chat/bipe#503) ---------------------------------------------------
+// App Store Connect API: POST /v1/accessibilityDeclarations, PATCH /v1/accessibilityDeclarations/{id},
+// GET /v1/apps/{id}/accessibilityDeclarations. A declaration has a deviceFamily and one supports* boolean per
+// label; only a DRAFT can be changed, and PATCH publish: true shows it on the App Store page.
+
+/** The declarations of bipe-shared product/appstore.md, through bipe-shared's own parser. */
+export async function plannedAccessibility(shared = resolve(process.env.BIPE_SHARED ?? join(REPO_ROOT, '../bipe-shared'))) {
+  const lib = await import(pathToFileURL(join(shared, 'tools/lib/appstore.mjs')).href);
+  const planned = lib.ascAccessibility(lib.loadAppstore(shared));
+  if (!planned.length) throw new Error('appstore.md has no ## Accessibility table (bipe-shared node tools/check-appstore.mjs --write)');
+  return planned;
+}
+
+export function printAccessibility(planned, log = console.log) {
+  for (const { deviceFamily, labels } of planned) {
+    log(`${deviceFamily}:`);
+    for (const l of labels) log(`  ${l.supported ? 'yes' : 'no '} ${l.name} (${l.attribute})`);
+  }
+}
+
+const sameAttributes = (row, attributes) => Object.entries(attributes).every(([k, v]) => row.attributes?.[k] === v);
+
+/** Makes or changes the DRAFT of each device family and publishes it. A published one with the same answers stays. */
+export async function sendAccessibility(call, appId, planned) {
+  const list = await call('GET', `/v1/apps/${appId}/accessibilityDeclarations?limit=200`);
+  for (const { deviceFamily, attributes } of planned) {
+    const rows = (list.data ?? []).filter((r) => r.attributes?.deviceFamily === deviceFamily);
+    const published = rows.find((r) => r.attributes.state === 'PUBLISHED');
+    if (published && sameAttributes(published, attributes)) {
+      console.log(`${deviceFamily}: the published declaration already has these answers`);
+      continue;
+    }
+    let draft = rows.find((r) => r.attributes.state === 'DRAFT');
+    if (draft) {
+      await call('PATCH', `/v1/accessibilityDeclarations/${draft.id}`, { data: { type: 'accessibilityDeclarations', id: draft.id, attributes } });
+    } else {
+      const made = await call('POST', '/v1/accessibilityDeclarations', {
+        data: { type: 'accessibilityDeclarations', attributes: { deviceFamily, ...attributes }, relationships: { app: { data: { type: 'apps', id: appId } } } },
+      });
+      draft = made.data;
+    }
+    await call('PATCH', `/v1/accessibilityDeclarations/${draft.id}`, { data: { type: 'accessibilityDeclarations', id: draft.id, attributes: { publish: true } } });
+    console.log(`${deviceFamily}: declaration published`);
+  }
+}
+
 async function main([cmd, arg]) {
+  if (cmd === 'accessibility') {
+    if (arg !== undefined && arg !== '--dry-run') {
+      console.error('usage: node tools/asc.mjs accessibility [--dry-run]');
+      return 2;
+    }
+    const planned = await plannedAccessibility();
+    printAccessibility(planned);
+    if (arg === '--dry-run') {
+      console.log('dry run: nothing sent');
+      return 0;
+    }
+    if (process.env.BIPE_ACCESSIBILITY_TESTED !== 'true') {
+      throw new Error('BIPE_ACCESSIBILITY_TESTED is not true: the declaration goes out only after the hand test of the common tasks with VoiceOver, larger text and Reduce Motion (bipe-chat/bipe#503)');
+    }
+    const call = client();
+    const set = idSet(process.env.BIPE_ID_SET || 'next');
+    const app = await findApp(call, set);
+    if (!app) throw new Error(`no App Store Connect app for ${set.appId}`);
+    await sendAccessibility(call, app.id, planned);
+    return 0;
+  }
   const call = client();
   const set = idSet(process.env.BIPE_ID_SET || 'next');
   if (cmd === 'prepare') {
@@ -597,7 +674,7 @@ async function main([cmd, arg]) {
     }
     return 0;
   }
-  console.error('usage: [BIPE_ID_SET=beta|store] node tools/asc.mjs prepare | distribute <build-number> | external <build-number> | signing <serial> | certificates | store-ids [<build-number>]');
+  console.error('usage: [BIPE_ID_SET=beta|store] node tools/asc.mjs prepare | distribute <build-number> | external <build-number> | signing <serial> | certificates | store-ids [<build-number>] | accessibility [--dry-run]');
   return 2;
 }
 
