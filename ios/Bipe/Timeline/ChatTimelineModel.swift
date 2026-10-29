@@ -69,6 +69,7 @@ struct TimelineMessage: Identifiable, Equatable {
 enum MessageAction: CaseIterable, Identifiable {
     case reply
     case edit
+    case removeCaption
     case copy
     case keepAudio
     case unkeepAudio
@@ -525,6 +526,8 @@ final class ChatTimelineModel: ObservableObject {
             switch action {
             case .reply: details.canReply && isSent
             case .edit: details.canEdit
+            // Spec message-edit removeCaption (bipe#668).
+            case .removeCaption: details.canEdit && message.media?.caption?.nilIfBlank != nil
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
             // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
@@ -562,6 +565,9 @@ final class ChatTimelineModel: ObservableObject {
 
     /// The menu title of an action: the countdown for a paused copy.
     func menuTitle(_ action: MessageAction, rowId: String) -> String {
+        if action == .edit, let media = row(rowId)?.message?.media {
+            return media.caption?.nilIfBlank == nil ? BipeStrings.captionAdd : BipeStrings.captionEdit
+        }
         let left = action == .copy ? pauseSecondsLeft(rowId: rowId) : 0
         return left > 0 ? BipeStrings.pauseCountdown(String(left)) : action.menuTitle
     }
@@ -573,6 +579,7 @@ final class ChatTimelineModel: ObservableObject {
         switch action {
         case .reply: startReply(rowId: rowId)
         case .edit: startEdit(rowId: rowId)
+        case .removeCaption: Task { await removeCaption(rowId: rowId) }
         case .copy:
             guard pauseSecondsLeft(rowId: rowId) == 0 else { return }
             UIPasteboard.general.string = row(rowId)?.message?.body
@@ -691,7 +698,8 @@ final class ChatTimelineModel: ObservableObject {
 
     /// Action startEdit: the message text goes into the composer, the unsent draft is kept aside. Ends a reply first.
     func startEdit(rowId: String) {
-        guard let row = self.row(rowId), row.details?.canEdit == true, let body = row.message?.body else { return }
+        guard let row = self.row(rowId), row.details?.canEdit == true, let message = row.message,
+              let body = message.media.map({ $0.caption ?? "" }) ?? message.body else { return }
         cancelReply()
         if editing == nil { keptDraft = draft }
         sendTyping(false)
@@ -709,13 +717,31 @@ final class ChatTimelineModel: ObservableObject {
     /// Action saveEdit.
     func saveEdit() async {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let editing, let timeline, canSend, let event = item(editing.rowId)?.asEvent(),
-              let content = try? messageEventContentNew(msgtype: .text(content: TextMessageContent(body: text, formatted: nil))) else { return }
+        guard let editing, let timeline, canSend, let event = item(editing.rowId)?.asEvent() else { return }
+        let newContent: EditedContent
+        if row(editing.rowId)?.message?.media != nil {
+            // A caption (bipe#668).
+            newContent = .mediaCaption(caption: text, formattedCaption: nil, mentions: nil)
+        } else {
+            guard let content = try? messageEventContentNew(msgtype: .text(content: TextMessageContent(body: text, formatted: nil))) else { return }
+            newContent = .roomMessage(content: content)
+        }
         isSavingEdit = true
         defer { isSavingEdit = false }
         do {
-            try await timeline.edit(eventOrTransactionId: event.eventOrTransactionId, newContent: .roomMessage(content: content))
+            try await timeline.edit(eventOrTransactionId: event.eventOrTransactionId, newContent: newContent)
             cancelEdit()
+        } catch {
+            show(.editFailed)
+        }
+    }
+
+    /// Action removeCaption of spec message-edit: no question.
+    func removeCaption(rowId: String) async {
+        guard let timeline, let event = item(rowId)?.asEvent() else { return }
+        do {
+            try await timeline.edit(eventOrTransactionId: event.eventOrTransactionId,
+                                    newContent: .mediaCaption(caption: nil, formattedCaption: nil, mentions: nil))
         } catch {
             show(.editFailed)
         }
