@@ -1018,6 +1018,12 @@ object BipeRegistries {
     const val MAPS_LIVE_MIN_INTERVAL_SECONDS = 10
     const val MAPS_LIVE_MAX_INTERVAL_SECONDS = 120
 
+    /** Verificar com gov.br (bipe-chat/bipe#544; registries/govbr.json). Rules: BipeGovbrFlow, test-vectors/govbr-verify.json. */
+    const val GOVBR_FILE_NAME = "bipe-verificacao.pdf"
+    const val GOVBR_MAX_DOCUMENT_BYTES = 5242880
+    const val GOVBR_ANDROID_PACKAGE = "br.gov.meugovbr"
+    const val GOVBR_ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=br.gov.meugovbr"
+
     /** Voice transcript paragraphs (registries/voice-transcript.json). Rule: product/screens/voice-recording.json notes. */
     const val VOICE_TRANSCRIPT_PAUSE_SECONDS: Double = 1.2
     const val VOICE_TRANSCRIPT_MIN_CHARACTERS = 120

@@ -98,6 +98,16 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: chat.bipe.matrix
             CFBundleURLSchemes: [matrix]
+        # Spec govbr-verify (bipe-chat/bipe#544): the signed PDF comes back from the gov.br app through the share sheet
+        # (open with Bipe), not through the share extension. iOS copies the file into Documents/Inbox; the app deletes the
+        # copy after it reads it. BIPE_PDF_HANDLER_RANK follows the build flag AppConfig.govbrEnabled: Alternate in Debug,
+        # None in Release, so builds with the flag off do not offer to open PDFs.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: PDF
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: $(BIPE_PDF_HANDLER_RANK)
+            LSItemContentTypes: [com.adobe.pdf]
+        LSSupportsOpeningDocumentsInPlace: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -154,6 +164,11 @@ targets:
         # alternate icon for UIApplication.setAlternateIconName (spec app-colors).
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
+        # Spec govbr-verify: see CFBundleDocumentTypes.
+        BIPE_PDF_HANDLER_RANK: None
+      configs:
+        Debug:
+          BIPE_PDF_HANDLER_RANK: Alternate
     dependencies:
       - package: MatrixRustSDK
         product: MatrixRustSDK

@@ -157,6 +157,9 @@ enum class BipeScreen(val id: String) {
     /** Messages on this phone (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
     ENCRYPTION_STATUS("encryption-status"),
 
+    /** Verificar com gov.br (trust step 5) (flow voce). Spec: bipe-shared/product/screens/govbr-verify.json */
+    GOVBR_VERIFY("govbr-verify"),
+
     /** Create a group (flow groups). Spec: bipe-shared/product/screens/group-create.json */
     GROUP_CREATE("group-create"),
 

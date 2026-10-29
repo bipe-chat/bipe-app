@@ -131,6 +131,25 @@ class BipeApiClient(baseUrl: String) {
         if (status == 404) null else throw error
     }
 
+    // gov.br verification (bipe-chat/bipe#544, spec govbr-verify)
+
+    /** `POST /v1/verifications/govbr`. A challenge PDF bound to this device, valid 30 minutes. */
+    suspend fun startGovbrVerification(accessToken: String): BipeGovbrChallenge =
+        send("POST", listOf("v1", "verifications", "govbr"), accessToken = accessToken, response = BipeGovbrChallenge.serializer())
+
+    /** `PUT /v1/verifications/govbr/{id}/document`. The signed PDF. A rejection is a 200 with a reason, not an error. */
+    suspend fun sendGovbrDocument(verificationId: String, pdf: ByteArray, accessToken: String): BipeVerificationStatus {
+        val (status, text) = exchange(
+            "PUT",
+            listOf("v1", "verifications", "govbr", verificationId, "document"),
+            body = pdf,
+            contentType = "application/pdf",
+            accessToken = accessToken,
+        )
+        if (status !in 200..299) throw serverError(status, text)
+        return decodePeople(BipeVerificationStatus.serializer(), text, status)
+    }
+
     /** `POST /v1/me/terms`. Records that the person ticked the box for [termsVersion] (ADR 0113). */
     suspend fun acceptTerms(termsVersion: String, accessToken: String) {
         send<Unit>(

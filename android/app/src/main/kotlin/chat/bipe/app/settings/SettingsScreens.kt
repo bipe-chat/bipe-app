@@ -92,6 +92,7 @@ import chat.bipe.app.voce.BusinessClaimScreen
 import chat.bipe.app.voce.TrustActions
 import chat.bipe.app.voce.TrustCardModel
 import chat.bipe.app.voce.TrustProfileScreen
+import chat.bipe.app.voce.GovbrVerifyScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipePhoneLinkState
@@ -134,6 +135,7 @@ sealed interface SettingsRoute {
     data object RecoveryEmail : SettingsRoute
     data object TrustProfile : SettingsRoute
     data object BusinessClaim : SettingsRoute
+    data object GovbrVerify : SettingsRoute
 }
 
 /**
@@ -223,8 +225,11 @@ fun SettingsHost(
                 addPhoto = { stack.add(SettingsRoute.People(PeopleRoute.ProfileEdit)) },
                 chooseHandle = { stack.add(SettingsRoute.HandlePick) },
                 openClaim = { stack.add(SettingsRoute.BusinessClaim) },
+                openGovbr = if (chat.bipe.app.BuildConfig.BIPE_GOVBR) ({ stack.add(SettingsRoute.GovbrVerify); Unit }) else null,
             ), onBack = pop)
         }
+        // Spec govbr-verify: from the step 5 row only (bipe-chat/bipe#277).
+        SettingsRoute.GovbrVerify -> GovbrVerifyScreen(session, api, onVerified = { trust?.govbrVerified(it) }, onBack = pop)
         SettingsRoute.BusinessClaim -> BusinessClaimScreen(
             session, api,
             onChange = { trust?.reload() },

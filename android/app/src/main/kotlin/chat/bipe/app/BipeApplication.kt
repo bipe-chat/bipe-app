@@ -46,6 +46,9 @@ class BipeApplication : Application() {
     /** Spec share-to-chat: the share the home screen offers next. */
     val pendingShare = MutableStateFlow<chat.bipe.app.share.PendingShare?>(null)
 
+    /** Spec govbr-verify: the open gov.br check of this app run, which a signed PDF from the share sheet finds. */
+    val govbr = chat.bipe.app.voce.GovbrInbox()
+
     private var watchingAccounts = false
 
     override fun onCreate() {

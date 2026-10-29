@@ -7,19 +7,29 @@ import Phosphor
 import SwiftUI
 
 /// Specs trust-card and trust-profile (ADR 0019, ADR 0112): the private Perfil de confiança of the current account.
-/// Steps come only from ``BipeTrustProfile``. Only a company account calls the API (`GET /v1/me/business`).
+/// Steps come only from ``BipeTrustProfile``. A company account calls `GET /v1/me/business`. A personal account calls
+/// `GET /v1/badges/{userId}` only when the build flag ``AppConfig/govbrEnabled`` is on (spec trust-card notes).
 @MainActor
 final class TrustCardModel: ObservableObject {
     @Published private(set) var business: BipeBusinessClaim?
+    /// The level of the account's own badge, read without the signature check: only for this owner-only card.
+    @Published private(set) var personBadge: BadgeLevel?
     private var loadedUserId: String?
 
-    /// Fills the company steps. A failed or offline call keeps them "Em breve"; the card never shows an error.
+    /// Fills the company steps, or step 5 of a person. A failed or offline call keeps them as they are; the card never
+    /// shows an error.
     func load(session: AccountSession, api: BipeAPIClient, isCompany: Bool) async {
         if loadedUserId != session.userId {
             loadedUserId = session.userId
             business = nil
+            personBadge = nil
         }
-        guard isCompany else { return }
+        guard isCompany else {
+            guard AppConfig.govbrEnabled, let lookup = try? await api.badge(userID: session.userId),
+                  loadedUserId == session.userId else { return }
+            personBadge = lookup.unverifiedLevel
+            return
+        }
         let claim = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeBusinessClaim? in
             try await api.myBusiness(accessToken: token)
         }
@@ -33,7 +43,15 @@ final class TrustCardModel: ObservableObject {
                          handle: account.handle,
                          accountType: account.isCompany ? .company : .personal,
                          business: loadedUserId == account.userId ? business : nil,
+                         personBadge: loadedUserId == account.userId ? personBadge : nil,
+                         govbrEnabled: AppConfig.govbrEnabled,
                          claimEnabled: true)
+    }
+
+    /// Spec govbr-verify, after verified: step 5 shows done at once; the next load reads the badge again.
+    func govbrVerified(level: BadgeLevel?, userId: String) {
+        guard loadedUserId == userId else { return }
+        personBadge = level ?? .govbr
     }
 }
 
@@ -44,6 +62,8 @@ struct TrustActions {
     let chooseHandle: () -> Void
     /// Company account: opens business-claim (bipe-chat/bipe#249).
     var openClaim: (() -> Void)?
+    /// Personal account, build flag on: opens govbr-verify (bipe-chat/bipe#544). The only entry to that flow.
+    var openGovbr: (() -> Void)?
 
     func run(_ item: BipeTrustProfile.ProfileItem) {
         switch item {
@@ -112,6 +132,11 @@ struct TrustProfileView: View {
                     if let openClaim = actions.openClaim, profile.isCompany, [.cnpj, .proof, .domain].contains(step.id) {
                         // Action openClaim: every company step opens business-claim, done or not.
                         Button(action: openClaim) {
+                            TrustStepRow(number: index + 1, step: step, isCompany: profile.isCompany)
+                        }
+                    } else if let openGovbr = actions.openGovbr, !profile.isCompany, step.id == .govbr, step.status == .todo {
+                        // Action openGovbr: only a todo step 5 opens govbr-verify.
+                        Button(action: openGovbr) {
                             TrustStepRow(number: index + 1, step: step, isCompany: profile.isCompany)
                         }
                     } else {

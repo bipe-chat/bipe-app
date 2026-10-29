@@ -45,6 +45,11 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <!-- Spec govbr-verify (bipe-chat/bipe#544): the app opens the gov.br app by its package name when it is installed
+         (bipe-shared registries/govbr.json androidPackage). -->
+    <queries>
+        <package android:name="br.gov.meugovbr" />
+    </queries>
 
     <application
         android:name=".BipeApplication"
@@ -121,6 +126,26 @@
                 <data android:scheme="https" android:host="matrix.to" />
             </intent-filter>
         </activity>
+        <!-- Spec govbr-verify, action receiveDocument (bipe-chat/bipe#544): the signed PDF from the gov.br app, shared or
+             opened with Bipe. MainActivity tells it from other intents by this alias name. Enabled only when the build flag
+             BuildConfig.BIPE_GOVBR is on (app/build.gradle.kts). -->
+        <activity-alias
+            android:name=".GovbrDocument"
+            android:enabled="${bipeGovbrEnabled}"
+            android:exported="true"
+            android:label="@string/bipe_govbr_title"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity-alias>
         <!-- Spec app-colors (bipe-chat/bipe#811): one launcher entry per palette of bipe-shared appThemes, each with the
              generated icon @mipmap/bipe_app_icon_<palette>. Only the alias of the stored palette is enabled (AppTheme). -->
         <activity-alias

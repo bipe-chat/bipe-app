@@ -9,6 +9,33 @@ import Testing
 /// Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). Android runs the same files.
 struct SharedVectorTests {
     @Test
+    func govbrVerify() throws {
+        let file = try SharedVectors.object("govbr-verify.json")
+        #expect((file["maxDocumentBytes"] as? NSNumber)?.intValue == BipeRegistries.govbrMaxDocumentBytes)
+        let incoming = try SharedVectors.array("govbr-verify.json", key: "incoming")
+        #expect(!incoming.isEmpty)
+        for vector in incoming {
+            let phase = try #require(vector["phase"] as? String)
+            let bytes = try #require((vector["byteCount"] as? NSNumber)?.intValue)
+            #expect(BipeGovbrRules.incoming(phase: phase, byteCount: bytes).rawValue == vector["expected"] as? String,
+                    "govbr incoming \(vector["name"] ?? "")")
+        }
+        let results = try SharedVectors.array("govbr-verify.json", key: "results")
+        #expect(!results.isEmpty)
+        for vector in results {
+            let state = try #require(vector["state"] as? String)
+            let expected = try #require(vector["expected"] as? [String: Any])
+            let actual: (phase: String, reason: String?) = switch BipeGovbrRules.outcome(state: state, reason: vector["reason"] as? String) {
+            case .verified: ("verified", nil)
+            case .rejected(let value): ("rejected", value.rawValue)
+            case .failed: ("failed", nil)
+            }
+            #expect(actual.phase == expected["phase"] as? String, "govbr result \(vector["name"] ?? "")")
+            #expect(actual.reason == expected["reason"] as? String, "govbr result reason \(vector["name"] ?? "")")
+        }
+    }
+
+    @Test
     func photoMatch() throws {
         let cases = try SharedVectors.array("photo-match.json", key: "cases")
         #expect(!cases.isEmpty)

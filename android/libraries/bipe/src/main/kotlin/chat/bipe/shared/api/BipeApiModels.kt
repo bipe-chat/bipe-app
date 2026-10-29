@@ -427,3 +427,24 @@ data class BipeRecoveryClaim(
 
     override fun toString(): String = "BipeRecoveryClaim($state)"
 }
+
+/** `GovbrChallenge` (bipe-chat/bipe#544). [pdf] is the challenge PDF in base64. Keys are camelCase in this schema. */
+@Serializable
+data class BipeGovbrChallenge(
+    val verificationId: String,
+    val pdf: String,
+    val fileName: String,
+    val expiresAt: String,
+)
+
+/**
+ * `VerificationStatus`. [state] and [reason] stay as sent: a value this build does not know must not break the decoding
+ * (chat.bipe.shared.BipeGovbrRules.outcome fails closed on it).
+ */
+@Serializable
+data class BipeVerificationStatus(
+    val verificationId: String,
+    val state: String,
+    val badge: chat.bipe.shared.BadgeEnvelope? = null,
+    val reason: String? = null,
+)

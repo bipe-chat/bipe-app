@@ -34,6 +34,11 @@ android {
         versionCode = (findProperty("bipeBuildNumber") as String?)?.toInt() ?: 1
         versionName = (findProperty("bipeVersionName") as String?) ?: "0.1.0"
         buildConfigField("String", "BIPE_COMMIT", "\"${(findProperty("bipeCommit") as String?).orEmpty()}\"")
+        // Trust step 5, Verificar com gov.br (spec govbr-verify, bipe-chat/bipe#544): a build value, never a stored or remote
+        // one. Off here and so in every release build; the debug build type turns it on for the tester ID set only, until
+        // bipe-chat/bipe#542 and bipe-chat/bipe#17 close. The manifest placeholder enables the PDF intake alias with it.
+        buildConfigField("boolean", "BIPE_GOVBR", "false")
+        manifestPlaceholders["bipeGovbrEnabled"] = "false"
     }
 
     // ADR 0150: the play flavour may use Google Block Store; foss has no Google Play services (the build without
@@ -70,6 +75,9 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            val govbr = (findProperty("bipeIdSet") != "store").toString()
+            buildConfigField("boolean", "BIPE_GOVBR", govbr)
+            manifestPlaceholders["bipeGovbrEnabled"] = govbr
         }
         release {
             isMinifyEnabled = false
