@@ -6,6 +6,8 @@ package chat.bipe.app.common
 
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
+import org.matrix.rustcomponents.sdk.SearchServiceResult
+import org.matrix.rustcomponents.sdk.SearchServiceResultsUpdate
 import org.matrix.rustcomponents.sdk.TimelineDiff
 import org.matrix.rustcomponents.sdk.TimelineItem
 
@@ -69,4 +71,18 @@ fun TimelineDiff.toVectorDiff(): VectorDiff<TimelineItem> = when (this) {
     is TimelineDiff.Remove -> VectorDiff.Remove(index.toInt())
     is TimelineDiff.Truncate -> VectorDiff.Truncate(length.toInt())
     is TimelineDiff.Reset -> VectorDiff.Reset(values)
+}
+
+fun SearchServiceResultsUpdate.toVectorDiff(): VectorDiff<SearchServiceResult> = when (this) {
+    is SearchServiceResultsUpdate.Append -> VectorDiff.Append(values)
+    SearchServiceResultsUpdate.Clear -> VectorDiff.Clear
+    is SearchServiceResultsUpdate.PushFront -> VectorDiff.PushFront(value)
+    is SearchServiceResultsUpdate.PushBack -> VectorDiff.PushBack(value)
+    SearchServiceResultsUpdate.PopFront -> VectorDiff.PopFront
+    SearchServiceResultsUpdate.PopBack -> VectorDiff.PopBack
+    is SearchServiceResultsUpdate.Insert -> VectorDiff.Insert(index.toInt(), value)
+    is SearchServiceResultsUpdate.Set -> VectorDiff.Set(index.toInt(), value)
+    is SearchServiceResultsUpdate.Remove -> VectorDiff.Remove(index.toInt())
+    is SearchServiceResultsUpdate.Truncate -> VectorDiff.Truncate(length.toInt())
+    is SearchServiceResultsUpdate.Reset -> VectorDiff.Reset(values)
 }

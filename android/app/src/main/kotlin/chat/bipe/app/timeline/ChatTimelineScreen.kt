@@ -136,6 +136,8 @@ fun ChatTimelineScreen(
     people: PeopleService? = null,
     /** Opens another chat in place of this one (a new DM from inviteAgain). */
     onOpenChat: (String) -> Unit = {},
+    /** Spec chat-search openMessage (bipe-chat/bipe#671): the message to scroll to after the chat opens. */
+    focusEventId: String? = null,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -156,6 +158,12 @@ fun ChatTimelineScreen(
             handleChanges = HandleChangeStores.store(context, session),
             voiceMedia = VoiceMediaStore.store(context, session),
         )
+    }
+    // Spec chat-search openMessage (bipe-chat/bipe#671): scroll to the message once the first rows are in.
+    LaunchedEffect(model, focusEventId) {
+        val target = focusEventId ?: return@LaunchedEffect
+        repeat(20) { if (model.rows.value.isEmpty()) kotlinx.coroutines.delay(250) }
+        model.openOriginal(target)
     }
     DisposableEffect(model) {
         // Spec incoming-call: an opened chat shows its call kind again in the chat list.

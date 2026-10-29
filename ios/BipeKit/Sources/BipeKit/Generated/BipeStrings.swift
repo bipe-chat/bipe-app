@@ -4481,4 +4481,10 @@ public enum BipeStrings {
     public static var appNotificationCheckupHelpMotorola: String { NSLocalizedString("bipe_app_notification_checkup_help_motorola", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appNotificationCheckupOpenAppSettings: String { NSLocalizedString("bipe_app_notification_checkup_open_app_settings", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var searchMessages: String { NSLocalizedString("bipe_search_messages", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var searchRecent: String { NSLocalizedString("bipe_search_recent", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var searchRecentClear: String { NSLocalizedString("bipe_search_recent_clear", tableName: "Bipe", bundle: .module, comment: "") }
 }
