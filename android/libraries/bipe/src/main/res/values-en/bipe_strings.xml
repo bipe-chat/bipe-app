@@ -1988,4 +1988,7 @@
     <string name="bipe_poll_state_ended">Ended</string>
     <string name="bipe_chats_media_quality_standard">Standard, smaller files</string>
     <string name="bipe_chats_media_quality_high">High, as they were taken</string>
+    <string name="bipe_room_upgrade_replaced">This group was replaced by a new group. New messages go there.</string>
+    <string name="bipe_room_upgrade_go">Go to the new group</string>
+    <string name="bipe_room_upgrade_continues">Continues %1$s. Tap to see the older messages.</string>
 </resources>

@@ -184,6 +184,8 @@ fun ChatTimelineScreen(
     val roomAvatarUrl by model.roomAvatarUrl.collectAsState()
     val peerUserId by model.peerUserId.collectAsState()
     val isGroup by model.isGroup.collectAsState()
+    val successorRoomId by model.successorRoomId.collectAsState()
+    val predecessor by model.predecessor.collectAsState()
     val allRows by model.rows.collectAsState()
     val markers by ClearedChatsStore.markers.collectAsState()
     // Spec dm-delete: events at or below the marker of a cleared DM are gone.
@@ -337,6 +339,9 @@ fun ChatTimelineScreen(
                     }
                 }
                 OngoingCallBar(model, session, roomName)
+                predecessor?.let { (old, name) ->
+                    PredecessorLine(name ?: stringResource(R.string.bipe_group_common_no_room_name)) { onOpenChat(old) }
+                }
                 // Spec message-pins (bipe-chat/bipe#665): groups only.
                 if (isGroup) PinnedBanner(session, roomId) { model.openOriginal(it) }
                 LiveLocationChatBar(roomId, session.userId)
@@ -436,7 +441,12 @@ fun ChatTimelineScreen(
                     ) }
                 }
                 val peer = peerUserId
-                if (isDm && people != null && peer != null) DmComposerSlot(people, peer, roomName, composerBar) else composerBar()
+                when {
+                    // Spec chat-timeline notes, upgraded groups (bipe-chat/bipe#773).
+                    successorRoomId != null -> RoomUpgradeBar(model, onOpenChat)
+                    isDm && people != null && peer != null -> DmComposerSlot(people, peer, roomName, composerBar)
+                    else -> composerBar()
+                }
             }
             ui.notice?.let { notice ->
                 Text(

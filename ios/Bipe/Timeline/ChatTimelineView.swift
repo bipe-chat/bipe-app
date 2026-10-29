@@ -59,6 +59,9 @@ struct ChatTimelineView: View {
     var body: some View {
         VStack(spacing: 0) {
             OngoingCallBar(model: model, session: session)
+            if let predecessor = model.predecessor {
+                PredecessorLine(name: predecessor.name) { openOtherChat(predecessor.roomId) }
+            }
             if model.isGroup {
                 PinnedBanner(model: pinned) { eventId in Task { await model.openOriginal(eventId: eventId) } }
             }
@@ -84,7 +87,9 @@ struct ChatTimelineView: View {
                 TheftMarkBanner(name: model.roomName)
             }
             IdentityChangeBar(model: identity)
-            if model.isDm, let people, let peer = model.peerUserId {
+            if model.successorRoomId != nil {
+                RoomUpgradeBar(model: model) { openOtherChat($0) }
+            } else if model.isDm, let people, let peer = model.peerUserId {
                 DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
                     leftBar
                     composerBar

@@ -4581,4 +4581,12 @@ public enum BipeStrings {
     public static var chatsMediaQualityStandard: String { NSLocalizedString("bipe_chats_media_quality_standard", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatsMediaQualityHigh: String { NSLocalizedString("bipe_chats_media_quality_high", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var roomUpgradeReplaced: String { NSLocalizedString("bipe_room_upgrade_replaced", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var roomUpgradeGo: String { NSLocalizedString("bipe_room_upgrade_go", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func roomUpgradeContinues(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_room_upgrade_continues", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }
