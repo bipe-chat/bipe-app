@@ -1966,4 +1966,13 @@
     <string name="bipe_gallery_files">Files</string>
     <string name="bipe_gallery_empty_media">No photos or videos in this chat yet.</string>
     <string name="bipe_gallery_empty_files">No files in this chat yet.</string>
+    <string name="bipe_os_theft_prompt_title">Protect your phone from theft</string>
+    <string name="bipe_os_theft_prompt_body">If someone steals your phone, the phone itself can lock the thief out. Check that this protection is on.</string>
+    <string name="bipe_os_theft_action">Check protection</string>
+    <string name="bipe_os_theft_row_title">Phone protection</string>
+    <string name="bipe_os_theft_row_body">Your phone has its own theft protection. Bipe cannot see whether it is on.</string>
+    <string name="bipe_os_theft_path_ios_face_id">In the main Settings screen, tap Face ID &amp; Passcode, then Stolen Device Protection.</string>
+    <string name="bipe_os_theft_path_ios_touch_id">In the main Settings screen, tap Touch ID &amp; Passcode, then Stolen Device Protection.</string>
+    <string name="bipe_os_theft_path_android">In Settings, tap Google, All services and Theft protection. Turn on Theft Detection Lock and Offline Device Lock.</string>
+    <string name="bipe_os_theft_path_samsung">In Settings, tap Security and privacy, Lost device protection and Theft protection. Turn on Theft Detection Lock and Offline Device Lock.</string>
 </resources>

@@ -260,6 +260,7 @@ fun TheftProtectionScreen(model: SettingsModel, onBack: () -> Unit) {
         onDispose { lifecycle?.removeObserver(observer) }
     }
     SettingsPage(stringResource(R.string.bipe_theft_title), BipeScreen.THEFT_PROTECTION.id, onBack) {
+        item(key = "os-protection") { OsTheftProtectionRow() }
         item(key = "intro") {
             Column(Modifier.padding(16.dp)) {
                 Text(stringResource(R.string.bipe_theft_intro), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)

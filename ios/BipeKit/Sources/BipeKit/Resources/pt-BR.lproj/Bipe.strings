@@ -1964,3 +1964,12 @@
 "bipe_gallery_files" = "Arquivos";
 "bipe_gallery_empty_media" = "Nenhuma foto ou vídeo nesta conversa ainda.";
 "bipe_gallery_empty_files" = "Nenhum arquivo nesta conversa ainda.";
+"bipe_os_theft_prompt_title" = "Proteja o celular contra roubo";
+"bipe_os_theft_prompt_body" = "Se alguém roubar seu celular, o próprio aparelho pode bloquear o ladrão. Confira se essa proteção está ligada.";
+"bipe_os_theft_action" = "Conferir proteção";
+"bipe_os_theft_row_title" = "Proteção do celular";
+"bipe_os_theft_row_body" = "Seu celular tem uma proteção própria contra roubo. O Bipe não consegue ver se ela está ligada.";
+"bipe_os_theft_path_ios_face_id" = "Na tela inicial de Ajustes, toque em Face ID e Código e depois em Proteção de Dispositivo Roubado.";
+"bipe_os_theft_path_ios_touch_id" = "Na tela inicial de Ajustes, toque em Touch ID e Código e depois em Proteção de Dispositivo Roubado.";
+"bipe_os_theft_path_android" = "Em Configurações, toque em Google, Todos os serviços e Proteção contra roubo. Ligue o Bloqueio de Detecção de Roubo e o Bloqueio de Dispositivo Offline.";
+"bipe_os_theft_path_samsung" = "Em Configurações, toque em Segurança e privacidade, Proteção do aparelho perdido e Proteção contra roubo. Ligue o Bloqueio de Detecção de Roubo e o Bloqueio de Dispositivo Offline.";
