@@ -177,6 +177,27 @@ struct SharedVectorTests {
     }
 
     @Test
+    func bringPeopleReminder() throws {
+        let cases = try SharedVectors.array("onboarding-schedule.json", key: "bringPeopleReminder")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let name = vector["name"] as? String ?? ""
+            let nowMs = try #require((vector["nowMs"] as? NSNumber)?.doubleValue)
+            let now = Date(timeIntervalSince1970: nowMs / 1000)
+            let state = try #require(vector["state"] as? [String: Any])
+            let lastAskAt = (state["lastAskAt"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue / 1000) }
+            let slots = try #require(state["slots"] as? [[String: Any]]).map { slot in
+                BipeBringPeople.RuleSlot(status: slot["status"] as? String ?? "",
+                                         sentAt: Date(timeIntervalSince1970: ((slot["sentAt"] as? NSNumber)?.doubleValue ?? 0) / 1000))
+            }
+            let got = BipeBringPeople.reminder(declines: state["declines"] as? Int ?? 0, lastAskAt: lastAskAt, slots: slots, now: now)
+            let expected = vector["expected"] as? [String: Any]
+            #expect(got?.slot == expected?["slot"] as? Int, "bringPeopleReminder \(name) slot")
+            #expect(got?.kind.rawValue == expected?["kind"] as? String, "bringPeopleReminder \(name) kind")
+        }
+    }
+
+    @Test
     func inviteCodes() throws {
         for vector in try SharedVectors.array("invite-codes.json", key: "vectors") {
             let input = try #require(vector["input"] as? String)

@@ -23,6 +23,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import chat.bipe.shared.onboarding.BipeBringPeople
 import chat.bipe.shared.onboarding.BipeOnboardingSchedule
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
@@ -181,6 +182,24 @@ class SharedVectorTest {
             val next = BipeOnboardingSchedule.pinReminderNext(step, result)
             assertWithMessage("pinReminderNext($step, ${result.id}) step").that(next.step).isEqualTo(vector.string("nextStep")!!.toInt())
             assertWithMessage("pinReminderNext($step, ${result.id}) gapDays").that(next.gapDays).isEqualTo(vector.string("gapDays")!!.toInt())
+        }
+    }
+
+    @Test
+    fun bringPeopleReminder() {
+        val cases = vectors("onboarding-schedule.json", "bringPeopleReminder")
+        assertWithMessage("bringPeopleReminder is empty").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            val state = vector.getValue("state").jsonObject
+            val slots = state.getValue("slots").jsonArray.map {
+                val slot = it.jsonObject
+                BipeBringPeople.RuleSlot(slot.string("status")!!, slot.string("sentAt")!!.toLong())
+            }
+            val got = BipeBringPeople.reminder(state.string("declines")!!.toInt(), state.string("lastAskAt")?.toLong(), slots, vector.string("nowMs")!!.toLong())
+            val expected = vector["expected"]?.takeUnless { it is JsonNull }?.jsonObject
+            assertWithMessage("bringPeopleReminder($name) slot").that(got?.slot).isEqualTo(expected?.string("slot")?.toInt())
+            assertWithMessage("bringPeopleReminder($name) kind").that(got?.kind?.id).isEqualTo(expected?.string("kind"))
         }
     }
 
