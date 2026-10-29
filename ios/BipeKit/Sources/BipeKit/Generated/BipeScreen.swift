@@ -172,6 +172,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
+    /// Identity change warning (flow chat). Spec: bipe-shared/product/screens/identity-change.json
+    case identityChange = "identity-change"
+
     /// Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json
     case incomingCall = "incoming-call"
 
@@ -228,6 +231,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Edit a message (flow chat). Spec: bipe-shared/product/screens/message-edit.json
     case messageEdit = "message-edit"
+
+    /// Forward a message (flow chat). Spec: bipe-shared/product/screens/message-forward.json
+    case messageForward = "message-forward"
 
     /// Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json
     case messageReactions = "message-reactions"

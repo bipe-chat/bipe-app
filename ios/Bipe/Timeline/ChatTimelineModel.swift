@@ -31,6 +31,14 @@ struct TimelineMessage: Identifiable, Equatable {
         case failed
     }
 
+    /// Spec identity-change sendAnyway: the send queue held the message because of a member's identity.
+    enum SendFailure: Equatable {
+        /// QueueWedgeError identityViolations: users that were verified and are not any more.
+        case identity(users: [String])
+        /// QueueWedgeError insecureDevices: user ID to device IDs.
+        case devices([String: [String]])
+    }
+
     /// Bipe's grouping of the SDK UtdCause (spec message-undecryptable).
     enum UndecryptableCause: Equatable {
         case waiting
@@ -48,6 +56,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var isOwn: Bool
     var sentAt: Date
     var sendState: SendState
+    /// sendState failed only.
+    var sendFailure: SendFailure? = nil
     var cause: UndecryptableCause?
     /// Kind poll: the data of spec poll-detail.
     var poll: PollData?
@@ -70,6 +80,8 @@ enum MessageAction: CaseIterable, Identifiable {
     case reply
     case edit
     case copy
+    case forward
+    case saveSticker
     case keepAudio
     case unkeepAudio
     case retry
@@ -107,9 +119,17 @@ enum TimelineNotice: Equatable {
     case inviteAgainFailed
     case keepLimit
     case keepFailed
+    case forwarded
+    case forwardFailed(String)
+    case stickerSaved
+    case stickerSaveFailed
 
     var text: String {
         switch self {
+        case .forwarded: BipeStrings.forwardDone
+        case .forwardFailed(let names): BipeStrings.forwardFailed(names)
+        case .stickerSaved: BipeStrings.stickerSaved
+        case .stickerSaveFailed: BipeStrings.stickerSaveFailed
         case .copied: BipeStrings.appCopied
         case .keepLimit: BipeStrings.voiceKeepLimit(String(BipeRegistries.voiceMediaMaxKeptPerAccount))
         case .keepFailed: BipeStrings.errorGeneric
@@ -187,6 +207,8 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var inviterHint: BipeInviterGreeting?
     // message-actions
     @Published var actionsRowId: String?
+    /// Spec message-forward: the message the picker is open for.
+    @Published var forwardingRowId: String?
     /// Spec scam-warning money pause: one per message while this chat is open.
     @Published private(set) var moneyPause = BipeMoneyPause()
     // message-reply
@@ -478,10 +500,18 @@ final class ChatTimelineModel: ObservableObject {
         _ = try? await timeline.send(msg: content)
     }
 
-    /// Action retrySend: sends a failed own message again.
+    /// Action retrySend: sends a failed own message again. A message held for an identity change is sent anyway
+    /// (spec identity-change sendAnyway).
     func retrySend(id: String) async {
         guard let handle = item(id)?.asEvent()?.lazyProvider.getSendHandle() else { return }
-        try? await handle.tryResend()
+        switch row(id)?.message?.sendFailure {
+        case .identity(let users)?:
+            try? await room?.withdrawVerificationAndResend(userIds: users, sendHandle: handle)
+        case .devices(let devices)?:
+            try? await room?.ignoreDeviceTrustAndResend(devices: devices, sendHandle: handle)
+        case nil:
+            try? await handle.tryResend()
+        }
     }
 
     /// Action cancelUpload of spec timeline-media: cancels the send of own media and removes the row.
@@ -527,6 +557,10 @@ final class ChatTimelineModel: ObservableObject {
             case .edit: details.canEdit
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
+            // Spec message-forward notes: sent messages of kind message; no stickers or polls.
+            case .forward: isSent && forwardContent(rowId: row.id) != nil
+            // Spec message-actions notes (bipe#670): every sent sticker.
+            case .saveSticker: isSent && message.media?.kind == .sticker
             // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
             case .keepAudio: keepable(message, isSent: isSent) && voiceMedia.kept[message.voice!.source.url] == nil
             case .unkeepAudio: message.voice.map { voiceMedia.kept[$0.source.url] != nil } ?? false
@@ -562,6 +596,7 @@ final class ChatTimelineModel: ObservableObject {
 
     /// The menu title of an action: the countdown for a paused copy.
     func menuTitle(_ action: MessageAction, rowId: String) -> String {
+        if action == .retry, row(rowId)?.message?.sendFailure != nil { return BipeStrings.identityChangeSendAnyway }
         let left = action == .copy ? pauseSecondsLeft(rowId: rowId) : 0
         return left > 0 ? BipeStrings.pauseCountdown(String(left)) : action.menuTitle
     }
@@ -590,6 +625,19 @@ final class ChatTimelineModel: ObservableObject {
                 case .done: BipeHaptics.play(.tap)
                 case .limit: self.show(.keepLimit)
                 case .failed: self.show(.keepFailed)
+                }
+            }
+        case .forward: forwardingRowId = rowId
+        case .saveSticker:
+            guard let sticker = current.message?.media, let packClient = StickerPickerModel.packClient(client) else { return }
+            Task {
+                do {
+                    _ = try await packClient.saveToUserPack(url: sticker.source.url, width: sticker.width, height: sticker.height,
+                                                            mimeType: sticker.mimeType, size: nil)
+                    BipeHaptics.play(.tap)
+                    show(.stickerSaved)
+                } catch {
+                    show(.stickerSaveFailed)
                 }
             }
         case .retry: Task { await retrySend(id: rowId) }
@@ -814,6 +862,27 @@ final class ChatTimelineModel: ObservableObject {
 
     private func item(_ rowId: String) -> TimelineItem? {
         items.first { $0.uniqueId().id == rowId }
+    }
+
+    // MARK: message-forward
+
+    /// The original message type of a row, sent again as it is (spec message-forward send).
+    func forwardContent(rowId: String) -> MessageType? {
+        guard case .msgLike(let content)? = item(rowId)?.asEvent()?.content,
+              case .message(let message) = content.kind else { return nil }
+        return message.msgType
+    }
+
+    /// The picker closed: nil when cancelled, else the names of the chats that failed.
+    func forwardClosed(failed: [String]?) {
+        forwardingRowId = nil
+        guard let failed else { return }
+        if failed.isEmpty {
+            BipeHaptics.play(.tap)
+            show(.forwarded)
+        } else {
+            show(.forwardFailed(failed.joined(separator: ", ")))
+        }
     }
 
     // MARK: theftMark

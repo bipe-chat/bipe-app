@@ -46,8 +46,12 @@ public enum StickerImporter {
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int,
               (1...maxSide).contains(width), (1...maxSide).contains(height) else { return nil }
-        let digest = SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
-        return StickerImportCandidate(data: data, mimeType: mimeType, width: width, height: height, shortcode: "st_\(digest)")
+        return StickerImportCandidate(data: data, mimeType: mimeType, width: width, height: height, shortcode: shortcode(for: data))
+    }
+
+    /// st_ plus the first 8 bytes of the SHA-256 in hex. A saved received sticker hashes its mxc:// URL.
+    public static func shortcode(for data: Data) -> String {
+        "st_" + SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
     }
 
     private static func mimeType(_ data: Data) -> String? {

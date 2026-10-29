@@ -157,6 +157,13 @@ fun ChatTimelineScreen(
             voiceMedia = VoiceMediaStore.store(context, session),
         )
     }
+    // Spec identity-change (bipe-chat/bipe#770).
+    val identity = remember(session, roomId) { IdentityChangeModel(session, roomId, scope) }
+    val identityState by identity.state.collectAsState()
+    DisposableEffect(identity) {
+        identity.start()
+        onDispose { identity.close() }
+    }
     DisposableEffect(model) {
         // Spec incoming-call: an opened chat shows its call kind again in the chat list.
         chat.bipe.app.calls.MissedCalls.clear(session.userId, roomId)
@@ -347,6 +354,7 @@ fun ChatTimelineScreen(
                             voiceState = voiceState,
                             onTogglePlay = voicePlayer::togglePlay,
                             onSeek = voicePlayer::seek,
+                            onCycleSpeed = voicePlayer::cycleSpeed,
                             onOpenViewer = { viewerRowId = it },
                             seals = people?.seals,
                             institution = institutionOf(row),
@@ -377,6 +385,7 @@ fun ChatTimelineScreen(
                     ProfileNoticeBar(people, noticePeer, roomName)
                 }
                 if (isDm && theftMark != null) TheftMarkBanner(roomName)
+                IdentityChangeBar(identity)
                 val composerBar: @Composable () -> Unit = {
                     // The other person left the DM: the bar stays above the composer, which stays on (ADR 0141).
                     if (peerAway != PeerAway.NONE) {
@@ -389,7 +398,7 @@ fun ChatTimelineScreen(
                             }
                         }
                     }
-                    ComposerBar(
+                    IdentityComposerGate(identityState.blocksSending) { ComposerBar(
                         draft = draft,
                         canSend = model.canSend,
                         ui = ui,
@@ -407,14 +416,14 @@ fun ChatTimelineScreen(
                         onStickers = { showsStickers = true },
                         onRecord = { model.startRecording(context.applicationContext) },
                         onEndRecording = model::endRecording,
-                    )
+                    ) }
                 }
                 val peer = peerUserId
                 if (isDm && people != null && peer != null) DmComposerSlot(people, peer, roomName, composerBar) else composerBar()
             }
             ui.notice?.let { notice ->
                 Text(
-                    noticeText(notice),
+                    noticeText(notice, ui.noticeArg),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.inkPrimary,
                     modifier = Modifier
@@ -447,6 +456,9 @@ fun ChatTimelineScreen(
         )
     }
     ui.reactionSheet?.let { ReactionSendersSheet(it, onDismiss = model::closeSenders) }
+    ui.forwardingRowId?.let(model::forwardContent)?.let { msgType ->
+        MessageForwardSheet(session.client, msgType, media, onClose = model::forwardClosed)
+    }
     ui.readersSheet?.let { ReadersSheet(it, media, onDismiss = model::closeReaders) }
     ui.report?.let { report ->
         MessageReportSheet(
@@ -528,7 +540,11 @@ internal fun copyToClipboard(context: Context, text: String) {
 }
 
 @Composable
-private fun noticeText(notice: TimelineNotice): String = when (notice) {
+private fun noticeText(notice: TimelineNotice, arg: String?): String = when (notice) {
+    TimelineNotice.FORWARDED -> stringResource(R.string.bipe_forward_done)
+    TimelineNotice.FORWARD_FAILED -> stringResource(R.string.bipe_forward_failed, arg.orEmpty())
+    TimelineNotice.STICKER_SAVED -> stringResource(R.string.bipe_sticker_saved)
+    TimelineNotice.STICKER_SAVE_FAILED -> stringResource(R.string.bipe_sticker_save_failed)
     TimelineNotice.COPIED -> stringResource(R.string.bipe_app_copied)
     TimelineNotice.REACTION_FAILED -> stringResource(R.string.bipe_app_reaction_failed)
     TimelineNotice.EDIT_FAILED -> stringResource(R.string.bipe_app_message_edit_failed)
