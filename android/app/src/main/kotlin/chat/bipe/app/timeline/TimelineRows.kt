@@ -26,6 +26,7 @@ import org.matrix.rustcomponents.sdk.EmbeddedEventDetails
 import org.matrix.rustcomponents.sdk.EncryptedMessage
 import org.matrix.rustcomponents.sdk.EventOrTransactionId
 import org.matrix.rustcomponents.sdk.EventSendState
+import org.matrix.rustcomponents.sdk.QueueWedgeError
 import org.matrix.rustcomponents.sdk.EventTimelineItem
 import org.matrix.rustcomponents.sdk.InReplyToDetails
 import org.matrix.rustcomponents.sdk.MessageType
@@ -285,7 +286,8 @@ object TimelineRowBuilder {
                                 // The detector runs on the device; the cache keys on the event and the body, so an edit runs it again.
                                 scamWarning = if (event.isOwn) null else message.body?.let { ScamDetector.warningKind(it + "\n" + message.richText?.safetyText.orEmpty(), eventId(event) ?: id) },
                                 canReply = event.canBeRepliedTo && isSent,
-                                canEdit = event.isEditable && message.kind == TimelineMessage.Kind.TEXT,
+                                // Captions of own photos, videos and files are editable too (bipe-chat/bipe#668).
+                                canEdit = event.isEditable && (message.kind == TimelineMessage.Kind.TEXT || message.media?.let { it.kind != MediaMessage.Kind.STICKER } == true),
                                 canDelete = if (event.isOwn) facts.canRedactOwn || !isSent else !facts.isDm && facts.canRedactOther,
                             )
                             rows += TimelineRow(id, TimelineRow.Kind.MESSAGE, message, details)
@@ -418,10 +420,17 @@ object TimelineRowBuilder {
     fun eventId(event: EventTimelineItem): String? = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
 
     private fun message(id: String, event: EventTimelineItem, senderName: String): TimelineMessage {
-        val sendState = when (event.localSendState) {
+        val localState = event.localSendState
+        val sendState = when (localState) {
             is EventSendState.NotSentYet -> TimelineMessage.SendState.SENDING
             is EventSendState.SendingFailed -> TimelineMessage.SendState.FAILED
             else -> TimelineMessage.SendState.SENT
+        }
+        // Spec identity-change sendAnyway.
+        val sendFailure = when (val error = (localState as? EventSendState.SendingFailed)?.error) {
+            is QueueWedgeError.IdentityViolations -> TimelineMessage.SendFailure.Identity(error.users)
+            is QueueWedgeError.InsecureDevices -> TimelineMessage.SendFailure.Devices(error.userDeviceMap)
+            else -> null
         }
         return TimelineMessage(
             id = id,
@@ -433,6 +442,7 @@ object TimelineRowBuilder {
             sentAt = event.timestamp.toLong(),
             sendState = if (event.isOwn) sendState else TimelineMessage.SendState.SENT,
             cause = null,
+            sendFailure = if (event.isOwn) sendFailure else null,
         )
     }
 

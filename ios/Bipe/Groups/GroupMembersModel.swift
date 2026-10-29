@@ -10,6 +10,7 @@ struct GroupMember: Identifiable, Equatable {
     enum Membership: Equatable {
         case joined
         case invited
+        case banned
     }
 
     var person: Person
@@ -33,12 +34,15 @@ final class GroupMembersModel: ObservableObject {
         case removeAdmin
         case remove
         case ban
+        case unban
         case cancelInvite
     }
 
     @Published private(set) var query = ""
     @Published private(set) var joined: [GroupMember] = []
     @Published private(set) var invited: [GroupMember] = []
+    /// State banned (bipe#675): shown only when canBan.
+    @Published private(set) var banned: [GroupMember] = []
     @Published private(set) var canInvite = false
     @Published private(set) var canKick = false
     @Published private(set) var canBan = false
@@ -97,6 +101,8 @@ final class GroupMembersModel: ObservableObject {
             if canBan { actions.append(.ban) }
         case .invited:
             if canKick { actions.append(.cancelInvite) }
+        case .banned:
+            if canBan { actions.append(.unban) }
         }
         return actions
     }
@@ -116,6 +122,8 @@ final class GroupMembersModel: ObservableObject {
                 try await room.kickUser(userId: member.person.userId, reason: nil)
             case .ban:
                 try await room.banUser(userId: member.person.userId, reason: nil)
+            case .unban:
+                try await room.unbanUser(userId: member.person.userId, reason: nil)
             }
             if let members = await GroupPeople.members(of: room) {
                 apply(members)
@@ -139,6 +147,7 @@ final class GroupMembersModel: ObservableObject {
             switch member.membership {
             case .join: membership = .joined
             case .invite: membership = .invited
+            case .ban: membership = .banned
             default: return nil
             }
             return GroupMember(person: Person(member: member),
@@ -160,5 +169,6 @@ final class GroupMembersModel: ObservableObject {
             lhs.isAdmin != rhs.isAdmin ? lhs.isAdmin : byName(lhs, rhs)
         }
         invited = visible.filter { $0.membership == .invited }.sorted(by: byName)
+        banned = canBan ? visible.filter { $0.membership == .banned }.sorted(by: byName) : []
     }
 }
