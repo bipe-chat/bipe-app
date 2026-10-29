@@ -292,6 +292,9 @@ enum class BipeScreen(val id: String) {
     /** Poll (flow chat). Spec: bipe-shared/product/screens/poll-detail.json */
     POLL_DETAIL("poll-detail"),
 
+    /** Polls of a group (flow groups). Spec: bipe-shared/product/screens/poll-history.json */
+    POLL_HISTORY("poll-history"),
+
     /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
     PROBLEM_REPORT("problem-report"),
 

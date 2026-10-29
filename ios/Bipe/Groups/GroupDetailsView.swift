@@ -131,6 +131,12 @@ struct GroupDetailsView: View {
                     row(icon: .userPlus, title: BipeStrings.appGroupAddPeople, chevron: false)
                 }
             }
+            // Spec poll-history (bipe#669).
+            NavigationLink {
+                PollHistoryView(session: model.session, roomId: model.roomId)
+            } label: {
+                row(icon: .chartBar, title: BipeStrings.pollHistory, chevron: false)
+            }
             NavigationLink {
                 ChatNotificationsView(session: model.session, roomId: model.roomId)
             } label: {

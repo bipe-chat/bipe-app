@@ -4,6 +4,8 @@
 
 package chat.bipe.app.polls
 
+import org.matrix.rustcomponents.sdk.EditedContent
+import org.matrix.rustcomponents.sdk.EventOrTransactionId
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.PollKind
 import org.matrix.rustcomponents.sdk.Timeline
@@ -22,6 +24,10 @@ data class PollData(
     val isEnded: Boolean,
     val canEnd: Boolean,
     val yourVote: String?,
+    /** Spec poll-detail notes (bipe-chat/bipe#669): the creator, while the poll is open and has no vote, also undisclosed. */
+    val canEdit: Boolean = false,
+    /** PollKind undisclosed: results show only at the end. */
+    val hidesResults: Boolean = false,
     /** One choice with 2 to 10 options: the shape of a company's structured question (spec question-card, ADR 0081). */
     val isQuestionShape: Boolean = false,
 ) {
@@ -61,13 +67,21 @@ data class PollData(
                 isEnded = isEnded,
                 canEnd = isOwnPoll && !isEnded,
                 yourVote = yourVote,
+                canEdit = isOwnPoll && !isEnded && poll.votes.values.all { it.isEmpty() },
+                hidesResults = poll.kind == PollKind.UNDISCLOSED,
                 isQuestionShape = poll.maxSelections == 1uL && poll.answers.size in 2..10,
             )
         }
     }
 }
 
-/** Spec poll-create, action send. */
+/** Spec poll-create edit (bipe-chat/bipe#669): the whole poll again, for an open poll with no vote. */
+suspend fun Timeline.editBipePoll(eventId: String, question: String, answers: List<String>, hideResults: Boolean) {
+    val poll = org.matrix.rustcomponents.sdk.PollData(question, answers, 1u, if (hideResults) PollKind.UNDISCLOSED else PollKind.DISCLOSED)
+    edit(EventOrTransactionId.EventId(eventId), EditedContent.PollStart(poll))
+}
+
+/** Spec poll-create, action send.
 suspend fun Timeline.createBipePoll(question: String, answers: List<String>, hideResults: Boolean) {
     createPoll(question, answers, 1u, if (hideResults) PollKind.UNDISCLOSED else PollKind.DISCLOSED)
 }

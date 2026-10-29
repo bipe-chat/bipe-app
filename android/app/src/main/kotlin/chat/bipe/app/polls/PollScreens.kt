@@ -43,6 +43,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -137,12 +138,13 @@ private fun PollOptionLine(option: PollData.Option, total: Int?) {
 
 /** Spec poll-create. Opened from the composer. */
 @Composable
-fun PollCreateScreen(timeline: ChatTimelineModel, onClose: () -> Unit) {
+fun PollCreateScreen(timeline: ChatTimelineModel, editing: PollData? = null, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
-    var question by remember { mutableStateOf("") }
-    val options = remember { mutableStateListOf("", "") }
-    var hideResults by remember { mutableStateOf(false) }
+    // Edit mode (bipe-chat/bipe#669): filled with the poll.
+    var question by remember { mutableStateOf(editing?.question.orEmpty()) }
+    val options = remember { editing?.options?.map { it.text }?.toMutableStateList() ?: mutableStateListOf("", "") }
+    var hideResults by remember { mutableStateOf(editing?.hidesResults ?: false) }
     var sending by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     val filled = options.map { it.trim() }.filter { it.isNotEmpty() }
@@ -151,7 +153,11 @@ fun PollCreateScreen(timeline: ChatTimelineModel, onClose: () -> Unit) {
 
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.POLL_CREATE.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-            GroupTopBar(stringResource(R.string.bipe_app_poll_create_title), onBack = onClose.takeUnless { sending }, backIcon = PhosphorIcon.X) {
+            GroupTopBar(
+                stringResource(if (editing == null) R.string.bipe_app_poll_create_title else R.string.bipe_poll_edit),
+                onBack = onClose.takeUnless { sending },
+                backIcon = PhosphorIcon.X,
+            ) {
                 if (sending) {
                     CircularProgressIndicator(color = colors.accentFill, modifier = Modifier.size(24.dp).padding(end = 4.dp))
                 } else {
@@ -163,7 +169,13 @@ fun PollCreateScreen(timeline: ChatTimelineModel, onClose: () -> Unit) {
                             sending = true
                             failed = false
                             scope.launch {
-                                runCatching { model.createBipePoll(question.trim(), filled, hideResults) }
+                                runCatching {
+                                    if (editing != null) {
+                                        model.editBipePoll(editing.eventId, question.trim(), filled, hideResults)
+                                    } else {
+                                        model.createBipePoll(question.trim(), filled, hideResults)
+                                    }
+                                }
                                     .onSuccess { onClose() }
                                     .onFailure { failed = true }
                                 sending = false
@@ -235,6 +247,11 @@ fun PollDetailScreen(session: AccountSession, timeline: ChatTimelineModel, event
     val messages by timeline.messages.collectAsState()
     val poll = messages.firstOrNull { it.poll?.eventId == eventId }?.poll
     var confirmingEnd by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<PollData?>(null) }
+    editing?.let { current ->
+        PollCreateScreen(timeline, current) { editing = null }
+        return
+    }
     val voteError = stringResource(R.string.bipe_app_poll_vote_error)
     val endedText = stringResource(R.string.bipe_app_poll_ended_text)
     // Voters show by name (Person.displayName).
@@ -289,6 +306,11 @@ fun PollDetailScreen(session: AccountSession, timeline: ChatTimelineModel, event
                 }
                 poll.totalVotes?.let {
                     GroupFooter(stringResource(R.string.bipe_app_poll_votes, NumberFormat.getIntegerInstance().format(it)))
+                }
+                if (poll.canEdit) {
+                    TextButton(onClick = { editing = poll }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                        Text(stringResource(R.string.bipe_poll_edit))
+                    }
                 }
                 if (poll.canEnd) {
                     TextButton(onClick = { confirmingEnd = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
