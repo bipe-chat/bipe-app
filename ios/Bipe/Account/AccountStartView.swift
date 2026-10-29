@@ -98,7 +98,8 @@ struct AccountStartView: View {
         tabs.selectTab(target.destination == .groups ? .grupos : .conversas)
     }
 
-    /// Approval nudge tap: the owner's conversation list. Its device-verification shows the request when the sync brings it.
+    /// Approval nudge or recovery alert tap: the owner's conversation list. Its device-verification shows the request
+    /// when the sync brings it; its recovery-alert checks at once (SignedInView).
     private func routeAccount(_ userId: String?) {
         guard let userId, model.sessions.contains(where: { $0.userId == userId }) else { return }
         notifications.accountToOpen = nil
@@ -142,6 +143,12 @@ private struct SignedInView: View {
             .task { await terms.check() }
             .task { await recoveryAlert.check() }
             .task { await phoneNotice.check() }
+            // Spec recovery-alert check, at once on a recovery push for this account (bipe-chat/bipe#171).
+            .onReceive(NotificationActions.shared.$recoveryToCheck) { userId in
+                guard let userId, userId == session.userId else { return }
+                NotificationActions.shared.recoveryToCheck = nil
+                Task { await recoveryAlert.check() }
+            }
             // Spec phone-link-status, checkNotice: one notice per confirm_by.
             .alert(BipeStrings.phoneConfirmNoticeTitle,
                    isPresented: Binding(get: { phoneNotice.notice != nil }, set: { if !$0 { phoneNotice.dismiss() } }),

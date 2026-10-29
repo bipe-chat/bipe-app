@@ -4533,4 +4533,8 @@ public enum BipeStrings {
     public static var galleryEmptyMedia: String { NSLocalizedString("bipe_gallery_empty_media", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var galleryEmptyFiles: String { NSLocalizedString("bipe_gallery_empty_files", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var recoveryPushStartedBody: String { NSLocalizedString("bipe_recovery_push_started_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var recoveryPushCompletedBody: String { NSLocalizedString("bipe_recovery_push_completed_body", tableName: "Bipe", bundle: .module, comment: "") }
 }

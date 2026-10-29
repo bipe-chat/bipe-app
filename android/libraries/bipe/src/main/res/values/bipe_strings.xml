@@ -1966,4 +1966,6 @@
     <string name="bipe_gallery_files">Arquivos</string>
     <string name="bipe_gallery_empty_media">Nenhuma foto ou vídeo nesta conversa ainda.</string>
     <string name="bipe_gallery_empty_files">Nenhum arquivo nesta conversa ainda.</string>
+    <string name="bipe_recovery_push_started_body">Alguém começou a levar sua conta para outro aparelho. Se não foi você, abra o Bipe e cancele.</string>
+    <string name="bipe_recovery_push_completed_body">Sua conta entrou num aparelho novo. Se não foi você, abra o Bipe agora.</string>
 </resources>

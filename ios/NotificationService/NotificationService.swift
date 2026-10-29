@@ -26,9 +26,22 @@ final class NotificationService: UNNotificationServiceExtension {
     ) {
         self.contentHandler = contentHandler
         let userInfo = request.content.userInfo
-        if userInfo[NotificationKeys.pushKind] as? String == NotificationKeys.deviceApprovalPush {
-            deliver(Self.deviceApproval(route: userInfo[NotificationKeys.accountRoute] as? String))
+        let noticeRoute = userInfo[NotificationKeys.accountRoute] as? String
+        switch userInfo[NotificationKeys.pushKind] as? String {
+        case NotificationKeys.deviceApprovalPush:
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.deviceApprovalKind,
+                                       title: BipeStrings.appVerifyIncomingTitle, body: BipeStrings.appVerifyNudgeBody))
             return
+        case NotificationKeys.recoveryStartedPush:
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.recoveryKind,
+                                       title: BipeStrings.recoveryAlertTitle, body: BipeStrings.recoveryPushStartedBody))
+            return
+        case NotificationKeys.recoveryCompletedPush:
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.recoveryKind,
+                                       title: BipeStrings.appName, body: BipeStrings.recoveryPushCompletedBody))
+            return
+        default:
+            break
         }
         guard let route = userInfo[NotificationKeys.accountRoute] as? String,
               let target = NotificationKeys.pushTarget(userInfo),
@@ -199,18 +212,20 @@ final class NotificationService: UNNotificationServiceExtension {
         }
     }
 
-    /// Kind deviceApproval (bipe-chat/bipe#628): a new device of the account waits for approval. Nothing to fetch: the
-    /// app's sync brings the request. An unknown route, or an account no longer on this phone, shows nothing.
-    private static func deviceApproval(route: String?) -> UNNotificationContent {
+    /// A content-free push about the account, not a room: kind deviceApproval (bipe-chat/bipe#628, a new device waits
+    /// for approval; the app's sync brings the request) or kind recovery (bipe-chat/bipe#171, a recovery started or
+    /// completed; the app reads GET /v1/me/account). Nothing to fetch here. An unknown route, or an account no longer on
+    /// this phone, shows nothing.
+    private static func accountNotice(route: String?, kind: String, title: String, body: String) -> UNNotificationContent {
         guard let route, let userId = NotificationKeys.accountRoutes?.account(for: route),
               SessionStore.loadForPush(userId: userId) != nil else {
             return UNMutableNotificationContent()
         }
         let content = UNMutableNotificationContent()
-        content.title = BipeStrings.appVerifyIncomingTitle
-        content.body = BipeStrings.appVerifyNudgeBody
+        content.title = title
+        content.body = body
         content.userInfo = [NotificationKeys.accountUserId: userId, NotificationKeys.accountRoute: route,
-                            NotificationKeys.kind: NotificationKeys.deviceApprovalKind]
+                            NotificationKeys.kind: kind]
         apply(sound: sound(isNoisy: true, userId: userId), to: content, userId: userId)
         return content
     }

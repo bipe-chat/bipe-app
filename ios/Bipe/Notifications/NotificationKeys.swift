@@ -27,6 +27,20 @@ enum NotificationKeys {
     /// pushKind of the approval nudge (bipe-chat/bipe#628), and the kind of its local notification.
     static let deviceApprovalPush = "device_approval"
     static let deviceApprovalKind = "deviceApproval"
+    /// pushKinds of the recovery alerts (bipe-chat/bipe#171), and the kind of their local notification.
+    static let recoveryStartedPush = "recovery_started"
+    static let recoveryCompletedPush = "recovery_completed"
+    static let recoveryKind = "recovery"
+
+    /// The owner of a local account notice (an approval nudge or a recovery alert) of `kind`, while its route still
+    /// belongs to the recorded owner.
+    static func noticeOwner(_ userInfo: [AnyHashable: Any], kind: String) -> String? {
+        guard userInfo[Self.kind] as? String == kind,
+              let userId = userInfo[accountUserId] as? String,
+              let route = userInfo[accountRoute] as? String,
+              accountRoutes?.account(for: route) == userId else { return nil }
+        return userId
+    }
 
     /// A provider payload carries only a random registration route; the Matrix ID stays on this phone.
     static func pushTarget(_ userInfo: [AnyHashable: Any]) -> BipeNotificationTarget? {

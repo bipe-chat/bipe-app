@@ -1966,4 +1966,6 @@
     <string name="bipe_gallery_files">Files</string>
     <string name="bipe_gallery_empty_media">No photos or videos in this chat yet.</string>
     <string name="bipe_gallery_empty_files">No files in this chat yet.</string>
+    <string name="bipe_recovery_push_started_body">Someone started moving your account to another device. If it was not you, open Bipe and cancel.</string>
+    <string name="bipe_recovery_push_completed_body">Your account signed in on a new device. If it was not you, open Bipe now.</string>
 </resources>

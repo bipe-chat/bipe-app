@@ -164,33 +164,50 @@ class PhoneNotifications(private val context: Context) {
      * Kind deviceApproval (bipe-chat/bipe#628): a new device of [userId] waits for approval. The tap opens that account's
      * conversation list, where device-verification shows the request when the sync brings it.
      */
+    fun deviceApproval(userId: String) = accountNotice(
+        userId, KIND_DEVICE_APPROVAL, "approval",
+        context.getString(R.string.bipe_app_verify_incoming_title), context.getString(R.string.bipe_app_verify_nudge_body),
+    )
+
+    /**
+     * Kind recovery (bipe-chat/bipe#171): a recovery of [userId] started, or [completed] on a new device. The tap opens that
+     * account, whose recovery-alert checks GET /v1/me/account at once.
+     */
+    fun recoveryAlert(userId: String, completed: Boolean) = accountNotice(
+        userId, KIND_RECOVERY, "recovery",
+        context.getString(if (completed) R.string.bipe_app_name else R.string.bipe_recovery_alert_title),
+        context.getString(if (completed) R.string.bipe_recovery_push_completed_body else R.string.bipe_recovery_push_started_body),
+    )
+
+    /** A content-free push about the account, not a room: one notification per account and [tagName], no actions. */
     @SuppressLint("MissingPermission")
-    fun deviceApproval(userId: String) {
+    private fun accountNotice(userId: String, kind: String, tagName: String, title: String, body: String) {
         if (!manager.areNotificationsEnabled()) return
         val route = accountRoutes.routeFor(userId)
         val intent = Intent(context, MainActivity::class.java)
             .setAction(ACTION_OPEN_CHAT)
-            .setData(Uri.parse("bipe-notification://approval/${accountDigest(userId)}/$route"))
+            .setData(Uri.parse("bipe-notification://$tagName/${accountDigest(userId)}/$route"))
             .putExtra(EXTRA_ACCOUNT_USER_ID, userId)
             .putExtra(EXTRA_ACCOUNT_ROUTE, route)
-            .putExtra(EXTRA_KIND, KIND_DEVICE_APPROVAL)
+            .putExtra(EXTRA_KIND, kind)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         val notification = NotificationCompat.Builder(context, messagesChannel(userId))
             .setSmallIcon(chat.bipe.app.R.drawable.ic_notification)
             .addExtras(Bundle().apply { putString(EXTRA_ACCOUNT_USER_ID, userId) })
-            .setContentTitle(context.getString(R.string.bipe_app_verify_incoming_title))
-            .setContentText(context.getString(R.string.bipe_app_verify_nudge_body))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(R.string.bipe_app_verify_nudge_body)))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             .setAutoCancel(true)
             .setSilent(isQuiet(userId))
             .build()
-        manager.notify("approval_" + accountDigest(userId), NOTIFICATION_ID, notification)
+        manager.notify(tagName + "_" + accountDigest(userId), NOTIFICATION_ID, notification)
     }
 
-    /** The owner of a tapped approval nudge, while its registration lifetime is still live. */
-    fun approvalAccount(intent: Intent): String? {
-        if (intent.getStringExtra(EXTRA_KIND) != KIND_DEVICE_APPROVAL) return null
+    /** The owner of a tapped approval nudge or recovery alert, while its registration lifetime is still live. */
+    fun noticeOwner(intent: Intent): String? {
+        val kind = intent.getStringExtra(EXTRA_KIND)
+        if (kind != KIND_DEVICE_APPROVAL && kind != KIND_RECOVERY) return null
         val route = intent.getStringExtra(EXTRA_ACCOUNT_ROUTE) ?: return null
         val userId = intent.getStringExtra(EXTRA_ACCOUNT_USER_ID) ?: return null
         return userId.takeIf { accountRoutes.accountFor(route) == it }
@@ -523,6 +540,7 @@ class PhoneNotifications(private val context: Context) {
         const val EXTRA_KIND = "notification_kind"
         const val EXTRA_ROOM_ID = "room_id"
         const val KIND_DEVICE_APPROVAL = "deviceApproval"
+        const val KIND_RECOVERY = "recovery"
         private const val OLD_INVITES_CHANNEL = "invites"
         private const val KEY_SOUND = "sound"
         private const val KEY_PREVIEW = "preview"
