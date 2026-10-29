@@ -45,7 +45,8 @@ jobs:
         run: ./gradlew --no-daemon :app:updatePlayDebugScreenshotTest
       - name: Copy them into the bipe-web layout
         run: |
-          node tools/store-captures.mjs android/app/src/screenshotTestPlayDebug/reference "$RUNNER_TEMP/captures" --partial | tee "$RUNNER_TEMP/captures.log"
+          find android/app/src -path '*reference*' -name '*.png' | head -20
+          node tools/store-captures.mjs android/app/src "$RUNNER_TEMP/captures" --partial | tee "$RUNNER_TEMP/captures.log"
           {
             echo "### Play phone captures"
             echo

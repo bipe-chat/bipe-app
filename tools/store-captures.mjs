@@ -9,6 +9,7 @@
 // Store<Slug in camel case><PtBR|EnUS>. The slugs come from the generated StoreCaptures.kt (bipe-shared
 // product/appstore.md and product/store-captures.json).
 // Usage: node tools/store-captures.mjs <reference-dir> <out-dir> [--partial]
+//   The reference dir can be a parent (android/app/src): the files are found by name.
 //   Fails on a capture that is not 1080x1920, and on a slug with no capture unless --partial is given.
 
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -51,7 +52,8 @@ export function plan(paths, slugs, { read = readFileSync } = {}) {
   const found = new Map();
   const problems = [];
   for (const from of paths.filter((p) => p.endsWith('.png'))) {
-    const m = from.match(/\.Store([A-Za-z]+?)(PtBR|EnUS)_[^/\\]*\.png$/);
+    // The plugin names a file <class>.<function>_... or <class>/<function>_..., by version.
+    const m = from.match(/[./\\]Store([A-Za-z]+?)(PtBR|EnUS)_[^/\\]*\.png$/);
     const slug = m && bySlug.get(m[1]);
     if (!slug) continue;
     const locale = LOCALES[m[2]];

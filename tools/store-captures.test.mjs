@@ -38,7 +38,7 @@ test('store captures map reference images to slugs and locales, and list the mis
   const sizes = { a: png(1080, 1920), b: png(1080, 1920), c: png(1080, 2400) };
   const paths = [
     'ref/chat.bipe.app.store.StoreCaptureTestsKt.StoreAvisoGolpePtBR_1a2b_3c4d_0.png',
-    'ref/chat.bipe.app.store.StoreCaptureTestsKt.StoreAvisoGolpeEnUS_1a2b_5e6f_0.png',
+    'ref/chat/bipe/app/store/StoreCaptureTestsKt/StoreAvisoGolpeEnUS_en-US_5e6f_0.png',
     'ref/chat.bipe.app.store.StoreCaptureTestsKt.StorePedidosPtBR_aa_bb_0.png',
     'ref/other.Unrelated_0.png',
   ];
