@@ -77,6 +77,7 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val query by model.query.collectAsState()
     val joined by model.joined.collectAsState()
     val invited by model.invited.collectAsState()
+    val banned by model.banned.collectAsState()
     val rights by model.rights.collectAsState()
     val loading by model.loading.collectAsState()
     val error by model.error.collectAsState()
@@ -123,6 +124,12 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                         MemberRow(member, media) { if (model.actions(member).isNotEmpty()) sheetMember = member }
                     }
                 }
+                if (banned.isNotEmpty()) {
+                    item(key = "banned") { GroupSectionHeader(stringResource(R.string.bipe_app_group_members_banned)) }
+                    items(banned, key = { "b" + it.person.userId }) { member ->
+                        MemberRow(member, media) { if (model.actions(member).isNotEmpty()) sheetMember = member }
+                    }
+                }
             }
         }
     }
@@ -148,7 +155,9 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                             .fillMaxWidth()
                             .clickable {
                                 sheetMember = null
-                                if (action == GroupMembersModel.MemberAction.REMOVE || action == GroupMembersModel.MemberAction.BAN) {
+                                if (action == GroupMembersModel.MemberAction.REMOVE || action == GroupMembersModel.MemberAction.BAN ||
+                                    action == GroupMembersModel.MemberAction.UNBAN
+                                ) {
                                     confirm = action to member
                                 } else {
                                     model.perform(action, member)
@@ -172,10 +181,10 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
             onDismissRequest = { confirm = null },
             title = { Text(stringResource(actionTitle(action))) },
             text = {
-                val body = if (action == GroupMembersModel.MemberAction.BAN) {
-                    R.string.bipe_app_group_member_ban_body
-                } else {
-                    R.string.bipe_app_group_member_remove_body
+                val body = when (action) {
+                    GroupMembersModel.MemberAction.BAN -> R.string.bipe_app_group_member_ban_body
+                    GroupMembersModel.MemberAction.UNBAN -> R.string.bipe_app_group_member_unban_body
+                    else -> R.string.bipe_app_group_member_remove_body
                 }
                 Text(stringResource(body, member.person.displayName))
             },
@@ -184,7 +193,10 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     confirm = null
                     model.perform(action, member)
                 }) {
-                    Text(stringResource(actionTitle(action)), color = colors.trustDangerInk)
+                    Text(
+                        stringResource(actionTitle(action)),
+                        color = if (action == GroupMembersModel.MemberAction.UNBAN) colors.accentInk else colors.trustDangerInk,
+                    )
                 }
             },
             dismissButton = {
@@ -200,6 +212,7 @@ private fun actionTitle(action: GroupMembersModel.MemberAction): Int = when (act
     GroupMembersModel.MemberAction.REMOVE_ADMIN -> R.string.bipe_app_group_member_remove_admin
     GroupMembersModel.MemberAction.REMOVE -> R.string.bipe_app_group_member_remove
     GroupMembersModel.MemberAction.BAN -> R.string.bipe_app_group_member_ban
+    GroupMembersModel.MemberAction.UNBAN -> R.string.bipe_app_group_member_unban
     GroupMembersModel.MemberAction.CANCEL_INVITE -> R.string.bipe_app_group_member_cancel_invite
 }
 
