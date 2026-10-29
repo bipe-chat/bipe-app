@@ -58,6 +58,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
@@ -69,6 +71,8 @@ import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
 import chat.bipe.app.encryption.HistoryBanner
+import chat.bipe.app.notifications.NotificationCheckupBanner
+import chat.bipe.app.notifications.NotificationCheckupScreen
 import chat.bipe.app.encryption.LocalEncryptionStatus
 import chat.bipe.app.groups.CreateGroupButton
 import chat.bipe.app.groups.GroupHost
@@ -479,6 +483,17 @@ fun ChatListScreen(
             // Spec live-location-banner: this account shares its live location.
             chat.bipe.app.location.LiveLocationListRow(model.session.userId)
             remoteBanner?.let { RemoteBannerCard(it, context) }
+            // Spec notification-checkup banner (bipe-chat/bipe#823).
+            var showsCheckup by rememberSaveable { mutableStateOf(false) }
+            NotificationCheckupBanner(onOpen = { showsCheckup = true })
+            if (showsCheckup) {
+                Dialog(
+                    onDismissRequest = { showsCheckup = false },
+                    properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+                ) {
+                    NotificationCheckupScreen(model.session.userId, onBack = { showsCheckup = false })
+                }
+            }
             run {
                 if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
                 else if (scope != ChatScope.GRUPOS) recoveryCard()

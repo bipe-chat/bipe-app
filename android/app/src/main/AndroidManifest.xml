@@ -17,6 +17,8 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Spec push-registration: the system permission for notifications (Android 13 and later). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Spec notification-checkup (bipe-chat/bipe#823): the battery optimisation dialog; Play allows it for messaging apps. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Link a computer (spec link-computer-scan): the camera reads the QR code of chat.bipe.net.br. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Spec location-send (bipe-chat/bipe#768): positions while the app is open, asked at the first send. A live share

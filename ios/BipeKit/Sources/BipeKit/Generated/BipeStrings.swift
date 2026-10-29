@@ -4450,6 +4450,38 @@ public enum BipeStrings {
 
     public static var callAnsweredElsewhere: String { NSLocalizedString("bipe_call_answered_elsewhere", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appNotificationCheckupTitle: String { NSLocalizedString("bipe_app_notification_checkup_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupIntro: String { NSLocalizedString("bipe_app_notification_checkup_intro", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupPermission: String { NSLocalizedString("bipe_app_notification_checkup_permission", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupChannel: String { NSLocalizedString("bipe_app_notification_checkup_channel", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupBattery: String { NSLocalizedString("bipe_app_notification_checkup_battery", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupPusher: String { NSLocalizedString("bipe_app_notification_checkup_pusher", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupOk: String { NSLocalizedString("bipe_app_notification_checkup_ok", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupFix: String { NSLocalizedString("bipe_app_notification_checkup_fix", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appNotificationCheckupLastPush(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_notification_checkup_last_push", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appNotificationCheckupLastPushNone: String { NSLocalizedString("bipe_app_notification_checkup_last_push_none", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupBanner: String { NSLocalizedString("bipe_app_notification_checkup_banner", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupHelpXiaomi: String { NSLocalizedString("bipe_app_notification_checkup_help_xiaomi", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupHelpSamsung: String { NSLocalizedString("bipe_app_notification_checkup_help_samsung", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupHelpMotorola: String { NSLocalizedString("bipe_app_notification_checkup_help_motorola", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appNotificationCheckupOpenAppSettings: String { NSLocalizedString("bipe_app_notification_checkup_open_app_settings", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static func voiceSpeed(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_voice_speed", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
