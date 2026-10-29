@@ -90,14 +90,13 @@ struct ChatTimelineView: View {
             if model.isDm, model.theftMark != nil {
                 TheftMarkBanner(name: model.roomName)
             }
-            IdentityChangeBar(model: identity)
-            if model.selection != nil {
-                // Spec message-forward selection: the bar takes the place of the composer.
-                MessageSelectionBar(model: model)
             if model.threadRoot == nil {
                 IdentityChangeBar(model: identity)
             }
-            if model.successorRoomId != nil {
+            if model.selection != nil {
+                // Spec message-forward selection: the bar takes the place of the composer.
+                MessageSelectionBar(model: model)
+            } else if model.successorRoomId != nil {
                 RoomUpgradeBar(model: model) { openOtherChat($0) }
             } else if model.isDm, let people, let peer = model.peerUserId {
                 DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {

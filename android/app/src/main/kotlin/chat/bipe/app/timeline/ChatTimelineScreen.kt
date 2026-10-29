@@ -470,9 +470,9 @@ fun ChatTimelineScreen(
                 }
                 val peer = peerUserId
                 val selection = ui.selection
-                if (selection != null) {
+                when {
                     // Spec message-forward selection: the bar takes the place of the composer.
-                    MessageSelectionBar(
+                    selection != null -> MessageSelectionBar(
                         count = selection.size,
                         canForward = model.canForwardSelection(),
                         canDelete = model.canDeleteSelection(),
@@ -480,11 +480,6 @@ fun ChatTimelineScreen(
                         onForward = model::forwardSelection,
                         onDelete = model::askDeleteSelection,
                     )
-                } else if (isDm && people != null && peer != null) {
-                    DmComposerSlot(people, peer, roomName, composerBar)
-                } else {
-                    composerBar()
-                when {
                     // Spec chat-timeline notes, upgraded groups (bipe-chat/bipe#773).
                     successorRoomId != null -> RoomUpgradeBar(model, onOpenChat)
                     isDm && people != null && peer != null -> DmComposerSlot(people, peer, roomName, composerBar)
