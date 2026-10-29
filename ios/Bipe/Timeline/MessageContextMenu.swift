@@ -39,6 +39,8 @@ extension MessageAction {
         case .reply: BipeStrings.appMessageActionReply
         case .edit: BipeStrings.appMessageActionEdit
         case .copy: BipeStrings.appCopy
+        case .forward: BipeStrings.forwardAction
+        case .saveSticker: BipeStrings.actionSaveSticker
         case .keepAudio: BipeStrings.voiceKeep
         case .unkeepAudio: BipeStrings.voiceUnkeep
         case .retry: BipeStrings.appRetry
@@ -52,6 +54,8 @@ extension MessageAction {
         case .reply: .arrowBendUpLeft
         case .edit: .pencilSimple
         case .copy: .copy
+        case .forward: .paperPlaneRight
+        case .saveSticker: .sticker
         case .keepAudio: .downloadSimple
         case .unkeepAudio: .x
         case .retry: .arrowClockwise
@@ -66,6 +70,8 @@ extension MessageAction {
         case .reply: "arrowshape.turn.up.left"
         case .edit: "pencil"
         case .copy: "doc.on.doc"
+        case .forward: "arrowshape.turn.up.right"
+        case .saveSticker: "square.and.arrow.down"
         case .keepAudio: "bookmark"
         case .unkeepAudio: "bookmark.slash"
         case .retry: "arrow.clockwise"

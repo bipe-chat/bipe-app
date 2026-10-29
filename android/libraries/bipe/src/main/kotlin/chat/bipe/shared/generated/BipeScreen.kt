@@ -109,6 +109,9 @@ enum class BipeScreen(val id: String) {
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 
+    /** Media and files of a chat (flow chat). Spec: bipe-shared/product/screens/chat-media-gallery.json */
+    CHAT_MEDIA_GALLERY("chat-media-gallery"),
+
     /** Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json */
     CHAT_NOTIFICATIONS("chat-notifications"),
 
@@ -175,6 +178,9 @@ enum class BipeScreen(val id: String) {
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
+    /** Identity change warning (flow chat). Spec: bipe-shared/product/screens/identity-change.json */
+    IDENTITY_CHANGE("identity-change"),
+
     /** Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json */
     INCOMING_CALL("incoming-call"),
 
@@ -231,6 +237,9 @@ enum class BipeScreen(val id: String) {
 
     /** Edit a message (flow chat). Spec: bipe-shared/product/screens/message-edit.json */
     MESSAGE_EDIT("message-edit"),
+
+    /** Forward a message (flow chat). Spec: bipe-shared/product/screens/message-forward.json */
+    MESSAGE_FORWARD("message-forward"),
 
     /** Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json */
     MESSAGE_REACTIONS("message-reactions"),
