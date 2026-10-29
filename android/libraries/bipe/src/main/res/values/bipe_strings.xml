@@ -1986,4 +1986,6 @@
     <string name="bipe_poll_history_empty">Nenhuma enquete neste grupo ainda.</string>
     <string name="bipe_poll_state_open">Aberta</string>
     <string name="bipe_poll_state_ended">Encerrada</string>
+    <string name="bipe_chats_media_quality_standard">Padrão, arquivos menores</string>
+    <string name="bipe_chats_media_quality_high">Alta, como foram tiradas</string>
 </resources>

@@ -41,9 +41,9 @@ import kotlin.coroutines.resume
  * The setting bipe_chats_media_quality (state quality of spec upload-preview). Stored in the
  * preferences file bipe_settings under the settings row id chats.mediaQuality.
  */
-enum class MediaQuality(val value: String) {
-    STANDARD("standard"),
-    HIGH("high"),
+enum class MediaQuality(val value: String, val title: Int) {
+    STANDARD("standard", chat.bipe.shared.R.string.bipe_chats_media_quality_standard),
+    HIGH("high", chat.bipe.shared.R.string.bipe_chats_media_quality_high),
     ;
 
     companion object {

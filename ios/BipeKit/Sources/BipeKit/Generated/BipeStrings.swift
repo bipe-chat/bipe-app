@@ -4577,4 +4577,8 @@ public enum BipeStrings {
     public static var pollStateOpen: String { NSLocalizedString("bipe_poll_state_open", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var pollStateEnded: String { NSLocalizedString("bipe_poll_state_ended", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsMediaQualityStandard: String { NSLocalizedString("bipe_chats_media_quality_standard", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsMediaQualityHigh: String { NSLocalizedString("bipe_chats_media_quality_high", tableName: "Bipe", bundle: .module, comment: "") }
 }

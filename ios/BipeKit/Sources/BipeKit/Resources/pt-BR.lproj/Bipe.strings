@@ -1984,3 +1984,5 @@
 "bipe_poll_history_empty" = "Nenhuma enquete neste grupo ainda.";
 "bipe_poll_state_open" = "Aberta";
 "bipe_poll_state_ended" = "Encerrada";
+"bipe_chats_media_quality_standard" = "Padrão, arquivos menores";
+"bipe_chats_media_quality_high" = "Alta, como foram tiradas";

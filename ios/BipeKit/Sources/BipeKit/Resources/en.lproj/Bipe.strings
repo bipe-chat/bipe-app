@@ -1984,3 +1984,5 @@
 "bipe_poll_history_empty" = "No polls in this group yet.";
 "bipe_poll_state_open" = "Open";
 "bipe_poll_state_ended" = "Ended";
+"bipe_chats_media_quality_standard" = "Standard, smaller files";
+"bipe_chats_media_quality_high" = "High, as they were taken";

@@ -1986,4 +1986,6 @@
     <string name="bipe_poll_history_empty">No polls in this group yet.</string>
     <string name="bipe_poll_state_open">Open</string>
     <string name="bipe_poll_state_ended">Ended</string>
+    <string name="bipe_chats_media_quality_standard">Standard, smaller files</string>
+    <string name="bipe_chats_media_quality_high">High, as they were taken</string>
 </resources>
