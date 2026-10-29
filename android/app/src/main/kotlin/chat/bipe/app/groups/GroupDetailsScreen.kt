@@ -61,7 +61,7 @@ import java.text.NumberFormat
 import kotlinx.coroutines.launch
 
 /** The screens behind group-details. */
-private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, PRIVACY }
+private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, PRIVACY, GALLERY, REPORT, POLLS }
 
 /** Spec group-details, with group-members, group-invite-members, chat-notifications and group-leave behind it. */
 @Composable
@@ -100,6 +100,24 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
         // Spec group-privacy (bipe-chat/bipe#772).
         GroupSubScreen.PRIVACY -> {
             GroupPrivacyScreen(session, media, roomId, onBack = back)
+        // Spec chat-media-gallery (bipe-chat/bipe#672).
+        GroupSubScreen.GALLERY -> chat.bipe.app.media.ChatMediaGalleryScreen(session, media, roomId, onClose = back)
+        // Spec group-details notes, report (bipe-chat/bipe#674).
+        GroupSubScreen.REPORT -> {
+            BackHandler(onBack = back)
+            chat.bipe.app.people.ReportChatScreen(
+                session, null, roomId, isDm = false, otherUserId = null,
+                onSent = { message ->
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    back()
+                },
+                onBack = back,
+            )
+            return
+        }
+        // Spec poll-history (bipe-chat/bipe#669).
+        GroupSubScreen.POLLS -> {
+            chat.bipe.app.polls.PollHistoryScreen(session, roomId, onBack = back)
             return
         }
         GroupSubScreen.NONE -> Unit
@@ -214,12 +232,15 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     if (canChangePrivacy) {
                         GroupRow(PhosphorIcon.LOCK_SIMPLE, stringResource(R.string.bipe_group_privacy_title)) { sub = GroupSubScreen.PRIVACY }
                     }
+                    GroupRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_gallery_title)) { sub = GroupSubScreen.GALLERY }
+                    GroupRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_poll_history)) { sub = GroupSubScreen.POLLS }
                     GroupRow(
                         PhosphorIcon.BELL,
                         stringResource(R.string.bipe_settings_notifications),
                         value = notificationMode?.let { stringResource(it.title) },
                     ) { sub = GroupSubScreen.NOTIFICATIONS }
                     Spacer(Modifier.height(16.dp))
+                    GroupRow(PhosphorIcon.FLAG, stringResource(R.string.bipe_app_report_group), tint = colors.trustDangerInk) { sub = GroupSubScreen.REPORT }
                     GroupRow(PhosphorIcon.SIGN_OUT, stringResource(R.string.bipe_app_group_leave_action), tint = colors.trustDangerInk) { leaving = true }
                 } else {
                     OutlinedTextField(

@@ -50,6 +50,8 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.DateDividerMode
 import org.matrix.rustcomponents.sdk.EditedContent
 import org.matrix.rustcomponents.sdk.MessageType
+import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.TimelineItemContent
 import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.TaskHandle
@@ -78,6 +80,8 @@ data class TimelineMessage(
     val sentAt: Long,
     val sendState: SendState,
     val cause: UndecryptableCause?,
+    /** sendState FAILED only: the send queue held the message because of a member's identity (spec identity-change). */
+    val sendFailure: SendFailure? = null,
     /** Kind POLL: the data of spec poll-detail. */
     val poll: PollData? = null,
     /** Kind MEDIA: image, video, file or sticker (spec timeline-media). */
@@ -97,12 +101,21 @@ data class TimelineMessage(
 
     enum class SendState { SENT, SENDING, FAILED }
 
+    /** Spec identity-change sendAnyway. */
+    sealed interface SendFailure {
+        /** QueueWedgeError identityViolations: users that were verified and are not any more. */
+        data class Identity(val users: List<String>) : SendFailure
+
+        /** QueueWedgeError insecureDevices: user ID to device IDs. */
+        data class Devices(val devices: Map<String, List<String>>) : SendFailure
+    }
+
     /** Bipe's grouping of the SDK UtdCause (spec message-undecryptable). */
     enum class UndecryptableCause { WAITING, BEFORE_JOINED, HISTORY_NOT_ON_THIS_PHONE, NOT_SHARED_WITH_THIS_PHONE, UNAPPROVED_SENDER_DEVICE }
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, EDIT, COPY, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, EDIT, REMOVE_CAPTION, COPY, PIN, UNPIN, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -120,7 +133,7 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED }
+enum class TimelineNotice { PIN_FAILED, STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED }
 
 /** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
 enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
@@ -149,6 +162,10 @@ data class TimelineInteractions(
     // typing-indicator
     val typingNames: List<String> = emptyList(),
     val notice: TimelineNotice? = null,
+    /** The placeholder of [notice]: the chat names of FORWARD_FAILED. */
+    val noticeArg: String? = null,
+    // message-forward: the message the picker is open for.
+    val forwardingRowId: String? = null,
 )
 
 /** State of spec composer that the timeline does not hold already (text is the draft). */
@@ -224,6 +241,16 @@ class ChatTimelineModel(
     /** Spec call: the room is encrypted, and a call runs in it (RoomInfo.hasRoomCall). */
     private val _isEncrypted = MutableStateFlow(true)
     val isEncrypted: StateFlow<Boolean> = _isEncrypted.asStateFlow()
+    /** Spec chat-timeline notes, upgraded groups (bipe-chat/bipe#773): RoomInfo.successorRoom. */
+    private val _successorRoomId = MutableStateFlow<String?>(null)
+    val successorRoomId: StateFlow<String?> = _successorRoomId.asStateFlow()
+    /** RoomInfo.predecessorRoom with the old group's name (null name: no name). */
+    private val _predecessor = MutableStateFlow<Pair<String, String?>?>(null)
+    val predecessor: StateFlow<Pair<String, String?>?> = _predecessor.asStateFlow()
+    /** Spec message-pins (bipe-chat/bipe#665): RoomPowerLevels.canOwnUserPinUnpin, groups only. */
+    private var canPin = false
+    /** RoomInfo.pinnedEventIds. */
+    private var pinnedEventIds: Set<String> = emptySet()
     private val _hasCall = MutableStateFlow(false)
     val hasCall: StateFlow<Boolean> = _hasCall.asStateFlow()
     private val _isPrivateRoom = MutableStateFlow(true)
@@ -330,6 +357,12 @@ class ChatTimelineModel(
             _roomAvatarUrl.value = if (info.isDm) peer?.avatarUrl else info.avatarUrl
             _peerUserId.value = peer?.userId
             _hasCall.value = info.hasRoomCall
+            _successorRoomId.value = info.successorRoom?.roomId
+            room.predecessorRoom()?.roomId?.takeIf { it != _predecessor.value?.first }?.let { old ->
+                val name = runCatching { session.client.getRoom(old)?.displayName() }.getOrNull()?.takeIf { it.isNotBlank() }
+                _predecessor.value = old to name
+            }
+            pinnedEventIds = info.pinnedEventIds.toSet()
             loadPeerAway(room, peer?.userId)
         }
         runCatching { room.latestEncryptionState() }.getOrNull()?.let { state ->
@@ -337,6 +370,7 @@ class ChatTimelineModel(
         }
         runCatching { room.getPowerLevels() }.getOrNull()?.let { powerLevels ->
             facts = facts.copy(canRedactOwn = powerLevels.canOwnUserRedactOwn(), canRedactOther = powerLevels.canOwnUserRedactOther())
+            canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
             _composer.update {
                 it.copy(
                     canPost = powerLevels.canOwnUserSendMessage(MessageLikeEventType.RoomMessage),
@@ -511,10 +545,30 @@ class ChatTimelineModel(
         scope.launch { runCatching { timeline.send(messageEventContentNew(MessageType.Text(TextMessageContent(greeting, null)))) } }
     }
 
-    /** Action retrySend: sends a failed own message again. */
+    /** Joins the successor group, via the server of the old room ID when it has one. null on failure. */
+    suspend fun joinSuccessor(): String? {
+        val successor = _successorRoomId.value ?: return null
+        val servers = roomId.split(":", limit = 2).drop(1)
+        return runCatching { session.client.joinRoomByIdOrAlias(successor, servers).id() }.getOrNull()
+    }
+
+    /**
+     * Action retrySend: sends a failed own message again. A message held for an identity change is sent anyway
+     * (spec identity-change sendAnyway).
+     */
     fun retrySend(id: String) {
         val sendHandle = item(id)?.asEvent()?.lazyProvider?.getSendHandle() ?: return
-        scope.launch { runCatching { sendHandle.tryResend() } }
+        val failure = row(id)?.message?.sendFailure
+        val room = room
+        scope.launch {
+            runCatching {
+                when (failure) {
+                    is TimelineMessage.SendFailure.Identity -> room?.withdrawVerificationAndResend(failure.users, sendHandle)
+                    is TimelineMessage.SendFailure.Devices -> room?.ignoreDeviceTrustAndResend(failure.devices, sendHandle)
+                    null -> sendHandle.tryResend()
+                }
+            }
+        }
     }
 
     /** Action cancelUpload of spec timeline-media: cancels the send of own media and removes the row. */
@@ -568,8 +622,17 @@ class ChatTimelineModel(
             when (action) {
                 MessageAction.REPLY -> details.canReply && isSent
                 MessageAction.EDIT -> details.canEdit
+                // Spec message-edit removeCaption (bipe-chat/bipe#668).
+                MessageAction.REMOVE_CAPTION -> details.canEdit && !message.media?.caption.isNullOrBlank()
                 // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
                 MessageAction.COPY -> !message.body.isNullOrBlank()
+                // Spec message-pins: groups only, sent messages.
+                MessageAction.PIN -> canPin && isSent && details.eventId !in pinnedEventIds
+                MessageAction.UNPIN -> canPin && isSent && details.eventId in pinnedEventIds
+                // Spec message-forward notes: sent messages of kind message; no stickers or polls.
+                MessageAction.FORWARD -> isSent && forwardContent(row.id) != null
+                // Spec message-actions notes (bipe-chat/bipe#670): every sent sticker.
+                MessageAction.SAVE_STICKER -> isSent && message.media?.kind == chat.bipe.app.media.MediaMessage.Kind.STICKER
                 // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
                 MessageAction.KEEP_AUDIO -> keepable(message, isSent) && message.voice!!.source.url !in kept()
                 MessageAction.UNKEEP_AUDIO -> message.voice?.source?.url?.let { it in kept() } ?: false
@@ -614,6 +677,7 @@ class ChatTimelineModel(
         when (action) {
             MessageAction.REPLY -> startReply(rowId)
             MessageAction.EDIT -> startEdit(rowId)
+            MessageAction.REMOVE_CAPTION -> removeCaption(rowId)
             MessageAction.COPY -> if (pauseSecondsLeft(rowId) == 0) row(rowId)?.message?.body?.let {
                 copy(it)
                 show(TimelineNotice.COPIED)
@@ -631,6 +695,24 @@ class ChatTimelineModel(
                         VoiceMediaStore.KeepResult.LIMIT -> show(TimelineNotice.KEEP_LIMIT)
                         VoiceMediaStore.KeepResult.FAILED -> show(TimelineNotice.KEEP_FAILED)
                     }
+                }
+            }
+            MessageAction.PIN, MessageAction.UNPIN -> {
+                val timeline = timeline ?: return
+                val eventId = current.details?.eventId ?: return
+                scope.launch {
+                    runCatching { if (action == MessageAction.PIN) timeline.pinEvent(eventId) else timeline.unpinEvent(eventId) }
+                        .onFailure { show(TimelineNotice.PIN_FAILED) }
+                }
+            }
+            MessageAction.FORWARD -> _ui.update { it.copy(forwardingRowId = rowId) }
+            MessageAction.SAVE_STICKER -> {
+                val sticker = current.message?.media ?: return
+                val packClient = chat.bipe.app.media.stickers.stickerPackClient(session.client) ?: return
+                scope.launch {
+                    runCatching { packClient.saveToUserPack(sticker.source.url, sticker.width, sticker.height, sticker.mimeType, sticker.size) }
+                        .onSuccess { show(TimelineNotice.STICKER_SAVED) }
+                        .onFailure { show(TimelineNotice.STICKER_SAVE_FAILED) }
                 }
             }
             MessageAction.RETRY -> retrySend(rowId)
@@ -749,7 +831,9 @@ class ChatTimelineModel(
     /** Action startEdit: the message text goes into the composer, the unsent draft is kept aside. Ends a reply first. */
     fun startEdit(rowId: String) {
         val row = row(rowId) ?: return
-        val body = row.message?.body ?: return
+        val message = row.message ?: return
+        // A photo, video or file edits its caption (bipe-chat/bipe#668).
+        val body = message.media?.let { it.caption.orEmpty() } ?: message.body ?: return
         if (row.details?.canEdit != true) return
         cancelReply()
         if (_ui.value.editing == null) keptDraft = _draft.value
@@ -775,8 +859,12 @@ class ChatTimelineModel(
         _ui.update { it.copy(isSavingEdit = true) }
         scope.launch {
             runCatching {
-                val content = messageEventContentNew(MessageType.Text(TextMessageContent(text, null)))
-                timeline.edit(event.eventOrTransactionId, EditedContent.RoomMessage(content))
+                val edited = if (row(editing.rowId)?.message?.media != null) {
+                    EditedContent.MediaCaption(text, null, null)
+                } else {
+                    EditedContent.RoomMessage(messageEventContentNew(MessageType.Text(TextMessageContent(text, null))))
+                }
+                timeline.edit(event.eventOrTransactionId, edited)
             }.onSuccess {
                 _ui.update { it.copy(isSavingEdit = false) }
                 cancelEdit()
@@ -784,6 +872,16 @@ class ChatTimelineModel(
                 _ui.update { it.copy(isSavingEdit = false) }
                 show(TimelineNotice.EDIT_FAILED)
             }
+        }
+    }
+
+    /** Action removeCaption of spec message-edit: no question. */
+    fun removeCaption(rowId: String) {
+        val timeline = timeline ?: return
+        val event = item(rowId)?.asEvent() ?: return
+        scope.launch {
+            runCatching { timeline.edit(event.eventOrTransactionId, EditedContent.MediaCaption(null, null, null)) }
+                .onFailure { show(TimelineNotice.EDIT_FAILED) }
         }
     }
 
@@ -1027,8 +1125,26 @@ class ChatTimelineModel(
         }
     }
 
-    private fun show(notice: TimelineNotice) {
-        _ui.update { it.copy(notice = notice) }
+    // message-forward
+
+    /** The original message type of a row, sent again as it is (spec message-forward send). */
+    fun forwardContent(rowId: String): MessageType? {
+        val content = item(rowId)?.asEvent()?.content as? TimelineItemContent.MsgLike ?: return null
+        return (content.content.kind as? MsgLikeKind.Message)?.content?.msgType
+    }
+
+    /** The picker closed: null when cancelled, else the names of the chats that failed. */
+    fun forwardClosed(failed: List<String>?) {
+        _ui.update { it.copy(forwardingRowId = null) }
+        when {
+            failed == null -> Unit
+            failed.isEmpty() -> show(TimelineNotice.FORWARDED)
+            else -> show(TimelineNotice.FORWARD_FAILED, failed.joinToString(", "))
+        }
+    }
+
+    private fun show(notice: TimelineNotice, arg: String? = null) {
+        _ui.update { it.copy(notice = notice, noticeArg = arg) }
         noticeJob?.cancel()
         noticeJob = scope.launch {
             delay(2000)
