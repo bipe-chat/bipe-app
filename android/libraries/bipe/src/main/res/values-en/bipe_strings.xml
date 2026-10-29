@@ -1972,4 +1972,7 @@
     <string name="bipe_app_group_members_banned">Banned from the group</string>
     <string name="bipe_app_group_member_unban">Lift the ban</string>
     <string name="bipe_app_group_member_unban_body">%1$s can join the group again with an invite.</string>
+    <string name="bipe_caption_add">Add caption</string>
+    <string name="bipe_caption_edit">Edit caption</string>
+    <string name="bipe_caption_remove">Remove caption</string>
 </resources>

@@ -115,7 +115,7 @@ data class TimelineMessage(
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, EDIT, COPY, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, EDIT, REMOVE_CAPTION, COPY, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -598,6 +598,8 @@ class ChatTimelineModel(
             when (action) {
                 MessageAction.REPLY -> details.canReply && isSent
                 MessageAction.EDIT -> details.canEdit
+                // Spec message-edit removeCaption (bipe-chat/bipe#668).
+                MessageAction.REMOVE_CAPTION -> details.canEdit && !message.media?.caption.isNullOrBlank()
                 // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
                 MessageAction.COPY -> !message.body.isNullOrBlank()
                 // Spec message-forward notes: sent messages of kind message; no stickers or polls.
@@ -648,6 +650,7 @@ class ChatTimelineModel(
         when (action) {
             MessageAction.REPLY -> startReply(rowId)
             MessageAction.EDIT -> startEdit(rowId)
+            MessageAction.REMOVE_CAPTION -> removeCaption(rowId)
             MessageAction.COPY -> if (pauseSecondsLeft(rowId) == 0) row(rowId)?.message?.body?.let {
                 copy(it)
                 show(TimelineNotice.COPIED)
@@ -793,7 +796,9 @@ class ChatTimelineModel(
     /** Action startEdit: the message text goes into the composer, the unsent draft is kept aside. Ends a reply first. */
     fun startEdit(rowId: String) {
         val row = row(rowId) ?: return
-        val body = row.message?.body ?: return
+        val message = row.message ?: return
+        // A photo, video or file edits its caption (bipe-chat/bipe#668).
+        val body = message.media?.let { it.caption.orEmpty() } ?: message.body ?: return
         if (row.details?.canEdit != true) return
         cancelReply()
         if (_ui.value.editing == null) keptDraft = _draft.value
@@ -819,8 +824,12 @@ class ChatTimelineModel(
         _ui.update { it.copy(isSavingEdit = true) }
         scope.launch {
             runCatching {
-                val content = messageEventContentNew(MessageType.Text(TextMessageContent(text, null)))
-                timeline.edit(event.eventOrTransactionId, EditedContent.RoomMessage(content))
+                val edited = if (row(editing.rowId)?.message?.media != null) {
+                    EditedContent.MediaCaption(text, null, null)
+                } else {
+                    EditedContent.RoomMessage(messageEventContentNew(MessageType.Text(TextMessageContent(text, null))))
+                }
+                timeline.edit(event.eventOrTransactionId, edited)
             }.onSuccess {
                 _ui.update { it.copy(isSavingEdit = false) }
                 cancelEdit()
@@ -828,6 +837,16 @@ class ChatTimelineModel(
                 _ui.update { it.copy(isSavingEdit = false) }
                 show(TimelineNotice.EDIT_FAILED)
             }
+        }
+    }
+
+    /** Action removeCaption of spec message-edit: no question. */
+    fun removeCaption(rowId: String) {
+        val timeline = timeline ?: return
+        val event = item(rowId)?.asEvent() ?: return
+        scope.launch {
+            runCatching { timeline.edit(event.eventOrTransactionId, EditedContent.MediaCaption(null, null, null)) }
+                .onFailure { show(TimelineNotice.EDIT_FAILED) }
         }
     }
 

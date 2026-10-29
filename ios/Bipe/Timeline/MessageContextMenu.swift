@@ -38,6 +38,7 @@ extension MessageAction {
         switch self {
         case .reply: BipeStrings.appMessageActionReply
         case .edit: BipeStrings.appMessageActionEdit
+        case .removeCaption: BipeStrings.captionRemove
         case .copy: BipeStrings.appCopy
         case .forward: BipeStrings.forwardAction
         case .saveSticker: BipeStrings.actionSaveSticker
@@ -53,6 +54,7 @@ extension MessageAction {
         switch self {
         case .reply: .arrowBendUpLeft
         case .edit: .pencilSimple
+        case .removeCaption: .x
         case .copy: .copy
         case .forward: .paperPlaneRight
         case .saveSticker: .sticker
@@ -69,6 +71,7 @@ extension MessageAction {
         switch self {
         case .reply: "arrowshape.turn.up.left"
         case .edit: "pencil"
+        case .removeCaption: "text.badge.minus"
         case .copy: "doc.on.doc"
         case .forward: "arrowshape.turn.up.right"
         case .saveSticker: "square.and.arrow.down"
