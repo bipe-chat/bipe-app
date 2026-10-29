@@ -4481,4 +4481,12 @@ public enum BipeStrings {
     public static var appNotificationCheckupHelpMotorola: String { NSLocalizedString("bipe_app_notification_checkup_help_motorola", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appNotificationCheckupOpenAppSettings: String { NSLocalizedString("bipe_app_notification_checkup_open_app_settings", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func voiceSpeed(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_voice_speed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func voiceSpeedLabel(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_voice_speed_label", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }
