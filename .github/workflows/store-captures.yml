@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# Store captures of the Play listing (bipe-chat/bipe#457). The Compose Preview Screenshot Testing plugin renders
+# the previews in android/app/src/screenshotTest on the JVM (no emulator) at 1080x1920. tools/store-captures.mjs
+# copies them into the bipe-web layout appstore/raw/play-phone/light/<locale>/<slug>.png, and the run keeps them
+# as the artifact play-phone-captures. Nothing goes to a store: tools/play.mjs listing sends the listing only in
+# store-release.yml behind BIPE_SWITCH_READY.
+name: store-captures
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "android/app/src/screenshotTest/**"
+      - "android/app/build.gradle.kts"
+      - "android/gradle/libs.versions.toml"
+      - "tools/store-captures.mjs"
+      - ".github/workflows/store-captures.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-captures-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  captures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Render the capture previews
+        working-directory: android
+        run: ./gradlew --no-daemon :app:updatePlayDebugScreenshotTest
+      - name: Copy them into the bipe-web layout
+        run: |
+          node tools/store-captures.mjs android/app/src/screenshotTestPlayDebug/reference "$RUNNER_TEMP/captures" --partial | tee "$RUNNER_TEMP/captures.log"
+          {
+            echo "### Play phone captures"
+            echo
+            sed 's/^/- /' "$RUNNER_TEMP/captures.log"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: play-phone-captures
+          path: ${{ runner.temp }}/captures
+          if-no-files-found: error
