@@ -115,7 +115,7 @@ data class TimelineMessage(
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, EDIT, COPY, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, EDIT, COPY, COPY_LINK, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -600,6 +600,8 @@ class ChatTimelineModel(
                 MessageAction.EDIT -> details.canEdit
                 // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
                 MessageAction.COPY -> !message.body.isNullOrBlank()
+                // Spec message-actions notes (bipe-chat/bipe#666): sent messages in a group, never in a DM (ADR 0141).
+                MessageAction.COPY_LINK -> _isGroup.value && isSent
                 // Spec message-forward notes: sent messages of kind message; no stickers or polls.
                 MessageAction.FORWARD -> isSent && forwardContent(row.id) != null
                 // Spec message-actions notes (bipe-chat/bipe#670): every sent sticker.
@@ -651,6 +653,16 @@ class ChatTimelineModel(
             MessageAction.COPY -> if (pauseSecondsLeft(rowId) == 0) row(rowId)?.message?.body?.let {
                 copy(it)
                 show(TimelineNotice.COPIED)
+            }
+            MessageAction.COPY_LINK -> {
+                val room = room ?: return
+                val eventId = current.details?.eventId ?: return
+                scope.launch {
+                    // A link that the SDK cannot make shows nothing (spec message-actions notes).
+                    val link = runCatching { room.matrixToEventPermalink(eventId) }.getOrNull() ?: return@launch
+                    copy(link)
+                    show(TimelineNotice.COPIED)
+                }
             }
             MessageAction.KEEP_AUDIO, MessageAction.UNKEEP_AUDIO -> {
                 val store = voiceMedia ?: return

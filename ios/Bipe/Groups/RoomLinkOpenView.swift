@@ -13,20 +13,32 @@ struct RoomLink: Equatable, Identifiable {
     let isAlias: Bool
     /// The servers the link names, for the preview and the join.
     let via: [String]
+    /// The message of an event link: the chat opens at it (bipe-chat/bipe#666).
+    let eventId: String?
 
-    var id: String { idOrAlias }
+    var id: String { idOrAlias + "|" + (eventId ?? "") }
 
     /// `nil` when the URL is not a group link: a user link, another kind of link or nothing Matrix.
     init?(url: URL) {
         guard url.scheme == "matrix" || url.host() == "matrix.to",
               let entity = parseMatrixEntityFrom(uri: url.absoluteString) else { return nil }
         switch entity.id {
-        case .room(let id), .eventOnRoomId(let id, _):
+        case .room(let id):
             idOrAlias = id
             isAlias = false
-        case .roomAlias(let alias), .eventOnRoomAlias(let alias, _):
+            eventId = nil
+        case .eventOnRoomId(let id, let event):
+            idOrAlias = id
+            isAlias = false
+            eventId = event
+        case .roomAlias(let alias):
             idOrAlias = alias
             isAlias = true
+            eventId = nil
+        case .eventOnRoomAlias(let alias, let event):
+            idOrAlias = alias
+            isAlias = true
+            eventId = event
         case .user:
             return nil
         }
@@ -138,13 +150,16 @@ final class RoomLinkOpenModel: ObservableObject {
 struct RoomLinkOpenView: View {
     @StateObject private var model: RoomLinkOpenModel
     let media: MediaLoader
-    /// Opens chat-timeline for the room; the sheet has closed.
-    let openChat: (String) -> Void
+    /// The message of an event link, for openChat.
+    private let eventId: String?
+    /// Opens chat-timeline for the room, at the event when there is one; the sheet has closed.
+    let openChat: (_ roomId: String, _ eventId: String?) -> Void
     @Environment(\.dismiss) private var dismiss
 
-    init(session: AccountSession, link: RoomLink, media: MediaLoader, openChat: @escaping (String) -> Void) {
+    init(session: AccountSession, link: RoomLink, media: MediaLoader, openChat: @escaping (_ roomId: String, _ eventId: String?) -> Void) {
         _model = StateObject(wrappedValue: RoomLinkOpenModel(client: session.client, link: link))
         self.media = media
+        self.eventId = link.eventId
         self.openChat = openChat
     }
 
@@ -233,6 +248,6 @@ struct RoomLinkOpenView: View {
 
     private func finish(_ roomId: String) {
         dismiss()
-        openChat(roomId)
+        openChat(roomId, eventId)
     }
 }

@@ -80,6 +80,7 @@ enum MessageAction: CaseIterable, Identifiable {
     case reply
     case edit
     case copy
+    case copyLink
     case forward
     case saveSticker
     case keepAudio
@@ -557,6 +558,8 @@ final class ChatTimelineModel: ObservableObject {
             case .edit: details.canEdit
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
+            // Spec message-actions notes (bipe-chat/bipe#666): sent messages in a group, never in a DM (ADR 0141).
+            case .copyLink: isGroup && isSent
             // Spec message-forward notes: sent messages of kind message; no stickers or polls.
             case .forward: isSent && forwardContent(rowId: row.id) != nil
             // Spec message-actions notes (bipe#670): every sent sticker.
@@ -613,6 +616,15 @@ final class ChatTimelineModel: ObservableObject {
             UIPasteboard.general.string = row(rowId)?.message?.body
             BipeHaptics.play(.tap)
             show(.copied)
+        case .copyLink:
+            guard let room, let eventId = current.details?.eventId else { return }
+            Task {
+                // A link that the SDK cannot make shows nothing (spec message-actions notes).
+                guard let link = try? await room.matrixToEventPermalink(eventId: eventId) else { return }
+                UIPasteboard.general.string = link
+                BipeHaptics.play(.tap)
+                show(.copied)
+            }
         case .keepAudio, .unkeepAudio:
             guard let url = current.message?.voice?.source.url else { return }
             let store = voiceMedia
