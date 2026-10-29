@@ -1967,3 +1967,6 @@
 "bipe_search_messages" = "Mensagens";
 "bipe_search_recent" = "Buscas recentes";
 "bipe_search_recent_clear" = "Limpar";
+"bipe_app_group_members_banned" = "Banidos do grupo";
+"bipe_app_group_member_unban" = "Tirar o banimento";
+"bipe_app_group_member_unban_body" = "%1$@ pode entrar no grupo de novo com um convite.";

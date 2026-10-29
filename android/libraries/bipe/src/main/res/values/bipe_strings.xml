@@ -1969,4 +1969,7 @@
     <string name="bipe_search_messages">Mensagens</string>
     <string name="bipe_search_recent">Buscas recentes</string>
     <string name="bipe_search_recent_clear">Limpar</string>
+    <string name="bipe_app_group_members_banned">Banidos do grupo</string>
+    <string name="bipe_app_group_member_unban">Tirar o banimento</string>
+    <string name="bipe_app_group_member_unban_body">%1$s pode entrar no grupo de novo com um convite.</string>
 </resources>
