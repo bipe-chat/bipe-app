@@ -5,6 +5,16 @@
 package chat.bipe.app.notifications
 
 import android.annotation.SuppressLint
+import org.matrix.rustcomponents.sdk.MediaSource
+import kotlinx.coroutines.withTimeoutOrNull
+import chat.bipe.app.share.ShareShortcuts
+import androidx.core.graphics.drawable.IconCompat
+import android.graphics.PorterDuffXfermode
+import android.graphics.PorterDuff
+import android.graphics.Paint
+import android.graphics.Canvas
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import chat.bipe.app.account.AccountList
@@ -140,7 +150,9 @@ class PhoneNotifications(private val context: Context) {
         when (status) {
             is NotificationStatus.Event -> {
                 // Spec incoming-call (bipe-chat/bipe#760): a ring rings the phone instead of a message notification.
-                if (!chat.bipe.app.calls.IncomingCalls.fromPush(context, session, status.item, roomId)) show(status.item, target, route, eventId)
+                if (!chat.bipe.app.calls.IncomingCalls.fromPush(context, session, status.item, roomId)) {
+                    show(status.item, target, route, eventId, photos(session, status.item))
+                }
             }
             NotificationStatus.EventFilteredOut, NotificationStatus.EventRedacted, NotificationStatus.EventNotFound -> Unit
             null -> showFallback(target, route, eventId)
@@ -262,7 +274,33 @@ class PhoneNotifications(private val context: Context) {
         }
     }
 
-    private fun show(item: NotificationItem, target: BipeNotificationTarget, route: String, eventId: String) {
+    /** The sender's and the group's photo for the notification (bipe-chat/bipe#771), each at most PHOTO_TIMEOUT_MS. */
+    private suspend fun photos(session: AccountSession, item: NotificationItem): Photos {
+        suspend fun photo(mxcUrl: String?): IconCompat? {
+            val url = mxcUrl ?: return null
+            val bytes = withTimeoutOrNull(PHOTO_TIMEOUT_MS) {
+                runCatching { session.client.getMediaThumbnail(MediaSource.fromUrl(url), PHOTO_PIXELS, PHOTO_PIXELS) }.getOrNull()
+            } ?: return null
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            return IconCompat.createWithBitmap(circle(bitmap))
+        }
+        return Photos(sender = photo(item.senderInfo.avatarUrl), room = if (item.roomInfo.isDm) null else photo(item.roomInfo.avatarUrl))
+    }
+
+    private data class Photos(val sender: IconCompat?, val room: IconCompat?)
+
+    private fun circle(source: Bitmap): Bitmap {
+        val side = minOf(source.width, source.height)
+        val output = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        canvas.drawCircle(side / 2f, side / 2f, side / 2f, paint)
+        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+        canvas.drawBitmap(source, ((side - source.width) / 2f), ((side - source.height) / 2f), paint)
+        return output
+    }
+
+    private fun show(item: NotificationItem, target: BipeNotificationTarget, route: String, eventId: String, photos: Photos = Photos(null, null)) {
         val room = item.roomInfo
         val senderName = item.senderInfo.displayName?.takeIf { it.isNotEmpty() }
         when (val event = item.event) {
@@ -276,7 +314,8 @@ class PhoneNotifications(private val context: Context) {
                 val sender = senderName ?: event.event.senderId()
                 // ADR 0141: a DM shows the other person, never the room name.
                 val title = if (room.isDm) sender else room.displayName
-                post(target, route, eventId, title, isGroup = !room.isDm, sender, text, event.event.timestamp().toLong(), isNoisy = item.isNoisy ?: true)
+                post(target, route, eventId, title, isGroup = !room.isDm, sender, text, event.event.timestamp().toLong(), isNoisy = item.isNoisy ?: true,
+                    senderId = event.event.senderId(), photos = photos)
             }
             is NotificationEvent.Invite -> {
                 val sender = senderName ?: event.sender
@@ -301,7 +340,19 @@ class PhoneNotifications(private val context: Context) {
 
     /** One conversation notification per chat, with its messages since the chat was last read. */
     @SuppressLint("MissingPermission")
-    private fun post(target: BipeNotificationTarget, route: String, eventId: String, title: String, isGroup: Boolean, sender: String, text: String, sentAt: Long, isNoisy: Boolean) {
+    private fun post(
+        target: BipeNotificationTarget,
+        route: String,
+        eventId: String,
+        title: String,
+        isGroup: Boolean,
+        sender: String,
+        text: String,
+        sentAt: Long,
+        isNoisy: Boolean,
+        senderId: String,
+        photos: Photos,
+    ) {
         if (!manager.areNotificationsEnabled()) return
         // The earlier messages come from the notification on screen: decrypted text never goes to storage.
         val me = Person.Builder().setName(context.getString(R.string.bipe_app_name)).build()
@@ -310,7 +361,9 @@ class PhoneNotifications(private val context: Context) {
             ?: NotificationCompat.MessagingStyle(me)
         style.setGroupConversation(isGroup)
         style.setConversationTitle(if (isGroup) title else null)
-        style.addMessage(text, sentAt, Person.Builder().setName(sender).build())
+        // bipe-chat/bipe#771: the sender's photo, and the Matrix ID as the key so one person is one person.
+        val person = Person.Builder().setName(sender).setKey(senderId).setIcon(photos.sender).build()
+        style.addMessage(text, sentAt, person)
         while (style.messages.size > MAX_MESSAGES) style.messages.removeAt(0)
         val replyInput = RemoteInput.Builder(NotificationActionReceiver.KEY_REPLY_TEXT)
             .setLabel(context.getString(R.string.bipe_app_timeline_composer_placeholder))
@@ -333,6 +386,13 @@ class PhoneNotifications(private val context: Context) {
             .setContentText(if (isGroup) "$sender: $text" else text)
             .setWhen(sentAt)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setShortcutId(
+                ShareShortcuts.conversation(
+                    context, target.accountUserId, target.roomId, title,
+                    person = if (isGroup) null else person,
+                    icon = if (isGroup) photos.room else photos.sender,
+                ),
+            )
             .setContentIntent(openIntent(target, route, "message"))
             .addAction(reply)
             .addAction(markRead)
@@ -542,5 +602,8 @@ class PhoneNotifications(private val context: Context) {
         private const val FAILURE_ID = 3
         private const val MAX_MESSAGES = 8
         private const val FETCH_TIMEOUT_MS = 25_000L
+        /** The longest wait for one photo on a notification (bipe-chat/bipe#771). */
+        private const val PHOTO_TIMEOUT_MS = 3_000L
+        private val PHOTO_PIXELS: ULong = 96u
     }
 }
