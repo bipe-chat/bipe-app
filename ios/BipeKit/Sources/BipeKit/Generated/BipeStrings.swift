@@ -4449,4 +4449,12 @@ public enum BipeStrings {
     public static var callChannelMissed: String { NSLocalizedString("bipe_call_channel_missed", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var callAnsweredElsewhere: String { NSLocalizedString("bipe_call_answered_elsewhere", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func voiceSpeed(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_voice_speed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func voiceSpeedLabel(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_voice_speed_label", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }

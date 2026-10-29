@@ -1932,4 +1932,6 @@
     <string name="bipe_call_channel_incoming">Incoming calls</string>
     <string name="bipe_call_channel_missed">Missed calls</string>
     <string name="bipe_call_answered_elsewhere">Answered on another device</string>
+    <string name="bipe_voice_speed">%1$s×</string>
+    <string name="bipe_voice_speed_label">Speed: %1$s times</string>
 </resources>

@@ -1932,4 +1932,6 @@
     <string name="bipe_call_channel_incoming">Chamadas recebidas</string>
     <string name="bipe_call_channel_missed">Chamadas perdidas</string>
     <string name="bipe_call_answered_elsewhere">Atendida em outro aparelho</string>
+    <string name="bipe_voice_speed">%1$s×</string>
+    <string name="bipe_voice_speed_label">Velocidade: %1$s vezes</string>
 </resources>

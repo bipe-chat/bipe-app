@@ -1930,3 +1930,5 @@
 "bipe_call_channel_incoming" = "Chamadas recebidas";
 "bipe_call_channel_missed" = "Chamadas perdidas";
 "bipe_call_answered_elsewhere" = "Atendida em outro aparelho";
+"bipe_voice_speed" = "%1$@×";
+"bipe_voice_speed_label" = "Velocidade: %1$@ vezes";
