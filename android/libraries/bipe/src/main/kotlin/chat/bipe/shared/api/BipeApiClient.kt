@@ -230,6 +230,17 @@ class BipeApiClient(baseUrl: String) {
         )
     }
 
+    /**
+     * `POST /v1/beta/login`. No auth (bipe-chat/bipe#627). The Matrix ID of the beta account whose login email and
+     * password these are. Unknown email and wrong password are the same `unauthorized`.
+     */
+    suspend fun betaLogin(email: String, password: String): String = send(
+        "POST",
+        listOf("v1", "beta", "login"),
+        body = encode(BipeBetaLoginRequest.serializer(), BipeBetaLoginRequest(email, password)),
+        response = BipeBetaLoginResponse.serializer(),
+    ).userId
+
     /** `POST /v1/recovery/email/confirm`. No auth. The link token and exactly one of [pin] (access) or [newPin] (PIN reset). */
     suspend fun confirmRecoveryEmail(linkToken: String, pin: String?, newPin: String?): BipeRecoveryStarted = send(
         "POST",
@@ -374,6 +385,12 @@ enum class BipeApiErrorCode(val id: String) {
     RECOVERY_INVALID("recovery_invalid"),
     EMAIL_UNAVAILABLE("email_unavailable"),
 
+    /** Old beta sign-up with its own password: the password is too weak. Device-first sign-up never gets it. */
+    PASSWORD_WEAK("password_weak"),
+
+    /** `POST /v1/me/support`: the support account is off on the server (ADR 0114). */
+    SUPPORT_UNAVAILABLE("support_unavailable"),
+
     /** `PUT /v1/me/profile`: `reason` is a profile problem id (ADR 0041). */
     PROFILE_INVALID("profile_invalid"),
 
@@ -513,7 +530,8 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.BRAND_MARK_LIMIT -> context.getString(R.string.bipe_brand_marks_limit)
             BipeApiErrorCode.KEEP_LIMIT ->
                 context.getString(R.string.bipe_voice_keep_limit, BipeRegistries.VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT.toString())
-            BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID ->
+            BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID,
+            BipeApiErrorCode.PASSWORD_WEAK, BipeApiErrorCode.SUPPORT_UNAVAILABLE ->
                 context.getString(R.string.bipe_error_generic)
         }
         is Network -> context.getString(R.string.bipe_error_network)

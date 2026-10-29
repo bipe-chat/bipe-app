@@ -87,6 +87,35 @@ public struct StickerPackClient: Sendable {
         }
     }
 
+    /// Adds a sticker someone sent to the user's pack by its mxc:// URL, with no upload (bipe-chat/bipe#670).
+    /// Returns false when the pack already has that image.
+    public func saveToUserPack(url: String, width: Int?, height: Int?, mimeType: String?, size: Int?) async throws -> Bool {
+        try await withTokenRetry { token in
+            let path = ["user", userId, "account_data", StickerPackEventType.userPack]
+            var content: [String: Any] = [:]
+            if let data = try await get(path, token: token), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                content = object
+            }
+            var images = content["images"] as? [String: Any] ?? [:]
+            if images.values.contains(where: { ($0 as? [String: Any])?["url"] as? String == url }) { return false }
+            var info: [String: Any] = [:]
+            if let width { info["w"] = width }
+            if let height { info["h"] = height }
+            if let mimeType { info["mimetype"] = mimeType }
+            if let size { info["size"] = size }
+            images[StickerImporter.shortcode(for: Data(url.utf8))] = [
+                "url": url,
+                "body": "Sticker",
+                "usage": ["sticker"],
+                "info": info,
+            ] as [String: Any]
+            content["images"] = images
+            let body = try JSONSerialization.data(withJSONObject: content)
+            _ = try await perform("PUT", clientURL(path), token: token, body: body, contentType: "application/json")
+            return true
+        }
+    }
+
     /// A sticker list in global account data (StickerShortlist): recents or favourites. Empty when unset.
     public func shortlist(_ eventType: String) async throws -> [StickerRef] {
         try await withTokenRetry { token in

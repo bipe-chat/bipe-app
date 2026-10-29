@@ -21,6 +21,8 @@ struct ChatTimelineView: View {
     @StateObject private var voicePlayer = VoicePlayer()
     /// Spec business-chat-bar: the tools and booking cards of a DM with a company, or of its customer.
     @StateObject private var business: BusinessChatModel
+    /// Spec identity-change (bipe#770).
+    @StateObject private var identity: IdentityChangeModel
     @State private var viewerRowId: String?
     // composer
     @State private var attaching = false
@@ -39,6 +41,7 @@ struct ChatTimelineView: View {
     init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil, openInfo: (() -> Void)? = nil) {
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
+        _identity = StateObject(wrappedValue: IdentityChangeModel(session: session, roomId: roomId))
         self.media = media
         self.openInfo = openInfo
         self.session = session
@@ -70,6 +73,7 @@ struct ChatTimelineView: View {
             if model.isDm, model.theftMark != nil {
                 TheftMarkBanner(name: model.roomName)
             }
+            IdentityChangeBar(model: identity)
             if model.isDm, let people, let peer = model.peerUserId {
                 DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
                     leftBar
@@ -162,6 +166,7 @@ struct ChatTimelineView: View {
         }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
+        .task { await identity.observe() }
         .businessChatTools(business)
         .task(id: "\(model.isDm)|\(model.peerUserId ?? "")|\(model.roomName)") {
             await business.load(peerUserId: model.isDm ? model.peerUserId : nil, peerName: model.roomName)
@@ -192,6 +197,11 @@ struct ChatTimelineView: View {
         .sheet(isPresented: presence(\.actionsRowId)) {
             if let row = model.row(model.actionsRowId) {
                 MessageActionsSheet(model: model, row: row)
+            }
+        }
+        .sheet(isPresented: presence(\.forwardingRowId)) {
+            if let rowId = model.forwardingRowId, let msgType = model.forwardContent(rowId: rowId) {
+                MessageForwardSheet(client: model.client, msgType: msgType, media: media) { model.forwardClosed(failed: $0) }
             }
         }
         .sheet(isPresented: presence(\.pickerOpenFor)) {
@@ -300,6 +310,8 @@ struct ChatTimelineView: View {
 
     private var composerBar: some View {
         ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
+            // Spec identity-change blocksSending: until the person taps Entendi.
+            .disabled(identity.blocksSending)
     }
 
     private var chatTitle: some View {

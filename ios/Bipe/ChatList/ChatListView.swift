@@ -47,6 +47,8 @@ struct ChatListView: View {
     @State private var openingLink: String?
     /// queue-customer from the counter QR code (https://bipe.chat/@handle?fila).
     @State private var openingQueue: String?
+    /// A group link waiting for room-link-open.
+    @State private var openingRoomLink: RoomLink?
     /// A pack link (spec sticker-pack).
     @State private var openingPack: StickerPackRef?
     @State private var newGroupWith: [Person]?
@@ -167,6 +169,9 @@ struct ChatListView: View {
                                 openPerson: { show(.people(.person(userId: $0, fromDm: false))) },
                                 openOwnLink: { show(.people(.profileLink)) })
         }
+        .sheet(item: $openingRoomLink) { link in
+            RoomLinkOpenView(session: model.session, link: link, media: model.media) { openChat($0) }
+        }
         .sheet(item: $openingPack) { pack in
             StickerPackView(model: StickerPackModel(ref: pack, client: model.session.client, handles: people.handles),
                             loader: model.media) { openingPack = nil }
@@ -202,6 +207,7 @@ struct ChatListView: View {
             case .profile(let handle): openingLink = handle
             case .person(let userId): show(.people(.person(userId: userId, fromDm: false)))
             case .queue(let handle): openingQueue = handle
+            case .room(let link): openingRoomLink = link
             }
         }
         .onOpenURL { url in
@@ -215,7 +221,7 @@ struct ChatListView: View {
             case .handle(let handle): openingLink = handle
             case .userId(let userId): show(.people(.person(userId: userId, fromDm: false)))
             case .queue(let handle): openingQueue = handle
-            case nil: break
+            case nil: openingRoomLink = RoomLink(url: url)
             }
         }
         // Spec notification-service, action open.

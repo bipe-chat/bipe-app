@@ -197,6 +197,22 @@ data class BipeMyHandle(
 @Serializable
 data class BipeAccountStatus(
     @SerialName("user_id") val userId: String,
+    // Nullable with defaults, so a server that omits a field still decodes (bipe-chat/bipe#684).
+    @SerialName("pin_set") val pinSet: Boolean? = null,
+    @SerialName("pin_blocked") val pinBlocked: Boolean? = null,
+    @SerialName("pin_tries_left") val pinTriesLeft: Int? = null,
+    /** `false` for a beta account that still signs in with its own password. */
+    @SerialName("device_first") val deviceFirst: Boolean? = null,
+    @SerialName("recovery_token_set") val recoveryTokenSet: Boolean? = null,
+    /** The verified recovery email. */
+    @SerialName("email") val email: String? = null,
+    /** An address waiting for its link. */
+    @SerialName("email_pending") val emailPending: String? = null,
+    /**
+     * bipe-chat/bipe#531: a way back the server can check that does not depend on the Apple Team ID. Absent from an
+     * older server.
+     */
+    @SerialName("independent_recovery") val independentRecovery: Boolean? = null,
     /** The last legal version the account accepted (ADR 0113). */
     @SerialName("terms_version") val termsVersion: String? = null,
     @SerialName("max_accounts") val maxAccounts: Int? = null,
@@ -315,6 +331,17 @@ internal data class BipeTokenRecoveryRequest(
 }
 
 @Serializable
+internal data class BipeBetaLoginRequest(
+    @SerialName("email") val email: String,
+    @SerialName("password") val password: String,
+) {
+    override fun toString(): String = "BipeBetaLoginRequest"
+}
+
+@Serializable
+internal data class BipeBetaLoginResponse(@SerialName("user_id") val userId: String)
+
+@Serializable
 internal data class BipeRecoveryEmailRequest(@SerialName("email") val email: String) {
     override fun toString(): String = "BipeRecoveryEmailRequest"
 }
@@ -371,6 +398,7 @@ data class BipeRecovery(
     @SerialName("state") val state: BipeRecoveryState,
     @Serializable(with = InstantSerializer::class) @SerialName("created_at") val createdAt: Instant,
     @Serializable(with = InstantSerializer::class) @SerialName("ready_at") val readyAt: Instant? = null,
+    @Serializable(with = InstantSerializer::class) @SerialName("ended_at") val endedAt: Instant? = null,
 )
 
 /** `RecoveryStarted`. The new device keeps it, on this device only, until the claim ends. */

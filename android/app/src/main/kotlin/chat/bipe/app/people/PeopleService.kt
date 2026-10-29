@@ -7,6 +7,7 @@ package chat.bipe.app.people
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.groups.DmDeleteModel
+import chat.bipe.app.groups.RoomLink
 import chat.bipe.app.chatlist.NativeDmSelection
 import android.Manifest
 import android.content.Context
@@ -68,6 +69,8 @@ sealed interface PeopleRoute {
     data object WhoCanMessage : PeopleRoute
     data object BlockedList : PeopleRoute
     data class ReportChat(val roomId: String, val isDm: Boolean, val otherUserId: String?) : PeopleRoute
+    /** A matrix.to or matrix: group link (spec room-link-open). */
+    data class RoomLinkOpen(val link: RoomLink) : PeopleRoute
     /** A pack link bipe.chat/s/<room ID> (spec sticker-pack). */
     data class StickerPackLink(val ref: StickerPackRef) : PeopleRoute
 }

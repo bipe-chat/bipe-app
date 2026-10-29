@@ -98,6 +98,8 @@ struct TimelineRowView: View {
             SystemLine(text: BipeStrings.appTimelineStart)
         case .call:
             if let text = row.callText { SystemLine(text: text) }
+        case .stateLine:
+            if let text = row.stateText { SystemLine(text: text) }
         }
     }
 }

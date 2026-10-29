@@ -31,6 +31,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,7 +50,10 @@ fun DeviceVerificationScreen(model: DeviceVerificationModel, close: () -> Unit) 
     val symbols by model.symbols.collectAsState()
     val mismatch by model.mismatch.collectAsState()
     val canNotifyAgain by model.canNotifyAgain.collectAsState()
-    val confirmOwner = rememberDeviceOwnerCheck(stringResource(R.string.bipe_app_verify_biometric))
+    val secondsLeft by model.secondsLeft.collectAsState()
+    val place by model.place.collectAsState()
+    val placeKnown by model.placeKnown.collectAsState()
+    val confirmOwner = rememberApprovalCheck(stringResource(R.string.bipe_app_verify_biometric), model::checkAccountPin)
     val colors = BipeTheme.colors
 
     // The flow ends on its own: the screen closes a moment after done.
@@ -92,13 +96,31 @@ fun DeviceVerificationScreen(model: DeviceVerificationModel, close: () -> Unit) 
                 }
                 Title(stringResource(R.string.bipe_app_verify_incoming_title))
                 Body(stringResource(R.string.bipe_app_verify_incoming_body, name, time))
+                // Rule 5: the approximate place of the requesting device, from its last IP.
+                if (placeKnown) {
+                    val known = place
+                    Text(
+                        if (known != null) stringResource(R.string.bipe_link_computer_place, known) else stringResource(R.string.bipe_link_computer_place_unknown),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.inkPrimary,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(stringResource(R.string.bipe_link_computer_place_source), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+                } else {
+                    CircularProgressIndicator(color = colors.accentFill)
+                }
                 Body(stringResource(R.string.bipe_device_approval_never_for_others))
+                // Rule 5: the approve button waits through the cooldown, as on the QR approval.
                 BipeButton(
                     onClick = { model.accept(confirmOwner) },
-                    enabled = phase == DeviceVerificationModel.Phase.INCOMING,
+                    enabled = phase == DeviceVerificationModel.Phase.INCOMING && secondsLeft == 0,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(stringResource(R.string.bipe_app_verify_approve))
+                    Text(
+                        if (secondsLeft == 0) stringResource(R.string.bipe_app_verify_approve)
+                        else stringResource(R.string.bipe_pause_countdown, secondsLeft.toString()),
+                    )
                 }
                 BipeOutlinedButton(onClick = model::decline, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.bipe_app_cancel))

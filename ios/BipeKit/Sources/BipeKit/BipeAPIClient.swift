@@ -160,6 +160,14 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "POST", path: ["v1", "recovery", "email"], body: RecoveryEmailRequest(email: email))
     }
     
+    /// `POST /v1/beta/login`. No auth (bipe-chat/bipe#627). The Matrix ID of the beta account whose login email and
+    /// password these are. Unknown email and wrong password are the same `unauthorized`.
+    public func betaLogin(email: String, password: String) async throws(BipeAPIError) -> String {
+        let response: BetaLoginResponse = try await send(method: "POST", path: ["v1", "beta", "login"],
+                                                         body: BetaLoginRequest(email: email, password: password))
+        return response.userId
+    }
+    
     /// `POST /v1/recovery/email/confirm`. No auth. The link token and exactly one of `pin` (access) or `newPIN` (PIN reset).
     public func confirmRecoveryEmail(linkToken: String, pin: String?, newPIN: String?) async throws(BipeAPIError) -> BipeRecoveryStarted {
         try await send(method: "POST", path: ["v1", "recovery", "email", "confirm"],
@@ -500,6 +508,15 @@ public struct BipeAPIClient: Sendable {
     
     private struct RecoveryEmailRequest: Encodable {
         let email: String
+    }
+    
+    private struct BetaLoginRequest: Encodable {
+        let email: String
+        let password: String
+    }
+    
+    private struct BetaLoginResponse: Decodable {
+        let userId: String
     }
     
     private struct EmailConfirmRequest: Encodable {

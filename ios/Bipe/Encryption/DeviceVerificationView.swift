@@ -20,6 +20,7 @@ struct DeviceVerificationView: View {
         .presentationDetents([.large])
         .interactiveDismissDisabled(model.phase == .confirmIdentity)
         .accessibilityIdentifier(BipeScreen.deviceVerification.rawValue)
+        .accountPinPrompt(model.pinPrompt)
         // The flow ends on its own: the screen closes a moment after done.
         .task(id: model.phase) {
             guard model.phase == .done else { return }
@@ -51,16 +52,19 @@ struct DeviceVerificationView: View {
         case .incoming, .confirmIdentity:
             TitleText(text: BipeStrings.appVerifyIncomingTitle)
             BodyText(text: BipeStrings.appVerifyIncomingBody(deviceName, requestTime))
+            placeText
             BodyText(text: BipeStrings.deviceApprovalNeverForOthers)
             Spacer()
+            // Rule 5: the approve button waits through the cooldown, as on the QR approval.
             Button {
                 Task { await model.accept() }
             } label: {
-                Text(BipeStrings.appVerifyApprove).frame(maxWidth: .infinity)
+                Text(model.canApprove ? BipeStrings.appVerifyApprove : BipeStrings.pauseCountdown(String(model.secondsLeft)))
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bipeProminent)
             .controlSize(.large)
-            .disabled(model.phase == .confirmIdentity)
+            .disabled(model.phase == .confirmIdentity || !model.canApprove)
             Button {
                 Task { await model.decline() }
             } label: {
@@ -107,6 +111,24 @@ struct DeviceVerificationView: View {
             Text(BipeStrings.appCancel).frame(maxWidth: .infinity)
         }
         .controlSize(.large)
+    }
+
+    /// Rule 5: the approximate place of the requesting device, from its last IP.
+    @ViewBuilder
+    private var placeText: some View {
+        if model.placeKnown {
+            VStack(spacing: 4) {
+                Text(model.place.map(BipeStrings.linkComputerPlace) ?? BipeStrings.linkComputerPlaceUnknown)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(BipeColor.inkPrimary)
+                    .multilineTextAlignment(.center)
+                Text(BipeStrings.linkComputerPlaceSource)
+                    .font(.caption)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+        } else {
+            ProgressView()
+        }
     }
 
     private var deviceName: String {

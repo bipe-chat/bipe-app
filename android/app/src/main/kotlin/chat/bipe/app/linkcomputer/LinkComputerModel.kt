@@ -11,6 +11,7 @@ import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.generated.BipeRegistries
+import chat.bipe.shared.settings.checkPin
 import chat.bipe.shared.weblink.BipeLinkComputer
 import chat.bipe.shared.weblink.BipeMatrixAccountApi
 import chat.bipe.shared.weblink.BipeWebLink
@@ -155,7 +156,10 @@ class LinkComputerModel(
         val current = _state.value
         if (grantJob != null || (current.scanPhase != ScanPhase.SCANNING && current.scanPhase != ScanPhase.FAILED)) return
         val data = runCatching { QrCodeData.fromBytes(bytes) }.getOrNull()
-        if (data == null || data.intent() != QrCodeIntent.LOGIN) {
+        // Only a login code whose rendezvous is on this account's homeserver (bipe-chat/bipe#785, ADR 0116).
+        if (data == null || data.intent() != QrCodeIntent.LOGIN ||
+            !BipeWebLink.isOwnRendezvous(bytes, data.baseUrl(), session.client.homeserver())
+        ) {
             _state.update { it.copy(scanError = Failure.NOT_BIPE_CODE, scanPhase = ScanPhase.FAILED) }
             return
         }
@@ -363,6 +367,11 @@ class LinkComputerModel(
         countdown?.cancel()
         _state.update { it.copy(isClosed = true) }
         scope.launch { runCatching { sender?.cancel() } }
+    }
+
+    /** The server check of the Bipe PIN, for the owner check on a phone with no strong biometrics (bipe-chat/bipe#785). */
+    suspend fun checkAccountPin(pin: String) {
+        settings.authorized { settings.api.checkPin(pin, it) }
     }
 
     /** Action confirmIdentity, after the owner check of the screen. A fail goes back to the warning. */

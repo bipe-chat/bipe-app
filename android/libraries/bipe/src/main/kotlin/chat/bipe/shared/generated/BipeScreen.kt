@@ -109,6 +109,9 @@ enum class BipeScreen(val id: String) {
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 
+    /** Media and files of a chat (flow chat). Spec: bipe-shared/product/screens/chat-media-gallery.json */
+    CHAT_MEDIA_GALLERY("chat-media-gallery"),
+
     /** Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json */
     CHAT_NOTIFICATIONS("chat-notifications"),
 
@@ -175,6 +178,9 @@ enum class BipeScreen(val id: String) {
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
 
+    /** Identity change warning (flow chat). Spec: bipe-shared/product/screens/identity-change.json */
+    IDENTITY_CHANGE("identity-change"),
+
     /** Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json */
     INCOMING_CALL("incoming-call"),
 
@@ -232,6 +238,9 @@ enum class BipeScreen(val id: String) {
     /** Edit a message (flow chat). Spec: bipe-shared/product/screens/message-edit.json */
     MESSAGE_EDIT("message-edit"),
 
+    /** Forward a message (flow chat). Spec: bipe-shared/product/screens/message-forward.json */
+    MESSAGE_FORWARD("message-forward"),
+
     /** Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json */
     MESSAGE_REACTIONS("message-reactions"),
 
@@ -243,6 +252,9 @@ enum class BipeScreen(val id: String) {
 
     /** Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json */
     MESSAGE_UNDECRYPTABLE("message-undecryptable"),
+
+    /** Notification checkup (flow settings). Spec: bipe-shared/product/screens/notification-checkup.json */
+    NOTIFICATION_CHECKUP("notification-checkup"),
 
     /** Notification on the phone (flow notifications). Spec: bipe-shared/product/screens/notification-service.json */
     NOTIFICATION_SERVICE("notification-service"),
@@ -363,6 +375,9 @@ enum class BipeScreen(val id: String) {
 
     /** Report a chat (flow people). Spec: bipe-shared/product/screens/report-chat.json */
     REPORT_CHAT("report-chat"),
+
+    /** Open a group link (flow groups). Spec: bipe-shared/product/screens/room-link-open.json */
+    ROOM_LINK_OPEN("room-link-open"),
 
     /** Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json */
     SCAM_WARNING("scam-warning"),

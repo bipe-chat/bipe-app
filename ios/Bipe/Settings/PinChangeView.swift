@@ -19,7 +19,8 @@ struct PinChangeView: View {
     @StateObject private var setup = PinSetupModel()
     @State private var phase: Phase = .confirmIdentity
     @State private var savedPIN: String?
-    @State private var pinCheck: PinCheckRequest?
+    /// The Bipe PIN sheet of the owner check, for a phone with no biometrics (bipe-chat/bipe#785).
+    @StateObject private var pinPrompt = AccountPinPrompt()
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -77,25 +78,24 @@ struct PinChangeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.pinChange.rawValue)
         .task { await confirmIdentity() }
-        .sheet(item: $pinCheck, onDismiss: {
-            if phase == .confirmIdentity { dismiss() }
-        }) { request in
-            AppLockPinCheckView(title: request.title, onPass: request.onPass)
-        }
+        .accountPinPrompt(pinPrompt)
     }
 
-    /// Action confirmIdentity. A phone with no passcode uses the app lock PIN when the lock is on; else the screen
-    /// closes (fail closed, as in data-export).
+    /// Action confirmIdentity (rule 14 tier 3, bipe-chat/bipe#785): biometrics, or the current Bipe PIN checked by the
+    /// server on a phone with no biometrics; never the phone's passcode. A phone with no screen lock cannot change
+    /// the PIN; the screen closes (fail closed).
     private func confirmIdentity() async {
         guard phase == .confirmIdentity else { return }
-        if OwnerCheck.canCheckOwner {
-            if await OwnerCheck.owner(reason: BipeStrings.pinChangeBiometricReason) {
-                phase = .entering
-            } else {
-                dismiss()
+        let api = model.api
+        let model = model
+        let check = await ApprovalCheck.run(reason: BipeStrings.pinChangeBiometricReason, pinTitle: BipeStrings.pinChangeTitle,
+                                            prompt: pinPrompt) { (pin: String) async throws(BipeAPIError) in
+            try await model.authorized { (token: String) async throws(BipeAPIError) in
+                try await api.checkPIN(pin, accessToken: token)
             }
-        } else if AppLockModel.shared.store.isOn {
-            pinCheck = PinCheckRequest(title: BipeStrings.pinChangeTitle) { phase = .entering }
+        }
+        if check == .passed {
+            phase = .entering
         } else {
             dismiss()
         }

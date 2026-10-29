@@ -42,6 +42,7 @@ struct LinkComputerView: View {
         }
         .tint(BipeColor.accentFill)
         .interactiveDismissDisabled()
+        .accountPinPrompt(model.pinPrompt)
         .task { await model.open() }
         .onChange(of: model.isClosed) { _, isClosed in
             if isClosed { dismiss() }

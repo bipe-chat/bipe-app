@@ -115,6 +115,7 @@ fun TimelineRowItem(
     voiceState: VoicePlayer.State = VoicePlayer.State(),
     onTogglePlay: (String, VoiceMessage) -> Unit = { _, _ -> },
     onSeek: (String, Float) -> Unit = { _, _ -> },
+    onCycleSpeed: () -> Unit = {},
     /** Action open of spec timeline-media: the row id for media-viewer. */
     onOpenViewer: (String) -> Unit = {},
     /** The account's company seals, for the question card (spec question-card). null: no card, the poll card shows. */
@@ -160,6 +161,7 @@ fun TimelineRowItem(
                         state = voiceState,
                         onTogglePlay = { onTogglePlay(message.id, voice) },
                         onSeek = { onSeek(message.id, it) },
+                        onCycleSpeed = onCycleSpeed,
                         loader = media,
                         voiceMedia = model.voiceMedia,
                         hasScamWarning = details.scamWarning != null,
@@ -221,6 +223,7 @@ fun TimelineRowItem(
         TimelineRow.Kind.NOT_ENCRYPTED -> SystemLine(stringResource(R.string.bipe_app_timeline_not_encrypted))
         TimelineRow.Kind.CHAT_START -> SystemLine(stringResource(R.string.bipe_app_timeline_start))
         TimelineRow.Kind.CALL -> row.callText?.let { SystemLine(it) }
+        TimelineRow.Kind.STATE_LINE -> row.stateText?.let { SystemLine(it) }
     }
 }
 

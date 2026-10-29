@@ -127,7 +127,7 @@ fun MessageActionsSheet(model: ChatTimelineModel, row: TimelineRow, onCopy: (Str
                     ) {
                         Icon(painterResource(actionIcon(action).drawable), contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
                         Text(
-                            if (paused) stringResource(R.string.bipe_pause_countdown, pauseLeft.toString()) else stringResource(actionTitle(action)),
+                            if (paused) stringResource(R.string.bipe_pause_countdown, pauseLeft.toString()) else stringResource(actionTitle(action, row.message)),
                             style = MaterialTheme.typography.bodyLarge,
                             color = tint,
                         )
@@ -145,6 +145,8 @@ internal fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
     MessageAction.REPLY -> PhosphorIcon.ARROW_BEND_UP_LEFT
     MessageAction.EDIT -> PhosphorIcon.PENCIL_SIMPLE
     MessageAction.COPY -> PhosphorIcon.COPY
+    MessageAction.FORWARD -> PhosphorIcon.PAPER_PLANE_RIGHT
+    MessageAction.SAVE_STICKER -> PhosphorIcon.STICKER
     MessageAction.VIEW_STICKER_PACK -> PhosphorIcon.STICKER
     MessageAction.KEEP_AUDIO -> PhosphorIcon.DOWNLOAD_SIMPLE
     MessageAction.UNKEEP_AUDIO -> PhosphorIcon.X
@@ -153,14 +155,17 @@ internal fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
     MessageAction.REPORT -> PhosphorIcon.FLAG
 }
 
-internal fun actionTitle(action: MessageAction): Int = when (action) {
+/** [message] lets retry say Enviar mesmo assim for a message held for an identity change (spec identity-change). */
+internal fun actionTitle(action: MessageAction, message: TimelineMessage? = null): Int = when (action) {
+    MessageAction.RETRY -> if (message?.sendFailure != null) R.string.bipe_identity_change_send_anyway else R.string.bipe_app_retry
     MessageAction.REPLY -> R.string.bipe_app_message_action_reply
     MessageAction.EDIT -> R.string.bipe_app_message_action_edit
     MessageAction.COPY -> R.string.bipe_app_copy
+    MessageAction.FORWARD -> R.string.bipe_forward_action
+    MessageAction.SAVE_STICKER -> R.string.bipe_action_save_sticker
     MessageAction.VIEW_STICKER_PACK -> R.string.bipe_action_view_sticker_pack
     MessageAction.KEEP_AUDIO -> R.string.bipe_voice_keep
     MessageAction.UNKEEP_AUDIO -> R.string.bipe_voice_unkeep
-    MessageAction.RETRY -> R.string.bipe_app_retry
     MessageAction.DELETE -> R.string.bipe_app_message_action_delete
     MessageAction.REPORT -> R.string.bipe_app_message_action_report
 }

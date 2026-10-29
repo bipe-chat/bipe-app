@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.encryption.rememberApprovalCheck
 import chat.bipe.app.settings.OwnerCheck
 import chat.bipe.app.settings.SettingsModel
 import chat.bipe.shared.weblink.BipeWebLink
@@ -243,6 +244,8 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
     val scope = rememberCoroutineScope()
     val phone = model.mode == LinkComputerModel.Mode.PHONE
     val reason = stringResource(if (phone) R.string.bipe_app_link_phone_biometric else R.string.bipe_link_computer_biometric)
+    // Rule 14 tier 3 (bipe-chat/bipe#785): strong biometrics, else the Bipe PIN; never the screen lock.
+    val confirmOwner = rememberApprovalCheck(reason, model::checkAccountPin)
     Column(
         modifier = Modifier.fillMaxSize().testTag(if (phone) BipeScreen.LINK_PHONE_APPROVE.id else BipeScreen.LINK_COMPUTER_APPROVE.id),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -252,7 +255,7 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
             LinkComputerModel.ApprovePhase.CONFIRM_IDENTITY -> {
                 CircularProgressIndicator(color = colors.accentFill)
                 LaunchedEffect(Unit) {
-                    scope.launch { model.identityChecked(OwnerCheck.owner(context, reason)) }
+                    scope.launch { model.identityChecked(confirmOwner() == OwnerCheck.Approval.PASSED) }
                 }
             }
             LinkComputerModel.ApprovePhase.LOADING, LinkComputerModel.ApprovePhase.CONSENT -> {

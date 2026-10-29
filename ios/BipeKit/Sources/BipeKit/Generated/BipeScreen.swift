@@ -103,6 +103,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json
     case chatList = "chat-list"
 
+    /// Media and files of a chat (flow chat). Spec: bipe-shared/product/screens/chat-media-gallery.json
+    case chatMediaGallery = "chat-media-gallery"
+
     /// Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json
     case chatNotifications = "chat-notifications"
 
@@ -169,6 +172,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
+    /// Identity change warning (flow chat). Spec: bipe-shared/product/screens/identity-change.json
+    case identityChange = "identity-change"
+
     /// Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json
     case incomingCall = "incoming-call"
 
@@ -226,6 +232,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Edit a message (flow chat). Spec: bipe-shared/product/screens/message-edit.json
     case messageEdit = "message-edit"
 
+    /// Forward a message (flow chat). Spec: bipe-shared/product/screens/message-forward.json
+    case messageForward = "message-forward"
+
     /// Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json
     case messageReactions = "message-reactions"
 
@@ -237,6 +246,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json
     case messageUndecryptable = "message-undecryptable"
+
+    /// Notification checkup (flow settings). Spec: bipe-shared/product/screens/notification-checkup.json
+    case notificationCheckup = "notification-checkup"
 
     /// Notification on the phone (flow notifications). Spec: bipe-shared/product/screens/notification-service.json
     case notificationService = "notification-service"
@@ -357,6 +369,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Report a chat (flow people). Spec: bipe-shared/product/screens/report-chat.json
     case reportChat = "report-chat"
+
+    /// Open a group link (flow groups). Spec: bipe-shared/product/screens/room-link-open.json
+    case roomLinkOpen = "room-link-open"
 
     /// Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json
     case scamWarning = "scam-warning"

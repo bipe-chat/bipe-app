@@ -17,6 +17,8 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Spec push-registration: the system permission for notifications (Android 13 and later). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Spec notification-checkup (bipe-chat/bipe#823): the battery optimisation dialog; Play allows it for messaging apps. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Link a computer (spec link-computer-scan): the camera reads the QR code of chat.bipe.net.br. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Spec location-send (bipe-chat/bipe#768): positions while the app is open, asked at the first send. A live share
@@ -113,6 +115,20 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/recuperar" />
+            </intent-filter>
+            <!-- Group and person links (spec room-link-open): the matrix: scheme, and https://matrix.to without autoVerify.
+                 Bipe cannot verify matrix.to, so these open only after the person picks Bipe. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="matrix" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="matrix.to" />
             </intent-filter>
         </activity>
         <!-- Spec app-colors (bipe-chat/bipe#811): one launcher entry per palette of bipe-shared appThemes, each with the

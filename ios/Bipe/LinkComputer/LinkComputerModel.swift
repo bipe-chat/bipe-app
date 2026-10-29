@@ -158,6 +158,8 @@ final class LinkComputerModel: ObservableObject {
     @Published private(set) var approveError: Failure?
     /// The flow ended: the view closes.
     @Published private(set) var isClosed = false
+    /// The Bipe PIN sheet of the owner check, for a phone with no biometrics (bipe-chat/bipe#785).
+    let pinPrompt = AccountPinPrompt()
 
     let settings: SettingsModel
     var session: AccountSession { settings.session }
@@ -229,7 +231,9 @@ final class LinkComputerModel: ObservableObject {
     /// Action codeRead: only a login code from a new device starts the grant.
     func codeRead(_ bytes: Data) {
         guard scanPhase == .scanning || scanPhase == .failed, grantTask == nil else { return }
-        guard let data = try? QrCodeData.fromBytes(bytes: bytes), data.intent() == .login else {
+        // Only a login code whose rendezvous is on this account's homeserver (bipe-chat/bipe#785, ADR 0116).
+        guard let data = try? QrCodeData.fromBytes(bytes: bytes), data.intent() == .login,
+              BipeWebLink.isOwnRendezvous(qrBytes: bytes, baseURL: data.baseUrl(), homeserver: session.client.homeserver()) else {
             scanError = .notBipeCode
             scanPhase = .failed
             return
@@ -456,10 +460,18 @@ final class LinkComputerModel: ObservableObject {
 
     // MARK: link-computer-approve
 
-    /// Action confirmIdentity: the biometric check (or the device code), then the hidden password.
+    /// Action confirmIdentity: the owner check (ApprovalCheck: biometrics, else the Bipe PIN; never the passcode,
+    /// rule 14 tier 3), then the hidden password. A fail, or a phone with no screen lock, goes back to the warning.
     func confirmIdentity() async {
         let reason = mode == .computer ? BipeStrings.linkComputerBiometric : BipeStrings.appLinkPhoneBiometric
-        guard await OwnerCheck.owner(reason: reason), let secret = hiddenPassword else {
+        let api = settings.api
+        let settings = settings
+        let check = await ApprovalCheck.run(reason: reason, pinTitle: reason, prompt: pinPrompt) { (pin: String) async throws(BipeAPIError) in
+            try await settings.authorized { (token: String) async throws(BipeAPIError) in
+                try await api.checkPIN(pin, accessToken: token)
+            }
+        }
+        guard check == .passed, let secret = hiddenPassword else {
             step = .warning
             warningAppeared()
             return

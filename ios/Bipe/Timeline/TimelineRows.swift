@@ -22,6 +22,8 @@ struct TimelineRow: Identifiable, Equatable {
         case chatStart
         /// A call line (spec incoming-call notes): the ring event with the memberships after it.
         case call
+        /// A group membership or group profile change (bipe-chat/bipe#661). Never in a DM.
+        case stateLine
     }
 
     var id: String
@@ -36,6 +38,10 @@ struct TimelineRow: Identifiable, Equatable {
     var handleChange: HandleChangeLine?
     /// kind call only.
     var callText: String?
+    /// kind stateLine only.
+    var stateLine: StateLine?
+    /// kind stateLine only: the line as the person reads it.
+    var stateText: String?
 }
 
 /// Type HandleChangeLine of spec handle-change-line.
@@ -203,6 +209,17 @@ enum TimelineRowBuilder {
                 case .timelineStart:
                     hitStart = true
                     rows.append(TimelineRow(id: id, kind: .chatStart))
+                }
+                continue
+            }
+            // Spec timeline-rows stateLine: group lines only; consecutive membership lines fold into one row.
+            if !facts.isDm, let event = item.asEvent(), let line = StateLines.line(event) {
+                if let last = rows.last, last.kind == .stateLine, let previous = last.stateLine,
+                   let folded = StateLines.folded(line, into: previous) {
+                    rows[rows.count - 1].stateLine = folded
+                    rows[rows.count - 1].stateText = StateLines.text(folded, name: name)
+                } else {
+                    rows.append(TimelineRow(id: id, kind: .stateLine, stateLine: line, stateText: StateLines.text(line, name: name)))
                 }
                 continue
             }
@@ -433,9 +450,17 @@ enum TimelineRowBuilder {
 
     private static func message(id: String, event: EventTimelineItem, senderName: String) -> TimelineMessage {
         let sendState: TimelineMessage.SendState
+        var sendFailure: TimelineMessage.SendFailure?
         switch event.localSendState {
         case .some(.notSentYet): sendState = .sending
-        case .some(.sendingFailed): sendState = .failed
+        case .some(.sendingFailed(let error, _)):
+            sendState = .failed
+            // Spec identity-change sendAnyway.
+            switch error {
+            case .identityViolations(let users): sendFailure = .identity(users: users)
+            case .insecureDevices(let devices): sendFailure = .devices(devices)
+            default: sendFailure = nil
+            }
         case .some(.sent), .none: sendState = .sent
         }
         return TimelineMessage(id: id,
@@ -446,6 +471,7 @@ enum TimelineRowBuilder {
                                isOwn: event.isOwn,
                                sentAt: Date(milliseconds: event.timestamp),
                                sendState: event.isOwn ? sendState : .sent,
+                               sendFailure: event.isOwn ? sendFailure : nil,
                                cause: nil,
                                poll: nil)
     }

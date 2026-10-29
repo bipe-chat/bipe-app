@@ -94,6 +94,33 @@ class StickerPackClient(
         added
     }
 
+    /**
+     * Adds a sticker someone sent to the user's pack by its mxc:// URL, with no upload (bipe-chat/bipe#670).
+     * Returns false when the pack already has that image.
+     */
+    suspend fun saveToUserPack(url: String, width: Int?, height: Int?, mimeType: String?, size: Long?): Boolean = withTokenRetry { token ->
+        val path = listOf("user", userId, "account_data", StickerPackEventType.USER_PACK)
+        val content = get(path, token)
+            ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?: JsonObject(emptyMap())
+        val images = (content["images"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+        val known = images.values.any { ((it as? JsonObject)?.get("url") as? JsonPrimitive)?.content == url }
+        if (known) return@withTokenRetry false
+        images[StickerImporter.shortcode(url.toByteArray())] = buildJsonObject {
+            put("url", url)
+            put("body", "Sticker")
+            putJsonArray("usage") { add("sticker") }
+            putJsonObject("info") {
+                width?.let { put("w", it) }
+                height?.let { put("h", it) }
+                mimeType?.let { put("mimetype", it) }
+                size?.let { put("size", it) }
+            }
+        }
+        put(path, JsonObject(content + ("images" to JsonObject(images))).toString(), token)
+        true
+    }
+
     /** A sticker list in global account data ([StickerShortlist]): recents or favourites. Empty when unset. */
     suspend fun shortlist(eventType: String): List<StickerRef> = withTokenRetry { token ->
         get(listOf("user", userId, "account_data", eventType), token)?.let(StickerShortlist::parse).orEmpty()
