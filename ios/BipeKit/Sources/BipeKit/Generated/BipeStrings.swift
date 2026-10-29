@@ -4489,4 +4489,12 @@ public enum BipeStrings {
     public static func voiceSpeedLabel(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_voice_speed_label", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var roomUpgradeReplaced: String { NSLocalizedString("bipe_room_upgrade_replaced", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var roomUpgradeGo: String { NSLocalizedString("bipe_room_upgrade_go", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func roomUpgradeContinues(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_room_upgrade_continues", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }

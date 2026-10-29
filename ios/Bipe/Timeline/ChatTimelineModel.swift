@@ -168,6 +168,10 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var isEncrypted = true
     /// Spec call: a call runs in the room (RoomInfo.hasRoomCall).
     @Published private(set) var hasCall = false
+    /// Spec chat-timeline notes, upgraded groups (bipe#773): RoomInfo.successorRoom.
+    @Published private(set) var successorRoomId: String?
+    /// RoomInfo.predecessorRoom, with the old group's name.
+    @Published private(set) var predecessor: (roomId: String, name: String)?
     /// A DM or a group that needs an invite, for the show-media setting (spec timeline-media).
     @Published private(set) var isPrivateRoom = true
     @Published var draft = ""
@@ -362,6 +366,11 @@ final class ChatTimelineModel: ObservableObject {
             roomAvatarUrl = info.isDm ? peer?.avatarUrl : info.avatarUrl
             peerUserId = peer?.userId
             hasCall = info.hasRoomCall
+            successorRoomId = info.successorRoom?.roomId
+            if let old = info.predecessorRoom?.roomId, predecessor?.roomId != old {
+                let name = (try? session.client.getRoom(roomId: old))?.displayName()?.nilIfBlank
+                predecessor = (old, name ?? BipeStrings.groupCommonNoRoomName)
+            }
             await loadPeerAway(room, peer: peer?.userId)
         }
         if let state = try? await room.latestEncryptionState() {

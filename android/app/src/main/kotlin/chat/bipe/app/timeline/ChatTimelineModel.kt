@@ -224,6 +224,12 @@ class ChatTimelineModel(
     /** Spec call: the room is encrypted, and a call runs in it (RoomInfo.hasRoomCall). */
     private val _isEncrypted = MutableStateFlow(true)
     val isEncrypted: StateFlow<Boolean> = _isEncrypted.asStateFlow()
+    /** Spec chat-timeline notes, upgraded groups (bipe-chat/bipe#773): RoomInfo.successorRoom. */
+    private val _successorRoomId = MutableStateFlow<String?>(null)
+    val successorRoomId: StateFlow<String?> = _successorRoomId.asStateFlow()
+    /** RoomInfo.predecessorRoom with the old group's name (null name: no name). */
+    private val _predecessor = MutableStateFlow<Pair<String, String?>?>(null)
+    val predecessor: StateFlow<Pair<String, String?>?> = _predecessor.asStateFlow()
     private val _hasCall = MutableStateFlow(false)
     val hasCall: StateFlow<Boolean> = _hasCall.asStateFlow()
     private val _isPrivateRoom = MutableStateFlow(true)
@@ -330,6 +336,11 @@ class ChatTimelineModel(
             _roomAvatarUrl.value = if (info.isDm) peer?.avatarUrl else info.avatarUrl
             _peerUserId.value = peer?.userId
             _hasCall.value = info.hasRoomCall
+            _successorRoomId.value = info.successorRoom?.roomId
+            info.predecessorRoom?.roomId?.takeIf { it != _predecessor.value?.first }?.let { old ->
+                val name = runCatching { session.client.getRoom(old)?.displayName() }.getOrNull()?.takeIf { it.isNotBlank() }
+                _predecessor.value = old to name
+            }
             loadPeerAway(room, peer?.userId)
         }
         runCatching { room.latestEncryptionState() }.getOrNull()?.let { state ->
@@ -509,6 +520,13 @@ class ChatTimelineModel(
     fun sendGreeting(greeting: String) {
         val timeline = timeline ?: return
         scope.launch { runCatching { timeline.send(messageEventContentNew(MessageType.Text(TextMessageContent(greeting, null)))) } }
+    }
+
+    /** Joins the successor group, via the server of the old room ID when it has one. null on failure. */
+    suspend fun joinSuccessor(): String? {
+        val successor = _successorRoomId.value ?: return null
+        val servers = roomId.split(":", limit = 2).drop(1)
+        return runCatching { session.client.joinRoomByIdOrAlias(successor, servers).id() }.getOrNull()
     }
 
     /** Action retrySend: sends a failed own message again. */

@@ -49,6 +49,9 @@ struct ChatTimelineView: View {
     var body: some View {
         VStack(spacing: 0) {
             OngoingCallBar(model: model, session: session)
+            if let predecessor = model.predecessor {
+                PredecessorLine(name: predecessor.name) { openOtherChat(predecessor.roomId) }
+            }
             LiveLocationChatBar(roomId: roomId, userId: session.userId)
             if model.isDm, let people, let peer = model.peerUserId {
                 CvmStopOrderCard(seals: people.seals, userId: peer)
@@ -70,7 +73,9 @@ struct ChatTimelineView: View {
             if model.isDm, model.theftMark != nil {
                 TheftMarkBanner(name: model.roomName)
             }
-            if model.isDm, let people, let peer = model.peerUserId {
+            if model.successorRoomId != nil {
+                RoomUpgradeBar(model: model) { openOtherChat($0) }
+            } else if model.isDm, let people, let peer = model.peerUserId {
                 DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
                     leftBar
                     composerBar
