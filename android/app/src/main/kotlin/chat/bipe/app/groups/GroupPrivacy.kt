@@ -56,8 +56,8 @@ import org.matrix.rustcomponents.sdk.KnockRequest
 import org.matrix.rustcomponents.sdk.KnockRequestsListener
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.RoomHistoryVisibility
-import org.matrix.rustcomponents.sdk.StateEventType
 import org.matrix.rustcomponents.sdk.TaskHandle
+import uniffi.ruma_events.StateEventType
 
 /** Spec group-privacy (bipe-chat/bipe#772): who can join, older messages for new members, requests to join. */
 class GroupPrivacyModel(private val session: AccountSession, private val roomId: String, private val scope: CoroutineScope) {
