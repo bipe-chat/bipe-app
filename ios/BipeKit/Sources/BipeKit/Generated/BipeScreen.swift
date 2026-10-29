@@ -151,6 +151,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Messages on this phone (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json
     case encryptionStatus = "encryption-status"
 
+    /// Verify with gov.br (flow profile). Spec: bipe-shared/product/screens/govbr-verify.json
+    case govbrVerify = "govbr-verify"
+
     /// Create a group (flow groups). Spec: bipe-shared/product/screens/group-create.json
     case groupCreate = "group-create"
 

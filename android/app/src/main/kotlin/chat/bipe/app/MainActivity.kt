@@ -4,6 +4,7 @@
 
 package chat.bipe.app
 
+import chat.bipe.app.voce.GovbrInbox
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.Bundle
@@ -123,6 +124,11 @@ class MainActivity : ComponentActivity() {
 
     /** A bipe.chat/convite/<code> link (onboarding-welcome) or a bipe.chat/recuperar/#<token> link (recovery-email). */
     private fun readInviteLink(intent: Intent?) {
+        // A signed gov.br PDF shared to Bipe (spec govbr-verify receiveFile).
+        if (GovbrInbox.isPdf(intent)) {
+            GovbrInbox.receive(this, intent!!)
+            return
+        }
         if (intent?.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
         // A profile link waits in PeopleLinks until the home screen shows (spec profile-link-open).

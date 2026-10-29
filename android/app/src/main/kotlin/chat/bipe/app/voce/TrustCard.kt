@@ -41,6 +41,10 @@ import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeBusinessClaim
+import chat.bipe.shared.BadgeLevel
+import chat.bipe.shared.api.badge
+import chat.bipe.shared.api.unverifiedLevel
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -58,6 +62,8 @@ class TrustCardModel(private val session: AccountSession, private val api: BipeA
     val profile: StateFlow<BipeTrustProfile?> = _profile.asStateFlow()
     private var account: AccountSummary? = null
     private var business: BipeBusinessClaim? = null
+    /** The level of the account's own badge (GET /v1/badges), read without the signature check: only for this card. */
+    private var personBadge: BadgeLevel? = null
     private var load: Job? = null
 
     /** Rebuilds the ladder for [current]. A failed or offline call keeps the company steps "Em breve"; the card never shows an error. */
@@ -70,7 +76,22 @@ class TrustCardModel(private val session: AccountSession, private val api: BipeA
         }
         if (previous?.userId != current.userId || previous.isCompany != current.isCompany) {
             business = null
+            personBadge = null
             load?.cancel()
+            if (!current.isCompany && current.userId == session.userId) {
+                // Step 5 is done when the account's own badge is govbr (spec trust-card notes).
+                load = scope.launch {
+                    val level = try {
+                        api.badge(current.userId).unverifiedLevel
+                    } catch (_: BipeApiException) {
+                        null
+                    }
+                    if (account?.userId == current.userId) {
+                        personBadge = level
+                        recompute()
+                    }
+                }
+            }
             if (current.isCompany && current.userId == session.userId) {
                 load = scope.launch {
                     val claim = try {
@@ -96,6 +117,8 @@ class TrustCardModel(private val session: AccountSession, private val api: BipeA
             handle = current.handle,
             isCompany = current.isCompany,
             business = business,
+            personBadge = personBadge,
+            govbrEnabled = BipeRegistries.GOVBR_ENABLED,
             claimEnabled = true,
         )
     }
@@ -109,7 +132,14 @@ class TrustCardModel(private val session: AccountSession, private val api: BipeA
 }
 
 /** What the trust rows can open. [openClaim]: a company account opens business-claim (bipe-chat/bipe#249). */
-class TrustActions(val addName: () -> Unit, val addPhoto: () -> Unit, val chooseHandle: () -> Unit, val openClaim: (() -> Unit)? = null) {
+class TrustActions(
+    val addName: () -> Unit,
+    val addPhoto: () -> Unit,
+    val chooseHandle: () -> Unit,
+    val openClaim: (() -> Unit)? = null,
+    /** A personal account with the govbr step todo opens govbr-verify (bipe-chat/bipe#544). The only entry to that flow. */
+    val openGovbr: (() -> Unit)? = null,
+) {
     fun run(item: BipeTrustProfile.ProfileItem) = when (item) {
         BipeTrustProfile.ProfileItem.DISPLAY_NAME -> addName()
         BipeTrustProfile.ProfileItem.HANDLE -> chooseHandle()
@@ -175,7 +205,10 @@ fun TrustProfileScreen(profile: BipeTrustProfile, actions: TrustActions, onBack:
             val openClaim = actions.openClaim
             item(key = "trust-step-${step.id.id}") {
                 // Action openClaim: every company step opens business-claim, done or not.
+                val openGovbr = actions.openGovbr.takeIf { step.id == BipeTrustProfile.StepId.GOVBR && step.status == BipeTrustProfile.Status.TODO }
                 if (claimStep && openClaim != null) Box(Modifier.clickable(role = Role.Button, onClick = openClaim)) { TrustStepRow(index + 1, step, profile.isCompany) }
+                // Action openGovbr.
+                else if (openGovbr != null) Box(Modifier.clickable(role = Role.Button, onClick = openGovbr)) { TrustStepRow(index + 1, step, profile.isCompany) }
                 else TrustStepRow(index + 1, step, profile.isCompany)
             }
             if (step.id == BipeTrustProfile.StepId.PROFILE && step.status == BipeTrustProfile.Status.TODO) {

@@ -23,9 +23,9 @@ public final class BipeGovbrFlow: Identifiable {
     }
     
     /// The gov.br app has no documented URL scheme. Its store page shows "Abrir" when the app is installed.
-    public static let govbrAppURL = URL(string: "https://apps.apple.com/br/app/gov-br/id1506827551")!
-    /// The API's limit for the signed file.
-    static let maxDocumentBytes = 5 * 1024 * 1024
+    public static let govbrAppURL = URL(string: BipeRegistries.govbrIosStoreUrl)!
+    /// The API's limit for the signed file (registries/govbr.json).
+    static let maxDocumentBytes = BipeRegistries.govbrMaxDocumentBytes
     
     public private(set) var phase = Phase.ready
     

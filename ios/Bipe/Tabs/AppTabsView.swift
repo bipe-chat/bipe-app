@@ -15,6 +15,7 @@ struct AppTabsView: View {
     let session: AccountSession
     let api: BipeAPIClient
     let initialRoomId: String?
+    @ObservedObject private var govbrInbox = GovbrInbox.shared
     @State private var showsNewAccount = false
     /// invite-signed-in: a bipe.chat/convite link opened on this signed-in phone.
     @State private var invitedCode: InviteCode?
@@ -134,8 +135,13 @@ struct AppTabsView: View {
             AccountNewView(tabs: model, session: session, api: api, preset: newAccountStart) { showsNewAccount = false }
         }
         .onOpenURL { url in
+            // A signed gov.br PDF shared to Bipe (spec govbr-verify receiveFile).
+            if GovbrInbox.shared.receive(url) { return }
             guard let code = BipeInviteLink.code(from: url) else { return }
             invitedCode = InviteCode(code: code)
+        }
+        .alert(BipeStrings.govbrNoOpenVerification, isPresented: $govbrInbox.showsNoOpenVerification) {
+            Button(BipeStrings.appClose, role: .cancel) {}
         }
         .sheet(item: $invitedCode) { invite in
             InviteSignedInView(code: invite.code, session: session, api: api, accountsOnPhone: model.accounts.map(\.userId),

@@ -126,6 +126,14 @@ targets:
         # The texts are bipe-shared bipe_app_location_when_in_use_usage and bipe_app_location_always_usage (pt-BR).
         NSLocationWhenInUseUsageDescription: O Bipe usa sua localização quando você envia onde está numa conversa ou compartilha sua localização em tempo real.
         NSLocationAlwaysAndWhenInUseUsageDescription: Quando você compartilha sua localização em tempo real numa conversa, o Bipe continua enviando onde você está com a tela bloqueada, até o fim do tempo que você escolheu.
+        # Spec govbr-verify receiveFile (bipe-chat/bipe#544): Bipe takes the signed PDF back from the gov.br app's share
+        # sheet. The system copies the file into the app's Inbox; GovbrInbox uploads it only while a verification is open.
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: PDF
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [com.adobe.pdf]
+        LSSupportsOpeningDocumentsInPlace: false
     entitlements:
       path: SupportFiles/Bipe/Bipe.entitlements
       properties:

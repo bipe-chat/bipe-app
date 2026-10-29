@@ -809,6 +809,14 @@ public enum BipeRegistries {
     /// Cleared DMs (bipe-chat/bipe#464; registries/cleared-chats.json): the global account data event with the markers.
     public static let clearedChatsEventType = "chat.bipe.cleared_chats"
 
+    /// gov.br verification, trust step 5 (bipe-chat/bipe#544; registries/govbr.json).
+    public static let govbrEnabled = false
+    public static let govbrAndroidPackage = "br.gov.meugovbr"
+    public static let govbrPlayStoreUrl = "https://play.google.com/store/apps/details?id=br.gov.meugovbr"
+    public static let govbrIosStoreUrl = "https://apps.apple.com/br/app/gov-br/id1506827551"
+    public static let govbrMaxDocumentBytes = 5242880
+    public static let govbrFileName = "bipe-verificacao.pdf"
+
     /// Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit.
     public static let imageDescriptionField = "chat.bipe.image_description"
     public static let imageDescriptionMaxLength = 1000

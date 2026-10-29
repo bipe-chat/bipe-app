@@ -11,6 +11,8 @@ import SwiftUI
 @MainActor
 final class TrustCardModel: ObservableObject {
     @Published private(set) var business: BipeBusinessClaim?
+    /// The level of the account's own badge (GET /v1/badges), read without the signature check: only for this card.
+    @Published private(set) var personBadge: BadgeLevel?
     private var loadedUserId: String?
 
     /// Fills the company steps. A failed or offline call keeps them "Em breve"; the card never shows an error.
@@ -18,8 +20,14 @@ final class TrustCardModel: ObservableObject {
         if loadedUserId != session.userId {
             loadedUserId = session.userId
             business = nil
+            personBadge = nil
         }
-        guard isCompany else { return }
+        guard isCompany else {
+            // Step 5 is done when the account's own badge is govbr (spec trust-card notes).
+            let level = (try? await api.badge(userID: session.userId))?.unverifiedLevel
+            if loadedUserId == session.userId { personBadge = level }
+            return
+        }
         let claim = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeBusinessClaim? in
             try await api.myBusiness(accessToken: token)
         }
@@ -33,6 +41,8 @@ final class TrustCardModel: ObservableObject {
                          handle: account.handle,
                          accountType: account.isCompany ? .company : .personal,
                          business: loadedUserId == account.userId ? business : nil,
+                         personBadge: loadedUserId == account.userId ? personBadge : nil,
+                         govbrEnabled: BipeRegistries.govbrEnabled,
                          claimEnabled: true)
     }
 }
@@ -44,6 +54,8 @@ struct TrustActions {
     let chooseHandle: () -> Void
     /// Company account: opens business-claim (bipe-chat/bipe#249).
     var openClaim: (() -> Void)?
+    /// Personal account, govbr step todo: opens govbr-verify (bipe-chat/bipe#544). The only entry to that flow.
+    var openGovbr: (() -> Void)?
 
     func run(_ item: BipeTrustProfile.ProfileItem) {
         switch item {
@@ -112,6 +124,11 @@ struct TrustProfileView: View {
                     if let openClaim = actions.openClaim, profile.isCompany, [.cnpj, .proof, .domain].contains(step.id) {
                         // Action openClaim: every company step opens business-claim, done or not.
                         Button(action: openClaim) {
+                            TrustStepRow(number: index + 1, step: step, isCompany: profile.isCompany)
+                        }
+                    } else if let openGovbr = actions.openGovbr, step.id == .govbr, step.status == .todo {
+                        // Action openGovbr.
+                        Button(action: openGovbr) {
                             TrustStepRow(number: index + 1, step: step, isCompany: profile.isCompany)
                         }
                     } else {

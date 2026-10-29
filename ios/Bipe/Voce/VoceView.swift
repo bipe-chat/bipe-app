@@ -17,6 +17,8 @@ struct VoceView: View {
     @StateObject private var trust = TrustCardModel()
     private let api: BipeAPIClient
     @State private var showsHandlePick = false
+    /// Spec govbr-verify.
+    @State private var showsGovbr = false
     @State private var path = NavigationPath()
     @State private var openingNotes = false
     @State private var notesFailed = false
@@ -135,6 +137,12 @@ struct VoceView: View {
             await trust.load(session: chatList.session, api: api, isCompany: isCompany)
         }
         .sheet(isPresented: $showsHandlePick) { HandlePickView(model: handle) }
+        .sheet(isPresented: $showsGovbr, onDismiss: {
+            let isCompany = model.accounts.first(where: \.isCurrent)?.isCompany ?? false
+            Task { await trust.load(session: chatList.session, api: api, isCompany: isCompany) }
+        }) {
+            GovbrVerifyView(api: api, session: chatList.session) { showsGovbr = false }
+        }
         .fullScreenCover(isPresented: $showsLinkPhone) {
             LinkComputerView(settings: settings, mode: .phone)
         }
@@ -173,7 +181,8 @@ struct VoceView: View {
         TrustActions(addName: { path.append(PeopleRoute.profileEdit) },
                      addPhoto: { path.append(PeopleRoute.profileEdit) },
                      chooseHandle: { showsHandlePick = true },
-                     openClaim: { path.append(Destination.claim) })
+                     openClaim: { path.append(Destination.claim) },
+                     openGovbr: { showsGovbr = true })
     }
 
     private var photoPromptKey: String { "bipe.photoPrompt.dismissed.\(chatList.session.userId)" }

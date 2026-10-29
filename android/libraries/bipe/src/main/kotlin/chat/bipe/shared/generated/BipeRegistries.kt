@@ -816,6 +816,14 @@ object BipeRegistries {
     /** Cleared DMs (bipe-chat/bipe#464; registries/cleared-chats.json): the global account data event with the markers. */
     const val CLEARED_CHATS_EVENT_TYPE = "chat.bipe.cleared_chats"
 
+    /** gov.br verification, trust step 5 (bipe-chat/bipe#544; registries/govbr.json). */
+    const val GOVBR_ENABLED = false
+    const val GOVBR_ANDROID_PACKAGE = "br.gov.meugovbr"
+    const val GOVBR_PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=br.gov.meugovbr"
+    const val GOVBR_IOS_STORE_URL = "https://apps.apple.com/br/app/gov-br/id1506827551"
+    const val GOVBR_MAX_DOCUMENT_BYTES = 5242880
+    const val GOVBR_FILE_NAME = "bipe-verificacao.pdf"
+
     /** Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit. */
     const val IMAGE_DESCRIPTION_FIELD = "chat.bipe.image_description"
     const val IMAGE_DESCRIPTION_MAX_LENGTH = 1000

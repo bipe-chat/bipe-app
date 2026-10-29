@@ -5,6 +5,10 @@
   Copyright 2026 Bipe contributors
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Spec govbr-verify (bipe-chat/bipe#544): Bipe opens the gov.br app by package name (registries/govbr.json). -->
+    <queries>
+        <package android:name="br.gov.meugovbr" />
+    </queries>
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Voice messages (spec voice-recording). -->
@@ -119,6 +123,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="matrix.to" />
+            </intent-filter>
+            <!-- Spec govbr-verify receiveFile (bipe-chat/bipe#544): the signed PDF back from the gov.br app. GovbrInbox
+                 uploads it only while a verification is open. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
             </intent-filter>
         </activity>
         <!-- Spec app-colors (bipe-chat/bipe#811): one launcher entry per palette of bipe-shared appThemes, each with the

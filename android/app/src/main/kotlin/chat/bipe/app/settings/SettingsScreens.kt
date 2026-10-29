@@ -89,6 +89,7 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.app.voce.BusinessClaimScreen
+import chat.bipe.app.voce.GovbrVerifyScreen
 import chat.bipe.app.voce.TrustActions
 import chat.bipe.app.voce.TrustCardModel
 import chat.bipe.app.voce.TrustProfileScreen
@@ -134,6 +135,8 @@ sealed interface SettingsRoute {
     data object RecoveryEmail : SettingsRoute
     data object TrustProfile : SettingsRoute
     data object BusinessClaim : SettingsRoute
+    /** Spec govbr-verify, from the govbr step of trust-profile only (bipe-chat/bipe#544). */
+    data object GovbrVerify : SettingsRoute
 }
 
 /**
@@ -223,8 +226,13 @@ fun SettingsHost(
                 addPhoto = { stack.add(SettingsRoute.People(PeopleRoute.ProfileEdit)) },
                 chooseHandle = { stack.add(SettingsRoute.HandlePick) },
                 openClaim = { stack.add(SettingsRoute.BusinessClaim) },
+                openGovbr = { stack.add(SettingsRoute.GovbrVerify) },
             ), onBack = pop)
         }
+        SettingsRoute.GovbrVerify -> GovbrVerifyScreen(session, api, onClose = {
+            trust?.reload()
+            pop()
+        })
         SettingsRoute.BusinessClaim -> BusinessClaimScreen(
             session, api,
             onChange = { trust?.reload() },
