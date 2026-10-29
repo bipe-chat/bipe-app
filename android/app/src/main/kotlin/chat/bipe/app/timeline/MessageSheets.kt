@@ -163,7 +163,6 @@ internal fun actionTitle(action: MessageAction, message: TimelineMessage? = null
     MessageAction.RETRY -> if (message?.sendFailure != null) R.string.bipe_identity_change_send_anyway else R.string.bipe_app_retry
     MessageAction.REPLY -> R.string.bipe_app_message_action_reply
     MessageAction.REPLY_IN_THREAD -> R.string.bipe_thread_reply_action
-    MessageAction.EDIT -> R.string.bipe_app_message_action_edit
     MessageAction.EDIT -> when {
         message?.media == null -> R.string.bipe_app_message_action_edit
         message.media.caption.isNullOrBlank() -> R.string.bipe_caption_add

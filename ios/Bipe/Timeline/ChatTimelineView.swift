@@ -44,11 +44,9 @@ struct ChatTimelineView: View {
 
     /// threadRoot: the thread view of spec threads (bipe#667); nil for the main timeline.
     init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil,
-         threadRoot: String? = nil, openInfo: (() -> Void)? = nil) {
-        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId, threadRoot: threadRoot))
-         focusEventId: String? = nil, openInfo: (() -> Void)? = nil) {
+         focusEventId: String? = nil, threadRoot: String? = nil, openInfo: (() -> Void)? = nil) {
         self.focusEventId = focusEventId
-        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
+        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId, threadRoot: threadRoot))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
         _pinned = StateObject(wrappedValue: PinnedMessagesModel(session: session, roomId: roomId))
         _identity = StateObject(wrappedValue: IdentityChangeModel(session: session, roomId: roomId))
@@ -64,22 +62,18 @@ struct ChatTimelineView: View {
             // Spec threads notes: the thread view shows none of the chat bars.
             if model.threadRoot == nil {
                 OngoingCallBar(model: model, session: session)
+                if let predecessor = model.predecessor {
+                    PredecessorLine(name: predecessor.name) { openOtherChat(predecessor.roomId) }
+                }
+                if model.isGroup {
+                    PinnedBanner(model: pinned) { eventId in Task { await model.openOriginal(eventId: eventId) } }
+                }
                 LiveLocationChatBar(roomId: roomId, userId: session.userId)
                 if model.isDm, let people, let peer = model.peerUserId {
                     CvmStopOrderCard(seals: people.seals, userId: peer)
                 }
                 // The open bookings with the business, pinned above the timeline (ADR 0102).
                 BookingCardStack(model: business)
-            OngoingCallBar(model: model, session: session)
-            if let predecessor = model.predecessor {
-                PredecessorLine(name: predecessor.name) { openOtherChat(predecessor.roomId) }
-            }
-            if model.isGroup {
-                PinnedBanner(model: pinned) { eventId in Task { await model.openOriginal(eventId: eventId) } }
-            }
-            LiveLocationChatBar(roomId: roomId, userId: session.userId)
-            if model.isDm, let people, let peer = model.peerUserId {
-                CvmStopOrderCard(seals: people.seals, userId: peer)
             }
             rowList
                 .environment(\.bipeCompanySeals, people?.seals)
@@ -99,8 +93,6 @@ struct ChatTimelineView: View {
             if model.threadRoot == nil {
                 IdentityChangeBar(model: identity)
             }
-            if model.isDm, let people, let peer = model.peerUserId {
-            IdentityChangeBar(model: identity)
             if model.successorRoomId != nil {
                 RoomUpgradeBar(model: model) { openOtherChat($0) }
             } else if model.isDm, let people, let peer = model.peerUserId {

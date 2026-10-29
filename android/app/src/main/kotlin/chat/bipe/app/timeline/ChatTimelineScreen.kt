@@ -172,6 +172,7 @@ fun ChatTimelineScreen(
         ) {
             ChatTimelineScreen(session, media, roomId, onBack = { model.openThread(null) }, people = people, threadRoot = root)
         }
+    }
     // Spec chat-search openMessage (bipe-chat/bipe#671): scroll to the message once the first rows are in.
     LaunchedEffect(model, focusEventId) {
         val target = focusEventId ?: return@LaunchedEffect
@@ -351,15 +352,15 @@ fun ChatTimelineScreen(
                     }
                 }
                 // Spec threads notes: the thread view shows none of the chat bars.
-                if (threadRoot == null) OngoingCallBar(model, session, roomName)
-                if (threadRoot == null) LiveLocationChatBar(roomId, session.userId)
-                OngoingCallBar(model, session, roomName)
-                predecessor?.let { (old, name) ->
-                    PredecessorLine(name ?: stringResource(R.string.bipe_group_common_no_room_name)) { onOpenChat(old) }
+                if (threadRoot == null) {
+                    OngoingCallBar(model, session, roomName)
+                    predecessor?.let { (old, name) ->
+                        PredecessorLine(name ?: stringResource(R.string.bipe_group_common_no_room_name)) { onOpenChat(old) }
+                    }
+                    // Spec message-pins (bipe-chat/bipe#665): groups only.
+                    if (isGroup) PinnedBanner(session, roomId) { model.openOriginal(it) }
+                    LiveLocationChatBar(roomId, session.userId)
                 }
-                // Spec message-pins (bipe-chat/bipe#665): groups only.
-                if (isGroup) PinnedBanner(session, roomId) { model.openOriginal(it) }
-                LiveLocationChatBar(roomId, session.userId)
                 val sealInstitutions = people?.seals?.institutions?.collectAsState()
                 val cvmPeer = peerUserId
                 if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
