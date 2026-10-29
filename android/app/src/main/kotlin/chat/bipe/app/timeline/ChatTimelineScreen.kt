@@ -164,6 +164,7 @@ fun ChatTimelineScreen(
         val target = focusEventId ?: return@LaunchedEffect
         repeat(20) { if (model.rows.value.isEmpty()) kotlinx.coroutines.delay(250) }
         model.openOriginal(target)
+    }
     // Spec identity-change (bipe-chat/bipe#770).
     val identity = remember(session, roomId) { IdentityChangeModel(session, roomId, scope) }
     val identityState by identity.state.collectAsState()
