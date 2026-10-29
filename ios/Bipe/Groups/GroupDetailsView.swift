@@ -13,6 +13,7 @@ struct GroupDetailsView: View {
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var leaving = false
     @State private var openMembers = false
+    @State private var reporting = false
     @State private var toast: String?
     private let media: MediaLoader
 
@@ -146,6 +147,20 @@ struct GroupDetailsView: View {
         }
 
         Section {
+            // Spec group-details notes, report (bipe#674).
+            Button(role: .destructive) {
+                reporting = true
+            } label: {
+                Label {
+                    Text(BipeStrings.appReportGroup)
+                } icon: {
+                    PhosphorIcon.flag.image.resizable().frame(width: 20, height: 20)
+                }
+                .foregroundStyle(BipeColor.trustDangerInk)
+            }
+            .sheet(isPresented: $reporting) {
+                ReportChatView(session: model.session, groupRoomId: model.roomId) { toast = $0 }
+            }
             Button(role: .destructive) {
                 leaving = true
             } label: {

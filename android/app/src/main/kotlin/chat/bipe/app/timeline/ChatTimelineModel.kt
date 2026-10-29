@@ -80,6 +80,8 @@ data class TimelineMessage(
     val sentAt: Long,
     val sendState: SendState,
     val cause: UndecryptableCause?,
+    /** sendState FAILED only: the send queue held the message because of a member's identity (spec identity-change). */
+    val sendFailure: SendFailure? = null,
     /** Kind POLL: the data of spec poll-detail. */
     val poll: PollData? = null,
     /** Kind MEDIA: image, video, file or sticker (spec timeline-media). */
@@ -99,12 +101,21 @@ data class TimelineMessage(
 
     enum class SendState { SENT, SENDING, FAILED }
 
+    /** Spec identity-change sendAnyway. */
+    sealed interface SendFailure {
+        /** QueueWedgeError identityViolations: users that were verified and are not any more. */
+        data class Identity(val users: List<String>) : SendFailure
+
+        /** QueueWedgeError insecureDevices: user ID to device IDs. */
+        data class Devices(val devices: Map<String, List<String>>) : SendFailure
+    }
+
     /** Bipe's grouping of the SDK UtdCause (spec message-undecryptable). */
     enum class UndecryptableCause { WAITING, BEFORE_JOINED, HISTORY_NOT_ON_THIS_PHONE, NOT_SHARED_WITH_THIS_PHONE, UNAPPROVED_SENDER_DEVICE }
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, EDIT, COPY, FORWARD, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, EDIT, COPY, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -122,7 +133,7 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED }
+enum class TimelineNotice { STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED }
 
 /** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
 enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
@@ -517,10 +528,23 @@ class ChatTimelineModel(
         scope.launch { runCatching { timeline.send(messageEventContentNew(MessageType.Text(TextMessageContent(greeting, null)))) } }
     }
 
-    /** Action retrySend: sends a failed own message again. */
+    /**
+     * Action retrySend: sends a failed own message again. A message held for an identity change is sent anyway
+     * (spec identity-change sendAnyway).
+     */
     fun retrySend(id: String) {
         val sendHandle = item(id)?.asEvent()?.lazyProvider?.getSendHandle() ?: return
-        scope.launch { runCatching { sendHandle.tryResend() } }
+        val failure = row(id)?.message?.sendFailure
+        val room = room
+        scope.launch {
+            runCatching {
+                when (failure) {
+                    is TimelineMessage.SendFailure.Identity -> room?.withdrawVerificationAndResend(failure.users, sendHandle)
+                    is TimelineMessage.SendFailure.Devices -> room?.ignoreDeviceTrustAndResend(failure.devices, sendHandle)
+                    null -> sendHandle.tryResend()
+                }
+            }
+        }
     }
 
     /** Action cancelUpload of spec timeline-media: cancels the send of own media and removes the row. */
@@ -578,6 +602,8 @@ class ChatTimelineModel(
                 MessageAction.COPY -> !message.body.isNullOrBlank()
                 // Spec message-forward notes: sent messages of kind message; no stickers or polls.
                 MessageAction.FORWARD -> isSent && forwardContent(row.id) != null
+                // Spec message-actions notes (bipe-chat/bipe#670): every sent sticker.
+                MessageAction.SAVE_STICKER -> isSent && message.media?.kind == chat.bipe.app.media.MediaMessage.Kind.STICKER
                 // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
                 MessageAction.KEEP_AUDIO -> keepable(message, isSent) && message.voice!!.source.url !in kept()
                 MessageAction.UNKEEP_AUDIO -> message.voice?.source?.url?.let { it in kept() } ?: false
@@ -642,6 +668,15 @@ class ChatTimelineModel(
                 }
             }
             MessageAction.FORWARD -> _ui.update { it.copy(forwardingRowId = rowId) }
+            MessageAction.SAVE_STICKER -> {
+                val sticker = current.message?.media ?: return
+                val packClient = chat.bipe.app.media.stickers.stickerPackClient(session.client) ?: return
+                scope.launch {
+                    runCatching { packClient.saveToUserPack(sticker.source.url, sticker.width, sticker.height, sticker.mimeType, sticker.size) }
+                        .onSuccess { show(TimelineNotice.STICKER_SAVED) }
+                        .onFailure { show(TimelineNotice.STICKER_SAVE_FAILED) }
+                }
+            }
             MessageAction.RETRY -> retrySend(rowId)
             MessageAction.DELETE -> askDelete(rowId)
             MessageAction.REPORT -> openReport(rowId)
