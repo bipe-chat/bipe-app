@@ -61,8 +61,7 @@ import java.text.NumberFormat
 import kotlinx.coroutines.launch
 
 /** The screens behind group-details. */
-private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, GALLERY }
-private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, REPORT }
+private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, GALLERY, REPORT }
 
 /** Spec group-details, with group-members, group-invite-members, chat-notifications and group-leave behind it. */
 @Composable
