@@ -552,7 +552,6 @@ class ChatTimelineModel(
         return runCatching { session.client.joinRoomByIdOrAlias(successor, servers).id() }.getOrNull()
     }
 
-    /** Action retrySend: sends a failed own message again. */
     /**
      * Action retrySend: sends a failed own message again. A message held for an identity change is sent anyway
      * (spec identity-change sendAnyway).
