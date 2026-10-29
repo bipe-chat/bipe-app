@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -208,7 +209,16 @@ fun BlockedListScreen(people: PeopleService, openPerson: (String) -> Unit, onBac
  * same step the user can block the person (DM), delete the DM, or leave the group.
  */
 @Composable
-fun ReportChatScreen(people: PeopleService, roomId: String, isDm: Boolean, otherUserId: String?, onSent: (String) -> Unit, onBack: () -> Unit) {
+fun ReportChatScreen(
+    session: AccountSession,
+    /** DM only: block and the dm-delete write. null for a group from group-details (bipe-chat/bipe#674). */
+    people: PeopleService?,
+    roomId: String,
+    isDm: Boolean,
+    otherUserId: String?,
+    onSent: (String) -> Unit,
+    onBack: () -> Unit,
+) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -222,7 +232,7 @@ fun ReportChatScreen(people: PeopleService, roomId: String, isDm: Boolean, other
 
     // Action send: Room.reportRoom, then in order block, the dm-delete write and leave. A failed follow-up does not undo the report.
     fun send() {
-        val room = runCatching { people.session.client.getRoom(roomId) }.getOrNull()
+        val room = runCatching { session.client.getRoom(roomId) }.getOrNull()
         if (room == null) {
             failed = true
             return
@@ -236,8 +246,8 @@ fun ReportChatScreen(people: PeopleService, roomId: String, isDm: Boolean, other
                 return@launch
             }
             if (isDm) {
-                if (alsoBlock && otherUserId != null) runCatching { people.block(otherUserId) }
-                if (alsoDelete) runCatching { people.clearDm(roomId) }
+                if (alsoBlock && otherUserId != null) runCatching { people?.block(otherUserId) }
+                if (alsoDelete) runCatching { people?.clearDm(roomId) }
             } else if (alsoLeave && runCatching { room.leave() }.isFailure) {
                 sending = false
                 leaveFailed = true
