@@ -37,7 +37,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -141,10 +140,9 @@ private fun PollOptionLine(option: PollData.Option, total: Int?) {
 fun PollCreateScreen(timeline: ChatTimelineModel, editing: PollData? = null, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
-    // Edit mode (bipe-chat/bipe#669): filled with the poll.
     var question by remember { mutableStateOf(editing?.question.orEmpty()) }
-    val options = remember { editing?.options?.map { it.text }?.toMutableStateList() ?: mutableStateListOf("", "") }
-    var hideResults by remember { mutableStateOf(editing?.hidesResults ?: false) }
+    val options = remember { editing.draftOptions().toMutableStateList() }
+    var hideResults by remember { mutableStateOf(editing?.hidesResults == true) }
     var sending by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
     val filled = options.map { it.trim() }.filter { it.isNotEmpty() }
@@ -169,13 +167,7 @@ fun PollCreateScreen(timeline: ChatTimelineModel, editing: PollData? = null, onC
                             sending = true
                             failed = false
                             scope.launch {
-                                runCatching {
-                                    if (editing != null) {
-                                        model.editBipePoll(editing.eventId, question.trim(), filled, hideResults)
-                                    } else {
-                                        model.createBipePoll(question.trim(), filled, hideResults)
-                                    }
-                                }
+                                runCatching { model.sendBipePoll(editing?.eventId, question.trim(), filled, hideResults) }
                                     .onSuccess { onClose() }
                                     .onFailure { failed = true }
                                 sending = false

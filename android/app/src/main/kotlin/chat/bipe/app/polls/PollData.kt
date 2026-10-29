@@ -75,10 +75,17 @@ data class PollData(
     }
 }
 
-/** Spec poll-create edit (bipe-chat/bipe#669): the whole poll again, for an open poll with no vote. */
-suspend fun Timeline.editBipePoll(eventId: String, question: String, answers: List<String>, hideResults: Boolean) {
+/** Spec poll-create edit (bipe-chat/bipe#669): the options of the poll in edit mode, else two empty ones. */
+fun PollData?.draftOptions(): List<String> = this?.options?.map { it.text } ?: listOf("", "")
+
+/**
+ * Spec poll-create, action send. With [editEventId] (an open poll with no vote, bipe-chat/bipe#669)
+ * the whole poll goes again as an edit.
+ */
+suspend fun Timeline.sendBipePoll(editEventId: String?, question: String, answers: List<String>, hideResults: Boolean) {
+    if (editEventId == null) return createBipePoll(question, answers, hideResults)
     val poll = org.matrix.rustcomponents.sdk.PollData(question, answers, 1u, if (hideResults) PollKind.UNDISCLOSED else PollKind.DISCLOSED)
-    edit(EventOrTransactionId.EventId(eventId), EditedContent.PollStart(poll))
+    edit(EventOrTransactionId.EventId(editEventId), EditedContent.PollStart(poll))
 }
 
 /** Spec poll-create, action send. */
