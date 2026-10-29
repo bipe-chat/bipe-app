@@ -290,6 +290,9 @@ enum TimelineRowBuilder {
                     canDelete: event.isOwn ? (facts.canRedactOwn || !isSent) : (!facts.isDm && facts.canRedactOther),
                     threadReplies: content.threadSummary.map { Int($0.numReplies()) }.flatMap { $0 > 0 ? $0 : nil },
                     inThread: content.threadRoot != nil
+                    // Captions of own photos, videos and files are editable too (bipe#668).
+                    canEdit: event.isEditable && (message.kind == .text || (message.media.map { $0.kind != .sticker } ?? false)),
+                    canDelete: event.isOwn ? (facts.canRedactOwn || !isSent) : (!facts.isDm && facts.canRedactOther)
                 )
                 rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
             case .unableToDecrypt(let encrypted):
