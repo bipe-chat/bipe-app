@@ -337,7 +337,7 @@ class ChatTimelineModel(
             _peerUserId.value = peer?.userId
             _hasCall.value = info.hasRoomCall
             _successorRoomId.value = info.successorRoom?.roomId
-            info.predecessorRoom?.roomId?.takeIf { it != _predecessor.value?.first }?.let { old ->
+            room.predecessorRoom()?.roomId?.takeIf { it != _predecessor.value?.first }?.let { old ->
                 val name = runCatching { session.client.getRoom(old)?.displayName() }.getOrNull()?.takeIf { it.isNotBlank() }
                 _predecessor.value = old to name
             }

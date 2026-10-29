@@ -367,7 +367,7 @@ final class ChatTimelineModel: ObservableObject {
             peerUserId = peer?.userId
             hasCall = info.hasRoomCall
             successorRoomId = info.successorRoom?.roomId
-            if let old = info.predecessorRoom?.roomId, predecessor?.roomId != old {
+            if let old = room.predecessorRoom()?.roomId, predecessor?.roomId != old {
                 let name = (try? session.client.getRoom(roomId: old))?.displayName()?.nilIfBlank
                 predecessor = (old, name ?? BipeStrings.groupCommonNoRoomName)
             }
