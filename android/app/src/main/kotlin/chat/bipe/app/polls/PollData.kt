@@ -81,7 +81,7 @@ suspend fun Timeline.editBipePoll(eventId: String, question: String, answers: Li
     edit(EventOrTransactionId.EventId(eventId), EditedContent.PollStart(poll))
 }
 
-/** Spec poll-create, action send.
+/** Spec poll-create, action send. */
 suspend fun Timeline.createBipePoll(question: String, answers: List<String>, hideResults: Boolean) {
     createPoll(question, answers, 1u, if (hideResults) PollKind.UNDISCLOSED else PollKind.DISCLOSED)
 }

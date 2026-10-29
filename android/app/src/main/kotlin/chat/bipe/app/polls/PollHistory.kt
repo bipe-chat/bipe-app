@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.DateDividerMode
 import org.matrix.rustcomponents.sdk.EventOrTransactionId
 import org.matrix.rustcomponents.sdk.FilterTimelineEventType
-import org.matrix.rustcomponents.sdk.MessageLikeEventType
+import uniffi.ruma_events.MessageLikeEventType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.TaskHandle
 import org.matrix.rustcomponents.sdk.Timeline
