@@ -75,6 +75,12 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
     val colors = BipeTheme.colors
     val accountName = remember(session) { AccountList(context).name(session.userId) ?: session.userId }
     var showsWorkHours by rememberSaveable { mutableStateOf(false) }
+    var showsCheckup by rememberSaveable { mutableStateOf(false) }
+    if (showsCheckup) {
+        BackHandler { showsCheckup = false }
+        NotificationCheckupScreen(session.userId, onBack = { showsCheckup = false })
+        return
+    }
     if (showsWorkHours) {
         BackHandler { showsWorkHours = false }
         WorkHoursScreen(session, api, app.notifications, onSaved = model::workHoursSaved, onBack = { showsWorkHours = false })
@@ -106,6 +112,13 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
                     }
                 }
             }
+            // Spec notification-checkup (bipe-chat/bipe#823): Android only, under the phone card.
+            Text(
+                stringResource(R.string.bipe_app_notification_checkup_title),
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.inkPrimary,
+                modifier = Modifier.fillMaxWidth().clickable { showsCheckup = true }.padding(horizontal = 16.dp, vertical = 12.dp),
+            )
             SectionTitle(stringResource(R.string.bipe_notifications_notify_about))
             // ADR 0141: no mentions mode in a DM. An older mentions rule still shows until changed.
             val chatOptions = if (state.chatsMode == NotificationMode.MENTIONS) NotificationMode.entries else listOf(NotificationMode.ALL, NotificationMode.OFF)
