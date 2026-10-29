@@ -244,6 +244,9 @@ enum class BipeScreen(val id: String) {
     /** Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json */
     MESSAGE_UNDECRYPTABLE("message-undecryptable"),
 
+    /** Notification checkup (flow settings). Spec: bipe-shared/product/screens/notification-checkup.json */
+    NOTIFICATION_CHECKUP("notification-checkup"),
+
     /** Notification on the phone (flow notifications). Spec: bipe-shared/product/screens/notification-service.json */
     NOTIFICATION_SERVICE("notification-service"),
 
