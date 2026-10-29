@@ -50,6 +50,8 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.DateDividerMode
 import org.matrix.rustcomponents.sdk.EditedContent
 import org.matrix.rustcomponents.sdk.MessageType
+import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.TimelineItemContent
 import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.TaskHandle
@@ -102,7 +104,7 @@ data class TimelineMessage(
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, EDIT, COPY, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, EDIT, COPY, FORWARD, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -120,7 +122,7 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED }
+enum class TimelineNotice { COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED }
 
 /** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
 enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
@@ -149,6 +151,10 @@ data class TimelineInteractions(
     // typing-indicator
     val typingNames: List<String> = emptyList(),
     val notice: TimelineNotice? = null,
+    /** The placeholder of [notice]: the chat names of FORWARD_FAILED. */
+    val noticeArg: String? = null,
+    // message-forward: the message the picker is open for.
+    val forwardingRowId: String? = null,
 )
 
 /** State of spec composer that the timeline does not hold already (text is the draft). */
@@ -570,6 +576,8 @@ class ChatTimelineModel(
                 MessageAction.EDIT -> details.canEdit
                 // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
                 MessageAction.COPY -> !message.body.isNullOrBlank()
+                // Spec message-forward notes: sent messages of kind message; no stickers or polls.
+                MessageAction.FORWARD -> isSent && forwardContent(row.id) != null
                 // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
                 MessageAction.KEEP_AUDIO -> keepable(message, isSent) && message.voice!!.source.url !in kept()
                 MessageAction.UNKEEP_AUDIO -> message.voice?.source?.url?.let { it in kept() } ?: false
@@ -633,6 +641,7 @@ class ChatTimelineModel(
                     }
                 }
             }
+            MessageAction.FORWARD -> _ui.update { it.copy(forwardingRowId = rowId) }
             MessageAction.RETRY -> retrySend(rowId)
             MessageAction.DELETE -> askDelete(rowId)
             MessageAction.REPORT -> openReport(rowId)
@@ -1027,8 +1036,26 @@ class ChatTimelineModel(
         }
     }
 
-    private fun show(notice: TimelineNotice) {
-        _ui.update { it.copy(notice = notice) }
+    // message-forward
+
+    /** The original message type of a row, sent again as it is (spec message-forward send). */
+    fun forwardContent(rowId: String): MessageType? {
+        val content = item(rowId)?.asEvent()?.content as? TimelineItemContent.MsgLike ?: return null
+        return (content.content.kind as? MsgLikeKind.Message)?.content?.msgType
+    }
+
+    /** The picker closed: null when cancelled, else the names of the chats that failed. */
+    fun forwardClosed(failed: List<String>?) {
+        _ui.update { it.copy(forwardingRowId = null) }
+        when {
+            failed == null -> Unit
+            failed.isEmpty() -> show(TimelineNotice.FORWARDED)
+            else -> show(TimelineNotice.FORWARD_FAILED, failed.joinToString(", "))
+        }
+    }
+
+    private fun show(notice: TimelineNotice, arg: String? = null) {
+        _ui.update { it.copy(notice = notice, noticeArg = arg) }
         noticeJob?.cancel()
         noticeJob = scope.launch {
             delay(2000)

@@ -4481,4 +4481,18 @@ public enum BipeStrings {
     public static var appNotificationCheckupHelpMotorola: String { NSLocalizedString("bipe_app_notification_checkup_help_motorola", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appNotificationCheckupOpenAppSettings: String { NSLocalizedString("bipe_app_notification_checkup_open_app_settings", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var forwardAction: String { NSLocalizedString("bipe_forward_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var forwardTitle: String { NSLocalizedString("bipe_forward_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func forwardLimit(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_forward_limit", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var forwardDone: String { NSLocalizedString("bipe_forward_done", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func forwardFailed(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_forward_failed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }
