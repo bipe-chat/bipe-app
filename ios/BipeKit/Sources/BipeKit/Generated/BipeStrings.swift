@@ -4481,4 +4481,12 @@ public enum BipeStrings {
     public static var appNotificationCheckupHelpMotorola: String { NSLocalizedString("bipe_app_notification_checkup_help_motorola", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appNotificationCheckupOpenAppSettings: String { NSLocalizedString("bipe_app_notification_checkup_open_app_settings", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMembersBanned: String { NSLocalizedString("bipe_app_group_members_banned", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMemberUnban: String { NSLocalizedString("bipe_app_group_member_unban", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appGroupMemberUnbanBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_group_member_unban_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }
