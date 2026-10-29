@@ -117,6 +117,18 @@ struct VoiceMessageRow: View {
             Text(voice.durationLabel)
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(BipeColor.inkSecondary)
+
+            // Action cycleSpeed (bipe#824).
+            Button {
+                player.cycleSpeed()
+            } label: {
+                Text(BipeStrings.voiceSpeed(player.speed.label))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(BipeColor.accentInk)
+                    .bipeTapTarget()
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(BipeStrings.voiceSpeedLabel(player.speed.label))
         }
     }
 
