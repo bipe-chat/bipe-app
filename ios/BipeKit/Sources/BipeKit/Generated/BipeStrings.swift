@@ -4523,4 +4523,14 @@ public enum BipeStrings {
     public static func forwardFailed(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_forward_failed", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var galleryTitle: String { NSLocalizedString("bipe_gallery_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var galleryMedia: String { NSLocalizedString("bipe_gallery_media", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var galleryFiles: String { NSLocalizedString("bipe_gallery_files", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var galleryEmptyMedia: String { NSLocalizedString("bipe_gallery_empty_media", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var galleryEmptyFiles: String { NSLocalizedString("bipe_gallery_empty_files", tableName: "Bipe", bundle: .module, comment: "") }
 }

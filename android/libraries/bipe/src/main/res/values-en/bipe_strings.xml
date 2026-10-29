@@ -1961,4 +1961,9 @@
     <string name="bipe_forward_limit">Pick up to %1$s chats.</string>
     <string name="bipe_forward_done">Message forwarded</string>
     <string name="bipe_forward_failed">Could not forward to %1$s.</string>
+    <string name="bipe_gallery_title">Media and files</string>
+    <string name="bipe_gallery_media">Media</string>
+    <string name="bipe_gallery_files">Files</string>
+    <string name="bipe_gallery_empty_media">No photos or videos in this chat yet.</string>
+    <string name="bipe_gallery_empty_files">No files in this chat yet.</string>
 </resources>

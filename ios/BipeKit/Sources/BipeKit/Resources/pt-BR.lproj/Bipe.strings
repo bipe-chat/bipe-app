@@ -1959,3 +1959,8 @@
 "bipe_forward_limit" = "Escolha até %1$@ conversas.";
 "bipe_forward_done" = "Mensagem encaminhada";
 "bipe_forward_failed" = "Não deu para encaminhar para %1$@.";
+"bipe_gallery_title" = "Mídia e arquivos";
+"bipe_gallery_media" = "Mídia";
+"bipe_gallery_files" = "Arquivos";
+"bipe_gallery_empty_media" = "Nenhuma foto ou vídeo nesta conversa ainda.";
+"bipe_gallery_empty_files" = "Nenhum arquivo nesta conversa ainda.";

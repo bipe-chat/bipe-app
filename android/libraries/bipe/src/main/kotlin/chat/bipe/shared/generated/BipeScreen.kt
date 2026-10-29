@@ -109,6 +109,9 @@ enum class BipeScreen(val id: String) {
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 
+    /** Media and files of a chat (flow chat). Spec: bipe-shared/product/screens/chat-media-gallery.json */
+    CHAT_MEDIA_GALLERY("chat-media-gallery"),
+
     /** Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json */
     CHAT_NOTIFICATIONS("chat-notifications"),
 

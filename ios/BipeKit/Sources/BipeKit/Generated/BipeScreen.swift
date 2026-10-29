@@ -103,6 +103,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json
     case chatList = "chat-list"
 
+    /// Media and files of a chat (flow chat). Spec: bipe-shared/product/screens/chat-media-gallery.json
+    case chatMediaGallery = "chat-media-gallery"
+
     /// Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json
     case chatNotifications = "chat-notifications"
 
