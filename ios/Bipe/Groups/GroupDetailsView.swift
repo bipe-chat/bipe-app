@@ -144,6 +144,12 @@ struct GroupDetailsView: View {
             .sheet(isPresented: $showsGallery) {
                 ChatMediaGalleryView(session: model.session, media: media, roomId: model.roomId)
             }
+            // Spec poll-history (bipe#669).
+            NavigationLink {
+                PollHistoryView(session: model.session, roomId: model.roomId)
+            } label: {
+                row(icon: .chartBar, title: BipeStrings.pollHistory, chevron: false)
+            }
             NavigationLink {
                 ChatNotificationsView(session: model.session, roomId: model.roomId)
             } label: {

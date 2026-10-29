@@ -4567,4 +4567,14 @@ public enum BipeStrings {
     public static var pinnedListTitle: String { NSLocalizedString("bipe_pinned_list_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var pinnedViewAll: String { NSLocalizedString("bipe_pinned_view_all", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pollEdit: String { NSLocalizedString("bipe_poll_edit", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pollHistory: String { NSLocalizedString("bipe_poll_history", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pollHistoryEmpty: String { NSLocalizedString("bipe_poll_history_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pollStateOpen: String { NSLocalizedString("bipe_poll_state_open", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pollStateEnded: String { NSLocalizedString("bipe_poll_state_ended", tableName: "Bipe", bundle: .module, comment: "") }
 }
