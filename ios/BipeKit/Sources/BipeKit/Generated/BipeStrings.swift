@@ -4489,4 +4489,8 @@ public enum BipeStrings {
     public static func voiceSpeedLabel(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_voice_speed_label", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var chatsMediaQualityStandard: String { NSLocalizedString("bipe_chats_media_quality_standard", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsMediaQualityHigh: String { NSLocalizedString("bipe_chats_media_quality_high", tableName: "Bipe", bundle: .module, comment: "") }
 }
