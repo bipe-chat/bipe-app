@@ -111,6 +111,7 @@ import chat.bipe.app.location.LiveLocationChatBar
 import chat.bipe.app.location.LocationFullScreen
 import chat.bipe.app.location.LocationSendScreen
 import chat.bipe.app.polls.PollCreateScreen
+import chat.bipe.app.polls.PollData
 import chat.bipe.app.polls.PollDetailScreen
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
@@ -237,8 +238,14 @@ fun ChatTimelineScreen(
         LocationSendScreen(model, session, request.replyToEventId) { locationSend = null }
         return
     }
+    // Poll edit (bipe-chat/bipe#669): over the poll detail, which shows again on close.
+    var editingPoll by remember { mutableStateOf<PollData?>(null) }
+    editingPoll?.let { poll ->
+        PollCreateScreen(model, poll) { editingPoll = null }
+        return
+    }
     openPollId?.let { eventId ->
-        PollDetailScreen(session, model, eventId) { openPollId = null }
+        PollDetailScreen(session, model, eventId, onEdit = { editingPoll = it }) { openPollId = null }
         return
     }
 

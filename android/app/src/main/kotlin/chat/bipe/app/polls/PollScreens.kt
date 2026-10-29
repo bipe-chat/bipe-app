@@ -232,18 +232,13 @@ fun PollCreateScreen(timeline: ChatTimelineModel, editing: PollData? = null, onC
 
 /** Spec poll-detail. Follows the timeline, so new votes show live. */
 @Composable
-fun PollDetailScreen(session: AccountSession, timeline: ChatTimelineModel, eventId: String, onClose: () -> Unit) {
+fun PollDetailScreen(session: AccountSession, timeline: ChatTimelineModel, eventId: String, onEdit: (PollData) -> Unit, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val messages by timeline.messages.collectAsState()
     val poll = messages.firstOrNull { it.poll?.eventId == eventId }?.poll
     var confirmingEnd by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<PollData?>(null) }
-    editing?.let { current ->
-        PollCreateScreen(timeline, current) { editing = null }
-        return
-    }
     val voteError = stringResource(R.string.bipe_app_poll_vote_error)
     val endedText = stringResource(R.string.bipe_app_poll_ended_text)
     // Voters show by name (Person.displayName).
@@ -300,7 +295,7 @@ fun PollDetailScreen(session: AccountSession, timeline: ChatTimelineModel, event
                     GroupFooter(stringResource(R.string.bipe_app_poll_votes, NumberFormat.getIntegerInstance().format(it)))
                 }
                 if (poll.canEdit) {
-                    TextButton(onClick = { editing = poll }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                    TextButton(onClick = { onEdit(poll) }, modifier = Modifier.padding(horizontal = 8.dp)) {
                         Text(stringResource(R.string.bipe_poll_edit))
                     }
                 }
