@@ -1973,3 +1973,9 @@
 "bipe_caption_add" = "Add caption";
 "bipe_caption_edit" = "Edit caption";
 "bipe_caption_remove" = "Remove caption";
+"bipe_pin_action" = "Pin";
+"bipe_unpin_action" = "Unpin";
+"bipe_pinned_banner_title" = "Pinned message";
+"bipe_pinned_banner_count" = "Pinned %1$@ of %2$@";
+"bipe_pinned_list_title" = "Pinned messages";
+"bipe_pinned_view_all" = "View all";

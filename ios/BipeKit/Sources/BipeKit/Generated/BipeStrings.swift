@@ -4553,4 +4553,18 @@ public enum BipeStrings {
     public static var captionEdit: String { NSLocalizedString("bipe_caption_edit", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var captionRemove: String { NSLocalizedString("bipe_caption_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pinAction: String { NSLocalizedString("bipe_pin_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var unpinAction: String { NSLocalizedString("bipe_unpin_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pinnedBannerTitle: String { NSLocalizedString("bipe_pinned_banner_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func pinnedBannerCount(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_pinned_banner_count", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var pinnedListTitle: String { NSLocalizedString("bipe_pinned_list_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pinnedViewAll: String { NSLocalizedString("bipe_pinned_view_all", tableName: "Bipe", bundle: .module, comment: "") }
 }

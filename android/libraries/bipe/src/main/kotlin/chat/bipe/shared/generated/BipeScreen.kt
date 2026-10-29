@@ -241,6 +241,9 @@ enum class BipeScreen(val id: String) {
     /** Forward a message (flow chat). Spec: bipe-shared/product/screens/message-forward.json */
     MESSAGE_FORWARD("message-forward"),
 
+    /** Pinned messages (flow chat). Spec: bipe-shared/product/screens/message-pins.json */
+    MESSAGE_PINS("message-pins"),
+
     /** Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json */
     MESSAGE_REACTIONS("message-reactions"),
 

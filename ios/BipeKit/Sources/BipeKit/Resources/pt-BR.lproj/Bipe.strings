@@ -1973,3 +1973,9 @@
 "bipe_caption_add" = "Adicionar legenda";
 "bipe_caption_edit" = "Editar legenda";
 "bipe_caption_remove" = "Remover legenda";
+"bipe_pin_action" = "Fixar";
+"bipe_unpin_action" = "Desafixar";
+"bipe_pinned_banner_title" = "Mensagem fixada";
+"bipe_pinned_banner_count" = "Fixada %1$@ de %2$@";
+"bipe_pinned_list_title" = "Mensagens fixadas";
+"bipe_pinned_view_all" = "Ver todas";

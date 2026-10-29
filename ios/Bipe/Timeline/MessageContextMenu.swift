@@ -40,6 +40,8 @@ extension MessageAction {
         case .edit: BipeStrings.appMessageActionEdit
         case .removeCaption: BipeStrings.captionRemove
         case .copy: BipeStrings.appCopy
+        case .pin: BipeStrings.pinAction
+        case .unpin: BipeStrings.unpinAction
         case .forward: BipeStrings.forwardAction
         case .saveSticker: BipeStrings.actionSaveSticker
         case .keepAudio: BipeStrings.voiceKeep
@@ -56,6 +58,7 @@ extension MessageAction {
         case .edit: .pencilSimple
         case .removeCaption: .x
         case .copy: .copy
+        case .pin, .unpin: .chatText
         case .forward: .paperPlaneRight
         case .saveSticker: .sticker
         case .keepAudio: .downloadSimple
@@ -73,6 +76,8 @@ extension MessageAction {
         case .edit: "pencil"
         case .removeCaption: "text.badge.minus"
         case .copy: "doc.on.doc"
+        case .pin: "pin"
+        case .unpin: "pin.slash"
         case .forward: "arrowshape.turn.up.right"
         case .saveSticker: "square.and.arrow.down"
         case .keepAudio: "bookmark"

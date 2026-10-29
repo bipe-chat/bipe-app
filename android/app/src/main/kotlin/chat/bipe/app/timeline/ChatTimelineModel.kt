@@ -115,7 +115,7 @@ data class TimelineMessage(
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, EDIT, REMOVE_CAPTION, COPY, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, EDIT, REMOVE_CAPTION, COPY, PIN, UNPIN, FORWARD, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -133,7 +133,7 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED }
+enum class TimelineNotice { PIN_FAILED, STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED }
 
 /** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
 enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
@@ -241,6 +241,10 @@ class ChatTimelineModel(
     /** Spec call: the room is encrypted, and a call runs in it (RoomInfo.hasRoomCall). */
     private val _isEncrypted = MutableStateFlow(true)
     val isEncrypted: StateFlow<Boolean> = _isEncrypted.asStateFlow()
+    /** Spec message-pins (bipe-chat/bipe#665): RoomPowerLevels.canOwnUserPinUnpin, groups only. */
+    private var canPin = false
+    /** RoomInfo.pinnedEventIds. */
+    private var pinnedEventIds: Set<String> = emptySet()
     private val _hasCall = MutableStateFlow(false)
     val hasCall: StateFlow<Boolean> = _hasCall.asStateFlow()
     private val _isPrivateRoom = MutableStateFlow(true)
@@ -347,6 +351,7 @@ class ChatTimelineModel(
             _roomAvatarUrl.value = if (info.isDm) peer?.avatarUrl else info.avatarUrl
             _peerUserId.value = peer?.userId
             _hasCall.value = info.hasRoomCall
+            pinnedEventIds = info.pinnedEventIds.toSet()
             loadPeerAway(room, peer?.userId)
         }
         runCatching { room.latestEncryptionState() }.getOrNull()?.let { state ->
@@ -354,6 +359,7 @@ class ChatTimelineModel(
         }
         runCatching { room.getPowerLevels() }.getOrNull()?.let { powerLevels ->
             facts = facts.copy(canRedactOwn = powerLevels.canOwnUserRedactOwn(), canRedactOther = powerLevels.canOwnUserRedactOther())
+            canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
             _composer.update {
                 it.copy(
                     canPost = powerLevels.canOwnUserSendMessage(MessageLikeEventType.RoomMessage),
@@ -602,6 +608,9 @@ class ChatTimelineModel(
                 MessageAction.REMOVE_CAPTION -> details.canEdit && !message.media?.caption.isNullOrBlank()
                 // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
                 MessageAction.COPY -> !message.body.isNullOrBlank()
+                // Spec message-pins: groups only, sent messages.
+                MessageAction.PIN -> canPin && isSent && details.eventId !in pinnedEventIds
+                MessageAction.UNPIN -> canPin && isSent && details.eventId in pinnedEventIds
                 // Spec message-forward notes: sent messages of kind message; no stickers or polls.
                 MessageAction.FORWARD -> isSent && forwardContent(row.id) != null
                 // Spec message-actions notes (bipe-chat/bipe#670): every sent sticker.
@@ -668,6 +677,14 @@ class ChatTimelineModel(
                         VoiceMediaStore.KeepResult.LIMIT -> show(TimelineNotice.KEEP_LIMIT)
                         VoiceMediaStore.KeepResult.FAILED -> show(TimelineNotice.KEEP_FAILED)
                     }
+                }
+            }
+            MessageAction.PIN, MessageAction.UNPIN -> {
+                val timeline = timeline ?: return
+                val eventId = current.details?.eventId ?: return
+                scope.launch {
+                    runCatching { if (action == MessageAction.PIN) timeline.pinEvent(eventId) else timeline.unpinEvent(eventId) }
+                        .onFailure { show(TimelineNotice.PIN_FAILED) }
                 }
             }
             MessageAction.FORWARD -> _ui.update { it.copy(forwardingRowId = rowId) }

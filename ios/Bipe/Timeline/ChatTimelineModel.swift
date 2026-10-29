@@ -81,6 +81,8 @@ enum MessageAction: CaseIterable, Identifiable {
     case edit
     case removeCaption
     case copy
+    case pin
+    case unpin
     case forward
     case saveSticker
     case keepAudio
@@ -115,6 +117,7 @@ enum TimelineNotice: Equatable {
     case copied
     case reactionFailed
     case editFailed
+    case pinFailed
     case deleteFailed
     case reported
     case inviteAgainFailed
@@ -136,6 +139,7 @@ enum TimelineNotice: Equatable {
         case .keepFailed: BipeStrings.errorGeneric
         case .reactionFailed: BipeStrings.appReactionFailed
         case .editFailed: BipeStrings.appMessageEditFailed
+        case .pinFailed: BipeStrings.errorGeneric
         case .deleteFailed: BipeStrings.appMessageDeleteFailed
         case .reported: BipeStrings.appMessageReported
         case .inviteAgainFailed: BipeStrings.dmInviteAgainFailed
@@ -203,6 +207,10 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var canPost = true
     /// The poll row of attachment-picker. Never in a DM (ADR 0192).
     @Published private(set) var canPoll = true
+    /// Spec message-pins (bipe#665): RoomPowerLevels.canOwnUserPinUnpin, groups only.
+    @Published private(set) var canPin = false
+    /// RoomInfo.pinnedEventIds.
+    @Published private(set) var pinnedEventIds: Set<String> = []
     private let mentionDirectory = MentionDirectory()
     /// signup-done: the inviter while this chat has no first message (ADR 0034).
     @Published private(set) var inviterHint: BipeInviterGreeting?
@@ -385,6 +393,7 @@ final class ChatTimelineModel: ObservableObject {
             roomAvatarUrl = info.isDm ? peer?.avatarUrl : info.avatarUrl
             peerUserId = peer?.userId
             hasCall = info.hasRoomCall
+            pinnedEventIds = Set(info.pinnedEventIds)
             await loadPeerAway(room, peer: peer?.userId)
         }
         if let state = try? await room.latestEncryptionState() {
@@ -395,6 +404,7 @@ final class ChatTimelineModel: ObservableObject {
             facts.canRedactOther = powerLevels.canOwnUserRedactOther()
             canPost = powerLevels.canOwnUserSendMessage(message: .roomMessage)
             canPoll = !facts.isDm && powerLevels.canOwnUserSendMessage(message: .pollStart)
+            canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
         }
         isDm = facts.isDm
         isEncrypted = facts.isEncrypted
@@ -560,6 +570,9 @@ final class ChatTimelineModel: ObservableObject {
             case .removeCaption: details.canEdit && message.media?.caption?.nilIfBlank != nil
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
+            // Spec message-pins: groups only, sent messages.
+            case .pin: canPin && isSent && !pinnedEventIds.contains(details.eventId ?? "")
+            case .unpin: canPin && isSent && pinnedEventIds.contains(details.eventId ?? "")
             // Spec message-forward notes: sent messages of kind message; no stickers or polls.
             case .forward: isSent && forwardContent(rowId: row.id) != nil
             // Spec message-actions notes (bipe#670): every sent sticker.
@@ -632,6 +645,20 @@ final class ChatTimelineModel: ObservableObject {
                 case .done: BipeHaptics.play(.tap)
                 case .limit: self.show(.keepLimit)
                 case .failed: self.show(.keepFailed)
+                }
+            }
+        case .pin, .unpin:
+            guard let timeline, let eventId = current.details?.eventId else { return }
+            Task {
+                do {
+                    if action == .pin {
+                        _ = try await timeline.pinEvent(eventId: eventId)
+                    } else {
+                        _ = try await timeline.unpinEvent(eventId: eventId)
+                    }
+                    BipeHaptics.play(.tap)
+                } catch {
+                    show(.pinFailed)
                 }
             }
         case .forward: forwardingRowId = rowId

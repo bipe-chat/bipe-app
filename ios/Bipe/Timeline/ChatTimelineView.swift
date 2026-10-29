@@ -21,6 +21,8 @@ struct ChatTimelineView: View {
     @StateObject private var voicePlayer = VoicePlayer()
     /// Spec business-chat-bar: the tools and booking cards of a DM with a company, or of its customer.
     @StateObject private var business: BusinessChatModel
+    /// Spec message-pins (bipe#665).
+    @StateObject private var pinned: PinnedMessagesModel
     /// Spec identity-change (bipe#770).
     @StateObject private var identity: IdentityChangeModel
     @State private var viewerRowId: String?
@@ -45,6 +47,7 @@ struct ChatTimelineView: View {
         self.focusEventId = focusEventId
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
+        _pinned = StateObject(wrappedValue: PinnedMessagesModel(session: session, roomId: roomId))
         _identity = StateObject(wrappedValue: IdentityChangeModel(session: session, roomId: roomId))
         self.media = media
         self.openInfo = openInfo
@@ -56,6 +59,9 @@ struct ChatTimelineView: View {
     var body: some View {
         VStack(spacing: 0) {
             OngoingCallBar(model: model, session: session)
+            if model.isGroup {
+                PinnedBanner(model: pinned) { eventId in Task { await model.openOriginal(eventId: eventId) } }
+            }
             LiveLocationChatBar(roomId: roomId, userId: session.userId)
             if model.isDm, let people, let peer = model.peerUserId {
                 CvmStopOrderCard(seals: people.seals, userId: peer)
@@ -164,6 +170,7 @@ struct ChatTimelineView: View {
         }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
         .task { await model.start() }
+        .task(id: model.isGroup) { if model.isGroup { await pinned.observe() } }
         // Spec chat-search openMessage (bipe#671): scroll to the message once the first rows are in.
         .task(id: focusEventId) {
             guard let focusEventId else { return }
