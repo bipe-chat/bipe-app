@@ -157,6 +157,13 @@ fun ChatTimelineScreen(
             voiceMedia = VoiceMediaStore.store(context, session),
         )
     }
+    // Spec identity-change (bipe-chat/bipe#770).
+    val identity = remember(session, roomId) { IdentityChangeModel(session, roomId, scope) }
+    val identityState by identity.state.collectAsState()
+    DisposableEffect(identity) {
+        identity.start()
+        onDispose { identity.close() }
+    }
     DisposableEffect(model) {
         // Spec incoming-call: an opened chat shows its call kind again in the chat list.
         chat.bipe.app.calls.MissedCalls.clear(session.userId, roomId)
@@ -377,6 +384,7 @@ fun ChatTimelineScreen(
                     ProfileNoticeBar(people, noticePeer, roomName)
                 }
                 if (isDm && theftMark != null) TheftMarkBanner(roomName)
+                IdentityChangeBar(identity)
                 val composerBar: @Composable () -> Unit = {
                     // The other person left the DM: the bar stays above the composer, which stays on (ADR 0141).
                     if (peerAway != PeerAway.NONE) {
@@ -389,7 +397,7 @@ fun ChatTimelineScreen(
                             }
                         }
                     }
-                    ComposerBar(
+                    IdentityComposerGate(identityState.blocksSending) { ComposerBar(
                         draft = draft,
                         canSend = model.canSend,
                         ui = ui,
@@ -407,7 +415,7 @@ fun ChatTimelineScreen(
                         onStickers = { showsStickers = true },
                         onRecord = { model.startRecording(context.applicationContext) },
                         onEndRecording = model::endRecording,
-                    )
+                    ) }
                 }
                 val peer = peerUserId
                 if (isDm && people != null && peer != null) DmComposerSlot(people, peer, roomName, composerBar) else composerBar()

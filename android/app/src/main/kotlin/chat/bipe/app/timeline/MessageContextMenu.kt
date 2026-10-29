@@ -49,7 +49,7 @@ fun MessageContextMenu(model: ChatTimelineModel, rowId: String, expanded: Boolea
                     enabled = !paused,
                     text = {
                         Text(
-                            if (paused) stringResource(R.string.bipe_pause_countdown, pauseLeft.toString()) else stringResource(actionTitle(action)),
+                            if (paused) stringResource(R.string.bipe_pause_countdown, pauseLeft.toString()) else stringResource(actionTitle(action, row.message)),
                             color = when {
                                 action == MessageAction.DELETE -> colors.trustDangerInk
                                 paused -> colors.inkDisabled

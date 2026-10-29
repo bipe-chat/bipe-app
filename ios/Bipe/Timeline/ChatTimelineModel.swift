@@ -31,6 +31,14 @@ struct TimelineMessage: Identifiable, Equatable {
         case failed
     }
 
+    /// Spec identity-change sendAnyway: the send queue held the message because of a member's identity.
+    enum SendFailure: Equatable {
+        /// QueueWedgeError identityViolations: users that were verified and are not any more.
+        case identity(users: [String])
+        /// QueueWedgeError insecureDevices: user ID to device IDs.
+        case devices([String: [String]])
+    }
+
     /// Bipe's grouping of the SDK UtdCause (spec message-undecryptable).
     enum UndecryptableCause: Equatable {
         case waiting
@@ -48,6 +56,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var isOwn: Bool
     var sentAt: Date
     var sendState: SendState
+    /// sendState failed only.
+    var sendFailure: SendFailure? = nil
     var cause: UndecryptableCause?
     /// Kind poll: the data of spec poll-detail.
     var poll: PollData?
@@ -478,10 +488,18 @@ final class ChatTimelineModel: ObservableObject {
         _ = try? await timeline.send(msg: content)
     }
 
-    /// Action retrySend: sends a failed own message again.
+    /// Action retrySend: sends a failed own message again. A message held for an identity change is sent anyway
+    /// (spec identity-change sendAnyway).
     func retrySend(id: String) async {
         guard let handle = item(id)?.asEvent()?.lazyProvider.getSendHandle() else { return }
-        try? await handle.tryResend()
+        switch row(id)?.message?.sendFailure {
+        case .identity(let users)?:
+            try? await room?.withdrawVerificationAndResend(userIds: users, sendHandle: handle)
+        case .devices(let devices)?:
+            try? await room?.ignoreDeviceTrustAndResend(devices: devices, sendHandle: handle)
+        case nil:
+            try? await handle.tryResend()
+        }
     }
 
     /// Action cancelUpload of spec timeline-media: cancels the send of own media and removes the row.
@@ -562,6 +580,7 @@ final class ChatTimelineModel: ObservableObject {
 
     /// The menu title of an action: the countdown for a paused copy.
     func menuTitle(_ action: MessageAction, rowId: String) -> String {
+        if action == .retry, row(rowId)?.message?.sendFailure != nil { return BipeStrings.identityChangeSendAnyway }
         let left = action == .copy ? pauseSecondsLeft(rowId: rowId) : 0
         return left > 0 ? BipeStrings.pauseCountdown(String(left)) : action.menuTitle
     }
