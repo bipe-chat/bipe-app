@@ -282,7 +282,8 @@ enum TimelineRowBuilder {
                     // The detector runs on the device; the cache keys on the event and the body, so an edit runs it again.
                     scamWarning: event.isOwn ? nil : ScamDetector.warningKind(for: messageContent.body + "\n" + (message.richText?.safetyText ?? ""), eventID: eventId(event) ?? id),
                     canReply: event.canBeRepliedTo && isSent,
-                    canEdit: event.isEditable && message.kind == .text,
+                    // Captions of own photos, videos and files are editable too (bipe#668).
+                    canEdit: event.isEditable && (message.kind == .text || (message.media.map { $0.kind != .sticker } ?? false)),
                     canDelete: event.isOwn ? (facts.canRedactOwn || !isSent) : (!facts.isDm && facts.canRedactOther)
                 )
                 rows.append(TimelineRow(id: id, kind: .message, message: message, details: details))
@@ -446,9 +447,17 @@ enum TimelineRowBuilder {
 
     private static func message(id: String, event: EventTimelineItem, senderName: String) -> TimelineMessage {
         let sendState: TimelineMessage.SendState
+        var sendFailure: TimelineMessage.SendFailure?
         switch event.localSendState {
         case .some(.notSentYet): sendState = .sending
-        case .some(.sendingFailed): sendState = .failed
+        case .some(.sendingFailed(let error, _)):
+            sendState = .failed
+            // Spec identity-change sendAnyway.
+            switch error {
+            case .identityViolations(let users): sendFailure = .identity(users: users)
+            case .insecureDevices(let devices): sendFailure = .devices(devices)
+            default: sendFailure = nil
+            }
         case .some(.sent), .none: sendState = .sent
         }
         return TimelineMessage(id: id,
@@ -459,6 +468,7 @@ enum TimelineRowBuilder {
                                isOwn: event.isOwn,
                                sentAt: Date(milliseconds: event.timestamp),
                                sendState: event.isOwn ? sendState : .sent,
+                               sendFailure: event.isOwn ? sendFailure : nil,
                                cause: nil,
                                poll: nil)
     }

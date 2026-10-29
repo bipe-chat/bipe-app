@@ -103,6 +103,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json
     case chatList = "chat-list"
 
+    /// Media and files of a chat (flow chat). Spec: bipe-shared/product/screens/chat-media-gallery.json
+    case chatMediaGallery = "chat-media-gallery"
+
     /// Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json
     case chatNotifications = "chat-notifications"
 
@@ -169,6 +172,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json
     case handlePick = "handle-pick"
 
+    /// Identity change warning (flow chat). Spec: bipe-shared/product/screens/identity-change.json
+    case identityChange = "identity-change"
+
     /// Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json
     case incomingCall = "incoming-call"
 
@@ -225,6 +231,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Edit a message (flow chat). Spec: bipe-shared/product/screens/message-edit.json
     case messageEdit = "message-edit"
+
+    /// Forward a message (flow chat). Spec: bipe-shared/product/screens/message-forward.json
+    case messageForward = "message-forward"
+
+    /// Pinned messages (flow chat). Spec: bipe-shared/product/screens/message-pins.json
+    case messagePins = "message-pins"
 
     /// Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json
     case messageReactions = "message-reactions"
@@ -285,6 +297,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Poll (flow chat). Spec: bipe-shared/product/screens/poll-detail.json
     case pollDetail = "poll-detail"
+
+    /// Polls of a group (flow groups). Spec: bipe-shared/product/screens/poll-history.json
+    case pollHistory = "poll-history"
 
     /// Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json
     case problemReport = "problem-report"

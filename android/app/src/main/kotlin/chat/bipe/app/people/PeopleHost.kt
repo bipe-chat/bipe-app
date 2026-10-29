@@ -126,6 +126,7 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
         is PeopleRoute.ReportChat -> {
             val context = LocalContext.current
             ReportChatScreen(
+                people.session,
                 people,
                 route.roomId,
                 route.isDm,
