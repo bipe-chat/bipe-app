@@ -847,6 +847,11 @@ object BipeRegistries {
     const val DRAFT_BODY_MAX_LENGTH = 8000
     const val DRAFT_CLIENT_MAX_LENGTH = 64
 
+    /** Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json. */
+    const val ASSISTANT_SEND_ACCOUNT_DATA_TYPE = "chat.bipe.assistant_send"
+    const val ASSISTANT_MARKER_FIELD = "chat.bipe.assistant"
+    const val ASSISTANT_CLIENT_MAX_LENGTH = 64
+
     /** Stickers (bipe ADR 0205, bipe-chat/bipe#837; registries/stickers.json). Search rules: test-vectors/sticker-search.json. */
     const val STICKER_IMPORT_MAX_BYTES = 1000000
     const val STICKER_IMPORT_MAX_PIXELS = 1024
