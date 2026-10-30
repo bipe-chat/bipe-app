@@ -4655,4 +4655,14 @@ public enum BipeStrings {
     public static var appDraftsSendFailed: String { NSLocalizedString("bipe_app_drafts_send_failed", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appDraftsNothingSent: String { NSLocalizedString("bipe_app_drafts_nothing_sent", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var privacyAssistants: String { NSLocalizedString("bipe_privacy_assistants", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var privacyAssistantSend: String { NSLocalizedString("bipe_privacy_assistant_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var privacyAssistantSendFooter: String { NSLocalizedString("bipe_privacy_assistant_send_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appAssistantSentLabel(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_assistant_sent_label", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }
