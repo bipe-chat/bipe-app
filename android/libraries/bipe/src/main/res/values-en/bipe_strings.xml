@@ -2012,4 +2012,12 @@
     <string name="bipe_select_delete_title">Delete your messages?</string>
     <string name="bipe_select_delete_body">Your selected messages disappear for everyone in the chat. Messages from other people stay.</string>
     <string name="bipe_select_delete_failed">Couldn\'t delete the messages. Try again.</string>
+    <string name="bipe_app_drafts_banner">Assistant draft (%1$s)</string>
+    <string name="bipe_app_drafts_title">Drafts</string>
+    <string name="bipe_app_drafts_send">Send</string>
+    <string name="bipe_app_drafts_edit">Edit</string>
+    <string name="bipe_app_drafts_discard">Discard</string>
+    <string name="bipe_app_drafts_empty">No drafts. When your assistant writes one, it shows up here.</string>
+    <string name="bipe_app_drafts_send_failed">Couldn\'t send the draft. Try again.</string>
+    <string name="bipe_app_drafts_nothing_sent">Nothing goes out until you tap Send.</string>
 </resources>

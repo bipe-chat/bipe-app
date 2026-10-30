@@ -4637,4 +4637,22 @@ public enum BipeStrings {
     public static var selectDeleteBody: String { NSLocalizedString("bipe_select_delete_body", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var selectDeleteFailed: String { NSLocalizedString("bipe_select_delete_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appDraftsBanner(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_drafts_banner", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appDraftsTitle: String { NSLocalizedString("bipe_app_drafts_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appDraftsSend: String { NSLocalizedString("bipe_app_drafts_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appDraftsEdit: String { NSLocalizedString("bipe_app_drafts_edit", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appDraftsDiscard: String { NSLocalizedString("bipe_app_drafts_discard", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appDraftsEmpty: String { NSLocalizedString("bipe_app_drafts_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appDraftsSendFailed: String { NSLocalizedString("bipe_app_drafts_send_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appDraftsNothingSent: String { NSLocalizedString("bipe_app_drafts_nothing_sent", tableName: "Bipe", bundle: .module, comment: "") }
 }

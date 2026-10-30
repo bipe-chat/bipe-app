@@ -2012,4 +2012,12 @@
     <string name="bipe_select_delete_title">Apagar suas mensagens?</string>
     <string name="bipe_select_delete_body">Suas mensagens escolhidas somem para todo mundo na conversa. As mensagens de outras pessoas continuam lá.</string>
     <string name="bipe_select_delete_failed">Não deu para apagar as mensagens. Tente de novo.</string>
+    <string name="bipe_app_drafts_banner">Rascunho do assistente (%1$s)</string>
+    <string name="bipe_app_drafts_title">Rascunhos</string>
+    <string name="bipe_app_drafts_send">Enviar</string>
+    <string name="bipe_app_drafts_edit">Editar</string>
+    <string name="bipe_app_drafts_discard">Descartar</string>
+    <string name="bipe_app_drafts_empty">Nenhum rascunho. Quando seu assistente escrever um, ele aparece aqui.</string>
+    <string name="bipe_app_drafts_send_failed">Não deu para enviar o rascunho. Tente de novo.</string>
+    <string name="bipe_app_drafts_nothing_sent">Nada sai até você tocar em Enviar.</string>
 </resources>
