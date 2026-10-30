@@ -4637,4 +4637,24 @@ public enum BipeStrings {
     public static var selectDeleteBody: String { NSLocalizedString("bipe_select_delete_body", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var selectDeleteFailed: String { NSLocalizedString("bipe_select_delete_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var assistantLabel: String { NSLocalizedString("bipe_assistant_label", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func assistantOperator(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_assistant_operator", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var assistantOperatorUnverified: String { NSLocalizedString("bipe_assistant_operator_unverified", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var assistantModelBrasil: String { NSLocalizedString("bipe_assistant_model_brasil", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var assistantModelFora: String { NSLocalizedString("bipe_assistant_model_fora", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var assistantModelDesconhecido: String { NSLocalizedString("bipe_assistant_model_desconhecido", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func assistantJoined(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_assistant_joined", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var assistantAdminOnly: String { NSLocalizedString("bipe_assistant_admin_only", tableName: "Bipe", bundle: .module, comment: "") }
 }

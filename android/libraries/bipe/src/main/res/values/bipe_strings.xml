@@ -2012,4 +2012,12 @@
     <string name="bipe_select_delete_title">Apagar suas mensagens?</string>
     <string name="bipe_select_delete_body">Suas mensagens escolhidas somem para todo mundo na conversa. As mensagens de outras pessoas continuam lá.</string>
     <string name="bipe_select_delete_failed">Não deu para apagar as mensagens. Tente de novo.</string>
+    <string name="bipe_assistant_label">Assistente de IA</string>
+    <string name="bipe_assistant_operator">Operado por %1$s</string>
+    <string name="bipe_assistant_operator_unverified">Empresa não verificada</string>
+    <string name="bipe_assistant_model_brasil">A IA dele roda no Brasil</string>
+    <string name="bipe_assistant_model_fora">A IA dele roda fora do Brasil</string>
+    <string name="bipe_assistant_model_desconhecido">Não se sabe onde a IA dele roda</string>
+    <string name="bipe_assistant_joined">%1$s adicionou o assistente %2$s. Ele lê as mensagens deste grupo.</string>
+    <string name="bipe_assistant_admin_only">Só quem administra o grupo pode adicionar um assistente.</string>
 </resources>
