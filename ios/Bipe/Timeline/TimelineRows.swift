@@ -247,6 +247,10 @@ enum TimelineRowBuilder {
             switch content.kind {
             case .message(let messageContent):
                 var message = base
+                // The SDK types have no field for chat.bipe.assistant; it comes from the event JSON (ADR 0210).
+                if BipeAssistantSend.sender(eventId: eventId(event), json: { event.lazyProvider.debugInfo().originalJson }) != nil {
+                    message.assistantLabel = BipeStrings.appAssistantSentLabel(event.senderProfile.displayName(or: event.sender))
+                }
                 switch mediaContent {
                 case .media(let media):
                     message.kind = .media

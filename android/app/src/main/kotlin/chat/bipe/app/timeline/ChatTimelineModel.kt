@@ -96,6 +96,8 @@ data class TimelineMessage(
     val isEmote: Boolean = false,
     /** Sanitized native text runs; body remains the original text for editing and copying. */
     val richText: chat.bipe.shared.BipeMessageText? = null,
+    /** Spec chat-timeline notes (ADR 0210): bipe_app_assistant_sent_label when the sender's assistant sent the message. */
+    val assistantLabel: String? = null,
 ) {
     enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, POLL, LOCATION, LIVE_LOCATION, UNSUPPORTED }
 

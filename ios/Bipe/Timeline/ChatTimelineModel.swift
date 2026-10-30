@@ -73,6 +73,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var isEmote = false
     /// Native, sanitized text runs. The original body stays available to edit and copy.
     var richText: BipeMessageText? = nil
+    /// Spec chat-timeline notes (ADR 0210): bipe_app_assistant_sent_label when the sender's assistant sent the message.
+    var assistantLabel: String? = nil
 }
 
 /// Type MessageAction of spec message-actions, in the order of the sheet.

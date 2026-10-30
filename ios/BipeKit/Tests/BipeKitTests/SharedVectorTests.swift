@@ -58,6 +58,28 @@ struct SharedVectorTests {
     }
 
     @Test
+    func assistantSend() throws {
+        let switches = try SharedVectors.array("assistant-send.json", key: "switch")
+        #expect(!switches.isEmpty)
+        for vector in switches {
+            let content = vector["content"] is NSNull ? nil : vector["content"]
+            #expect(BipeAssistantSend.allowed(content: content) == vector["expected"] as? Bool, "switch \(vector["name"] ?? "")")
+            let json = try content.map { String(decoding: try JSONSerialization.data(withJSONObject: $0), as: UTF8.self) }
+            #expect(BipeAssistantSend.allowed(json: json) == vector["expected"] as? Bool, "switch json \(vector["name"] ?? "")")
+        }
+        #expect(BipeAssistantSend.allowed(json: BipeAssistantSend.json(enabled: true)))
+        #expect(!BipeAssistantSend.allowed(json: BipeAssistantSend.json(enabled: false)))
+        let labels = try SharedVectors.array("assistant-send.json", key: "label")
+        #expect(!labels.isEmpty)
+        for vector in labels {
+            let content = vector["content"] as? [String: Any]
+            #expect(BipeAssistantSend.sender(content: content) == vector["expected"] as? String, "label \(vector["name"] ?? "")")
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: ["type": "m.room.message", "content": content ?? [:]]), as: UTF8.self)
+            #expect(BipeAssistantSend.sender(eventId: nil, json: { json }) == vector["expected"] as? String, "label json \(vector["name"] ?? "")")
+        }
+    }
+
+    @Test
     func phoneNumbers() throws {
         let cases = try SharedVectors.array("phone-numbers.json", key: "vectors")
         #expect(!cases.isEmpty)

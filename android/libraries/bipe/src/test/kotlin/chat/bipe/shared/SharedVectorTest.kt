@@ -9,6 +9,7 @@ import chat.bipe.shared.account.BipePin
 import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.shared.clearedchats.ClearedChats
 import chat.bipe.shared.drafts.BipeAssistantDrafts
+import chat.bipe.shared.drafts.BipeAssistantSend
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeDmCandidate
 import chat.bipe.shared.generated.BipeRelationshipNames
@@ -316,6 +317,29 @@ class SharedVectorTest {
         assertWithMessage("drafts room id").that(BipeAssistantDrafts.roomId("""{"room_id":"!drafts:bipe.net.br"}""")).isEqualTo("!drafts:bipe.net.br")
         assertWithMessage("drafts room id without !").that(BipeAssistantDrafts.roomId("""{"room_id":"drafts"}""")).isNull()
         assertWithMessage("no drafts room").that(BipeAssistantDrafts.roomId(null)).isNull()
+    }
+
+    @Test
+    fun assistantSend() {
+        val switches = vectors("assistant-send.json", "switch")
+        assertWithMessage("assistant-send switch vectors").that(switches).isNotEmpty()
+        for (vector in switches) {
+            val content = vector.getValue("content").takeUnless { it is JsonNull }
+            val expected = vector.getValue("expected").jsonPrimitive.boolean
+            assertWithMessage("switch ${vector.string("name")}").that(BipeAssistantSend.allowed(content)).isEqualTo(expected)
+            assertWithMessage("switch json ${vector.string("name")}").that(BipeAssistantSend.allowed(content?.toString())).isEqualTo(expected)
+        }
+        assertWithMessage("switch on").that(BipeAssistantSend.allowed(BipeAssistantSend.json(true))).isTrue()
+        assertWithMessage("switch off").that(BipeAssistantSend.allowed(BipeAssistantSend.json(false))).isFalse()
+        val labels = vectors("assistant-send.json", "label")
+        assertWithMessage("assistant-send label vectors").that(labels).isNotEmpty()
+        for (vector in labels) {
+            val content = vector.getValue("content").jsonObject
+            val expected = vector.string("expected")
+            assertWithMessage("label ${vector.string("name")}").that(BipeAssistantSend.sender(content)).isEqualTo(expected)
+            val event = """{"type":"m.room.message","content":$content}"""
+            assertWithMessage("label json ${vector.string("name")}").that(BipeAssistantSend.sender(null) { event }).isEqualTo(expected)
+        }
     }
 
     @Test

@@ -207,6 +207,18 @@ struct SettingsGroupView: View {
                                  footer: model.phone == .notLinked ? BipeStrings.phoneNotLinked : row.footer)
             }
             .disabled(model.discoverableByPhone == nil || model.phone == nil || model.phone == .notLinked)
+        case .privacyAssistantSend:
+            // ADR 0210: off by default; on lets the user's own assistant send as the user, with a label in the chat.
+            Toggle(isOn: Binding(get: { model.assistantSend ?? false }, set: { isOn in
+                Task {
+                    if await model.setAssistantSend(isOn) {
+                        BipeHaptics.play(.tick)
+                    }
+                }
+            })) {
+                SettingsRowLabel(title: row.title, footer: row.footer)
+            }
+            .disabled(model.assistantSend == nil)
         case .accountChangePin:
             NavigationLink {
                 PinChangeView(model: model)

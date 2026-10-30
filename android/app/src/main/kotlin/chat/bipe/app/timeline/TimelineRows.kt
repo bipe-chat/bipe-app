@@ -11,6 +11,7 @@ import chat.bipe.app.location.LiveLocationMessage
 import chat.bipe.app.location.LocationMessage
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.shared.media.BipeImageDescription
+import chat.bipe.shared.drafts.BipeAssistantSend
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeHandleChangePlacement
 import chat.bipe.shared.api.BipeHandleChange
@@ -250,7 +251,7 @@ object TimelineRowBuilder {
                     }
                     when (val kind = content.kind) {
                         is MsgLikeKind.Message, is MsgLikeKind.Sticker -> {
-                            val message = when (mediaContent) {
+                            val built = when (mediaContent) {
                                 is MediaContent.Media -> base.copy(
                                     kind = TimelineMessage.Kind.MEDIA,
                                     media = mediaContent.media,
@@ -278,6 +279,12 @@ object TimelineRowBuilder {
                                         )
                                     }
                                 }
+                            }
+                            // The SDK types have no field for chat.bipe.assistant; it comes from the event JSON (ADR 0210).
+                            val message = if (BipeAssistantSend.sender(eventId(event)) { event.lazyProvider.debugInfo().originalJson } != null) {
+                                built.copy(assistantLabel = strings.format(R.string.bipe_app_assistant_sent_label, event.senderProfile.displayName(event.sender)))
+                            } else {
+                                built
                             }
                             val isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited ?: false
                             val isSent = event.localSendState.let { it == null || it is EventSendState.Sent }
