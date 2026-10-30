@@ -209,6 +209,12 @@ fun HomeScreen(
         pop = { peopleStack = peopleStack.dropLast(1) },
         openChat = { id ->
             peopleStack = emptyList()
+            focusEventId = null
+            openRoomId = id
+        },
+        openMessage = { id, event ->
+            peopleStack = emptyList()
+            focusEventId = event
             openRoomId = id
         },
         pickHandle = { showsHandlePick = true },
@@ -371,6 +377,7 @@ fun HomeScreen(
                         push = navigation.push,
                         pop = navigation.pop,
                         openChat = navigation.openChat,
+                        openMessage = navigation.openMessage,
                         pickHandle = navigation.pickHandle,
                         newGroup = { userId ->
                             scope.launch {

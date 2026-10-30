@@ -45,6 +45,8 @@ struct ChatListView: View {
     /// One selection for both layouts. A wide window shows it beside the list; a narrow one pushes it.
     /// A change of window size keeps the same detail, timeline and path.
     @State private var detail: ChatDetail?
+    /// The message the open chat scrolls to (spec room-link-open, bipe-chat/bipe#666). Any other detail clears it.
+    @State private var focusEventId: String?
     @State private var path = NavigationPath()
     @State private var compactColumn: NavigationSplitViewColumn
     @State private var showsHandlePick = false
@@ -204,7 +206,7 @@ struct ChatListView: View {
                                 openOwnLink: { show(.people(.profileLink)) })
         }
         .sheet(item: $openingRoomLink) { link in
-            RoomLinkOpenView(session: model.session, link: link, media: model.media) { openChat($0) }
+            RoomLinkOpenView(session: model.session, link: link, media: model.media) { openMessage($0, eventId: $1) }
         }
         .sheet(item: $openingPack) { pack in
             StickerPackView(model: StickerPackModel(ref: pack, client: model.session.client, handles: people.handles),
@@ -595,7 +597,14 @@ struct ChatListView: View {
         show(.room(roomId))
     }
 
+    /// Opens the chat at a message when eventId is set.
+    private func openMessage(_ roomId: String, eventId: String?) {
+        show(.room(roomId))
+        focusEventId = eventId
+    }
+
     private func show(_ next: ChatDetail) {
+        focusEventId = nil
         detail = next
         path = NavigationPath()
         compactColumn = .detail
@@ -603,6 +612,7 @@ struct ChatListView: View {
 
     /// closeChat: back to the list with nothing selected.
     private func closeDetail() {
+        focusEventId = nil
         detail = nil
         path = NavigationPath()
         compactColumn = .sidebar
@@ -619,7 +629,7 @@ struct ChatListView: View {
         switch detail {
         case .room(let roomId):
             // The room id keeps one timeline per chat; the layout change does not replace it.
-            timeline(roomId).id(roomId)
+            timeline(roomId, focusEventId: focusEventId).id(roomId)
         case .requests:
             requestsScreen
         case .people(let route):
@@ -635,8 +645,9 @@ struct ChatListView: View {
         }
     }
 
-    private func timeline(_ roomId: String) -> some View {
-        ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people) {
+    private func timeline(_ roomId: String, focusEventId: String? = nil) -> some View {
+        ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people,
+                         focusEventId: focusEventId) {
             Task {
                 if let userId = await people.dmPartner(roomId: roomId) {
                     path.append(PeopleRoute.person(userId: userId, fromDm: true))

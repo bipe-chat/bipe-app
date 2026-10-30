@@ -4685,4 +4685,6 @@ public enum BipeStrings {
     }
 
     public static var assistantAdminOnly: String { NSLocalizedString("bipe_assistant_admin_only", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appMessageActionCopyLink: String { NSLocalizedString("bipe_app_message_action_copy_link", tableName: "Bipe", bundle: .module, comment: "") }
 }
