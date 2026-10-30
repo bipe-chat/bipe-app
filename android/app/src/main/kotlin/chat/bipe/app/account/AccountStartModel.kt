@@ -10,6 +10,7 @@ import chat.bipe.app.common.AppConfig
 import chat.bipe.app.settings.DeletionDates
 import chat.bipe.app.BipeApplication
 import chat.bipe.app.common.InviterGreetings
+import chat.bipe.shared.onboarding.BipeBringPeopleMemory
 import chat.bipe.app.recovery.RecoveryTokenSyncs
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.account.BipeRecoveryTokens
@@ -339,6 +340,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     fun didSignUp(session: AccountSession, outcome: SignupOutcome) {
         recoveryTokens.syncSoon()
         outcome.inviterUserId?.let { InviterGreetings(context, session.userId).set(it, outcome.inviterHandle) }
+        // Spec bring-people: the first sheet shows only on the phone that made the account.
+        BipeBringPeopleMemory(context, session.userId).markSignedUp()
         accountList.merge(listOf(session.userId))
         _signupOutcome.value = outcome
         show(session)

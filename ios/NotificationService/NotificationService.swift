@@ -85,7 +85,17 @@ final class NotificationService: UNNotificationServiceExtension {
             }
             switch status {
             case .event(let item):
-                return content(item: item, target: target, route: route, eventId: eventId, unreadCount: unreadCount)
+                let shown = content(item: item, target: target, route: route, eventId: eventId, unreadCount: unreadCount)
+                // Spec notification-service notes, sender photo (bipe-chat/bipe#771): messages only, with preview on.
+                guard case .timeline(let event) = item.event, shown.categoryIdentifier == NotificationKeys.messageCategory,
+                      NotificationPrefs.preview(for: target.accountUserId), let text = messageText(event),
+                      let mutable = shown.mutableCopy() as? UNMutableNotificationContent else { return shown }
+                let senderName = item.senderInfo.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? event.senderId()
+                return await CommunicationNotification.updated(
+                    mutable, text: text, senderId: event.senderId(), senderName: senderName,
+                    senderAvatarUrl: item.senderInfo.avatarUrl, roomId: target.roomId,
+                    groupName: item.roomInfo.isDm ? nil : item.roomInfo.displayName, groupAvatarUrl: item.roomInfo.avatarUrl,
+                    ownUserId: target.accountUserId, client: await NotificationClients.shared.mediaClient(userId: target.accountUserId))
             case .eventFilteredOut, .eventRedacted, .eventNotFound:
                 // Shows nothing: an empty content replaces the gateway alert.
                 let empty = UNMutableNotificationContent()
@@ -263,8 +273,15 @@ private actor NotificationClients {
     static let shared = NotificationClients()
 
     private var notificationClient: NotificationClient?
+    /// The client behind it, for the sender photos (bipe-chat/bipe#771).
+    private var client: Client?
     private var owner: String?
     private var deviceId: String?
+
+    /// The cached client of [userId]; nil before the first notification of that account.
+    func mediaClient(userId: String) -> Client? {
+        owner == userId ? client : nil
+    }
 
     func client(userId: String) async throws -> NotificationClient {
         guard let session = SessionStore.loadForPush(userId: userId) else {
@@ -281,6 +298,7 @@ private actor NotificationClients {
         try await client.restoreSession(session: session)
         let notificationClient = try await client.notificationClient(processSetup: .multipleProcesses)
         self.notificationClient = notificationClient
+        self.client = client
         owner = userId
         deviceId = session.deviceId
         return notificationClient
