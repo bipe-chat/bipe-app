@@ -6,6 +6,7 @@ package chat.bipe.app.share
 
 import android.content.Context
 import android.content.Intent
+import androidx.core.app.Person
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -55,6 +56,25 @@ object ShareShortcuts {
                 ShortcutManagerCompat.pushDynamicShortcut(context, shortcut)
             }
         }
+    }
+
+    /**
+     * A long-lived conversation shortcut for a message notification (bipe-chat/bipe#771), with the share shortcut's ID,
+     * so Android lists the chat under Conversations. A DM carries the person. Returns the ID for setShortcutId.
+     */
+    fun conversation(context: Context, accountUserId: String, roomId: String, name: String, person: Person?, icon: IconCompat?): String {
+        val id = id(accountUserId, roomId)
+        runCatching {
+            val builder = ShortcutInfoCompat.Builder(context, id)
+                .setShortLabel(name)
+                .setLongLived(true)
+                .setIcon(icon ?: IconCompat.createWithResource(context, AppTheme.palette.launcherIcon))
+                .setCategories(setOf(CATEGORY))
+                .setIntent(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
+            person?.let { builder.setPerson(it) }
+            ShortcutManagerCompat.pushDynamicShortcut(context, builder.build())
+        }
+        return id
     }
 
     /** No account left on the phone: the shortcuts go. */

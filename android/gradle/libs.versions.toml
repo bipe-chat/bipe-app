@@ -36,6 +36,9 @@ livekit = "2.29.2"
 webrtc = "150.7871.04"
 # A locked phone rings (bipe-chat/bipe#760): the call in the system.
 core-telecom = "1.0.1"
+# Store captures (bipe-chat/bipe#457): Compose Preview Screenshot Testing, plugin and validation API in one version.
+# Google marks the standalone plugin as no longer maintained in favour of AGP test suites (AGP 9.5+); move when AGP moves.
+screenshot = "0.0.1-alpha16"
 
 [libraries]
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
@@ -71,6 +74,9 @@ zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 livekit-android = { module = "io.livekit:livekit-android", version.ref = "livekit" }
 webrtc-android = { module = "io.github.webrtc-sdk:android-prefixed", version.ref = "webrtc" }
 androidx-core-telecom = { module = "androidx.core:core-telecom", version.ref = "core-telecom" }
+# Store captures only (bipe-chat/bipe#457): screenshotTestImplementation lines, not in the APK.
+screenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-validation-api", version.ref = "screenshot" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 # Play flavour only (ADR 0150): closed source, "scope": "play" in tools/licences.json, playImplementation lines only.
 play-services-auth-blockstore = { module = "com.google.android.gms:play-services-auth-blockstore", version.ref = "play-services-auth-blockstore" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebase-messaging" }
@@ -82,3 +88,4 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+android-compose-screenshot = { id = "com.android.compose.screenshot", version.ref = "screenshot" }

@@ -37,10 +37,16 @@ extension MessageAction {
     var menuTitle: String {
         switch self {
         case .reply: BipeStrings.appMessageActionReply
+        case .replyInThread: BipeStrings.threadReplyAction
         case .edit: BipeStrings.appMessageActionEdit
+        case .removeCaption: BipeStrings.captionRemove
         case .copy: BipeStrings.appCopy
+        case .pin: BipeStrings.pinAction
+        case .unpin: BipeStrings.unpinAction
         case .forward: BipeStrings.forwardAction
+        case .select: BipeStrings.selectAction
         case .saveSticker: BipeStrings.actionSaveSticker
+        case .viewStickerPack: BipeStrings.actionViewStickerPack
         case .keepAudio: BipeStrings.voiceKeep
         case .unkeepAudio: BipeStrings.voiceUnkeep
         case .retry: BipeStrings.appRetry
@@ -52,10 +58,15 @@ extension MessageAction {
     var menuIcon: PhosphorIcon {
         switch self {
         case .reply: .arrowBendUpLeft
+        case .replyInThread: .chatText
         case .edit: .pencilSimple
+        case .removeCaption: .x
         case .copy: .copy
+        case .pin, .unpin: .chatText
         case .forward: .paperPlaneRight
+        case .select: .checkCircle
         case .saveSticker: .sticker
+        case .viewStickerPack: .sticker
         case .keepAudio: .downloadSimple
         case .unkeepAudio: .x
         case .retry: .arrowClockwise
@@ -68,10 +79,16 @@ extension MessageAction {
     var menuSymbol: String {
         switch self {
         case .reply: "arrowshape.turn.up.left"
+        case .replyInThread: "bubble.left.and.text.bubble.right"
         case .edit: "pencil"
+        case .removeCaption: "text.badge.minus"
         case .copy: "doc.on.doc"
+        case .pin: "pin"
+        case .unpin: "pin.slash"
         case .forward: "arrowshape.turn.up.right"
+        case .select: "checkmark.circle"
         case .saveSticker: "square.and.arrow.down"
+        case .viewStickerPack: "square.on.square"
         case .keepAudio: "bookmark"
         case .unkeepAudio: "bookmark.slash"
         case .retry: "arrow.clockwise"

@@ -223,6 +223,24 @@ private struct MessageBubbleRow: View {
             if model.showsTheftMarker(message) {
                 TheftMessageMarker()
             }
+            // Spec chat-timeline notes (ADR 0210): small text under the bubble of a message an assistant sent.
+            if let label = message.assistantLabel {
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+            // Spec threads: the count under a root, which opens the thread.
+            if let replies = details.threadReplies, model.threadRoot == nil, let eventId = details.eventId {
+                Button {
+                    model.openThreadRoot = eventId
+                } label: {
+                    Text(BipeStrings.threadReplies(String(replies)))
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(BipeColor.accentInk)
+                        .bipeTapTarget()
+                }
+                .buttonStyle(.plain)
+            }
             if !details.reactions.isEmpty {
                 ReactionPills(reactions: details.reactions,
                               onToggle: { key in Task { await model.toggleReaction(rowId: row.id, key: key) } },

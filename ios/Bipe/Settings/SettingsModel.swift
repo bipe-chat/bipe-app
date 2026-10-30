@@ -26,6 +26,8 @@ final class SettingsModel: ObservableObject {
     @Published private(set) var notificationsOn: Bool?
     @Published private(set) var appLockOn = AppLockModel.shared.store.isOn
     @Published private(set) var biometricUnlockOn = AppLockModel.shared.store.biometricUnlock
+    /// The assistant send switch (ADR 0210): global account data chat.bipe.assistant_send. `nil` until it is read.
+    @Published private(set) var assistantSend: Bool?
 
     init(session: AccountSession, api: BipeAPIClient) {
         self.session = session
@@ -49,7 +51,33 @@ final class SettingsModel: ObservableObject {
         async let account: Void = loadAccount()
         async let notifications: Void = loadNotifications()
         async let phone: Void = loadPhone()
-        _ = await (messaging, account, notifications, phone)
+        async let assistant: Void = loadAssistantSend()
+        _ = await (messaging, account, notifications, phone, assistant)
+    }
+
+    /// assistantSendAllowed: off when the account data is absent. A read error keeps the switch off and disabled.
+    private func loadAssistantSend() async {
+        do {
+            let json = try await session.client.accountData(eventType: BipeAssistantSend.accountDataType)
+            assistantSend = BipeAssistantSend.allowed(json: json)
+        } catch {
+            assistantSend = nil
+        }
+    }
+
+    /// The assistant send switch: Client.setAccountData chat.bipe.assistant_send. `false` when the save failed; the
+    /// value stays as it was.
+    func setAssistantSend(_ value: Bool) async -> Bool {
+        let old = assistantSend
+        assistantSend = value
+        do {
+            try await session.client.setAccountData(eventType: BipeAssistantSend.accountDataType,
+                                                    content: BipeAssistantSend.json(enabled: value))
+            return true
+        } catch {
+            assistantSend = old
+            return false
+        }
     }
 
     private func loadMessaging() async {

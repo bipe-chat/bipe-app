@@ -5,12 +5,14 @@
 package chat.bipe.app.timeline
 
 import chat.bipe.app.common.displayName
+import chat.bipe.stickers.StickerPackRef
 import chat.bipe.app.media.MediaContent
 import chat.bipe.app.media.MediaFormat
 import chat.bipe.app.location.LiveLocationMessage
 import chat.bipe.app.location.LocationMessage
 import chat.bipe.app.media.MediaMessage
 import chat.bipe.shared.media.BipeImageDescription
+import chat.bipe.shared.drafts.BipeAssistantSend
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeHandleChangePlacement
 import chat.bipe.shared.api.BipeHandleChange
@@ -78,6 +80,10 @@ data class MessageDetails(
     val canReply: Boolean,
     val canEdit: Boolean,
     val canDelete: Boolean,
+    /** Spec threads: replies under a root message in the main timeline. */
+    val threadReplies: Int? = null,
+    /** The message is a reply inside a thread. */
+    val inThread: Boolean = false,
 )
 
 /** Type MessageReply of spec message-reply. */
@@ -240,13 +246,19 @@ object TimelineRowBuilder {
                                 } else {
                                     null
                                 },
+                                // stickerPackField has no SDK field either (spec message-actions viewStickerPack).
+                                stickerPack = if (found.media.kind == MediaMessage.Kind.STICKER) {
+                                    event.lazyProvider.debugInfo().originalJson?.let(StickerPackRef::read)
+                                } else {
+                                    null
+                                },
                             ),
                         )
                         else -> found
                     }
                     when (val kind = content.kind) {
                         is MsgLikeKind.Message, is MsgLikeKind.Sticker -> {
-                            val message = when (mediaContent) {
+                            val built = when (mediaContent) {
                                 is MediaContent.Media -> base.copy(
                                     kind = TimelineMessage.Kind.MEDIA,
                                     media = mediaContent.media,
@@ -275,6 +287,12 @@ object TimelineRowBuilder {
                                     }
                                 }
                             }
+                            // The SDK types have no field for chat.bipe.assistant; it comes from the event JSON (ADR 0210).
+                            val message = if (BipeAssistantSend.sender(eventId(event)) { event.lazyProvider.debugInfo().originalJson } != null) {
+                                built.copy(assistantLabel = strings.format(R.string.bipe_app_assistant_sent_label, event.senderProfile.displayName(event.sender)))
+                            } else {
+                                built
+                            }
                             val isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited ?: false
                             val isSent = event.localSendState.let { it == null || it is EventSendState.Sent }
                             val details = MessageDetails(
@@ -286,8 +304,11 @@ object TimelineRowBuilder {
                                 // The detector runs on the device; the cache keys on the event and the body, so an edit runs it again.
                                 scamWarning = if (event.isOwn) null else message.body?.let { ScamDetector.warningKind(it + "\n" + message.richText?.safetyText.orEmpty(), eventId(event) ?: id) },
                                 canReply = event.canBeRepliedTo && isSent,
-                                canEdit = event.isEditable && message.kind == TimelineMessage.Kind.TEXT,
+                                // Captions of own photos, videos and files are editable too (bipe-chat/bipe#668).
+                                canEdit = event.isEditable && (message.kind == TimelineMessage.Kind.TEXT || message.media?.let { it.kind != MediaMessage.Kind.STICKER } == true),
                                 canDelete = if (event.isOwn) facts.canRedactOwn || !isSent else !facts.isDm && facts.canRedactOther,
+                                threadReplies = content.threadSummary?.numReplies()?.toInt()?.takeIf { it > 0 },
+                                inThread = content.threadRoot != null,
                             )
                             rows += TimelineRow(id, TimelineRow.Kind.MESSAGE, message, details)
                         }
