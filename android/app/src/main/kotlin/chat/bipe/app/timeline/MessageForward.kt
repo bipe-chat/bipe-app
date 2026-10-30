@@ -83,6 +83,8 @@ fun MessageForwardSheet(client: Client, msgTypes: List<MessageType>, media: Medi
     LaunchedEffect(client) {
         chats = runCatching { client.rooms() }.getOrDefault(emptyList())
             .filter { runCatching { it.membership() == Membership.JOINED && !it.isSpace() }.getOrDefault(false) }
+            // Spec drafts notes: never the drafts room.
+            .filter { room -> runCatching { !AssistantDraftsStore.isDraftsRoom(room.id(), client.userId()) }.getOrDefault(true) }
             .map { ForwardChat(it.id(), it.displayName()?.takeIf { name -> name.isNotBlank() } ?: noName, it.avatarUrl()) }
             .sortedBy { searchFold(it.name) }
     }

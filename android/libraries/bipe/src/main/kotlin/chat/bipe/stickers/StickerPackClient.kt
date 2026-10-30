@@ -131,6 +131,48 @@ class StickerPackClient(
         put(listOf("user", userId, "account_data", eventType), StickerShortlist.content(refs), token)
     }
 
+    /**
+     * Spec sticker-pack appear: the pack at ref, the room creator and the room name, from the room state. A public
+     * world_readable room is read without joining. Null when the room has no pack at ref.stateKey.
+     */
+    suspend fun preview(ref: StickerPackRef): StickerPackPreview? = withTokenRetry { token ->
+        get(listOf("rooms", ref.roomId, "state"), token)?.let { StickerPackPreview.parse(it, ref) }
+    }
+
+    /** Whether ref is in im.ponies.emote_rooms (spec sticker-pack, phase added). */
+    suspend fun isEnabled(ref: StickerPackRef): Boolean = withTokenRetry { token ->
+        val content = get(listOf("user", userId, "account_data", StickerPackEventType.ENABLED_ROOMS), token) ?: return@withTokenRetry false
+        StickerPack.parseEnabledRooms(content).any { it.first == ref.roomId && it.second == ref.stateKey }
+    }
+
+    /** Spec sticker-pack add: puts ref in im.ponies.emote_rooms with a read-merge-write on the server copy. The caller joins first. */
+    suspend fun enable(ref: StickerPackRef) = withTokenRetry { token ->
+        val path = listOf("user", userId, "account_data", StickerPackEventType.ENABLED_ROOMS)
+        val content = get(path, token)?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?: JsonObject(emptyMap())
+        put(path, StickerPackRoom.enabling(ref, content).toString(), token)
+    }
+
+    /** StickerPackView.canShare of a room pack: this user may write the pack state. False when the state is unreadable. */
+    suspend fun canWritePack(roomId: String): Boolean = runCatching {
+        withTokenRetry { token -> get(listOf("rooms", roomId, "state"), token) }
+    }.getOrNull()?.let { StickerPackPreview.canWrite(it, userId) } ?: false
+
+    /**
+     * Spec sticker-picker sharePack for the user's own pack: a new pack room with a copy of the pack ([StickerPackRoom]).
+     * Later edits of the user's pack do not change the copy.
+     */
+    suspend fun createPackRoom(displayName: String): StickerPackRef = withTokenRetry { token ->
+        val pack = get(listOf("user", userId, "account_data", StickerPackEventType.USER_PACK), token)
+            ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?: throw IOException("No sticker pack")
+        val body = StickerPackRoom.createBody(pack, displayName).toString().toByteArray()
+        val response = perform("POST", clientUrl(listOf("createRoom")), token, body, "application/json") ?: throw IOException("createRoom returned 404")
+        val roomId = ((Json.parseToJsonElement(response) as? JsonObject)?.get("room_id") as? JsonPrimitive)?.content
+            ?: throw IOException("createRoom returned no room_id")
+        StickerPackRef(roomId, "")
+    }
+
     private suspend fun roomPacks(roomId: String, token: String): List<StickerPack> {
         val body = get(listOf("rooms", roomId, "state"), token) ?: return emptyList()
         val events = runCatching { Json.parseToJsonElement(body) as? JsonArray }.getOrNull() ?: return emptyList()

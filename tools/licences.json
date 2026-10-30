@@ -288,6 +288,30 @@
       "source": "https://github.com/jhy/jsoup",
       "checked": "2026-10-27",
       "copyright": "Copyright (c) 2009-2026 Jonathan Hedley <https://jsoup.org/>"
+    },
+    "com.android.tools.screenshot:screenshot-validation-api": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://dl.google.com/android/maven2/com/android/tools/screenshot/screenshot-validation-api/0.0.1-alpha16/screenshot-validation-api-0.0.1-alpha16.pom",
+      "checked": "2026-10-29",
+      "scope": "test",
+      "note": "Store captures only (bipe-chat/bipe#457): screenshotTestImplementation. Not in the APK."
+    },
+    "androidx.compose.ui:ui-tooling": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
+      "checked": "2026-10-29",
+      "scope": "test",
+      "note": "Store captures only (bipe-chat/bipe#457): screenshotTestImplementation. Not in the APK."
+    },
+    "com.android.compose.screenshot": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://dl.google.com/android/maven2/com/android/compose/screenshot/com.android.compose.screenshot.gradle.plugin/0.0.1-alpha16/com.android.compose.screenshot.gradle.plugin-0.0.1-alpha16.pom",
+      "checked": "2026-10-29",
+      "scope": "test",
+      "note": "Gradle plugin of the store captures (bipe-chat/bipe#457), [plugins] in the catalog. Build time only, not in the APK; tools/licences.mjs does not read [plugins], the row records the check."
     }
   }
 }

@@ -501,6 +501,17 @@ fun SettingsGroupScreen(
                             }
                         }
                     }
+                    // ADR 0210: off by default; on lets the user's own assistant send as the user, with a label in the chat.
+                    BipeSettingsRow.PRIVACY_ASSISTANT_SEND -> SettingsSwitchItem(
+                        title,
+                        footer,
+                        isOn = state.assistantSend ?: false,
+                        enabled = state.assistantSend != null,
+                    ) { isOn ->
+                        scope.launch {
+                            if (model.setAssistantSend(isOn)) view.bipeHaptic(BipeHaptic.Tick)
+                        }
+                    }
                     // Saved on the server; wired by the screen that owns it.
                     else -> if (row.kind == BipeSettingsRowKind.SWITCH) {
                         SettingsSwitchItem(title, footer, isOn = false, enabled = false) {}

@@ -26,6 +26,60 @@ struct SharedVectorTests {
     }
 
     @Test
+    func assistantDrafts() throws {
+        let file = try SharedVectors.object("drafts.json")
+        let context = try #require(file["context"] as? [String: Any])
+        let ownUserId = try #require(context["ownUserId"] as? String)
+        let joined = Set(try #require(context["joinedRoomIds"] as? [String]))
+        let cases = try SharedVectors.array("drafts.json", key: "cases")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let name = vector["name"] as? String ?? ""
+            let event = try #require(vector["event"] as? [String: Any])
+            let expected = try #require(vector["expected"] as? [String: Any])
+            let result = BipeAssistantDrafts.fromEvent(event, ownUserId: ownUserId, joinedRoomIds: joined)
+            if expected["show"] as? Bool == true {
+                let draft = try #require(expected["draft"] as? [String: Any])
+                #expect(result == .show(BipeAssistantDrafts.Draft(
+                    roomId: try #require(draft["roomId"] as? String), body: try #require(draft["body"] as? String),
+                    replyTo: draft["replyTo"] as? String, threadRoot: draft["threadRoot"] as? String,
+                    client: try #require(draft["client"] as? String))), "draft \(name)")
+            } else {
+                #expect(result == .hide(reason: try #require(expected["reason"] as? String)), "draft \(name)")
+            }
+            // The same event as raw JSON, the way the app reads it from the timeline.
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: event), as: UTF8.self)
+            #expect(BipeAssistantDrafts.fromEventJson(json, ownUserId: ownUserId, joinedRoomIds: joined) == result,
+                    "draft json \(name)")
+        }
+        #expect(BipeAssistantDrafts.roomId(accountDataJson: #"{"room_id":"!drafts:bipe.net.br"}"#) == "!drafts:bipe.net.br")
+        #expect(BipeAssistantDrafts.roomId(accountDataJson: #"{"room_id":"drafts"}"#) == nil)
+        #expect(BipeAssistantDrafts.roomId(accountDataJson: nil) == nil)
+    }
+
+    @Test
+    func assistantSend() throws {
+        let switches = try SharedVectors.array("assistant-send.json", key: "switch")
+        #expect(!switches.isEmpty)
+        for vector in switches {
+            let content = vector["content"] is NSNull ? nil : vector["content"]
+            #expect(BipeAssistantSend.allowed(content: content) == vector["expected"] as? Bool, "switch \(vector["name"] ?? "")")
+            let json = try content.map { String(decoding: try JSONSerialization.data(withJSONObject: $0), as: UTF8.self) }
+            #expect(BipeAssistantSend.allowed(json: json) == vector["expected"] as? Bool, "switch json \(vector["name"] ?? "")")
+        }
+        #expect(BipeAssistantSend.allowed(json: BipeAssistantSend.json(enabled: true)))
+        #expect(!BipeAssistantSend.allowed(json: BipeAssistantSend.json(enabled: false)))
+        let labels = try SharedVectors.array("assistant-send.json", key: "label")
+        #expect(!labels.isEmpty)
+        for vector in labels {
+            let content = vector["content"] as? [String: Any]
+            #expect(BipeAssistantSend.sender(content: content) == vector["expected"] as? String, "label \(vector["name"] ?? "")")
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: ["type": "m.room.message", "content": content ?? [:]]), as: UTF8.self)
+            #expect(BipeAssistantSend.sender(eventId: nil, json: { json }) == vector["expected"] as? String, "label json \(vector["name"] ?? "")")
+        }
+    }
+
+    @Test
     func phoneNumbers() throws {
         let cases = try SharedVectors.array("phone-numbers.json", key: "vectors")
         #expect(!cases.isEmpty)

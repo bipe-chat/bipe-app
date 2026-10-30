@@ -111,6 +111,21 @@ test('licences allow an EPL test dependency only on testImplementation lines (AD
   assert.ok(checkLicences(ok, noScope).errors[0].includes('not allowed'));
 });
 
+test('licences allow a test dependency on screenshotTestImplementation lines (bipe-chat/bipe#457)', () => {
+  const table = { allowed: ['Apache-2.0'], packages: { 'com.android.tools.screenshot:screenshot-validation-api': { licence: 'Apache-2.0', scope: 'test' } } };
+  const catalog = '[libraries]\nscreenshot-validation-api = { module = "com.android.tools.screenshot:screenshot-validation-api", version = "1" }\n';
+  const ok = tree({
+    'android/gradle/libs.versions.toml': catalog,
+    'android/app/build.gradle.kts': 'dependencies {\n    screenshotTestImplementation(libs.screenshot.validation.api)\n}\n',
+  });
+  assert.deepEqual(checkLicences(ok, table).errors, []);
+  const leak = tree({
+    'android/gradle/libs.versions.toml': catalog,
+    'android/app/build.gradle.kts': 'dependencies {\n    implementation(libs.screenshot.validation.api)\n}\n',
+  });
+  assert.ok(checkLicences(leak, table).errors[0].includes('outside testImplementation and screenshotTestImplementation'));
+});
+
 test('licences allow a Play services dependency only on playImplementation lines (ADR 0150)', () => {
   const name = 'com.google.android.gms:play-services-auth-blockstore';
   const table = { allowed: ['MIT'], playOnly: ['LicenseRef-Android-SDK-License'], packages: { [name]: { licence: 'LicenseRef-Android-SDK-License', scope: 'play' } } };

@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -396,32 +397,43 @@ fun ProfileLinkScreen(people: PeopleService, pickHandle: () -> Unit, onBack: () 
     ) {
         val link = handle?.let(BipeProfileLink::url)
         when {
-            link != null -> {
-                Text(link, fontFamily = FontFamily.Monospace, color = colors.inkPrimary)
-                RowGroup {
-                    IconRow(PhosphorIcon.SHARE_NETWORK, stringResource(R.string.bipe_profile_share)) {
-                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, link), null))
-                    }
-                    IconRow(PhosphorIcon.COPY, stringResource(R.string.bipe_app_copy)) {
-                        val clipboard = context.getSystemService(ClipboardManager::class.java)
-                        clipboard?.setPrimaryClip(ClipData.newPlainText(link, link))
-                        notice = context.getString(R.string.bipe_app_copied)
-                    }
-                    IconRow(PhosphorIcon.QR_CODE, stringResource(R.string.bipe_profile_qr_action)) { showingQr = !showingQr }
-                }
-                if (showingQr) {
-                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.bipe_profile_qr_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-                        QrCode(link)
-                        Text(stringResource(R.string.bipe_profile_qr_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-                    }
-                }
-            }
+            link != null -> ProfileLinkContent(
+                link = link,
+                showingQr = showingQr,
+                onShare = {
+                    context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, link), null))
+                },
+                onCopy = {
+                    val clipboard = context.getSystemService(ClipboardManager::class.java)
+                    clipboard?.setPrimaryClip(ClipData.newPlainText(link, link))
+                    notice = context.getString(R.string.bipe_app_copied)
+                },
+                onToggleQr = { showingQr = !showingQr },
+            )
             loaded -> {
                 Text(stringResource(R.string.bipe_public_profile_needs_handle), color = colors.inkSecondary)
                 TextButton(onClick = pickHandle) { Text(stringResource(R.string.bipe_handle_prompt_action)) }
             }
             else -> Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = colors.accentFill) }
+        }
+    }
+}
+
+/** The link, its actions and the QR code of spec profile-link; the store captures call it too (bipe-chat/bipe#457). */
+@Composable
+fun ColumnScope.ProfileLinkContent(link: String, showingQr: Boolean, onShare: () -> Unit, onCopy: () -> Unit, onToggleQr: () -> Unit) {
+    val colors = BipeTheme.colors
+    Text(link, fontFamily = FontFamily.Monospace, color = colors.inkPrimary)
+    RowGroup {
+        IconRow(PhosphorIcon.SHARE_NETWORK, stringResource(R.string.bipe_profile_share), onClick = onShare)
+        IconRow(PhosphorIcon.COPY, stringResource(R.string.bipe_app_copy), onClick = onCopy)
+        IconRow(PhosphorIcon.QR_CODE, stringResource(R.string.bipe_profile_qr_action), onClick = onToggleQr)
+    }
+    if (showingQr) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.bipe_profile_qr_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
+            QrCode(link)
+            Text(stringResource(R.string.bipe_profile_qr_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
         }
     }
 }
