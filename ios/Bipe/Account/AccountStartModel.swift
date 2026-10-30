@@ -189,6 +189,8 @@ final class AccountStartModel: ObservableObject {
             BipeInviteStore(userID: session.userId)
                 .setInviterGreeting(BipeInviterGreeting(userID: inviterUserId, handle: outcome.inviterHandle))
         }
+        // Spec bring-people: the first sheet shows only on the phone that made the account.
+        BipeBringPeopleMemory(userID: session.userId).markSignedUp()
         _ = AccountList.merge(found: [session.userId])
         signupOutcome = outcome
         show(session)

@@ -22,12 +22,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
-import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.shared.R
-import chat.bipe.shared.api.BipeApiClient
-import chat.bipe.shared.api.createInvite
-import chat.bipe.shared.api.myInvites
 import chat.bipe.shared.generated.BipeOnboarding
 import chat.bipe.shared.generated.BipeOnboardingCard
 import chat.bipe.shared.generated.BipeOnboardingTarget
@@ -92,10 +88,3 @@ fun FirstListCard(card: BipeOnboardingCard, handle: String?, onAction: (BipeOnbo
         }
     }
 }
-
-/** Spec chat-list-cards shareInvite: a new personal invite's link, or `null` when none is left or the call fails. */
-suspend fun shareableInvite(api: BipeApiClient, session: AccountSession): String? = runCatching {
-    val quota = BipeApiClient.withTokenRetry({ session.accessToken() }) { api.myInvites(it) }
-    if (quota.available <= 0) return@runCatching null
-    BipeApiClient.withTokenRetry({ session.accessToken() }) { api.createInvite(it) }.url
-}.getOrNull()
