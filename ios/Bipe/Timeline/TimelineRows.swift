@@ -157,6 +157,8 @@ enum TimelineRowBuilder {
         var hitStart = false
         var unknown = Set<String>()
 
+        let ambiguousSenders = MemberNames.ambiguous(facts.members.mapValues { $0.name })
+
         func name(_ userId: String) -> String {
             if userId == facts.ownUserId { return BipeStrings.appYou }
             if let member = facts.members[userId] { return member.name }
@@ -233,7 +235,10 @@ enum TimelineRowBuilder {
                 continue
             }
             guard let event = item.asEvent(), case .msgLike(let content) = event.content else { continue }
-            let base = message(id: id, event: event, senderName: name(event.sender))
+            var base = message(id: id, event: event, senderName: name(event.sender))
+            // Spec timeline-rows nameAmbiguous: groups only; the SDK flag or a look-alike name among the members.
+            base.senderNameAmbiguous = !event.isOwn && !facts.isDm
+                && (event.senderProfile.isNameAmbiguous || ambiguousSenders.contains(event.sender))
             // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
             var mediaContent = MediaContent(content.kind)
             if case .media(var media) = mediaContent {

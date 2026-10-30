@@ -152,6 +152,7 @@ struct ChatListView: View {
             }
         }
         .environment(\.bipeBrandMarks, people.brandMarks)
+        .environment(\.bipeHandles, people.handles)
         .onAppear { people.start() }
         .sheet(isPresented: $showsDrafts) {
             AssistantDraftsList(store: assistantDrafts, userId: model.session.userId) { openChat($0) }
