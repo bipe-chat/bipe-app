@@ -756,6 +756,28 @@ class ChatTimelineModel(
         _ui.update { it.copy(replyingTo = reply, replyingToRowId = rowId) }
     }
 
+    /** Spec drafts edit: an assistant draft becomes the composer text, with message-reply for its replyTo. */
+    suspend fun takeAssistantDraft(body: String, replyTo: String?) {
+        if (_ui.value.editing != null) cancelEdit()
+        editDraft(body)
+        if (replyTo == null) return
+        val row = _rows.value.firstOrNull { it.details?.eventId == replyTo }
+        val message = row?.message
+        val reply = if (row != null && message != null) {
+            MessageReply(replyTo, MessageReply.State.READY, if (message.isOwn) strings.you else message.senderName, message.body)
+        } else {
+            val event = timeline?.let { runCatching { it.getEventTimelineItemByEventId(replyTo) }.getOrNull() }
+            if (event == null) {
+                MessageReply(replyTo, MessageReply.State.UNAVAILABLE)
+            } else {
+                val preview = ((event.content as? TimelineItemContent.MsgLike)?.content?.kind as? MsgLikeKind.Message)?.content?.body
+                MessageReply(replyTo, MessageReply.State.READY,
+                    if (event.isOwn) strings.you else event.senderProfile.displayName(event.sender), preview)
+            }
+        }
+        _ui.update { it.copy(replyingTo = reply, replyingToRowId = row?.id) }
+    }
+
     /** Action cancelReply: the draft stays. */
     fun cancelReply() {
         _ui.update { it.copy(replyingTo = null, replyingToRowId = null) }

@@ -436,6 +436,19 @@ fun ChatTimelineScreen(
                 }
                 if (isDm && theftMark != null) TheftMarkBanner(roomName)
                 if (threadRoot == null) IdentityChangeBar(identity)
+                // Spec drafts (bipe-chat/bipe#866): the assistant draft banner above the composer.
+                if (threadRoot == null && ui.selection == null && successorRoomId == null) {
+                    AssistantDraftBanner(session, roomId) { draft ->
+                        val root = draft.threadRoot
+                        if (root != null) {
+                            // The thread view loads the thread's composer draft when it opens.
+                            AssistantDraftsStore.keepAsThreadDraft(draft)
+                            model.openThread(root)
+                        } else {
+                            model.takeAssistantDraft(draft.body, draft.replyTo)
+                        }
+                    }
+                }
                 val composerBar: @Composable () -> Unit = {
                     // The other person left the DM: the bar stays above the composer, which stays on (ADR 0141).
                     if (peerAway != PeerAway.NONE) {

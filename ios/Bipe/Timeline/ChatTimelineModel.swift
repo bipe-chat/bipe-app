@@ -732,6 +732,29 @@ final class ChatTimelineModel: ObservableObject {
         replyingToRowId = rowId
     }
 
+    /// Spec drafts edit: an assistant draft becomes the composer text, with message-reply for its replyTo.
+    func takeAssistantDraft(body: String, replyTo: String?) async {
+        if editing != nil { cancelEdit() }
+        editDraft(body)
+        guard let replyTo else { return }
+        if let row = rows.first(where: { $0.details?.eventId == replyTo }), let message = row.message {
+            replyingTo = MessageReply(eventId: replyTo, state: .ready,
+                                      senderName: message.isOwn ? BipeStrings.appYou : message.senderName,
+                                      preview: message.body)
+            replyingToRowId = row.id
+        } else if let event = try? await timeline?.getEventTimelineItemByEventId(eventId: replyTo) {
+            var preview: String?
+            if case .msgLike(let content) = event.content, case .message(let message) = content.kind { preview = message.body }
+            replyingTo = MessageReply(eventId: replyTo, state: .ready,
+                                      senderName: event.isOwn ? BipeStrings.appYou : event.senderProfile.displayName(or: event.sender),
+                                      preview: preview)
+            replyingToRowId = nil
+        } else {
+            replyingTo = MessageReply(eventId: replyTo, state: .unavailable)
+            replyingToRowId = nil
+        }
+    }
+
     /// Action cancelReply: the draft stays.
     func cancelReply() {
         replyingTo = nil
