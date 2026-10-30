@@ -78,6 +78,8 @@ import chat.bipe.app.groups.CreateGroupButton
 import chat.bipe.app.groups.GroupHost
 import chat.bipe.app.groups.Person as GroupPerson
 import chat.bipe.app.groups.withoutClearedDms
+import chat.bipe.app.timeline.AssistantDraftsList
+import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.app.handle.HandlePromptCard
@@ -475,6 +477,15 @@ fun ChatListScreen(
                     color = colors.inkPrimary,
                     modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 )
+                // Spec drafts openList: shown only while the account has drafts.
+                val draftsState by AssistantDraftsStore.state.collectAsState()
+                var showsDrafts by rememberSaveable(model.session.userId) { mutableStateOf(false) }
+                if (draftsState.userId == model.session.userId && draftsState.drafts.isNotEmpty()) {
+                    TextButton(onClick = { showsDrafts = true }) { Text(stringResource(R.string.bipe_app_drafts_title)) }
+                }
+                if (showsDrafts) {
+                    AssistantDraftsList(model.session.userId, onDismiss = { showsDrafts = false }, onOpenChat = onOpenChat)
+                }
                 CreateGroupButton(onCreateGroup, onInvite)
                 // Search apart from the bottom bar destinations, at the end of the top bar (spec app-tabs). No account
                 // avatar here: Você shows the current account (MZ decision 25 Oct 2026, spec chat-list).

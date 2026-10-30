@@ -148,6 +148,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Delete a DM (Apagar conversa) (flow chat). Spec: bipe-shared/product/screens/dm-delete.json
     case dmDelete = "dm-delete"
 
+    /// Assistant drafts (flow chat). Spec: bipe-shared/product/screens/drafts.json
+    case drafts = "drafts"
+
     /// Messages on this phone (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json
     case encryptionStatus = "encryption-status"
 
