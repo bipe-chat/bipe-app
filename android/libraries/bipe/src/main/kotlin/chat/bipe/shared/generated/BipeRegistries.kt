@@ -851,6 +851,9 @@ object BipeRegistries {
     const val ASSISTANT_SEND_ACCOUNT_DATA_TYPE = "chat.bipe.assistant_send"
     const val ASSISTANT_MARKER_FIELD = "chat.bipe.assistant"
     const val ASSISTANT_CLIENT_MAX_LENGTH = 64
+    /** Assistant readers (ADR 0130, bipe-chat/bipe#439): the room state event bipe-mcp sets, and its field. Rule: test-vectors/assistant-send.json readers. */
+    const val ASSISTANT_READER_EVENT_TYPE = "chat.bipe.assistant"
+    const val ASSISTANT_READER_FIELD = "full_content"
 
     /** Stickers (bipe ADR 0205, bipe-chat/bipe#837; registries/stickers.json). Search rules: test-vectors/sticker-search.json. */
     const val STICKER_IMPORT_MAX_BYTES = 1000000

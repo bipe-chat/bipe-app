@@ -18,10 +18,16 @@ object BipeDmPowerLevels {
     /** Both people after the DM is created. */
     const val USERS_DEFAULT: Long = 0L
 
+    /**
+     * The events map of a new group (ADR 0210, bipe-chat/bipe#879): the power_level_content_override of
+     * Client.createRoom. It repeats the Synapse defaults and lets every member set their own assistant marker.
+     */
+    val GROUP_EVENTS: Map<String, Int> = mapOf("chat.bipe.assistant" to 0, "m.room.avatar" to 50, "m.room.canonical_alias" to 50, "m.room.encryption" to 100, "m.room.history_visibility" to 100, "m.room.name" to 50, "m.room.pinned_events" to 50, "m.room.power_levels" to 100, "m.room.server_acl" to 100, "m.room.tombstone" to 100, "m.room.topic" to 50)
+
     /** The m.room.power_levels content, sent with Room.sendStateEventRaw right after Client.createRoom. */
     fun content(userIds: List<String>): String {
         val users = userIds.toSortedSet().joinToString(",") { "${jsonString(it)}:$USERS_DEFAULT" }
-        return "{\"ban\":100,\"events\":{\"m.call.member\":0,\"m.reaction\":0,\"m.room.avatar\":100,\"m.room.canonical_alias\":100,\"m.room.encryption\":100,\"m.room.history_visibility\":100,\"m.room.join_rules\":100,\"m.room.message\":0,\"m.room.name\":100,\"m.room.pinned_events\":100,\"m.room.power_levels\":100,\"m.room.redaction\":0,\"m.room.server_acl\":100,\"m.room.tombstone\":100,\"m.room.topic\":100,\"org.matrix.msc3401.call.member\":0},\"events_default\":0,\"invite\":100,\"kick\":100,\"notifications\":{\"room\":100},\"redact\":100,\"state_default\":100,\"users\":{" + users + "},\"users_default\":0}"
+        return "{\"ban\":100,\"events\":{\"chat.bipe.assistant\":0,\"m.call.member\":0,\"m.reaction\":0,\"m.room.avatar\":100,\"m.room.canonical_alias\":100,\"m.room.encryption\":100,\"m.room.history_visibility\":100,\"m.room.join_rules\":100,\"m.room.message\":0,\"m.room.name\":100,\"m.room.pinned_events\":100,\"m.room.power_levels\":100,\"m.room.redaction\":0,\"m.room.server_acl\":100,\"m.room.tombstone\":100,\"m.room.topic\":100,\"org.matrix.msc3401.call.member\":0},\"events_default\":0,\"invite\":100,\"kick\":100,\"notifications\":{\"room\":100},\"redact\":100,\"state_default\":100,\"users\":{" + users + "},\"users_default\":0}"
     }
 
     private fun jsonString(value: String): String = buildString {

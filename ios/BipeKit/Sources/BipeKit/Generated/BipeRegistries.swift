@@ -844,6 +844,9 @@ public enum BipeRegistries {
     public static let assistantSendAccountDataType = "chat.bipe.assistant_send"
     public static let assistantMarkerField = "chat.bipe.assistant"
     public static let assistantClientMaxLength = 64
+    /// Assistant readers (ADR 0130, bipe-chat/bipe#439): the room state event bipe-mcp sets, and its field. Rule: test-vectors/assistant-send.json readers.
+    public static let assistantReaderEventType = "chat.bipe.assistant"
+    public static let assistantReaderField = "full_content"
 
     /// Stickers (bipe ADR 0205, bipe-chat/bipe#837; registries/stickers.json). Search rules: test-vectors/sticker-search.json.
     public static let stickerImportMaxBytes = 1000000

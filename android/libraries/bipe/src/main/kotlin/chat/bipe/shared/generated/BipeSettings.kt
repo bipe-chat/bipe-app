@@ -44,7 +44,7 @@ enum class BipeSettingsRow(
     PRIVACY_WHO_CAN_READ("privacy.whoCanRead", BipeSettingsRowKind.URL, R.string.bipe_privacy_who_can_read, null, null, "https://bipe.chat/quem-pode-ler/", "https://bipe.chat/en/who-can-read/"),
     PRIVACY_EXPORT("privacy.export", BipeSettingsRowKind.ACTION, R.string.bipe_privacy_export, R.string.bipe_privacy_export_footer, null, null, null),
     PRIVACY_WHAT_BIPE_KEEPS("privacy.whatBipeKeeps", BipeSettingsRowKind.URL, R.string.bipe_privacy_what_bipe_keeps, null, null, "https://bipe.chat/lgpd/", "https://bipe.chat/en/lgpd/"),
-    PRIVACY_ASSISTANT_SEND("privacy.assistantSend", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_assistant_send, R.string.bipe_privacy_assistant_send_footer, "planned:439", null, null),
+    PRIVACY_ASSISTANT_SEND("privacy.assistantSend", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_assistant_send, R.string.bipe_privacy_assistant_send_footer, null, null, null),
     ACCOUNT_WAYS_BACK_STATUS("account.waysBackStatus", BipeSettingsRowKind.INFO, R.string.bipe_account_ways_back, null, null, null, null),
     ACCOUNT_CHANGE_PIN("account.changePin", BipeSettingsRowKind.LINK, R.string.bipe_pin_change_title, null, null, null, null),
     ACCOUNT_APP_LOCK("account.appLock", BipeSettingsRowKind.SWITCH, R.string.bipe_account_app_lock, null, null, null, null),

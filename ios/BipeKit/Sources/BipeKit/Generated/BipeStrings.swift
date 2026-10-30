@@ -4685,4 +4685,8 @@ public enum BipeStrings {
     }
 
     public static var assistantAdminOnly: String { NSLocalizedString("bipe_assistant_admin_only", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appAssistantReads(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_assistant_reads", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }
