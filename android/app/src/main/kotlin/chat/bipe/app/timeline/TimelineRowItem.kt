@@ -378,6 +378,10 @@ private fun MessageBubbleRow(
         MessageContextMenu(model, row.id, menu, onDismiss = { menu = false })
         val theftMark by model.theftMark.collectAsState()
         if (model.showsTheftMarker(message, theftMark)) TheftMessageMarker()
+        // Spec chat-timeline notes (ADR 0210): small text under the bubble of a message an assistant sent.
+        message.assistantLabel?.let { label ->
+            Text(label, style = MaterialTheme.typography.labelSmall, color = BipeTheme.colors.inkSecondary)
+        }
         // Spec threads: the count under a root, which opens the thread.
         val replies = details.threadReplies
         val rootId = details.eventId

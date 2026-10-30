@@ -61,6 +61,9 @@ struct ChatListView: View {
     @State private var creatingGroup = false
     @State private var deletingDm: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
+    /// Spec drafts openList: the list of the assistant drafts, from the chat list toolbar while drafts exist.
+    @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
+    @State private var showsDrafts = false
     @StateObject private var cards: FirstListCardsModel
     @State private var shareItem: ShareItem?
     private struct ShareItem: Identifiable {
@@ -99,6 +102,11 @@ struct ChatListView: View {
                     // No account avatar here: Você shows the current account (MZ decision 25 Oct 2026, spec chat-list).
                     ToolbarItem(placement: .topBarTrailing) {
                         CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
+                    }
+                    if assistantDrafts.userId == model.session.userId, !assistantDrafts.drafts.isEmpty {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button(BipeStrings.appDraftsTitle) { showsDrafts = true }
+                        }
                     }
                 }
         } detail: {
@@ -145,6 +153,9 @@ struct ChatListView: View {
         }
         .environment(\.bipeBrandMarks, people.brandMarks)
         .onAppear { people.start() }
+        .sheet(isPresented: $showsDrafts) {
+            AssistantDraftsList(store: assistantDrafts, userId: model.session.userId) { openChat($0) }
+        }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
         }

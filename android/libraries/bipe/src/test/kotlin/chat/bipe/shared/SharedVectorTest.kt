@@ -8,6 +8,8 @@ import com.google.common.truth.Truth.assertWithMessage
 import chat.bipe.shared.account.BipePin
 import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.shared.clearedchats.ClearedChats
+import chat.bipe.shared.drafts.BipeAssistantDrafts
+import chat.bipe.shared.drafts.BipeAssistantSend
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeDmCandidate
 import chat.bipe.shared.generated.BipeRelationshipNames
@@ -285,6 +287,58 @@ class SharedVectorTest {
                 is BipeTheftMarkResult.Invalid -> assertWithMessage("theft mark $name").that(result.failure.code)
                     .isEqualTo(expected.string("error"))
             }
+        }
+    }
+
+    @Test
+    fun assistantDrafts() {
+        val context = load("drafts.json").getValue("context").jsonObject
+        val ownUserId = context.string("ownUserId")!!
+        val joined = context.getValue("joinedRoomIds").jsonArray.map { it.jsonPrimitive.content }.toSet()
+        val cases = vectors("drafts.json", "cases")
+        assertWithMessage("drafts vectors").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            val event = vector.getValue("event").jsonObject
+            val expected = vector.getValue("expected").jsonObject
+            val result = BipeAssistantDrafts.fromEvent(event, ownUserId, joined)
+            val want = if (expected.getValue("show").jsonPrimitive.boolean) {
+                val draft = expected.getValue("draft").jsonObject
+                BipeAssistantDrafts.Result.Show(BipeAssistantDrafts.Draft(draft.string("roomId")!!, draft.string("body")!!,
+                    draft.string("replyTo"), draft.string("threadRoot"), draft.string("client")!!))
+            } else {
+                BipeAssistantDrafts.Result.Hide(expected.string("reason")!!)
+            }
+            assertWithMessage("draft $name").that(result).isEqualTo(want)
+            // The same event as raw JSON, the way the app reads it from the timeline.
+            assertWithMessage("draft json $name").that(BipeAssistantDrafts.fromEventJson(event.toString(), ownUserId = ownUserId, joinedRoomIds = joined))
+                .isEqualTo(want)
+        }
+        assertWithMessage("drafts room id").that(BipeAssistantDrafts.roomId("""{"room_id":"!drafts:bipe.net.br"}""")).isEqualTo("!drafts:bipe.net.br")
+        assertWithMessage("drafts room id without !").that(BipeAssistantDrafts.roomId("""{"room_id":"drafts"}""")).isNull()
+        assertWithMessage("no drafts room").that(BipeAssistantDrafts.roomId(null)).isNull()
+    }
+
+    @Test
+    fun assistantSend() {
+        val switches = vectors("assistant-send.json", "switch")
+        assertWithMessage("assistant-send switch vectors").that(switches).isNotEmpty()
+        for (vector in switches) {
+            val content = vector.getValue("content").takeUnless { it is JsonNull }
+            val expected = vector.getValue("expected").jsonPrimitive.boolean
+            assertWithMessage("switch ${vector.string("name")}").that(BipeAssistantSend.allowed(content)).isEqualTo(expected)
+            assertWithMessage("switch json ${vector.string("name")}").that(BipeAssistantSend.allowed(content?.toString())).isEqualTo(expected)
+        }
+        assertWithMessage("switch on").that(BipeAssistantSend.allowed(BipeAssistantSend.json(true))).isTrue()
+        assertWithMessage("switch off").that(BipeAssistantSend.allowed(BipeAssistantSend.json(false))).isFalse()
+        val labels = vectors("assistant-send.json", "label")
+        assertWithMessage("assistant-send label vectors").that(labels).isNotEmpty()
+        for (vector in labels) {
+            val content = vector.getValue("content").jsonObject
+            val expected = vector.string("expected")
+            assertWithMessage("label ${vector.string("name")}").that(BipeAssistantSend.sender(content)).isEqualTo(expected)
+            val event = """{"type":"m.room.message","content":$content}"""
+            assertWithMessage("label json ${vector.string("name")}").that(BipeAssistantSend.sender(null) { event }).isEqualTo(expected)
         }
     }
 

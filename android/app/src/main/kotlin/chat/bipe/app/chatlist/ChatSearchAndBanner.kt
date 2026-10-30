@@ -46,6 +46,7 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.groups.ClearedChatsStore
+import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.app.settings.openPage
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -76,7 +77,8 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
     private val rooms = FilteredRoomList(scope) { found ->
         if (_state.value.query.isNotBlank()) {
             val query = _state.value.query
-            val summaries = found.filter { it.id() != list.notes.roomId }.mapNotNull { list.summary(it) }
+            val draftsRoomId = AssistantDraftsStore.roomId(session.userId)
+            val summaries = found.filter { it.id() != list.notes.roomId && it.id() != draftsRoomId }.mapNotNull { list.summary(it) }
             val visible = NativeDmSelection.visible(summaries, session)
             if (_state.value.query == query) _state.value = _state.value.copy(results = visible, isSearching = false)
         }

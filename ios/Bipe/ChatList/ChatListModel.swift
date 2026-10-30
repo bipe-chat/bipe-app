@@ -92,6 +92,7 @@ final class ChatListModel: ObservableObject {
     private enum ReadFailure: Error { case unavailable }
     private var started = false
     private var clearChanges: AnyCancellable?
+    private var draftsChanges: AnyCancellable?
 
     init(session: AccountSession) {
         self.session = session
@@ -99,6 +100,10 @@ final class ChatListModel: ObservableObject {
         media = MediaLoader(client: session.client)
         notes = NotesRoom(session: session)
         clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in
+            self?.refreshSummaries()
+        }
+        // Spec drafts notes: the drafts room never shows in the list, its badges or the share targets.
+        draftsChanges = AssistantDraftsStore.shared.$revision.dropFirst().sink { [weak self] _ in
             self?.refreshSummaries()
         }
         rowActivity = RowActivityScanner(client: session.client, ownUserId: session.userId) { [weak self] in self?.refreshSummaries() }
@@ -137,6 +142,7 @@ final class ChatListModel: ObservableObject {
         guard !started else { return }
         started = true
         await refreshNotes()
+        await AssistantDraftsStore.shared.learnRoomId(session: session)
         guard let roomList = try? await session.syncService.roomListService().allRooms() else { return }
 
         let loading = RoomListLoadingStream()
@@ -309,11 +315,12 @@ final class ChatListModel: ObservableObject {
             if let room = try? session.client.getRoom(roomId: id) { rooms.append(room) }
         }
         let userId = session.userId
+        let draftsRoomId = AssistantDraftsStore.shared.roomId(for: userId)
         summaryTask?.cancel()
         summaryTask = Task { [weak self] in
             var summaries: [ChatSummary] = []
             for room in rooms {
-                if room.id() != self?.notes.roomId, let summary = await Self.summary(of: room, ownUserId: userId) {
+                if room.id() != self?.notes.roomId, room.id() != draftsRoomId, let summary = await Self.summary(of: room, ownUserId: userId) {
                     summaries.append(summary)
                 }
             }

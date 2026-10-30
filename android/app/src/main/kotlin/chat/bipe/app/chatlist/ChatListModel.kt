@@ -6,6 +6,7 @@ package chat.bipe.app.chatlist
 
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.groups.ClearedChatsStore
+import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.displayName
 import chat.bipe.app.common.previewText
@@ -131,6 +132,10 @@ class ChatListModel(
     private val clearChanges = scope.launch {
         ClearedChatsStore.revision.collect { refreshSummaries() }
     }
+    /** Spec drafts notes: the drafts room never shows in the list, its badges or the share targets. */
+    private val draftsChanges = scope.launch {
+        AssistantDraftsStore.revision.collect { refreshSummaries() }
+    }
 
     /** Subscribes to the room list service: joined chats, newest activity first. */
     fun start() {
@@ -138,6 +143,7 @@ class ChatListModel(
         started = true
         scope.launch {
             refreshNotes()
+            AssistantDraftsStore.learnRoomId(null, session)
             val roomList = runCatching { session.syncService.roomListService().allRooms() }.getOrNull() ?: return@launch
             val loading = Channel<RoomListLoadingState>(Channel.UNLIMITED)
             runCatching {
@@ -309,6 +315,7 @@ class ChatListModel(
 
     fun close() {
         clearChanges.cancel()
+        draftsChanges.cancel()
         rowActivity.close()
         handles.forEach { it.cancel() }
         summaryJob?.cancel()
@@ -339,7 +346,8 @@ class ChatListModel(
         for (id in (extraRoomIds - loadedIds).sorted()) runCatching { session.client.getRoom(id) }.getOrNull()?.let { snapshot += it }
         summaryJob?.cancel()
         summaryJob = scope.launch {
-            val summaries = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
+            val draftsRoomId = AssistantDraftsStore.roomId(session.userId)
+            val summaries = snapshot.filter { it.id() != notes.roomId && it.id() != draftsRoomId }.mapNotNull { summary(it) }
             val visible = retainingKnownActivity(NativeDmSelection.visible(summaries, session))
             archive.reconcile(visible)
             // SDK order includes server recency stamps and local echoes, even when previews have no timestamp.
