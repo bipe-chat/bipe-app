@@ -46,6 +46,7 @@ extension MessageAction {
         case .forward: BipeStrings.forwardAction
         case .select: BipeStrings.selectAction
         case .saveSticker: BipeStrings.actionSaveSticker
+        case .viewStickerPack: BipeStrings.actionViewStickerPack
         case .keepAudio: BipeStrings.voiceKeep
         case .unkeepAudio: BipeStrings.voiceUnkeep
         case .retry: BipeStrings.appRetry
@@ -65,6 +66,7 @@ extension MessageAction {
         case .forward: .paperPlaneRight
         case .select: .checkCircle
         case .saveSticker: .sticker
+        case .viewStickerPack: .sticker
         case .keepAudio: .downloadSimple
         case .unkeepAudio: .x
         case .retry: .arrowClockwise
@@ -86,6 +88,7 @@ extension MessageAction {
         case .forward: "arrowshape.turn.up.right"
         case .select: "checkmark.circle"
         case .saveSticker: "square.and.arrow.down"
+        case .viewStickerPack: "square.on.square"
         case .keepAudio: "bookmark"
         case .unkeepAudio: "bookmark.slash"
         case .retry: "arrow.clockwise"

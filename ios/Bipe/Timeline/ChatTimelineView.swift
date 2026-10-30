@@ -14,6 +14,8 @@ struct ChatTimelineView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var deletingDm = false
     @ObservedObject private var cleared = ClearedChatsStore.shared
+    /// Spec drafts (bipe-chat/bipe#866): the assistant draft banner above the composer.
+    @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
     @Environment(\.closeChat) private var closeChat
     @Environment(\.openOtherChat) private var openOtherChat
     @State private var creatingPoll = false
@@ -93,6 +95,17 @@ struct ChatTimelineView: View {
             if model.threadRoot == nil {
                 IdentityChangeBar(model: identity)
             }
+            if model.threadRoot == nil, model.selection == nil, model.successorRoomId == nil {
+                AssistantDraftBanner(store: assistantDrafts, roomId: roomId, userId: session.userId) { draft in
+                    if draft.threadRoot != nil {
+                        // The thread view loads the thread's composer draft when it opens.
+                        await assistantDrafts.keepAsThreadDraft(draft)
+                        model.openThreadRoot = draft.threadRoot
+                    } else {
+                        await model.takeAssistantDraft(body: draft.body, replyTo: draft.replyTo)
+                    }
+                }
+            }
             if model.selection != nil {
                 // Spec message-forward selection: the bar takes the place of the composer.
                 MessageSelectionBar(model: model)
@@ -128,6 +141,12 @@ struct ChatTimelineView: View {
         .sheet(isPresented: $showsStickers) {
             StickerPickerView(model: StickerPickerModel(client: model.client, roomId: roomId), loader: media,
                               close: { showsStickers = false })
+        }
+        // message-actions viewStickerPack (spec sticker-pack).
+        .sheet(item: $model.openingStickerPack) { pack in
+            StickerPackView(model: StickerPackModel(ref: pack, client: model.client, handles: people?.handles), loader: media) {
+                model.openingStickerPack = nil
+            }
         }
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .overlay(alignment: .bottom) { noticeView }

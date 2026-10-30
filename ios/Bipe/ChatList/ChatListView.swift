@@ -49,6 +49,8 @@ struct ChatListView: View {
     @State private var openingQueue: String?
     /// A group link waiting for room-link-open.
     @State private var openingRoomLink: RoomLink?
+    /// A pack link (spec sticker-pack).
+    @State private var openingPack: StickerPackRef?
     @State private var newGroupWith: [Person]?
     @State private var notificationsRoom: String?
     @State private var groupDetailsRoom: String?
@@ -59,6 +61,9 @@ struct ChatListView: View {
     @State private var creatingGroup = false
     @State private var deletingDm: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
+    /// Spec drafts openList: the list of the assistant drafts, from the chat list toolbar while drafts exist.
+    @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
+    @State private var showsDrafts = false
     @StateObject private var cards: FirstListCardsModel
     @State private var shareItem: ShareItem?
     private struct ShareItem: Identifiable {
@@ -97,6 +102,11 @@ struct ChatListView: View {
                     // No account avatar here: Você shows the current account (MZ decision 25 Oct 2026, spec chat-list).
                     ToolbarItem(placement: .topBarTrailing) {
                         CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
+                    }
+                    if assistantDrafts.userId == model.session.userId, !assistantDrafts.drafts.isEmpty {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button(BipeStrings.appDraftsTitle) { showsDrafts = true }
+                        }
                     }
                 }
         } detail: {
@@ -143,6 +153,9 @@ struct ChatListView: View {
         }
         .environment(\.bipeBrandMarks, people.brandMarks)
         .onAppear { people.start() }
+        .sheet(isPresented: $showsDrafts) {
+            AssistantDraftsList(store: assistantDrafts, userId: model.session.userId) { openChat($0) }
+        }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
         }
@@ -169,6 +182,10 @@ struct ChatListView: View {
         }
         .sheet(item: $openingRoomLink) { link in
             RoomLinkOpenView(session: model.session, link: link, media: model.media) { openChat($0) }
+        }
+        .sheet(item: $openingPack) { pack in
+            StickerPackView(model: StickerPackModel(ref: pack, client: model.session.client, handles: people.handles),
+                            loader: model.media) { openingPack = nil }
         }
         .sheet(item: Binding(get: { openingQueue.map(HandleLink.init) }, set: { openingQueue = $0?.handle })) { link in
             QueueCustomerView(api: model.session.business(api), business: link.handle, close: { _ in openingQueue = nil })
@@ -207,6 +224,10 @@ struct ChatListView: View {
         .onOpenURL { url in
             // Both tabs show a chat list; the Conversas one takes profile links.
             guard scope != .grupos else { return }
+            if let pack = StickerPackRef.fromLink(url.absoluteString) {
+                openingPack = pack
+                return
+            }
             switch PeopleLink(url: url) {
             case .handle(let handle): openingLink = handle
             case .userId(let userId): show(.people(.person(userId: userId, fromDm: false)))
