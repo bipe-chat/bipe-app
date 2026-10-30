@@ -4,7 +4,9 @@
 
 package chat.bipe.app.timeline
 
+import chat.bipe.app.common.MemberNames
 import chat.bipe.app.common.displayName
+import chat.bipe.app.common.isNameAmbiguous
 import chat.bipe.stickers.StickerPackRef
 import chat.bipe.app.media.MediaContent
 import chat.bipe.app.media.MediaFormat
@@ -167,6 +169,8 @@ object TimelineRowBuilder {
         var hitStart = false
         val unknown = mutableSetOf<String>()
 
+        val ambiguousSenders = MemberNames.ambiguous(facts.members.mapValues { it.value.name })
+
         fun name(userId: String): String {
             if (userId == facts.ownUserId) return strings.you
             facts.members[userId]?.let { return it.name }
@@ -234,7 +238,11 @@ object TimelineRowBuilder {
                         return@forEachIndexed
                     }
                     val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return@forEachIndexed
-                    val base = message(id, event, name(event.sender))
+                    // Spec timeline-rows nameAmbiguous: groups only; the SDK flag or a look-alike name among the members.
+                    val base = message(id, event, name(event.sender)).copy(
+                        senderNameAmbiguous = !event.isOwn && !facts.isDm &&
+                            (event.senderProfile.isNameAmbiguous || event.sender in ambiguousSenders),
+                    )
                     // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
                     val mediaContent = when (val found = MediaContent.of(content.kind)) {
                         is MediaContent.Media -> MediaContent.Media(

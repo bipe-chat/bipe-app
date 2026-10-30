@@ -12,6 +12,7 @@ struct GroupMembersView: View {
     @State private var sheetMember: GroupMember?
     @State private var confirm: (action: GroupMembersModel.MemberAction, member: GroupMember)?
     @State private var toast: String?
+    @Environment(\.bipeHandles) private var handles
     private let media: MediaLoader
 
     init(session: AccountSession, media: MediaLoader, roomId: String) {
@@ -117,7 +118,9 @@ struct GroupMembersView: View {
         } label: {
             HStack(spacing: 12) {
                 AvatarView(name: member.person.displayName, mxcUrl: member.person.avatarUrl, loader: media, size: 40, userId: member.person.userId)
-                Text(member.person.displayName)
+                Text(member.nameAmbiguous
+                     ? MemberNames.label(name: member.person.displayName, userId: member.person.userId, handles: handles)
+                     : member.person.displayName)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .lineLimit(1)
                 Spacer()
