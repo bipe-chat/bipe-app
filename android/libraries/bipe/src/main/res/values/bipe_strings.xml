@@ -2033,4 +2033,24 @@
     <string name="bipe_assistant_joined">%1$s adicionou o assistente %2$s. Ele lê as mensagens deste grupo.</string>
     <string name="bipe_assistant_admin_only">Só quem administra o grupo pode adicionar um assistente.</string>
     <string name="bipe_app_message_action_copy_link">Copiar link</string>
+    <string name="bipe_report_category_csam">Abuso sexual de criança</string>
+    <string name="bipe_report_category_csam_hint">Fotos, vídeos ou conversa sexual com menor de idade.</string>
+    <string name="bipe_report_category_child_safety">Risco para criança</string>
+    <string name="bipe_report_category_child_safety_hint">Aliciamento, exploração ou perigo para criança ou adolescente.</string>
+    <string name="bipe_report_category_ncii">Imagem íntima sem permissão</string>
+    <string name="bipe_report_category_ncii_hint">Nudez ou sexo de alguém que não autorizou a divulgação.</string>
+    <string name="bipe_report_category_threat">Ameaça</string>
+    <string name="bipe_report_category_threat_hint">Ameaça de violência contra alguém.</string>
+    <string name="bipe_report_category_takeover">Conta invadida</string>
+    <string name="bipe_report_category_takeover_hint">Alguém tomou a conta de outra pessoa e fala no nome dela.</string>
+    <string name="bipe_report_category_scam">Golpe</string>
+    <string name="bipe_report_category_scam_hint">Pede Pix, dados ou dinheiro com mentira.</string>
+    <string name="bipe_report_category_impersonation">Se passa por outra pessoa</string>
+    <string name="bipe_report_category_impersonation_hint">Finge ser alguém, uma empresa ou um órgão público.</string>
+    <string name="bipe_report_category_illegal_hate">Discriminação ou ódio</string>
+    <string name="bipe_report_category_illegal_hate_hint">Racismo ou outro crime de ódio previsto na lei.</string>
+    <string name="bipe_report_category_spam">Spam</string>
+    <string name="bipe_report_category_spam_hint">Mensagens em massa que você não pediu.</string>
+    <string name="bipe_report_category_other">Outro motivo</string>
+    <string name="bipe_report_category_other_hint">Algo que não está na lista.</string>
 </resources>
