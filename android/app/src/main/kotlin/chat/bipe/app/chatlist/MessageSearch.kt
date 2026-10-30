@@ -4,6 +4,7 @@
 
 package chat.bipe.app.chatlist
 
+import chat.bipe.app.timeline.AssistantDraftsStore
 import android.content.Context
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
@@ -98,6 +99,8 @@ class MessageSearchModel(
 
     private fun hit(result: SearchServiceResult): MessageHit? {
         val message = (result as? SearchServiceResult.Message) ?: return null
+        // Spec drafts notes: the drafts room never shows in search.
+        if (AssistantDraftsStore.isDraftsRoom(message.roomId, session.userId)) return null
         val content = message.result.content as? TimelineItemContent.MsgLike ?: return null
         val text = (content.content.kind as? MsgLikeKind.Message)?.content ?: return null
         val room = runCatching { session.client.getRoom(message.roomId) }.getOrNull()
