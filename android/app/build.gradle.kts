@@ -8,6 +8,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // Store captures (bipe-chat/bipe#457): renders src/screenshotTest previews on the JVM, no emulator.
+    alias(libs.plugins.android.compose.screenshot)
 }
 
 // The Firebase project's client values (not secrets: they ship in every APK). BuildConfig field to Gradle property.
@@ -95,6 +97,9 @@ android {
     androidResources {
         localeFilters += listOf("pt-rBR", "en")
     }
+
+    // Store captures (bipe-chat/bipe#457): the screenshotTest source set of the Compose Preview Screenshot Testing plugin.
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 }
 
 kotlin {
@@ -138,4 +143,8 @@ dependencies {
     "playImplementation"(libs.firebase.messaging)
     // Deferred invite (ADR 0154): src/play/.../InstallReferrers.kt.
     "playImplementation"(libs.installreferrer)
+    // Store captures (bipe-chat/bipe#457): src/screenshotTest, not in the APK.
+    screenshotTestImplementation(platform(libs.androidx.compose.bom))
+    screenshotTestImplementation(libs.screenshot.validation.api)
+    screenshotTestImplementation(libs.androidx.compose.ui.tooling)
 }

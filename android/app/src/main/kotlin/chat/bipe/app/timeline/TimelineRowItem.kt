@@ -258,7 +258,7 @@ private fun SystemLine(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Bubble(
+internal fun Bubble(
     isOwn: Boolean,
     isHighlighted: Boolean = false,
     modifier: Modifier = Modifier,
@@ -410,7 +410,7 @@ private fun MessageBubbleRow(
 
 /** Spec scam-warning: a calm caution card. Title then the kind text, one element for screen readers. */
 @Composable
-private fun ScamWarningCard(kind: ScamWarningKind, pauseSecondsLeft: Int) {
+internal fun ScamWarningCard(kind: ScamWarningKind, pauseSecondsLeft: Int) {
     val colors = BipeTheme.colors
     val shape = RoundedCornerShape(10.dp)
     Row(
@@ -562,7 +562,7 @@ fun reactionKeyText(key: String): String = if (key.length > 16) key.take(16) + "
 
 /** Original event time on every message, with the full date exposed to TalkBack. */
 @Composable
-private fun MessageTimestamp(sentAt: Long, modifier: Modifier = Modifier) {
+internal fun MessageTimestamp(sentAt: Long, modifier: Modifier = Modifier) {
     val locale = LocalConfiguration.current.locales[0]
     val time = remember(sentAt, locale) { DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(sentAt) }
     val fullDate = remember(sentAt, locale) { DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.SHORT, locale).format(sentAt) }
