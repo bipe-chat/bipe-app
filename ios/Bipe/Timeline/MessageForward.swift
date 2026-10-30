@@ -39,8 +39,10 @@ final class MessageForwardModel: ObservableObject {
 
     /// State chats: joined chats, spaces left out, by name.
     func load() {
+        // Spec drafts notes: never the drafts room.
+        let draftsRoomId = (try? client.userId()).flatMap { AssistantDraftsStore.shared.roomId(for: $0) }
         chats = client.rooms()
-            .filter { $0.membership() == .joined && !$0.isSpace() }
+            .filter { $0.membership() == .joined && !$0.isSpace() && $0.id() != draftsRoomId }
             .map { ForwardChat(roomId: $0.id(), name: $0.displayName()?.nilIfBlank ?? BipeStrings.dmNoName, avatarUrl: $0.avatarUrl()) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }

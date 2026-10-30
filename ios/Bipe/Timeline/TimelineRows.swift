@@ -242,11 +242,19 @@ enum TimelineRowBuilder {
                 if media.kind == .image {
                     media.description = BipeImageDescription.read(eventJson: event.lazyProvider.debugInfo().originalJson)
                 }
+                // stickerPackField has no SDK field either (spec message-actions viewStickerPack).
+                if media.kind == .sticker, let json = event.lazyProvider.debugInfo().originalJson {
+                    media.stickerPack = StickerPackRef.read(eventJson: json)
+                }
                 mediaContent = .media(media)
             }
             switch content.kind {
             case .message(let messageContent):
                 var message = base
+                // The SDK types have no field for chat.bipe.assistant; it comes from the event JSON (ADR 0210).
+                if BipeAssistantSend.sender(eventId: eventId(event), json: { event.lazyProvider.debugInfo().originalJson }) != nil {
+                    message.assistantLabel = BipeStrings.appAssistantSentLabel(event.senderProfile.displayName(or: event.sender))
+                }
                 switch mediaContent {
                 case .media(let media):
                     message.kind = .media

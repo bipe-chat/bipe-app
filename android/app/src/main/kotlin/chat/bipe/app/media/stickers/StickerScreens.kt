@@ -4,6 +4,7 @@
 
 package chat.bipe.app.media.stickers
 
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
@@ -79,6 +80,8 @@ import chat.bipe.stickers.StickerPack
 import chat.bipe.stickers.StickerPackClient
 import chat.bipe.stickers.StickerRef
 import chat.bipe.stickers.StickerShortlist
+import chat.bipe.stickers.ref
+import chat.bipe.stickers.sendContentJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -109,6 +112,13 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
     // phase of spec sticker-picker: null is loading, true loaded, false failed.
     var loaded by remember { mutableStateOf<Boolean?>(null) }
     var sendFailed by remember { mutableStateOf(false) }
+    // StickerPackView.canShare: the user's pack, and room packs the user may write.
+    var shareable by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var sharing by remember { mutableStateOf(false) }
+    var shareFailed by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val personalName = stringResource(R.string.bipe_stickers_pack_personal)
+    val shareTitle = stringResource(R.string.bipe_stickers_pack_share)
     var screen by remember { mutableStateOf(Screen.PICKER) }
     var attempt by remember { mutableStateOf(0) }
 
@@ -122,6 +132,25 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
         if (result != null && packClient != null) {
             runCatching { packClient.shortlist(BipeRegistries.STICKER_FAVOURITES_EVENT_TYPE) }.onSuccess { favourites = it }
             runCatching { packClient.shortlist(BipeRegistries.STICKER_RECENTS_EVENT_TYPE) }.onSuccess { recents = it }
+            shareable = result.filter { pack -> pack.source == StickerPack.Source.User || pack.ref?.let { packClient.canWritePack(it.roomId) } == true }
+                .map { it.id }.toSet()
+        }
+    }
+
+    /** Action sharePack: the user's pack becomes a pack room with a copy of it; a room pack shares its own room. */
+    fun share(pack: StickerPack) {
+        val client = packClient ?: return
+        if (sharing) return
+        sharing = true
+        shareFailed = false
+        scope.launch {
+            val ref = runCatching { pack.ref ?: client.createPackRoom(personalName) }.getOrNull()
+            sharing = false
+            if (ref == null) {
+                shareFailed = true
+                return@launch
+            }
+            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, ref.link), shareTitle))
         }
     }
 
@@ -138,7 +167,7 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
         scope.launch {
             val ok = runCatching {
                 val room = client.getRoom(roomId) ?: error("no room")
-                room.sendRaw("m.sticker", sticker.eventContentJson())
+                room.sendRaw("m.sticker", sticker.sendContentJson())
             }.isSuccess
             if (ok) {
                 recents = StickerShortlist.pushRecent(StickerRef(sticker), recents)
@@ -195,7 +224,9 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
                                     }
                                 }
                                 packs.forEach { pack ->
-                                    item(key = "title-${pack.id}", span = { GridItemSpan(maxLineSpan) }) { SectionTitle(packTitle(pack, roomId)) }
+                                    item(key = "title-${pack.id}", span = { GridItemSpan(maxLineSpan) }) {
+                                        SectionTitle(packTitle(pack, roomId), onShare = if (pack.id in shareable && !sharing) ({ share(pack) }) else null)
+                                    }
                                     items(pack.stickers, key = { "pack-${it.id}" }) { sticker ->
                                         StickerThumbnail(sticker, loader, StickerRef(sticker) in favourites, onClick = { send(sticker) }, onToggleFavourite = { toggleFavourite(sticker) })
                                     }
@@ -209,6 +240,9 @@ fun StickerPicker(client: Client, roomId: String, loader: MediaLoader, onClose: 
                     ) {
                         if (sendFailed) {
                             Text(stringResource(R.string.bipe_app_sticker_send_failed), style = MaterialTheme.typography.labelMedium, color = colors.trustDangerInk)
+                        }
+                        if (shareFailed) {
+                            Text(stringResource(R.string.bipe_stickers_pack_share_failed), style = MaterialTheme.typography.labelMedium, color = colors.trustDangerInk)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             TextButton(onClick = { screen = Screen.FROM_PHOTO }) { Text(stringResource(R.string.bipe_stickers_from_photo), color = colors.accentInk) }
@@ -232,14 +266,19 @@ private fun packTitle(pack: StickerPack, roomId: String): String = when (val sou
 }
 
 @Composable
-private fun SectionTitle(title: String) {
-    Text(
-        title,
-        style = MaterialTheme.typography.titleSmall,
-        fontWeight = FontWeight.SemiBold,
-        color = BipeTheme.colors.inkSecondary,
-        modifier = Modifier.padding(top = 8.dp),
-    )
+private fun SectionTitle(title: String, onShare: (() -> Unit)? = null) {
+    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = BipeTheme.colors.inkSecondary,
+            modifier = Modifier.weight(1f),
+        )
+        if (onShare != null) {
+            TextButton(onClick = onShare) { Text(stringResource(R.string.bipe_stickers_pack_share), color = BipeTheme.colors.accentInk) }
+        }
+    }
 }
 
 /**
@@ -287,7 +326,7 @@ private val Sticker.mayBeAnimated: Boolean
     get() = isAnimated ?: (mimeType == null || mimeType == "image/webp")
 
 @Composable
-private fun Header(title: String, closeLabel: String, onClose: () -> Unit) {
+internal fun Header(title: String, closeLabel: String, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onClose) { Text(closeLabel, color = colors.accentInk) }

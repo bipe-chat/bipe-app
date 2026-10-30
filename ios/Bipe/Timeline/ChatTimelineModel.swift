@@ -73,6 +73,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var isEmote = false
     /// Native, sanitized text runs. The original body stays available to edit and copy.
     var richText: BipeMessageText? = nil
+    /// Spec chat-timeline notes (ADR 0210): bipe_app_assistant_sent_label when the sender's assistant sent the message.
+    var assistantLabel: String? = nil
 }
 
 /// Type MessageAction of spec message-actions, in the order of the sheet.
@@ -88,6 +90,7 @@ enum MessageAction: CaseIterable, Identifiable {
     /// Spec message-forward startSelection (bipe#860).
     case select
     case saveSticker
+    case viewStickerPack
     case keepAudio
     case unkeepAudio
     case retry
@@ -254,6 +257,8 @@ final class ChatTimelineModel: ObservableObject {
     @Published var confirmDeleteRowId: String?
     // message-report
     @Published var report: MessageReport?
+    /// message-actions viewStickerPack: opens sticker-pack.
+    @Published var openingStickerPack: StickerPackRef?
     // read-receipts
     @Published var readersSheet: [ReceiptReader]?
     // typing-indicator
@@ -614,6 +619,8 @@ final class ChatTimelineModel: ObservableObject {
             case .select: canSelect(row)
             // Spec message-actions notes (bipe#670): every sent sticker.
             case .saveSticker: isSent && message.media?.kind == .sticker
+            // A sent sticker with stickerPackField (spec message-actions notes, ADR 0205).
+            case .viewStickerPack: isSent && message.media?.stickerPack != nil
             // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
             case .keepAudio: keepable(message, isSent: isSent) && voiceMedia.kept[message.voice!.source.url] == nil
             case .unkeepAudio: message.voice.map { voiceMedia.kept[$0.source.url] != nil } ?? false
@@ -713,6 +720,7 @@ final class ChatTimelineModel: ObservableObject {
                     show(.stickerSaveFailed)
                 }
             }
+        case .viewStickerPack: openingStickerPack = current.message?.media?.stickerPack
         case .retry: Task { await retrySend(id: rowId) }
         case .delete: askDelete(rowId: rowId)
         case .report: openReport(rowId: rowId)
@@ -730,6 +738,29 @@ final class ChatTimelineModel: ObservableObject {
                                   senderName: message.isOwn ? BipeStrings.appYou : message.senderName,
                                   preview: message.body)
         replyingToRowId = rowId
+    }
+
+    /// Spec drafts edit: an assistant draft becomes the composer text, with message-reply for its replyTo.
+    func takeAssistantDraft(body: String, replyTo: String?) async {
+        if editing != nil { cancelEdit() }
+        editDraft(body)
+        guard let replyTo else { return }
+        if let row = rows.first(where: { $0.details?.eventId == replyTo }), let message = row.message {
+            replyingTo = MessageReply(eventId: replyTo, state: .ready,
+                                      senderName: message.isOwn ? BipeStrings.appYou : message.senderName,
+                                      preview: message.body)
+            replyingToRowId = row.id
+        } else if let event = try? await timeline?.getEventTimelineItemByEventId(eventId: replyTo) {
+            var preview: String?
+            if case .msgLike(let content) = event.content, case .message(let message) = content.kind { preview = message.body }
+            replyingTo = MessageReply(eventId: replyTo, state: .ready,
+                                      senderName: event.isOwn ? BipeStrings.appYou : event.senderProfile.displayName(or: event.sender),
+                                      preview: preview)
+            replyingToRowId = nil
+        } else {
+            replyingTo = MessageReply(eventId: replyTo, state: .unavailable)
+            replyingToRowId = nil
+        }
     }
 
     /// Action cancelReply: the draft stays.

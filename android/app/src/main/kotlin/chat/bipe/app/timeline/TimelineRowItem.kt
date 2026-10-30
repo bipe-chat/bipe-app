@@ -258,7 +258,7 @@ private fun SystemLine(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Bubble(
+internal fun Bubble(
     isOwn: Boolean,
     isHighlighted: Boolean = false,
     modifier: Modifier = Modifier,
@@ -378,6 +378,10 @@ private fun MessageBubbleRow(
         MessageContextMenu(model, row.id, menu, onDismiss = { menu = false })
         val theftMark by model.theftMark.collectAsState()
         if (model.showsTheftMarker(message, theftMark)) TheftMessageMarker()
+        // Spec chat-timeline notes (ADR 0210): small text under the bubble of a message an assistant sent.
+        message.assistantLabel?.let { label ->
+            Text(label, style = MaterialTheme.typography.labelSmall, color = BipeTheme.colors.inkSecondary)
+        }
         // Spec threads: the count under a root, which opens the thread.
         val replies = details.threadReplies
         val rootId = details.eventId
@@ -410,7 +414,7 @@ private fun MessageBubbleRow(
 
 /** Spec scam-warning: a calm caution card. Title then the kind text, one element for screen readers. */
 @Composable
-private fun ScamWarningCard(kind: ScamWarningKind, pauseSecondsLeft: Int) {
+internal fun ScamWarningCard(kind: ScamWarningKind, pauseSecondsLeft: Int) {
     val colors = BipeTheme.colors
     val shape = RoundedCornerShape(10.dp)
     Row(
@@ -562,7 +566,7 @@ fun reactionKeyText(key: String): String = if (key.length > 16) key.take(16) + "
 
 /** Original event time on every message, with the full date exposed to TalkBack. */
 @Composable
-private fun MessageTimestamp(sentAt: Long, modifier: Modifier = Modifier) {
+internal fun MessageTimestamp(sentAt: Long, modifier: Modifier = Modifier) {
     val locale = LocalConfiguration.current.locales[0]
     val time = remember(sentAt, locale) { DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(sentAt) }
     val fullDate = remember(sentAt, locale) { DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.SHORT, locale).format(sentAt) }

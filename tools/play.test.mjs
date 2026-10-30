@@ -5,7 +5,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, verify } from 'node:crypto';
-import { accessToken, assertion, check, client, highestVersionCode, upload, API, SCOPE, UPLOAD_API } from './play.mjs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { accessToken, assertion, check, client, highestVersionCode, listingPlan, printPlan, sendListing, upload, API, SCOPE, UPLOAD_API } from './play.mjs';
 
 const PKG = 'chat.bipe.app';
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -114,6 +117,84 @@ test('play upload refuses tracks other than internal and discards a failed edit'
     [`DELETE ${base}/edits/E4`]: null,
   });
   await assert.rejects(upload(call, PKG, Buffer.alloc(1), 'internal'), /failed: 500/);
+  assert.equal(calls.at(-1).method, 'DELETE');
+  assert.ok(!calls.some((c) => c.url.endsWith(':commit')));
+});
+
+// Store listing (bipe-chat/bipe#457). Synthetic listing and images; the real text is checked in bipe-shared.
+const ROWS = [{ slug: 'aviso-golpe' }, { slug: 'pedidos' }];
+const synthetic = {
+  listing: { screenshots: { 'pt-BR': ROWS, 'en-US': ROWS } },
+  text: (locale) => ({ language: locale, title: 'Bipe Chat', shortDescription: `short ${locale}`, fullDescription: `full ${locale}` }),
+};
+
+function images({ capture = 'play-phone' } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'play-listing-'));
+  for (const locale of ['pt-BR', 'en-US']) {
+    const write = (set, exports) => {
+      mkdirSync(join(dir, set, locale), { recursive: true });
+      for (const e of exports) writeFileSync(join(dir, set, locale, e.file), 'png');
+      writeFileSync(join(dir, set, locale, 'manifest.json'), JSON.stringify({ exports }));
+    };
+    write('play-phone', ROWS.map((r, i) => ({ order: i + 1, slug: r.slug, file: `0${i + 1}-${r.slug}.png`, title: r.slug, sub: null, capture: `${capture}/light/${locale}/${r.slug}.png` })));
+    write('play-feature', [{ order: 1, slug: 'feature-graphic', file: '01-feature-graphic.png', capture: `${capture}/light/${locale}/aviso-golpe.png` }]);
+  }
+  return dir;
+}
+
+test('play listing plan has the text, the panels in table order and the feature graphic per locale', () => {
+  const plan = listingPlan(synthetic, images());
+  assert.deepEqual(plan.problems, []);
+  assert.deepEqual(plan.locales.map((l) => l.locale), ['pt-BR', 'en-US']);
+  assert.deepEqual(plan.locales[0].phoneScreenshots.map((e) => e.slug), ['aviso-golpe', 'pedidos']);
+  assert.equal(plan.locales[1].featureGraphic.length, 1);
+  const lines = [];
+  printPlan(plan, PKG, (l) => lines.push(l));
+  assert.ok(lines.includes('  title: Bipe Chat'));
+  assert.ok(lines.some((l) => l.startsWith('    2. pedidos')));
+});
+
+test('play listing plan refuses iPhone captures and missing images', () => {
+  const plan = listingPlan(synthetic, images({ capture: 'iphone69' }));
+  assert.ok(plan.problems.some((p) => p.includes('not a native Android capture')));
+  const empty = listingPlan(synthetic, mkdtempSync(join(tmpdir(), 'play-empty-')));
+  assert.ok(empty.problems.some((p) => p.includes('no play-phone images')));
+  const long = listingPlan({ ...synthetic, text: (locale) => ({ ...synthetic.text(locale), title: 'x'.repeat(31) }) }, images());
+  assert.ok(long.problems.some((p) => p.includes('title has 31 characters, limit 30')));
+});
+
+test('play listing sends text and images in one edit and commits', async () => {
+  const plan = listingPlan(synthetic, images());
+  const answers = { [`POST ${base}/edits`]: { id: 'E5' }, [`POST ${base}/edits/E5:commit`]: { id: 'E5' } };
+  for (const locale of ['pt-BR', 'en-US']) {
+    answers[`PUT ${base}/edits/E5/listings/${locale}`] = {};
+    for (const type of ['phoneScreenshots', 'featureGraphic']) {
+      answers[`DELETE ${base}/edits/E5/listings/${locale}/${type}`] = {};
+      answers[`POST ${UPLOAD_API}/applications/${PKG}/edits/E5/listings/${locale}/${type}?uploadType=media`] = { image: {} };
+    }
+  }
+  const { call, calls } = fakePlay(answers);
+  const log = console.log;
+  console.log = () => {};
+  try {
+    await sendListing(call, PKG, plan, { read: () => Buffer.from('png') });
+  } finally {
+    console.log = log;
+  }
+  assert.equal(calls.at(-1).url, `${base}/edits/E5:commit`);
+  assert.deepEqual(JSON.parse(calls[1].body), synthetic.text('pt-BR'));
+  const uploads = calls.filter((c) => c.url.includes('/upload/'));
+  assert.equal(uploads.length, 6);
+  assert.equal(uploads[0].headers['Content-Type'], 'image/png');
+});
+
+test('play listing never sends a plan with problems and discards a failed edit', async () => {
+  const bad = listingPlan(synthetic, images({ capture: 'iphone69' }));
+  const none = fakePlay({});
+  await assert.rejects(sendListing(none.call, PKG, bad), /listing not sent/);
+  assert.equal(none.calls.length, 0);
+  const { call, calls } = fakePlay({ [`POST ${base}/edits`]: { id: 'E6' }, [`DELETE ${base}/edits/E6`]: null });
+  await assert.rejects(sendListing(call, PKG, listingPlan(synthetic, images()), { read: () => Buffer.alloc(1) }), /failed: 500/);
   assert.equal(calls.at(-1).method, 'DELETE');
   assert.ok(!calls.some((c) => c.url.endsWith(':commit')));
 });
