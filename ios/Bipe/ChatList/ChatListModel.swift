@@ -412,7 +412,8 @@ final class ChatListModel: ObservableObject {
         case .remoteInvite(let timestamp, _, _):
             lastActivity = Date(milliseconds: timestamp)
         case .none:
-            break
+            // A sticker pack room has no messages (spec sticker-picker notes, Pack room): the chat list hides it.
+            if info.isPublic == true, case .worldReadable = info.historyVisibility { return nil }
         }
         let peer = info.isDm ? info.heroes.first(where: { $0.userId != ownUserId }) : nil
         let name = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName,

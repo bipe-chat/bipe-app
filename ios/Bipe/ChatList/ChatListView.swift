@@ -49,6 +49,8 @@ struct ChatListView: View {
     @State private var openingQueue: String?
     /// A group link waiting for room-link-open.
     @State private var openingRoomLink: RoomLink?
+    /// A pack link (spec sticker-pack).
+    @State private var openingPack: StickerPackRef?
     @State private var newGroupWith: [Person]?
     @State private var notificationsRoom: String?
     @State private var groupDetailsRoom: String?
@@ -170,6 +172,10 @@ struct ChatListView: View {
         .sheet(item: $openingRoomLink) { link in
             RoomLinkOpenView(session: model.session, link: link, media: model.media) { openChat($0) }
         }
+        .sheet(item: $openingPack) { pack in
+            StickerPackView(model: StickerPackModel(ref: pack, client: model.session.client, handles: people.handles),
+                            loader: model.media) { openingPack = nil }
+        }
         .sheet(item: Binding(get: { openingQueue.map(HandleLink.init) }, set: { openingQueue = $0?.handle })) { link in
             QueueCustomerView(api: model.session.business(api), business: link.handle, close: { _ in openingQueue = nil })
         }
@@ -207,6 +213,10 @@ struct ChatListView: View {
         .onOpenURL { url in
             // Both tabs show a chat list; the Conversas one takes profile links.
             guard scope != .grupos else { return }
+            if let pack = StickerPackRef.fromLink(url.absoluteString) {
+                openingPack = pack
+                return
+            }
             switch PeopleLink(url: url) {
             case .handle(let handle): openingLink = handle
             case .userId(let userId): show(.people(.person(userId: userId, fromDm: false)))

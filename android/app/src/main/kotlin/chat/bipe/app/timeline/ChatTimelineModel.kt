@@ -33,6 +33,7 @@ import chat.bipe.shared.BipeMoneyPause
 import chat.bipe.shared.BipeTheftStatement
 import chat.bipe.shared.ScamWarningKind
 import org.matrix.rustcomponents.sdk.MembershipState
+import chat.bipe.stickers.StickerPackRef
 import kotlinx.coroutines.CancellationException
 import org.matrix.rustcomponents.sdk.ErrorKind
 import org.matrix.rustcomponents.sdk.ClientException
@@ -115,7 +116,7 @@ data class TimelineMessage(
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, REPLY_IN_THREAD, EDIT, REMOVE_CAPTION, COPY, PIN, UNPIN, FORWARD, SELECT, SAVE_STICKER, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, REPLY_IN_THREAD, EDIT, REMOVE_CAPTION, COPY, PIN, UNPIN, FORWARD, SELECT, SAVE_STICKER, VIEW_STICKER_PACK, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -157,6 +158,8 @@ data class TimelineInteractions(
     val confirmDeleteRowId: String? = null,
     // message-report
     val report: MessageReport? = null,
+    // message-actions viewStickerPack: opens sticker-pack.
+    val openingStickerPack: StickerPackRef? = null,
     // read-receipts
     val readersSheet: List<ReceiptReader>? = null,
     // typing-indicator
@@ -618,6 +621,11 @@ class ChatTimelineModel(
         return true
     }
 
+    /** Closes sticker-pack. */
+    fun closeStickerPack() {
+        _ui.update { it.copy(openingStickerPack = null) }
+    }
+
     fun closeActions() {
         _ui.update { it.copy(actionsRowId = null) }
     }
@@ -652,6 +660,8 @@ class ChatTimelineModel(
                 MessageAction.SELECT -> canSelect(row)
                 // Spec message-actions notes (bipe-chat/bipe#670): every sent sticker.
                 MessageAction.SAVE_STICKER -> isSent && message.media?.kind == chat.bipe.app.media.MediaMessage.Kind.STICKER
+                // A sent sticker with stickerPackField (spec message-actions notes, ADR 0205).
+                MessageAction.VIEW_STICKER_PACK -> isSent && message.media?.stickerPack != null
                 // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
                 MessageAction.KEEP_AUDIO -> keepable(message, isSent) && message.voice!!.source.url !in kept()
                 MessageAction.UNKEEP_AUDIO -> message.voice?.source?.url?.let { it in kept() } ?: false
@@ -736,6 +746,7 @@ class ChatTimelineModel(
                         .onFailure { show(TimelineNotice.STICKER_SAVE_FAILED) }
                 }
             }
+            MessageAction.VIEW_STICKER_PACK -> _ui.update { it.copy(openingStickerPack = current.message?.media?.stickerPack) }
             MessageAction.RETRY -> retrySend(rowId)
             MessageAction.DELETE -> askDelete(rowId)
             MessageAction.REPORT -> openReport(rowId)

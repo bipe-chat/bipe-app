@@ -151,6 +151,7 @@ internal fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
     MessageAction.FORWARD -> PhosphorIcon.PAPER_PLANE_RIGHT
     MessageAction.SELECT -> PhosphorIcon.CHECK_CIRCLE
     MessageAction.SAVE_STICKER -> PhosphorIcon.STICKER
+    MessageAction.VIEW_STICKER_PACK -> PhosphorIcon.STICKER
     MessageAction.KEEP_AUDIO -> PhosphorIcon.DOWNLOAD_SIMPLE
     MessageAction.UNKEEP_AUDIO -> PhosphorIcon.X
     MessageAction.RETRY -> PhosphorIcon.ARROW_CLOCKWISE
@@ -176,6 +177,7 @@ internal fun actionTitle(action: MessageAction, message: TimelineMessage? = null
     MessageAction.FORWARD -> R.string.bipe_forward_action
     MessageAction.SELECT -> R.string.bipe_select_action
     MessageAction.SAVE_STICKER -> R.string.bipe_action_save_sticker
+    MessageAction.VIEW_STICKER_PACK -> R.string.bipe_action_view_sticker_pack
     MessageAction.KEEP_AUDIO -> R.string.bipe_voice_keep
     MessageAction.UNKEEP_AUDIO -> R.string.bipe_voice_unkeep
     MessageAction.DELETE -> R.string.bipe_app_message_action_delete

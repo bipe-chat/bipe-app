@@ -103,6 +103,7 @@ import chat.bipe.app.calls.OngoingCallBar
 import chat.bipe.app.media.MediaViewer
 import chat.bipe.app.media.VoicePlayer
 import chat.bipe.app.media.stickers.StickerPicker
+import chat.bipe.app.media.stickers.StickerPackScreen
 import chat.bipe.app.media.upload.AttachmentPicker
 import chat.bipe.app.media.upload.UploadPreviewScreen
 import chat.bipe.app.media.voice.MicrophoneDeniedBar
@@ -593,6 +594,10 @@ fun ChatTimelineScreen(
     }
     if (showsStickers) {
         StickerPicker(model.client, roomId, media, onClose = { showsStickers = false })
+    }
+    // message-actions viewStickerPack (spec sticker-pack).
+    ui.openingStickerPack?.let { pack ->
+        StickerPackScreen(model.client, pack, media, people?.handles, onClose = model::closeStickerPack)
     }
     val viewerMessage = viewerRowId?.let { id -> messages.firstOrNull { it.id == id } }
     val viewerLocation = viewerMessage?.takeIf { it.location != null }

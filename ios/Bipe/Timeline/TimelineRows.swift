@@ -242,6 +242,10 @@ enum TimelineRowBuilder {
                 if media.kind == .image {
                     media.description = BipeImageDescription.read(eventJson: event.lazyProvider.debugInfo().originalJson)
                 }
+                // stickerPackField has no SDK field either (spec message-actions viewStickerPack).
+                if media.kind == .sticker, let json = event.lazyProvider.debugInfo().originalJson {
+                    media.stickerPack = StickerPackRef.read(eventJson: json)
+                }
                 mediaContent = .media(media)
             }
             switch content.kind {
