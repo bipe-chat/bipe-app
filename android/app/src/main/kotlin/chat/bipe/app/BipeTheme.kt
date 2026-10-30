@@ -47,7 +47,12 @@ object BipeTheme {
  */
 @Composable
 fun BipeTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+    // Settings chats.appearance (bipe-chat/bipe#676).
+    val dark = when (AppTheme.appearance) {
+        AppTheme.Appearance.SYSTEM -> isSystemInDarkTheme()
+        AppTheme.Appearance.LIGHT -> false
+        AppTheme.Appearance.DARK -> true
+    }
     val highContrast = rememberHighContrast()
     val colors = bipeColors(AppTheme.palette, dark, highContrast)
     val scheme = if (dark) {

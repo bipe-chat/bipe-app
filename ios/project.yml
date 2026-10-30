@@ -92,6 +92,8 @@ targets:
         BipeAppID: $(BIPE_APP_ID)
         BipeAppGroup: $(BIPE_APP_GROUP)
         BipeLegacyKeychainReadGroups: [$(AppIdentifierPrefix)$(BIPE_APP_ID), 992N457T8D.chat.bipe.app.dev]
+        # Communication notifications (bipe-chat/bipe#771): the notification service donates INSendMessageIntent.
+        NSUserActivityTypes: [INSendMessageIntent]
         UILaunchScreen: {}
         # Group and person links from other apps (spec room-link-open): the matrix: scheme. iOS opens only verified
         # universal links, so https://matrix.to from other apps stays in the browser, which offers the matrix: link.
