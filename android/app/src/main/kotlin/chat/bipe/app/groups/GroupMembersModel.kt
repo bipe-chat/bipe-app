@@ -5,6 +5,7 @@
 package chat.bipe.app.groups
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.common.MemberNames
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,8 @@ data class GroupMember(
     /** A creator (room version 12) has no role actions. */
     val isCreator: Boolean,
     val level: Long,
+    /** Spec group-members nameAmbiguous: another member shows the same name (bipe-chat/bipe#825). */
+    val nameAmbiguous: Boolean = false,
 ) {
     enum class Membership { JOINED, INVITED, BANNED }
 }
@@ -158,8 +161,11 @@ class GroupMembersModel(
                 isYou = member.userId == session.userId,
                 isCreator = member.suggestedRoleForPowerLevel == RoomMemberRole.CREATOR,
                 level = GroupPeople.level(member.powerLevel),
+                nameAmbiguous = member.isNameAmbiguous,
             )
         }
+        val lookalikes = MemberNames.ambiguous(all.associate { it.person.userId to it.person.displayName })
+        all = all.map { if (it.person.userId in lookalikes) it.copy(nameAmbiguous = true) else it }
         rebuild()
     }
 

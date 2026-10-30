@@ -48,6 +48,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.memberLabel
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -226,7 +227,7 @@ private fun MemberRow(member: GroupMember, media: MediaLoader, onClick: () -> Un
         Avatar(member.person.displayName, member.person.avatarUrl, media, size = 40.dp, userId = member.person.userId)
         Spacer(Modifier.width(12.dp))
         Text(
-            member.person.displayName,
+            memberLabel(member.person.displayName, member.person.userId, member.nameAmbiguous),
             style = MaterialTheme.typography.bodyLarge,
             color = colors.inkPrimary,
             maxLines = 1,
