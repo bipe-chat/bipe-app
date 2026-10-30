@@ -79,6 +79,7 @@ struct ChatTimelineView: View {
             }
             rowList
                 .environment(\.bipeCompanySeals, people?.seals)
+                .environment(\.bipeHandles, people?.handles)
             if let hint = model.inviterHint {
                 InviterHintRow(hint: hint, inviterName: model.roomName) {
                     Task { await model.sendGreeting() }
