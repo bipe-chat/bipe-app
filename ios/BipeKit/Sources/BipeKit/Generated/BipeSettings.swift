@@ -284,7 +284,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .privacyWhoCanRead: nil
         case .privacyExport: nil
         case .privacyWhatBipeKeeps: nil
-        case .privacyAssistantSend: "planned:439"
+        case .privacyAssistantSend: nil
         case .accountWaysBackStatus: nil
         case .accountChangePin: nil
         case .accountAppLock: nil
