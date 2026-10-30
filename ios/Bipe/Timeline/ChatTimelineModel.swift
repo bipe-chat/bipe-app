@@ -79,29 +79,6 @@ struct TimelineMessage: Identifiable, Equatable {
     var assistantLabel: String? = nil
 }
 
-/// Type MessageAction of spec message-actions, in the order of the sheet.
-enum MessageAction: CaseIterable, Identifiable {
-    case reply
-    case replyInThread
-    case edit
-    case removeCaption
-    case copy
-    case pin
-    case unpin
-    case forward
-    /// Spec message-forward startSelection (bipe#860).
-    case select
-    case saveSticker
-    case viewStickerPack
-    case keepAudio
-    case unkeepAudio
-    case retry
-    case delete
-    case report
-
-    var id: Self { self }
-}
-
 /// Type MessageEdit of spec message-edit.
 struct MessageEdit: Equatable {
     var rowId: String
@@ -613,6 +590,8 @@ final class ChatTimelineModel: ObservableObject {
             case .removeCaption: details.canEdit && message.media?.caption?.nilIfBlank != nil
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
+            // Spec message-actions notes (bipe-chat/bipe#666): sent messages in a group, never in a DM (ADR 0141).
+            case .copyLink: isGroup && isSent
             // Spec message-pins: groups only, sent messages.
             case .pin: canPin && isSent && !pinnedEventIds.contains(details.eventId ?? "")
             case .unpin: canPin && isSent && pinnedEventIds.contains(details.eventId ?? "")
@@ -680,6 +659,15 @@ final class ChatTimelineModel: ObservableObject {
             UIPasteboard.general.string = row(rowId)?.message?.body
             BipeHaptics.play(.tap)
             show(.copied)
+        case .copyLink:
+            guard let room, let eventId = current.details?.eventId else { return }
+            Task {
+                // A link that the SDK cannot make shows nothing (spec message-actions notes).
+                guard let link = try? await room.matrixToEventPermalink(eventId: eventId) else { return }
+                UIPasteboard.general.string = link
+                BipeHaptics.play(.tap)
+                show(.copied)
+            }
         case .keepAudio, .unkeepAudio:
             guard let url = current.message?.voice?.source.url else { return }
             let store = voiceMedia

@@ -118,7 +118,7 @@ fun MessageActionsSheet(model: ChatTimelineModel, row: TimelineRow, onCopy: (Str
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(enabled = !paused) {
-                                if (action == MessageAction.COPY) onHaptic(BipeHaptic.Tap)
+                                if (action == MessageAction.COPY || action == MessageAction.COPY_LINK) onHaptic(BipeHaptic.Tap)
                                 model.choose(action, row.id, onCopy)
                             }
                             .padding(vertical = 12.dp),
@@ -147,6 +147,7 @@ internal fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
     MessageAction.EDIT -> PhosphorIcon.PENCIL_SIMPLE
     MessageAction.REMOVE_CAPTION -> PhosphorIcon.X
     MessageAction.COPY -> PhosphorIcon.COPY
+    MessageAction.COPY_LINK -> PhosphorIcon.LINK
     MessageAction.PIN, MessageAction.UNPIN -> PhosphorIcon.CHAT_TEXT
     MessageAction.FORWARD -> PhosphorIcon.PAPER_PLANE_RIGHT
     MessageAction.SELECT -> PhosphorIcon.CHECK_CIRCLE
@@ -172,6 +173,7 @@ internal fun actionTitle(action: MessageAction, message: TimelineMessage? = null
     }
     MessageAction.REMOVE_CAPTION -> R.string.bipe_caption_remove
     MessageAction.COPY -> R.string.bipe_app_copy
+    MessageAction.COPY_LINK -> R.string.bipe_app_message_action_copy_link
     MessageAction.PIN -> R.string.bipe_pin_action
     MessageAction.UNPIN -> R.string.bipe_unpin_action
     MessageAction.FORWARD -> R.string.bipe_forward_action
