@@ -4637,4 +4637,82 @@ public enum BipeStrings {
     public static var selectDeleteBody: String { NSLocalizedString("bipe_select_delete_body", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var selectDeleteFailed: String { NSLocalizedString("bipe_select_delete_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var moveTitle: String { NSLocalizedString("bipe_move_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var moveIntro: String { NSLocalizedString("bipe_move_intro", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var movePick: String { NSLocalizedString("bipe_move_pick", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var moveKeeps: String { NSLocalizedString("bipe_move_keeps", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var moveLoses: String { NSLocalizedString("bipe_move_loses", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var moveWait: String { NSLocalizedString("bipe_move_wait", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var moveStart: String { NSLocalizedString("bipe_move_start", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var movePin: String { NSLocalizedString("bipe_move_pin", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var movePendingTitle: String { NSLocalizedString("bipe_move_pending_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func movePendingBody(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_move_pending_body", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var moveCancel: String { NSLocalizedString("bipe_move_cancel", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var moveCancelled: String { NSLocalizedString("bipe_move_cancelled", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var moveBlockedTheft: String { NSLocalizedString("bipe_move_blocked_theft", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func moveBlockedRecent(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_move_blocked_recent", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func moveDone(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_move_done", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var moveAlertTitle: String { NSLocalizedString("bipe_move_alert_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func moveAlertBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_move_alert_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var moveAlertCancel: String { NSLocalizedString("bipe_move_alert_cancel", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func movedNoticeTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_moved_notice_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func movedNoticeBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_moved_notice_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var movedNoticeOpen: String { NSLocalizedString("bipe_moved_notice_open", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func movedOldAccount(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_moved_old_account", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func movedMessageWarning(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_moved_message_warning", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func movedInviteTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_moved_invite_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var movedInviteBody: String { NSLocalizedString("bipe_moved_invite_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var movedInviteAction: String { NSLocalizedString("bipe_moved_invite_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var operatorLeftTitle: String { NSLocalizedString("bipe_operator_left_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func operatorLeftBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_operator_left_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var operatorLeftAction: String { NSLocalizedString("bipe_operator_left_action", tableName: "Bipe", bundle: .module, comment: "") }
 }
