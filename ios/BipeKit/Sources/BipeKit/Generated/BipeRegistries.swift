@@ -833,6 +833,18 @@ public enum BipeRegistries {
     public static let voiceMediaNoTranscriptDays = 90
     public static let voiceMediaMaxKeptPerAccount = 200
 
+    /// Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, docs/drafts-room.md). Rules: test-vectors/drafts.json.
+    public static let draftsRoomType = "chat.bipe.drafts"
+    public static let draftsAccountDataType = "chat.bipe.drafts_room"
+    public static let draftField = "chat.bipe.draft"
+    public static let draftBodyMaxLength = 8000
+    public static let draftClientMaxLength = 64
+
+    /// Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json.
+    public static let assistantSendAccountDataType = "chat.bipe.assistant_send"
+    public static let assistantMarkerField = "chat.bipe.assistant"
+    public static let assistantClientMaxLength = 64
+
     /// Stickers (bipe ADR 0205, bipe-chat/bipe#837; registries/stickers.json). Search rules: test-vectors/sticker-search.json.
     public static let stickerImportMaxBytes = 1000000
     public static let stickerImportMaxPixels = 1024

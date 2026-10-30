@@ -148,6 +148,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Delete a DM (Apagar conversa) (flow chat). Spec: bipe-shared/product/screens/dm-delete.json
     case dmDelete = "dm-delete"
 
+    /// Assistant drafts (flow chat). Spec: bipe-shared/product/screens/drafts.json
+    case drafts = "drafts"
+
     /// Messages on this phone (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json
     case encryptionStatus = "encryption-status"
 
@@ -165,6 +168,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// People in a group (flow groups). Spec: bipe-shared/product/screens/group-members.json
     case groupMembers = "group-members"
+
+    /// Group privacy (flow groups). Spec: bipe-shared/product/screens/group-privacy.json
+    case groupPrivacy = "group-privacy"
 
     /// Handle change line (flow chat). Spec: bipe-shared/product/screens/handle-change-line.json
     case handleChangeLine = "handle-change-line"
@@ -235,6 +241,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Forward a message (flow chat). Spec: bipe-shared/product/screens/message-forward.json
     case messageForward = "message-forward"
 
+    /// Pinned messages (flow chat). Spec: bipe-shared/product/screens/message-pins.json
+    case messagePins = "message-pins"
+
     /// Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json
     case messageReactions = "message-reactions"
 
@@ -294,6 +303,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Poll (flow chat). Spec: bipe-shared/product/screens/poll-detail.json
     case pollDetail = "poll-detail"
+
+    /// Polls of a group (flow groups). Spec: bipe-shared/product/screens/poll-history.json
+    case pollHistory = "poll-history"
 
     /// Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json
     case problemReport = "problem-report"
@@ -432,6 +444,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Theft protection (flow settings). Spec: bipe-shared/product/screens/theft-protection.json
     case theftProtection = "theft-protection"
+
+    /// Threads in groups (flow chat). Spec: bipe-shared/product/screens/threads.json
+    case threads = "threads"
 
     /// Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json
     case timelineMedia = "timeline-media"

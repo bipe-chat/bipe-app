@@ -31,6 +31,10 @@ struct ChatListView: View {
     @StateObject private var settings: SettingsModel
     @State private var showsPinReminder = false
     @State private var showsPinChange = false
+    // Specs bring-people and bring-people-reminder (bipe-chat/bipe#752).
+    @StateObject private var bringPeople: BringPeopleModel
+    @State private var showsBringPeople = false
+    @State private var bringShare: ShareItem?
     @StateObject private var requests: ChatRequestsModel
     @StateObject private var banner: RemoteBannerModel
     @Environment(\.scenePhase) private var scenePhase
@@ -51,6 +55,8 @@ struct ChatListView: View {
     @State private var openingQueue: String?
     /// A group link waiting for room-link-open.
     @State private var openingRoomLink: RoomLink?
+    /// A pack link (spec sticker-pack).
+    @State private var openingPack: StickerPackRef?
     @State private var newGroupWith: [Person]?
     @State private var notificationsRoom: String?
     @State private var groupDetailsRoom: String?
@@ -61,6 +67,9 @@ struct ChatListView: View {
     @State private var creatingGroup = false
     @State private var deletingDm: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
+    /// Spec drafts openList: the list of the assistant drafts, from the chat list toolbar while drafts exist.
+    @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
+    @State private var showsDrafts = false
     @StateObject private var cards: FirstListCardsModel
     @State private var shareItem: ShareItem?
     private struct ShareItem: Identifiable {
@@ -77,6 +86,7 @@ struct ChatListView: View {
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
         _recovery = StateObject(wrappedValue: RecoveryReminderModel(api: api, session: model.session))
         _pinReminder = StateObject(wrappedValue: PinReminderModel(session: model.session))
+        _bringPeople = StateObject(wrappedValue: BringPeopleModel(session: model.session, api: api))
         _settings = StateObject(wrappedValue: SettingsModel(session: model.session, api: api))
         let people = PeopleService(session: model.session, api: api, media: model.media)
         _requests = StateObject(wrappedValue: ChatRequestsModel(session: model.session, api: api, people: people))
@@ -99,6 +109,11 @@ struct ChatListView: View {
                     // No account avatar here: Você shows the current account (MZ decision 25 Oct 2026, spec chat-list).
                     ToolbarItem(placement: .topBarTrailing) {
                         CreateGroupButton(createGroup: { creatingGroup = true }, invite: { showingInvites = true })
+                    }
+                    if assistantDrafts.userId == model.session.userId, !assistantDrafts.drafts.isEmpty {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button(BipeStrings.appDraftsTitle) { showsDrafts = true }
+                        }
                     }
                 }
         } detail: {
@@ -127,7 +142,12 @@ struct ChatListView: View {
             if scope != .grupos {
                 await handle.load()
                 await recovery.load()
+                await bringPeople.load()
+                openBringPeopleIfDue()
             }
+        }
+        .onChange(of: detail) { _, next in
+            if next == nil { openBringPeopleIfDue() }
         }
         .task { await requests.start() }
         .onReceive(model.$chats) { requests.rememberDmPartners($0) }
@@ -138,13 +158,20 @@ struct ChatListView: View {
                 Task {
                     await banner.refresh()
                     await requests.refreshTrust()
-                    if scope != .grupos { await recovery.load() }
+                    if scope != .grupos {
+                        await recovery.load()
+                        await bringPeople.load()
+                    }
                     pinReminder.refresh()
                 }
             }
         }
         .environment(\.bipeBrandMarks, people.brandMarks)
+        .environment(\.bipeHandles, people.handles)
         .onAppear { people.start() }
+        .sheet(isPresented: $showsDrafts) {
+            AssistantDraftsList(store: assistantDrafts, userId: model.session.userId) { openChat($0) }
+        }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
         }
@@ -154,6 +181,15 @@ struct ChatListView: View {
         .sheet(isPresented: $showsPinReminder) {
             PinReminderView(session: model.session, api: api, onResult: { pinReminder.checked($0) },
                             changePin: { Task { try? await Task.sleep(for: .milliseconds(500)); showsPinChange = true } })
+        }
+        .sheet(isPresented: $showsBringPeople, onDismiss: { Task { await bringPeople.load() } }) {
+            BringPeopleView(model: bringPeople,
+                            openChat: { openChat($0) },
+                            openPerson: { show(.people(.person(userId: $0, fromDm: false))) },
+                            openInvites: { Task { try? await Task.sleep(for: .milliseconds(500)); showingInvites = true } })
+        }
+        .sheet(item: $bringShare) { item in
+            ShareSheet(items: [BipeStrings.invitesShareMessage(item.url.absoluteString)]).ignoresSafeArea()
         }
         .sheet(isPresented: $showsPinChange) {
             NavigationStack { PinChangeView(model: settings) }
@@ -171,6 +207,10 @@ struct ChatListView: View {
         }
         .sheet(item: $openingRoomLink) { link in
             RoomLinkOpenView(session: model.session, link: link, media: model.media) { openMessage($0, eventId: $1) }
+        }
+        .sheet(item: $openingPack) { pack in
+            StickerPackView(model: StickerPackModel(ref: pack, client: model.session.client, handles: people.handles),
+                            loader: model.media) { openingPack = nil }
         }
         .sheet(item: Binding(get: { openingQueue.map(HandleLink.init) }, set: { openingQueue = $0?.handle })) { link in
             QueueCustomerView(api: model.session.business(api), business: link.handle, close: { _ in openingQueue = nil })
@@ -209,6 +249,10 @@ struct ChatListView: View {
         .onOpenURL { url in
             // Both tabs show a chat list; the Conversas one takes profile links.
             guard scope != .grupos else { return }
+            if let pack = StickerPackRef.fromLink(url.absoluteString) {
+                openingPack = pack
+                return
+            }
             switch PeopleLink(url: url) {
             case .handle(let handle): openingLink = handle
             case .userId(let userId): show(.people(.person(userId: userId, fromDm: false)))
@@ -294,7 +338,7 @@ struct ChatListView: View {
     }
 
     /// One card at a time: the handle card first, then the recovery reminder (spec recovery-reminder), then the PIN
-    /// reminder (spec pin-reminder).
+    /// reminder (spec pin-reminder), then the bring-people reminder (spec bring-people-reminder).
     @ViewBuilder
     private var handlePrompt: some View {
         if scope != .grupos && handle.showsPrompt {
@@ -307,6 +351,12 @@ struct ChatListView: View {
                 .padding(.vertical, 8)
         } else if scope != .grupos && pinReminder.showsCard {
             PinReminderCard(model: pinReminder) { showsPinReminder = true }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+        } else if scope != .grupos, let reminder = bringPeople.reminder {
+            BringPeopleReminderCard(model: bringPeople, reminder: reminder,
+                                    share: { bringShare = ShareItem(url: $0) },
+                                    openInvites: { showingInvites = true })
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
         }
@@ -342,15 +392,9 @@ struct ChatListView: View {
         cards.finish(card)
         switch target {
         case .shareInvite:
-            let session = model.session
-            Task {
-                let creator = BipeInviteCreator(apiClient: api, userID: session.userId, accessToken: { session.accessToken() })
-                if case .created(let invite)? = try? await creator.createIfAvailable() {
-                    shareItem = ShareItem(url: invite.url)
-                } else {
-                    showingInvites = true
-                }
-            }
+            // Spec chat-list-cards shareInvite: opens bring-people, which says why when no invite is left.
+            bringPeople.sheetShown()
+            showsBringPeople = true
         case .shareProfile:
             if let url = handle.currentHandle.flatMap(BipeProfileLink.url(handle:)) { shareItem = ShareItem(url: url) }
         case .profileQr:
@@ -535,6 +579,17 @@ struct ChatListView: View {
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 48)
+    }
+
+    /// Trigger firstChatListAfterSignup (spec bring-people): Conversas shows with nothing open over it, after the first
+    /// message to the inviter (the inviter hint is gone), on an account that signed up on this phone. Once.
+    private func openBringPeopleIfDue() {
+        guard scope != .grupos, detail == nil, !showsBringPeople, !showsHandlePick, !showsPinReminder, !showsPinChange,
+              !showsRecoveryEmail, !showingInvites, !creatingGroup, shareItem == nil, openingLink == nil,
+              openingRoomLink == nil, openingQueue == nil, bringPeople.memory.sheetDue,
+              BipeInviteStore(userID: model.session.userId).inviterGreeting() == nil else { return }
+        bringPeople.sheetShown()
+        showsBringPeople = true
     }
 
     /// Action openChat. It replaces the detail, from the list or from a screen inside the detail.

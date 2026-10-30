@@ -69,13 +69,17 @@ class MediaLoader(val client: Client) {
     }
 }
 
-/** A person's circle or a company's rounded square, with the actual photo or initials (ADR 0132). */
+/**
+ * A person's circle or a company's rounded square, with the actual photo or initials (ADR 0132).
+ * loader null: initials only, with no account (the store captures, bipe-chat/bipe#457).
+ */
 @Composable
-fun Avatar(name: String, mxcUrl: String?, loader: MediaLoader, size: Dp = 48.dp, userId: String? = null, isCompany: Boolean = false, showsPhoto: Boolean = true) {
+fun Avatar(name: String, mxcUrl: String?, loader: MediaLoader?, size: Dp = 48.dp, userId: String? = null, isCompany: Boolean = false, showsPhoto: Boolean = true) {
     val colors = BipeTheme.colors
     var image by remember(userId, mxcUrl, showsPhoto) { mutableStateOf<ImageBitmap?>(null) }
     var company by remember(userId, isCompany) { mutableStateOf(isCompany) }
     LaunchedEffect(loader, userId, mxcUrl, size, isCompany, showsPhoto) {
+        if (loader == null) return@LaunchedEffect
         launch {
             val url = if (showsPhoto) mxcUrl ?: userId?.let { loader.avatarUrl(it) } else null
             image = url?.let { loader.thumbnail(it, (size.value * 3).toInt()) }

@@ -4,7 +4,14 @@
 
 package chat.bipe.app.common
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.staticCompositionLocalOf
 import chat.bipe.app.media.MediaContent
+import chat.bipe.shared.BipeHandleResolver
+import chat.bipe.shared.BipeServers
+import chat.bipe.shared.NameNormalizer
 import chat.bipe.shared.R
 import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
@@ -38,3 +45,45 @@ fun TimelineItemContent.previewText(undecryptable: String, label: (Int) -> Strin
 
 fun ProfileDetails.displayName(orUserId: String): String =
     (this as? ProfileDetails.Ready)?.displayName?.takeIf { it.isNotEmpty() } ?: orUserId
+
+/** The SDK's flag: another member of the room has the same display name. */
+val ProfileDetails.isNameAmbiguous: Boolean
+    get() = (this as? ProfileDetails.Ready)?.displayNameAmbiguous == true
+
+/** The session's handle resolver for screens that have no [chat.bipe.app.people.PeopleService]. null: no @ shows. */
+val LocalBipeHandles = staticCompositionLocalOf<BipeHandleResolver?> { null }
+
+/** Spec timeline-rows and group-members nameAmbiguous (bipe-chat/bipe#825): members whose names look the same. */
+object MemberNames {
+    /**
+     * The user IDs whose name, after [NameNormalizer] (security rule 8), another member also has.
+     * A look-alike "Mãe" with a Cyrillic "а" counts as the same name.
+     */
+    fun ambiguous(names: Map<String, String>): Set<String> =
+        names.entries
+            .groupBy { NameNormalizer.normalize(it.value) }
+            .filterKeys { it.isNotEmpty() }
+            .values
+            .filter { it.size > 1 }
+            .flatMapTo(mutableSetOf()) { group -> group.map { it.key } }
+
+    /**
+     * The name with what tells the member apart: "Maria @maria1" for a Bipe user once the @ is known,
+     * the Matrix ID for a user of another server, the name alone while the @ loads.
+     */
+    fun label(name: String, userId: String, handle: String?): String = when {
+        BipeServers.isBipeUserId(userId) -> handle?.let { "$name @$it" } ?: name
+        else -> "$name $userId"
+    }
+}
+
+/** [name] with the @ when [ambiguous] (spec nameAmbiguous). Recomposes when the @ arrives. */
+@Composable
+fun memberLabel(name: String, userId: String, ambiguous: Boolean): String {
+    if (!ambiguous) return name
+    val resolver = LocalBipeHandles.current ?: return MemberNames.label(name, userId, null)
+    LaunchedEffect(userId) { resolver.resolve(userId) }
+    val handles = resolver.handles.collectAsState().value
+    return MemberNames.label(name, userId, handles[userId])
+}
+
