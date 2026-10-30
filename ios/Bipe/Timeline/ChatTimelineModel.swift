@@ -79,30 +79,6 @@ struct TimelineMessage: Identifiable, Equatable {
     var assistantLabel: String? = nil
 }
 
-/// Type MessageAction of spec message-actions, in the order of the sheet.
-enum MessageAction: CaseIterable, Identifiable {
-    case reply
-    case replyInThread
-    case edit
-    case removeCaption
-    case copy
-    case copyLink
-    case pin
-    case unpin
-    case forward
-    /// Spec message-forward startSelection (bipe#860).
-    case select
-    case saveSticker
-    case viewStickerPack
-    case keepAudio
-    case unkeepAudio
-    case retry
-    case delete
-    case report
-
-    var id: Self { self }
-}
-
 /// Type MessageEdit of spec message-edit.
 struct MessageEdit: Equatable {
     var rowId: String
