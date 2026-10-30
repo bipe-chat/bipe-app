@@ -66,6 +66,7 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.TermsReacceptModel
 import chat.bipe.app.account.TermsReacceptScreen
 import chat.bipe.app.common.Avatar
+import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.LocalBipeHandles
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.OfficialBadge
@@ -152,6 +153,10 @@ fun HomeScreen(
     val showsPinCard by pinReminder.showsCard.collectAsState()
     var showsPinReminder by rememberSaveable { mutableStateOf(false) }
     var showsPinChange by rememberSaveable { mutableStateOf(false) }
+    // Specs bring-people and bring-people-reminder (bipe-chat/bipe#752).
+    val bringPeople = remember(session) { BringPeopleModel(context.applicationContext, session, api) }
+    val bringState by bringPeople.state.collectAsState()
+    var showsBringPeople by rememberSaveable { mutableStateOf(false) }
     val settings = remember(session) { SettingsModel(context.applicationContext, session, api, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
     val people = remember(session) { PeopleService(context, session, api, media, scope) }
@@ -216,6 +221,7 @@ fun HomeScreen(
     // Critical banners refresh alongside account/profile and recovery checks.
     LaunchedEffect(foregroundCount) { remoteBanner.refresh() }
     LaunchedEffect(foregroundCount) { recovery.load() }
+    LaunchedEffect(foregroundCount) { bringPeople.load() }
     LaunchedEffect(foregroundCount) {
         pinReminder.refresh()
         syncOff = tabs.start.recoveryTokens.isAvailable && !tabs.start.recoveryTokens.isBackedUp()
@@ -263,6 +269,20 @@ fun HomeScreen(
         onDispose { if (app.notifications.visibleRoom == target) app.notifications.visibleRoom = null }
     }
     val roomId = openRoomId
+    // Trigger firstChatListAfterSignup (spec bring-people): Conversas with nothing open over it, after the first message
+    // to the inviter (the inviter hint is gone), on an account that signed up on this phone. Once.
+    val tabState by tabs.state.collectAsState()
+    LaunchedEffect(roomId, peopleStack.isEmpty(), showsHandlePick, showsPinReminder, showsPinChange, showsRecoveryEmail,
+        showsRequests, showsNewAccount, inviteTap, termsPhase, tabState.selectedTab) {
+        if (roomId == null && peopleStack.isEmpty() && !showsHandlePick && !showsPinReminder && !showsPinChange &&
+            !showsRecoveryEmail && !showsRequests && !showsNewAccount && inviteTap == null &&
+            termsPhase == TermsReacceptModel.Phase.HIDDEN && tabState.selectedTab == AppTabsModel.Tab.CONVERSAS &&
+            !showsBringPeople && bringPeople.memory.sheetDue && InviterGreetings(context, session.userId).get() == null
+        ) {
+            bringPeople.sheetShown()
+            showsBringPeople = true
+        }
+    }
     // Spec brand-mark: chat list rows read the session's brand marks.
     // LocalEncryptionStatus: the oldMessages settings row opens the same EncryptionSheet (bipe-chat/bipe#793).
     CompositionLocalProvider(LocalBipeBrandMarks provides people.brandMarks, LocalBipeHandles provides people.handles, LocalEncryptionStatus provides encryption) {
@@ -330,7 +350,21 @@ fun HomeScreen(
                 peopleStack = emptyList()
                 openRoomId = it
             }) { groups ->
-                if (peopleStack.isNotEmpty()) {
+                if (showsBringPeople) {
+                    val close = {
+                        showsBringPeople = false
+                        scope.launch { bringPeople.load() }
+                        Unit
+                    }
+                    BackHandler { close() }
+                    BringPeopleScreen(
+                        bringPeople,
+                        onClose = close,
+                        openChat = { openRoomId = it },
+                        openPerson = { navigation.push(PeopleRoute.PersonProfile(it, fromDm = false)) },
+                        openInvites = groups.openInvites,
+                    )
+                } else if (peopleStack.isNotEmpty()) {
                     BackHandler { navigation.pop() }
                     // The people screens reach group-create, chat-notifications, dm-delete and invites through GroupHost.
                     val withGroups = PeopleNavigation(
@@ -380,6 +414,11 @@ fun HomeScreen(
                         recoveryCard = {
                         if (recovery.showsCard(recoveryState)) RecoveryReminderCard(recovery, syncOff) { showsRecoveryEmail = true }
                         else if (showsPinCard) PinReminderCard(pinReminder) { showsPinReminder = true }
+                        else bringState.reminder?.let { BringPeopleReminderCard(bringPeople, it, openInvites = groups.openInvites) }
+                        },
+                        onBringPeople = {
+                            bringPeople.sheetShown()
+                            showsBringPeople = true
                         },
                         onCreateGroup = groups.createGroup,
                         onDeleteDm = groups.deleteDm,
@@ -431,6 +470,8 @@ fun ChatListScreen(
     listOpenRequest: Int = 0,
     /** Spec chat-list-cards shareInvite; `null` outside Conversas. */
     api: BipeApiClient? = null,
+    /** Spec chat-list-cards shareInvite: opens bring-people. */
+    onBringPeople: () -> Unit = {},
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
@@ -534,15 +575,8 @@ fun ChatListScreen(
                                 FirstListCard(card, handleState.currentHandle) { target ->
                                     cards.finish(card)
                                     when (target) {
-                                        BipeOnboardingTarget.SHARE_INVITE -> cardScope.launch {
-                                            val link = api?.let { shareableInvite(it, model.session) }
-                                            if (link != null) {
-                                                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
-                                                    .putExtra(Intent.EXTRA_TEXT, context.getString(R.string.bipe_invites_share_message, link)), null))
-                                            } else {
-                                                onInvite()
-                                            }
-                                        }
+                                        // Spec chat-list-cards shareInvite: opens bring-people (bipe-chat/bipe#752).
+                                        BipeOnboardingTarget.SHARE_INVITE -> onBringPeople()
                                         BipeOnboardingTarget.SHARE_PROFILE -> handleState.currentHandle?.let { BipeProfileLink.url(it) }?.let { link ->
                                             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
                                                 .putExtra(Intent.EXTRA_TEXT, link), null))
