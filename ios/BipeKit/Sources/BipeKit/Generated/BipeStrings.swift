@@ -4637,4 +4637,44 @@ public enum BipeStrings {
     public static var selectDeleteBody: String { NSLocalizedString("bipe_select_delete_body", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var selectDeleteFailed: String { NSLocalizedString("bipe_select_delete_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryCsam: String { NSLocalizedString("bipe_report_category_csam", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryCsamHint: String { NSLocalizedString("bipe_report_category_csam_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryChildSafety: String { NSLocalizedString("bipe_report_category_child_safety", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryChildSafetyHint: String { NSLocalizedString("bipe_report_category_child_safety_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryNcii: String { NSLocalizedString("bipe_report_category_ncii", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryNciiHint: String { NSLocalizedString("bipe_report_category_ncii_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryThreat: String { NSLocalizedString("bipe_report_category_threat", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryThreatHint: String { NSLocalizedString("bipe_report_category_threat_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryTakeover: String { NSLocalizedString("bipe_report_category_takeover", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryTakeoverHint: String { NSLocalizedString("bipe_report_category_takeover_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryScam: String { NSLocalizedString("bipe_report_category_scam", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryScamHint: String { NSLocalizedString("bipe_report_category_scam_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryImpersonation: String { NSLocalizedString("bipe_report_category_impersonation", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryImpersonationHint: String { NSLocalizedString("bipe_report_category_impersonation_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryIllegalHate: String { NSLocalizedString("bipe_report_category_illegal_hate", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryIllegalHateHint: String { NSLocalizedString("bipe_report_category_illegal_hate_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategorySpam: String { NSLocalizedString("bipe_report_category_spam", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategorySpamHint: String { NSLocalizedString("bipe_report_category_spam_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryOther: String { NSLocalizedString("bipe_report_category_other", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var reportCategoryOtherHint: String { NSLocalizedString("bipe_report_category_other_hint", tableName: "Bipe", bundle: .module, comment: "") }
 }

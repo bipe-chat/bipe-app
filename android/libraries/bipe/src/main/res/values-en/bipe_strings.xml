@@ -2012,4 +2012,24 @@
     <string name="bipe_select_delete_title">Delete your messages?</string>
     <string name="bipe_select_delete_body">Your selected messages disappear for everyone in the chat. Messages from other people stay.</string>
     <string name="bipe_select_delete_failed">Couldn\'t delete the messages. Try again.</string>
+    <string name="bipe_report_category_csam">Child sexual abuse</string>
+    <string name="bipe_report_category_csam_hint">Sexual photos, videos or talk involving a minor.</string>
+    <string name="bipe_report_category_child_safety">Child at risk</string>
+    <string name="bipe_report_category_child_safety_hint">Grooming, exploitation or danger to a child or teenager.</string>
+    <string name="bipe_report_category_ncii">Intimate image shared without consent</string>
+    <string name="bipe_report_category_ncii_hint">Nudity or sex of someone who did not agree to share it.</string>
+    <string name="bipe_report_category_threat">Threat</string>
+    <string name="bipe_report_category_threat_hint">A threat of violence against someone.</string>
+    <string name="bipe_report_category_takeover">Hacked account</string>
+    <string name="bipe_report_category_takeover_hint">Someone took over another person\'s account and speaks as them.</string>
+    <string name="bipe_report_category_scam">Scam</string>
+    <string name="bipe_report_category_scam_hint">Asks for Pix, data or money with a lie.</string>
+    <string name="bipe_report_category_impersonation">Pretends to be someone else</string>
+    <string name="bipe_report_category_impersonation_hint">Pretends to be a person, a company or a public body.</string>
+    <string name="bipe_report_category_illegal_hate">Discrimination or hate</string>
+    <string name="bipe_report_category_illegal_hate_hint">Racism or another hate crime under the law.</string>
+    <string name="bipe_report_category_spam">Spam</string>
+    <string name="bipe_report_category_spam_hint">Bulk messages you did not ask for.</string>
+    <string name="bipe_report_category_other">Something else</string>
+    <string name="bipe_report_category_other_hint">Something that is not on the list.</string>
 </resources>
