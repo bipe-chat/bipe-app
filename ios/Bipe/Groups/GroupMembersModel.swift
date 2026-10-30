@@ -20,6 +20,8 @@ struct GroupMember: Identifiable, Equatable {
     /// A creator (room version 12) has no role actions.
     var isCreator: Bool
     var level: Int64
+    /// Spec group-members nameAmbiguous: another member shows the same name (bipe-chat/bipe#825).
+    var nameAmbiguous = false
 
     var id: String { person.userId }
 }
@@ -142,6 +144,7 @@ final class GroupMembersModel: ObservableObject {
         if let own = members.first(where: { $0.userId == session.userId }) {
             ownLevel = GroupPeople.level(own.powerLevel)
         }
+        let flagged = Set(members.filter(\.isNameAmbiguous).map(\.userId))
         all = members.compactMap { member in
             let membership: GroupMember.Membership
             switch member.membership {
@@ -156,6 +159,11 @@ final class GroupMembersModel: ObservableObject {
                                isYou: member.userId == session.userId,
                                isCreator: member.suggestedRoleForPowerLevel == .creator,
                                level: GroupPeople.level(member.powerLevel))
+        }
+        let lookalikes = MemberNames.ambiguous(Dictionary(all.map { ($0.person.userId, $0.person.displayName) },
+                                                          uniquingKeysWith: { first, _ in first }))
+        for index in all.indices where flagged.contains(all[index].person.userId) || lookalikes.contains(all[index].person.userId) {
+            all[index].nameAmbiguous = true
         }
         rebuild()
     }
