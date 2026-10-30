@@ -10,12 +10,12 @@ import Synchronization
 /// with the client name, and the apps label it. The rules match assistantSendAllowed and assistantSender in bipe-shared
 /// tools/lib/registries.mjs and test-vectors/assistant-send.json.
 public enum BipeAssistantSend {
-    /// personalSend.accountDataType. The generator writes no constant for it yet.
-    public static let accountDataType = "chat.bipe.assistant_send"
-    /// personalSend.markerField.
-    public static let markerField = "chat.bipe.assistant"
-    /// personalSend.clientMaxLength.
-    public static let clientMaxLength = 64
+    /// personalSend.accountDataType (generated).
+    public static let accountDataType = BipeRegistries.assistantSendAccountDataType
+    /// personalSend.markerField (generated).
+    public static let markerField = BipeRegistries.assistantMarkerField
+    /// personalSend.clientMaxLength (generated).
+    public static let clientMaxLength = BipeRegistries.assistantClientMaxLength
 
     /// assistantSendAllowed: on only when the content is an object with enabled exactly true. Absent is off.
     public static func allowed(content: Any?) -> Bool {

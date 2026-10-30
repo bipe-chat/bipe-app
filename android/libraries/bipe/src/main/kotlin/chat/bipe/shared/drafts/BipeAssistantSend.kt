@@ -4,6 +4,7 @@
 
 package chat.bipe.shared.drafts
 
+import chat.bipe.shared.generated.BipeRegistries
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -17,12 +18,12 @@ import kotlinx.serialization.json.JsonPrimitive
  * tools/lib/registries.mjs and test-vectors/assistant-send.json.
  */
 object BipeAssistantSend {
-    /** personalSend.accountDataType. The generator writes no constant for it yet. */
-    const val ACCOUNT_DATA_TYPE = "chat.bipe.assistant_send"
-    /** personalSend.markerField. */
-    const val MARKER_FIELD = "chat.bipe.assistant"
-    /** personalSend.clientMaxLength. */
-    const val CLIENT_MAX_LENGTH = 64
+    /** personalSend.accountDataType (generated). */
+    const val ACCOUNT_DATA_TYPE = BipeRegistries.ASSISTANT_SEND_ACCOUNT_DATA_TYPE
+    /** personalSend.markerField (generated). */
+    const val MARKER_FIELD = BipeRegistries.ASSISTANT_MARKER_FIELD
+    /** personalSend.clientMaxLength (generated). */
+    const val CLIENT_MAX_LENGTH = BipeRegistries.ASSISTANT_CLIENT_MAX_LENGTH
 
     private const val MAX_CACHED_EVENTS = 2000
     /** Event ID to client name; "" for a message without the marker. */
