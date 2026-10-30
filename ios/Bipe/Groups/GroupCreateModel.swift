@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 import UIKit
@@ -59,6 +60,17 @@ final class GroupCreateModel: ObservableObject {
         people.removeAll { $0.userId == userId }
     }
 
+    /// The power_level_content_override of a new group (ADR 0210, bipe-chat/bipe#879; registries/dm-power-levels.json
+    /// groupEvents): every member may set their own assistant marker (chat.bipe.assistant at 0). Synapse replaces its
+    /// whole default events map with the override's, so groupEvents repeats the Synapse defaults. users stays empty,
+    /// so the creator keeps the server's default level; other fields keep the preset.
+    static var groupPowerLevels: PowerLevels {
+        PowerLevels(usersDefault: nil, eventsDefault: nil, stateDefault: nil,
+                    ban: nil, kick: nil, redact: nil, invite: nil, notifications: nil,
+                    users: [:],
+                    events: BipeDmPowerLevels.groupEvents)
+    }
+
     /// Action create. Returns the new room ID and whether every invite went out.
     func create() async -> (roomId: String, allInvited: Bool)? {
         guard canCreate else { return nil }
@@ -75,7 +87,8 @@ final class GroupCreateModel: ObservableObject {
                                                   visibility: .private,
                                                   preset: .privateChat,
                                                   invite: nil,
-                                                  avatar: avatar)
+                                                  avatar: avatar,
+                                                  powerLevelContentOverride: Self.groupPowerLevels)
             let roomId = try await session.client.createRoom(request: parameters)
             var allInvited = true
             // The room reaches the store with the next sync.

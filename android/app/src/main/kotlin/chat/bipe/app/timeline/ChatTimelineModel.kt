@@ -9,6 +9,7 @@ import android.os.Build
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.applyDiff
+import chat.bipe.app.common.serverRoomState
 import chat.bipe.app.common.displayName
 import chat.bipe.app.common.toVectorDiff
 import chat.bipe.app.composer.ComposerMarkdown
@@ -32,6 +33,7 @@ import chat.bipe.shared.BipeHandleChangeStore
 import chat.bipe.shared.BipeMoneyPause
 import chat.bipe.shared.BipeTheftStatement
 import chat.bipe.shared.ScamWarningKind
+import chat.bipe.shared.drafts.BipeAssistantSend
 import org.matrix.rustcomponents.sdk.MembershipState
 import chat.bipe.stickers.StickerPackRef
 import kotlinx.coroutines.CancellationException
@@ -52,6 +54,7 @@ import org.matrix.rustcomponents.sdk.DateDividerMode
 import org.matrix.rustcomponents.sdk.EditedContent
 import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.OtherState
 import org.matrix.rustcomponents.sdk.TimelineItemContent
 import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Room
@@ -302,6 +305,19 @@ class ChatTimelineModel(
     private var lastReadEventId: String? = null
     private var noticeJob: Job? = null
 
+    /** A member whose assistant reads the chat (spec chat-timeline notes, bipe-chat/bipe#439). */
+    data class AssistantReader(val userId: String, val name: String)
+
+    private val _assistantReaders = MutableStateFlow<List<AssistantReader>>(emptyList())
+    /**
+     * Spec chat-timeline notes, assistant readers (ADR 0130, bipe-chat/bipe#439): the members whose assistant reads
+     * this chat, one persistent notice each. Empty shows nothing, also after a failed read.
+     */
+    val assistantReaders: StateFlow<List<AssistantReader>> = _assistantReaders.asStateFlow()
+    private var readersJob: Job? = null
+    /** The reader marker state events in the loaded timeline; a change reads the room state again. */
+    private var readerMarkerCount = 0
+
     fun start() {
         acceptsMenuActions = true
         if (started) return
@@ -326,6 +342,7 @@ class ChatTimelineModel(
             val timeline = runCatching { room.timelineWithConfiguration(configuration) }.getOrNull() ?: return@launch
             this@ChatTimelineModel.timeline = timeline
             loadRoomFacts(room)
+            refreshAssistantReaders()
             // Action appear of spec composer: a saved newMessage draft fills the field.
             if (_draft.value.isEmpty()) room.newMessageDraft(threadRoot)?.let { _draft.value = it }
             if (!facts.isDm) launch { mentionDirectory.load(room, session.userId) }
@@ -355,6 +372,7 @@ class ChatTimelineModel(
                 batch.forEach { items.applyDiff(it.toVectorDiff()) }
                 loadRoomFacts(room)
                 rebuild()
+                noteReaderMarkers()
             }
         }
     }
@@ -367,6 +385,42 @@ class ChatTimelineModel(
         leave()
         handle?.cancel()
         typingHandle?.cancel()
+    }
+
+    /**
+     * Spec chat-timeline notes, assistant readers (ADR 0130, bipe-chat/bipe#439): reads the room state from the
+     * server (the SDK has no call for a custom state event) and runs assistantReaders. Called when the chat opens,
+     * when the app comes to the foreground and when a reader marker reaches the timeline. A failed read shows nothing.
+     */
+    fun refreshAssistantReaders() {
+        if (threadRoot != null) return
+        val room = room ?: return
+        readersJob?.cancel()
+        readersJob = scope.launch {
+            val state = try {
+                serverRoomState(session.client, roomId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+            val readers = BipeAssistantSend.readers(state).map { userId ->
+                val name = runCatching { room.memberDisplayName(userId) }.getOrNull()?.takeIf { it.isNotBlank() }
+                AssistantReader(userId, name ?: chat.bipe.app.people.Person.localpart(userId))
+            }
+            _assistantReaders.value = readers
+        }
+    }
+
+    /** The marker is room state: when the count of marker events in the timeline changes, the state is read again. */
+    private fun noteReaderMarkers() {
+        val count = items.count { item ->
+            val state = item.asEvent()?.content as? TimelineItemContent.State
+            (state?.content as? OtherState.Custom)?.eventType == BipeAssistantSend.READER_EVENT_TYPE
+        }
+        if (count == readerMarkerCount) return
+        readerMarkerCount = count
+        refreshAssistantReaders()
     }
 
     private suspend fun loadRoomFacts(room: Room) {

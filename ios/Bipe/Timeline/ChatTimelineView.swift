@@ -76,6 +76,10 @@ struct ChatTimelineView: View {
                 }
                 // The open bookings with the business, pinned above the timeline (ADR 0102).
                 BookingCardStack(model: business)
+                // Spec chat-timeline notes: one persistent notice per member whose assistant reads the chat.
+                ForEach(model.assistantReaders) { reader in
+                    AssistantReaderNotice(name: reader.name)
+                }
             }
             rowList
                 .environment(\.bipeCompanySeals, people?.seals)
@@ -251,7 +255,10 @@ struct ChatTimelineView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await model.markAsRead() } }
+            if phase == .active {
+                Task { await model.markAsRead() }
+                model.refreshAssistantReaders()
+            }
             if phase == .background { model.leave() }
         }
         .sheet(isPresented: presence(\.actionsRowId)) {

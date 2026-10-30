@@ -77,6 +77,17 @@ struct SharedVectorTests {
             let json = String(decoding: try JSONSerialization.data(withJSONObject: ["type": "m.room.message", "content": content ?? [:]]), as: UTF8.self)
             #expect(BipeAssistantSend.sender(eventId: nil, json: { json }) == vector["expected"] as? String, "label json \(vector["name"] ?? "")")
         }
+        let readers = try SharedVectors.array("assistant-send.json", key: "readers")
+        #expect(!readers.isEmpty)
+        for vector in readers {
+            let events = vector["events"] as? [Any] ?? []
+            let expected = vector["expected"] as? [String] ?? []
+            #expect(BipeAssistantSend.readers(stateEvents: events) == expected, "readers \(vector["name"] ?? "")")
+            let json = try JSONSerialization.data(withJSONObject: events)
+            #expect(BipeAssistantSend.readers(stateJson: json) == expected, "readers json \(vector["name"] ?? "")")
+        }
+        #expect(BipeAssistantSend.readers(stateJson: nil).isEmpty)
+        #expect(BipeAssistantSend.readers(stateJson: Data("{}".utf8)).isEmpty)
     }
 
     @Test

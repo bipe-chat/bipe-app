@@ -59,6 +59,36 @@ public enum BipeAssistantSend {
         return client
     }
 
+    /// readerMarker.eventType (generated): the room state event bipe-mcp sets before it reads other members' messages.
+    public static let readerEventType = BipeRegistries.assistantReaderEventType
+    /// readerMarker.field (generated).
+    public static let readerField = BipeRegistries.assistantReaderField
+
+    /// assistantReaders (ADR 0130, bipe-chat/bipe#439): the sorted, unique user IDs whose own marker state event says
+    /// that their assistant reads the room. A member sets only their own marker: the state key starts with @ and equals
+    /// the sender, and the field is exactly true.
+    public static func readers(stateEvents: [Any]) -> [String] {
+        var out = Set<String>()
+        for case let event as [String: Any] in stateEvents {
+            guard event["type"] as? String == readerEventType,
+                  let stateKey = event["state_key"] as? String, stateKey.hasPrefix("@"),
+                  event["sender"] as? String == stateKey,
+                  let content = event["content"] as? [String: Any],
+                  let value = content[readerField] as? NSNumber,
+                  CFGetTypeID(value) == CFBooleanGetTypeID(), value.boolValue
+            else { continue }
+            out.insert(stateKey)
+        }
+        return out.sorted()
+    }
+
+    /// assistantReaders for the raw JSON of GET /_matrix/client/v3/rooms/{roomId}/state (an array of state events).
+    /// nil or a body that is not an array gives no readers.
+    public static func readers(stateJson: Data?) -> [String] {
+        guard let stateJson, let events = (try? JSONSerialization.jsonObject(with: stateJson)) as? [Any] else { return [] }
+        return readers(stateEvents: events)
+    }
+
     private struct Cached: Sendable {
         let client: String?
     }

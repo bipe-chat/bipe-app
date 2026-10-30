@@ -340,6 +340,16 @@ class SharedVectorTest {
             val event = """{"type":"m.room.message","content":$content}"""
             assertWithMessage("label json ${vector.string("name")}").that(BipeAssistantSend.sender(null) { event }).isEqualTo(expected)
         }
+        val readers = vectors("assistant-send.json", "readers")
+        assertWithMessage("assistant-send readers vectors").that(readers).isNotEmpty()
+        for (vector in readers) {
+            val events = vector.getValue("events") as JsonArray
+            val expected = (vector.getValue("expected") as JsonArray).map { it.jsonPrimitive.content }
+            assertWithMessage("readers ${vector.string("name")}").that(BipeAssistantSend.readers(events)).isEqualTo(expected)
+            assertWithMessage("readers json ${vector.string("name")}").that(BipeAssistantSend.readers(events.toString())).isEqualTo(expected)
+        }
+        assertWithMessage("readers null").that(BipeAssistantSend.readers(null as String?)).isEmpty()
+        assertWithMessage("readers not an array").that(BipeAssistantSend.readers("{}")).isEmpty()
     }
 
     @Test

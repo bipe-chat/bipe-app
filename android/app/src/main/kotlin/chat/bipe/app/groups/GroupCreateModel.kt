@@ -6,12 +6,14 @@ package chat.bipe.app.groups
 
 import android.net.Uri
 import chat.bipe.app.account.AccountSession
+import chat.bipe.shared.generated.BipeDmPowerLevels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.CreateRoomParameters
+import org.matrix.rustcomponents.sdk.PowerLevels
 import org.matrix.rustcomponents.sdk.RoomNotificationMode
 import org.matrix.rustcomponents.sdk.RoomPreset
 import org.matrix.rustcomponents.sdk.RoomVisibility
@@ -75,6 +77,25 @@ class GroupCreateModel(
         _people.value = _people.value.filterNot { it.userId == userId }
     }
 
+    /**
+     * The power_level_content_override of a new group (ADR 0210, bipe-chat/bipe#879; registries/dm-power-levels.json
+     * groupEvents): every member may set their own assistant marker (chat.bipe.assistant at 0). Synapse replaces its
+     * whole default events map with the override's, so GROUP_EVENTS repeats the Synapse defaults. users stays empty,
+     * so the creator keeps the server's default level; other fields keep the preset.
+     */
+    private fun groupPowerLevels() = PowerLevels(
+        usersDefault = null,
+        eventsDefault = null,
+        stateDefault = null,
+        ban = null,
+        kick = null,
+        redact = null,
+        invite = null,
+        notifications = null,
+        users = emptyMap(),
+        events = BipeDmPowerLevels.GROUP_EVENTS,
+    )
+
     /** Action create. onCreated gets the new room ID and whether every invite went out. */
     fun create(onCreated: (roomId: String, allInvited: Boolean) -> Unit) {
         if (!canCreate(_name.value, _phase.value)) return
@@ -92,6 +113,7 @@ class GroupCreateModel(
                         preset = RoomPreset.PRIVATE_CHAT,
                         invite = null,
                         avatar = avatar,
+                        powerLevelContentOverride = groupPowerLevels(),
                     ),
                 )
                 // The room reaches the store with the next sync.
