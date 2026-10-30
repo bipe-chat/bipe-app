@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -27,7 +28,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -43,6 +46,7 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.groups.ClearedChatsStore
+import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.app.settings.openPage
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -62,7 +66,7 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 
 /** Spec chat-search: finds a chat or group by name among the person's own chats. Bipe has no directory. */
-class ChatSearchModel(private val session: AccountSession, private val list: ChatListModel, private val scope: CoroutineScope) {
+class ChatSearchModel(private val session: AccountSession, private val list: ChatListModel, private val scope: CoroutineScope, context: Context) {
     data class State(val query: String = "", val results: List<ChatSummary> = emptyList(), val isSearching: Boolean = false) {
         /** findByHandle is offered when the query starts with @ and nothing matched. */
         val offersHandleLookup: Boolean get() = query.startsWith("@") && results.isEmpty() && !isSearching
@@ -73,12 +77,17 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
     private val rooms = FilteredRoomList(scope) { found ->
         if (_state.value.query.isNotBlank()) {
             val query = _state.value.query
-            val summaries = found.filter { it.id() != list.notes.roomId }.mapNotNull { list.summary(it) }
+            val draftsRoomId = AssistantDraftsStore.roomId(session.userId)
+            val summaries = found.filter { it.id() != list.notes.roomId && it.id() != draftsRoomId }.mapNotNull { list.summary(it) }
             val visible = NativeDmSelection.visible(summaries, session)
             if (_state.value.query == query) _state.value = _state.value.copy(results = visible, isSearching = false)
         }
     }
     private var debounce: Job? = null
+    /** State messages (bipe-chat/bipe#671). */
+    val messages = MessageSearchModel(session, scope, context.getString(R.string.bipe_app_you), context.getString(R.string.bipe_dm_no_name))
+    /** State recent. */
+    val recent = RecentSearches(context, session.userId)
     private val clearChanges = scope.launch { ClearedChatsStore.revision.collect { rooms.refresh() } }
 
     /** Action editQuery: sets the name filter, at most every 150 ms. */
@@ -86,9 +95,13 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
         debounce?.cancel()
         val pattern = text.trim()
         _state.value = State(query = text, results = if (pattern.isEmpty()) emptyList() else _state.value.results, isSearching = pattern.isNotEmpty())
-        if (pattern.isEmpty()) return
+        if (pattern.isEmpty()) {
+            scope.launch { messages.search("") }
+            return
+        }
         debounce = scope.launch {
             delay(150)
+            launch { messages.search(pattern) }
             // Both tabs together; requests (invites) are left out by Joined.
             rooms.start(
                 session,
@@ -107,7 +120,7 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
     /** Action close. */
     fun close() = edit("")
 
-    fun dispose() { clearChanges.cancel(); rooms.close() }
+    fun dispose() { clearChanges.cancel(); rooms.close(); messages.close() }
 }
 
 /** The search field of chat-list: the top bar on Android (ADR 0053). */
@@ -130,18 +143,42 @@ fun ChatSearchField(model: ChatSearchModel) {
 
 /** The results under the search field. */
 @Composable
-fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (String) -> Unit, onFindHandle: (String) -> Unit = {}) {
+fun ChatSearchResults(
+    model: ChatSearchModel,
+    media: MediaLoader,
+    onOpenChat: (String) -> Unit,
+    onFindHandle: (String) -> Unit = {},
+    /** Action openMessage (bipe-chat/bipe#671): room ID, event ID. */
+    onOpenMessage: (String, String) -> Unit = { _, _ -> },
+) {
     val colors = BipeTheme.colors
     val state by model.state.collectAsState()
+    val hits by model.messages.hits.collectAsState()
+    val recent by model.recent.queries.collectAsState()
     LazyColumn(Modifier.fillMaxSize().testTag(BipeScreen.CHAT_SEARCH.id)) {
         when {
-            state.query.isBlank() -> Unit
-            state.isSearching && state.results.isEmpty() -> item(key = "searching") {
+            state.query.isBlank() -> if (recent.isNotEmpty()) {
+                // State recent, while the query is blank.
+                item(key = "recent-header") {
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.bipe_search_recent), style = MaterialTheme.typography.labelLarge, color = colors.accentInk, modifier = Modifier.weight(1f))
+                        TextButton(onClick = model.recent::clear) { Text(stringResource(R.string.bipe_search_recent_clear)) }
+                    }
+                }
+                items(recent, key = { "recent-$it" }) { query ->
+                    Text(
+                        query,
+                        color = colors.inkPrimary,
+                        modifier = Modifier.fillMaxWidth().clickable { model.edit(query) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+            }
+            state.isSearching && state.results.isEmpty() && hits.isEmpty() -> item(key = "searching") {
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)
                 }
             }
-            state.results.isEmpty() -> item(key = "none") {
+            state.results.isEmpty() && hits.isEmpty() -> item(key = "none") {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.bipe_app_search_no_results, state.query), color = colors.inkSecondary)
                     if (state.offersHandleLookup) {
@@ -151,7 +188,8 @@ fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (S
                     }
                 }
             }
-            else -> items(state.results, key = { it.roomId }) { chat ->
+            else -> {
+            items(state.results, key = { it.roomId }) { chat ->
                 // Action openChat.
                 Row(
                     Modifier.fillMaxWidth().clickable { onOpenChat(chat.roomId) }.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -169,6 +207,25 @@ fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (S
                         )
                     }
                 }
+            }
+            // State messages, under the chats.
+            if (hits.isNotEmpty()) {
+                item(key = "messages-header") {
+                    Text(
+                        stringResource(R.string.bipe_search_messages),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = colors.accentInk,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+                    )
+                }
+                itemsIndexed(hits, key = { _, hit -> "message-${hit.roomId}-${hit.eventId}" }) { index, hit ->
+                    if (index == hits.lastIndex) LaunchedEffect(hit.eventId) { model.messages.loadMore() }
+                    MessageHitRow(hit) {
+                        model.recent.add(state.query)
+                        onOpenMessage(hit.roomId, hit.eventId)
+                    }
+                }
+            }
             }
         }
     }

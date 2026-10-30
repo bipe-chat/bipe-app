@@ -16,7 +16,7 @@ struct ForwardChat: Identifiable, Equatable {
     var id: String { roomId }
 }
 
-/// Spec message-forward (bipe#664): a copy of a sent message to up to 5 chats.
+/// Spec message-forward (bipe#664, bipe#860): copies of sent messages to up to 5 chats.
 @MainActor
 final class MessageForwardModel: ObservableObject {
     /// Spec message-forward notes: at most this many chats per forward.
@@ -29,17 +29,20 @@ final class MessageForwardModel: ObservableObject {
     @Published var showsLimit = false
 
     private let client: Client
-    private let msgType: MessageType
+    /// The messages, in timeline order.
+    private let msgTypes: [MessageType]
 
-    init(client: Client, msgType: MessageType) {
+    init(client: Client, msgTypes: [MessageType]) {
         self.client = client
-        self.msgType = msgType
+        self.msgTypes = msgTypes
     }
 
     /// State chats: joined chats, spaces left out, by name.
     func load() {
+        // Spec drafts notes: never the drafts room.
+        let draftsRoomId = (try? client.userId()).flatMap { AssistantDraftsStore.shared.roomId(for: $0) }
         chats = client.rooms()
-            .filter { $0.membership() == .joined && !$0.isSpace() }
+            .filter { $0.membership() == .joined && !$0.isSpace() && $0.id() != draftsRoomId }
             .map { ForwardChat(roomId: $0.id(), name: $0.displayName()?.nilIfBlank ?? BipeStrings.dmNoName, avatarUrl: $0.avatarUrl()) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
@@ -61,7 +64,8 @@ final class MessageForwardModel: ObservableObject {
         }
     }
 
-    /// Action send. Returns the names of the chats whose send failed.
+    /// Action send. Returns the names of the chats whose send failed. A failed message stops that chat,
+    /// so the copies never arrive out of order.
     func send() async -> [String] {
         guard !picked.isEmpty, !isSending else { return [] }
         isSending = true
@@ -71,7 +75,9 @@ final class MessageForwardModel: ObservableObject {
             do {
                 guard let room = try client.getRoom(roomId: roomId) else { throw CancellationError() }
                 let timeline = try await room.timeline()
-                _ = try await timeline.send(msg: try messageEventContentNew(msgtype: msgType))
+                for msgType in msgTypes {
+                    _ = try await timeline.send(msg: try messageEventContentNew(msgtype: msgType))
+                }
             } catch {
                 failed.append(chats.first { $0.roomId == roomId }?.name ?? roomId)
             }
@@ -87,8 +93,8 @@ struct MessageForwardSheet: View {
     /// Called after the send with the names of the chats that failed; nil when the person cancelled.
     let close: ([String]?) -> Void
 
-    init(client: Client, msgType: MessageType, media: MediaLoader, close: @escaping ([String]?) -> Void) {
-        _model = StateObject(wrappedValue: MessageForwardModel(client: client, msgType: msgType))
+    init(client: Client, msgTypes: [MessageType], media: MediaLoader, close: @escaping ([String]?) -> Void) {
+        _model = StateObject(wrappedValue: MessageForwardModel(client: client, msgTypes: msgTypes))
         self.media = media
         self.close = close
     }

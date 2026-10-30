@@ -61,6 +61,8 @@ fun AppTabsScreen(
     listOpenRequest: Int = 0,
     /** Spec chat-list-cards shareInvite: opens bring-people (bipe-chat/bipe#752). */
     onBringPeople: () -> Unit = {},
+    /** Spec chat-search openMessage (bipe-chat/bipe#671): room ID, event ID. */
+    onOpenMessage: (String, String) -> Unit = { _, _ -> },
 ) {
     val state by tabs.state.collectAsState()
     val session = chatList.session
@@ -90,7 +92,7 @@ fun AppTabsScreen(
                 AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
                 AppTabsModel.Tab.SEARCH -> {
                     BackHandler { tabs.selectTab(searchFrom) }
-                    ChatSearchScreen(search, media, onOpenChat, onFindHandle)
+                    ChatSearchScreen(search, media, onOpenChat, onFindHandle, onOpenMessage)
                 }
             }
         }
