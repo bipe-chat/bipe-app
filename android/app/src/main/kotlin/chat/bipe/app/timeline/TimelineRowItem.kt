@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.memberLabel
 import chat.bipe.app.location.TimelineLiveLocationRow
 import chat.bipe.app.location.TimelineLocationRow
 import chat.bipe.app.common.Avatar
@@ -197,7 +198,7 @@ fun TimelineRowItem(
             Box(Modifier.clickable { onOpenPoll(poll.eventId) }) {
                 Bubble(message.isOwn) {
                     if (!message.isOwn && !isDm) {
-                        Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
+                        Text(memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
                     }
                     PollCard(poll)
                     MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))
@@ -357,7 +358,7 @@ private fun MessageBubbleRow(
                     },
             ) {
                 if (!message.isOwn && !isDm) {
-                    Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
+                    Text(memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
                 }
                 details.reply?.let { reply ->
                     LaunchedEffect(row.id, reply.state) { model.loadReply(row.id) }
@@ -594,7 +595,7 @@ private fun UndecryptableRow(message: TimelineMessage, onHistoryHelp: () -> Unit
     LaunchedEffect(message.id, encryption) { if (approvalCanHelp) encryption?.noteUndecryptable() }
     Bubble(message.isOwn, modifier = Modifier.testTag(BipeScreen.MESSAGE_UNDECRYPTABLE.id)) {
         if (!message.isOwn) {
-            Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
+            Text(memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(painterResource(PhosphorIcon.LOCK_SIMPLE.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(14.dp).padding(top = 2.dp))

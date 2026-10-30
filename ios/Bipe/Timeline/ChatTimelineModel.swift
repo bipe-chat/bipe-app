@@ -53,6 +53,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var body: String?
     var senderId: String
     var senderName: String
+    /// Spec timeline-rows nameAmbiguous: another member of the room shows the same name (bipe-chat/bipe#825).
+    var senderNameAmbiguous = false
     var isOwn: Bool
     var sentAt: Date
     var sendState: SendState

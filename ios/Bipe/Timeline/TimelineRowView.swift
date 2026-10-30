@@ -63,7 +63,7 @@ struct TimelineRowView: View {
                 } label: {
                     Bubble(isOwn: message.isOwn, trailingLast: true) {
                         if !message.isOwn && !isDm {
-                            Text(message.senderName)
+                            SenderNameText(message: message)
                                 .font(.caption.bold())
                                 .foregroundStyle(BipeColor.accentInk)
                         }
@@ -186,7 +186,7 @@ private struct MessageBubbleRow: View {
                 Bubble(isOwn: message.isOwn, isHighlighted: isHighlighted, trailingLast: true,
                        isPlain: message.media?.kind == .sticker) {
                     if !message.isOwn && !isDm {
-                        Text(message.senderName)
+                        SenderNameText(message: message)
                             .font(.caption.bold())
                             .foregroundStyle(BipeColor.accentInk)
                     }
@@ -568,7 +568,7 @@ private struct UndecryptableRow: View {
     var body: some View {
         Bubble(isOwn: message.isOwn, trailingLast: true) {
             if !message.isOwn {
-                Text(message.senderName)
+                SenderNameText(message: message)
                     .font(.caption.bold())
                     .foregroundStyle(BipeColor.inkSecondary)
             }
@@ -640,5 +640,18 @@ private struct DeletedRow: View {
             }
             MessageTimestamp(sentAt: message.sentAt)
         }
+    }
+}
+
+/// The sender line of a group row. Spec timeline-rows nameAmbiguous: the @ follows a name another member also has.
+struct SenderNameText: View {
+    let message: TimelineMessage
+    @Environment(\.bipeHandles) private var handles
+
+    var body: some View {
+        let label = message.senderNameAmbiguous
+            ? MemberNames.label(name: message.senderName, userId: message.senderId, handles: handles)
+            : message.senderName
+        Text(label)
     }
 }

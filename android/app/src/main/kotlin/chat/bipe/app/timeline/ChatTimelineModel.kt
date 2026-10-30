@@ -99,6 +99,8 @@ data class TimelineMessage(
     val richText: chat.bipe.shared.BipeMessageText? = null,
     /** Spec chat-timeline notes (ADR 0210): bipe_app_assistant_sent_label when the sender's assistant sent the message. */
     val assistantLabel: String? = null,
+    /** Spec timeline-rows nameAmbiguous: another member of the room shows the same name (bipe-chat/bipe#825). */
+    val senderNameAmbiguous: Boolean = false,
 ) {
     enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, POLL, LOCATION, LIVE_LOCATION, UNSUPPORTED }
 
