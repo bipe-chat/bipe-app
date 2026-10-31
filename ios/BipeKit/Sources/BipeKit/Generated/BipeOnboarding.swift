@@ -326,6 +326,36 @@ public enum BipeOnboardingCard: String, CaseIterable, Sendable {
     }
 }
 
+/// The one prompt card of the chat list (spec chat-list-prompt, bipe-chat/bipe#894). `allCases` is the queue order.
+public enum BipeChatListPrompt: String, CaseIterable, Sendable {
+    case remoteBanner
+    case approvePhone
+    case notificationCheckup
+    case recovery
+    case pinReminder
+    case handle
+    case profile
+    case bringPeopleReminder
+    case invite
+    case notes
+
+    /// True for tiers critical and access: the entry ignores the prompt slot and takes the card at once.
+    public var preempts: Bool {
+        switch self {
+        case .remoteBanner: true
+        case .approvePhone: true
+        case .notificationCheckup: false
+        case .recovery: false
+        case .pinReminder: false
+        case .handle: false
+        case .profile: false
+        case .bringPeopleReminder: false
+        case .invite: false
+        case .notes: false
+        }
+    }
+}
+
 public enum BipeOnboarding {
     public static let firstListMaxChats = 3
     /// Hours between two slot prompts on one account (bipe-chat/bipe#200).
