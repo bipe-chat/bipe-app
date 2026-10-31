@@ -279,6 +279,22 @@ struct SharedVectorTests {
     }
 
     @Test
+    func chatListPrompt() throws {
+        let cases = try SharedVectors.array("onboarding-schedule.json", key: "chatListPrompt")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let name = vector["name"] as? String ?? ""
+            let nowMs = try #require((vector["nowMs"] as? NSNumber)?.doubleValue)
+            let eligible = try #require(vector["eligible"] as? [String]).map { try #require(BipeChatListPrompt(rawValue: $0)) }
+            let slot = vector["slot"] as? [String: Any]
+            let since = (slot?["sinceMs"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue / 1000) }
+            let got = BipePromptSlot.chatListCard(eligible: Set(eligible), holder: slot?["holder"] as? String, since: since,
+                                                  now: Date(timeIntervalSince1970: nowMs / 1000))
+            #expect(got?.rawValue == vector["expected"] as? String, "chatListPrompt \(name)")
+        }
+    }
+
+    @Test
     func inviteCodes() throws {
         for vector in try SharedVectors.array("invite-codes.json", key: "vectors") {
             let input = try #require(vector["input"] as? String)

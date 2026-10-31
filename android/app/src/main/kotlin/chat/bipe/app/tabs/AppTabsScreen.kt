@@ -18,17 +18,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import chat.bipe.app.business.WorkScreen
-import chat.bipe.app.chatlist.ChatRequestsModel
-import chat.bipe.app.chatlist.ChatSearchModel
-import chat.bipe.app.chatlist.RemoteBannerModel
 import chat.bipe.app.chatlist.ChatListModel
 import chat.bipe.app.chatlist.ChatListScreen
+import chat.bipe.app.chatlist.ChatRequestsModel
 import chat.bipe.app.chatlist.ChatScope
+import chat.bipe.app.chatlist.ChatSearchModel
+import chat.bipe.app.chatlist.RemoteBannerModel
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeHaptic
 import chat.bipe.app.handle.HandlePickModel
-import chat.bipe.app.voce.VoceScreen
 import chat.bipe.app.people.PeopleRoute
+import chat.bipe.app.voce.VoceScreen
+import chat.bipe.shared.generated.BipeChatListPrompt
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
 
@@ -47,10 +48,8 @@ fun AppTabsScreen(
     remoteBanner: RemoteBannerModel,
     onOpenRequests: () -> Unit,
     onFindHandle: (String) -> Unit,
-    /** Spec encryption-status: the banner above Conversas. */
-    banner: @Composable () -> Unit = {},
-    /** Spec recovery-reminder: the card above Conversas. */
-    recoveryCard: @Composable () -> Unit = {},
+    /** Spec chat-list-prompt (bipe-chat/bipe#894): the prompt entries the caller owns, with their cards. */
+    prompts: Map<BipeChatListPrompt, @Composable () -> Unit> = emptyMap(),
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
     onChatNotifications: (String) -> Unit = {},
@@ -78,13 +77,13 @@ fun AppTabsScreen(
             when (state.selectedTab) {
                 AppTabsModel.Tab.CONVERSAS ->
                     ChatListScreen(chatList, if (state.isCompany) ChatScope.TODAS else ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        banner = banner, recoveryCard = recoveryCard,
+                        prompts = prompts,
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                         requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
                         api = tabs.start.api, onBringPeople = onBringPeople)
                 AppTabsModel.Tab.GRUPOS ->
                     ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        banner = banner,
+                        prompts = prompts,
                         onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                         requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
                 // Spec business-tools: the company account's Trabalho tab, in the place of Grupos.

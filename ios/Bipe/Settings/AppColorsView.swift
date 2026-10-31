@@ -80,10 +80,11 @@ extension BipePalette {
     var title: String {
         switch self {
         case .acai: BipeStrings.colorsAcai
+        case .goiaba: BipeStrings.colorsGoiaba
         case .pitanga: BipeStrings.colorsPitanga
-        case .caju: BipeStrings.colorsCaju
-        case .jabuticaba: BipeStrings.colorsJabuticaba
+        case .maracuja: BipeStrings.colorsMaracuja
         case .jenipapo: BipeStrings.colorsJenipapo
+        case .jabuticaba: BipeStrings.colorsJabuticaba
         }
     }
 }

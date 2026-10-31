@@ -65,56 +65,19 @@ struct RemoteBannerView: View {
 
     var body: some View {
         if model.state != .hidden, let banner = model.banner {
-            HStack(alignment: .top, spacing: 12) {
-                PhosphorIcon.warningCircle.image
-                    .resizable()
-                    .frame(width: 22, height: 22)
-                    .foregroundStyle(BipeColor.trustCautionInk)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
-                    // Title and text come from the server in pt-BR and show as they are.
-                    Text(verbatim: banner.title)
-                        .font(.subheadline.bold())
-                        .foregroundStyle(BipeColor.inkPrimary)
-                    Text(verbatim: banner.text)
-                        .font(.subheadline)
-                        .foregroundStyle(BipeColor.inkPrimary)
-                    if model.isUpdate {
-                        Text(BipeStrings.remoteBannerUpdate)
-                            .font(.subheadline.bold())
-                            .foregroundStyle(BipeColor.accentInk)
-                    }
-                }
-                // VoiceOver reads the text as one button that opens the banner (bipe#495).
-                .accessibilityElement(children: .combine)
-                .accessibilityAddTraits(.isButton)
+            // Title and text come from the server in pt-BR and show as they are (spec chat-list-prompt remoteBanner).
+            PromptCard(title: banner.title, body: banner.text,
+                       primary: model.isUpdate ? .init(title: BipeStrings.remoteBannerUpdate) { open(banner) } : nil,
+                       texts: model.state == .notice ? [.init(title: BipeStrings.remoteBannerDismiss) { model.dismiss() }] : [])
+                .contentShape(Rectangle())
+                // Action open: a notice opens its page from a tap on the card.
+                // a11y: the accessibility action below opens it for VoiceOver.
+                .onTapGesture { open(banner) }
                 .accessibilityAction { open(banner) }
-                Spacer(minLength: 0)
-                if model.state == .notice {
-                    // Action dismiss.
-                    Button {
-                        model.dismiss()
-                    } label: {
-                        PhosphorIcon.x.image
-                            .resizable()
-                            .frame(width: 16, height: 16)
-                            .foregroundStyle(BipeColor.glyphSecondary)
-                            .bipeTapTarget()
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(BipeStrings.remoteBannerDismiss)
+                .sheet(item: $page) { page in
+                    SafariPage(url: page.url).ignoresSafeArea()
                 }
-            }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.trustCautionWash))
-            .contentShape(Rectangle())
-            // Action open.
-            // a11y: the text above is the button for VoiceOver.
-            .onTapGesture { open(banner) }
-            .sheet(item: $page) { page in
-                SafariPage(url: page.url).ignoresSafeArea()
-            }
-            .accessibilityIdentifier(BipeScreen.remoteBanner.rawValue)
+                .accessibilityIdentifier(BipeScreen.remoteBanner.rawValue)
         }
     }
 

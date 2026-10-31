@@ -37,35 +37,9 @@ struct FirstListCardView: View {
     let action: (BipeOnboardingTarget) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(BipeLocalized.string(card.titleKey))
-                .font(.headline)
-                .foregroundStyle(BipeColor.inkPrimary)
-            Text(bodyText)
-                .font(.subheadline)
-                .foregroundStyle(BipeColor.inkSecondary)
-            HStack(spacing: 16) {
-                Button { action(card.primary.target) } label: {
-                    Text(card.primary.title)
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .foregroundStyle(BipeColor.inkOnAccent)
-                        .background(Capsule().fill(BipeColor.accentFill))
-                }
-                ForEach(card.text, id: \.titleKey) { button in
-                    Button { action(button.target) } label: {
-                        Text(button.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BipeColor.accentInk)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.surfaceRaised))
+        PromptCard(title: BipeLocalized.string(card.titleKey), body: bodyText,
+                   primary: .init(title: card.primary.title) { action(card.primary.target) },
+                   texts: card.text.map { button in .init(title: button.title) { action(button.target) } })
     }
 
     private var bodyText: String {

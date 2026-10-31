@@ -345,40 +345,21 @@ private fun SlotHeader(slot: BringPeopleModel.Slot, label: String) {
 /** Spec bring-people-reminder: the card above Conversas that names one person. Same shape as the PIN reminder card. */
 @Composable
 fun BringPeopleReminderCard(model: BringPeopleModel, reminder: BringPeopleModel.Reminder, openInvites: () -> Unit) {
-    val colors = BipeTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prompt = BipeOnboardingPrompt.BRING_PEOPLE_REMINDER
     val pending = reminder.kind == BipeBringPeople.Kind.PENDING
     LaunchedEffect(reminder) { model.reminderShown() }
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(BipeScreen.BRING_PEOPLE_REMINDER.id)
-            .background(colors.accentWash, RoundedCornerShape(14.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(stringResource(R.string.bipe_bring_people_reminder_title, reminder.name), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-        Text(stringResource(if (pending) R.string.bipe_bring_people_reminder_pending else R.string.bipe_bring_people_reminder_expired),
-            style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(if (pending) R.string.bipe_bring_people_resend else R.string.bipe_bring_people_expired_action),
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.inkOnAccent,
-                modifier = Modifier.bipeTapTarget().background(colors.accentFill, RoundedCornerShape(50)).clickable(role = Role.Button) {
-                    scope.launch {
-                        val link = model.act()
-                        if (link != null) shareInvite(context, link) else if (pending) openInvites()
-                    }
-                }.padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-            prompt.text.forEach {
-                Text(
-                    stringResource(it.title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.accentInk,
-                    modifier = Modifier.bipeTapTarget().clickable(role = Role.Button) { model.declineReminder() },
-                )
+    PromptCard(
+        title = stringResource(R.string.bipe_bring_people_reminder_title, reminder.name),
+        body = stringResource(if (pending) R.string.bipe_bring_people_reminder_pending else R.string.bipe_bring_people_reminder_expired),
+        primary = PromptAction(stringResource(if (pending) R.string.bipe_bring_people_resend else R.string.bipe_bring_people_expired_action)) {
+            scope.launch {
+                val link = model.act()
+                if (link != null) shareInvite(context, link) else if (pending) openInvites()
             }
-        }
-    }
+        },
+        texts = prompt.text.map { PromptAction(stringResource(it.title)) { model.declineReminder() } },
+        modifier = Modifier.testTag(BipeScreen.BRING_PEOPLE_REMINDER.id),
+    )
 }
