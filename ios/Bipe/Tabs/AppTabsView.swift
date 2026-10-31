@@ -22,6 +22,8 @@ struct AppTabsView: View {
     /// Spec encryption-status: one model for the account. The chat list banner, the undecryptable message help and
     /// the oldMessages settings row all open its one sheet, presented here (bipe-chat/bipe#793).
     @StateObject private var encryption: EncryptionStatusModel
+    /// Spec govbr-verify, action receiveDocument: a signed PDF from the share sheet or open with.
+    @ObservedObject private var govbr = GovbrInbox.shared
     private struct InviteCode: Identifiable {
         let code: String
         var id: String { code }
@@ -134,8 +136,12 @@ struct AppTabsView: View {
             AccountNewView(tabs: model, session: session, api: api, preset: newAccountStart) { showsNewAccount = false }
         }
         .onOpenURL { url in
+            if govbr.open(url) { return }
             guard let code = BipeInviteLink.code(from: url) else { return }
             invitedCode = InviteCode(code: code)
+        }
+        .alert(BipeStrings.govbrNoOpenVerification, isPresented: $govbr.showsNoOpenVerification) {
+            Button(BipeStrings.appClose, role: .cancel) {}
         }
         .sheet(item: $invitedCode) { invite in
             InviteSignedInView(code: invite.code, session: session, api: api, accountsOnPhone: model.accounts.map(\.userId),

@@ -21,6 +21,7 @@ struct VoceView: View {
     @State private var openingNotes = false
     @State private var notesFailed = false
     @State private var showsLinkPhone = false
+    @State private var govbrFlow: BipeGovbrFlow?
     private enum Destination: Hashable { case notes(String), invites, trust, myBookings, claim }
     @State private var photoPromptDismissed = false
     @State private var osTheftPromptDone = OsTheftPromptMemory.isDone
@@ -147,6 +148,12 @@ struct VoceView: View {
             await trust.load(session: chatList.session, api: api, isCompany: isCompany)
         }
         .sheet(isPresented: $showsHandlePick) { HandlePickView(model: handle) }
+        // Spec govbr-verify: from the step 5 row only (bipe-chat/bipe#277).
+        .sheet(item: $govbrFlow, onDismiss: { GovbrInbox.shared.end() }) { flow in
+            GovbrVerifyView(flow: flow, onVerified: { level in
+                trust.govbrVerified(level: level, userId: chatList.session.userId)
+            }, close: { govbrFlow = nil })
+        }
         .fullScreenCover(isPresented: $showsLinkPhone) {
             LinkComputerView(settings: settings, mode: .phone)
         }
@@ -185,7 +192,10 @@ struct VoceView: View {
         TrustActions(addName: { path.append(PeopleRoute.profileEdit) },
                      addPhoto: { path.append(PeopleRoute.profileEdit) },
                      chooseHandle: { showsHandlePick = true },
-                     openClaim: { path.append(Destination.claim) })
+                     openClaim: { path.append(Destination.claim) },
+                     openGovbr: AppConfig.govbrEnabled ? {
+                         govbrFlow = GovbrInbox.shared.begin(session: chatList.session, api: api)
+                     } : nil)
     }
 
     private var photoPromptKey: String { "bipe.photoPrompt.dismissed.\(chatList.session.userId)" }

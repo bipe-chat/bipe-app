@@ -42,6 +42,15 @@ enum AppConfig {
     static let isDeveloperBuild = false
     #endif
 
+    /// Trust step 5, Verificar com gov.br (spec govbr-verify, bipe-chat/bipe#544): a build value, never a stored or remote one.
+    /// On only in Xcode debug builds of the tester ID set; off in every Release build (TestFlight, ad hoc, store) until
+    /// bipe-chat/bipe#542 and bipe-chat/bipe#17 close.
+    #if DEBUG
+    static let govbrEnabled = AppConfig.isDeveloperBuild && appID != "chat.bipe.app"
+    #else
+    static let govbrEnabled = false
+    #endif
+
     #if DEBUG
     static let pusherAppId = appID + ".ios.dev"
     #else

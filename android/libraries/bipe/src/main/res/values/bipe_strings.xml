@@ -2100,4 +2100,5 @@
     <string name="bipe_voice_source_file">Arquivo de áudio</string>
     <string name="bipe_voice_source_title">Sobre esta marca</string>
     <string name="bipe_voice_source_body">O app de quem enviou coloca esta marca, e um app alterado pode falsificar. Para saber quem mandou, veja se a conta é verificada.</string>
+    <string name="bipe_govbr_verified_no_name">Pronto. Seu nome está verificado.</string>
 </resources>

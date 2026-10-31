@@ -9,6 +9,7 @@ import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import android.widget.Toast
 import chat.bipe.app.share.ShareIntake
+import chat.bipe.app.voce.GovbrInbox
 import chat.bipe.shared.R
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -33,6 +34,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // A recreated activity keeps its intent: read a signed PDF only once. It clears the action, so the link and share
+        // readers below skip it.
+        if (savedInstanceState == null) readGovbrDocument(intent)
         readInviteLink(intent)
         readDevAccount(intent)
         readOpenChat(intent)
@@ -52,6 +56,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        readGovbrDocument(intent)
         readInviteLink(intent)
         readDevAccount(intent)
         readOpenChat(intent)
@@ -82,6 +87,21 @@ class MainActivity : ComponentActivity() {
             }
             app.pendingShare.value?.delete()
             app.pendingShare.value = share
+        }
+    }
+
+    /**
+     * Spec govbr-verify, action receiveDocument: a PDF shared or opened with the alias `.GovbrDocument` (build flag on only).
+     * It goes to the open gov.br check and never to share-to-chat. The action is cleared after reading.
+     */
+    private fun readGovbrDocument(intent: Intent?) {
+        if (intent == null || !GovbrInbox.isDocumentIntent(intent)) return
+        val uri = GovbrInbox.documentUri(intent)
+        intent.action = null
+        val app = application as BipeApplication
+        app.scope.launch {
+            val pdf = uri?.let { GovbrInbox.read(applicationContext, it) } ?: ByteArray(0)
+            app.govbr.receive(applicationContext, pdf)
         }
     }
 

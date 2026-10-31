@@ -37,6 +37,30 @@ import java.io.File
 /** Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). iOS runs the same files. */
 class SharedVectorTest {
     @Test
+    fun govbrVerify() {
+        assertWithMessage("govbr limit").that(load("govbr-verify.json").string("maxDocumentBytes")?.toInt())
+            .isEqualTo(BipeRegistries.GOVBR_MAX_DOCUMENT_BYTES)
+        val incoming = vectors("govbr-verify.json", "incoming")
+        assertWithMessage("govbr incoming vectors").that(incoming).isNotEmpty()
+        for (vector in incoming) {
+            val result = BipeGovbrRules.incoming(vector.string("phase")!!, vector.string("byteCount")!!.toInt())
+            assertWithMessage("govbr incoming ${vector.string("name")}").that(result.id).isEqualTo(vector.string("expected"))
+        }
+        val results = vectors("govbr-verify.json", "results")
+        assertWithMessage("govbr result vectors").that(results).isNotEmpty()
+        for (vector in results) {
+            val expected = vector.getValue("expected").jsonObject
+            val (phase, reason) = when (val outcome = BipeGovbrRules.outcome(vector.string("state")!!, vector.string("reason"))) {
+                BipeGovbrRules.Outcome.Verified -> "verified" to null
+                is BipeGovbrRules.Outcome.Rejected -> "rejected" to outcome.reason.id
+                BipeGovbrRules.Outcome.Failed -> "failed" to null
+            }
+            assertWithMessage("govbr result ${vector.string("name")}").that(phase).isEqualTo(expected.string("phase"))
+            assertWithMessage("govbr result reason ${vector.string("name")}").that(reason).isEqualTo(expected.string("reason"))
+        }
+    }
+
+    @Test
     fun photoMatch() {
         val cases = vectors("photo-match.json", "cases")
         assertWithMessage("photo match vectors").that(cases).isNotEmpty()

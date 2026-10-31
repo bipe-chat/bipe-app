@@ -4841,4 +4841,6 @@ public enum BipeStrings {
     public static var voiceSourceTitle: String { NSLocalizedString("bipe_voice_source_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var voiceSourceBody: String { NSLocalizedString("bipe_voice_source_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrVerifiedNoName: String { NSLocalizedString("bipe_govbr_verified_no_name", tableName: "Bipe", bundle: .module, comment: "") }
 }
