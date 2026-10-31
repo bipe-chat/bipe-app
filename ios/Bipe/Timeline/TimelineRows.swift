@@ -128,6 +128,8 @@ struct ReceiptReader: Equatable, Identifiable {
     var name: String
     var avatarUrl: String?
     var readAt: Date?
+    /// Spec read-receipts nameAmbiguous: another member shows the same name (bipe-chat/bipe#825).
+    var nameAmbiguous = false
 
     var id: String { userId }
 }
@@ -194,7 +196,8 @@ enum TimelineRowBuilder {
                         ReceiptReader(userId: userId,
                                       name: name(userId),
                                       avatarUrl: facts.members[userId]?.avatarUrl,
-                                      readAt: receipt.timestamp.map { Date(milliseconds: $0) })
+                                      readAt: receipt.timestamp.map { Date(milliseconds: $0) },
+                                      nameAmbiguous: ambiguousSenders.contains(userId))
                     }
                     .sorted { ($0.readAt ?? .distantPast) > ($1.readAt ?? .distantPast) }
             }
