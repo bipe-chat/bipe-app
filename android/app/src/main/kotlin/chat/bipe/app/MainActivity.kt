@@ -114,8 +114,12 @@ class MainActivity : ComponentActivity() {
     private fun readOpenChat(intent: Intent?) {
         if (intent?.action != PhoneNotifications.ACTION_OPEN_CHAT) return
         val app = application as BipeApplication
-        if (intent.getStringExtra(PhoneNotifications.EXTRA_KIND) == PhoneNotifications.KIND_DEVICE_APPROVAL) {
-            app.notifications.approvalAccount(intent)?.let { app.accountToOpen.value = it }
+        val kind = intent.getStringExtra(PhoneNotifications.EXTRA_KIND)
+        if (kind == PhoneNotifications.KIND_DEVICE_APPROVAL || kind == PhoneNotifications.KIND_RECOVERY) {
+            app.notifications.noticeOwner(intent)?.let {
+                app.accountToOpen.value = it
+                if (kind == PhoneNotifications.KIND_RECOVERY) app.recoveryToCheck.value = it
+            }
             intent.removeExtra(PhoneNotifications.EXTRA_KIND)
             intent.removeExtra(PhoneNotifications.EXTRA_ACCOUNT_ROUTE)
             intent.removeExtra(PhoneNotifications.EXTRA_ACCOUNT_USER_ID)

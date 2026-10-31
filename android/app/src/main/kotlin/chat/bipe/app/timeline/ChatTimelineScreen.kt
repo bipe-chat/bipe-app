@@ -9,6 +9,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
@@ -79,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.business.rememberBusinessChatTools
+import chat.bipe.app.chatlist.ChatMessageSearchSheet
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.LocalReduceMotion
@@ -102,6 +104,7 @@ import chat.bipe.app.calls.OngoingCallBar
 import chat.bipe.app.media.MediaViewer
 import chat.bipe.app.media.VoicePlayer
 import chat.bipe.app.media.stickers.StickerPicker
+import chat.bipe.app.media.stickers.StickerPackScreen
 import chat.bipe.app.media.upload.AttachmentPicker
 import chat.bipe.app.media.upload.UploadPreviewScreen
 import chat.bipe.app.media.voice.MicrophoneDeniedBar
@@ -111,6 +114,7 @@ import chat.bipe.app.location.LiveLocationChatBar
 import chat.bipe.app.location.LocationFullScreen
 import chat.bipe.app.location.LocationSendScreen
 import chat.bipe.app.polls.PollCreateScreen
+import chat.bipe.app.polls.PollData
 import chat.bipe.app.polls.PollDetailScreen
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
@@ -136,6 +140,8 @@ fun ChatTimelineScreen(
     people: PeopleService? = null,
     /** Opens another chat in place of this one (a new DM from inviteAgain). */
     onOpenChat: (String) -> Unit = {},
+    /** Spec threads (bipe-chat/bipe#667): the root event of the thread view; null for the main timeline. */
+    threadRoot: String? = null,
     /** Spec chat-search openMessage (bipe-chat/bipe#671): the message to scroll to after the chat opens. */
     focusEventId: String? = null,
 ) {
@@ -151,13 +157,24 @@ fun ChatTimelineScreen(
         format = { id, arg -> context.getString(id, arg) },
         formatArgs = { id, args -> context.getString(id, *args.toTypedArray()) },
     )
-    val model = remember(session, roomId) {
+    val model = remember(session, roomId, threadRoot) {
         ChatTimelineModel(
             session, roomId, scope, InviterGreetings(context, session.userId), strings, context.getString(R.string.bipe_dm_no_name),
             sharesTyping = { sharesTyping(context) },
             handleChanges = HandleChangeStores.store(context, session),
             voiceMedia = VoiceMediaStore.store(context, session),
+            threadRoot = threadRoot,
         )
+    }
+    // Spec threads openThread: the thread view over the main timeline.
+    val openThreadRoot by model.openThreadRoot.collectAsState()
+    openThreadRoot?.let { root ->
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { model.openThread(null) },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            ChatTimelineScreen(session, media, roomId, onBack = { model.openThread(null) }, people = people, threadRoot = root)
+        }
     }
     // Spec chat-search openMessage (bipe-chat/bipe#671): scroll to the message once the first rows are in.
     LaunchedEffect(model, focusEventId) {
@@ -183,6 +200,8 @@ fun ChatTimelineScreen(
     val roomAvatarUrl by model.roomAvatarUrl.collectAsState()
     val peerUserId by model.peerUserId.collectAsState()
     val isGroup by model.isGroup.collectAsState()
+    val successorRoomId by model.successorRoomId.collectAsState()
+    val predecessor by model.predecessor.collectAsState()
     val allRows by model.rows.collectAsState()
     val markers by ClearedChatsStore.markers.collectAsState()
     // Spec dm-delete: events at or below the marker of a cleared DM are gone.
@@ -216,6 +235,12 @@ fun ChatTimelineScreen(
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     var dmMenu by remember { mutableStateOf(false) }
+    var groupMenu by remember { mutableStateOf(false) }
+    // Spec chat-timeline searchInChat (bipe-chat/bipe#861): a message hit scrolls this chat to it.
+    var searchingChat by rememberSaveable { mutableStateOf(false) }
+    if (searchingChat) {
+        ChatMessageSearchSheet(session, roomId, onOpenMessage = model::openOriginal, onClose = { searchingChat = false })
+    }
     // Spec business-chat-bar: the tools and booking cards of a DM with a company (or, on a company, with a customer).
     val business = rememberBusinessChatTools(session, media, peerUserId.takeIf { isDm })
     var deletingDm by rememberSaveable { mutableStateOf(false) }
@@ -237,8 +262,14 @@ fun ChatTimelineScreen(
         LocationSendScreen(model, session, request.replyToEventId) { locationSend = null }
         return
     }
+    // Poll edit (bipe-chat/bipe#669): over the poll detail, which shows again on close.
+    var editingPoll by remember { mutableStateOf<PollData?>(null) }
+    editingPoll?.let { poll ->
+        PollCreateScreen(model, poll) { editingPoll = null }
+        return
+    }
     openPollId?.let { eventId ->
-        PollDetailScreen(session, model, eventId) { openPollId = null }
+        PollDetailScreen(session, model, eventId, onEdit = { editingPoll = it }) { openPollId = null }
         return
     }
 
@@ -281,7 +312,7 @@ fun ChatTimelineScreen(
                         Column(modifier = Modifier.weight(1f, fill = false)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    roomName,
+                                    if (threadRoot == null) roomName else stringResource(R.string.bipe_thread_title),
                                     style = MaterialTheme.typography.titleMedium,
                                     color = colors.inkPrimary,
                                     maxLines = 1,
@@ -297,14 +328,33 @@ fun ChatTimelineScreen(
                             if (isDm) BrandMarkHeaderLine(peerUserId, people?.brandMarks)
                         }
                     }
-                    CallHeaderButtons(model, session, roomName)
-                    if (isGroup && onOpenGroupDetails != null) {
-                        IconButton(onClick = onOpenGroupDetails) {
-                            Icon(
-                                painterResource(PhosphorIcon.INFO.drawable),
-                                contentDescription = stringResource(R.string.bipe_app_group_details_title),
-                                tint = colors.glyphPrimary,
-                            )
+                    if (threadRoot == null) CallHeaderButtons(model, session, roomName)
+                    if (isGroup && onOpenGroupDetails != null && threadRoot == null) {
+                        // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
+                        Box {
+                            IconButton(onClick = { groupMenu = true }) {
+                                Icon(
+                                    painterResource(PhosphorIcon.INFO.drawable),
+                                    contentDescription = stringResource(R.string.bipe_app_group_details_title),
+                                    tint = colors.glyphPrimary,
+                                )
+                            }
+                            DropdownMenu(expanded = groupMenu, onDismissRequest = { groupMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_app_group_details_title)) },
+                                    onClick = {
+                                        groupMenu = false
+                                        onOpenGroupDetails()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_search_in_chat)) },
+                                    onClick = {
+                                        groupMenu = false
+                                        searchingChat = true
+                                    },
+                                )
+                            }
                         }
                     }
                     if (isDm) {
@@ -319,6 +369,13 @@ fun ChatTimelineScreen(
                             DropdownMenu(expanded = dmMenu, onDismissRequest = { dmMenu = false }) {
                                 business?.MenuItems(dismiss = { dmMenu = false })
                                 DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_search_in_chat)) },
+                                    onClick = {
+                                        dmMenu = false
+                                        searchingChat = true
+                                    },
+                                )
+                                DropdownMenuItem(
                                     text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) },
                                     onClick = {
                                         dmMenu = false
@@ -329,13 +386,21 @@ fun ChatTimelineScreen(
                         }
                     }
                 }
-                OngoingCallBar(model, session, roomName)
-                LiveLocationChatBar(roomId, session.userId)
+                // Spec threads notes: the thread view shows none of the chat bars.
+                if (threadRoot == null) {
+                    OngoingCallBar(model, session, roomName)
+                    predecessor?.let { (old, name) ->
+                        PredecessorLine(name ?: stringResource(R.string.bipe_group_common_no_room_name)) { onOpenChat(old) }
+                    }
+                    // Spec message-pins (bipe-chat/bipe#665): groups only.
+                    if (isGroup) PinnedBanner(session, roomId) { model.openOriginal(it) }
+                    LiveLocationChatBar(roomId, session.userId)
+                }
                 val sealInstitutions = people?.seals?.institutions?.collectAsState()
                 val cvmPeer = peerUserId
                 if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
                 // Booking cards pinned above the timeline (agenda-booking-card); they are not room events (ADR 0102).
-                business?.Cards()
+                if (threadRoot == null) business?.Cards()
                 LazyColumn(
                     state = listState,
                     reverseLayout = true,
@@ -349,24 +414,35 @@ fun ChatTimelineScreen(
                         row.message?.takeUnless { it.isOwn }?.let { message -> people?.seals?.institution(message.senderId) }
                     }
                     items(newestFirst, key = { it.id }) { row ->
-                        TimelineRowItem(
-                            row = row,
-                            isDm = isDm,
-                            isHighlighted = ui.highlightedRowId == row.id,
-                            model = model,
-                            media = media,
-                            onLongPress = { if (model.openActions(row.id)) view.bipeHaptic(BipeHaptic.Hold) },
-                            onHistoryHelp = onHistoryHelp,
-                            onOpenPoll = { openPollId = it },
-                            isPrivateRoom = isPrivateRoom,
-                            voiceState = voiceState,
-                            onTogglePlay = voicePlayer::togglePlay,
-                            onSeek = voicePlayer::seek,
-                            onCycleSpeed = voicePlayer::cycleSpeed,
-                            onOpenViewer = { viewerRowId = it },
-                            seals = people?.seals,
-                            institution = institutionOf(row),
-                        )
+                        // Spec message-forward selection (bipe-chat/bipe#860).
+                        SelectableTimelineRow(
+                            selection = ui.selection,
+                            rowId = row.id,
+                            selectable = ui.selection != null && model.canSelect(row),
+                            onToggle = {
+                                view.bipeHaptic(BipeHaptic.Tick)
+                                model.toggleSelection(row.id)
+                            },
+                        ) {
+                            TimelineRowItem(
+                                row = row,
+                                isDm = isDm,
+                                isHighlighted = ui.highlightedRowId == row.id,
+                                model = model,
+                                media = media,
+                                onLongPress = { if (model.openActions(row.id)) view.bipeHaptic(BipeHaptic.Hold) },
+                                onHistoryHelp = onHistoryHelp,
+                                onOpenPoll = { openPollId = it },
+                                isPrivateRoom = isPrivateRoom,
+                                voiceState = voiceState,
+                                onTogglePlay = voicePlayer::togglePlay,
+                                onSeek = voicePlayer::seek,
+                                onCycleSpeed = voicePlayer::cycleSpeed,
+                                onOpenViewer = { viewerRowId = it },
+                                seals = people?.seals,
+                                institution = institutionOf(row),
+                            )
+                        }
                     }
                     item(key = "history") {
                         // Composed while the top of the list is on screen, again after each load and each change of the rows
@@ -393,7 +469,20 @@ fun ChatTimelineScreen(
                     ProfileNoticeBar(people, noticePeer, roomName)
                 }
                 if (isDm && theftMark != null) TheftMarkBanner(roomName)
-                IdentityChangeBar(identity)
+                if (threadRoot == null) IdentityChangeBar(identity)
+                // Spec drafts (bipe-chat/bipe#866): the assistant draft banner above the composer.
+                if (threadRoot == null && ui.selection == null && successorRoomId == null) {
+                    AssistantDraftBanner(session, roomId) { draft ->
+                        val root = draft.threadRoot
+                        if (root != null) {
+                            // The thread view loads the thread's composer draft when it opens.
+                            AssistantDraftsStore.keepAsThreadDraft(draft)
+                            model.openThread(root)
+                        } else {
+                            model.takeAssistantDraft(draft.body, draft.replyTo)
+                        }
+                    }
+                }
                 val composerBar: @Composable () -> Unit = {
                     // The other person left the DM: the bar stays above the composer, which stays on (ADR 0141).
                     if (peerAway != PeerAway.NONE) {
@@ -427,7 +516,22 @@ fun ChatTimelineScreen(
                     ) }
                 }
                 val peer = peerUserId
-                if (isDm && people != null && peer != null) DmComposerSlot(people, peer, roomName, composerBar) else composerBar()
+                val selection = ui.selection
+                when {
+                    // Spec message-forward selection: the bar takes the place of the composer.
+                    selection != null -> MessageSelectionBar(
+                        count = selection.size,
+                        canForward = model.canForwardSelection(),
+                        canDelete = model.canDeleteSelection(),
+                        onCancel = model::cancelSelection,
+                        onForward = model::forwardSelection,
+                        onDelete = model::askDeleteSelection,
+                    )
+                    // Spec chat-timeline notes, upgraded groups (bipe-chat/bipe#773).
+                    successorRoomId != null -> RoomUpgradeBar(model, onOpenChat)
+                    isDm && people != null && peer != null -> DmComposerSlot(people, peer, roomName, composerBar)
+                    else -> composerBar()
+                }
             }
             ui.notice?.let { notice ->
                 Text(
@@ -445,6 +549,8 @@ fun ChatTimelineScreen(
         }
     }
     business?.Sheets()
+    // Spec message-forward cancelSelection: Android back ends selection mode first.
+    BackHandler(enabled = ui.selection != null) { model.cancelSelection() }
 
     model.row(ui.actionsRowId)?.let { row ->
         MessageActionsSheet(
@@ -464,8 +570,8 @@ fun ChatTimelineScreen(
         )
     }
     ui.reactionSheet?.let { ReactionSendersSheet(it, onDismiss = model::closeSenders) }
-    ui.forwardingRowId?.let(model::forwardContent)?.let { msgType ->
-        MessageForwardSheet(session.client, msgType, media, onClose = model::forwardClosed)
+    ui.forwardingRowIds?.let(model::forwardContents)?.takeIf { it.isNotEmpty() }?.let { contentJsons ->
+        MessageForwardSheet(session.client, contentJsons, media, onClose = model::forwardClosed)
     }
     ui.readersSheet?.let { ReadersSheet(it, media, onDismiss = model::closeReaders) }
     ui.report?.let { report ->
@@ -495,6 +601,25 @@ fun ChatTimelineScreen(
             textContentColor = colors.inkSecondary,
         )
     }
+    // Spec message-forward deleteSelection: one dialog for all own picked messages.
+    if (ui.confirmsDeleteSelection) {
+        AlertDialog(
+            onDismissRequest = model::dismissDeleteSelection,
+            title = { Text(stringResource(R.string.bipe_select_delete_title)) },
+            text = { Text(stringResource(R.string.bipe_select_delete_body)) },
+            confirmButton = {
+                TextButton(onClick = model::confirmDeleteSelection) {
+                    Text(stringResource(R.string.bipe_app_message_action_delete), color = colors.trustDangerInk)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = model::dismissDeleteSelection) { Text(stringResource(R.string.bipe_app_cancel)) }
+            },
+            containerColor = colors.surfaceRaised,
+            titleContentColor = colors.inkPrimary,
+            textContentColor = colors.inkSecondary,
+        )
+    }
     if (attaching) {
         AttachmentPicker(
             onPicked = { files ->
@@ -515,6 +640,10 @@ fun ChatTimelineScreen(
     }
     if (showsStickers) {
         StickerPicker(model.client, roomId, media, onClose = { showsStickers = false })
+    }
+    // message-actions viewStickerPack (spec sticker-pack).
+    ui.openingStickerPack?.let { pack ->
+        StickerPackScreen(model.client, pack, media, people?.handles, onClose = model::closeStickerPack)
     }
     val viewerMessage = viewerRowId?.let { id -> messages.firstOrNull { it.id == id } }
     val viewerLocation = viewerMessage?.takeIf { it.location != null }
@@ -549,6 +678,7 @@ internal fun copyToClipboard(context: Context, text: String) {
 
 @Composable
 private fun noticeText(notice: TimelineNotice, arg: String?): String = when (notice) {
+    TimelineNotice.PIN_FAILED -> stringResource(R.string.bipe_error_generic)
     TimelineNotice.FORWARDED -> stringResource(R.string.bipe_forward_done)
     TimelineNotice.FORWARD_FAILED -> stringResource(R.string.bipe_forward_failed, arg.orEmpty())
     TimelineNotice.STICKER_SAVED -> stringResource(R.string.bipe_sticker_saved)
@@ -561,6 +691,9 @@ private fun noticeText(notice: TimelineNotice, arg: String?): String = when (not
     TimelineNotice.INVITE_AGAIN_FAILED -> stringResource(R.string.bipe_dm_invite_again_failed)
     TimelineNotice.KEEP_LIMIT -> stringResource(R.string.bipe_voice_keep_limit, BipeRegistries.VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT.toString())
     TimelineNotice.KEEP_FAILED -> stringResource(R.string.bipe_error_generic)
+    TimelineNotice.SELECTION_FORWARDED -> stringResource(R.string.bipe_select_forward_done)
+    TimelineNotice.SELECTION_LIMIT -> stringResource(R.string.bipe_select_limit, MESSAGE_SELECTION_LIMIT.toString())
+    TimelineNotice.SELECTION_DELETE_FAILED -> stringResource(R.string.bipe_select_delete_failed)
 }
 
 /** Spec typing-indicator: who is typing, above the composer. */

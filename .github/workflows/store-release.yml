@@ -12,6 +12,10 @@
 # - Android: AAB of chat.bipe.app (play flavour), signed with the Play upload key, uploaded through
 #   the Play Developer API to the internal track (tools/play.mjs). The versionCode must be above every
 #   uploaded one, the fork's included.
+# - Play listing (bipe-chat/bipe#457): title, short and full description from bipe-shared product/appstore.md and
+#   the phone panels and feature graphic from the bipe-web store image builder, in one edit (tools/play.mjs listing).
+#   It fails closed while a panel uses an iPhone capture: the phone panels need native Android captures in bipe-web
+#   appstore/raw/play-phone (store-captures.yml makes them).
 # Owner-only setup (MZ): secrets DIST_CERT_P12, DIST_CERT_PASSWORD, ASC_KEY_P8, ANDROID_UPLOAD_KEYSTORE
 # (base64), ANDROID_UPLOAD_KEYSTORE_PASSWORD, ANDROID_UPLOAD_KEY_ALIAS, ANDROID_UPLOAD_KEY_PASSWORD,
 # PLAY_SERVICE_ACCOUNT_JSON; variables ASC_KEY_ID, ASC_ISSUER_ID, STORE_FIREBASE_APP_ID,
@@ -267,3 +271,57 @@ jobs:
       - name: Remove the keys
         if: always()
         run: rm -f "$RUNNER_TEMP/play.json" "$RUNNER_TEMP/upload.keystore"
+
+  play-listing:
+    needs: gate
+    if: inputs.platforms != 'ios'
+    runs-on: ubuntu-latest
+    environment: store
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-shared
+          path: bipe-shared
+      - uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-web
+          path: bipe-web
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: bipe-web/package.json
+          version: 10
+      - name: Render the Play panels and the feature graphic
+        working-directory: bipe-web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm store:images --device play-phone --shared ../bipe-shared
+          pnpm store:images --device play-feature --shared ../bipe-shared
+      - name: Check the listing
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+          STORE_IMAGES: ${{ github.workspace }}/bipe-web/out/appstore
+        run: node tools/play.mjs listing "$STORE_APP_ID" --dry-run
+      - name: Write the service account key
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$SERVICE_ACCOUNT" ]; then
+            echo "::error::Not set: PLAY_SERVICE_ACCOUNT_JSON (see the header of store-release.yml)."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/play.json"
+          echo "PLAY_SERVICE_ACCOUNT_PATH=$RUNNER_TEMP/play.json" >> "$GITHUB_ENV"
+      - name: Send the listing
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+          STORE_IMAGES: ${{ github.workspace }}/bipe-web/out/appstore
+        run: node tools/play.mjs listing "$STORE_APP_ID"
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/play.json"

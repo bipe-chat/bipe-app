@@ -67,6 +67,26 @@ public enum BipeRegistries {
         "caixa tem": .government,
         "serasa": .government,
         "procon": .government,
+        "pe de meia": .government,
+        "pe-de-meia": .government,
+        "pe de meia oficial": .government,
+        "pe-de-meia oficial": .government,
+        "pe de meia universitario": .government,
+        "pe-de-meia universitario": .government,
+        "bolsa familia": .government,
+        "bolsa familia oficial": .government,
+        "meu inss": .government,
+        "cadunico": .government,
+        "cad unico": .government,
+        "cadastro unico": .government,
+        "farmacia popular": .government,
+        "minha casa minha vida": .government,
+        "auxilio gas": .government,
+        "desenrola": .government,
+        "desenrola brasil": .government,
+        "valores a receber": .government,
+        "beneficio de prestacao continuada": .government,
+        "bpc": .government,
     ]
 
     /// Normalised relationship terms that trigger the name-mismatch check.
@@ -832,6 +852,21 @@ public enum BipeRegistries {
     public static let voiceMediaTranscriptDays = 30
     public static let voiceMediaNoTranscriptDays = 90
     public static let voiceMediaMaxKeptPerAccount = 200
+    /// Forward marks (bipe-chat/bipe#83; registries/voice-media.json): the content field and the many-times threshold. Rules: BipeForwardMark, test-vectors/forward-marks.json.
+    public static let forwardKey = "chat.bipe.forward"
+    public static let forwardedManyTimes = 5
+
+    /// Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, docs/drafts-room.md). Rules: test-vectors/drafts.json.
+    public static let draftsRoomType = "chat.bipe.drafts"
+    public static let draftsAccountDataType = "chat.bipe.drafts_room"
+    public static let draftField = "chat.bipe.draft"
+    public static let draftBodyMaxLength = 8000
+    public static let draftClientMaxLength = 64
+
+    /// Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json.
+    public static let assistantSendAccountDataType = "chat.bipe.assistant_send"
+    public static let assistantMarkerField = "chat.bipe.assistant"
+    public static let assistantClientMaxLength = 64
 
     /// Stickers (bipe ADR 0205, bipe-chat/bipe#837; registries/stickers.json). Search rules: test-vectors/sticker-search.json.
     public static let stickerImportMaxBytes = 1000000

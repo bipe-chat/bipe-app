@@ -63,7 +63,7 @@ struct TimelineRowView: View {
                 } label: {
                     Bubble(isOwn: message.isOwn, trailingLast: true) {
                         if !message.isOwn && !isDm {
-                            Text(message.senderName)
+                            SenderNameText(message: message)
                                 .font(.caption.bold())
                                 .foregroundStyle(BipeColor.accentInk)
                         }
@@ -186,7 +186,7 @@ private struct MessageBubbleRow: View {
                 Bubble(isOwn: message.isOwn, isHighlighted: isHighlighted, trailingLast: true,
                        isPlain: message.media?.kind == .sticker) {
                     if !message.isOwn && !isDm {
-                        Text(message.senderName)
+                        SenderNameText(message: message)
                             .font(.caption.bold())
                             .foregroundStyle(BipeColor.accentInk)
                     }
@@ -222,6 +222,24 @@ private struct MessageBubbleRow: View {
             }
             if model.showsTheftMarker(message) {
                 TheftMessageMarker()
+            }
+            // Spec chat-timeline notes (ADR 0210): small text under the bubble of a message an assistant sent.
+            if let label = message.assistantLabel {
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+            // Spec threads: the count under a root, which opens the thread.
+            if let replies = details.threadReplies, model.threadRoot == nil, let eventId = details.eventId {
+                Button {
+                    model.openThreadRoot = eventId
+                } label: {
+                    Text(BipeStrings.threadReplies(String(replies)))
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(BipeColor.accentInk)
+                        .bipeTapTarget()
+                }
+                .buttonStyle(.plain)
             }
             if !details.reactions.isEmpty {
                 ReactionPills(reactions: details.reactions,
@@ -550,7 +568,7 @@ private struct UndecryptableRow: View {
     var body: some View {
         Bubble(isOwn: message.isOwn, trailingLast: true) {
             if !message.isOwn {
-                Text(message.senderName)
+                SenderNameText(message: message)
                     .font(.caption.bold())
                     .foregroundStyle(BipeColor.inkSecondary)
             }
@@ -622,5 +640,18 @@ private struct DeletedRow: View {
             }
             MessageTimestamp(sentAt: message.sentAt)
         }
+    }
+}
+
+/// The sender line of a group row. Spec timeline-rows nameAmbiguous: the @ follows a name another member also has.
+struct SenderNameText: View {
+    let message: TimelineMessage
+    @Environment(\.bipeHandles) private var handles
+
+    var body: some View {
+        let label = message.senderNameAmbiguous
+            ? MemberNames.label(name: message.senderName, userId: message.senderId, handles: handles)
+            : message.senderName
+        Text(label)
     }
 }

@@ -40,6 +40,9 @@ class BipeApplication : Application() {
     /** A tap on an approval nudge (bipe-chat/bipe#628): the account whose conversation list the app shows next. */
     val accountToOpen = MutableStateFlow<String?>(null)
 
+    /** A recovery alert push or its tap (bipe-chat/bipe#171): the account whose recovery-alert runs check at once. */
+    val recoveryToCheck = MutableStateFlow<String?>(null)
+
     /** Spec pix-check-result, action sendToChat: the preview the home screen offers next. */
     val pixPreview = MutableStateFlow<PixPreview?>(null)
 
@@ -90,6 +93,10 @@ class BipeApplication : Application() {
                 notifications.countChanged(session)
             }
             is BipePushMessage.DeviceApproval -> notifications.deviceApproval(message.accountUserId)
+            is BipePushMessage.RecoveryAlert -> {
+                notifications.recoveryAlert(message.accountUserId, message.completed)
+                recoveryToCheck.value = message.accountUserId
+            }
             BipePushMessage.Ignored -> Unit
         }
     }

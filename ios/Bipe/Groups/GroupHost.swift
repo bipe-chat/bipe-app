@@ -20,6 +20,7 @@ private struct GroupHostModifier: ViewModifier {
     @Binding var showingInvites: Bool
     @State private var toast: String?
     @ObservedObject private var cleared = ClearedChatsStore.shared
+    @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
     @Environment(\.scenePhase) private var scenePhase
 
     func body(content: Content) -> some View {
@@ -44,9 +45,12 @@ private struct GroupHostModifier: ViewModifier {
             .task { await QuietGroups.applyOnce(session: session) }
             .task { await NewsRoomCleanup.applyOnce(session: session, api: api) }
             .task { await cleared.refresh(client: session.client) }
+            // Spec drafts appear: the drafts room of the account, at start and on each return to the foreground.
+            .task { await assistantDrafts.refresh(session: session) }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     Task { await cleared.refresh(client: session.client) }
+                    Task { await assistantDrafts.refresh(session: session) }
                     Task { await NewsRoomCleanup.applyOnce(session: session, api: api) }
                 }
             }

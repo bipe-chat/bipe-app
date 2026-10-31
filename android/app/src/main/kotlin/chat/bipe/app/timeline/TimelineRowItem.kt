@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.memberLabel
 import chat.bipe.app.location.TimelineLiveLocationRow
 import chat.bipe.app.location.TimelineLocationRow
 import chat.bipe.app.common.Avatar
@@ -197,7 +198,7 @@ fun TimelineRowItem(
             Box(Modifier.clickable { onOpenPoll(poll.eventId) }) {
                 Bubble(message.isOwn) {
                     if (!message.isOwn && !isDm) {
-                        Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
+                        Text(memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
                     }
                     PollCard(poll)
                     MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))
@@ -258,7 +259,7 @@ private fun SystemLine(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Bubble(
+internal fun Bubble(
     isOwn: Boolean,
     isHighlighted: Boolean = false,
     modifier: Modifier = Modifier,
@@ -357,7 +358,7 @@ private fun MessageBubbleRow(
                     },
             ) {
                 if (!message.isOwn && !isDm) {
-                    Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
+                    Text(memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
                 }
                 details.reply?.let { reply ->
                     LaunchedEffect(row.id, reply.state) { model.loadReply(row.id) }
@@ -378,6 +379,23 @@ private fun MessageBubbleRow(
         MessageContextMenu(model, row.id, menu, onDismiss = { menu = false })
         val theftMark by model.theftMark.collectAsState()
         if (model.showsTheftMarker(message, theftMark)) TheftMessageMarker()
+        // Spec chat-timeline notes (ADR 0210): small text under the bubble of a message an assistant sent.
+        message.assistantLabel?.let { label ->
+            Text(label, style = MaterialTheme.typography.labelSmall, color = BipeTheme.colors.inkSecondary)
+        }
+        // Spec threads: the count under a root, which opens the thread.
+        val replies = details.threadReplies
+        val rootId = details.eventId
+        if (replies != null && rootId != null && model.threadRoot == null) {
+            androidx.compose.material3.TextButton(onClick = { model.openThread(rootId) }) {
+                Text(
+                    stringResource(R.string.bipe_thread_replies, replies.toString()),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                    color = BipeTheme.colors.accentInk,
+                )
+            }
+        }
         if (details.reactions.isNotEmpty()) {
             ReactionPills(
                 reactions = details.reactions,
@@ -397,7 +415,7 @@ private fun MessageBubbleRow(
 
 /** Spec scam-warning: a calm caution card. Title then the kind text, one element for screen readers. */
 @Composable
-private fun ScamWarningCard(kind: ScamWarningKind, pauseSecondsLeft: Int) {
+internal fun ScamWarningCard(kind: ScamWarningKind, pauseSecondsLeft: Int) {
     val colors = BipeTheme.colors
     val shape = RoundedCornerShape(10.dp)
     Row(
@@ -549,7 +567,7 @@ fun reactionKeyText(key: String): String = if (key.length > 16) key.take(16) + "
 
 /** Original event time on every message, with the full date exposed to TalkBack. */
 @Composable
-private fun MessageTimestamp(sentAt: Long, modifier: Modifier = Modifier) {
+internal fun MessageTimestamp(sentAt: Long, modifier: Modifier = Modifier) {
     val locale = LocalConfiguration.current.locales[0]
     val time = remember(sentAt, locale) { DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(sentAt) }
     val fullDate = remember(sentAt, locale) { DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.SHORT, locale).format(sentAt) }
@@ -577,7 +595,7 @@ private fun UndecryptableRow(message: TimelineMessage, onHistoryHelp: () -> Unit
     LaunchedEffect(message.id, encryption) { if (approvalCanHelp) encryption?.noteUndecryptable() }
     Bubble(message.isOwn, modifier = Modifier.testTag(BipeScreen.MESSAGE_UNDECRYPTABLE.id)) {
         if (!message.isOwn) {
-            Text(message.senderName, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
+            Text(memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(painterResource(PhosphorIcon.LOCK_SIMPLE.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(14.dp).padding(top = 2.dp))

@@ -11,6 +11,7 @@ import chat.bipe.shared.R
 import org.matrix.rustcomponents.sdk.EventSendState
 import org.matrix.rustcomponents.sdk.ImageInfo
 import org.matrix.rustcomponents.sdk.MediaSource
+import chat.bipe.stickers.StickerPackRef
 import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 
@@ -44,6 +45,8 @@ data class MediaMessage(
     val thumbnailSource: MediaRef? = null,
     /** image only: the sender's description for screen readers (bipe-chat/bipe#501, registries/image-descriptions.json). */
     val description: String? = null,
+    /** sticker only: the room pack of stickerPackField (message-actions viewStickerPack, ADR 0205). */
+    val stickerPack: StickerPackRef? = null,
 ) {
     enum class Kind { IMAGE, VIDEO, FILE, STICKER }
 
@@ -82,6 +85,8 @@ data class VoiceMessage(
     val transcript: String?,
     val mimeType: String?,
     val source: MediaRef,
+    /** The count of the forward mark in the event content (bipe-chat/bipe#83); 0 when it has none. */
+    val forwardCount: Int = 0,
 ) {
     val durationLabel: String get() = MediaFormat.duration(durationMillis)
 }

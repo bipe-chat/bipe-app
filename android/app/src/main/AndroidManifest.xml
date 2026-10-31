@@ -94,6 +94,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="bipe.chat" android:pathPrefix="/convite/" />
             </intent-filter>
+            <!-- Sticker pack links bipe.chat/s/<room ID> (spec sticker-pack). The site serves the association file. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="bipe.chat" />
+                <data android:host="www.bipe.chat" />
+                <data android:pathPrefix="/s/" />
+            </intent-filter>
             <!-- Profile links bipe.chat/@handle (spec profile-link-open). The site serves the association file. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />

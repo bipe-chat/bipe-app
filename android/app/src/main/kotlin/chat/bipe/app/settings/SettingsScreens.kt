@@ -85,7 +85,9 @@ import chat.bipe.app.people.PeopleScreen
 import chat.bipe.app.people.PeopleNavigation
 import chat.bipe.app.invites.InvitesModel
 import chat.bipe.app.invites.InvitesScreen
+import chat.bipe.app.common.AppTheme
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.media.upload.MediaQuality
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.app.voce.BusinessClaimScreen
@@ -127,6 +129,8 @@ sealed interface SettingsRoute {
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
+    data object AppearanceChoice : SettingsRoute
+    data object MediaQualityChoice : SettingsRoute
     data object AppColors : SettingsRoute
     data object DataUse : SettingsRoute
     data object LiveLocationDistance : SettingsRoute
@@ -237,6 +241,22 @@ fun SettingsHost(
             onBack = pop,
         )
         SettingsRoute.AppColors -> AppColorsScreen(onBack = pop)
+        // bipe-chat/bipe#676: appearance and media quality, kept on the phone.
+        SettingsRoute.AppearanceChoice -> ChoiceListScreen(
+            title = stringResource(R.string.bipe_chats_appearance),
+            options = AppTheme.Appearance.entries.map { it.id to stringResource(it.title) },
+            key = BipeSettingsRow.CHATS_APPEARANCE.id,
+            default = AppTheme.Appearance.SYSTEM.id,
+            onSelect = AppTheme::setAppearance,
+            onBack = pop,
+        )
+        SettingsRoute.MediaQualityChoice -> ChoiceListScreen(
+            title = stringResource(R.string.bipe_chats_media_quality),
+            options = MediaQuality.entries.map { it.value to stringResource(it.title) },
+            key = BipeSettingsRow.CHATS_MEDIA_QUALITY.id,
+            default = MediaQuality.STANDARD.value,
+            onBack = pop,
+        )
         SettingsRoute.ShowMediaChoice -> ChoiceListScreen(
             title = stringResource(R.string.bipe_chats_show_media),
             options = ShowMedia.entries.map { it.id to stringResource(it.title) },
@@ -390,6 +410,8 @@ fun SettingsGroupScreen(
             // account-new shows the cap on the personal choice when the phone is full, as from the switcher.
             BipeSettingsRow.ACCOUNT_ADD -> onNewAccount?.invoke()
             BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
+            BipeSettingsRow.CHATS_APPEARANCE -> onOpen(SettingsRoute.AppearanceChoice)
+            BipeSettingsRow.CHATS_MEDIA_QUALITY -> onOpen(SettingsRoute.MediaQualityChoice)
             BipeSettingsRow.CHATS_COLORS -> onOpen(SettingsRoute.AppColors)
             BipeSettingsRow.CHATS_DATA_USE -> onOpen(SettingsRoute.DataUse)
             BipeSettingsRow.CHATS_LIVE_LOCATION -> onOpen(SettingsRoute.LiveLocationDistance)
@@ -484,6 +506,17 @@ fun SettingsGroupScreen(
                             }
                         }
                     }
+                    // ADR 0210: off by default; on lets the user's own assistant send as the user, with a label in the chat.
+                    BipeSettingsRow.PRIVACY_ASSISTANT_SEND -> SettingsSwitchItem(
+                        title,
+                        footer,
+                        isOn = state.assistantSend ?: false,
+                        enabled = state.assistantSend != null,
+                    ) { isOn ->
+                        scope.launch {
+                            if (model.setAssistantSend(isOn)) view.bipeHaptic(BipeHaptic.Tick)
+                        }
+                    }
                     // Saved on the server; wired by the screen that owns it.
                     else -> if (row.kind == BipeSettingsRowKind.SWITCH) {
                         SettingsSwitchItem(title, footer, isOn = false, enabled = false) {}
@@ -562,6 +595,8 @@ private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSett
     }
     BipeSettingsRow.CHATS_LIVE_LOCATION -> context.getString(R.string.bipe_chats_live_location_distance, "${LiveLocationRule.distance(context)} m")
     BipeSettingsRow.CHATS_COLORS -> context.getString(chat.bipe.app.common.AppTheme.palette.title)
+    BipeSettingsRow.CHATS_APPEARANCE -> context.getString(chat.bipe.app.common.AppTheme.appearance.title)
+    BipeSettingsRow.CHATS_MEDIA_QUALITY -> context.getString(MediaQuality.current(context).title)
     else -> null
 }
 
@@ -585,7 +620,15 @@ enum class ShowMedia(val id: String, val title: Int) {
 
 /** A picker of one choice that lives on this phone. */
 @Composable
-fun ChoiceListScreen(title: String, options: List<Pair<String, String>>, key: String, default: String, onBack: () -> Unit) {
+fun ChoiceListScreen(
+    title: String,
+    options: List<Pair<String, String>>,
+    key: String,
+    default: String,
+    /** Runs after the choice is stored, for a choice the app shows at once (appearance). */
+    onSelect: (String) -> Unit = {},
+    onBack: () -> Unit,
+) {
     val context = LocalContext.current
     val view = LocalView.current
     val prefs = remember { context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE) }
@@ -597,6 +640,7 @@ fun ChoiceListScreen(title: String, options: List<Pair<String, String>>, key: St
                     SettingsRowItem(title = label, selected = selection == id, onClick = {
                         selection = id
                         prefs.edit().putString(key, id).apply()
+                        onSelect(id)
                         view.bipeHaptic(BipeHaptic.Tick)
                     })
                 }

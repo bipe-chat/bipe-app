@@ -395,7 +395,6 @@ fun ChatRequestsScreen(
     onOpenChat: (String) -> Unit,
     onOpenWhoCanMessage: () -> Unit,
 ) {
-    val colors = BipeTheme.colors
     val requests by model.requests.collectAsState()
     val pending by model.pending.collectAsState()
     var open by remember { mutableStateOf<ChatRequestSummary?>(null) }
@@ -406,6 +405,33 @@ fun ChatRequestsScreen(
         return
     }
     BackHandler(onBack = onBack)
+    ChatRequestsList(
+        requests = visible,
+        trustOf = { requestTrust(model, it).kind },
+        hidePhotos = model.hidePhotos,
+        media = media,
+        onBack = onBack,
+        onOpen = { open = it },
+        onOpenWhoCanMessage = onOpenWhoCanMessage,
+    )
+}
+
+/**
+ * The box of spec chat-requests without its model, so the store captures (bipe-chat/bipe#457) show the
+ * same screen. trustOf gives the trust line of a request.
+ */
+@Composable
+fun ChatRequestsList(
+    requests: List<ChatRequestSummary>,
+    trustOf: @Composable (ChatRequestSummary) -> ChatRequestSummary.Trust,
+    hidePhotos: Boolean,
+    media: MediaLoader?,
+    onBack: () -> Unit,
+    onOpen: (ChatRequestSummary) -> Unit,
+    onOpenWhoCanMessage: () -> Unit,
+) {
+    val colors = BipeTheme.colors
+    val visible = requests
     Surface(Modifier.fillMaxSize().testTag(BipeScreen.CHAT_REQUESTS.id), color = colors.surfaceBase) {
         Column(Modifier.fillMaxSize().safeDrawingPadding()) {
             Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -423,15 +449,15 @@ fun ChatRequestsScreen(
                     items(visible, key = { it.roomId }) { request ->
                         // Action openRequest.
                         Row(
-                            Modifier.fillMaxWidth().clickable { open = request }.padding(horizontal = 16.dp, vertical = 10.dp),
+                            Modifier.fillMaxWidth().clickable { onOpen(request) }.padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             // hidePhotos: the initials avatar, never the photo, until accepted.
-                            Avatar(request.name, request.avatarUrl, media, userId = request.inviterId, showsPhoto = !model.hidePhotos)
+                            Avatar(request.name, request.avatarUrl, media, userId = request.inviterId, showsPhoto = !hidePhotos)
                             Column {
                                 Text(request.name, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1)
-                                TrustLine(requestTrust(model, request).kind)
+                                TrustLine(trustOf(request))
                             }
                         }
                     }

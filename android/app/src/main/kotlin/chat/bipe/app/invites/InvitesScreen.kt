@@ -317,11 +317,12 @@ private fun InviteCardScreen(model: InvitesModel, card: InviteCard, onBack: () -
     }
 }
 
-private fun shareInvite(context: Context, link: String) {
+/** The system share sheet with bipe_invites_share_message and [link]. Specs invite-qr and bring-people. */
+internal fun shareInvite(context: Context, link: String) {
     val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, context.getString(R.string.bipe_invites_share_message, link))
     context.startActivity(Intent.createChooser(send, null))
 }
 
-private fun dateLabel(raw: String): String = runCatching {
+internal fun dateLabel(raw: String): String = runCatching {
     DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date.from(Instant.parse(raw)))
 }.getOrDefault(raw)

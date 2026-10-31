@@ -44,6 +44,8 @@ struct MediaMessage: Equatable {
     var thumbnailSource: MediaRef?
     /// image only: the sender's description for screen readers (bipe-chat/bipe#501, registries/image-descriptions.json).
     var description: String?
+    /// sticker only: the room pack of stickerPackField (message-actions viewStickerPack, ADR 0205).
+    var stickerPack: StickerPackRef?
 
     /// Width over height for the row box. Without size: 4:3 (spec timeline-media notes).
     var aspectRatio: CGFloat {
@@ -89,6 +91,8 @@ struct VoiceMessage: Equatable {
     var transcript: String?
     var mimeType: String?
     var source: MediaRef
+    /// The count of the forward mark in the event content (bipe-chat/bipe#83); 0 when it has none.
+    var forwardCount = 0
 
     var durationLabel: String {
         MediaFormat.duration(duration)
