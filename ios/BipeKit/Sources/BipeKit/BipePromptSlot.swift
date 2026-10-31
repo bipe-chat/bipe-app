@@ -39,7 +39,7 @@ public nonisolated struct BipePromptSlot {
     }
 
     /// Call when `card` shows. A preempting card never takes the slot.
-    public func didShow(_ card: BipeChatListPrompt, now: Date = Date()) {
+    public func didShowCard(_ card: BipeChatListPrompt, now: Date = Date()) {
         guard !card.preempts, defaults.string(forKey: holderKey) != card.rawValue,
               Self.chatListCard(eligible: [card], holder: defaults.string(forKey: holderKey),
                                 since: defaults.object(forKey: sinceKey) as? Date, now: now) == card else { return }

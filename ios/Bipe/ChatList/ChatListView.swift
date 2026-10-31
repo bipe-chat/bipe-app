@@ -360,7 +360,7 @@ struct ChatListView: View {
         if !showingArchived, let card = slot.chatListCard(eligible: eligiblePrompts) {
             promptCard(card)
                 .id(card)
-                .onAppear { slot.didShow(card) }
+                .onAppear { slot.didShowCard(card) }
                 .listRowBackground(BipeColor.surfaceBase)
                 .listRowSeparator(.hidden)
         }
