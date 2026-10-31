@@ -212,7 +212,7 @@ fun SettingsHost(
         SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
         SettingsRoute.TheftProtection -> TheftProtectionScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
-        SettingsRoute.DataUse -> DataUseScreen(onBack = pop)
+        SettingsRoute.DataUse -> DataUseScreen(session, onBack = pop)
         SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, onClose = pop)
         SettingsRoute.RecoveryEmail -> {
             val ways = model.state.collectAsState().value.account

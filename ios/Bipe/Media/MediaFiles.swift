@@ -14,6 +14,12 @@ extension MediaLoader {
     private static let images = NSCache<NSString, UIImage>()
     private static let files = MediaFileHandles()
 
+    /// Spec data-use clearMediaCache: forgets the decoded images and the downloaded file handles of this run.
+    static func forgetAll() async {
+        images.removeAllObjects()
+        await files.removeAll()
+    }
+
     /// The row image: the event thumbnail when there is one, else the media itself, at most maxPixel on the long side.
     /// A sticker always loads the media itself: an animated WebP plays only from the file (ADR 0205).
     func previewImage(_ media: MediaMessage, maxPixel: Int) async -> UIImage? {
@@ -134,5 +140,9 @@ private actor MediaFileHandles {
 
     func keep(_ handle: MediaFileHandle, url: URL, for key: String) {
         handles[key] = (handle, url)
+    }
+
+    func removeAll() {
+        handles.removeAll()
     }
 }

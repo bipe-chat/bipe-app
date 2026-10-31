@@ -2614,6 +2614,28 @@ public enum BipeStrings {
 
     public static var dataUseSaverSystem: String { NSLocalizedString("bipe_data_use_saver_system", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var storageTitle: String { NSLocalizedString("bipe_storage_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var storageMedia: String { NSLocalizedString("bipe_storage_media", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var storageVoice: String { NSLocalizedString("bipe_storage_voice", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var storageStore: String { NSLocalizedString("bipe_storage_store", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var storageFooter: String { NSLocalizedString("bipe_storage_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var storageClear: String { NSLocalizedString("bipe_storage_clear", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var storageClearTitle: String { NSLocalizedString("bipe_storage_clear_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var storageClearBody: String { NSLocalizedString("bipe_storage_clear_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var storageClearConfirm: String { NSLocalizedString("bipe_storage_clear_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func storageCleared(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_storage_cleared", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var chatsLiveLocation: String { NSLocalizedString("bipe_chats_live_location", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatsLiveLocationFooter: String { NSLocalizedString("bipe_chats_live_location_footer", tableName: "Bipe", bundle: .module, comment: "") }
