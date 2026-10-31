@@ -226,6 +226,36 @@ public struct BipeAPIClient: Sendable {
         try await send(method: "POST", path: ["v1", "me", "invites"], body: Empty?.none, accessToken: accessToken)
     }
     
+    // MARK: - Group links (ADR 0184)
+
+    /// `GET /v1/group-links/{code}`. No auth. The group name and member count, never member names.
+    public func groupLinkPreview(code: String) async throws(BipeAPIError) -> BipeGroupLinkPreview {
+        try await send(method: "GET", path: ["v1", "group-links", code], body: Empty?.none)
+    }
+
+    /// `POST /v1/group-links/{code}/join`. The groups service account invites the caller; then join the room.
+    public func joinGroupLink(code: String, accessToken: String) async throws(BipeAPIError) -> String {
+        let response: GroupLinkJoined = try await send(method: "POST", path: ["v1", "group-links", code, "join"], body: Empty?.none, accessToken: accessToken)
+        return response.roomId
+    }
+
+    /// `GET /v1/me/group-links?room_id=`. The active links of a group the caller administers.
+    public func groupLinks(roomId: String, accessToken: String) async throws(BipeAPIError) -> [BipeGroupLink] {
+        let response: GroupLinkList = try await send(method: "GET", path: ["v1", "me", "group-links"], query: [URLQueryItem(name: "room_id", value: roomId)],
+                                                     rawBody: nil, accessToken: accessToken)
+        return response.links
+    }
+
+    /// `POST /v1/me/group-links`. The code is returned once. Invite the groups service account first.
+    public func createGroupLink(roomId: String, accessToken: String) async throws(BipeAPIError) -> BipeCreatedGroupLink {
+        try await send(method: "POST", path: ["v1", "me", "group-links"], body: GroupLinkRequest(roomId: roomId), accessToken: accessToken)
+    }
+
+    /// `DELETE /v1/me/group-links/{linkId}`.
+    public func revokeGroupLink(id: String, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "DELETE", path: ["v1", "me", "group-links", id], body: Empty?.none, accessToken: accessToken)
+    }
+
     // MARK: - Phone-number discovery
     
     /// `POST /v1/contacts/lookup`. At most 500 numbers, already normalised with ``BipePhoneNumber``.
@@ -777,6 +807,8 @@ public struct BipeSignupResponse: Decodable, Sendable, CustomStringConvertible {
     public let handle: String?
     /// Present when a personal invite was used.
     public let inviterUserId: String?
+    /// Present when a group link code was used (ADR 0184): the account is invited there; join it after sign-in.
+    public let groupRoomId: String?
     /// Device-first only. The hidden MAS password, shown once. Keep it on this device only.
     public let password: String?
     /// Device-first only. Shown once. Sync it (iCloud Keychain).
@@ -814,6 +846,54 @@ public struct BipeInvitePreview: Decodable, Sendable {
     public let valid: Bool
     /// Without @. Only for a valid personal invite whose inviter has a handle.
     public let inviterHandle: String?
+}
+
+/// `GET /v1/group-links/{code}` (ADR 0184).
+public struct BipeGroupLinkPreview: Decodable, Sendable {
+    public let valid: Bool
+    public let name: String?
+    /// Joined members, the service account not counted.
+    public let members: Int?
+    /// The creator's public name, else @handle.
+    public let inviterName: String?
+    public let signsUp: Bool?
+}
+
+/// One active group link (ADR 0184).
+public struct BipeGroupLink: Decodable, Sendable, Identifiable, Equatable {
+    public let id: String
+    public let createdBy: String
+    public let createdAt: Date
+    public let expiresAt: Date
+    public let signsUp: Bool
+    public let joined: Int
+    public let signups: Int
+    public let signupsLeft: Int
+}
+
+public struct BipeCreatedGroupLink: Decodable, Sendable, CustomStringConvertible {
+    public let id: String
+    public let code: String
+    public let url: URL
+    public let expiresAt: Date
+    public let signsUp: Bool
+
+    /// Never prints the code.
+    public var description: String {
+        "BipeCreatedGroupLink(\(id))"
+    }
+}
+
+struct GroupLinkRequest: Encodable {
+    let roomId: String
+}
+
+struct GroupLinkList: Decodable {
+    let links: [BipeGroupLink]
+}
+
+struct GroupLinkJoined: Decodable {
+    let roomId: String
 }
 
 public enum BipeInviteStatus: String, Decodable, Sendable {
@@ -1122,6 +1202,8 @@ public enum BipeAPIErrorCode: String, Sendable {
     case brandMarkLimit = "brand_mark_limit"
     /// 409. The account already keeps maxKeptPerAccount voice audios (ADR 0164).
     case keepLimit = "keep_limit"
+    /// 409. The groups service account is not in the group or may not invite (ADR 0184).
+    case groupLinkNoAccess = "group_link_no_access"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {

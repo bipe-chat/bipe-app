@@ -71,6 +71,10 @@ sealed interface PeopleRoute {
     data class ReportChat(val roomId: String, val isDm: Boolean, val otherUserId: String?) : PeopleRoute
     /** A matrix.to or matrix: group link (spec room-link-open). */
     data class RoomLinkOpen(val link: RoomLink) : PeopleRoute
+    /** A bipe.chat/g/<code> group link (spec group-link-open). Prints redacted: the code is a secret. */
+    data class GroupLinkOpen(val code: String) : PeopleRoute {
+        override fun toString(): String = "GroupLinkOpen(redacted)"
+    }
     /** A pack link bipe.chat/s/<room ID> (spec sticker-pack). */
     data class StickerPackLink(val ref: StickerPackRef) : PeopleRoute
 }

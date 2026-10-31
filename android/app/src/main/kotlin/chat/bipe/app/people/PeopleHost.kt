@@ -25,10 +25,12 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.business.QUEUE_LINK_QUERY
 import chat.bipe.app.business.QueueLinkScreen
+import chat.bipe.app.groups.GroupLinkOpenScreen
 import chat.bipe.app.groups.RoomLink
 import chat.bipe.app.groups.RoomLinkOpenScreen
 import chat.bipe.app.media.stickers.StickerPackScreen
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeInviteLink
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.R
 import chat.bipe.stickers.StickerPackRef
@@ -54,6 +56,13 @@ object PeopleLinks {
             ?: RoomLink.of(uri.toString())?.let { PeopleRoute.RoomLinkOpen(it) }
             ?: return false
         _pending.value = route
+        return true
+    }
+
+    /** A bipe.chat/g/<code> group link on a signed-in phone (spec group-link-open). */
+    fun offerGroupLink(uri: Uri): Boolean {
+        val code = BipeInviteLink.groupCode(uri) ?: return false
+        _pending.value = PeopleRoute.GroupLinkOpen(code)
         return true
     }
 
@@ -90,6 +99,7 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
             val openMessage = navigation.openMessage
             if (eventId != null && openMessage != null) openMessage(roomId, eventId) else navigation.openChat(roomId)
         }, onClose = navigation.pop)
+        is PeopleRoute.GroupLinkOpen -> GroupLinkOpenScreen(people, route.code, openChat = navigation.openChat, onClose = navigation.pop)
         is PeopleRoute.PersonProfile -> PersonProfileScreen(
             people,
             route.userId,

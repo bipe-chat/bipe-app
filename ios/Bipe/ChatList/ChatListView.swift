@@ -55,6 +55,7 @@ struct ChatListView: View {
     @State private var openingQueue: String?
     /// A group link waiting for room-link-open.
     @State private var openingRoomLink: RoomLink?
+    @State private var openingGroupLink: GroupLinkCode?
     /// A pack link (spec sticker-pack).
     @State private var openingPack: StickerPackRef?
     @State private var newGroupWith: [Person]?
@@ -208,6 +209,9 @@ struct ChatListView: View {
         .sheet(item: $openingRoomLink) { link in
             RoomLinkOpenView(session: model.session, link: link, media: model.media) { openMessage($0, eventId: $1) }
         }
+        .sheet(item: $openingGroupLink) { link in
+            GroupLinkOpenView(session: model.session, link: link) { openChat($0) }
+        }
         .sheet(item: $openingPack) { pack in
             StickerPackView(model: StickerPackModel(ref: pack, client: model.session.client, handles: people.handles),
                             loader: model.media) { openingPack = nil }
@@ -244,6 +248,7 @@ struct ChatListView: View {
             case .person(let userId): show(.people(.person(userId: userId, fromDm: false)))
             case .queue(let handle): openingQueue = handle
             case .room(let link): openingRoomLink = link
+            case .groupLink(let link): openingGroupLink = link
             }
         }
         .onOpenURL { url in
@@ -586,7 +591,7 @@ struct ChatListView: View {
     private func openBringPeopleIfDue() {
         guard scope != .grupos, detail == nil, !showsBringPeople, !showsHandlePick, !showsPinReminder, !showsPinChange,
               !showsRecoveryEmail, !showingInvites, !creatingGroup, shareItem == nil, openingLink == nil,
-              openingRoomLink == nil, openingQueue == nil, bringPeople.memory.sheetDue,
+              openingRoomLink == nil, openingGroupLink == nil, openingQueue == nil, bringPeople.memory.sheetDue,
               BipeInviteStore(userID: model.session.userId).inviterGreeting() == nil else { return }
         bringPeople.sheetShown()
         showsBringPeople = true

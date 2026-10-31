@@ -14,11 +14,20 @@ public nonisolated enum BipeInviteLink {
     
     /// The invite code in a link, normalised, or `nil` when the URL is not an invite link.
     public static func code(from url: URL) -> String? {
+        code(from: url, path: "convite")
+    }
+
+    /// Group links (ADR 0184): `https://bipe.chat/g/XXXX-XXXX-XXXX`. The same code format; sign-up takes either code.
+    public static func groupCode(from url: URL) -> String? {
+        code(from: url, path: "g")
+    }
+
+    private static func code(from url: URL, path: String) -> String? {
         guard url.scheme == "https", BipeProfileLink.isBipeLinkHost(url) else {
             return nil
         }
         let components = url.pathComponents.filter { $0 != "/" }
-        guard components.count == 2, components[0] == "convite" else { return nil }
+        guard components.count == 2, components[0] == path else { return nil }
         return normalizedCode(components[1])
     }
     

@@ -73,6 +73,8 @@ data class BipeSignupResponse(
     @SerialName("user_id") val userId: String,
     @SerialName("handle") val handle: String? = null,
     @SerialName("inviter_user_id") val inviterUserId: String? = null,
+    /** A group link code was used (ADR 0184): the account is invited there; join it after sign-in. */
+    @SerialName("group_room_id") val groupRoomId: String? = null,
     @SerialName("password") val password: String? = null,
     @SerialName("recovery_token") val recoveryToken: String? = null,
 ) {

@@ -25,8 +25,9 @@ public nonisolated struct BipeInviteStore {
     
     private static let linksKeychainService = "chat.bipe.invites"
     private static let notesKeychainService = "chat.bipe.invites.notes"
+    private static let groupLinksKeychainService = "chat.bipe.invites.groups"
     /// The services the app-group move copies (bipe-chat/bipe#531).
-    public static let keychainServices = [linksKeychainService, notesKeychainService]
+    public static let keychainServices = [linksKeychainService, notesKeychainService, groupLinksKeychainService]
     
     public init(userID: String, defaults: UserDefaults = .standard) {
         self.init(userID: userID, defaults: defaults,
@@ -59,6 +60,26 @@ public nonisolated struct BipeInviteStore {
     @discardableResult
     public func keepLinks(forPendingInviteIDs ids: Set<String>) -> Bool {
         mutate(service: Self.linksKeychainService) { $0 = $0.filter { ids.contains($0.key) } }
+    }
+
+    // MARK: - Group links (ADR 0184)
+
+    /// The group link made on this device for a room: its ID and URL. The server keeps only a hash of the code.
+    public func groupLink(forRoomID roomID: String) -> (id: String, url: URL)? {
+        guard let value = (try? readStrings(service: Self.groupLinksKeychainService))?[roomID] else { return nil }
+        let parts = value.split(separator: " ", maxSplits: 1).map(String.init)
+        guard parts.count == 2, let url = URL(string: parts[1]) else { return nil }
+        return (parts[0], url)
+    }
+
+    @discardableResult
+    public func saveGroupLink(id: String, url: URL, forRoomID roomID: String) -> Bool {
+        mutate(service: Self.groupLinksKeychainService) { $0[roomID] = "\(id) \(url.absoluteString)" }
+    }
+
+    @discardableResult
+    public func removeGroupLink(forRoomID roomID: String) -> Bool {
+        mutate(service: Self.groupLinksKeychainService) { $0[roomID] = nil }
     }
 
     // MARK: - Notes

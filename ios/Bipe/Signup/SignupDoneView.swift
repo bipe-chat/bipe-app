@@ -18,6 +18,8 @@ final class SignupDoneModel: ObservableObject {
     @Published private(set) var phase: Phase = .shown
     let inviterUserId: String?
     let inviterHandle: String?
+    /// Spec group-link-open: the group of a group link code, joined before the chat list shows.
+    let groupRoomId: String?
     private let session: AccountSession
     private var continued = false
 
@@ -25,6 +27,7 @@ final class SignupDoneModel: ObservableObject {
         self.session = session
         inviterUserId = outcome.inviterUserId
         inviterHandle = outcome.inviterHandle
+        groupRoomId = outcome.groupRoomId
     }
 
     /// Action appear: the success line for a short moment, then continue.
@@ -37,6 +40,11 @@ final class SignupDoneModel: ObservableObject {
     func continueFlow() async -> String?? {
         guard !continued else { return nil }
         continued = true
+        if let groupRoomId {
+            // The groups service account invited the new account at sign-up (ADR 0184). The group opens first.
+            phase = .openingChat
+            if (try? await session.client.joinRoomById(roomId: groupRoomId)) != nil { return .some(groupRoomId) }
+        }
         guard let inviterUserId else { return .some(nil) }
         phase = .openingChat
         return .some(await directChat(with: inviterUserId))

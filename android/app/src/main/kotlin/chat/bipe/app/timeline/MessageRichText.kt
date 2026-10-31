@@ -54,7 +54,8 @@ fun MessageRichText(message: TimelineMessage, canOpen: () -> Boolean) {
                     linkInteractionListener = {
                         if (canOpen()) {
                             val uri = Uri.parse(url)
-                            if (!PeopleLinks.offer(uri)) {
+                            // In a chat the account is signed in: a group link opens group-link-open (ADR 0184).
+                            if (!PeopleLinks.offer(uri) && !PeopleLinks.offerGroupLink(uri)) {
                                 val intent = if (BipeInviteLink.code(uri) != null) Intent(context, MainActivity::class.java) else Intent(Intent.ACTION_VIEW)
                                 runCatching { context.startActivity(intent.setAction(Intent.ACTION_VIEW).setData(uri).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)) }
                             }

@@ -96,6 +96,11 @@ struct AppTabsView: View {
                 invitedCode = InviteCode(code: code)
                 return .handled
             }
+            if let code = BipeInviteLink.groupCode(from: url) {
+                model.selectTab(.conversas)
+                TabsLinks.shared.link = .groupLink(GroupLinkCode(code: code))
+                return .handled
+            }
             let link: TabsLink
             switch PeopleLink(url: url) {
             case .handle(let handle): link = .profile(handle)
@@ -137,6 +142,11 @@ struct AppTabsView: View {
         }
         .onOpenURL { url in
             if govbr.open(url) { return }
+            if let code = BipeInviteLink.groupCode(from: url) {
+                model.selectTab(.conversas)
+                TabsLinks.shared.link = .groupLink(GroupLinkCode(code: code))
+                return
+            }
             guard let code = BipeInviteLink.code(from: url) else { return }
             invitedCode = InviteCode(code: code)
         }

@@ -27,6 +27,8 @@ public enum BipeRegistries {
         "seguranca bipe": .bipe,
         "novidades do bipe": .bipe,
         "novidades bipe": .bipe,
+        "bipe grupos": .bipe,
+        "grupos bipe": .bipe,
         "banco do brasil": .bank,
         "caixa": .bank,
         "caixa economica federal": .bank,
@@ -628,6 +630,7 @@ public enum BipeRegistries {
         "bipe",
         "suporte",
         "bipechat",
+        "grupos",
     ]
 
     /// Bipe homeservers (registries/bipe-servers.json, ADR 0168). Use ``BipeServers/isBipeUserID(_:)``, never a suffix check.
@@ -640,7 +643,11 @@ public enum BipeRegistries {
         "@suporte:bipe.net.br",
         "@bipe:bipe.net.br",
         "@r2vrihsgkqd5:bipe.net.br",
+        "@grupos:bipe.net.br",
     ]
+
+    /// The groups service account (ADR 0184): the admin invites it before making a group link.
+    public static let groupsAccountID = "@grupos:bipe.net.br"
 
     /// Public profile rules (ADR 0041). Lengths count Unicode scalars. The server is the authority.
     public static let profileNameMaxLength = 50

@@ -27,6 +27,7 @@ import kotlinx.serialization.json.Json
  * - links: the server keeps only a hash of each code, so a link exists only on the phone that made it. A link is a
  *   bearer secret.
  * - notes (ADR 0136): the first message for the person who joins with an invite. The server never receives a note.
+ * - group links (ADR 0184): the link this phone made for a group, by room ID, as "<link ID> <url>". A bearer secret too.
  *
  * Both live in one file in no-backup storage, sealed with an Android Keystore key (AES-GCM), so they never leave
  * this phone in a backup. Unreadable data stops migration without replacing the stored content.
@@ -36,6 +37,7 @@ class BipeInviteStore(context: Context, userId: String) {
     private data class Contents(
         @SerialName("links") val links: Map<String, String> = emptyMap(),
         @SerialName("notes") val notes: Map<String, String> = emptyMap(),
+        @SerialName("group_links") val groupLinks: Map<String, String> = emptyMap(),
     )
 
     private val file = File(context.noBackupFilesDir, "bipe-invites-" + userId.hashCode().toUInt().toString(16))
@@ -64,7 +66,19 @@ class BipeInviteStore(context: Context, userId: String) {
     suspend fun removeNote(inviteId: String) = update { it.copy(notes = it.notes - inviteId) }
 
     /** Revoke: the link and the note go together. */
-    suspend fun remove(inviteId: String) = update { Contents(it.links - inviteId, it.notes - inviteId) }
+    suspend fun remove(inviteId: String) = update { it.copy(links = it.links - inviteId, notes = it.notes - inviteId) }
+
+    /** The group link this phone made for [roomId]: its ID and URL (spec group-link). */
+    suspend fun groupLink(roomId: String): Pair<String, String>? {
+        val value = read().groupLinks[roomId] ?: return null
+        val id = value.substringBefore(' ', "")
+        val url = value.substringAfter(' ', "")
+        return if (id.isEmpty() || url.isEmpty()) null else id to url
+    }
+
+    suspend fun saveGroupLink(id: String, url: String, roomId: String) = update { it.copy(groupLinks = it.groupLinks + (roomId to "$id $url")) }
+
+    suspend fun removeGroupLink(roomId: String) = update { it.copy(groupLinks = it.groupLinks - roomId) }
 
     private suspend fun read(): Contents = mutex.withLock { decode() }
 

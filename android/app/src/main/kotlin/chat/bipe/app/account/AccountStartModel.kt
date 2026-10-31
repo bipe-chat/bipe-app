@@ -31,7 +31,8 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.Session
 
 /** What signup-done needs after a new account (spec signup-done). */
-data class SignupOutcome(val inviterUserId: String?, val inviterHandle: String?)
+/** [groupRoomId]: a sign-up with a group link code (ADR 0184), the group the account was invited into. */
+data class SignupOutcome(val inviterUserId: String?, val inviterHandle: String?, val groupRoomId: String? = null)
 
 /**
  * Spec account-start (bipe-shared product/screens/account-start.json).

@@ -151,6 +151,8 @@ class MainActivity : ComponentActivity() {
         val uri = intent.data ?: return
         // A profile link waits in PeopleLinks until the home screen shows (spec profile-link-open).
         if (PeopleLinks.offer(uri)) return
+        // A group link opens group-link-open on a signed-in phone; else onboarding takes its code (spec group-link-open).
+        if (accountStart.phase.value == AccountStartModel.Phase.READY && PeopleLinks.offerGroupLink(uri)) return
         accountStart.openLink(uri)
     }
 

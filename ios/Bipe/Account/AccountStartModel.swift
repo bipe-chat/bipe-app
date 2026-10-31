@@ -10,6 +10,8 @@ import MatrixRustSDK
 struct SignupOutcome: Equatable {
     var inviterUserId: String?
     var inviterHandle: String?
+    /// A sign-up with a group link code (ADR 0184): the group the account was invited into.
+    var groupRoomId: String?
 }
 
 private struct AccountStartupSnapshot: Sendable {
