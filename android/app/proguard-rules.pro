@@ -17,3 +17,5 @@
 # Calls: LiveKit's uniffi bindings and the prefixed WebRTC build call Java from native code.
 -keep class io.livekit.android.** { *; }
 -keep class livekit.** { *; }
+# WebRTC's jni_zero generates JniZeroJni only for some builds; the LiveKit build has none (bipe-chat/bipe#892).
+-dontwarn livekit.org.jni_zero.JniZeroJni
