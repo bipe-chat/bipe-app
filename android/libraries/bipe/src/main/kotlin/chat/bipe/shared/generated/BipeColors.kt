@@ -246,10 +246,11 @@ val BipeDarkHighContrastColors: BipeColors = BipeColors(
  */
 enum class BipePalette(val id: String, val iconBackground: Color) {
     ACAI("acai", Color(0xFF802F7C)),
-    PITANGA("pitanga", Color(0xFFC13F26)),
-    CAJU("caju", Color(0xFFA05B00)),
-    JABUTICABA("jabuticaba", Color(0xFF614381)),
+    GOIABA("goiaba", Color(0xFFC52A7A)),
+    PITANGA("pitanga", Color(0xFFBC4500)),
+    MARACUJA("maracuja", Color(0xFF7B6C00)),
     JENIPAPO("jenipapo", Color(0xFF005678)),
+    JABUTICABA("jabuticaba", Color(0xFF4E4694)),
     ;
 
     companion object {
@@ -274,29 +275,35 @@ fun bipeColors(palette: BipePalette, dark: Boolean, highContrast: Boolean): Bipe
     }
     return when (palette) {
         BipePalette.ACAI -> base
+        BipePalette.GOIABA -> when {
+            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD2E2), accentFill = Color(0xFFFFD2E2), accentFillPressed = Color(0xFFFFE8EF), accentWash = Color(0xFF420024), bubbleOwn = Color(0xFF6B003C))
+            dark -> base.copy(accentInk = Color(0xFFFC83B6), accentFill = Color(0xFFFC83B6), accentFillPressed = Color(0xFFFFD2E2), accentWash = Color(0xFF39001E), bubbleOwn = Color(0xFF54002E))
+            highContrast -> base.copy(accentInk = Color(0xFF5E0034), accentFill = Color(0xFF5E0034), accentFillPressed = Color(0xFF420023), accentWash = Color(0xFFFFEEF3), bubbleOwn = Color(0xFFFFC3D9))
+            else -> base.copy(accentInk = Color(0xFF9F005D), accentFill = Color(0xFF9F005D), accentFillPressed = Color(0xFF5E0034), accentWash = Color(0xFFFFF6F9), bubbleOwn = Color(0xFFFFDDE9))
+        }
         BipePalette.PITANGA -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD3CA), accentFill = Color(0xFFFFD3CA), accentFillPressed = Color(0xFFFFE9E5), accentWash = Color(0xFF430700), bubbleOwn = Color(0xFF6B1000))
-            dark -> base.copy(accentInk = Color(0xFFF88C76), accentFill = Color(0xFFF88C76), accentFillPressed = Color(0xFFFFD3CA), accentWash = Color(0xFF380601), bubbleOwn = Color(0xFF530A00))
-            highContrast -> base.copy(accentInk = Color(0xFF5D0D00), accentFill = Color(0xFF5D0D00), accentFillPressed = Color(0xFF410700), accentWash = Color(0xFFFFEFEB), bubbleOwn = Color(0xFFFFC5B8))
-            else -> base.copy(accentInk = Color(0xFF9C2106), accentFill = Color(0xFF9C2106), accentFillPressed = Color(0xFF5D0D00), accentWash = Color(0xFFFFF7F5), bubbleOwn = Color(0xFFFFE0D8))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD5C4), accentFill = Color(0xFFFFD5C4), accentFillPressed = Color(0xFFFFE9E1), accentWash = Color(0xFF3B1000), bubbleOwn = Color(0xFF5F1F00))
+            dark -> base.copy(accentInk = Color(0xFFFF895A), accentFill = Color(0xFFFF895A), accentFillPressed = Color(0xFFFFD5C4), accentWash = Color(0xFF330D00), bubbleOwn = Color(0xFF4A1700))
+            highContrast -> base.copy(accentInk = Color(0xFF541B00), accentFill = Color(0xFF541B00), accentFillPressed = Color(0xFF3A1000), accentWash = Color(0xFFFFEEE8), bubbleOwn = Color(0xFFFFC7B1))
+            else -> base.copy(accentInk = Color(0xFF8F3300), accentFill = Color(0xFF8F3300), accentFillPressed = Color(0xFF541B00), accentWash = Color(0xFFFFF7F3), bubbleOwn = Color(0xFFFFDFD4))
         }
-        BipePalette.CAJU -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFF5DAB5), accentFill = Color(0xFFF5DAB5), accentFillPressed = Color(0xFFFBEBD7), accentWash = Color(0xFF341700), bubbleOwn = Color(0xFF542800))
-            dark -> base.copy(accentInk = Color(0xFFD7A04D), accentFill = Color(0xFFD7A04D), accentFillPressed = Color(0xFFF5DAB5), accentWash = Color(0xFF2D1200), bubbleOwn = Color(0xFF411E00))
-            highContrast -> base.copy(accentInk = Color(0xFF4A2300), accentFill = Color(0xFF4A2300), accentFillPressed = Color(0xFF321600), accentWash = Color(0xFFFCF0E1), bubbleOwn = Color(0xFFF0CD9F))
-            else -> base.copy(accentInk = Color(0xFF7E4000), accentFill = Color(0xFF7E4000), accentFillPressed = Color(0xFF4A2300), accentWash = Color(0xFFFEF7EF), bubbleOwn = Color(0xFFF8E3C6))
-        }
-        BipePalette.JABUTICABA -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFE5D8F6), accentFill = Color(0xFFE5D8F6), accentFillPressed = Color(0xFFF1EBFB), accentWash = Color(0xFF261735), bubbleOwn = Color(0xFF402A58))
-            dark -> base.copy(accentInk = Color(0xFFB99ED9), accentFill = Color(0xFFB99ED9), accentFillPressed = Color(0xFFE5D8F6), accentWash = Color(0xFF20142C), bubbleOwn = Color(0xFF311F44))
-            highContrast -> base.copy(accentInk = Color(0xFF38234D), accentFill = Color(0xFF38234D), accentFillPressed = Color(0xFF261734), accentWash = Color(0xFFF5EFFC), bubbleOwn = Color(0xFFDCCCF1))
-            else -> base.copy(accentInk = Color(0xFF614381), accentFill = Color(0xFF614381), accentFillPressed = Color(0xFF38234D), accentWash = Color(0xFFFAF7FE), bubbleOwn = Color(0xFFECE2F9))
+        BipePalette.MARACUJA -> when {
+            dark && highContrast -> base.copy(accentInk = Color(0xFFE9DE9F), accentFill = Color(0xFFE9DE9F), accentFillPressed = Color(0xFFF4EFCC), accentWash = Color(0xFF241E00), bubbleOwn = Color(0xFF3C3500))
+            dark -> base.copy(accentInk = Color(0xFFC0AB00), accentFill = Color(0xFFC0AB00), accentFillPressed = Color(0xFFE9DE9F), accentWash = Color(0xFF1E1A00), bubbleOwn = Color(0xFF2E2700))
+            highContrast -> base.copy(accentInk = Color(0xFF352E00), accentFill = Color(0xFF352E00), accentFillPressed = Color(0xFF231D00), accentWash = Color(0xFFF7F3D8), bubbleOwn = Color(0xFFE2D584))
+            else -> base.copy(accentInk = Color(0xFF5C5000), accentFill = Color(0xFF5C5000), accentFillPressed = Color(0xFF352E00), accentWash = Color(0xFFFBF8EA), bubbleOwn = Color(0xFFEFE7B8))
         }
         BipePalette.JENIPAPO -> when {
             dark && highContrast -> base.copy(accentInk = Color(0xFFBFE2F7), accentFill = Color(0xFFBFE2F7), accentFillPressed = Color(0xFFDDF1FC), accentWash = Color(0xFF002231), bubbleOwn = Color(0xFF003950))
             dark -> base.copy(accentInk = Color(0xFF67B2DA), accentFill = Color(0xFF67B2DA), accentFillPressed = Color(0xFFBFE2F7), accentWash = Color(0xFF001C29), bubbleOwn = Color(0xFF002B3D))
             highContrast -> base.copy(accentInk = Color(0xFF003145), accentFill = Color(0xFF003145), accentFillPressed = Color(0xFF002130), accentWash = Color(0xFFE6F5FD), bubbleOwn = Color(0xFFADDAF2))
             else -> base.copy(accentInk = Color(0xFF005678), accentFill = Color(0xFF005678), accentFillPressed = Color(0xFF003145), accentWash = Color(0xFFF2FAFE), bubbleOwn = Color(0xFFCFEAF9))
+        }
+        BipePalette.JABUTICABA -> when {
+            dark && highContrast -> base.copy(accentInk = Color(0xFFDADAFF), accentFill = Color(0xFFDADAFF), accentFillPressed = Color(0xFFECECFF), accentWash = Color(0xFF1D193F), bubbleOwn = Color(0xFF322C66))
+            dark -> base.copy(accentInk = Color(0xFFA5A2EC), accentFill = Color(0xFFA5A2EC), accentFillPressed = Color(0xFFDADAFF), accentWash = Color(0xFF181534), bubbleOwn = Color(0xFF262050))
+            highContrast -> base.copy(accentInk = Color(0xFF2C265A), accentFill = Color(0xFF2C265A), accentFillPressed = Color(0xFF1D183D), accentWash = Color(0xFFF0F1FF), bubbleOwn = Color(0xFFCFCFFE))
+            else -> base.copy(accentInk = Color(0xFF4E4694), accentFill = Color(0xFF4E4694), accentFillPressed = Color(0xFF2C265A), accentWash = Color(0xFFF7F8FF), bubbleOwn = Color(0xFFE3E4FF))
         }
     }
 }

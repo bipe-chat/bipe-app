@@ -16,10 +16,11 @@ import UIKit
 /// the app icon. Trust colours never change.
 public enum BipePalette: String, CaseIterable, Sendable {
     case acai
+    case goiaba
     case pitanga
-    case caju
-    case jabuticaba
+    case maracuja
     case jenipapo
+    case jabuticaba
 
     /// The palette of a new install.
     public static let standard: BipePalette = .acai
@@ -28,10 +29,11 @@ public enum BipePalette: String, CaseIterable, Sendable {
     public var iconBackground: UInt32 {
         switch self {
         case .acai: 0x802F7C
-        case .pitanga: 0xC13F26
-        case .caju: 0xA05B00
-        case .jabuticaba: 0x614381
+        case .goiaba: 0xC52A7A
+        case .pitanga: 0xBC4500
+        case .maracuja: 0x7B6C00
         case .jenipapo: 0x005678
+        case .jabuticaba: 0x4E4694
         }
     }
 
@@ -42,10 +44,11 @@ public enum BipePalette: String, CaseIterable, Sendable {
     public var alternateIconName: String? {
         switch self {
         case .acai: nil
+        case .goiaba: "AppIcon-Goiaba"
         case .pitanga: "AppIcon-Pitanga"
-        case .caju: "AppIcon-Caju"
-        case .jabuticaba: "AppIcon-Jabuticaba"
+        case .maracuja: "AppIcon-Maracuja"
         case .jenipapo: "AppIcon-Jenipapo"
+        case .jabuticaba: "AppIcon-Jabuticaba"
         }
     }
 }
@@ -114,18 +117,20 @@ public enum BipeColor {
     public static func accentInk(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: accentInkAcai
+        case .goiaba: accentInkGoiaba
         case .pitanga: accentInkPitanga
-        case .caju: accentInkCaju
-        case .jabuticaba: accentInkJabuticaba
+        case .maracuja: accentInkMaracuja
         case .jenipapo: accentInkJenipapo
+        case .jabuticaba: accentInkJabuticaba
         }
     }
 
     private static let accentInkAcai = dynamic(0x802F7C, 0xDB91D4, 0x4E144B, 0xF7D2F3)
-    private static let accentInkPitanga = dynamic(0x9C2106, 0xF88C76, 0x5D0D00, 0xFFD3CA)
-    private static let accentInkCaju = dynamic(0x7E4000, 0xD7A04D, 0x4A2300, 0xF5DAB5)
-    private static let accentInkJabuticaba = dynamic(0x614381, 0xB99ED9, 0x38234D, 0xE5D8F6)
+    private static let accentInkGoiaba = dynamic(0x9F005D, 0xFC83B6, 0x5E0034, 0xFFD2E2)
+    private static let accentInkPitanga = dynamic(0x8F3300, 0xFF895A, 0x541B00, 0xFFD5C4)
+    private static let accentInkMaracuja = dynamic(0x5C5000, 0xC0AB00, 0x352E00, 0xE9DE9F)
     private static let accentInkJenipapo = dynamic(0x005678, 0x67B2DA, 0x003145, 0xBFE2F7)
+    private static let accentInkJabuticaba = dynamic(0x4E4694, 0xA5A2EC, 0x2C265A, 0xDADAFF)
 
     /// Buttons and the send button. Follows the app theme (BipeTheme).
     public static var accentFill: Color { accentFill(BipeTheme.shared.palette) }
@@ -134,18 +139,20 @@ public enum BipeColor {
     public static func accentFill(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: accentFillAcai
+        case .goiaba: accentFillGoiaba
         case .pitanga: accentFillPitanga
-        case .caju: accentFillCaju
-        case .jabuticaba: accentFillJabuticaba
+        case .maracuja: accentFillMaracuja
         case .jenipapo: accentFillJenipapo
+        case .jabuticaba: accentFillJabuticaba
         }
     }
 
     private static let accentFillAcai = dynamic(0x802F7C, 0xDB91D4, 0x4E144B, 0xF7D2F3)
-    private static let accentFillPitanga = dynamic(0x9C2106, 0xF88C76, 0x5D0D00, 0xFFD3CA)
-    private static let accentFillCaju = dynamic(0x7E4000, 0xD7A04D, 0x4A2300, 0xF5DAB5)
-    private static let accentFillJabuticaba = dynamic(0x614381, 0xB99ED9, 0x38234D, 0xE5D8F6)
+    private static let accentFillGoiaba = dynamic(0x9F005D, 0xFC83B6, 0x5E0034, 0xFFD2E2)
+    private static let accentFillPitanga = dynamic(0x8F3300, 0xFF895A, 0x541B00, 0xFFD5C4)
+    private static let accentFillMaracuja = dynamic(0x5C5000, 0xC0AB00, 0x352E00, 0xE9DE9F)
     private static let accentFillJenipapo = dynamic(0x005678, 0x67B2DA, 0x003145, 0xBFE2F7)
+    private static let accentFillJabuticaba = dynamic(0x4E4694, 0xA5A2EC, 0x2C265A, 0xDADAFF)
 
     /// accent.fill while pressed. Follows the app theme (BipeTheme).
     public static var accentFillPressed: Color { accentFillPressed(BipeTheme.shared.palette) }
@@ -154,18 +161,20 @@ public enum BipeColor {
     public static func accentFillPressed(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: accentFillPressedAcai
+        case .goiaba: accentFillPressedGoiaba
         case .pitanga: accentFillPressedPitanga
-        case .caju: accentFillPressedCaju
-        case .jabuticaba: accentFillPressedJabuticaba
+        case .maracuja: accentFillPressedMaracuja
         case .jenipapo: accentFillPressedJenipapo
+        case .jabuticaba: accentFillPressedJabuticaba
         }
     }
 
     private static let accentFillPressedAcai = dynamic(0x4E144B, 0xF7D2F3, 0x340D32, 0xFCE7F9)
-    private static let accentFillPressedPitanga = dynamic(0x5D0D00, 0xFFD3CA, 0x410700, 0xFFE9E5)
-    private static let accentFillPressedCaju = dynamic(0x4A2300, 0xF5DAB5, 0x321600, 0xFBEBD7)
-    private static let accentFillPressedJabuticaba = dynamic(0x38234D, 0xE5D8F6, 0x261734, 0xF1EBFB)
+    private static let accentFillPressedGoiaba = dynamic(0x5E0034, 0xFFD2E2, 0x420023, 0xFFE8EF)
+    private static let accentFillPressedPitanga = dynamic(0x541B00, 0xFFD5C4, 0x3A1000, 0xFFE9E1)
+    private static let accentFillPressedMaracuja = dynamic(0x352E00, 0xE9DE9F, 0x231D00, 0xF4EFCC)
     private static let accentFillPressedJenipapo = dynamic(0x003145, 0xBFE2F7, 0x002130, 0xDDF1FC)
+    private static let accentFillPressedJabuticaba = dynamic(0x2C265A, 0xDADAFF, 0x1D183D, 0xECECFF)
 
     /// Subtle accent background. Follows the app theme (BipeTheme).
     public static var accentWash: Color { accentWash(BipeTheme.shared.palette) }
@@ -174,18 +183,20 @@ public enum BipeColor {
     public static func accentWash(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: accentWashAcai
+        case .goiaba: accentWashGoiaba
         case .pitanga: accentWashPitanga
-        case .caju: accentWashCaju
-        case .jabuticaba: accentWashJabuticaba
+        case .maracuja: accentWashMaracuja
         case .jenipapo: accentWashJenipapo
+        case .jabuticaba: accentWashJabuticaba
         }
     }
 
     private static let accentWashAcai = dynamic(0xFEF6FD, 0x2D0B2B, 0xFDEDFB, 0x360D34)
-    private static let accentWashPitanga = dynamic(0xFFF7F5, 0x380601, 0xFFEFEB, 0x430700)
-    private static let accentWashCaju = dynamic(0xFEF7EF, 0x2D1200, 0xFCF0E1, 0x341700)
-    private static let accentWashJabuticaba = dynamic(0xFAF7FE, 0x20142C, 0xF5EFFC, 0x261735)
+    private static let accentWashGoiaba = dynamic(0xFFF6F9, 0x39001E, 0xFFEEF3, 0x420024)
+    private static let accentWashPitanga = dynamic(0xFFF7F3, 0x330D00, 0xFFEEE8, 0x3B1000)
+    private static let accentWashMaracuja = dynamic(0xFBF8EA, 0x1E1A00, 0xF7F3D8, 0x241E00)
     private static let accentWashJenipapo = dynamic(0xF2FAFE, 0x001C29, 0xE6F5FD, 0x002231)
+    private static let accentWashJabuticaba = dynamic(0xF7F8FF, 0x181534, 0xF0F1FF, 0x1D193F)
 
     /// Own chat bubble, with ink.primary text. Follows the app theme (BipeTheme).
     public static var bubbleOwn: Color { bubbleOwn(BipeTheme.shared.palette) }
@@ -194,18 +205,20 @@ public enum BipeColor {
     public static func bubbleOwn(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: bubbleOwnAcai
+        case .goiaba: bubbleOwnGoiaba
         case .pitanga: bubbleOwnPitanga
-        case .caju: bubbleOwnCaju
-        case .jabuticaba: bubbleOwnJabuticaba
+        case .maracuja: bubbleOwnMaracuja
         case .jenipapo: bubbleOwnJenipapo
+        case .jabuticaba: bubbleOwnJabuticaba
         }
     }
 
     private static let bubbleOwnAcai = dynamic(0xFADDF6, 0x451142, 0xF3C4ED, 0x591955)
-    private static let bubbleOwnPitanga = dynamic(0xFFE0D8, 0x530A00, 0xFFC5B8, 0x6B1000)
-    private static let bubbleOwnCaju = dynamic(0xF8E3C6, 0x411E00, 0xF0CD9F, 0x542800)
-    private static let bubbleOwnJabuticaba = dynamic(0xECE2F9, 0x311F44, 0xDCCCF1, 0x402A58)
+    private static let bubbleOwnGoiaba = dynamic(0xFFDDE9, 0x54002E, 0xFFC3D9, 0x6B003C)
+    private static let bubbleOwnPitanga = dynamic(0xFFDFD4, 0x4A1700, 0xFFC7B1, 0x5F1F00)
+    private static let bubbleOwnMaracuja = dynamic(0xEFE7B8, 0x2E2700, 0xE2D584, 0x3C3500)
     private static let bubbleOwnJenipapo = dynamic(0xCFEAF9, 0x002B3D, 0xADDAF2, 0x003950)
+    private static let bubbleOwnJabuticaba = dynamic(0xE3E4FF, 0x262050, 0xCFCFFE, 0x322C66)
 
     /// Chat bubble of other people, with ink.primary text.
     public static let bubbleOther = dynamic(0xF2F2F4, 0x1C1E21, 0xE4E6E9, 0x25272B)
