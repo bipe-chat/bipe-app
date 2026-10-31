@@ -51,6 +51,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.chatlist.PromptAction
+import chat.bipe.app.chatlist.PromptCard
 import chat.bipe.app.common.BipeOutlinedButton
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -238,40 +240,29 @@ fun NotificationCheckupScreen(userId: String, onBack: () -> Unit) {
     }
 }
 
-/** Spec notification-checkup banner, above chat-list. [onOpen] opens the checkup. */
+/** The notificationCheckup entry of chat-list-prompt (bipe-chat/bipe#894) holds. [closed] changes after a close. */
 @Composable
-fun NotificationCheckupBanner(onOpen: () -> Unit) {
+fun notificationCheckupShows(closed: Int): Boolean {
     val context = LocalContext.current
     val app = context.applicationContext as BipeApplication
-    val colors = BipeTheme.colors
     val permission by app.push.permission.collectAsState()
-    var closed by remember { mutableIntStateOf(0) }
     val resumed = rememberResumeCount()
-    val shows = remember(resumed, permission, closed) { NotificationCheckup.showsBanner(context) }
-    if (!shows) return
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .background(colors.trustCautionWash, RoundedCornerShape(12.dp))
-            .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustCautionInk)
-        Text(
-            stringResource(R.string.bipe_app_notification_checkup_banner),
-            color = colors.inkPrimary,
-            modifier = Modifier.weight(1f),
-        )
-        TextButton(onClick = onOpen) {
-            Text(stringResource(R.string.bipe_app_notification_checkup_fix), fontWeight = FontWeight.Bold)
-        }
-        IconButton(onClick = {
-            NotificationCheckup.closeBanner(context)
-            closed++
-        }) {
-            Icon(painterResource(PhosphorIcon.X.drawable), contentDescription = stringResource(R.string.bipe_app_close), tint = colors.glyphSecondary)
-        }
-    }
+    return remember(resumed, permission, closed) { NotificationCheckup.showsBanner(context) }
+}
+
+/** The notificationCheckup card of chat-list-prompt. [onOpen] opens the checkup; [onClose] after Agora não. */
+@Composable
+fun NotificationCheckupCard(onOpen: () -> Unit, onClose: () -> Unit) {
+    val context = LocalContext.current
+    PromptCard(
+        title = stringResource(R.string.bipe_app_notification_checkup_title),
+        body = stringResource(R.string.bipe_app_notification_checkup_banner),
+        primary = PromptAction(stringResource(R.string.bipe_app_notification_checkup_fix), onOpen),
+        texts = listOf(
+            PromptAction(stringResource(R.string.bipe_fallback_skip)) {
+                NotificationCheckup.closeBanner(context)
+                onClose()
+            },
+        ),
+    )
 }

@@ -337,28 +337,61 @@ struct ChatListView: View {
         }
     }
 
-    /// One card at a time: the handle card first, then the recovery reminder (spec recovery-reminder), then the PIN
-    /// reminder (spec pin-reminder), then the bring-people reminder (spec bring-people-reminder).
+    /// Spec chat-list-prompt (bipe-chat/bipe#894): the entries whose source condition holds now.
+    private var eligiblePrompts: Set<BipeChatListPrompt> {
+        var eligible: Set<BipeChatListPrompt> = []
+        if banner.state != .hidden && banner.banner != nil { eligible.insert(.remoteBanner) }
+        if encryption.showsBanner { eligible.insert(.approvePhone) }
+        if recovery.showsCard { eligible.insert(.recovery) }
+        if pinReminder.showsCard { eligible.insert(.pinReminder) }
+        if handle.showsPrompt { eligible.insert(.handle) }
+        if bringPeople.reminder != nil { eligible.insert(.bringPeopleReminder) }
+        let count = model.chats(in: .conversas, archived: false).count
+        for card in cards.visible(chatCount: count, handle: handle.currentHandle) {
+            if let entry = BipeChatListPrompt(rawValue: card.rawValue) { eligible.insert(entry) }
+        }
+        return eligible
+    }
+
+    /// Spec chat-list-prompt: one card at a time, the first row of every chat list but the archived one.
     @ViewBuilder
-    private var handlePrompt: some View {
-        if scope != .grupos && handle.showsPrompt {
-            HandlePromptCard(model: handle) { showsHandlePick = true }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-        } else if scope != .grupos && recovery.showsCard {
+    private var promptRow: some View {
+        let slot = BipePromptSlot(userID: model.session.userId)
+        if !showingArchived, let card = slot.chatListCard(eligible: eligiblePrompts) {
+            promptCard(card)
+                .id(card)
+                .onAppear { slot.didShowCard(card) }
+                .listRowBackground(BipeColor.surfaceBase)
+                .listRowSeparator(.hidden)
+        }
+    }
+
+    @ViewBuilder
+    private func promptCard(_ card: BipeChatListPrompt) -> some View {
+        switch card {
+        case .remoteBanner:
+            RemoteBannerView(model: banner)
+        case .approvePhone:
+            ApprovePhoneCard(model: encryption)
+        case .notificationCheckup:
+            // Android only (spec notification-checkup): iOS never makes this entry eligible.
+            EmptyView()
+        case .recovery:
             RecoveryReminderCard(model: recovery) { showsRecoveryEmail = true }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-        } else if scope != .grupos && pinReminder.showsCard {
+        case .pinReminder:
             PinReminderCard(model: pinReminder) { showsPinReminder = true }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-        } else if scope != .grupos, let reminder = bringPeople.reminder {
-            BringPeopleReminderCard(model: bringPeople, reminder: reminder,
-                                    share: { bringShare = ShareItem(url: $0) },
-                                    openInvites: { showingInvites = true })
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+        case .handle:
+            HandlePromptCard(model: handle) { showsHandlePick = true }
+        case .bringPeopleReminder:
+            if let reminder = bringPeople.reminder {
+                BringPeopleReminderCard(model: bringPeople, reminder: reminder,
+                                        share: { bringShare = ShareItem(url: $0) },
+                                        openInvites: { showingInvites = true })
+            }
+        case .profile, .invite, .notes:
+            if let first = BipeOnboardingCard(rawValue: card.rawValue) {
+                FirstListCardView(card: first, handle: handle.currentHandle) { target in run(target, of: first) }
+            }
         }
     }
 
@@ -366,24 +399,7 @@ struct ChatListView: View {
         VStack(spacing: 0) {
             // Spec live-location-banner: this account shares its live location.
             LiveLocationListRow(userId: model.session.userId)
-            RemoteBannerView(model: banner)
-                .padding(.horizontal, 16)
-                .padding(.vertical, banner.state == .hidden ? 0 : 8)
-            handlePrompt
             list
-        }
-    }
-
-    /// Spec chat-list-cards: the first-list cards at the top of Conversas.
-    @ViewBuilder
-    private var firstListCards: some View {
-        if scope != .grupos && !showingArchived {
-            let count = model.chats(in: .conversas, archived: false).count
-            ForEach(cards.visible(chatCount: count, handle: handle.currentHandle), id: \.self) { card in
-                FirstListCardView(card: card, handle: handle.currentHandle) { target in run(target, of: card) }
-                    .listRowBackground(BipeColor.surfaceBase)
-                    .listRowSeparator(.hidden)
-            }
         }
     }
 
@@ -409,14 +425,9 @@ struct ChatListView: View {
     /// The requests row and the group invites above the chats (specs chat-requests and chat-list-filters).
     @ViewBuilder
     private var topRows: some View {
-        // Spec encryption-status: the banner is the first row, so it scrolls with the chats (MZ decision 25 Oct 2026),
-        // in every chat list (bipe-chat/bipe#853).
-        if encryption.showsBanner && !showingArchived {
-            HistoryBanner(model: encryption)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(BipeColor.surfaceRaised)
-        }
-        firstListCards
+        // Spec chat-list-prompt: the one prompt card is the first row, so it scrolls with the chats (MZ decision
+        // 25 Oct 2026), in every chat list (bipe-chat/bipe#853, #894).
+        promptRow
         Button(showingArchived ? (scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle) : BipeStrings.archivedTitle) {
             showingArchived.toggle()
         }

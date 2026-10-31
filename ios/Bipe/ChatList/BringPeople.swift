@@ -388,44 +388,19 @@ struct BringPeopleReminderCard: View {
 
     var body: some View {
         let prompt = BipeOnboardingPrompt.bringPeopleReminder
-        VStack(alignment: .leading, spacing: 8) {
-            Text(BipeStrings.bringPeopleReminderTitle(reminder.name))
-                .font(.headline)
-                .foregroundStyle(BipeColor.inkPrimary)
-            Text(reminder.kind == .pending ? BipeStrings.bringPeopleReminderPending : BipeStrings.bringPeopleReminderExpired)
-                .font(.subheadline)
-                .foregroundStyle(BipeColor.inkSecondary)
-            HStack(spacing: 16) {
-                Button {
-                    let kind = reminder.kind
-                    Task {
-                        if let url = await model.act() {
-                            share(url)
-                        } else if kind == .pending {
-                            openInvites()
-                        }
-                    }
-                } label: {
-                    Text(reminder.kind == .pending ? BipeStrings.bringPeopleResend : BipeStrings.bringPeopleExpiredAction)
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .foregroundStyle(BipeColor.inkOnAccent)
-                        .background(Capsule().fill(BipeColor.accentFill))
-                }
-                ForEach(prompt.text, id: \.titleKey) { button in
-                    Button { model.declineReminder() } label: {
-                        Text(button.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BipeColor.accentInk)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.accentWash))
+        PromptCard(title: BipeStrings.bringPeopleReminderTitle(reminder.name),
+                   body: reminder.kind == .pending ? BipeStrings.bringPeopleReminderPending : BipeStrings.bringPeopleReminderExpired,
+                   primary: .init(title: reminder.kind == .pending ? BipeStrings.bringPeopleResend : BipeStrings.bringPeopleExpiredAction) {
+                       let kind = reminder.kind
+                       Task {
+                           if let url = await model.act() {
+                               share(url)
+                           } else if kind == .pending {
+                               openInvites()
+                           }
+                       }
+                   },
+                   texts: prompt.text.map { .init(title: $0.title, run: { model.declineReminder() }) })
         .accessibilityIdentifier(BipeScreen.bringPeopleReminder.rawValue)
         .onAppear { model.reminderShown() }
     }
