@@ -243,7 +243,8 @@ struct GroupInviteRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(name: invite.name, mxcUrl: invite.avatarUrl, loader: media)
+            // hidePhotos covers group invites too (spec chat-requests notes).
+            AvatarView(name: invite.name, mxcUrl: invite.avatarUrl, loader: media, showsPhoto: !model.hidePhotos)
             VStack(alignment: .leading, spacing: 6) {
                 Text(invite.name)
                     .font(.headline)

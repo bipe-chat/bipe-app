@@ -317,7 +317,13 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         info.isDirect && info.activeMembersCount - minOf(info.activeServiceMembersCount, info.activeMembersCount) <= 2uL
 
     /** Action accept: joins the room. Returns the room ID to open in chat-timeline, or null after a failure. */
-    suspend fun accept(roomId: String): String? = if (run(roomId) { it.join() }) roomId else null
+    suspend fun accept(roomId: String): String? {
+        // Spec timeline-media fromStranger: media in a DM accepted from Pedidos waits for a tap.
+        val isRequest = _requests.value.any { it.roomId == roomId }
+        if (!run(roomId) { it.join() }) return null
+        if (isRequest) chat.bipe.app.media.RequestRooms.remember(context, roomId)
+        return roomId
+    }
 
     /** Action decline: a plain leave, so the inviter can ask again later. */
     suspend fun decline(roomId: String) = run(roomId) { it.leave() }
@@ -620,7 +626,8 @@ fun GroupInviteRow(model: ChatRequestsModel, invite: ChatRequestSummary, media: 
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Avatar(invite.name, invite.avatarUrl, media)
+        // hidePhotos covers group invites too (spec chat-requests notes).
+        Avatar(invite.name, invite.avatarUrl, media, showsPhoto = !model.hidePhotos)
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(invite.name, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1)
             invite.inviterName?.let {

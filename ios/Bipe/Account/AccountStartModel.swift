@@ -93,6 +93,8 @@ final class AccountStartModel: ObservableObject {
         guard attachedUserId != session.userId else { return }
         attachedUserId = session.userId
         PushRegistration.shared.attach(session)
+        // Spec timeline-media notes: show-media and invite photos follow the current account (MSC4278).
+        MediaPreviewSync.shared.attach(session)
     }
     private var attachedUserId: String?
 

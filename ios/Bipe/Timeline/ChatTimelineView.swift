@@ -84,6 +84,11 @@ struct ChatTimelineView: View {
             rowList
                 .environment(\.bipeCompanySeals, people?.seals)
                 .environment(\.bipeHandles, people?.handles)
+                // Spec timeline-media fromStranger: is the other person of the DM a contact?
+                .task(id: model.peerUserId) {
+                    let isContact = model.peerUserId.flatMap { people?.contactName(for: $0) } != nil
+                    model.checkFromStranger(peerIsContact: isContact)
+                }
             if let hint = model.inviterHint {
                 InviterHintRow(hint: hint, inviterName: model.roomName) {
                     Task { await model.sendGreeting() }

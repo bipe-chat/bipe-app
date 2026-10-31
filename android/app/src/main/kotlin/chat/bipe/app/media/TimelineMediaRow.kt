@@ -79,6 +79,8 @@ fun TimelineMediaRow(
     media: MediaMessage,
     loader: MediaLoader,
     isPrivateRoom: Boolean,
+    /** Spec timeline-media fromStranger: the media waits for a tap whatever showMedia says. */
+    fromStranger: Boolean = false,
     onOpenViewer: () -> Unit,
     onCancelUpload: () -> Unit,
 ) {
@@ -102,11 +104,11 @@ fun TimelineMediaRow(
         (waitsForPlay || (image?.isAnimated == true && !playsAnimation))
 
     // Action appear: loads the thumbnail (or the image) when display may show it.
-    LaunchedEffect(media.source, revealed, attempt) {
+    LaunchedEffect(media.source, revealed, attempt, fromStranger) {
         if (media.kind == MediaMessage.Kind.FILE) return@LaunchedEffect
         // Spec data-use: on mobile data with the data saver, photos and stickers wait for a tap.
         val savesData = (media.kind == MediaMessage.Kind.IMAGE || media.kind == MediaMessage.Kind.STICKER) && DataUseMeter.savesData(context)
-        val shows = currentShowMedia(context).shows(isPrivateRoom)
+        val shows = !fromStranger && currentShowMedia(context).shows(isPrivateRoom)
         if (!revealed && !message.isOwn && (!shows || savesData)) {
             // An animated sticker shows the server's still of its first frame with a play mark instead
             // (spec timeline-media notes). Without a still (an encrypted file), it waits as a photo does.

@@ -113,6 +113,8 @@ fun TimelineRowItem(
     onHistoryHelp: () -> Unit = {},
     onOpenPoll: (String) -> Unit = {},
     isPrivateRoom: Boolean = true,
+    /** Spec timeline-media fromStranger: media waits for a tap whatever showMedia says. */
+    fromStranger: Boolean = false,
     voiceState: VoicePlayer.State = VoicePlayer.State(),
     onTogglePlay: (String, VoiceMessage) -> Unit = { _, _ -> },
     onSeek: (String, Float) -> Unit = { _, _ -> },
@@ -153,6 +155,7 @@ fun TimelineRowItem(
                         media = mediaMessage,
                         loader = media,
                         isPrivateRoom = isPrivateRoom,
+                        fromStranger = fromStranger,
                         onOpenViewer = { onOpenViewer(row.id) },
                         onCancelUpload = { model.cancelUpload(row.id) },
                     )

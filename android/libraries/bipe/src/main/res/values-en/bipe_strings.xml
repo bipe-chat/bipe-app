@@ -1083,8 +1083,8 @@
     <string name="bipe_app_report_error">Couldn\'t send the report. Try again.</string>
     <string name="bipe_account_sign_out">Sign out of this device</string>
     <string name="bipe_privacy_who_can_talk">Who can talk to you</string>
-    <string name="bipe_privacy_requests_hide_photos">Hide photos in Requests</string>
-    <string name="bipe_privacy_requests_hide_photos_footer">Photos from people you don\'t know show only after you accept.</string>
+    <string name="bipe_privacy_requests_hide_photos">Hide photos of people who invite you</string>
+    <string name="bipe_privacy_requests_hide_photos_footer">In requests and group invites, the photo shows only after you accept.</string>
     <string name="bipe_privacy_blocked">Blocked</string>
     <string name="bipe_privacy_blocked_none">You haven\'t blocked anyone</string>
     <string name="bipe_privacy_who_can_find">Who can find you</string>

@@ -221,6 +221,10 @@ fun ChatTimelineScreen(
     val inviterHint by model.inviterHint.collectAsState()
     val messages by model.messages.collectAsState()
     val isPrivateRoom by model.isPrivateRoom.collectAsState()
+    // Spec timeline-media fromStranger (bipe-chat/bipe#827): a DM accepted from Pedidos whose other person is not a
+    // contact. True until the peer is known, so no media loads before the contact check.
+    val fromRequest = remember(roomId) { chat.bipe.app.media.RequestRooms.contains(context, roomId) }
+    val fromStranger = fromRequest && peerUserId?.let { people?.contactName(it) } == null
     // Spec voice-message: one player per chat; it stops when the chat closes.
     val voicePlayer = remember(session, roomId) { VoicePlayer(context.applicationContext, media, scope) }
     val voiceState by voicePlayer.state.collectAsState()
@@ -434,6 +438,7 @@ fun ChatTimelineScreen(
                                 onHistoryHelp = onHistoryHelp,
                                 onOpenPoll = { openPollId = it },
                                 isPrivateRoom = isPrivateRoom,
+                                fromStranger = fromStranger,
                                 voiceState = voiceState,
                                 onTogglePlay = voicePlayer::togglePlay,
                                 onSeek = voicePlayer::seek,

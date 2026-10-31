@@ -249,7 +249,11 @@ final class ChatRequestsModel: ObservableObject {
 
     /// Action accept: joins the room. Returns the room ID to open in chat-timeline, or nil after a failure.
     func accept(_ roomId: String) async -> String? {
-        await run(roomId) { room in try await room.join() } ? roomId : nil
+        // Spec timeline-media fromStranger: media in a DM accepted from Pedidos waits for a tap.
+        let isRequest = requests.contains { $0.roomId == roomId }
+        guard await run(roomId, { room in try await room.join() }) else { return nil }
+        if isRequest { RequestRooms.remember(roomId) }
+        return roomId
     }
 
     /// Action decline: a plain leave, so the inviter can ask again later.
