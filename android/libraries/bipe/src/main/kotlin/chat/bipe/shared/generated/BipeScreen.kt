@@ -106,6 +106,9 @@ enum class BipeScreen(val id: String) {
     /** Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json */
     CHAT_LIST_FILTERS("chat-list-filters"),
 
+    /** Chat list prompt (flow home). Spec: bipe-shared/product/screens/chat-list-prompt.json */
+    CHAT_LIST_PROMPT("chat-list-prompt"),
+
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
 

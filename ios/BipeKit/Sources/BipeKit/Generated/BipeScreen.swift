@@ -100,6 +100,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json
     case chatListFilters = "chat-list-filters"
 
+    /// Chat list prompt (flow home). Spec: bipe-shared/product/screens/chat-list-prompt.json
+    case chatListPrompt = "chat-list-prompt"
+
     /// Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json
     case chatList = "chat-list"
 
