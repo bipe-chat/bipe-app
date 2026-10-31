@@ -1274,6 +1274,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .brandNotVerified: BipeStrings.brandMarksNotVerified
             case .brandMarkLimit: BipeStrings.brandMarksLimit
             case .keepLimit: BipeStrings.voiceKeepLimit(String(BipeRegistries.voiceMediaMaxKeptPerAccount))
+            case .groupLinkNoAccess: BipeStrings.groupLinkErrorAccess
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:
