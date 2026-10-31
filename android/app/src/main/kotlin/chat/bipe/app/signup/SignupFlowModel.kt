@@ -25,9 +25,11 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeCredentials
+import chat.bipe.shared.api.BipeInvitePreview
 import chat.bipe.shared.api.BipeSignupConfig
 import chat.bipe.shared.api.BipeSignupRequest
 import chat.bipe.shared.api.BipeSignupResponse
+import chat.bipe.shared.api.groupLinkPreview
 import chat.bipe.shared.generated.BipeOnboardingStart
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.coroutines.CoroutineScope
@@ -192,6 +194,7 @@ class SignupFlowModel(
     /** Credentials stored but not signed in yet: a retry signs in again without a new request. */
     private var storedCredentials: BipeCredentials? = null
     private var inviterUserId: String? = null
+    private var groupRoomId: String? = null
 
     // onboarding-welcome actions
 
@@ -213,10 +216,21 @@ class SignupFlowModel(
         }
     }
 
-    /** Action openInviteLink: a bipe.chat/convite/<code> link the app was opened with. */
+    /** Action openInviteLink: a bipe.chat/convite/<code> or bipe.chat/g/<code> link the app was opened with. */
     fun openInviteLink(url: Uri) {
-        val found = BipeInviteLink.code(url) ?: return
+        val found = BipeInviteLink.code(url) ?: BipeInviteLink.groupCode(url) ?: return
         scope.launch { preview(found) }
+    }
+
+    /**
+     * An invite code, else a group link code that signs people up (ADR 0184, spec group-link-open). Only a personal
+     * invite has an inviter handle.
+     */
+    private suspend fun checkCode(code: String): BipeInvitePreview {
+        val invite = api.invitePreview(code)
+        if (invite.valid) return invite
+        val group = api.groupLinkPreview(code)
+        return BipeInvitePreview(valid = group.valid && group.signsUp == true)
     }
 
     /** true while primary checks the pending invite again. */
@@ -233,7 +247,7 @@ class SignupFlowModel(
                 if (checkingInvite.value) return
                 checkingInvite.value = true
                 scope.launch {
-                    val stillValid = runCatching { api.invitePreview(pending.code).valid }.getOrDefault(true)
+                    val stillValid = runCatching { checkCode(pending.code).valid }.getOrDefault(true)
                     checkingInvite.value = false
                     if (stillValid) return@launch go(Route.NAME)
                     invite.value = null
@@ -256,7 +270,7 @@ class SignupFlowModel(
         }
 
     private suspend fun preview(found: String) {
-        val preview = runCatching { api.invitePreview(found) }.getOrNull()
+        val preview = runCatching { checkCode(found) }.getOrNull()
         invite.value = PendingInvite(found, preview?.inviterHandle, preview?.valid ?: false)
         if (preview?.valid == true) code.value = found
         updateVariant()
@@ -305,7 +319,7 @@ class SignupFlowModel(
         inviteCodePhase.value = InviteCodePhase.CHECKING
         scope.launch {
             try {
-                val preview = api.invitePreview(normalized)
+                val preview = checkCode(normalized)
                 if (preview.valid) {
                     invite.value = PendingInvite(normalized, preview.inviterHandle, true)
                     inviteCodePhase.value = InviteCodePhase.EDITING
@@ -520,6 +534,7 @@ class SignupFlowModel(
             vault.update { it.copy(pendingSignup = null) }
             storedCredentials = credentials
             inviterUserId = response.inviterUserId
+            groupRoomId = response.groupRoomId
             signIn(credentials)
         }
     }
@@ -587,7 +602,7 @@ class SignupFlowModel(
             createPhase.value = CreatePhase.DONE
             formPin = ""
             // A sign-up from account-new has no inviter chat and no greeting: the inviter is an account on this phone.
-            onSignedUp(session, if (start?.isOwnInvite == true) SignupOutcome(null, null) else SignupOutcome(inviterUserId, invite.value?.inviterHandle))
+            onSignedUp(session, if (start?.isOwnInvite == true) SignupOutcome(null, null) else SignupOutcome(inviterUserId, invite.value?.inviterHandle, groupRoomId))
         } catch (error: Exception) {
             createPhase.value = CreatePhase.FAILED
             createError.value = CreateError.SignInFailed

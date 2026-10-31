@@ -172,6 +172,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Leave a group (flow groups). Spec: bipe-shared/product/screens/group-leave.json
     case groupLeave = "group-leave"
 
+    /// Open a group link (flow groups). Spec: bipe-shared/product/screens/group-link-open.json
+    case groupLinkOpen = "group-link-open"
+
+    /// Group link (flow groups). Spec: bipe-shared/product/screens/group-link.json
+    case groupLink = "group-link"
+
     /// People in a group (flow groups). Spec: bipe-shared/product/screens/group-members.json
     case groupMembers = "group-members"
 

@@ -2102,4 +2102,23 @@
     <string name="bipe_voice_source_title">Sobre esta marca</string>
     <string name="bipe_voice_source_body">O app de quem enviou coloca esta marca, e um app alterado pode falsificar. Para saber quem mandou, veja se a conta é verificada.</string>
     <string name="bipe_govbr_verified_no_name">Pronto. Seu nome está verificado.</string>
+    <string name="bipe_group_link_title">Link do grupo</string>
+    <string name="bipe_group_link_body">Mande o link em qualquer conversa. Quem tocar nele entra neste grupo.</string>
+    <string name="bipe_group_link_signs_up">Quem ainda não tem Bipe cria a conta pelo link, sem fila de espera. O link aceita até %1$s contas novas.</string>
+    <string name="bipe_group_link_existing_only">Por enquanto, só quem já tem Bipe entra pelo link. Se você verificar seu nome, o link também serve para quem ainda não tem Bipe criar a conta.</string>
+    <string name="bipe_group_link_service_note">Para convidar quem tem o link, a conta Bipe Grupos entra no grupo. Ela não recebe as chaves do grupo e não lê as mensagens.</string>
+    <string name="bipe_group_link_create">Criar link</string>
+    <string name="bipe_group_link_share">Mandar o link</string>
+    <string name="bipe_group_link_revoke">Desativar o link</string>
+    <string name="bipe_group_link_revoke_body">Quem ainda não entrou não vai conseguir usar este link.</string>
+    <string name="bipe_group_link_expires">Vale até %1$s.</string>
+    <string name="bipe_group_link_joined">Entraram pelo link: %1$s</string>
+    <string name="bipe_group_link_no_code">Este celular não guardou o link. Para mandar de novo, crie um link novo. O antigo para de valer.</string>
+    <string name="bipe_group_link_message">Vem pro grupo %1$s no Bipe: %2$s</string>
+    <string name="bipe_group_link_error_access">Não deu para preparar o link. Só quem administra o grupo pode criar um.</string>
+    <string name="bipe_group_link_open_invited_by">%1$s chamou você para este grupo.</string>
+    <string name="bipe_group_link_open_invalid">Este link não vale mais. Peça um link novo para quem mandou.</string>
+    <string name="bipe_group_link_preview_title">Grupo %1$s no Bipe</string>
+    <string name="bipe_group_link_preview_count">Pessoas no grupo: %1$s. Toque para entrar.</string>
+    <string name="bipe_groups_service_name">Bipe Grupos</string>
 </resources>

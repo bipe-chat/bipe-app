@@ -178,6 +178,12 @@ enum class BipeScreen(val id: String) {
     /** Leave a group (flow groups). Spec: bipe-shared/product/screens/group-leave.json */
     GROUP_LEAVE("group-leave"),
 
+    /** Open a group link (flow groups). Spec: bipe-shared/product/screens/group-link-open.json */
+    GROUP_LINK_OPEN("group-link-open"),
+
+    /** Group link (flow groups). Spec: bipe-shared/product/screens/group-link.json */
+    GROUP_LINK("group-link"),
+
     /** People in a group (flow groups). Spec: bipe-shared/product/screens/group-members.json */
     GROUP_MEMBERS("group-members"),
 

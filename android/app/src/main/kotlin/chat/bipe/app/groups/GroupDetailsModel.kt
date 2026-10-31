@@ -45,6 +45,9 @@ class GroupDetailsModel(
     private val _canChangePrivacy = MutableStateFlow(false)
     /** Spec group-details notes, privacy (bipe-chat/bipe#772): can change the join rule. */
     val canChangePrivacy: StateFlow<Boolean> = _canChangePrivacy.asStateFlow()
+    private val _canMakeGroupLink = MutableStateFlow(false)
+    /** Spec group-link: admins who can change power levels (the server checks level 50 again). */
+    val canMakeGroupLink: StateFlow<Boolean> = _canMakeGroupLink.asStateFlow()
     private val _phase = MutableStateFlow(Phase.VIEWING)
     val phase: StateFlow<Phase> = _phase.asStateFlow()
     private val _saveError = MutableStateFlow(false)
@@ -85,6 +88,7 @@ class GroupDetailsModel(
                 _canEdit.value = levels.canOwnUserSendState(StateEventType.RoomName)
                 _canInvite.value = levels.canOwnUserInvite()
                 _canChangePrivacy.value = levels.canOwnUserSendState(StateEventType.RoomJoinRules)
+                _canMakeGroupLink.value = levels.canOwnUserSendState(StateEventType.RoomPowerLevels)
             }
             _notificationMode.value = ChatNotificationsModel.currentMode(session.client, roomId)
         }

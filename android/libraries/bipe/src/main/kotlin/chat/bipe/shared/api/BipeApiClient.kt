@@ -466,6 +466,9 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** 409. The account already keeps maxKeptPerAccount voice audios (ADR 0164). */
     KEEP_LIMIT("keep_limit"),
+
+    /** 409. The groups service account is not in the group or may not invite (ADR 0184). */
+    GROUP_LINK_NO_ACCESS("group_link_no_access"),
     ;
 
     companion object {
@@ -549,6 +552,7 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.BRAND_MARK_LIMIT -> context.getString(R.string.bipe_brand_marks_limit)
             BipeApiErrorCode.KEEP_LIMIT ->
                 context.getString(R.string.bipe_voice_keep_limit, BipeRegistries.VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT.toString())
+            BipeApiErrorCode.GROUP_LINK_NO_ACCESS -> context.getString(R.string.bipe_group_link_error_access)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID,
             BipeApiErrorCode.PASSWORD_WEAK, BipeApiErrorCode.SUPPORT_UNAVAILABLE ->
                 context.getString(R.string.bipe_error_generic)

@@ -143,6 +143,14 @@ struct GroupDetailsView: View {
                     row(icon: .lockSimple, title: BipeStrings.groupPrivacyTitle, chevron: false)
                 }
             }
+            if model.canMakeGroupLink {
+                // Spec group-link (ADR 0184, bipe-chat/bipe#744).
+                NavigationLink {
+                    GroupLinkView(session: model.session, roomId: model.roomId)
+                } label: {
+                    row(icon: .link, title: BipeStrings.groupLinkTitle, chevron: false)
+                }
+            }
             // Spec chat-media-gallery (bipe#672).
             Button {
                 showsGallery = true

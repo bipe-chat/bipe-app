@@ -30,6 +30,8 @@ object BipeRegistries {
         "seguranca bipe" to ReservedNameCategory.BIPE,
         "novidades do bipe" to ReservedNameCategory.BIPE,
         "novidades bipe" to ReservedNameCategory.BIPE,
+        "bipe grupos" to ReservedNameCategory.BIPE,
+        "grupos bipe" to ReservedNameCategory.BIPE,
         "banco do brasil" to ReservedNameCategory.BANK,
         "caixa" to ReservedNameCategory.BANK,
         "caixa economica federal" to ReservedNameCategory.BANK,
@@ -636,6 +638,7 @@ object BipeRegistries {
         "bipe",
         "suporte",
         "bipechat",
+        "grupos",
     )
 
     /** Bipe homeservers (registries/bipe-servers.json, ADR 0168). Use [chat.bipe.shared.BipeServers.isBipeUserId], never a suffix check. */
@@ -648,7 +651,11 @@ object BipeRegistries {
         "@suporte:bipe.net.br",
         "@bipe:bipe.net.br",
         "@r2vrihsgkqd5:bipe.net.br",
+        "@grupos:bipe.net.br",
     )
+
+    /** The groups service account (ADR 0184): the admin invites it before making a group link. */
+    val groupsAccountId = "@grupos:bipe.net.br"
 
     /** Public profile rules (ADR 0041). Lengths count code points. The server is the authority. */
     const val PROFILE_NAME_MAX_LENGTH = 50

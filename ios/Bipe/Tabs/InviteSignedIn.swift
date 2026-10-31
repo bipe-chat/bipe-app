@@ -14,6 +14,8 @@ enum TabsLink: Equatable {
     case queue(String)
     /// A matrix.to or matrix: group link (spec room-link-open).
     case room(RoomLink)
+    /// A bipe.chat/g/<code> group link (spec group-link-open).
+    case groupLink(GroupLinkCode)
 }
 
 /// Hands a TabsLink from the app tabs to the Conversas chat list, as NotificationActions does for notifications.

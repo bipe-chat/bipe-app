@@ -31,6 +31,8 @@ final class GroupDetailsModel: ObservableObject {
     @Published private(set) var canInvite = false
     /// Spec group-details notes, privacy (bipe#772): can change the join rule.
     @Published private(set) var canChangePrivacy = false
+    /// Spec group-link: admins who can change power levels (the server checks level 50 again).
+    @Published private(set) var canMakeGroupLink = false
     @Published private(set) var phase = Phase.viewing
     @Published var showsSaveError = false
 
@@ -76,6 +78,7 @@ final class GroupDetailsModel: ObservableObject {
             canEdit = levels.canOwnUserSendState(stateEvent: .roomName)
             canInvite = levels.canOwnUserInvite()
             canChangePrivacy = levels.canOwnUserSendState(stateEvent: .roomJoinRules)
+            canMakeGroupLink = levels.canOwnUserSendState(stateEvent: .roomPowerLevels)
         }
         notificationMode = await ChatNotificationsModel.currentMode(client: session.client, roomId: roomId)
     }

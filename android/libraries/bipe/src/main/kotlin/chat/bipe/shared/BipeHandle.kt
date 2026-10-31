@@ -154,10 +154,15 @@ object BipeInviteLink {
     }
 
     /** The code of a `https://bipe.chat/convite/<code>` link. */
-    fun code(url: android.net.Uri): String? {
+    fun code(url: android.net.Uri): String? = code(url, "convite")
+
+    /** The code of a `https://bipe.chat/g/<code>` group link (ADR 0184). The same format; sign-up takes either code. */
+    fun groupCode(url: android.net.Uri): String? = code(url, "g")
+
+    private fun code(url: android.net.Uri, path: String): String? {
         if (url.scheme != "https" || url.host?.lowercase() !in hosts) return null
         val segments = url.pathSegments
-        if (segments.size != 2 || segments[0] != "convite") return null
+        if (segments.size != 2 || segments[0] != path) return null
         return normalizedCode(segments[1])
     }
 }

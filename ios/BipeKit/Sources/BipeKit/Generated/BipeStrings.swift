@@ -4845,4 +4845,56 @@ public enum BipeStrings {
     public static var voiceSourceBody: String { NSLocalizedString("bipe_voice_source_body", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var govbrVerifiedNoName: String { NSLocalizedString("bipe_govbr_verified_no_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkTitle: String { NSLocalizedString("bipe_group_link_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkBody: String { NSLocalizedString("bipe_group_link_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func groupLinkSignsUp(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_link_signs_up", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var groupLinkExistingOnly: String { NSLocalizedString("bipe_group_link_existing_only", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkServiceNote: String { NSLocalizedString("bipe_group_link_service_note", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkCreate: String { NSLocalizedString("bipe_group_link_create", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkShare: String { NSLocalizedString("bipe_group_link_share", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkRevoke: String { NSLocalizedString("bipe_group_link_revoke", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkRevokeBody: String { NSLocalizedString("bipe_group_link_revoke_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func groupLinkExpires(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_link_expires", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func groupLinkJoined(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_link_joined", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var groupLinkNoCode: String { NSLocalizedString("bipe_group_link_no_code", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func groupLinkMessage(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_group_link_message", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var groupLinkErrorAccess: String { NSLocalizedString("bipe_group_link_error_access", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func groupLinkOpenInvitedBy(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_link_open_invited_by", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var groupLinkOpenInvalid: String { NSLocalizedString("bipe_group_link_open_invalid", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func groupLinkPreviewTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_link_preview_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func groupLinkPreviewCount(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_link_preview_count", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var groupsServiceName: String { NSLocalizedString("bipe_groups_service_name", tableName: "Bipe", bundle: .module, comment: "") }
 }
