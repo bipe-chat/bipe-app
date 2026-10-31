@@ -230,7 +230,7 @@ fun TimelineRowItem(
 
 /** Spec timeline-rows notes: today, yesterday, else the system date in the app language, with the year only when it is not this year. */
 @Composable
-private fun daySeparatorText(day: Long): String {
+internal fun daySeparatorText(day: Long): String {
     val now = Calendar.getInstance()
     val then = Calendar.getInstance().apply { timeInMillis = day }
     val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }

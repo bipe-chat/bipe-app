@@ -38,6 +38,13 @@ struct ChatTimelineView: View {
     @State private var showsStickers = false
     /// Spec location-send, with the reply target taken when it opened.
     @State private var locationSend: LocationSendRequest?
+    /// Spec chat-timeline floatingDate (bipe-chat/bipe#828): the pill shows while the list scrolls.
+    @State private var showsFloatingDate = false
+    @State private var floatingDateHide: Task<Void, Never>?
+    /// The row IDs on screen, for the day of the top one.
+    @State private var visibleRowIds: [String] = []
+    /// Spec chat-timeline jumpToDate: the date picker is open.
+    @State private var pickingDate = false
     private let media: MediaLoader
     /// Opens the chat's info: person-profile for a DM.
     private let openInfo: (() -> Void)?
@@ -49,10 +56,11 @@ struct ChatTimelineView: View {
     private let people: PeopleService?
 
     /// threadRoot: the thread view of spec threads (bipe#667); nil for the main timeline.
+    /// day: the day view of spec chat-timeline dayFocus (bipe#828); nil for the main timeline.
     init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil,
-         focusEventId: String? = nil, threadRoot: String? = nil, openInfo: (() -> Void)? = nil) {
+         focusEventId: String? = nil, threadRoot: String? = nil, day: DayFocus? = nil, openInfo: (() -> Void)? = nil) {
         self.focusEventId = focusEventId
-        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId, threadRoot: threadRoot))
+        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId, threadRoot: threadRoot, dayFocus: day))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
         _pinned = StateObject(wrappedValue: PinnedMessagesModel(session: session, roomId: roomId))
         _identity = StateObject(wrappedValue: IdentityChangeModel(session: session, roomId: roomId))
@@ -65,8 +73,8 @@ struct ChatTimelineView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Spec threads notes: the thread view shows none of the chat bars.
-            if model.threadRoot == nil {
+            // Spec threads notes: the thread view shows none of the chat bars; nor does the day view (dayFocus).
+            if model.isMainTimeline {
                 OngoingCallBar(model: model, session: session)
                 if let predecessor = model.predecessor {
                     PredecessorLine(name: predecessor.name) { openOtherChat(predecessor.roomId) }
@@ -97,10 +105,10 @@ struct ChatTimelineView: View {
             if model.isDm, model.theftMark != nil {
                 TheftMarkBanner(name: model.roomName)
             }
-            if model.threadRoot == nil {
+            if model.isMainTimeline {
                 IdentityChangeBar(model: identity)
             }
-            if model.threadRoot == nil, model.selection == nil, model.successorRoomId == nil {
+            if model.isMainTimeline, model.selection == nil, model.successorRoomId == nil {
                 AssistantDraftBanner(store: assistantDrafts, roomId: roomId, userId: session.userId) { draft in
                     if draft.threadRoot != nil {
                         // The thread view loads the thread's composer draft when it opens.
@@ -114,6 +122,9 @@ struct ChatTimelineView: View {
             if model.selection != nil {
                 // Spec message-forward selection: the bar takes the place of the composer.
                 MessageSelectionBar(model: model)
+            } else if model.dayFocus != nil {
+                // Spec chat-timeline dayFocus: the day view is read-only, with no composer.
+                EmptyView()
             } else if model.successorRoomId != nil {
                 RoomUpgradeBar(model: model) { openOtherChat($0) }
             } else if model.isDm, let people, let peer = model.peerUserId {
@@ -155,7 +166,7 @@ struct ChatTimelineView: View {
         }
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .overlay(alignment: .bottom) { noticeView }
-        .navigationTitle(model.threadRoot == nil ? model.roomName : BipeStrings.threadTitle)
+        .navigationTitle(titleText)
         .navigationBarTitleDisplayMode(.inline)
         // Spec threads openThread: the thread view as a sheet over the main timeline.
         .sheet(item: Binding(get: { model.openThreadRoot.map(ThreadSheetId.init) }, set: { model.openThreadRoot = $0?.id })) { thread in
@@ -168,8 +179,26 @@ struct ChatTimelineView: View {
                     }
             }
         }
+        // Spec chat-timeline dayFocus: the day view over the main timeline; Fechar goes back to the newest messages.
+        .sheet(item: $model.openDay) { day in
+            NavigationStack {
+                ChatTimelineView(session: session, media: media, roomId: roomId, people: people, day: day)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(BipeStrings.appClose) { model.openDay = nil }
+                        }
+                    }
+            }
+        }
+        // Spec chat-timeline jumpToDate.
+        .sheet(isPresented: $pickingDate) {
+            JumpToDateSheet(pick: { day in
+                pickingDate = false
+                Task { await model.jumpToDate(day) }
+            }, cancel: { pickingDate = false })
+        }
         .toolbar {
-            if model.threadRoot == nil {
+            if model.isMainTimeline {
                 ToolbarItem(placement: .principal) {
                     if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
                     else { chatTitle }
@@ -178,7 +207,7 @@ struct ChatTimelineView: View {
                     CallHeaderButtons(model: model, session: session)
                 }
             }
-            if model.isGroup, model.threadRoot == nil {
+            if model.isGroup, model.isMainTimeline {
                 ToolbarItem(placement: .primaryAction) {
                     // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
                     Menu {
@@ -194,7 +223,7 @@ struct ChatTimelineView: View {
                     .labelStyle(.iconOnly)
                 }
             }
-            if model.isDm {
+            if model.isDm, model.isMainTimeline {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         BusinessMenuItems(model: business)
@@ -358,14 +387,42 @@ struct ChatTimelineView: View {
                             }
                         }
                     }
+                    if model.dayFocus != nil {
+                        newerFooter
+                    }
                 }
+                .scrollTargetLayout()
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
             }
-            .defaultScrollAnchor(.bottom)
+            .defaultScrollAnchor(model.dayFocus == nil ? .bottom : .top)
             .scrollDismissesKeyboard(.interactively)
+            // Spec chat-timeline floatingDate: the day of the top row on screen, while the list scrolls.
+            .onScrollTargetVisibilityChange(idType: String.self, threshold: 0.1) { ids in
+                visibleRowIds = ids
+            }
+            .onScrollPhaseChange { _, phase in
+                floatingDateHide?.cancel()
+                if phase.isScrolling {
+                    if !showsFloatingDate { withBipeAnimation { showsFloatingDate = true } }
+                } else {
+                    floatingDateHide = Task {
+                        try? await Task.sleep(for: .seconds(1))
+                        guard !Task.isCancelled else { return }
+                        withBipeAnimation { showsFloatingDate = false }
+                    }
+                }
+            }
+            .overlay(alignment: .top) {
+                if showsFloatingDate, let day = floatingDay {
+                    FloatingDatePill(day: day, pick: model.isMainTimeline ? { pickingDate = true } : nil)
+                        .padding(.top, 4)
+                        .transition(.opacity)
+                }
+            }
             .onChange(of: model.rows.last?.id) { _, lastId in
-                if let lastId {
+                // The day view stays on the picked day when newer events load at the bottom.
+                if let lastId, model.dayFocus == nil {
                     withBipeAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
                 }
             }
@@ -420,6 +477,29 @@ struct ChatTimelineView: View {
     }
 
     @ViewBuilder
+    /// Spec chat-timeline floatingDate: the day of the top row among the rows on screen.
+    private var floatingDay: Date? {
+        let rows = shownRows
+        let visible = Set(visibleRowIds)
+        guard let top = rows.firstIndex(where: { visible.contains($0.id) }) else { return nil }
+        return TimelineDays.day(at: top, in: rows)
+    }
+
+    /// The title: the chat name, the thread title, or the picked day in the day view.
+    private var titleText: String {
+        if let day = model.dayFocus?.day { return daySeparatorText(day) }
+        return model.threadRoot == nil ? model.roomName : BipeStrings.threadTitle
+    }
+
+    /// Day view only: loads newer events while the bottom of the list is on screen (spec chat-timeline dayFocus).
+    private var newerFooter: some View {
+        Color.clear
+            .frame(height: 1)
+            .task(id: "\(model.rows.count)-\(model.newerLoads)") {
+                await model.loadNewer()
+            }
+    }
+
     private var historyHeader: some View {
         Group {
             if model.isLoadingHistory && !model.reachedStart {

@@ -68,6 +68,7 @@ import org.matrix.rustcomponents.sdk.TimelineListener
 import org.matrix.rustcomponents.sdk.TypingNotificationsListener
 import org.matrix.rustcomponents.sdk.messageEventContentNew
 import uniffi.matrix_sdk_base.EncryptionState
+import uniffi.matrix_sdk_ui.TimelineEventFocusThreadMode
 import uniffi.matrix_sdk_ui.TimelineReadReceiptTracking
 import uniffi.ruma_events.MessageLikeEventType
 
@@ -139,7 +140,7 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { PIN_FAILED, STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED, SELECTION_FORWARDED, SELECTION_LIMIT, SELECTION_DELETE_FAILED }
+enum class TimelineNotice { PIN_FAILED, STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED, SELECTION_FORWARDED, SELECTION_LIMIT, SELECTION_DELETE_FAILED, JUMP_EMPTY, JUMP_FAILED }
 
 /** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
 enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
@@ -213,7 +214,29 @@ class ChatTimelineModel(
     val voiceMedia: VoiceMediaStore? = null,
     /** Spec threads (bipe-chat/bipe#667): the root event of the thread view; null for the main timeline. */
     val threadRoot: String? = null,
+    /** Spec chat-timeline dayFocus (bipe-chat/bipe#828): the day view's event and day; null for the main and thread timelines. */
+    val dayFocus: DayFocus? = null,
 ) {
+    /** The main timeline of the chat: not a thread view and not a day view. */
+    val isMainTimeline: Boolean get() = threadRoot == null && dayFocus == null
+
+    private val _openDay = MutableStateFlow<DayFocus?>(null)
+    /** The day view the main timeline asks the screen to open (action jumpToDate). */
+    val openDay: StateFlow<DayFocus?> = _openDay.asStateFlow()
+
+    fun openDay(day: DayFocus?) {
+        _openDay.value = day
+    }
+
+    /** Day view only: the newest events are loaded (paginateForwards hit the end). */
+    private val _reachedEnd = MutableStateFlow(false)
+    val reachedEnd: StateFlow<Boolean> = _reachedEnd.asStateFlow()
+    /** Goes up after each forward load that did not fail, so the screen asks for the next while the bottom is on screen. */
+    private val _newerLoads = MutableStateFlow(0)
+    val newerLoads: StateFlow<Int> = _newerLoads.asStateFlow()
+    private var isLoadingNewer = false
+    private var dayScrolled = false
+
     private val _openThreadRoot = MutableStateFlow<String?>(null)
     /** The thread the main timeline asks the screen to open (spec threads openThread). */
     val openThreadRoot: StateFlow<String?> = _openThreadRoot.asStateFlow()
@@ -314,10 +337,16 @@ class ChatTimelineModel(
             greetings.get()?.let { greeting ->
                 if (runCatching { session.client.getDmRoom(greeting.userId) }.getOrNull()?.id() == roomId) _inviterHint.value = greeting
             }
+            // Spec threads notes: a group's main timeline hides thread replies; a DM shows them as plain messages.
+            val hideThreaded = runCatching { room.roomInfo().isDm }.getOrNull() == false
+            val day = dayFocus
             val configuration = TimelineConfiguration(
-                // Spec threads notes: a group's main timeline hides thread replies; a DM shows them as plain messages.
-                focus = threadRoot?.let { TimelineFocus.Thread(it) }
-                    ?: TimelineFocus.Live(hideThreadedEvents = runCatching { room.roomInfo().isDm }.getOrNull() == false),
+                focus = when {
+                    // Spec chat-timeline dayFocus: a focused timeline on the first event of the picked day.
+                    day != null -> TimelineFocus.Event(day.eventId, DAY_CONTEXT_EVENTS, TimelineEventFocusThreadMode.Automatic(hideThreaded))
+                    threadRoot != null -> TimelineFocus.Thread(threadRoot)
+                    else -> TimelineFocus.Live(hideThreadedEvents = hideThreaded)
+                },
                 filter = TimelineFilter.All,
                 internalIdPrefix = null,
                 dateDividerMode = DateDividerMode.DAILY,
@@ -328,7 +357,7 @@ class ChatTimelineModel(
             this@ChatTimelineModel.timeline = timeline
             loadRoomFacts(room)
             // Action appear of spec composer: a saved newMessage draft fills the field.
-            if (_draft.value.isEmpty()) room.newMessageDraft(threadRoot)?.let { _draft.value = it }
+            if (_draft.value.isEmpty() && dayFocus == null) room.newMessageDraft(threadRoot)?.let { _draft.value = it }
             if (!facts.isDm) launch { mentionDirectory.load(room, session.userId) }
             loadHandleChanges(room)
             // The partner's theft mark when the chat opens, then every checkMinutes while it stays open.
@@ -356,6 +385,7 @@ class ChatTimelineModel(
                 batch.forEach { items.applyDiff(it.toVectorDiff()) }
                 loadRoomFacts(room)
                 rebuild()
+                scrollToFocusedDay()
             }
         }
     }
@@ -463,6 +493,67 @@ class ChatTimelineModel(
         }
     }
 
+    /** Day view only: one page of newer events at the bottom (spec chat-timeline dayFocus), tried HISTORY_TRIES times. */
+    fun loadNewer() {
+        val timeline = timeline ?: return
+        if (dayFocus == null || _reachedEnd.value || isLoadingNewer) return
+        isLoadingNewer = true
+        scope.launch {
+            try {
+                for (attempt in 1..HISTORY_TRIES) {
+                    val hitEnd = runCatching { timeline.paginateForwards(HISTORY_PAGE) }.getOrNull()
+                    if (hitEnd != null) {
+                        if (hitEnd) _reachedEnd.value = true
+                        _newerLoads.update { it + 1 }
+                        return@launch
+                    }
+                    if (attempt < HISTORY_TRIES) delay(attempt * 1000L)
+                }
+            } finally {
+                isLoadingNewer = false
+            }
+        }
+    }
+
+    /**
+     * Action jumpToDate (bipe-chat/bipe#828): the first event of the day from the homeserver, then a scroll when the
+     * loaded rows reach that day, else the day view. [dayStart] is the start of the picked day on the phone.
+     */
+    fun jumpToDate(dayStart: Long) {
+        scope.launch {
+            val next = java.time.Instant.ofEpochMilli(dayStart).atZone(java.time.ZoneId.systemDefault())
+                .plusDays(1).toInstant().toEpochMilli()
+            val found = try {
+                timestampToEvent(session.client, roomId, dayStart)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                show(TimelineNotice.JUMP_FAILED)
+                return@launch
+            }
+            if (found == null || found.sentAt >= next) {
+                show(TimelineNotice.JUMP_EMPTY)
+                return@launch
+            }
+            val rows = _rows.value
+            val target = TimelineDays.firstRow(dayStart, rows)
+            if (target != null && TimelineDays.reaches(dayStart, rows, _reachedStart.value)) {
+                _ui.update { it.copy(scrollTarget = target.id) }
+                return@launch
+            }
+            _openDay.value = DayFocus(found.eventId, dayStart)
+        }
+    }
+
+    /** Day view: once the first rows are in, the list goes to the first row of the picked day. */
+    private fun scrollToFocusedDay() {
+        val day = dayFocus ?: return
+        if (dayScrolled) return
+        val target = TimelineDays.firstRow(day.dayStart, _rows.value) ?: return
+        dayScrolled = true
+        _ui.update { it.copy(scrollTarget = target.id) }
+    }
+
     /** One page back, tried HISTORY_TRIES times. null when every try failed. */
     private suspend fun paginateBackwards(timeline: Timeline): Boolean? {
         for (attempt in 1..HISTORY_TRIES) {
@@ -527,7 +618,8 @@ class ChatTimelineModel(
     /** Action leave of spec composer: keeps the draft on this device, or clears it. */
     fun leave() {
         val room = room ?: return
-        if (_ui.value.editing != null) return
+        // The day view has no composer: it never keeps or clears the chat's draft.
+        if (_ui.value.editing != null || dayFocus != null) return
         val text = _draft.value
         // Runs also when the screen scope is gone (the chat closed).
         CoroutineScope(Dispatchers.IO + NonCancellable).launch { room.keepDraft(text, threadRoot) }
@@ -606,6 +698,7 @@ class ChatTimelineModel(
     /** Action markAsRead: a public read receipt (ADR 0050) for the newest event, while the newest rows are on screen. */
     fun markAsRead() {
         val timeline = timeline ?: return
+        if (dayFocus != null) return
         scope.launch {
             val newest = timeline.latestEventId() ?: return@launch
             if (newest == lastReadEventId) return@launch
@@ -1321,6 +1414,8 @@ class ChatTimelineModel(
 
     private companion object {
         const val HISTORY_PAGE: UShort = 20u
+        /** Spec chat-timeline dayFocus: the events the day view loads around the first event of the day. */
+        const val DAY_CONTEXT_EVENTS: UShort = 40u
         /** One loadHistory pages on until it adds this many message rows (state events give no rows). */
         const val HISTORY_FILL = 10
         /** The most pages one loadHistory requests. */

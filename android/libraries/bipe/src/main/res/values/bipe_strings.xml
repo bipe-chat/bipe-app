@@ -2094,6 +2094,8 @@
     <string name="bipe_os_theft_path_android">Em Configurações, toque em Google, Todos os serviços e Proteção contra roubo. Ligue o Bloqueio de Detecção de Roubo e o Bloqueio de Dispositivo Offline.</string>
     <string name="bipe_os_theft_path_samsung">Em Configurações, toque em Segurança e privacidade, Proteção do aparelho perdido e Proteção contra roubo. Ligue o Bloqueio de Detecção de Roubo e o Bloqueio de Dispositivo Offline.</string>
     <string name="bipe_search_in_chat">Buscar na conversa</string>
+    <string name="bipe_jump_to_date_title">Ir para uma data</string>
+    <string name="bipe_jump_to_date_empty">Nenhuma mensagem nesse dia.</string>
     <string name="bipe_voice_source_forwarded">Encaminhado</string>
     <string name="bipe_voice_source_forwarded_many">Encaminhado muitas vezes</string>
     <string name="bipe_voice_source_recorded">Gravado no app</string>

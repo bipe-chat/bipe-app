@@ -2094,6 +2094,8 @@
     <string name="bipe_os_theft_path_android">In Settings, tap Google, All services and Theft protection. Turn on Theft Detection Lock and Offline Device Lock.</string>
     <string name="bipe_os_theft_path_samsung">In Settings, tap Security and privacy, Lost device protection and Theft protection. Turn on Theft Detection Lock and Offline Device Lock.</string>
     <string name="bipe_search_in_chat">Search in chat</string>
+    <string name="bipe_jump_to_date_title">Go to a date</string>
+    <string name="bipe_jump_to_date_empty">No messages on that day.</string>
     <string name="bipe_voice_source_forwarded">Forwarded</string>
     <string name="bipe_voice_source_forwarded_many">Forwarded many times</string>
     <string name="bipe_voice_source_recorded">Recorded in the app</string>
