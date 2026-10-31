@@ -131,6 +131,39 @@ enum class BipeOnboardingCard(
     ;
 }
 
+/** The one prompt card of the chat list (spec chat-list-prompt, bipe-chat/bipe#894). [entries] order is the queue order. */
+enum class BipeChatListPrompt(
+    /** True for tiers critical and access: the entry ignores the prompt slot and takes the card at once. */
+    val preempts: Boolean,
+) {
+    REMOTE_BANNER(true),
+    APPROVE_PHONE(true),
+    NOTIFICATION_CHECKUP(false),
+    RECOVERY(false),
+    PIN_REMINDER(false),
+    HANDLE(false),
+    PROFILE(false),
+    BRING_PEOPLE_REMINDER(false),
+    INVITE(false),
+    NOTES(false),
+    ;
+
+    /** The raw key, as in registries/onboarding.json and the prompt slot memory. */
+    val key: String
+        get() = when (this) {
+            REMOTE_BANNER -> "remoteBanner"
+            APPROVE_PHONE -> "approvePhone"
+            NOTIFICATION_CHECKUP -> "notificationCheckup"
+            RECOVERY -> "recovery"
+            PIN_REMINDER -> "pinReminder"
+            HANDLE -> "handle"
+            PROFILE -> "profile"
+            BRING_PEOPLE_REMINDER -> "bringPeopleReminder"
+            INVITE -> "invite"
+            NOTES -> "notes"
+        }
+}
+
 object BipeOnboarding {
     const val FIRST_LIST_MAX_CHATS: Int = 3
     /** Hours between two slot prompts on one account (bipe-chat/bipe#200). */

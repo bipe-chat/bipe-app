@@ -2652,13 +2652,15 @@ public enum BipeStrings {
 
     public static var colorsAcai: String { NSLocalizedString("bipe_colors_acai", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var colorsGoiaba: String { NSLocalizedString("bipe_colors_goiaba", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var colorsPitanga: String { NSLocalizedString("bipe_colors_pitanga", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var colorsCaju: String { NSLocalizedString("bipe_colors_caju", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var colorsJabuticaba: String { NSLocalizedString("bipe_colors_jabuticaba", tableName: "Bipe", bundle: .module, comment: "") }
+    public static var colorsMaracuja: String { NSLocalizedString("bipe_colors_maracuja", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var colorsJenipapo: String { NSLocalizedString("bipe_colors_jenipapo", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var colorsJabuticaba: String { NSLocalizedString("bipe_colors_jabuticaba", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var notificationsEnable: String { NSLocalizedString("bipe_notifications_enable", tableName: "Bipe", bundle: .module, comment: "") }
 
