@@ -2082,4 +2082,6 @@
     <string name="bipe_operator_left_title">Your server left Bipe</string>
     <string name="bipe_operator_left_body">%1$s is no longer part of Bipe. Change server to keep your @ and your number.</string>
     <string name="bipe_operator_left_action">Change server</string>
+    <string name="bipe_recovery_push_started_body">Someone started moving your account to another device. If it was not you, open Bipe and cancel.</string>
+    <string name="bipe_recovery_push_completed_body">Your account signed in on a new device. If it was not you, open Bipe now.</string>
 </resources>

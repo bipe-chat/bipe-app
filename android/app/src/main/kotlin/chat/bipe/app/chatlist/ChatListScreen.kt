@@ -221,6 +221,13 @@ fun HomeScreen(
     )
     // recovery-alert, action check: on launch and on every return to the foreground.
     LaunchedEffect(foregroundCount) { recoveryAlert.check() }
+    // recovery-alert, action check: at once on a recovery push for this account or its tap (bipe-chat/bipe#171).
+    val recoveryToCheck by app.recoveryToCheck.collectAsState()
+    LaunchedEffect(recoveryToCheck) {
+        if (recoveryToCheck != session.userId) return@LaunchedEffect
+        app.recoveryToCheck.value = null
+        recoveryAlert.check()
+    }
     // phone-link-status, action checkNotice: on launch and on every return to the foreground.
     LaunchedEffect(foregroundCount) { phoneNotice.check() }
     PhoneConfirmNoticeDialog(phoneNotice)
