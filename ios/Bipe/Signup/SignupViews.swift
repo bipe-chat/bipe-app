@@ -265,6 +265,10 @@ struct OnboardingWelcomeView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            // The build that runs, small and quiet, for testers (same text as bipe_help_version in Settings).
+            Text(AppVersion.display)
+                .font(.caption2)
+                .opacity(0.6)
         }
         .foregroundStyle(BipeColor.inkOnAccent)
         .padding(28)

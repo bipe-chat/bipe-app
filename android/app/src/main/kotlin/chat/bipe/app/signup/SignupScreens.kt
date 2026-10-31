@@ -46,6 +46,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import chat.bipe.app.common.appVersionDisplay
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -339,6 +340,8 @@ private fun WelcomeCover(model: SignupFlowModel, onCancel: (() -> Unit)?, sides:
                 Text(stringResource(R.string.bipe_onboarding_learn_more), style = MaterialTheme.typography.titleSmall, color = colors.inkOnAccent)
                 Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = colors.inkOnAccent, modifier = Modifier.size(14.dp))
             }
+            // The build that runs, small and quiet, for testers (same text as bipe_help_version in Settings).
+            Text(appVersionDisplay(context), style = MaterialTheme.typography.labelSmall, color = colors.inkOnAccent.copy(alpha = 0.6f))
         }
     }
 }
