@@ -171,6 +171,18 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
+            android:name=".LauncherGoiaba"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/bipe_app_icon_goiaba"
+            android:roundIcon="@mipmap/bipe_app_icon_goiaba"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
             android:name=".LauncherPitanga"
             android:enabled="false"
             android:exported="true"
@@ -183,23 +195,11 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
-            android:name=".LauncherCaju"
+            android:name=".LauncherMaracuja"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/bipe_app_icon_caju"
-            android:roundIcon="@mipmap/bipe_app_icon_caju"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-        <activity-alias
-            android:name=".LauncherJabuticaba"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/bipe_app_icon_jabuticaba"
-            android:roundIcon="@mipmap/bipe_app_icon_jabuticaba"
+            android:icon="@mipmap/bipe_app_icon_maracuja"
+            android:roundIcon="@mipmap/bipe_app_icon_maracuja"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -212,6 +212,18 @@
             android:exported="true"
             android:icon="@mipmap/bipe_app_icon_jenipapo"
             android:roundIcon="@mipmap/bipe_app_icon_jenipapo"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherJabuticaba"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/bipe_app_icon_jabuticaba"
+            android:roundIcon="@mipmap/bipe_app_icon_jabuticaba"
             android:targetActivity=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
