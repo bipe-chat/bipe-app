@@ -20,6 +20,8 @@ struct SettingsGroupView: View {
     @AppStorage(SettingsKeys.hideRequestPhotos) private var hideRequestPhotos = true
     @AppStorage(SettingsKeys.sharePresence) private var sharePresence = true
     @AppStorage(SettingsKeys.showMedia) private var showMedia = ShowMedia.always.rawValue
+    @AppStorage(Appearance.key) private var appearance = Appearance.system.rawValue
+    @AppStorage(BipeSettingsRow.chatsMediaQuality.rawValue) private var mediaQuality = MediaQuality.standard.rawValue
     /// chats.liveLocation: the update distance of live location (spec settings-group notes).
     @AppStorage(LiveLocationRule.distanceKey) private var liveDistance = BipeRegistries.mapsLiveDefaultDistanceMetres
     /// chats.colors: the row value follows the palette (spec app-colors).
@@ -205,6 +207,18 @@ struct SettingsGroupView: View {
                                  footer: model.phone == .notLinked ? BipeStrings.phoneNotLinked : row.footer)
             }
             .disabled(model.discoverableByPhone == nil || model.phone == nil || model.phone == .notLinked)
+        case .privacyAssistantSend:
+            // ADR 0210: off by default; on lets the user's own assistant send as the user, with a label in the chat.
+            Toggle(isOn: Binding(get: { model.assistantSend ?? false }, set: { isOn in
+                Task {
+                    if await model.setAssistantSend(isOn) {
+                        BipeHaptics.play(.tick)
+                    }
+                }
+            })) {
+                SettingsRowLabel(title: row.title, footer: row.footer)
+            }
+            .disabled(model.assistantSend == nil)
         case .accountChangePin:
             NavigationLink {
                 PinChangeView(model: model)
@@ -256,6 +270,23 @@ struct SettingsGroupView: View {
                 AppColorsView()
             } label: {
                 SettingsRowLabel(title: row.title, value: theme.palette.title, footer: row.footer)
+            }
+        // bipe#676: appearance and media quality, kept on the phone.
+        case .chatsAppearance:
+            NavigationLink {
+                ChoiceListView(title: row.title,
+                               options: Appearance.allCases.map { (id: $0.rawValue, title: $0.title) },
+                               selection: $appearance)
+            } label: {
+                SettingsRowLabel(title: row.title, value: Appearance(rawValue: appearance)?.title)
+            }
+        case .chatsMediaQuality:
+            NavigationLink {
+                ChoiceListView(title: row.title,
+                               options: MediaQuality.allCases.map { (id: $0.rawValue, title: $0.title) },
+                               selection: $mediaQuality)
+            } label: {
+                SettingsRowLabel(title: row.title, value: MediaQuality(rawValue: mediaQuality)?.title)
             }
         case .chatsShowMedia:
             NavigationLink {
@@ -455,6 +486,41 @@ enum SettingsKeys {
     static let hideRequestPhotos = "bipe.settings.hideRequestPhotos"
     static let sharePresence = "bipe.settings.sharePresence"
     static let showMedia = "bipe.settings.showMedia"
+}
+
+/// The chats.appearance choice (bipe#676): system, light or dark for the whole app, on this phone.
+enum Appearance: String, CaseIterable {
+    case system
+    case light
+    case dark
+
+    static let key = BipeSettingsRow.chatsAppearance.rawValue
+
+    var title: String {
+        switch self {
+        case .system: BipeStrings.chatsAppearanceSystem
+        case .light: BipeStrings.chatsAppearanceLight
+        case .dark: BipeStrings.chatsAppearanceDark
+        }
+    }
+
+    /// nil follows the phone.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+}
+
+extension MediaQuality {
+    var title: String {
+        switch self {
+        case .standard: BipeStrings.chatsMediaQualityStandard
+        case .high: BipeStrings.chatsMediaQualityHigh
+        }
+    }
 }
 
 /// The chats.showMedia choice: when chats load photos and videos by themselves.

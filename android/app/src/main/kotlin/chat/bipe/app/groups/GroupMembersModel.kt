@@ -5,6 +5,7 @@
 package chat.bipe.app.groups
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.common.MemberNames
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,8 +29,10 @@ data class GroupMember(
     /** A creator (room version 12) has no role actions. */
     val isCreator: Boolean,
     val level: Long,
+    /** Spec group-members nameAmbiguous: another member shows the same name (bipe-chat/bipe#825). */
+    val nameAmbiguous: Boolean = false,
 ) {
-    enum class Membership { JOINED, INVITED }
+    enum class Membership { JOINED, INVITED, BANNED }
 }
 
 /** Spec group-members (bipe-shared product/screens/group-members.json). */
@@ -39,7 +42,7 @@ class GroupMembersModel(
     private val scope: CoroutineScope,
 ) {
     /** The rows of the action sheet (group-members notes). */
-    enum class MemberAction { VIEW_PROFILE, MAKE_ADMIN, REMOVE_ADMIN, REMOVE, BAN, CANCEL_INVITE }
+    enum class MemberAction { VIEW_PROFILE, MAKE_ADMIN, REMOVE_ADMIN, REMOVE, BAN, UNBAN, CANCEL_INVITE }
 
     data class Rights(val canInvite: Boolean, val canKick: Boolean, val canBan: Boolean, val canChangeRoles: Boolean)
 
@@ -49,6 +52,9 @@ class GroupMembersModel(
     val joined: StateFlow<List<GroupMember>> = _joined.asStateFlow()
     private val _invited = MutableStateFlow<List<GroupMember>>(emptyList())
     val invited: StateFlow<List<GroupMember>> = _invited.asStateFlow()
+    private val _banned = MutableStateFlow<List<GroupMember>>(emptyList())
+    /** State banned (bipe-chat/bipe#675): shown only when canBan. */
+    val banned: StateFlow<List<GroupMember>> = _banned.asStateFlow()
     private val _rights = MutableStateFlow(Rights(false, false, false, false))
     val rights: StateFlow<Rights> = _rights.asStateFlow()
     private val _loading = MutableStateFlow(true)
@@ -103,6 +109,7 @@ class GroupMembersModel(
                 if (rights.canBan) actions += MemberAction.BAN
             }
             GroupMember.Membership.INVITED -> if (rights.canKick) actions += MemberAction.CANCEL_INVITE
+            GroupMember.Membership.BANNED -> if (rights.canBan) actions += MemberAction.UNBAN
         }
         return actions
     }
@@ -119,6 +126,7 @@ class GroupMembersModel(
                     MemberAction.REMOVE_ADMIN -> setLevel(room, userId, RoomMemberRole.USER)
                     MemberAction.REMOVE, MemberAction.CANCEL_INVITE -> room.kickUser(userId, null)
                     MemberAction.BAN -> room.banUser(userId, null)
+                    MemberAction.UNBAN -> room.unbanUser(userId, null)
                 }
             }.onSuccess {
                 GroupPeople.members(room)?.let(::applyMembers)
@@ -143,6 +151,7 @@ class GroupMembersModel(
             val membership = when (member.membership) {
                 is MembershipState.Join -> GroupMember.Membership.JOINED
                 is MembershipState.Invite -> GroupMember.Membership.INVITED
+                is MembershipState.Ban -> GroupMember.Membership.BANNED
                 else -> return@mapNotNull null
             }
             GroupMember(
@@ -152,8 +161,11 @@ class GroupMembersModel(
                 isYou = member.userId == session.userId,
                 isCreator = member.suggestedRoleForPowerLevel == RoomMemberRole.CREATOR,
                 level = GroupPeople.level(member.powerLevel),
+                nameAmbiguous = member.isNameAmbiguous,
             )
         }
+        val lookalikes = MemberNames.ambiguous(all.associate { it.person.userId to it.person.displayName })
+        all = all.map { if (it.person.userId in lookalikes) it.copy(nameAmbiguous = true) else it }
         rebuild()
     }
 
@@ -164,5 +176,6 @@ class GroupMembersModel(
         _joined.value = visible.filter { it.membership == GroupMember.Membership.JOINED }
             .sortedWith(compareByDescending<GroupMember> { it.isAdmin }.then(byName))
         _invited.value = visible.filter { it.membership == GroupMember.Membership.INVITED }.sortedWith(byName)
+        _banned.value = if (_rights.value.canBan) visible.filter { it.membership == GroupMember.Membership.BANNED }.sortedWith(byName) else emptyList()
     }
 }

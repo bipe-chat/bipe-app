@@ -23,6 +23,7 @@ struct VoceView: View {
     @State private var showsLinkPhone = false
     private enum Destination: Hashable { case notes(String), invites, trust, myBookings, claim }
     @State private var photoPromptDismissed = false
+    @State private var osTheftPromptDone = OsTheftPromptMemory.isDone
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
@@ -45,10 +46,21 @@ struct VoceView: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets())
                     // Spec voce photoPrompt (bipe-chat/bipe#200): one card while the account has no photo.
-                    if account.isLoaded, account.avatarUrl == nil, !photoPromptDismissed,
-                       BipePromptSlot(userID: account.userId).allows(.photo) {
-                        PhotoPromptCard(open: { path.append(PeopleRoute.profileEdit) }, dismiss: dismissPhotoPrompt)
-                            .onAppear { BipePromptSlot(userID: account.userId).didShow(.photo) }
+                    let slot = BipePromptSlot(userID: account.userId)
+                    let showsPhotoPrompt = account.isLoaded && account.avatarUrl == nil && !photoPromptDismissed
+                        && slot.allows(.photo)
+                    if showsPhotoPrompt {
+                        VocePromptCard(prompt: .photo, open: { path.append(PeopleRoute.profileEdit) }, dismiss: dismissPhotoPrompt)
+                            .onAppear { slot.didShow(.photo) }
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                    } else if !osTheftPromptDone, OsTheftPromptMemory.isDue(userID: account.userId),
+                              slot.allows(.osTheftProtection) {
+                        // Spec voce osTheftPrompt (bipe-chat/bipe#125): one day after this phone first saw the account.
+                        VocePromptCard(prompt: .osTheftProtection, detail: OsTheftProtection.pathText,
+                                       open: { finishOsTheftPrompt(); OsTheftProtection.openSettings() },
+                                       dismiss: finishOsTheftPrompt)
+                            .onAppear { slot.didShow(.osTheftProtection) }
                             .listRowBackground(Color.clear)
                             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     }
@@ -184,6 +196,12 @@ struct VoceView: View {
         photoPromptDismissed = true
     }
 
+    /// Conferir proteção or Agora não: the prompt never comes back on this phone.
+    private func finishOsTheftPrompt() {
+        OsTheftPromptMemory.markDone()
+        osTheftPromptDone = true
+    }
+
     private func openNotes() {
         guard !openingNotes else { return }
         openingNotes = true
@@ -195,19 +213,26 @@ struct VoceView: View {
     }
 }
 
-/// Prompt photo of registries/onboarding.json (trigger voceWithoutPhoto).
-private struct PhotoPromptCard: View {
+/// A slot prompt of registries/onboarding.json on the Você tab: photo (trigger voceWithoutPhoto) and
+/// osTheftProtection (trigger voceAfterDays). `detail` is an extra line under the body.
+private struct VocePromptCard: View {
+    let prompt: BipeOnboardingPrompt
+    var detail: String?
     let open: () -> Void
     let dismiss: () -> Void
 
     var body: some View {
-        let prompt = BipeOnboardingPrompt.photo
         VStack(alignment: .leading, spacing: 8) {
             Text(BipeLocalized.string(prompt.titleKey))
                 .font(.headline)
                 .foregroundStyle(BipeColor.inkPrimary)
             if let bodyKey = prompt.bodyKey {
                 Text(BipeLocalized.string(bodyKey))
+                    .font(.subheadline)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+            if let detail {
+                Text(detail)
                     .font(.subheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }

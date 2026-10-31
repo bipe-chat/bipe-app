@@ -50,6 +50,8 @@ data class RoomLink(
     val isAlias: Boolean,
     /** The servers the link names, for the preview and the join. */
     val via: List<String>,
+    /** The message of an event link: the chat opens at it (bipe-chat/bipe#666). */
+    val eventId: String? = null,
 ) {
     companion object {
         /** `null` when [uri] is not a group link: a user link, another kind of link or nothing Matrix. */
@@ -58,9 +60,9 @@ data class RoomLink(
             val entity = runCatching { parseMatrixEntityFrom(uri) }.getOrNull() ?: return null
             return when (val id = entity.id) {
                 is MatrixId.Room -> RoomLink(id.id, isAlias = false, entity.via)
-                is MatrixId.EventOnRoomId -> RoomLink(id.roomId, isAlias = false, entity.via)
+                is MatrixId.EventOnRoomId -> RoomLink(id.roomId, isAlias = false, entity.via, id.eventId)
                 is MatrixId.RoomAlias -> RoomLink(id.alias, isAlias = true, entity.via)
-                is MatrixId.EventOnRoomAlias -> RoomLink(id.alias, isAlias = true, entity.via)
+                is MatrixId.EventOnRoomAlias -> RoomLink(id.alias, isAlias = true, entity.via, id.eventId)
                 is MatrixId.User -> null
             }
         }
@@ -107,7 +109,10 @@ private suspend fun previewRoom(client: Client, link: RoomLink): Triple<String?,
     return Triple(null, preview, phase)
 }
 
-/** Spec room-link-open: the group of a link, with join or knock. [openChat] closes the people screens. */
+/**
+ * Spec room-link-open: the group of a link, with join or knock. [openChat] closes the people screens; the caller opens
+ * the chat at [RoomLink.eventId] when the link names an event.
+ */
 @Composable
 fun RoomLinkOpenScreen(people: PeopleService, link: RoomLink, openChat: (String) -> Unit, onClose: () -> Unit) {
     val colors = BipeTheme.colors
