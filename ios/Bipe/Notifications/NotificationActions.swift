@@ -28,9 +28,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         NSLog("Bipe push token failed")
     }
 
-    /// The open chat shows its messages itself; other chats show a banner.
+    /// The open chat shows its messages itself; other chats show a banner. A recovery alert that arrives while the app
+    /// is open runs recovery-alert check at once (bipe-chat/bipe#171).
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        if let owner = NotificationKeys.noticeOwner(notification.request.content.userInfo, kind: NotificationKeys.recoveryKind) {
+            await MainActor.run { NotificationActions.shared.recoveryToCheck = owner }
+        }
         let target = NotificationKeys.target(notification.request.content.userInfo)
         let isOpen = await MainActor.run { target != nil && NotificationActions.shared.visibleRoom == target }
         return isOpen ? [] : [.banner, .list, .sound, .badge]
@@ -49,6 +53,8 @@ final class NotificationActions: ObservableObject {
     @Published var roomToOpen: BipeNotificationOpen?
     /// A tap on an approval nudge (bipe-chat/bipe#628): the owner account's conversation list, where the request shows.
     @Published var accountToOpen: String?
+    /// A recovery alert push (bipe-chat/bipe#171): the account whose recovery-alert runs check at once.
+    @Published var recoveryToCheck: String?
     /// The chat on screen, so its pushes do not show a banner.
     var visibleRoom: BipeNotificationTarget?
 
@@ -88,18 +94,19 @@ final class NotificationActions: ObservableObject {
         }
         if roomToOpen?.accountUserId == userId { roomToOpen = nil }
         if accountToOpen == userId { accountToOpen = nil }
+        if recoveryToCheck == userId { recoveryToCheck = nil }
         if visibleRoom?.accountUserId == userId { visibleRoom = nil }
     }
 
     func handle(_ response: UNNotificationResponse) async {
         let userInfo = response.notification.request.content.userInfo
-        if userInfo[NotificationKeys.kind] as? String == NotificationKeys.deviceApprovalKind {
+        let kind = userInfo[NotificationKeys.kind] as? String
+        if kind == NotificationKeys.deviceApprovalKind || kind == NotificationKeys.recoveryKind {
             // The route must still belong to the recorded owner; else the tap only opens the app.
             guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
-                  let userId = userInfo[NotificationKeys.accountUserId] as? String,
-                  let route = userInfo[NotificationKeys.accountRoute] as? String,
-                  NotificationKeys.accountRoutes?.account(for: route) == userId else { return }
+                  let kind, let userId = NotificationKeys.noticeOwner(userInfo, kind: kind) else { return }
             accountToOpen = userId
+            if kind == NotificationKeys.recoveryKind { recoveryToCheck = userId }
             return
         }
         guard let target = NotificationKeys.target(userInfo),

@@ -13,8 +13,16 @@ final class ChatSearchModel: ObservableObject {
     @Published private(set) var results: [ChatSummary] = []
     @Published private(set) var isSearching = false
     @Published private(set) var query = ""
+    /// State messages (bipe#671).
+    @Published private(set) var messageHits: [MessageHit] = []
+    /// State recent.
+    @Published private(set) var recentQueries: [String] = []
 
     private let session: AccountSession
+    private let messages: MessageSearchModel
+    private let recent: RecentSearches
+    private var messageChanges: AnyCancellable?
+    private var recentChanges: AnyCancellable?
     private let notes: NotesRoom?
     private var list: FilteredRoomList?
     private var debounce: Task<Void, Never>?
@@ -23,7 +31,11 @@ final class ChatSearchModel: ObservableObject {
     init(session: AccountSession, notes: NotesRoom? = nil) {
         self.session = session
         self.notes = notes
+        messages = MessageSearchModel(session: session)
+        recent = RecentSearches(userId: session.userId)
         clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in self?.list?.refresh() }
+        messageChanges = messages.$hits.sink { [weak self] in self?.messageHits = $0 }
+        recentChanges = recent.$queries.sink { [weak self] in self?.recentQueries = $0 }
     }
 
     /// Action editQuery: sets the name filter, at most every 150 ms.
@@ -34,6 +46,7 @@ final class ChatSearchModel: ObservableObject {
         guard !pattern.isEmpty else {
             results = []
             isSearching = false
+            Task { await messages.search("") }
             return
         }
         isSearching = true
@@ -45,7 +58,23 @@ final class ChatSearchModel: ObservableObject {
             }
             // Both tabs together; requests (invites) are left out by Joined.
             await list?.start(session: session, filter: .all(filters: [.joined, .nonSpace, .deduplicateVersions, .normalizedMatchRoomName(pattern: pattern)]))
+            await messages.search(pattern)
         }
+    }
+
+    /// Action openMessage keeps the query in recent; the view opens the chat.
+    func openedResult() {
+        recent.add(query)
+    }
+
+    /// Action clearRecent.
+    func clearRecent() {
+        recent.clear()
+    }
+
+    /// The last message row showed.
+    func loadMoreMessages() {
+        Task { await messages.loadMore() }
     }
 
     private func show(_ rooms: [Room]) {
@@ -53,7 +82,8 @@ final class ChatSearchModel: ObservableObject {
         let expectedQuery = query
         Task {
             var summaries: [ChatSummary] = []
-            for room in rooms where room.id() != notes?.roomId {
+            let draftsRoomId = AssistantDraftsStore.shared.roomId(for: session.userId)
+            for room in rooms where room.id() != notes?.roomId && room.id() != draftsRoomId {
                 if let summary = await ChatListModel.summary(of: room, ownUserId: session.userId) { summaries.append(summary) }
             }
             guard query == expectedQuery else { return }
@@ -81,15 +111,17 @@ struct ChatSearchResults: View {
     let media: MediaLoader
     let onOpenChat: (String) -> Void
     var onFindHandle: (String) -> Void = { _ in }
+    /// Action openMessage (bipe#671): room ID, event ID.
+    var onOpenMessage: (String, String) -> Void = { _, _ in }
 
     var body: some View {
         List {
             if search.query.trimmingCharacters(in: .whitespaces).isEmpty {
-                EmptyView()
-            } else if search.isSearching && search.results.isEmpty {
+                recentSection
+            } else if search.isSearching && search.results.isEmpty && search.messageHits.isEmpty {
                 ProgressView()
                     .frame(maxWidth: .infinity)
-            } else if search.results.isEmpty {
+            } else if search.results.isEmpty && search.messageHits.isEmpty {
                 Text(BipeStrings.appSearchNoResults(search.query))
                     .foregroundStyle(BipeColor.inkSecondary)
                 if search.offersHandleLookup {
@@ -121,16 +153,58 @@ struct ChatSearchResults: View {
                     }
                     .buttonStyle(.plain)
                 }
+                messagesSection
             }
         }
         .listStyle(.plain)
         .accessibilityIdentifier(BipeScreen.chatSearch.rawValue)
     }
+
+    /// State messages, under the chats.
+    @ViewBuilder
+    private var messagesSection: some View {
+        if !search.messageHits.isEmpty {
+            Section {
+                ForEach(search.messageHits) { hit in
+                    Button {
+                        search.openedResult()
+                        onOpenMessage(hit.roomId, hit.eventId)
+                    } label: {
+                        MessageHitRow(hit: hit).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .onAppear { if hit.id == search.messageHits.last?.id { search.loadMoreMessages() } }
+                }
+            } header: {
+                Text(BipeStrings.searchMessages)
+            }
+        }
+    }
+
+    /// State recent, while the query is blank.
+    @ViewBuilder
+    private var recentSection: some View {
+        if !search.recentQueries.isEmpty {
+            Section {
+                ForEach(search.recentQueries, id: \.self) { query in
+                    Button(query) { search.edit(query) }
+                        .foregroundStyle(BipeColor.inkPrimary)
+                }
+            } header: {
+                HStack {
+                    Text(BipeStrings.searchRecent)
+                    Spacer()
+                    Button(BipeStrings.searchRecentClear) { search.clearRecent() }
+                        .font(.caption)
+                }
+            }
+        }
+    }
 }
 
 /// The native search tab searches the account's SDK list, independently of unread filters and loaded pages.
 struct AccountSearchView: View {
-    private enum Destination: Hashable { case person(String), ownLink }
+    private enum Destination: Hashable { case person(String), ownLink, message(roomId: String, eventId: String) }
     @ObservedObject private var model: ChatListModel
     @StateObject private var search: ChatSearchModel
     @StateObject private var people: PeopleService
@@ -147,7 +221,8 @@ struct AccountSearchView: View {
         NavigationStack(path: $path) {
             ChatSearchResults(search: search, media: model.media,
                               onOpenChat: { path.append($0) },
-                              onFindHandle: { lookup = String($0.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines) })
+                              onFindHandle: { lookup = String($0.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines) },
+                              onOpenMessage: { path.append(Destination.message(roomId: $0, eventId: $1)) })
                 .background(BipeColor.surfaceBase.ignoresSafeArea())
                 .navigationTitle(BipeStrings.appTabSearch)
                 .navigationDestination(for: String.self) { roomId in
@@ -162,6 +237,11 @@ struct AccountSearchView: View {
                                           routes: PersonProfileRoutes(openChat: { path.append($0) }))
                     case .ownLink:
                         ProfileLinkView(people: people, pickHandle: {})
+                    case .message(let roomId, let eventId):
+                        ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people,
+                                         focusEventId: eventId) {
+                            Task { if let peer = await people.dmPartner(roomId: roomId) { path.append(Destination.person(peer)) } }
+                        }
                     }
                 }
         }

@@ -85,12 +85,22 @@ struct PollOptionLine: View {
 /// Spec poll-create. Opened from the composer.
 struct PollCreateView: View {
     @ObservedObject var timeline: ChatTimelineModel
+    /// Edit mode (bipe#669): the poll to change.
+    let editing: PollData?
     @Environment(\.dismiss) private var dismiss
-    @State private var question = ""
-    @State private var options = ["", ""]
-    @State private var hideResults = false
+    @State private var question: String
+    @State private var options: [String]
+    @State private var hideResults: Bool
     @State private var sending = false
     @State private var failed = false
+
+    init(timeline: ChatTimelineModel, editing: PollData? = nil) {
+        self.timeline = timeline
+        self.editing = editing
+        _question = State(initialValue: editing?.question ?? "")
+        _options = State(initialValue: editing.map { $0.options.map(\.text) } ?? ["", ""])
+        _hideResults = State(initialValue: editing?.hidesResults ?? false)
+    }
 
     static let maxOptions = 20
     static let minOptions = 2
@@ -153,7 +163,7 @@ struct PollCreateView: View {
                 }
             }
             .disabled(sending)
-            .navigationTitle(BipeStrings.appPollCreateTitle)
+            .navigationTitle(editing == nil ? BipeStrings.appPollCreateTitle : BipeStrings.pollEdit)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -180,9 +190,12 @@ struct PollCreateView: View {
         sending = true
         failed = false
         do {
-            try await timeline.createPoll(question: question.trimmingCharacters(in: .whitespacesAndNewlines),
-                                          answers: filledOptions,
-                                          hideResults: hideResults)
+            let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let editing {
+                try await timeline.editPoll(eventId: editing.eventId, question: text, answers: filledOptions, hideResults: hideResults)
+            } else {
+                try await timeline.createPoll(question: text, answers: filledOptions, hideResults: hideResults)
+            }
             dismiss()
         } catch {
             failed = true
@@ -200,6 +213,7 @@ struct PollDetailView: View {
     @State private var names: [String: String] = [:]
     @State private var confirmingEnd = false
     @State private var error: String?
+    @State private var editing: PollData?
 
     var body: some View {
         NavigationStack {
@@ -272,6 +286,11 @@ struct PollDetailView: View {
                     Text(BipeStrings.appPollVotes(total.formatted()))
                 }
             }
+            if poll.canEdit {
+                Section {
+                    Button(BipeStrings.pollEdit) { editing = poll }
+                }
+            }
             if poll.canEnd {
                 Section {
                     Button(BipeStrings.appPollEnd, role: .destructive) {
@@ -279,6 +298,9 @@ struct PollDetailView: View {
                     }
                 }
             }
+        }
+        .sheet(item: $editing) { poll in
+            PollCreateView(timeline: timeline, editing: poll)
         }
         .confirmationDialog(BipeStrings.appPollEndConfirm, isPresented: $confirmingEnd, titleVisibility: .visible) {
             Button(BipeStrings.appPollEnd, role: .destructive) {

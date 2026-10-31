@@ -103,18 +103,18 @@ final class MentionDirectory {
 /// Drafts (spec composer): one per chat, kept by the SDK on this device.
 extension Room {
     /// Action appear: the saved newMessage draft, if any.
-    func newMessageDraft() async -> String? {
-        guard let draft = try? await loadComposerDraft(threadRoot: nil), case .newMessage = draft.draftType else { return nil }
+    func newMessageDraft(threadRoot: String? = nil) async -> String? {
+        guard let draft = try? await loadComposerDraft(threadRoot: threadRoot), case .newMessage = draft.draftType else { return nil }
         return draft.plainText.nilIfBlank
     }
 
     /// Action leave: saves the text when not blank, else clears the draft.
-    func keepDraft(_ text: String) async {
+    func keepDraft(_ text: String, threadRoot: String? = nil) async {
         if text.nilIfBlank == nil {
-            try? await clearComposerDraft(threadRoot: nil)
+            try? await clearComposerDraft(threadRoot: threadRoot)
         } else {
             try? await saveComposerDraft(draft: ComposerDraft(plainText: text, htmlText: nil, draftType: .newMessage, attachments: []),
-                                         threadRoot: nil)
+                                         threadRoot: threadRoot)
         }
     }
 }
