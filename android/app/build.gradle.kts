@@ -82,7 +82,16 @@ android {
             manifestPlaceholders["bipeGovbrEnabled"] = govbr
         }
         release {
-            isMinifyEnabled = false
+            // APK size (bipe-app was 317 MB): R8 removes unused code and resources. proguard-rules.pro keeps what the
+            // Rust SDK, LiveKit and WebRTC reach through JNA and JNI.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // The tester APK (testflight.yml, bipe.chat/baixar) holds arm64 only: the four ABIs of the Rust SDK and
+            // WebRTC made 284 MB of the 317. The store AAB keeps every ABI; Play sends each phone only its own.
+            if (findProperty("bipeIdSet") != "store") {
+                ndk { abiFilters += "arm64-v8a" }
+            }
             // Tester APK for side-loading (bipe-chat/bipe#575): debug signing is enough. The store release signs with
             // the Play upload key when it is given; Play then signs again with the app signing key.
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
