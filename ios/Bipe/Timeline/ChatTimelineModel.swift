@@ -115,9 +115,14 @@ enum TimelineNotice: Equatable {
     case selectionDeleteFailed
     case stickerSaved
     case stickerSaveFailed
+    /// Spec chat-timeline jumpToDate: the picked day has no message.
+    case jumpEmpty
+    case jumpFailed
 
     var text: String {
         switch self {
+        case .jumpEmpty: BipeStrings.jumpToDateEmpty
+        case .jumpFailed: BipeStrings.errorGeneric
         case .forwarded: BipeStrings.forwardDone
         case .forwardFailed(let names): BipeStrings.forwardFailed(names)
         case .selectionForwarded: BipeStrings.selectForwardDone
@@ -267,11 +272,25 @@ final class ChatTimelineModel: ObservableObject {
     let threadRoot: String?
     /// The thread the main timeline asks the view to open (spec threads openThread).
     @Published var openThreadRoot: String?
+    /// Spec chat-timeline dayFocus (bipe-chat/bipe#828): the day view's event and day; nil for the main and thread timelines.
+    let dayFocus: DayFocus?
+    /// The day view the main timeline asks the view to open (action jumpToDate).
+    @Published var openDay: DayFocus?
+    /// Day view only: the newest events are loaded (paginateForwards hit the end).
+    @Published private(set) var reachedEnd = false
+    /// Goes up after each forward load that did not fail, so the view asks for the next while the bottom is on screen.
+    @Published private(set) var newerLoads = 0
+    private var isLoadingNewer = false
+    private var dayScrolled = false
 
-    init(session: AccountSession, roomId: String, threadRoot: String? = nil) {
+    /// The main timeline of the chat: not a thread view and not a day view.
+    var isMainTimeline: Bool { threadRoot == nil && dayFocus == nil }
+
+    init(session: AccountSession, roomId: String, threadRoot: String? = nil, dayFocus: DayFocus? = nil) {
         self.session = session
         self.roomId = roomId
         self.threadRoot = threadRoot
+        self.dayFocus = dayFocus
         facts = RoomFacts(ownUserId: session.userId, isDm: false, isEncrypted: true, joinedMembers: 2,
                           canRedactOwn: true, canRedactOther: false, members: [:], replyLoadsTried: [])
     }
@@ -314,7 +333,14 @@ final class ChatTimelineModel: ObservableObject {
         self.room = room
         // Spec threads notes: a group's main timeline hides thread replies; a DM shows them as plain messages.
         let isDmRoom = (try? await room.roomInfo())?.isDm ?? false
-        let focus: TimelineFocus = threadRoot.map { .thread(rootEventId: $0) } ?? .live(hideThreadedEvents: !isDmRoom)
+        let focus: TimelineFocus
+        if let dayFocus {
+            // Spec chat-timeline dayFocus: a focused timeline on the first event of the picked day.
+            focus = .event(eventId: dayFocus.eventId, numContextEvents: 40,
+                           threadMode: .automatic(hideThreadedEvents: !isDmRoom))
+        } else {
+            focus = threadRoot.map { .thread(rootEventId: $0) } ?? .live(hideThreadedEvents: !isDmRoom)
+        }
         let configuration = TimelineConfiguration(focus: focus,
                                                   filter: .all,
                                                   internalIdPrefix: nil,
@@ -329,7 +355,7 @@ final class ChatTimelineModel: ObservableObject {
         }
         await loadRoomFacts(room)
         // Action appear of spec composer: a saved newMessage draft fills the field.
-        if draft.isEmpty, let saved = await room.newMessageDraft(threadRoot: threadRoot) {
+        if draft.isEmpty, dayFocus == nil, let saved = await room.newMessageDraft(threadRoot: threadRoot) {
             draft = saved
         }
         if !facts.isDm {
@@ -356,6 +382,7 @@ final class ChatTimelineModel: ObservableObject {
             }
             await loadRoomFacts(room)
             rebuild()
+            scrollToFocusedDay()
         }
     }
 
@@ -373,7 +400,8 @@ final class ChatTimelineModel: ObservableObject {
 
     /// Action leave of spec composer: keeps the draft on this device, or clears it.
     func leave() {
-        guard let room, editing == nil else { return }
+        // The day view has no composer: it never keeps or clears the chat's draft.
+        guard let room, editing == nil, dayFocus == nil else { return }
         let text = draft
         Task { [threadRoot] in await room.keepDraft(text, threadRoot: threadRoot) }
     }
@@ -448,6 +476,56 @@ final class ChatTimelineModel: ObservableObject {
             if messages.count - before >= Self.historyFill { break }
         }
         historyLoads += 1
+    }
+
+    /// Day view only: one page of newer events at the bottom (spec chat-timeline dayFocus), tried historyTries times.
+    func loadNewer() async {
+        guard dayFocus != nil, let timeline, !reachedEnd, !isLoadingNewer else { return }
+        isLoadingNewer = true
+        defer { isLoadingNewer = false }
+        for attempt in 1...Self.historyTries {
+            if let hitEnd = try? await timeline.paginateForwards(numEvents: Self.historyPage) {
+                if hitEnd { reachedEnd = true }
+                newerLoads += 1
+                return
+            }
+            if attempt < Self.historyTries {
+                try? await Task.sleep(for: .seconds(attempt))
+            }
+        }
+    }
+
+    /// Action jumpToDate (bipe-chat/bipe#828): the first event of the day from the homeserver, then a scroll when the
+    /// loaded rows reach that day, else the day view.
+    func jumpToDate(_ day: Date) async {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: day)
+        guard let next = calendar.date(byAdding: .day, value: 1, to: start) else { return }
+        let found: (eventId: String, sentAt: Date)?
+        do {
+            found = try await TimestampToEvent.first(client: session.client, roomId: roomId, onOrAfter: start)
+        } catch {
+            show(.jumpFailed)
+            return
+        }
+        guard let found, found.sentAt < next else {
+            show(.jumpEmpty)
+            return
+        }
+        if TimelineDays.reaches(start, in: rows, reachedStart: reachedStart),
+           let target = TimelineDays.firstRow(onOrAfter: start, in: rows) {
+            scrollTarget = target.id
+            return
+        }
+        openDay = DayFocus(eventId: found.eventId, day: start)
+    }
+
+    /// Day view: once the first rows are in, the list goes to the first row of the picked day.
+    private func scrollToFocusedDay() {
+        guard let dayFocus, !dayScrolled,
+              let target = TimelineDays.firstRow(onOrAfter: dayFocus.day, in: rows) else { return }
+        dayScrolled = true
+        scrollTarget = target.id
     }
 
     /// One page back, tried historyTries times. nil when every try failed.
@@ -553,7 +631,7 @@ final class ChatTimelineModel: ObservableObject {
 
     /// Action markAsRead: a public read receipt (ADR 0050) for the newest event, while the newest rows are on screen.
     func markAsRead() async {
-        guard let timeline, UIApplication.shared.applicationState == .active,
+        guard let timeline, dayFocus == nil, UIApplication.shared.applicationState == .active,
               let newest = await timeline.latestEventId(), newest != lastReadEventId else { return }
         lastReadEventId = newest
         try? await timeline.markAsRead(receiptType: .read)

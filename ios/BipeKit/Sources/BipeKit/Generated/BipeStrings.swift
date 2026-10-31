@@ -4830,6 +4830,10 @@ public enum BipeStrings {
 
     public static var searchInChat: String { NSLocalizedString("bipe_search_in_chat", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var jumpToDateTitle: String { NSLocalizedString("bipe_jump_to_date_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var jumpToDateEmpty: String { NSLocalizedString("bipe_jump_to_date_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var voiceSourceForwarded: String { NSLocalizedString("bipe_voice_source_forwarded", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var voiceSourceForwardedMany: String { NSLocalizedString("bipe_voice_source_forwarded_many", tableName: "Bipe", bundle: .module, comment: "") }
