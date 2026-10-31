@@ -56,8 +56,6 @@ import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.Membership
-import org.matrix.rustcomponents.sdk.MessageType
-import org.matrix.rustcomponents.sdk.messageEventContentNew
 
 /** Type ForwardChat of spec message-forward. */
 data class ForwardChat(val roomId: String, val name: String, val avatarUrl: String?)
@@ -66,11 +64,12 @@ data class ForwardChat(val roomId: String, val name: String, val avatarUrl: Stri
 private const val FORWARD_LIMIT = 5
 
 /**
- * Spec message-forward (bipe-chat/bipe#664, bipe-chat/bipe#860): the chat picker for copies of sent messages, in timeline order. [onClose] gets the names of
- * the chats whose send failed, or null after cancel.
+ * Spec message-forward (bipe-chat/bipe#664, bipe-chat/bipe#860): the chat picker for copies of sent messages, in timeline order.
+ * [contentJsons] are the original contents with the forward mark (BipeForwardMark, bipe-chat/bipe#83). [onClose] gets the
+ * names of the chats whose send failed, or null after cancel.
  */
 @Composable
-fun MessageForwardSheet(client: Client, msgTypes: List<MessageType>, media: MediaLoader, onClose: (List<String>?) -> Unit) {
+fun MessageForwardSheet(client: Client, contentJsons: List<String>, media: MediaLoader, onClose: (List<String>?) -> Unit) {
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
     val noName = stringResource(R.string.bipe_dm_no_name)
@@ -110,8 +109,9 @@ fun MessageForwardSheet(client: Client, msgTypes: List<MessageType>, media: Medi
         scope.launch {
             val failed = picked.filter { roomId ->
                 runCatching {
-                    val timeline = client.getRoom(roomId)?.timeline() ?: error("no room")
-                    msgTypes.forEach { timeline.send(messageEventContentNew(it)) }
+                    val room = client.getRoom(roomId) ?: error("no room")
+                    // Room.sendRaw encrypts in an encrypted room. Media keeps its source: nothing is uploaded again.
+                    contentJsons.forEach { room.sendRaw("m.room.message", it) }
                 }.isFailure
             }.map { roomId -> chats.firstOrNull { it.roomId == roomId }?.name ?: roomId }
             sending = false

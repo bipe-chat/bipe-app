@@ -4829,4 +4829,16 @@ public enum BipeStrings {
     public static var osTheftPathSamsung: String { NSLocalizedString("bipe_os_theft_path_samsung", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var searchInChat: String { NSLocalizedString("bipe_search_in_chat", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceForwarded: String { NSLocalizedString("bipe_voice_source_forwarded", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceForwardedMany: String { NSLocalizedString("bipe_voice_source_forwarded_many", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceRecorded: String { NSLocalizedString("bipe_voice_source_recorded", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceFile: String { NSLocalizedString("bipe_voice_source_file", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceTitle: String { NSLocalizedString("bipe_voice_source_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var voiceSourceBody: String { NSLocalizedString("bipe_voice_source_body", tableName: "Bipe", bundle: .module, comment: "") }
 }

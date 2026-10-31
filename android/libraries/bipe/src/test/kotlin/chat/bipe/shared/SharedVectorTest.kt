@@ -8,6 +8,7 @@ import com.google.common.truth.Truth.assertWithMessage
 import chat.bipe.shared.account.BipePin
 import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.shared.clearedchats.ClearedChats
+import chat.bipe.shared.media.BipeForwardMark
 import chat.bipe.shared.drafts.BipeAssistantDrafts
 import chat.bipe.shared.drafts.BipeAssistantSend
 import chat.bipe.shared.generated.BipeRegistries
@@ -22,6 +23,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -306,6 +308,35 @@ class SharedVectorTest {
                 is BipeTheftMarkResult.Invalid -> assertWithMessage("theft mark $name").that(result.failure.code)
                     .isEqualTo(expected.string("error"))
             }
+        }
+    }
+
+    @Test
+    fun forwardMarks() {
+        val file = load("forward-marks.json")
+        assertWithMessage("forward key").that(file.string("forwardKey")).isEqualTo(BipeRegistries.FORWARD_KEY)
+        assertWithMessage("forwarded many times").that(file.getValue("forwardedManyTimes").jsonPrimitive.int)
+            .isEqualTo(BipeRegistries.FORWARDED_MANY_TIMES)
+        val counts = vectors("forward-marks.json", "count")
+        assertWithMessage("forward count vectors").that(counts).isNotEmpty()
+        for (vector in counts) {
+            assertWithMessage("count ${vector.string("name")}").that(BipeForwardMark.count(vector.getValue("content").jsonObject))
+                .isEqualTo(vector.getValue("expected").jsonPrimitive.int)
+        }
+        val forwards = vectors("forward-marks.json", "forward")
+        assertWithMessage("forward vectors").that(forwards).isNotEmpty()
+        for (vector in forwards) {
+            val newContent = vector["newContent"]?.takeUnless { it is JsonNull }?.jsonObject
+            assertWithMessage("forward ${vector.string("name")}")
+                .that(BipeForwardMark.forwardedContent(vector.getValue("content").jsonObject, newContent))
+                .isEqualTo(vector.getValue("expected"))
+        }
+        val sources = vectors("forward-marks.json", "source")
+        assertWithMessage("source vectors").that(sources).isNotEmpty()
+        for (vector in sources) {
+            val isVoice = vector.getValue("isVoice").jsonPrimitive.boolean
+            val count = vector.getValue("count").jsonPrimitive.int
+            assertWithMessage("source $isVoice $count").that(BipeForwardMark.source(isVoice, count).code).isEqualTo(vector.string("expected"))
         }
     }
 

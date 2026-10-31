@@ -19,16 +19,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -56,6 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.BipeOutlinedButton
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.media.voice.ListenerTranscripts
@@ -66,6 +71,7 @@ import chat.bipe.app.timeline.TimelineMessage
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.media.BipeForwardMark
 import androidx.core.content.ContextCompat
 
 /** Over this many characters the transcript folds to 3 lines (same rule as the forks). */
@@ -110,6 +116,8 @@ fun VoiceMessageRow(
         }
     }
     var transcriptExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
+    // State sourceSheet of spec voice-message (bipe-chat/bipe#83).
+    var sourceSheet by rememberSaveable(message.id) { mutableStateOf(false) }
     Column(
         modifier = Modifier.widthIn(max = 256.dp).testTag(BipeScreen.VOICE_MESSAGE.id),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -172,6 +180,15 @@ fun VoiceMessageRow(
         if (playback == VoicePlayer.Playback.FAILED && !expired) {
             Text(stringResource(R.string.bipe_app_media_failed), style = MaterialTheme.typography.labelSmall, color = colors.trustDangerInk)
         }
+        // The source line under the player (spec voice-message notes, bipe-chat/bipe#83). Action openSource on a tap.
+        Text(
+            stringResource(sourceText(BipeForwardMark.source(voice.isVoice, voice.forwardCount))),
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.inkSecondary,
+            modifier = Modifier
+                .bipeTapTarget()
+                .clickable(role = Role.Button) { sourceSheet = true },
+        )
         val sender = voice.transcript
         if (sender == null && voice.isVoice && !message.isOwn && loader != null && !expired) {
             ListenerTranscript(message.id, voice, loader) { text ->
@@ -187,6 +204,37 @@ fun VoiceMessageRow(
             BipeKeptMedia.Reason.SCAM ->
                 Text(stringResource(R.string.bipe_voice_kept_scam), style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
             null -> Unit
+        }
+    }
+    if (sourceSheet) VoiceSourceSheet { sourceSheet = false }
+}
+
+private fun sourceText(source: BipeForwardMark.Source): Int = when (source) {
+    BipeForwardMark.Source.FORWARDED -> R.string.bipe_voice_source_forwarded
+    BipeForwardMark.Source.FORWARDED_MANY_TIMES -> R.string.bipe_voice_source_forwarded_many
+    BipeForwardMark.Source.RECORDED -> R.string.bipe_voice_source_recorded
+    BipeForwardMark.Source.FILE -> R.string.bipe_voice_source_file
+}
+
+/** Spec voice-message state sourceSheet: what the source line can and cannot prove. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VoiceSourceSheet(onDismiss: () -> Unit) {
+    val colors = BipeTheme.colors
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = colors.surfaceBase,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(stringResource(R.string.bipe_voice_source_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
+            Text(stringResource(R.string.bipe_voice_source_body), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+            BipeOutlinedButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.bipe_app_close))
+            }
         }
     }
 }

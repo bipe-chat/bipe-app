@@ -13,6 +13,7 @@ import chat.bipe.app.media.MediaFormat
 import chat.bipe.app.location.LiveLocationMessage
 import chat.bipe.app.location.LocationMessage
 import chat.bipe.app.media.MediaMessage
+import chat.bipe.shared.media.BipeForwardMark
 import chat.bipe.shared.media.BipeImageDescription
 import chat.bipe.shared.drafts.BipeAssistantSend
 import chat.bipe.shared.R
@@ -261,6 +262,10 @@ object TimelineRowBuilder {
                                     null
                                 },
                             ),
+                        )
+                        // Spec voice-message forwardCount: the SDK types have no field for the forward mark (bipe-chat/bipe#83).
+                        is MediaContent.Voice -> MediaContent.Voice(
+                            found.voice.copy(forwardCount = BipeForwardMark.count(event.lazyProvider.debugInfo().originalJson)),
                         )
                         else -> found
                     }

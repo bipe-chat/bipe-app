@@ -91,6 +91,8 @@ struct VoiceMessage: Equatable {
     var transcript: String?
     var mimeType: String?
     var source: MediaRef
+    /// The count of the forward mark in the event content (bipe-chat/bipe#83); 0 when it has none.
+    var forwardCount = 0
 
     var durationLabel: String {
         MediaFormat.duration(duration)

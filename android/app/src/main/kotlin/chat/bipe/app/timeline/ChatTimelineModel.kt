@@ -27,6 +27,7 @@ import chat.bipe.app.media.MediaMessage
 import chat.bipe.app.media.VoiceMessage
 import chat.bipe.app.polls.PollData
 import chat.bipe.shared.R
+import chat.bipe.shared.media.BipeForwardMark
 import chat.bipe.app.groups.GroupPeople
 import chat.bipe.shared.BipeHandleChangeStore
 import chat.bipe.shared.BipeMoneyPause
@@ -1197,14 +1198,20 @@ class ChatTimelineModel(
 
     // message-forward
 
-    /** The original message type of a row, sent again as it is (spec message-forward send). */
-    fun forwardContent(rowId: String): MessageType? {
-        val content = item(rowId)?.asEvent()?.content as? TimelineItemContent.MsgLike ?: return null
-        return (content.content.kind as? MsgLikeKind.Message)?.content?.msgType
+    /**
+     * The content JSON a forward of a row sends (spec message-forward send, bipe-chat/bipe#83): the original content with
+     * the forward mark. null without the event JSON (a local echo), so that no copy goes out without its mark.
+     */
+    fun forwardContent(rowId: String): String? {
+        val event = item(rowId)?.asEvent() ?: return null
+        val content = event.content as? TimelineItemContent.MsgLike ?: return null
+        if (content.content.kind !is MsgLikeKind.Message) return null
+        val debugInfo = runCatching { event.lazyProvider.debugInfo() }.getOrNull() ?: return null
+        return BipeForwardMark.forwardedContentJson(debugInfo.originalJson, debugInfo.latestEditJson)
     }
 
-    /** The message types of rows, in timeline order (spec message-forward send). */
-    fun forwardContents(rowIds: List<String>): List<MessageType> {
+    /** The forward contents of rows, in timeline order (spec message-forward send). */
+    fun forwardContents(rowIds: List<String>): List<String> {
         val wanted = rowIds.toSet()
         return _rows.value.filter { it.id in wanted }.mapNotNull { forwardContent(it.id) }
     }

@@ -276,8 +276,8 @@ struct ChatTimelineView: View {
             }
         }
         .sheet(isPresented: presence(\.forwardingRowIds)) {
-            if let rowIds = model.forwardingRowIds, case let msgTypes = model.forwardContents(rowIds: rowIds), !msgTypes.isEmpty {
-                MessageForwardSheet(client: model.client, msgTypes: msgTypes, media: media) { model.forwardClosed(failed: $0) }
+            if let rowIds = model.forwardingRowIds, case let contentJsons = model.forwardContents(rowIds: rowIds), !contentJsons.isEmpty {
+                MessageForwardSheet(client: model.client, contentJsons: contentJsons, media: media) { model.forwardClosed(failed: $0) }
             }
         }
         .sheet(isPresented: presence(\.pickerOpenFor)) {

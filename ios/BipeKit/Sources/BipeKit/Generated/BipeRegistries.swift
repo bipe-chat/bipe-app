@@ -852,6 +852,9 @@ public enum BipeRegistries {
     public static let voiceMediaTranscriptDays = 30
     public static let voiceMediaNoTranscriptDays = 90
     public static let voiceMediaMaxKeptPerAccount = 200
+    /// Forward marks (bipe-chat/bipe#83; registries/voice-media.json): the content field and the many-times threshold. Rules: BipeForwardMark, test-vectors/forward-marks.json.
+    public static let forwardKey = "chat.bipe.forward"
+    public static let forwardedManyTimes = 5
 
     /// Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, docs/drafts-room.md). Rules: test-vectors/drafts.json.
     public static let draftsRoomType = "chat.bipe.drafts"

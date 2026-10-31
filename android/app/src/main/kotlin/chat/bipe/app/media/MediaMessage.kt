@@ -85,6 +85,8 @@ data class VoiceMessage(
     val transcript: String?,
     val mimeType: String?,
     val source: MediaRef,
+    /** The count of the forward mark in the event content (bipe-chat/bipe#83); 0 when it has none. */
+    val forwardCount: Int = 0,
 ) {
     val durationLabel: String get() = MediaFormat.duration(durationMillis)
 }

@@ -29,12 +29,12 @@ final class MessageForwardModel: ObservableObject {
     @Published var showsLimit = false
 
     private let client: Client
-    /// The messages, in timeline order.
-    private let msgTypes: [MessageType]
+    /// The contents to send, in timeline order: each the original content with the forward mark (BipeForwardMark, bipe-chat/bipe#83).
+    private let contentJsons: [String]
 
-    init(client: Client, msgTypes: [MessageType]) {
+    init(client: Client, contentJsons: [String]) {
         self.client = client
-        self.msgTypes = msgTypes
+        self.contentJsons = contentJsons
     }
 
     /// State chats: joined chats, spaces left out, by name.
@@ -74,9 +74,9 @@ final class MessageForwardModel: ObservableObject {
         for roomId in picked {
             do {
                 guard let room = try client.getRoom(roomId: roomId) else { throw CancellationError() }
-                let timeline = try await room.timeline()
-                for msgType in msgTypes {
-                    _ = try await timeline.send(msg: try messageEventContentNew(msgtype: msgType))
+                // Room.sendRaw encrypts in an encrypted room. Media keeps its source: nothing is uploaded again.
+                for contentJson in contentJsons {
+                    try await room.sendRaw(eventType: "m.room.message", content: contentJson)
                 }
             } catch {
                 failed.append(chats.first { $0.roomId == roomId }?.name ?? roomId)
@@ -93,8 +93,8 @@ struct MessageForwardSheet: View {
     /// Called after the send with the names of the chats that failed; nil when the person cancelled.
     let close: ([String]?) -> Void
 
-    init(client: Client, msgTypes: [MessageType], media: MediaLoader, close: @escaping ([String]?) -> Void) {
-        _model = StateObject(wrappedValue: MessageForwardModel(client: client, msgTypes: msgTypes))
+    init(client: Client, contentJsons: [String], media: MediaLoader, close: @escaping ([String]?) -> Void) {
+        _model = StateObject(wrappedValue: MessageForwardModel(client: client, contentJsons: contentJsons))
         self.media = media
         self.close = close
     }

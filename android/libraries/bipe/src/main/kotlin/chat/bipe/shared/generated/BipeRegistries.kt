@@ -859,6 +859,9 @@ object BipeRegistries {
     const val VOICE_MEDIA_TRANSCRIPT_DAYS = 30
     const val VOICE_MEDIA_NO_TRANSCRIPT_DAYS = 90
     const val VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT = 200
+    /** Forward marks (bipe-chat/bipe#83; registries/voice-media.json): the content field and the many-times threshold. Rules: BipeForwardMark, test-vectors/forward-marks.json. */
+    const val FORWARD_KEY = "chat.bipe.forward"
+    const val FORWARDED_MANY_TIMES = 5
 
     /** Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, docs/drafts-room.md). Rules: test-vectors/drafts.json. */
     const val DRAFTS_ROOM_TYPE = "chat.bipe.drafts"
