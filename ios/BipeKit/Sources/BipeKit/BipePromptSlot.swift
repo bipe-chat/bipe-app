@@ -31,4 +31,31 @@ public nonisolated struct BipePromptSlot {
         defaults.set(prompt.rawValue, forKey: holderKey)
         defaults.set(now, forKey: sinceKey)
     }
+
+    /// Spec chat-list-prompt (bipe-chat/bipe#894): the one card of the chat list, from the entries whose condition holds.
+    public func chatListCard(eligible: Set<BipeChatListPrompt>, now: Date = Date()) -> BipeChatListPrompt? {
+        Self.chatListCard(eligible: eligible, holder: defaults.string(forKey: holderKey),
+                          since: defaults.object(forKey: sinceKey) as? Date, now: now)
+    }
+
+    /// Call when `card` shows. A preempting card never takes the slot.
+    public func didShow(_ card: BipeChatListPrompt, now: Date = Date()) {
+        guard !card.preempts, defaults.string(forKey: holderKey) != card.rawValue,
+              Self.chatListCard(eligible: [card], holder: defaults.string(forKey: holderKey),
+                                since: defaults.object(forKey: sinceKey) as? Date, now: now) == card else { return }
+        defaults.set(card.rawValue, forKey: holderKey)
+        defaults.set(now, forKey: sinceKey)
+    }
+
+    /// The pick rule. Reference: chatListPrompt() in bipe-shared tools/lib/registries.mjs; vectors in
+    /// onboarding-schedule.json chatListPrompt. A preempting entry wins at once; else the first entry in queue order
+    /// that the slot allows (no holder, the holder itself, or promptSlotHours since the holder took the slot).
+    public static func chatListCard(eligible: Set<BipeChatListPrompt>, holder: String?, since: Date?, now: Date) -> BipeChatListPrompt? {
+        let entries = BipeChatListPrompt.allCases.filter(eligible.contains)
+        if let first = entries.first(where: \.preempts) { return first }
+        return entries.first { entry in
+            guard let holder, let since else { return true }
+            return holder == entry.rawValue || now.timeIntervalSince(since) >= Double(BipeOnboarding.promptSlotHours) * 3600
+        }
+    }
 }

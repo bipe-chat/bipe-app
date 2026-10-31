@@ -58,33 +58,11 @@ class FirstListCardsModel(context: Context, userId: String) {
 
 @Composable
 fun FirstListCard(card: BipeOnboardingCard, handle: String?, onAction: (BipeOnboardingTarget) -> Unit) {
-    val colors = BipeTheme.colors
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-            .background(colors.surfaceRaised, RoundedCornerShape(14.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(stringResource(card.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-        val body = if (card == BipeOnboardingCard.PROFILE && handle != null) stringResource(R.string.bipe_first_card_profile_body, handle)
-        else stringResource(card.body)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(card.primary.title),
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.inkOnAccent,
-                modifier = Modifier.bipeTapTarget().background(colors.accentFill, RoundedCornerShape(50))
-                    .clickable(role = Role.Button) { onAction(card.primary.target) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-            card.text.forEach { button ->
-                Text(
-                    stringResource(button.title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.accentInk,
-                    modifier = Modifier.bipeTapTarget().clickable(role = Role.Button) { onAction(button.target) },
-                )
-            }
-        }
-    }
+    PromptCard(
+        title = stringResource(card.title),
+        body = if (card == BipeOnboardingCard.PROFILE && handle != null) stringResource(R.string.bipe_first_card_profile_body, handle)
+        else stringResource(card.body),
+        primary = PromptAction(stringResource(card.primary.title)) { onAction(card.primary.target) },
+        texts = card.text.map { button -> PromptAction(stringResource(button.title)) { onAction(button.target) } },
+    )
 }

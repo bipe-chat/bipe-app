@@ -62,42 +62,11 @@ struct RecoveryReminderCard: View {
 
     var body: some View {
         let prompt = BipeOnboardingPrompt.recovery
-        VStack(alignment: .leading, spacing: 8) {
-            Text(BipeLocalized.string(prompt.titleKey))
-                .font(.headline)
-                .foregroundStyle(BipeColor.inkPrimary)
-            if let bodyKey = prompt.bodyKey {
-                Text(BipeLocalized.string(bodyKey))
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkSecondary)
-            }
-            // State syncOff (bipe-chat/bipe#202): iCloud off on this phone, so the recovery token is not synced.
-            if FileManager.default.ubiquityIdentityToken == nil {
-                Text(BipeStrings.fallbackSyncOffIos)
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkSecondary)
-            }
-            HStack {
-                Button(action: addEmail) {
-                    Text(prompt.primary.title)
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .foregroundStyle(BipeColor.inkOnAccent)
-                        .background(Capsule().fill(BipeColor.accentFill))
-                }
-                ForEach(prompt.text, id: \.titleKey) { button in
-                    Button { model.dismiss() } label: {
-                        Text(button.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BipeColor.accentInk)
-                    }
-                }
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.accentWash))
+        // State syncOff (bipe-chat/bipe#202): iCloud off on this phone, so the recovery token is not synced.
+        PromptCard(title: BipeLocalized.string(prompt.titleKey), body: prompt.bodyKey.map { BipeLocalized.string($0) },
+                   note: FileManager.default.ubiquityIdentityToken == nil ? BipeStrings.fallbackSyncOffIos : nil,
+                   primary: .init(title: prompt.primary.title, run: { addEmail() }),
+                   texts: prompt.text.map { .init(title: $0.title, run: { model.dismiss() }) })
         .accessibilityIdentifier(BipeScreen.recoveryReminder.rawValue)
     }
 }

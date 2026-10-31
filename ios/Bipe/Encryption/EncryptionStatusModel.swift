@@ -59,9 +59,15 @@ final class EncryptionStatusModel: ObservableObject {
         verificationState == .unverified && (hasOtherDevices || canUseRecoveryKey || seesUndecryptable)
     }
 
-    /// The banner: needsApproval, unless the person tapped Skip less than bannerPause ago.
+    /// This phone has a way to get approved: another signed-in device or the recovery key.
+    var hasWayOut: Bool {
+        hasOtherDevices || canUseRecoveryKey
+    }
+
+    /// The approvePhone card of chat-list-prompt: needsApproval. With a way out it has no Agora não and stays
+    /// (MZ, 31 Oct 2026, bipe-chat/bipe#894); without one, Skip hides it for bannerPause.
     var showsBanner: Bool {
-        needsApproval && !bannerDismissed
+        needsApproval && (hasWayOut || !bannerDismissed)
     }
 
     /// Action observe: listens to the SDK verification, recovery and backup state.

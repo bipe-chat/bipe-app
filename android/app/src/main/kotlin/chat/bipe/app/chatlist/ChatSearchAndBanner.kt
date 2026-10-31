@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
@@ -46,8 +47,8 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.groups.ClearedChatsStore
-import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.app.settings.openPage
+import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
@@ -296,40 +297,26 @@ class RemoteBannerModel(private val context: Context, private val api: BipeApiCl
     }
 }
 
+/** The remoteBanner entry of chat-list-prompt (bipe-chat/bipe#894) holds. */
+@Composable
+fun RemoteBannerModel.collectShows(): Boolean {
+    val current by state.collectAsState()
+    return current.state != BipeRemoteBanner.State.HIDDEN && current.banner != null
+}
+
+/** The remoteBanner card of chat-list-prompt. Title and text come from the server in pt-BR and show as they are. */
 @Composable
 fun RemoteBannerCard(model: RemoteBannerModel, context: Context) {
-    val colors = BipeTheme.colors
     val current by model.state.collectAsState()
     val banner = current.banner
     if (current.state == BipeRemoteBanner.State.HIDDEN || banner == null) return
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .background(colors.trustCautionWash, RoundedCornerShape(12.dp))
-            .clickable { model.open(context) }
-            .padding(12.dp)
-            .testTag(BipeScreen.REMOTE_BANNER.id),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustCautionInk, modifier = Modifier.size(22.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            // Title and text come from the server in pt-BR and show as they are.
-            Text(banner.title, fontWeight = FontWeight.Bold, color = colors.inkPrimary)
-            Text(banner.text, color = colors.inkPrimary)
-            if (current.state == BipeRemoteBanner.State.UPDATE) {
-                Text(stringResource(R.string.bipe_remote_banner_update), fontWeight = FontWeight.Bold, color = colors.accentInk)
-            }
-        }
-        if (current.state == BipeRemoteBanner.State.NOTICE) {
-            // Action dismiss.
-            IconButton(onClick = model::dismiss, modifier = Modifier.size(24.dp)) {
-                Icon(
-                    painterResource(PhosphorIcon.X.drawable),
-                    contentDescription = stringResource(R.string.bipe_remote_banner_dismiss),
-                    tint = colors.glyphSecondary,
-                )
-            }
-        }
-    }
+    val open = stringResource(R.string.bipe_remote_banner_update)
+    PromptCard(
+        title = banner.title,
+        body = banner.text,
+        primary = if (current.state == BipeRemoteBanner.State.UPDATE) PromptAction(open) { model.open(context) } else null,
+        texts = if (current.state == BipeRemoteBanner.State.NOTICE) listOf(PromptAction(stringResource(R.string.bipe_remote_banner_dismiss), model::dismiss)) else emptyList(),
+        // Action open: a notice opens its page from a tap on the card.
+        modifier = Modifier.clickable(role = Role.Button) { model.open(context) }.testTag(BipeScreen.REMOTE_BANNER.id),
+    )
 }

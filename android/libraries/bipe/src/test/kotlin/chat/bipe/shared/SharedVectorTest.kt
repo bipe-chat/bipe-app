@@ -28,6 +28,8 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import chat.bipe.shared.onboarding.BipeBringPeople
+import chat.bipe.shared.onboarding.BipePromptSlot
+import chat.bipe.shared.generated.BipeChatListPrompt
 import chat.bipe.shared.onboarding.BipeOnboardingSchedule
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
@@ -228,6 +230,21 @@ class SharedVectorTest {
             val expected = vector["expected"]?.takeUnless { it is JsonNull }?.jsonObject
             assertWithMessage("bringPeopleReminder($name) slot").that(got?.slot).isEqualTo(expected?.string("slot")?.toInt())
             assertWithMessage("bringPeopleReminder($name) kind").that(got?.kind?.id).isEqualTo(expected?.string("kind"))
+        }
+    }
+
+    @Test
+    fun chatListPrompt() {
+        val cases = vectors("onboarding-schedule.json", "chatListPrompt")
+        assertWithMessage("chatListPrompt is empty").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            val eligible = vector.getValue("eligible").jsonArray.map { key ->
+                BipeChatListPrompt.entries.first { it.key == key.jsonPrimitive.content }
+            }.toSet()
+            val slot = vector["slot"]?.takeUnless { it is JsonNull }?.jsonObject
+            val got = BipePromptSlot.chatListCard(eligible, slot?.string("holder"), slot?.string("sinceMs")?.toLong() ?: 0L, vector.string("nowMs")!!.toLong())
+            assertWithMessage("chatListPrompt($name)").that(got?.key).isEqualTo(vector.string("expected"))
         }
     }
 

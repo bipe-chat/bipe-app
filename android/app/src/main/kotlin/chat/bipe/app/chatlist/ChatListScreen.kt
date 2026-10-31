@@ -40,6 +40,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,61 +71,66 @@ import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.LocalBipeHandles
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.OfficialBadge
+import chat.bipe.app.encryption.ApprovePhoneCard
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
-import chat.bipe.app.encryption.HistoryBanner
-import chat.bipe.app.notifications.NotificationCheckupBanner
-import chat.bipe.app.notifications.NotificationCheckupScreen
 import chat.bipe.app.encryption.LocalEncryptionStatus
+import chat.bipe.app.encryption.collectShowsCard
 import chat.bipe.app.groups.CreateGroupButton
 import chat.bipe.app.groups.GroupHost
 import chat.bipe.app.groups.Person as GroupPerson
 import chat.bipe.app.groups.withoutClearedDms
-import chat.bipe.app.timeline.AssistantDraftsList
-import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.handle.HandlePickScreen
 import chat.bipe.app.handle.HandlePromptCard
+import chat.bipe.app.notifications.NotificationCheckupCard
+import chat.bipe.app.notifications.NotificationCheckupScreen
+import chat.bipe.app.notifications.notificationCheckupShows
+import chat.bipe.app.people.BrandMarkCaption
+import chat.bipe.app.people.LocalBipeBrandMarks
 import chat.bipe.app.people.PeopleLinks
 import chat.bipe.app.people.PeopleMenu
 import chat.bipe.app.people.PeopleNavigation
 import chat.bipe.app.people.PeopleRoute
 import chat.bipe.app.people.PeopleScreen
-import chat.bipe.app.people.LocalBipeBrandMarks
-import chat.bipe.app.people.BrandMarkCaption
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.Person
 import chat.bipe.app.pixcheck.PixPreview
 import chat.bipe.app.pixcheck.PixSendScreen
 import chat.bipe.app.recovery.RecoveryAlertModel
 import chat.bipe.app.recovery.RecoveryAlertScreen
-import chat.bipe.app.settings.PhoneConfirmNoticeDialog
-import chat.bipe.app.settings.PhoneConfirmNoticeModel
 import chat.bipe.app.recovery.RecoveryEmailAddScreen
 import chat.bipe.app.recovery.RecoveryReminderCard
 import chat.bipe.app.recovery.RecoveryReminderModel
+import chat.bipe.app.settings.PhoneConfirmNoticeDialog
+import chat.bipe.app.settings.PhoneConfirmNoticeModel
 import chat.bipe.app.settings.PinChangeScreen
 import chat.bipe.app.settings.SettingsModel
-import chat.bipe.app.signup.SignupStart
-import chat.bipe.app.tabs.AccountNewScreen
-import chat.bipe.app.tabs.InviteSignedInScreen
-import chat.bipe.app.tabs.AppTabsModel
-import chat.bipe.app.tabs.AppTabsScreen
-import chat.bipe.app.timeline.ChatTimelineScreen
-import chat.bipe.phosphor.PhosphorIcon
-import chat.bipe.shared.R
-import chat.bipe.shared.BipeNotificationTarget
-import chat.bipe.shared.BipeNotificationDestination
-import chat.bipe.shared.BipeProfileLink
-import chat.bipe.shared.api.BipeApiClient
-import chat.bipe.shared.generated.BipeOnboardingTarget
-import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.app.share.ShareShortcuts
 import chat.bipe.app.share.ShareToChatScreen
+import chat.bipe.app.signup.SignupStart
+import chat.bipe.app.tabs.AccountNewScreen
+import chat.bipe.app.tabs.AppTabsModel
+import chat.bipe.app.tabs.AppTabsScreen
+import chat.bipe.app.tabs.InviteSignedInScreen
+import chat.bipe.app.timeline.AssistantDraftsList
+import chat.bipe.app.timeline.AssistantDraftsStore
+import chat.bipe.app.timeline.ChatTimelineScreen
+import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeNotificationDestination
+import chat.bipe.shared.BipeNotificationTarget
+import chat.bipe.shared.BipeProfileLink
+import chat.bipe.shared.R
+import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.generated.BipeChatListPrompt
+import chat.bipe.shared.generated.BipeOnboardingCard
+import chat.bipe.shared.generated.BipeOnboardingTarget
+import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.onboarding.BipePromptSlot
+import java.text.NumberFormat
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
 
 /**
  * The signed-in app: app-tabs, chat-timeline on top of it when a chat is open, handle-pick from the prompt card, and
@@ -418,18 +424,26 @@ fun HomeScreen(
                         onOpenChat = { openRoomId = it },
                     )
                 } else {
+                    // Spec chat-list-prompt (bipe-chat/bipe#894): the entries this screen owns, with their cards, while
+                    // their condition holds. ChatListScreen adds its own and shows one card at a time.
+                    val showsApprovePhone = encryption.collectShowsCard()
+                    val prompts = buildMap<BipeChatListPrompt, @Composable () -> Unit> {
+                        if (showsApprovePhone) put(BipeChatListPrompt.APPROVE_PHONE) { ApprovePhoneCard(encryption) }
+                        if (recovery.showsCard(recoveryState)) {
+                            put(BipeChatListPrompt.RECOVERY) { RecoveryReminderCard(recovery, syncOff) { showsRecoveryEmail = true } }
+                        }
+                        if (showsPinCard) put(BipeChatListPrompt.PIN_REMINDER) { PinReminderCard(pinReminder) { showsPinReminder = true } }
+                        bringState.reminder?.let { reminder ->
+                            put(BipeChatListPrompt.BRING_PEOPLE_REMINDER) { BringPeopleReminderCard(bringPeople, reminder, openInvites = groups.openInvites) }
+                        }
+                    }
                     AppTabsScreen(
                         tabs = tabs, chatList = model, media = media, handle = handle,
                         listOpenRequest = notificationListOpen,
                         onOpenHandlePick = { showsHandlePick = true },
                         onOpenChat = { openRoomId = it },
                         onNewAccount = { showsNewAccount = true },
-                        banner = { HistoryBanner(encryption) },
-                        recoveryCard = {
-                        if (recovery.showsCard(recoveryState)) RecoveryReminderCard(recovery, syncOff) { showsRecoveryEmail = true }
-                        else if (showsPinCard) PinReminderCard(pinReminder) { showsPinReminder = true }
-                        else bringState.reminder?.let { BringPeopleReminderCard(bringPeople, it, openInvites = groups.openInvites) }
-                        },
+                        prompts = prompts,
                         onBringPeople = {
                             bringPeople.sheetShown()
                             showsBringPeople = true
@@ -471,10 +485,8 @@ fun ChatListScreen(
     requests: ChatRequestsModel? = null,
     remoteBanner: RemoteBannerModel? = null,
     onOpenRequests: () -> Unit = {},
-    /** Spec encryption-status: the banner, the first row of the list so it scrolls with the chats. */
-    banner: @Composable () -> Unit = {},
-    /** Spec recovery-reminder: shows when the handle card does not (one card at a time). */
-    recoveryCard: @Composable () -> Unit = {},
+    /** Spec chat-list-prompt: the entries the caller owns (approvePhone, recovery, pinReminder, bringPeopleReminder). */
+    prompts: Map<BipeChatListPrompt, @Composable () -> Unit> = emptyMap(),
     onCreateGroup: () -> Unit = {},
     onDeleteDm: (String) -> Unit = {},
     onChatNotifications: (String) -> Unit = {},
@@ -556,10 +568,9 @@ fun ChatListScreen(
             }
             // Spec live-location-banner: this account shares its live location.
             chat.bipe.app.location.LiveLocationListRow(model.session.userId)
-            remoteBanner?.let { RemoteBannerCard(it, context) }
-            // Spec notification-checkup banner (bipe-chat/bipe#823).
+            // Spec notification-checkup (bipe-chat/bipe#823): the card is a chat-list-prompt entry.
             var showsCheckup by rememberSaveable { mutableStateOf(false) }
-            NotificationCheckupBanner(onOpen = { showsCheckup = true })
+            var checkupClosed by remember { mutableIntStateOf(0) }
             if (showsCheckup) {
                 Dialog(
                     onDismissRequest = { showsCheckup = false },
@@ -568,9 +579,37 @@ fun ChatListScreen(
                     NotificationCheckupScreen(model.session.userId, onBack = { showsCheckup = false })
                 }
             }
+            // Spec chat-list-prompt (bipe-chat/bipe#894): one card at a time, from the entries whose condition holds.
+            val remoteShows = remoteBanner?.collectShows() == true
+            val checkupShows = notificationCheckupShows(checkupClosed)
+            val conversasCount = allChats.count { it.scope == ChatScope.CONVERSAS && !archiveMarkers.containsKey(it.roomId) }
+            val firstCards = cards.visible(doneCards, conversasCount, handleState.currentHandle)
+            val eligible = buildSet {
+                addAll(prompts.keys)
+                if (remoteShows) add(BipeChatListPrompt.REMOTE_BANNER)
+                if (checkupShows) add(BipeChatListPrompt.NOTIFICATION_CHECKUP)
+                if (handleState.showsPrompt) add(BipeChatListPrompt.HANDLE)
+                firstCards.forEach { card -> BipeChatListPrompt.entries.firstOrNull { it.name == card.name }?.let { add(it) } }
+            }
+            val slot = remember(model.session.userId) { BipePromptSlot(context, model.session.userId) }
+            val promptCard = if (showingArchived) null else slot.chatListCard(eligible)
+            fun runCard(card: BipeOnboardingCard, target: BipeOnboardingTarget) {
+                cards.finish(card)
+                when (target) {
+                    // Spec chat-list-cards shareInvite: opens bring-people (bipe-chat/bipe#752).
+                    BipeOnboardingTarget.SHARE_INVITE -> onBringPeople()
+                    BipeOnboardingTarget.SHARE_PROFILE -> handleState.currentHandle?.let { BipeProfileLink.url(it) }?.let { link ->
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                            .putExtra(Intent.EXTRA_TEXT, link), null))
+                    }
+                    BipeOnboardingTarget.PROFILE_QR -> onOpenPeople(PeopleRoute.ProfileQr)
+                    BipeOnboardingTarget.NOTES -> cardScope.launch {
+                        runCatching { model.openNotes(notesTitle) }.getOrNull()?.let(onOpenChat)
+                    }
+                    else -> Unit
+                }
+            }
             run {
-                if (handleState.showsPrompt) HandlePromptCard(handle, open = onOpenHandlePick)
-                else if (scope != ChatScope.GRUPOS) recoveryCard()
                 when (phase) {
                     ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = colors.accentFill)
@@ -580,27 +619,20 @@ fun ChatListScreen(
                         if (favourites.isNotEmpty()) item(key = "favourites") {
                             FavouritesGrid(favourites, media, model.session.userId, ::commands, onOpenChat)
                         }
-                        // Spec encryption-status: under the favourites, so it scrolls with the chats (MZ decision 25 Oct 2026).
-                        if (!showingArchived) item(key = "history-banner") { banner() }
-                        // Spec chat-list-cards: the first-list cards at the top of Conversas.
-                        if (!showingArchived && scope != ChatScope.GRUPOS) {
-                            val count = allChats.count { it.scope == ChatScope.CONVERSAS && !archiveMarkers.containsKey(it.roomId) }
-                            items(cards.visible(doneCards, count, handleState.currentHandle), key = { "card-${it.name}" }) { card ->
-                                FirstListCard(card, handleState.currentHandle) { target ->
-                                    cards.finish(card)
-                                    when (target) {
-                                        // Spec chat-list-cards shareInvite: opens bring-people (bipe-chat/bipe#752).
-                                        BipeOnboardingTarget.SHARE_INVITE -> onBringPeople()
-                                        BipeOnboardingTarget.SHARE_PROFILE -> handleState.currentHandle?.let { BipeProfileLink.url(it) }?.let { link ->
-                                            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
-                                                .putExtra(Intent.EXTRA_TEXT, link), null))
-                                        }
-                                        BipeOnboardingTarget.PROFILE_QR -> onOpenPeople(PeopleRoute.ProfileQr)
-                                        BipeOnboardingTarget.NOTES -> cardScope.launch {
-                                            runCatching { model.openNotes(notesTitle) }.getOrNull()?.let(onOpenChat)
-                                        }
-                                        else -> Unit
+                        // Spec chat-list-prompt: under the favourites, so it scrolls with the chats (MZ decision 25 Oct 2026).
+                        promptCard?.let { card ->
+                            item(key = "prompt-${card.name}") {
+                                LaunchedEffect(card) { slot.didShow(card) }
+                                when (card) {
+                                    BipeChatListPrompt.REMOTE_BANNER -> remoteBanner?.let { RemoteBannerCard(it, context) }
+                                    BipeChatListPrompt.NOTIFICATION_CHECKUP ->
+                                        NotificationCheckupCard(onOpen = { showsCheckup = true }, onClose = { checkupClosed++ })
+                                    BipeChatListPrompt.HANDLE -> HandlePromptCard(handle, open = onOpenHandlePick)
+                                    BipeChatListPrompt.INVITE, BipeChatListPrompt.PROFILE, BipeChatListPrompt.NOTES -> {
+                                        val first = BipeOnboardingCard.entries.first { it.name == card.name }
+                                        FirstListCard(first, handleState.currentHandle) { target -> runCard(first, target) }
                                     }
+                                    else -> prompts[card]?.invoke()
                                 }
                             }
                         }

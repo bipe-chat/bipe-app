@@ -212,36 +212,9 @@ struct HandlePromptCard: View {
 
     var body: some View {
         let prompt = BipeOnboardingPrompt.handle
-        VStack(alignment: .leading, spacing: 8) {
-            Text(BipeLocalized.string(prompt.titleKey))
-                .font(.headline)
-                .foregroundStyle(BipeColor.inkPrimary)
-            if let bodyKey = prompt.bodyKey {
-                Text(BipeLocalized.string(bodyKey))
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkSecondary)
-            }
-            HStack {
-                Button(action: open) {
-                    Text(prompt.primary.title)
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .foregroundStyle(BipeColor.inkOnAccent)
-                        .background(Capsule().fill(BipeColor.accentFill))
-                }
-                ForEach(prompt.text, id: \.titleKey) { button in
-                    Button { model.dismissPrompt() } label: {
-                        Text(button.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BipeColor.accentInk)
-                    }
-                }
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.accentWash))
+        PromptCard(title: BipeLocalized.string(prompt.titleKey), body: prompt.bodyKey.map { BipeLocalized.string($0) },
+                   primary: .init(title: prompt.primary.title, run: { open() }),
+                   texts: prompt.text.map { .init(title: $0.title, run: { model.dismissPrompt() }) })
         .onAppear { model.promptShown() }
     }
 }
