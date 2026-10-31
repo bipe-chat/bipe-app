@@ -110,7 +110,7 @@ final class GroupLinkModel: ObservableObject {
         guard let link else { return }
         phase = .working
         do {
-            try await withToken { (token: String) async throws(BipeAPIError) in
+            try await withToken { (token: String) async throws(BipeAPIError) -> Void in
                 try await self.api.revokeGroupLink(id: link.id, accessToken: token)
             }
             store.removeGroupLink(forRoomID: roomId)
@@ -122,9 +122,9 @@ final class GroupLinkModel: ObservableObject {
         }
     }
 
-    private func fail(_ error: BipeAPIError) {
-        switch error {
-        case .server(.notFound, _, _), .server(.groupLinkNoAccess, _, _):
+    private func fail(_ error: Error) {
+        switch error as? BipeAPIError {
+        case .server(.notFound, _, _)?, .server(.groupLinkNoAccess, _, _)?:
             phase = link == nil ? .none : .active
             self.error = BipeStrings.groupLinkErrorAccess
         default:
