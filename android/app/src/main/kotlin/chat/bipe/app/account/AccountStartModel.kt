@@ -316,6 +316,50 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         if (old != null) replace(old, fresh) else didRecover(fresh)
     }
 
+    /**
+     * Spec data-use clearMediaCache (bipe-chat/bipe#826): stops the account's sync, clears the SDK caches and the app's
+     * media folder, then builds the session again from the saved session, as after soft-logout. Keys and the session
+     * stay. Throws when the session cannot be built again; the next start restores it.
+     */
+    fun clearCaches(session: AccountSession, onFailed: () -> Unit) {
+        // The app's scope: the settings screen goes away when the session is built again.
+        scope.launch {
+            try {
+                clearCachesNow(session)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(AccountStep.TAG, "clear caches: session not built again")
+                onFailed()
+            }
+        }
+    }
+
+    private suspend fun clearCachesNow(session: AccountSession) {
+        if (_sessions.value.none { it === session }) return
+        val saved = session.client.session()
+        val before = chat.bipe.app.media.StorageMeter.measure(context, session.client)
+        session.pause()
+        try {
+            session.client.clearCaches(session.syncService)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(AccountStep.TAG, "clear caches failed, building the session again")
+        }
+        chat.bipe.app.media.forgetMediaCache()
+        chat.bipe.app.media.StorageMeter.deleteAppMedia(context)
+        val fresh = AccountSession.restore(context, saved, sessionStore)
+        replace(session, fresh)
+        // freedBytes: the tabs build again for the new session, so the app's notice says it.
+        val after = chat.bipe.app.media.StorageMeter.measure(context, fresh.client)
+        val freed = (before.total - after.total).coerceAtLeast(0L)
+        _notice.value = context.getString(
+            chat.bipe.shared.R.string.bipe_storage_cleared,
+            android.text.format.Formatter.formatShortFileSize(context, freed),
+        )
+    }
+
     private fun replace(old: AccountSession, fresh: AccountSession) {
         if (_sessions.value.none { it === old }) return
         val app = context.applicationContext as BipeApplication

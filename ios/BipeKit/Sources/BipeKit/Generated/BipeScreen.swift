@@ -136,7 +136,7 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json
     case dataExport = "data-export"
 
-    /// Data use (flow settings). Spec: bipe-shared/product/screens/data-use.json
+    /// Data and storage (flow settings). Spec: bipe-shared/product/screens/data-use.json
     case dataUse = "data-use"
 
     /// Account deletion asked on another device (flow settings). Spec: bipe-shared/product/screens/deletion-alert.json
