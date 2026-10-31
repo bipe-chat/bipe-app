@@ -399,6 +399,8 @@ struct ChatTimelineView: View {
         ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
             // Spec identity-change blocksSending: until the person taps Entendi.
             .disabled(identity.blocksSending)
+            // Spec composer nameAmbiguous: the @ in the suggestion rows.
+            .environment(\.bipeHandles, people?.handles)
     }
 
     private var chatTitle: some View {
@@ -536,6 +538,7 @@ private struct ComposerBar: View {
     let openAttachments: () -> Void
     let openStickers: () -> Void
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.bipeHandles) private var handles
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -653,7 +656,7 @@ private struct ComposerBar: View {
                             VStack(alignment: .leading, spacing: 0) {
                                 // Spec composer nameAmbiguous: the @ follows a name another member also has.
                                 Text(suggestion.nameAmbiguous && suggestion.userId != nil
-                                     ? MemberNames.label(name: suggestion.name, userId: suggestion.userId ?? "", handles: people?.handles)
+                                     ? MemberNames.label(name: suggestion.name, userId: suggestion.userId ?? "", handles: handles)
                                      : suggestion.name)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 if let handle = suggestion.handle {
