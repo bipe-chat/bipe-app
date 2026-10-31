@@ -125,7 +125,14 @@ data class MessageReceipt(
 }
 
 /** Type ReceiptReader of spec read-receipts. */
-data class ReceiptReader(val userId: String, val name: String, val avatarUrl: String?, val readAt: Long?)
+data class ReceiptReader(
+    val userId: String,
+    val name: String,
+    val avatarUrl: String?,
+    val readAt: Long?,
+    /** Spec read-receipts nameAmbiguous: another member shows the same name (bipe-chat/bipe#825). */
+    val nameAmbiguous: Boolean = false,
+)
 
 /** A member's display name and avatar in this room. */
 data class MemberInfo(val name: String, val avatarUrl: String?)
@@ -183,7 +190,7 @@ object TimelineRowBuilder {
             if (facts.isDm) return emptyList()
             return receipts
                 .filterKeys { it != facts.ownUserId }
-                .map { (userId, receipt) -> ReceiptReader(userId, name(userId), facts.members[userId]?.avatarUrl, receipt.timestamp?.toLong()) }
+                .map { (userId, receipt) -> ReceiptReader(userId, name(userId), facts.members[userId]?.avatarUrl, receipt.timestamp?.toLong(), userId in ambiguousSenders) }
                 .sortedByDescending { it.readAt ?: 0L }
         }
 

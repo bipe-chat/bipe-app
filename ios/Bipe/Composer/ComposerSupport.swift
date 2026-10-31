@@ -19,6 +19,8 @@ struct MentionSuggestion: Identifiable, Equatable {
     var name: String
     var handle: String?
     var avatarUrl: String?
+    /// Spec composer nameAmbiguous: another member shows the same name (bipe-chat/bipe#825).
+    var nameAmbiguous = false
 
     var id: String { userId ?? "@room" }
 }
@@ -69,6 +71,8 @@ enum ComposerMarkdown {
 @MainActor
 final class MentionDirectory {
     private var members: [RoomMember] = []
+    /// Spec composer nameAmbiguous: the SDK flag or the same name after NameNormalizer among the joined members.
+    private var ambiguous: Set<String> = []
     private var loaded = false
     private(set) var canMentionEveryone = false
 
@@ -80,7 +84,10 @@ final class MentionDirectory {
             while let chunk = iterator.nextChunk(chunkSize: 200) {
                 all += chunk
             }
-            members = all.filter { $0.membership == .join && $0.userId != ownUserId && !$0.isIgnored }
+            let joined = all.filter { $0.membership == .join }
+            members = joined.filter { $0.userId != ownUserId && !$0.isIgnored }
+            let names = Dictionary(joined.map { ($0.userId, $0.displayName ?? $0.userId) }, uniquingKeysWith: { first, _ in first })
+            ambiguous = Set(joined.filter(\.isNameAmbiguous).map(\.userId)).union(MemberNames.ambiguous(names))
         }
         canMentionEveryone = (try? await room.getPowerLevels().canOwnUserTriggerRoomNotification()) ?? false
     }
@@ -95,7 +102,10 @@ final class MentionDirectory {
         let matches = members.filter { member in
             needle.isEmpty || (member.displayName?.lowercased().contains(needle) ?? false) || member.userId.lowercased().contains(needle)
         }
-        result += matches.prefix(8).map { MentionSuggestion(userId: $0.userId, name: $0.displayName ?? $0.userId, avatarUrl: $0.avatarUrl) }
+        result += matches.prefix(8).map {
+            MentionSuggestion(userId: $0.userId, name: $0.displayName ?? $0.userId, avatarUrl: $0.avatarUrl,
+                              nameAmbiguous: ambiguous.contains($0.userId))
+        }
         return result
     }
 }

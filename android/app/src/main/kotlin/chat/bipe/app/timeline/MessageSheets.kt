@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.memberLabel
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeHaptic
@@ -280,7 +281,12 @@ fun ReadersSheet(readers: List<ReceiptReader>, media: MediaLoader, onDismiss: ()
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Avatar(reader.name, reader.avatarUrl, media, size = 32.dp, userId = reader.userId)
-                        Text(reader.name, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary, modifier = Modifier.weight(1f))
+                        Text(
+                            memberLabel(reader.name, reader.userId, reader.nameAmbiguous),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colors.inkPrimary,
+                            modifier = Modifier.weight(1f),
+                        )
                         reader.readAt?.let { Text(format.format(it), style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
                     }
                 }

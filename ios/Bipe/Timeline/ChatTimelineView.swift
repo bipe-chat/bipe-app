@@ -290,7 +290,7 @@ struct ChatTimelineView: View {
         }
         .sheet(isPresented: presence(\.readersSheet)) {
             if let readers = model.readersSheet {
-                ReadersSheet(readers: readers, media: media)
+                ReadersSheet(readers: readers, media: media, handles: people?.handles)
             }
         }
         .sheet(isPresented: presence(\.report)) {
@@ -399,6 +399,8 @@ struct ChatTimelineView: View {
         ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
             // Spec identity-change blocksSending: until the person taps Entendi.
             .disabled(identity.blocksSending)
+            // Spec composer nameAmbiguous: the @ in the suggestion rows.
+            .environment(\.bipeHandles, people?.handles)
     }
 
     private var chatTitle: some View {
@@ -536,6 +538,7 @@ private struct ComposerBar: View {
     let openAttachments: () -> Void
     let openStickers: () -> Void
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.bipeHandles) private var handles
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -651,7 +654,10 @@ private struct ComposerBar: View {
                         HStack(spacing: 10) {
                             AvatarView(name: suggestion.name, mxcUrl: suggestion.avatarUrl, loader: media, size: 32)
                             VStack(alignment: .leading, spacing: 0) {
-                                Text(suggestion.name)
+                                // Spec composer nameAmbiguous: the @ follows a name another member also has.
+                                Text(suggestion.nameAmbiguous && suggestion.userId != nil
+                                     ? MemberNames.label(name: suggestion.name, userId: suggestion.userId ?? "", handles: handles)
+                                     : suggestion.name)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 if let handle = suggestion.handle {
                                     Text(handle)

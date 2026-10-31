@@ -4,6 +4,7 @@
 
 package chat.bipe.app.composer
 
+import chat.bipe.app.common.MemberNames
 import org.matrix.rustcomponents.sdk.ComposerDraft
 import org.matrix.rustcomponents.sdk.ComposerDraftType
 import org.matrix.rustcomponents.sdk.MembershipState
@@ -17,7 +18,14 @@ import org.matrix.rustcomponents.sdk.messageEventContentFromMarkdown
 data class ComposerMention(val userId: String?, val label: String)
 
 /** Type MentionSuggestion of spec composer. */
-data class MentionSuggestion(val userId: String?, val name: String, val handle: String? = null, val avatarUrl: String? = null) {
+data class MentionSuggestion(
+    val userId: String?,
+    val name: String,
+    val handle: String? = null,
+    val avatarUrl: String? = null,
+    /** Spec composer nameAmbiguous: another member shows the same name (bipe-chat/bipe#825). */
+    val nameAmbiguous: Boolean = false,
+) {
     val id: String get() = userId ?: "@room"
 }
 
@@ -66,6 +74,9 @@ object ComposerMarkdown {
 /** The members of a group for @ suggestions (ADR 0141: groups only, no suggestions in a DM). */
 class MentionDirectory {
     private var members: List<RoomMember> = emptyList()
+
+    /** Spec composer nameAmbiguous: the SDK flag or the same name after NameNormalizer among the joined members. */
+    private var ambiguous: Set<String> = emptySet()
     private var loaded = false
     var canMentionEveryone = false
         private set
@@ -80,7 +91,10 @@ class MentionDirectory {
                 val chunk = iterator.nextChunk(200u) ?: break
                 all += chunk
             }
-            members = all.filter { it.membership is MembershipState.Join && it.userId != ownUserId && !it.isIgnored }
+            val joined = all.filter { it.membership is MembershipState.Join }
+            members = joined.filter { it.userId != ownUserId && !it.isIgnored }
+            ambiguous = joined.filter { it.isNameAmbiguous }.mapTo(mutableSetOf()) { it.userId } +
+                MemberNames.ambiguous(joined.associate { it.userId to (it.displayName ?: it.userId) })
         }
         canMentionEveryone = runCatching { room.getPowerLevels().canOwnUserTriggerRoomNotification() }.getOrDefault(false)
     }
@@ -95,7 +109,7 @@ class MentionDirectory {
         result += members
             .filter { needle.isEmpty() || it.displayName?.lowercase()?.contains(needle) == true || it.userId.lowercase().contains(needle) }
             .take(8)
-            .map { MentionSuggestion(it.userId, it.displayName ?: it.userId, avatarUrl = it.avatarUrl) }
+            .map { MentionSuggestion(it.userId, it.displayName ?: it.userId, avatarUrl = it.avatarUrl, nameAmbiguous = it.userId in ambiguous) }
         return result
     }
 }
