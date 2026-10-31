@@ -88,8 +88,9 @@ object AppTheme {
 val BipePalette.launcherIcon: Int
     get() = when (this) {
         BipePalette.ACAI -> R.mipmap.bipe_app_icon_acai
+        BipePalette.GOIABA -> R.mipmap.bipe_app_icon_goiaba
         BipePalette.PITANGA -> R.mipmap.bipe_app_icon_pitanga
-        BipePalette.CAJU -> R.mipmap.bipe_app_icon_caju
-        BipePalette.JABUTICABA -> R.mipmap.bipe_app_icon_jabuticaba
+        BipePalette.MARACUJA -> R.mipmap.bipe_app_icon_maracuja
         BipePalette.JENIPAPO -> R.mipmap.bipe_app_icon_jenipapo
+        BipePalette.JABUTICABA -> R.mipmap.bipe_app_icon_jabuticaba
     }

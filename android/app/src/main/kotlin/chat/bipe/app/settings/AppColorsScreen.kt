@@ -96,8 +96,9 @@ private fun AppIconPreview(palette: BipePalette, side: Dp = 44.dp) {
 val BipePalette.title: Int
     get() = when (this) {
         BipePalette.ACAI -> R.string.bipe_colors_acai
+        BipePalette.GOIABA -> R.string.bipe_colors_goiaba
         BipePalette.PITANGA -> R.string.bipe_colors_pitanga
-        BipePalette.CAJU -> R.string.bipe_colors_caju
-        BipePalette.JABUTICABA -> R.string.bipe_colors_jabuticaba
+        BipePalette.MARACUJA -> R.string.bipe_colors_maracuja
         BipePalette.JENIPAPO -> R.string.bipe_colors_jenipapo
+        BipePalette.JABUTICABA -> R.string.bipe_colors_jabuticaba
     }

@@ -1150,10 +1150,11 @@
     <string name="bipe_chats_colors">Cores</string>
     <string name="bipe_chats_colors_footer">Muda a cor dos botões, das suas mensagens e do ícone do app.</string>
     <string name="bipe_colors_acai">Açaí</string>
+    <string name="bipe_colors_goiaba">Goiaba</string>
     <string name="bipe_colors_pitanga">Pitanga</string>
-    <string name="bipe_colors_caju">Caju</string>
-    <string name="bipe_colors_jabuticaba">Jabuticaba</string>
+    <string name="bipe_colors_maracuja">Maracujá</string>
     <string name="bipe_colors_jenipapo">Jenipapo</string>
+    <string name="bipe_colors_jabuticaba">Jabuticaba</string>
     <string name="bipe_notifications_enable">Ligar neste celular</string>
     <string name="bipe_notifications_notify_about">Avisar sobre</string>
     <string name="bipe_notifications_chats">Conversas</string>
