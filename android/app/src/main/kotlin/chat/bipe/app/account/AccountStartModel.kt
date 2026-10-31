@@ -322,7 +322,10 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         app.notifications.detach(old.userId)
         watchAuthErrors(fresh)
         _sessions.value = _sessions.value.map { if (it === old) fresh else it }
-        if (_userId.value == fresh.userId) app.push.attach(fresh)
+        if (_userId.value == fresh.userId) {
+            app.push.attach(fresh)
+            chat.bipe.app.media.MediaPreviewSync.attach(context, fresh)
+        }
     }
 
     /** app-tabs switchAccount: makes that account current and saves the choice for the next start. */
@@ -334,6 +337,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         chat.bipe.app.location.LiveLocationCenter.accountChanged(userId)
         // Spec push-registration: this phone's pusher follows the current account.
         (context.applicationContext as BipeApplication).push.attach(session)
+        // Spec timeline-media notes: show-media and invite photos follow the current account (MSC4278).
+        chat.bipe.app.media.MediaPreviewSync.attach(context, session)
     }
 
     /** signup-create made the account and signed in. */
@@ -447,6 +452,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         _userId.value = session.userId
         // Spec push-registration: keep this phone's pusher current.
         (context.applicationContext as BipeApplication).push.attach(session)
+        chat.bipe.app.media.MediaPreviewSync.attach(context, session)
         _phase.value = Phase.READY
     }
 

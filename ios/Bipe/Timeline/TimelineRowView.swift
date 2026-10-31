@@ -260,6 +260,7 @@ private struct MessageBubbleRow: View {
         if let mediaMessage = message.media {
             TimelineMediaRow(message: message, media: mediaMessage, loader: media,
                              isPrivateRoom: model.isPrivateRoom,
+                             fromStranger: model.fromStranger,
                              openViewer: { openViewer(row.id) },
                              cancelUpload: { Task { await model.cancelUpload(id: row.id) } })
         } else if let live = message.live {

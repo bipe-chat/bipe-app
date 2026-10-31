@@ -192,6 +192,9 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var predecessor: (roomId: String, name: String)?
     /// A DM or a group that needs an invite, for the show-media setting (spec timeline-media).
     @Published private(set) var isPrivateRoom = true
+    /// Spec timeline-media fromStranger (bipe-chat/bipe#827): a DM accepted from Pedidos whose other person is not a
+    /// contact. Starts true for such a room, so no media loads before the contact check.
+    @Published private(set) var fromStranger = false
     @Published var draft = ""
     // composer
     /// The pills in the draft, in order.
@@ -272,6 +275,7 @@ final class ChatTimelineModel: ObservableObject {
         self.session = session
         self.roomId = roomId
         self.threadRoot = threadRoot
+        fromStranger = RequestRooms.contains(roomId)
         facts = RoomFacts(ownUserId: session.userId, isDm: false, isEncrypted: true, joinedMembers: 2,
                           canRedactOwn: true, canRedactOther: false, members: [:], replyLoadsTried: [])
     }
@@ -427,6 +431,11 @@ final class ChatTimelineModel: ObservableObject {
         isDm = facts.isDm
         isEncrypted = facts.isEncrypted
         isPrivateRoom = room.isPublic() != true
+    }
+
+    /// Spec timeline-media fromStranger: the contact check of the DM's other person (contacts).
+    func checkFromStranger(peerIsContact: Bool) {
+        fromStranger = RequestRooms.contains(roomId) && !peerIsContact
     }
 
     // MARK: chat-timeline
