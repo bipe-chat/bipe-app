@@ -27,9 +27,11 @@ import chat.bipe.app.business.QUEUE_LINK_QUERY
 import chat.bipe.app.business.QueueLinkScreen
 import chat.bipe.app.groups.RoomLink
 import chat.bipe.app.groups.RoomLinkOpenScreen
+import chat.bipe.app.media.stickers.StickerPackScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.R
+import chat.bipe.stickers.StickerPackRef
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,10 +44,12 @@ object PeopleLinks {
     /**
      * Takes [uri] when it is a profile link (bipe.chat/@handle or a matrix.to user link). A business's counter QR link,
      * bipe.chat/@handle?fila, opens queue-customer. A matrix.to or matrix: group link opens room-link-open.
+     * A pack link bipe.chat/s/<room ID> opens sticker-pack.
      */
     fun offer(uri: Uri): Boolean {
         val queue = runCatching { QUEUE_LINK_QUERY in uri.queryParameterNames }.getOrDefault(false)
-        val route = BipeProfileLink.handle(uri.toString())?.let { PeopleRoute.ProfileLinkOpen(it, queue) }
+        val route = StickerPackRef.fromLink(uri.toString())?.let { PeopleRoute.StickerPackLink(it) }
+            ?: BipeProfileLink.handle(uri.toString())?.let { PeopleRoute.ProfileLinkOpen(it, queue) }
             ?: BipeProfileLink.matrixUserId(uri.toString())?.let { PeopleRoute.PersonProfile(it, fromDm = false) }
             ?: RoomLink.of(uri.toString())?.let { PeopleRoute.RoomLinkOpen(it) }
             ?: return false
@@ -62,6 +66,8 @@ class PeopleNavigation(
     val pop: () -> Unit,
     /** Closes the people screens and opens chat-timeline. */
     val openChat: (String) -> Unit,
+    /** Closes the people screens and opens chat-timeline at a message (room ID, event ID). `null`: [openChat]. */
+    val openMessage: ((String, String) -> Unit)? = null,
     /** Opens handle-pick. */
     val pickHandle: () -> Unit,
     /** person-profile newGroup: group-create with the person picked. `null` hides the row. */
@@ -78,7 +84,12 @@ class PeopleNavigation(
 @Composable
 fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNavigation) {
     when (route) {
-        is PeopleRoute.RoomLinkOpen -> RoomLinkOpenScreen(people, route.link, openChat = navigation.openChat, onClose = navigation.pop)
+        is PeopleRoute.RoomLinkOpen -> RoomLinkOpenScreen(people, route.link, openChat = { roomId ->
+            // Spec room-link-open (bipe-chat/bipe#666): an event link opens the chat at the message.
+            val eventId = route.link.eventId
+            val openMessage = navigation.openMessage
+            if (eventId != null && openMessage != null) openMessage(roomId, eventId) else navigation.openChat(roomId)
+        }, onClose = navigation.pop)
         is PeopleRoute.PersonProfile -> PersonProfileScreen(
             people,
             route.userId,
@@ -123,6 +134,7 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
             openPerson = { navigation.push(PeopleRoute.PersonProfile(it, fromDm = false)) },
             onBack = navigation.pop,
         )
+        is PeopleRoute.StickerPackLink -> StickerPackScreen(people.session.client, route.ref, people.media, people.handles, onClose = navigation.pop)
         is PeopleRoute.ReportChat -> {
             val context = LocalContext.current
             ReportChatScreen(

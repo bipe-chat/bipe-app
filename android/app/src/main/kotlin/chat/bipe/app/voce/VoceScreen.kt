@@ -5,6 +5,9 @@
 package chat.bipe.app.voce
 
 import android.content.Context
+import androidx.annotation.StringRes
+import chat.bipe.app.settings.OsTheftPromptMemory
+import chat.bipe.app.settings.OsTheftProtection
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.semantics.Role
@@ -106,6 +109,13 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     val photoKey = "dismissed_${session.userId}"
     var photoPromptDismissed by remember(session) { mutableStateOf(photoPrefs.getBoolean(photoKey, false)) }
     val photoSlot = remember(session) { BipePromptSlot(context, session.userId) }
+    // Spec voce osTheftPrompt (bipe-chat/bipe#125): one flag for the phone.
+    val osTheftMemory = remember { OsTheftPromptMemory(context.applicationContext) }
+    var osTheftPromptDone by remember { mutableStateOf(osTheftMemory.isDone) }
+    val finishOsTheftPrompt = {
+        osTheftMemory.markDone()
+        osTheftPromptDone = true
+    }
     val trust = remember(session) { TrustCardModel(session, api, scope) }
     val current = state.accounts.firstOrNull { it.isCurrent }
     LaunchedEffect(trust, current) { trust.update(current) }
@@ -126,13 +136,27 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     } }
                     // Spec voce photoPrompt (bipe-chat/bipe#200): one card while the account has no photo.
                     val me = state.accounts.firstOrNull { it.isCurrent }
-                    if (me != null && me.isLoaded && me.avatarUrl == null && !photoPromptDismissed &&
-                        photoSlot.allows(BipeOnboardingPrompt.PHOTO)) item(key = "photo-prompt") {
-                        PhotoPromptCard(open = { openPeople(PeopleRoute.ProfileEdit) }, dismiss = {
+                    val showsPhotoPrompt = me != null && me.isLoaded && me.avatarUrl == null && !photoPromptDismissed &&
+                        photoSlot.allows(BipeOnboardingPrompt.PHOTO)
+                    if (showsPhotoPrompt) item(key = "photo-prompt") {
+                        VocePromptCard(BipeOnboardingPrompt.PHOTO, open = { openPeople(PeopleRoute.ProfileEdit) }, dismiss = {
                             photoPrefs.edit().putBoolean(photoKey, true).apply()
                             photoPromptDismissed = true
                         })
                         LaunchedEffect(Unit) { photoSlot.didShow(BipeOnboardingPrompt.PHOTO) }
+                    } else if (me != null && !osTheftPromptDone && osTheftMemory.isDue(me.userId) &&
+                        photoSlot.allows(BipeOnboardingPrompt.OS_THEFT_PROTECTION)) item(key = "os-theft-prompt") {
+                        // Spec voce osTheftPrompt (bipe-chat/bipe#125): one day after this phone first saw the account.
+                        VocePromptCard(
+                            BipeOnboardingPrompt.OS_THEFT_PROTECTION,
+                            detail = OsTheftProtection.pathText,
+                            open = {
+                                finishOsTheftPrompt()
+                                OsTheftProtection.openSettings(context)
+                            },
+                            dismiss = finishOsTheftPrompt,
+                        )
+                        LaunchedEffect(Unit) { photoSlot.didShow(BipeOnboardingPrompt.OS_THEFT_PROTECTION) }
                     }
                     // Spec voce (MZ decision 25 Oct 2026): no account rows; the Você tab switches (hold, double tap,
                     // TalkBack action). Nova conta stays here (spec account-new).
@@ -261,11 +285,13 @@ private fun VoceRow(
     )
 }
 
-/** Prompt photo of registries/onboarding.json (trigger voceWithoutPhoto, bipe-chat/bipe#200). */
+/**
+ * A slot prompt of registries/onboarding.json on the Você tab: photo (trigger voceWithoutPhoto, bipe-chat/bipe#200) and
+ * osTheftProtection (trigger voceAfterDays, bipe-chat/bipe#125). [detail] is an extra line under the body.
+ */
 @Composable
-private fun PhotoPromptCard(open: () -> Unit, dismiss: () -> Unit) {
+private fun VocePromptCard(prompt: BipeOnboardingPrompt, @StringRes detail: Int? = null, open: () -> Unit, dismiss: () -> Unit) {
     val colors = BipeTheme.colors
-    val prompt = BipeOnboardingPrompt.PHOTO
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
             .background(colors.accentWash, RoundedCornerShape(14.dp)).padding(14.dp),
@@ -273,6 +299,7 @@ private fun PhotoPromptCard(open: () -> Unit, dismiss: () -> Unit) {
     ) {
         Text(stringResource(prompt.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
         prompt.body?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
+        detail?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 stringResource(prompt.primary.title),

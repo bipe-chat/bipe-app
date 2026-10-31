@@ -23,6 +23,13 @@
 //                                        extensions) with their capabilities, its App Store
 //                                        Connect record, its last build number and version.
 //                                        With <n>: fails unless build <n> is higher.
+//   node tools/asc.mjs accessibility [--dry-run] [--publish] [<appstore.md>]
+//                                        Accessibility Nutrition Labels (bipe-chat/bipe#503) from the
+//                                        ## Accessibility table of bipe-shared product/appstore.md
+//                                        (default ../bipe-shared/product/appstore.md). --dry-run prints
+//                                        the declaration and needs no key. Else it writes the iPhone
+//                                        declaration of the ID set's app as a draft; only --publish shows
+//                                        it on the App Store page (after the hand test, bipe-chat/bipe#505).
 // Environment: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH (path of the .p8 key). BIPE_ID_SET=store
 // (bipe-chat/bipe#604, store-release.yml) runs prepare, signing and distribute on the fork's store
 // app (chat.bipe.app, record "Bipe"): there the script never registers a bundle ID, never changes a
@@ -133,6 +140,69 @@ export function client(env = process.env) {
     }
     return json;
   };
+}
+
+// Accessibility Nutrition Labels (bipe-chat/bipe#503): Apple's label name in appstore.md to the attribute of
+// accessibilityDeclarations (App Store Connect API, "Configuring accessibility declarations for your app").
+export const ACCESSIBILITY_FIELDS = {
+  'VoiceOver': 'supportsVoiceover',
+  'Voice Control': 'supportsVoiceControl',
+  'Larger Text': 'supportsLargerText',
+  'Dark Interface': 'supportsDarkInterface',
+  'Differentiate Without Color Alone': 'supportsDifferentiateWithoutColorAlone',
+  'Sufficient Contrast': 'supportsSufficientContrast',
+  'Reduced Motion': 'supportsReducedMotion',
+  'Captions': 'supportsCaptions',
+  'Audio Descriptions': 'supportsAudioDescriptions',
+};
+
+/** The iPhone declaration from the ## Accessibility table of appstore.md. Fails on a missing, unknown or unclear row. */
+export function accessibilityPlan(markdown) {
+  const start = markdown.indexOf('\n## Accessibility\n');
+  if (start < 0) throw new Error('appstore.md has no ## Accessibility section');
+  const end = markdown.indexOf('\n## ', start + 1);
+  const section = markdown.slice(start, end < 0 ? undefined : end);
+  const rows = section.split('\n').filter((l) => /^\|.*\|$/.test(l.trim())).map((l) => l.trim().slice(1, -1).split('|').map((c) => c.trim()));
+  const [head, , ...data] = rows;
+  const column = head?.indexOf('iPhone') ?? -1;
+  if (column < 0) throw new Error('## Accessibility has no iPhone column');
+  const attributes = { deviceFamily: 'IPHONE' };
+  for (const cells of data) {
+    const field = ACCESSIBILITY_FIELDS[cells[0]];
+    if (!field) throw new Error(`## Accessibility: unknown label ${cells[0]}`);
+    if (!['yes', 'no'].includes(cells[column])) throw new Error(`## Accessibility: ${cells[0]} is ${cells[column]}, not yes or no`);
+    attributes[field] = cells[column] === 'yes';
+  }
+  const missing = Object.entries(ACCESSIBILITY_FIELDS).filter(([, field]) => !(field in attributes)).map(([name]) => name);
+  if (missing.length) throw new Error(`## Accessibility: missing ${missing.join(', ')}`);
+  return attributes;
+}
+
+/**
+ * Writes the iPhone declaration: changes the draft when there is one, else creates one. Publishes only with
+ * publish (a store label is a public claim; Apple asks for it after testing the common tasks).
+ */
+export async function accessibility(call, attributes, { set = NEXT, publish = false } = {}) {
+  const app = await findApp(call, set);
+  if (!app) throw new Error(`no App Store Connect record for ${set.appId}`);
+  const list = await call('GET', `/v1/apps/${app.id}/accessibilityDeclarations`);
+  const declarations = (list.data ?? []).filter((d) => d.attributes?.deviceFamily === attributes.deviceFamily);
+  const draft = declarations.find((d) => d.attributes?.state === 'DRAFT');
+  const { deviceFamily, ...supports } = attributes;
+  let id;
+  if (draft) {
+    await call('PATCH', `/v1/accessibilityDeclarations/${draft.id}`, { data: { type: 'accessibilityDeclarations', id: draft.id, attributes: supports } });
+    id = draft.id;
+  } else {
+    const created = await call('POST', '/v1/accessibilityDeclarations', {
+      data: { type: 'accessibilityDeclarations', attributes, relationships: { app: { data: { type: 'apps', id: app.id } } } },
+    });
+    id = created.data.id;
+  }
+  if (publish) {
+    await call('PATCH', `/v1/accessibilityDeclarations/${id}`, { data: { type: 'accessibilityDeclarations', id, attributes: { publish: true } } });
+  }
+  return { id, published: publish };
 }
 
 // The API filters match by prefix, so pick the exact identifier.
@@ -560,7 +630,18 @@ export async function external(call, buildNumber, { enable = false, publicLink =
   return { group, state, missing };
 }
 
-async function main([cmd, arg]) {
+async function main([cmd, arg, ...rest]) {
+  if (cmd === 'accessibility') {
+    const args = [arg, ...rest].filter(Boolean);
+    const path = args.find((a) => !a.startsWith('--')) ?? join('..', 'bipe-shared', 'product', 'appstore.md');
+    const attributes = accessibilityPlan(readFileSync(path, 'utf8'));
+    for (const [name, field] of Object.entries(ACCESSIBILITY_FIELDS)) console.log(`${name}: ${attributes[field] ? 'yes' : 'no'}`);
+    if (args.includes('--dry-run')) return 0;
+    const set = idSet(process.env.BIPE_ID_SET || 'next');
+    const result = await accessibility(client(), attributes, { set, publish: args.includes('--publish') });
+    console.log(`Declaration ${result.id} for ${set.appId}: ${result.published ? 'published' : 'draft (not on the App Store page; --publish shows it)'}`);
+    return 0;
+  }
   const call = client();
   const set = idSet(process.env.BIPE_ID_SET || 'next');
   if (cmd === 'prepare') {
@@ -597,7 +678,7 @@ async function main([cmd, arg]) {
     }
     return 0;
   }
-  console.error('usage: [BIPE_ID_SET=beta|store] node tools/asc.mjs prepare | distribute <build-number> | external <build-number> | signing <serial> | certificates | store-ids [<build-number>]');
+  console.error('usage: [BIPE_ID_SET=beta|store] node tools/asc.mjs prepare | distribute <build-number> | external <build-number> | signing <serial> | certificates | store-ids [<build-number>] | accessibility [--dry-run] [--publish] [<appstore.md>]');
   return 2;
 }
 

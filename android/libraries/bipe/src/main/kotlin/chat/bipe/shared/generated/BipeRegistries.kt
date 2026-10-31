@@ -70,6 +70,26 @@ object BipeRegistries {
         "caixa tem" to ReservedNameCategory.GOVERNMENT,
         "serasa" to ReservedNameCategory.GOVERNMENT,
         "procon" to ReservedNameCategory.GOVERNMENT,
+        "pe de meia" to ReservedNameCategory.GOVERNMENT,
+        "pe-de-meia" to ReservedNameCategory.GOVERNMENT,
+        "pe de meia oficial" to ReservedNameCategory.GOVERNMENT,
+        "pe-de-meia oficial" to ReservedNameCategory.GOVERNMENT,
+        "pe de meia universitario" to ReservedNameCategory.GOVERNMENT,
+        "pe-de-meia universitario" to ReservedNameCategory.GOVERNMENT,
+        "bolsa familia" to ReservedNameCategory.GOVERNMENT,
+        "bolsa familia oficial" to ReservedNameCategory.GOVERNMENT,
+        "meu inss" to ReservedNameCategory.GOVERNMENT,
+        "cadunico" to ReservedNameCategory.GOVERNMENT,
+        "cad unico" to ReservedNameCategory.GOVERNMENT,
+        "cadastro unico" to ReservedNameCategory.GOVERNMENT,
+        "farmacia popular" to ReservedNameCategory.GOVERNMENT,
+        "minha casa minha vida" to ReservedNameCategory.GOVERNMENT,
+        "auxilio gas" to ReservedNameCategory.GOVERNMENT,
+        "desenrola" to ReservedNameCategory.GOVERNMENT,
+        "desenrola brasil" to ReservedNameCategory.GOVERNMENT,
+        "valores a receber" to ReservedNameCategory.GOVERNMENT,
+        "beneficio de prestacao continuada" to ReservedNameCategory.GOVERNMENT,
+        "bpc" to ReservedNameCategory.GOVERNMENT,
     )
 
     /** Normalised relationship terms that trigger the name-mismatch check. */
@@ -842,6 +862,18 @@ object BipeRegistries {
     /** Forward marks (bipe-chat/bipe#83; registries/voice-media.json): the content field and the many-times threshold. Rules: BipeForwardMark, test-vectors/forward-marks.json. */
     const val FORWARD_KEY = "chat.bipe.forward"
     const val FORWARDED_MANY_TIMES = 5
+
+    /** Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, docs/drafts-room.md). Rules: test-vectors/drafts.json. */
+    const val DRAFTS_ROOM_TYPE = "chat.bipe.drafts"
+    const val DRAFTS_ACCOUNT_DATA_TYPE = "chat.bipe.drafts_room"
+    const val DRAFT_FIELD = "chat.bipe.draft"
+    const val DRAFT_BODY_MAX_LENGTH = 8000
+    const val DRAFT_CLIENT_MAX_LENGTH = 64
+
+    /** Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json. */
+    const val ASSISTANT_SEND_ACCOUNT_DATA_TYPE = "chat.bipe.assistant_send"
+    const val ASSISTANT_MARKER_FIELD = "chat.bipe.assistant"
+    const val ASSISTANT_CLIENT_MAX_LENGTH = 64
 
     /** Stickers (bipe ADR 0205, bipe-chat/bipe#837; registries/stickers.json). Search rules: test-vectors/sticker-search.json. */
     const val STICKER_IMPORT_MAX_BYTES = 1000000

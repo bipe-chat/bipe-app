@@ -10,6 +10,7 @@ struct GroupMember: Identifiable, Equatable {
     enum Membership: Equatable {
         case joined
         case invited
+        case banned
     }
 
     var person: Person
@@ -19,6 +20,8 @@ struct GroupMember: Identifiable, Equatable {
     /// A creator (room version 12) has no role actions.
     var isCreator: Bool
     var level: Int64
+    /// Spec group-members nameAmbiguous: another member shows the same name (bipe-chat/bipe#825).
+    var nameAmbiguous = false
 
     var id: String { person.userId }
 }
@@ -33,12 +36,15 @@ final class GroupMembersModel: ObservableObject {
         case removeAdmin
         case remove
         case ban
+        case unban
         case cancelInvite
     }
 
     @Published private(set) var query = ""
     @Published private(set) var joined: [GroupMember] = []
     @Published private(set) var invited: [GroupMember] = []
+    /// State banned (bipe#675): shown only when canBan.
+    @Published private(set) var banned: [GroupMember] = []
     @Published private(set) var canInvite = false
     @Published private(set) var canKick = false
     @Published private(set) var canBan = false
@@ -97,6 +103,8 @@ final class GroupMembersModel: ObservableObject {
             if canBan { actions.append(.ban) }
         case .invited:
             if canKick { actions.append(.cancelInvite) }
+        case .banned:
+            if canBan { actions.append(.unban) }
         }
         return actions
     }
@@ -116,6 +124,8 @@ final class GroupMembersModel: ObservableObject {
                 try await room.kickUser(userId: member.person.userId, reason: nil)
             case .ban:
                 try await room.banUser(userId: member.person.userId, reason: nil)
+            case .unban:
+                try await room.unbanUser(userId: member.person.userId, reason: nil)
             }
             if let members = await GroupPeople.members(of: room) {
                 apply(members)
@@ -134,11 +144,13 @@ final class GroupMembersModel: ObservableObject {
         if let own = members.first(where: { $0.userId == session.userId }) {
             ownLevel = GroupPeople.level(own.powerLevel)
         }
+        let flagged = Set(members.filter(\.isNameAmbiguous).map(\.userId))
         all = members.compactMap { member in
             let membership: GroupMember.Membership
             switch member.membership {
             case .join: membership = .joined
             case .invite: membership = .invited
+            case .ban: membership = .banned
             default: return nil
             }
             return GroupMember(person: Person(member: member),
@@ -147,6 +159,11 @@ final class GroupMembersModel: ObservableObject {
                                isYou: member.userId == session.userId,
                                isCreator: member.suggestedRoleForPowerLevel == .creator,
                                level: GroupPeople.level(member.powerLevel))
+        }
+        let lookalikes = MemberNames.ambiguous(Dictionary(all.map { ($0.person.userId, $0.person.displayName) },
+                                                          uniquingKeysWith: { first, _ in first }))
+        for index in all.indices where flagged.contains(all[index].person.userId) || lookalikes.contains(all[index].person.userId) {
+            all[index].nameAmbiguous = true
         }
         rebuild()
     }
@@ -160,5 +177,6 @@ final class GroupMembersModel: ObservableObject {
             lhs.isAdmin != rhs.isAdmin ? lhs.isAdmin : byName(lhs, rhs)
         }
         invited = visible.filter { $0.membership == .invited }.sorted(by: byName)
+        banned = canBan ? visible.filter { $0.membership == .banned }.sorted(by: byName) : []
     }
 }

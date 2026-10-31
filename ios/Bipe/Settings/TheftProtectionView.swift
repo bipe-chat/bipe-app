@@ -208,6 +208,7 @@ struct TheftProtectionView: View {
 
     var body: some View {
         List {
+            OsTheftProtectionSection()
             Section {
                 Text(BipeStrings.theftIntro)
                     .font(.subheadline)

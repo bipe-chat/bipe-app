@@ -64,12 +64,12 @@ data class ForwardChat(val roomId: String, val name: String, val avatarUrl: Stri
 private const val FORWARD_LIMIT = 5
 
 /**
- * Spec message-forward (bipe-chat/bipe#664): the chat picker for a copy of a sent message. [contentJson] is the
- * original content with the forward mark (BipeForwardMark, bipe-chat/bipe#83). [onClose] gets the names of the chats
- * whose send failed, or null after cancel.
+ * Spec message-forward (bipe-chat/bipe#664, bipe-chat/bipe#860): the chat picker for copies of sent messages, in timeline order.
+ * [contentJsons] are the original contents with the forward mark (BipeForwardMark, bipe-chat/bipe#83). [onClose] gets the
+ * names of the chats whose send failed, or null after cancel.
  */
 @Composable
-fun MessageForwardSheet(client: Client, contentJson: String, media: MediaLoader, onClose: (List<String>?) -> Unit) {
+fun MessageForwardSheet(client: Client, contentJsons: List<String>, media: MediaLoader, onClose: (List<String>?) -> Unit) {
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
     val noName = stringResource(R.string.bipe_dm_no_name)
@@ -82,6 +82,8 @@ fun MessageForwardSheet(client: Client, contentJson: String, media: MediaLoader,
     LaunchedEffect(client) {
         chats = runCatching { client.rooms() }.getOrDefault(emptyList())
             .filter { runCatching { it.membership() == Membership.JOINED && !it.isSpace() }.getOrDefault(false) }
+            // Spec drafts notes: never the drafts room.
+            .filter { room -> runCatching { !AssistantDraftsStore.isDraftsRoom(room.id(), client.userId()) }.getOrDefault(true) }
             .map { ForwardChat(it.id(), it.displayName()?.takeIf { name -> name.isNotBlank() } ?: noName, it.avatarUrl()) }
             .sortedBy { searchFold(it.name) }
     }
@@ -99,7 +101,8 @@ fun MessageForwardSheet(client: Client, contentJson: String, media: MediaLoader,
         }
     }
 
-    /** Action send: one copy per picked chat; a failure does not stop the others. */
+    /** Action send: the copies per picked chat; a failure does not stop the other chats. A failed message stops its chat,
+     * so the copies never arrive out of order. */
     fun send() {
         if (picked.isEmpty() || sending) return
         sending = true
@@ -108,7 +111,7 @@ fun MessageForwardSheet(client: Client, contentJson: String, media: MediaLoader,
                 runCatching {
                     val room = client.getRoom(roomId) ?: error("no room")
                     // Room.sendRaw encrypts in an encrypted room. Media keeps its source: nothing is uploaded again.
-                    room.sendRaw("m.room.message", contentJson)
+                    contentJsons.forEach { room.sendRaw("m.room.message", it) }
                 }.isFailure
             }.map { roomId -> chats.firstOrNull { it.roomId == roomId }?.name ?: roomId }
             sending = false
