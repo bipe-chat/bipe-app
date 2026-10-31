@@ -85,6 +85,7 @@ import chat.bipe.app.people.PeopleScreen
 import chat.bipe.app.people.PeopleNavigation
 import chat.bipe.app.invites.InvitesModel
 import chat.bipe.app.invites.InvitesScreen
+import chat.bipe.app.common.appVersionDisplay
 import chat.bipe.app.common.AppTheme
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.media.upload.MediaQuality
@@ -709,7 +710,7 @@ private fun SectionFooter(section: BipeSettingsSection, group: BipeSettingsGroup
             // The copy has a TalkBack action too, so it needs no long press (bipe#499).
             val copyLabel = stringResource(R.string.bipe_a11y_copy_device_id)
             Text(
-                stringResource(R.string.bipe_help_version, appVersion(LocalContext.current)),
+                stringResource(R.string.bipe_help_version, appVersionDisplay(LocalContext.current)),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.inkSecondary,
                 modifier = Modifier
@@ -718,14 +719,6 @@ private fun SectionFooter(section: BipeSettingsSection, group: BipeSettingsGroup
             )
         }
     }
-}
-
-/** The version name, build and commit, for bipe_help_version: "26.10.2 (141) 5481bba" (tools/version.mjs). */
-private fun appVersion(context: Context): String {
-    val info = context.packageManager.getPackageInfo(context.packageName, 0)
-    val build = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
-    val commit = chat.bipe.app.BuildConfig.BIPE_COMMIT
-    return if (commit.isEmpty()) "${info.versionName} ($build)" else "${info.versionName} ($build) $commit"
 }
 
 @Composable
