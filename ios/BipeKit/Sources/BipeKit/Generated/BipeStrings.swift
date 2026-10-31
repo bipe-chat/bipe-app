@@ -4827,4 +4827,6 @@ public enum BipeStrings {
     public static var osTheftPathAndroid: String { NSLocalizedString("bipe_os_theft_path_android", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var osTheftPathSamsung: String { NSLocalizedString("bipe_os_theft_path_samsung", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var searchInChat: String { NSLocalizedString("bipe_search_in_chat", tableName: "Bipe", bundle: .module, comment: "") }
 }

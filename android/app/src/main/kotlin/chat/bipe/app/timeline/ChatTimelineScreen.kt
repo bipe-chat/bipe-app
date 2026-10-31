@@ -80,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.business.rememberBusinessChatTools
+import chat.bipe.app.chatlist.ChatMessageSearchSheet
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.LocalReduceMotion
@@ -234,6 +235,12 @@ fun ChatTimelineScreen(
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     var dmMenu by remember { mutableStateOf(false) }
+    var groupMenu by remember { mutableStateOf(false) }
+    // Spec chat-timeline searchInChat (bipe-chat/bipe#861): a message hit scrolls this chat to it.
+    var searchingChat by rememberSaveable { mutableStateOf(false) }
+    if (searchingChat) {
+        ChatMessageSearchSheet(session, roomId, onOpenMessage = model::openOriginal, onClose = { searchingChat = false })
+    }
     // Spec business-chat-bar: the tools and booking cards of a DM with a company (or, on a company, with a customer).
     val business = rememberBusinessChatTools(session, media, peerUserId.takeIf { isDm })
     var deletingDm by rememberSaveable { mutableStateOf(false) }
@@ -323,12 +330,31 @@ fun ChatTimelineScreen(
                     }
                     if (threadRoot == null) CallHeaderButtons(model, session, roomName)
                     if (isGroup && onOpenGroupDetails != null && threadRoot == null) {
-                        IconButton(onClick = onOpenGroupDetails) {
-                            Icon(
-                                painterResource(PhosphorIcon.INFO.drawable),
-                                contentDescription = stringResource(R.string.bipe_app_group_details_title),
-                                tint = colors.glyphPrimary,
-                            )
+                        // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
+                        Box {
+                            IconButton(onClick = { groupMenu = true }) {
+                                Icon(
+                                    painterResource(PhosphorIcon.INFO.drawable),
+                                    contentDescription = stringResource(R.string.bipe_app_group_details_title),
+                                    tint = colors.glyphPrimary,
+                                )
+                            }
+                            DropdownMenu(expanded = groupMenu, onDismissRequest = { groupMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_app_group_details_title)) },
+                                    onClick = {
+                                        groupMenu = false
+                                        onOpenGroupDetails()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_search_in_chat)) },
+                                    onClick = {
+                                        groupMenu = false
+                                        searchingChat = true
+                                    },
+                                )
+                            }
                         }
                     }
                     if (isDm) {
@@ -342,6 +368,13 @@ fun ChatTimelineScreen(
                             }
                             DropdownMenu(expanded = dmMenu, onDismissRequest = { dmMenu = false }) {
                                 business?.MenuItems(dismiss = { dmMenu = false })
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_search_in_chat)) },
+                                    onClick = {
+                                        dmMenu = false
+                                        searchingChat = true
+                                    },
+                                )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) },
                                     onClick = {

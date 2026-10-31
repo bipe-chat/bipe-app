@@ -2093,4 +2093,5 @@
     <string name="bipe_os_theft_path_ios_touch_id">In the main Settings screen, tap Touch ID &amp; Passcode, then Stolen Device Protection.</string>
     <string name="bipe_os_theft_path_android">In Settings, tap Google, All services and Theft protection. Turn on Theft Detection Lock and Offline Device Lock.</string>
     <string name="bipe_os_theft_path_samsung">In Settings, tap Security and privacy, Lost device protection and Theft protection. Turn on Theft Detection Lock and Offline Device Lock.</string>
+    <string name="bipe_search_in_chat">Search in chat</string>
 </resources>
