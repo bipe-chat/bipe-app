@@ -29,6 +29,7 @@ public enum BipeOnboardingTarget: String, Sendable {
     case pinCheck
     case bringPeopleSheet
     case bringPeopleResend
+    case osTheftSettings
 }
 
 public struct BipeOnboardingButton: Sendable, Equatable {
@@ -146,6 +147,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
     case recovery
     case photo
     case pinReminder
+    case osTheftProtection
     case bringPeople
     case bringPeopleReminder
 
@@ -156,6 +158,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .recovery: "bipe_fallback_title"
         case .photo: "bipe_photo_prompt_title"
         case .pinReminder: "bipe_pin_reminder_title"
+        case .osTheftProtection: "bipe_os_theft_prompt_title"
         case .bringPeople: "bipe_bring_people_title"
         case .bringPeopleReminder: "bipe_bring_people_reminder_title"
         }
@@ -168,6 +171,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .recovery: "bipe_fallback_reminder"
         case .photo: "bipe_photo_prompt_body"
         case .pinReminder: "bipe_pin_reminder_body"
+        case .osTheftProtection: "bipe_os_theft_prompt_body"
         case .bringPeople: "bipe_bring_people_body"
         case .bringPeopleReminder: "bipe_bring_people_reminder_pending"
         }
@@ -181,6 +185,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .recovery: BipeOnboardingButton(titleKey: "bipe_fallback_email", target: .recoveryEmailAdd)
         case .photo: BipeOnboardingButton(titleKey: "bipe_photo_prompt_action", target: .photoPicker)
         case .pinReminder: BipeOnboardingButton(titleKey: "bipe_pin_reminder_action", target: .pinCheck)
+        case .osTheftProtection: BipeOnboardingButton(titleKey: "bipe_os_theft_action", target: .osTheftSettings)
         case .bringPeople: BipeOnboardingButton(titleKey: "bipe_first_card_invite_action", target: .bringPeopleSheet)
         case .bringPeopleReminder: BipeOnboardingButton(titleKey: "bipe_bring_people_resend", target: .bringPeopleResend)
         }
@@ -194,6 +199,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .recovery: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
         case .photo: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
         case .pinReminder: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
+        case .osTheftProtection: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
         case .bringPeople: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
         case .bringPeopleReminder: [BipeOnboardingButton(titleKey: "bipe_fallback_skip", target: .dismiss)]
         }
@@ -207,6 +213,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .recovery: false
         case .photo: true
         case .pinReminder: true
+        case .osTheftProtection: true
         case .bringPeople: false
         case .bringPeopleReminder: true
         }
@@ -326,6 +333,8 @@ public enum BipeOnboarding {
     /// Trigger pinReminderDue (bipe-chat/bipe#202): the gap in days after each step, then pinReminderThenEveryDays.
     public static let pinReminderDays = [1, 3, 7, 14, 30]
     public static let pinReminderThenEveryDays = 60
+    /// Trigger voceAfterDays (bipe-chat/bipe#125): days after this phone first saw the account.
+    public static let osTheftProtectionAfterDays = 1
     /// Specs bring-people and bring-people-reminder (bipe-chat/bipe#752).
     public static let bringPeopleSlots = 4
     public static let bringPeopleFirstCircle = "family"

@@ -4809,4 +4809,22 @@ public enum BipeStrings {
     public static var recoveryPushStartedBody: String { NSLocalizedString("bipe_recovery_push_started_body", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var recoveryPushCompletedBody: String { NSLocalizedString("bipe_recovery_push_completed_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var osTheftPromptTitle: String { NSLocalizedString("bipe_os_theft_prompt_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var osTheftPromptBody: String { NSLocalizedString("bipe_os_theft_prompt_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var osTheftAction: String { NSLocalizedString("bipe_os_theft_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var osTheftRowTitle: String { NSLocalizedString("bipe_os_theft_row_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var osTheftRowBody: String { NSLocalizedString("bipe_os_theft_row_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var osTheftPathIosFaceId: String { NSLocalizedString("bipe_os_theft_path_ios_face_id", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var osTheftPathIosTouchId: String { NSLocalizedString("bipe_os_theft_path_ios_touch_id", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var osTheftPathAndroid: String { NSLocalizedString("bipe_os_theft_path_android", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var osTheftPathSamsung: String { NSLocalizedString("bipe_os_theft_path_samsung", tableName: "Bipe", bundle: .module, comment: "") }
 }
