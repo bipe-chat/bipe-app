@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -358,9 +359,12 @@ fun ChatRequestsRow(count: Int, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painterResource(PhosphorIcon.USER_CIRCLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(40.dp))
+        // Same footprint as the ChatRow avatar (Avatar, 48dp), so the title lines up with the chats below.
+        Box(Modifier.size(48.dp).background(colors.accentWash, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(painterResource(PhosphorIcon.USER_CIRCLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(24.dp))
+        }
         Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.bipe_requests_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
             Text(stringResource(R.string.bipe_requests_row_body), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
         }

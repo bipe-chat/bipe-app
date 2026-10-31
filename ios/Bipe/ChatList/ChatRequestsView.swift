@@ -12,12 +12,15 @@ struct ChatRequestsRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // Same footprint as the ChatRow avatar (AvatarView, 48), so the title lines up with the chats below.
             PhosphorIcon.userCircle.image
                 .resizable()
-                .frame(width: 40, height: 40)
+                .frame(width: 24, height: 24)
                 .foregroundStyle(BipeColor.accentInk)
+                .frame(width: 48, height: 48)
+                .background(Circle().fill(BipeColor.accentWash))
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(BipeStrings.requestsTitle)
                     .font(.headline)
                     .foregroundStyle(BipeColor.inkPrimary)
