@@ -133,6 +133,7 @@ sealed interface SettingsRoute {
     data object AppearanceChoice : SettingsRoute
     data object MediaQualityChoice : SettingsRoute
     data object AppColors : SettingsRoute
+    data object Accessibility : SettingsRoute
     data object DataUse : SettingsRoute
     data object LiveLocationDistance : SettingsRoute
     data object RecoveryKey : SettingsRoute
@@ -242,6 +243,7 @@ fun SettingsHost(
             onBack = pop,
         )
         SettingsRoute.AppColors -> AppColorsScreen(onBack = pop)
+        SettingsRoute.Accessibility -> AccessibilitySettingsScreen(onBack = pop)
         // bipe-chat/bipe#676: appearance and media quality, kept on the phone.
         SettingsRoute.AppearanceChoice -> ChoiceListScreen(
             title = stringResource(R.string.bipe_chats_appearance),
@@ -414,6 +416,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.CHATS_APPEARANCE -> onOpen(SettingsRoute.AppearanceChoice)
             BipeSettingsRow.CHATS_MEDIA_QUALITY -> onOpen(SettingsRoute.MediaQualityChoice)
             BipeSettingsRow.CHATS_COLORS -> onOpen(SettingsRoute.AppColors)
+            BipeSettingsRow.CHATS_ACCESSIBILITY -> onOpen(SettingsRoute.Accessibility)
             BipeSettingsRow.CHATS_DATA_USE -> onOpen(SettingsRoute.DataUse)
             BipeSettingsRow.CHATS_LIVE_LOCATION -> onOpen(SettingsRoute.LiveLocationDistance)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }

@@ -129,7 +129,7 @@ private fun rememberHighContrast(): Boolean {
     return high
 }
 
-private fun highContrast(context: Context): Boolean {
+internal fun highContrast(context: Context): Boolean {
     // Settings.Secure "high_text_contrast_enabled": the system's High contrast text switch.
     val highText = Settings.Secure.getInt(context.contentResolver, "high_text_contrast_enabled", 0) == 1
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return highText

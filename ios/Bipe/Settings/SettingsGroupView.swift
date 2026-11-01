@@ -271,6 +271,12 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title, value: theme.palette.title, footer: row.footer)
             }
+        case .chatsAccessibility:
+            NavigationLink {
+                AccessibilitySettingsView()
+            } label: {
+                SettingsRowLabel(title: row.title)
+            }
         // bipe#676: appearance and media quality, kept on the phone.
         case .chatsAppearance:
             NavigationLink {
