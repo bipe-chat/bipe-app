@@ -83,6 +83,12 @@ data class BipeColors(
     /** Bipe marks on the chat background in the second tone (ADR 0213). */
     val chatMarkAlt: Color,
 
+    /** Fruit outlines and dots on the Salada de frutas chat background (ADR 0215). */
+    val chatFruit: Color,
+
+    /** Soft fill inside the fruit outlines on the Salada de frutas chat background (ADR 0215). */
+    val chatFruitFill: Color,
+
     /** Verified text and the seal. The seal shape carries the meaning, not the colour (trust-ui.md). */
     val trustVerifiedInk: Color,
 
@@ -146,6 +152,8 @@ val BipeLightColors: BipeColors = BipeColors(
     chatBlobDeep = Color(0xFFFADDF6),
     chatMark = Color(0xFFFDEDFB),
     chatMarkAlt = Color(0xFFFFFAFE),
+    chatFruit = Color(0xFFF3C4ED),
+    chatFruitFill = Color(0xFFFDEDFB),
     trustVerifiedInk = Color(0xFF802F7C),
     trustVerifiedWash = Color(0xFFFEF6FD),
     trustVerifiedLine = Color(0xFF802F7C),
@@ -184,6 +192,8 @@ val BipeDarkColors: BipeColors = BipeColors(
     chatBlobDeep = Color(0xFF451142),
     chatMark = Color(0xFF2D0B2B),
     chatMarkAlt = Color(0xFF360D34),
+    chatFruit = Color(0xFF451142),
+    chatFruitFill = Color(0xFF2D0B2B),
     trustVerifiedInk = Color(0xFFDB91D4),
     trustVerifiedWash = Color(0xFF2D0B2B),
     trustVerifiedLine = Color(0xFFDB91D4),
@@ -222,6 +232,8 @@ val BipeLightHighContrastColors: BipeColors = BipeColors(
     chatBlobDeep = Color(0xFFFFFAFE),
     chatMark = Color(0xFFFFFAFE),
     chatMarkAlt = Color(0xFFFFFAFE),
+    chatFruit = Color(0xFFFFFAFE),
+    chatFruitFill = Color(0xFFFFFAFE),
     trustVerifiedInk = Color(0xFF4E144B),
     trustVerifiedWash = Color(0xFFFEF6FD),
     trustVerifiedLine = Color(0xFF4E144B),
@@ -260,6 +272,8 @@ val BipeDarkHighContrastColors: BipeColors = BipeColors(
     chatBlobDeep = Color(0xFF280A26),
     chatMark = Color(0xFF280A26),
     chatMarkAlt = Color(0xFF280A26),
+    chatFruit = Color(0xFF280A26),
+    chatFruitFill = Color(0xFF280A26),
     trustVerifiedInk = Color(0xFFF7D2F3),
     trustVerifiedWash = Color(0xFF2D0B2B),
     trustVerifiedLine = Color(0xFFF7D2F3),
@@ -311,34 +325,34 @@ fun bipeColors(palette: BipePalette, dark: Boolean, highContrast: Boolean): Bipe
     return when (palette) {
         BipePalette.ACAI -> base
         BipePalette.GOIABA -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD2E2), accentFill = Color(0xFFFFD2E2), accentFillPressed = Color(0xFFFFE8EF), accentWash = Color(0xFF420024), bubbleOwn = Color(0xFF6B003C), chatBackground = Color(0xFF34001A), chatBlob = Color(0xFF34001A), chatBlobDeep = Color(0xFF34001A), chatMark = Color(0xFF34001A), chatMarkAlt = Color(0xFF34001A))
-            dark -> base.copy(accentInk = Color(0xFFFC83B6), accentFill = Color(0xFFFC83B6), accentFillPressed = Color(0xFFFFD2E2), accentWash = Color(0xFF39001E), bubbleOwn = Color(0xFF54002E), chatBackground = Color(0xFF34001A), chatBlob = Color(0xFF420024), chatBlobDeep = Color(0xFF54002E), chatMark = Color(0xFF39001E), chatMarkAlt = Color(0xFF420024))
-            highContrast -> base.copy(accentInk = Color(0xFF5E0034), accentFill = Color(0xFF5E0034), accentFillPressed = Color(0xFF420023), accentWash = Color(0xFFFFEEF3), bubbleOwn = Color(0xFFFFC3D9), chatBackground = Color(0xFFFFFAFC), chatBlob = Color(0xFFFFFAFC), chatBlobDeep = Color(0xFFFFFAFC), chatMark = Color(0xFFFFFAFC), chatMarkAlt = Color(0xFFFFFAFC))
-            else -> base.copy(accentInk = Color(0xFF9F005D), accentFill = Color(0xFF9F005D), accentFillPressed = Color(0xFF5E0034), accentWash = Color(0xFFFFF6F9), bubbleOwn = Color(0xFFFFDDE9), chatBackground = Color(0xFFFFF6F9), chatBlob = Color(0xFFFFEEF3), chatBlobDeep = Color(0xFFFFDDE9), chatMark = Color(0xFFFFEEF3), chatMarkAlt = Color(0xFFFFFAFC))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD2E2), accentFill = Color(0xFFFFD2E2), accentFillPressed = Color(0xFFFFE8EF), accentWash = Color(0xFF420024), bubbleOwn = Color(0xFF6B003C), chatBackground = Color(0xFF34001A), chatBlob = Color(0xFF34001A), chatBlobDeep = Color(0xFF34001A), chatMark = Color(0xFF34001A), chatMarkAlt = Color(0xFF34001A), chatFruit = Color(0xFF34001A), chatFruitFill = Color(0xFF34001A))
+            dark -> base.copy(accentInk = Color(0xFFFC83B6), accentFill = Color(0xFFFC83B6), accentFillPressed = Color(0xFFFFD2E2), accentWash = Color(0xFF39001E), bubbleOwn = Color(0xFF54002E), chatBackground = Color(0xFF34001A), chatBlob = Color(0xFF420024), chatBlobDeep = Color(0xFF54002E), chatMark = Color(0xFF39001E), chatMarkAlt = Color(0xFF420024), chatFruit = Color(0xFF54002E), chatFruitFill = Color(0xFF39001E))
+            highContrast -> base.copy(accentInk = Color(0xFF5E0034), accentFill = Color(0xFF5E0034), accentFillPressed = Color(0xFF420023), accentWash = Color(0xFFFFEEF3), bubbleOwn = Color(0xFFFFC3D9), chatBackground = Color(0xFFFFFAFC), chatBlob = Color(0xFFFFFAFC), chatBlobDeep = Color(0xFFFFFAFC), chatMark = Color(0xFFFFFAFC), chatMarkAlt = Color(0xFFFFFAFC), chatFruit = Color(0xFFFFFAFC), chatFruitFill = Color(0xFFFFFAFC))
+            else -> base.copy(accentInk = Color(0xFF9F005D), accentFill = Color(0xFF9F005D), accentFillPressed = Color(0xFF5E0034), accentWash = Color(0xFFFFF6F9), bubbleOwn = Color(0xFFFFDDE9), chatBackground = Color(0xFFFFF6F9), chatBlob = Color(0xFFFFEEF3), chatBlobDeep = Color(0xFFFFDDE9), chatMark = Color(0xFFFFEEF3), chatMarkAlt = Color(0xFFFFFAFC), chatFruit = Color(0xFFFFC3D9), chatFruitFill = Color(0xFFFFEEF3))
         }
         BipePalette.PITANGA -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD5C4), accentFill = Color(0xFFFFD5C4), accentFillPressed = Color(0xFFFFE9E1), accentWash = Color(0xFF3B1000), bubbleOwn = Color(0xFF5F1F00), chatBackground = Color(0xFF2E0B00), chatBlob = Color(0xFF2E0B00), chatBlobDeep = Color(0xFF2E0B00), chatMark = Color(0xFF2E0B00), chatMarkAlt = Color(0xFF2E0B00))
-            dark -> base.copy(accentInk = Color(0xFFFF895A), accentFill = Color(0xFFFF895A), accentFillPressed = Color(0xFFFFD5C4), accentWash = Color(0xFF330D00), bubbleOwn = Color(0xFF4A1700), chatBackground = Color(0xFF2E0B00), chatBlob = Color(0xFF3B1000), chatBlobDeep = Color(0xFF4A1700), chatMark = Color(0xFF330D00), chatMarkAlt = Color(0xFF3B1000))
-            highContrast -> base.copy(accentInk = Color(0xFF541B00), accentFill = Color(0xFF541B00), accentFillPressed = Color(0xFF3A1000), accentWash = Color(0xFFFFEEE8), bubbleOwn = Color(0xFFFFC7B1), chatBackground = Color(0xFFFFFBF9), chatBlob = Color(0xFFFFFBF9), chatBlobDeep = Color(0xFFFFFBF9), chatMark = Color(0xFFFFFBF9), chatMarkAlt = Color(0xFFFFFBF9))
-            else -> base.copy(accentInk = Color(0xFF8F3300), accentFill = Color(0xFF8F3300), accentFillPressed = Color(0xFF541B00), accentWash = Color(0xFFFFF7F3), bubbleOwn = Color(0xFFFFDFD4), chatBackground = Color(0xFFFFF7F3), chatBlob = Color(0xFFFFEEE8), chatBlobDeep = Color(0xFFFFDFD4), chatMark = Color(0xFFFFEEE8), chatMarkAlt = Color(0xFFFFFBF9))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD5C4), accentFill = Color(0xFFFFD5C4), accentFillPressed = Color(0xFFFFE9E1), accentWash = Color(0xFF3B1000), bubbleOwn = Color(0xFF5F1F00), chatBackground = Color(0xFF2E0B00), chatBlob = Color(0xFF2E0B00), chatBlobDeep = Color(0xFF2E0B00), chatMark = Color(0xFF2E0B00), chatMarkAlt = Color(0xFF2E0B00), chatFruit = Color(0xFF2E0B00), chatFruitFill = Color(0xFF2E0B00))
+            dark -> base.copy(accentInk = Color(0xFFFF895A), accentFill = Color(0xFFFF895A), accentFillPressed = Color(0xFFFFD5C4), accentWash = Color(0xFF330D00), bubbleOwn = Color(0xFF4A1700), chatBackground = Color(0xFF2E0B00), chatBlob = Color(0xFF3B1000), chatBlobDeep = Color(0xFF4A1700), chatMark = Color(0xFF330D00), chatMarkAlt = Color(0xFF3B1000), chatFruit = Color(0xFF4A1700), chatFruitFill = Color(0xFF330D00))
+            highContrast -> base.copy(accentInk = Color(0xFF541B00), accentFill = Color(0xFF541B00), accentFillPressed = Color(0xFF3A1000), accentWash = Color(0xFFFFEEE8), bubbleOwn = Color(0xFFFFC7B1), chatBackground = Color(0xFFFFFBF9), chatBlob = Color(0xFFFFFBF9), chatBlobDeep = Color(0xFFFFFBF9), chatMark = Color(0xFFFFFBF9), chatMarkAlt = Color(0xFFFFFBF9), chatFruit = Color(0xFFFFFBF9), chatFruitFill = Color(0xFFFFFBF9))
+            else -> base.copy(accentInk = Color(0xFF8F3300), accentFill = Color(0xFF8F3300), accentFillPressed = Color(0xFF541B00), accentWash = Color(0xFFFFF7F3), bubbleOwn = Color(0xFFFFDFD4), chatBackground = Color(0xFFFFF7F3), chatBlob = Color(0xFFFFEEE8), chatBlobDeep = Color(0xFFFFDFD4), chatMark = Color(0xFFFFEEE8), chatMarkAlt = Color(0xFFFFFBF9), chatFruit = Color(0xFFFFC7B1), chatFruitFill = Color(0xFFFFEEE8))
         }
         BipePalette.MARACUJA -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFE9DE9F), accentFill = Color(0xFFE9DE9F), accentFillPressed = Color(0xFFF4EFCC), accentWash = Color(0xFF241E00), bubbleOwn = Color(0xFF3C3500), chatBackground = Color(0xFF1B1600), chatBlob = Color(0xFF1B1600), chatBlobDeep = Color(0xFF1B1600), chatMark = Color(0xFF1B1600), chatMarkAlt = Color(0xFF1B1600))
-            dark -> base.copy(accentInk = Color(0xFFC0AB00), accentFill = Color(0xFFC0AB00), accentFillPressed = Color(0xFFE9DE9F), accentWash = Color(0xFF1E1A00), bubbleOwn = Color(0xFF2E2700), chatBackground = Color(0xFF1B1600), chatBlob = Color(0xFF241E00), chatBlobDeep = Color(0xFF2E2700), chatMark = Color(0xFF1E1A00), chatMarkAlt = Color(0xFF241E00))
-            highContrast -> base.copy(accentInk = Color(0xFF352E00), accentFill = Color(0xFF352E00), accentFillPressed = Color(0xFF231D00), accentWash = Color(0xFFF7F3D8), bubbleOwn = Color(0xFFE2D584), chatBackground = Color(0xFFFDFCF4), chatBlob = Color(0xFFFDFCF4), chatBlobDeep = Color(0xFFFDFCF4), chatMark = Color(0xFFFDFCF4), chatMarkAlt = Color(0xFFFDFCF4))
-            else -> base.copy(accentInk = Color(0xFF5C5000), accentFill = Color(0xFF5C5000), accentFillPressed = Color(0xFF352E00), accentWash = Color(0xFFFBF8EA), bubbleOwn = Color(0xFFEFE7B8), chatBackground = Color(0xFFFBF8EA), chatBlob = Color(0xFFF7F3D8), chatBlobDeep = Color(0xFFEFE7B8), chatMark = Color(0xFFF7F3D8), chatMarkAlt = Color(0xFFFDFCF4))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFE9DE9F), accentFill = Color(0xFFE9DE9F), accentFillPressed = Color(0xFFF4EFCC), accentWash = Color(0xFF241E00), bubbleOwn = Color(0xFF3C3500), chatBackground = Color(0xFF1B1600), chatBlob = Color(0xFF1B1600), chatBlobDeep = Color(0xFF1B1600), chatMark = Color(0xFF1B1600), chatMarkAlt = Color(0xFF1B1600), chatFruit = Color(0xFF1B1600), chatFruitFill = Color(0xFF1B1600))
+            dark -> base.copy(accentInk = Color(0xFFC0AB00), accentFill = Color(0xFFC0AB00), accentFillPressed = Color(0xFFE9DE9F), accentWash = Color(0xFF1E1A00), bubbleOwn = Color(0xFF2E2700), chatBackground = Color(0xFF1B1600), chatBlob = Color(0xFF241E00), chatBlobDeep = Color(0xFF2E2700), chatMark = Color(0xFF1E1A00), chatMarkAlt = Color(0xFF241E00), chatFruit = Color(0xFF2E2700), chatFruitFill = Color(0xFF1E1A00))
+            highContrast -> base.copy(accentInk = Color(0xFF352E00), accentFill = Color(0xFF352E00), accentFillPressed = Color(0xFF231D00), accentWash = Color(0xFFF7F3D8), bubbleOwn = Color(0xFFE2D584), chatBackground = Color(0xFFFDFCF4), chatBlob = Color(0xFFFDFCF4), chatBlobDeep = Color(0xFFFDFCF4), chatMark = Color(0xFFFDFCF4), chatMarkAlt = Color(0xFFFDFCF4), chatFruit = Color(0xFFFDFCF4), chatFruitFill = Color(0xFFFDFCF4))
+            else -> base.copy(accentInk = Color(0xFF5C5000), accentFill = Color(0xFF5C5000), accentFillPressed = Color(0xFF352E00), accentWash = Color(0xFFFBF8EA), bubbleOwn = Color(0xFFEFE7B8), chatBackground = Color(0xFFFBF8EA), chatBlob = Color(0xFFF7F3D8), chatBlobDeep = Color(0xFFEFE7B8), chatMark = Color(0xFFF7F3D8), chatMarkAlt = Color(0xFFFDFCF4), chatFruit = Color(0xFFE2D584), chatFruitFill = Color(0xFFF7F3D8))
         }
         BipePalette.JENIPAPO -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFBFE2F7), accentFill = Color(0xFFBFE2F7), accentFillPressed = Color(0xFFDDF1FC), accentWash = Color(0xFF002231), bubbleOwn = Color(0xFF003950), chatBackground = Color(0xFF001925), chatBlob = Color(0xFF001925), chatBlobDeep = Color(0xFF001925), chatMark = Color(0xFF001925), chatMarkAlt = Color(0xFF001925))
-            dark -> base.copy(accentInk = Color(0xFF67B2DA), accentFill = Color(0xFF67B2DA), accentFillPressed = Color(0xFFBFE2F7), accentWash = Color(0xFF001C29), bubbleOwn = Color(0xFF002B3D), chatBackground = Color(0xFF001925), chatBlob = Color(0xFF002231), chatBlobDeep = Color(0xFF002B3D), chatMark = Color(0xFF001C29), chatMarkAlt = Color(0xFF002231))
-            highContrast -> base.copy(accentInk = Color(0xFF003145), accentFill = Color(0xFF003145), accentFillPressed = Color(0xFF002130), accentWash = Color(0xFFE6F5FD), bubbleOwn = Color(0xFFADDAF2), chatBackground = Color(0xFFF8FCFF), chatBlob = Color(0xFFF8FCFF), chatBlobDeep = Color(0xFFF8FCFF), chatMark = Color(0xFFF8FCFF), chatMarkAlt = Color(0xFFF8FCFF))
-            else -> base.copy(accentInk = Color(0xFF005678), accentFill = Color(0xFF005678), accentFillPressed = Color(0xFF003145), accentWash = Color(0xFFF2FAFE), bubbleOwn = Color(0xFFCFEAF9), chatBackground = Color(0xFFF2FAFE), chatBlob = Color(0xFFE6F5FD), chatBlobDeep = Color(0xFFCFEAF9), chatMark = Color(0xFFE6F5FD), chatMarkAlt = Color(0xFFF8FCFF))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFBFE2F7), accentFill = Color(0xFFBFE2F7), accentFillPressed = Color(0xFFDDF1FC), accentWash = Color(0xFF002231), bubbleOwn = Color(0xFF003950), chatBackground = Color(0xFF001925), chatBlob = Color(0xFF001925), chatBlobDeep = Color(0xFF001925), chatMark = Color(0xFF001925), chatMarkAlt = Color(0xFF001925), chatFruit = Color(0xFF001925), chatFruitFill = Color(0xFF001925))
+            dark -> base.copy(accentInk = Color(0xFF67B2DA), accentFill = Color(0xFF67B2DA), accentFillPressed = Color(0xFFBFE2F7), accentWash = Color(0xFF001C29), bubbleOwn = Color(0xFF002B3D), chatBackground = Color(0xFF001925), chatBlob = Color(0xFF002231), chatBlobDeep = Color(0xFF002B3D), chatMark = Color(0xFF001C29), chatMarkAlt = Color(0xFF002231), chatFruit = Color(0xFF002B3D), chatFruitFill = Color(0xFF001C29))
+            highContrast -> base.copy(accentInk = Color(0xFF003145), accentFill = Color(0xFF003145), accentFillPressed = Color(0xFF002130), accentWash = Color(0xFFE6F5FD), bubbleOwn = Color(0xFFADDAF2), chatBackground = Color(0xFFF8FCFF), chatBlob = Color(0xFFF8FCFF), chatBlobDeep = Color(0xFFF8FCFF), chatMark = Color(0xFFF8FCFF), chatMarkAlt = Color(0xFFF8FCFF), chatFruit = Color(0xFFF8FCFF), chatFruitFill = Color(0xFFF8FCFF))
+            else -> base.copy(accentInk = Color(0xFF005678), accentFill = Color(0xFF005678), accentFillPressed = Color(0xFF003145), accentWash = Color(0xFFF2FAFE), bubbleOwn = Color(0xFFCFEAF9), chatBackground = Color(0xFFF2FAFE), chatBlob = Color(0xFFE6F5FD), chatBlobDeep = Color(0xFFCFEAF9), chatMark = Color(0xFFE6F5FD), chatMarkAlt = Color(0xFFF8FCFF), chatFruit = Color(0xFFADDAF2), chatFruitFill = Color(0xFFE6F5FD))
         }
         BipePalette.JABUTICABA -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFDADAFF), accentFill = Color(0xFFDADAFF), accentFillPressed = Color(0xFFECECFF), accentWash = Color(0xFF1D193F), bubbleOwn = Color(0xFF322C66), chatBackground = Color(0xFF15132E), chatBlob = Color(0xFF15132E), chatBlobDeep = Color(0xFF15132E), chatMark = Color(0xFF15132E), chatMarkAlt = Color(0xFF15132E))
-            dark -> base.copy(accentInk = Color(0xFFA5A2EC), accentFill = Color(0xFFA5A2EC), accentFillPressed = Color(0xFFDADAFF), accentWash = Color(0xFF181534), bubbleOwn = Color(0xFF262050), chatBackground = Color(0xFF15132E), chatBlob = Color(0xFF1D193F), chatBlobDeep = Color(0xFF262050), chatMark = Color(0xFF181534), chatMarkAlt = Color(0xFF1D193F))
-            highContrast -> base.copy(accentInk = Color(0xFF2C265A), accentFill = Color(0xFF2C265A), accentFillPressed = Color(0xFF1D183D), accentWash = Color(0xFFF0F1FF), bubbleOwn = Color(0xFFCFCFFE), chatBackground = Color(0xFFFBFBFF), chatBlob = Color(0xFFFBFBFF), chatBlobDeep = Color(0xFFFBFBFF), chatMark = Color(0xFFFBFBFF), chatMarkAlt = Color(0xFFFBFBFF))
-            else -> base.copy(accentInk = Color(0xFF4E4694), accentFill = Color(0xFF4E4694), accentFillPressed = Color(0xFF2C265A), accentWash = Color(0xFFF7F8FF), bubbleOwn = Color(0xFFE3E4FF), chatBackground = Color(0xFFF7F8FF), chatBlob = Color(0xFFF0F1FF), chatBlobDeep = Color(0xFFE3E4FF), chatMark = Color(0xFFF0F1FF), chatMarkAlt = Color(0xFFFBFBFF))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFDADAFF), accentFill = Color(0xFFDADAFF), accentFillPressed = Color(0xFFECECFF), accentWash = Color(0xFF1D193F), bubbleOwn = Color(0xFF322C66), chatBackground = Color(0xFF15132E), chatBlob = Color(0xFF15132E), chatBlobDeep = Color(0xFF15132E), chatMark = Color(0xFF15132E), chatMarkAlt = Color(0xFF15132E), chatFruit = Color(0xFF15132E), chatFruitFill = Color(0xFF15132E))
+            dark -> base.copy(accentInk = Color(0xFFA5A2EC), accentFill = Color(0xFFA5A2EC), accentFillPressed = Color(0xFFDADAFF), accentWash = Color(0xFF181534), bubbleOwn = Color(0xFF262050), chatBackground = Color(0xFF15132E), chatBlob = Color(0xFF1D193F), chatBlobDeep = Color(0xFF262050), chatMark = Color(0xFF181534), chatMarkAlt = Color(0xFF1D193F), chatFruit = Color(0xFF262050), chatFruitFill = Color(0xFF181534))
+            highContrast -> base.copy(accentInk = Color(0xFF2C265A), accentFill = Color(0xFF2C265A), accentFillPressed = Color(0xFF1D183D), accentWash = Color(0xFFF0F1FF), bubbleOwn = Color(0xFFCFCFFE), chatBackground = Color(0xFFFBFBFF), chatBlob = Color(0xFFFBFBFF), chatBlobDeep = Color(0xFFFBFBFF), chatMark = Color(0xFFFBFBFF), chatMarkAlt = Color(0xFFFBFBFF), chatFruit = Color(0xFFFBFBFF), chatFruitFill = Color(0xFFFBFBFF))
+            else -> base.copy(accentInk = Color(0xFF4E4694), accentFill = Color(0xFF4E4694), accentFillPressed = Color(0xFF2C265A), accentWash = Color(0xFFF7F8FF), bubbleOwn = Color(0xFFE3E4FF), chatBackground = Color(0xFFF7F8FF), chatBlob = Color(0xFFF0F1FF), chatBlobDeep = Color(0xFFE3E4FF), chatMark = Color(0xFFF0F1FF), chatMarkAlt = Color(0xFFFBFBFF), chatFruit = Color(0xFFCFCFFE), chatFruitFill = Color(0xFFF0F1FF))
         }
     }
 }
@@ -349,6 +363,7 @@ fun bipeColors(palette: BipePalette, dark: Boolean, highContrast: Boolean): Bipe
  */
 enum class BipeChatBackground(val id: String) {
     MARCA("marca"),
+    FRUTAS("frutas"),
     COR("cor"),
     LISO("liso"),
     ;
@@ -396,4 +411,275 @@ enum class BipeChatBackground(val id: String) {
             Mark(0.44f, 0.37f, 0.86f, 1f, Tone.MARK),
         )
     }
+}
+
+/**
+ * Salada de frutas (ADR 0215): the fruit tile of bipe-shared design/chat-fruits.mjs. Draft artwork. Draw it on
+ * chatBackground, repeated, each tile clipped to its square: bodies filled with chatFruitFill and stroked in
+ * chatFruit, lines stroked in chatFruit, dots filled with chatFruit. A path is a flat list: 0 x y move, 1 x y line,
+ * 2 x1 y1 x2 y2 x y cubic, 3 close, on the glyph's 48-unit box.
+ */
+object BipeChatFruits {
+    /** Side of the square tile, in tile units. */
+    const val TILE: Float = 480f
+
+    /** Dp per tile unit. */
+    const val SCALE: Float = 0.8f
+
+    /** Outline width, in tile units, the same for every glyph. */
+    const val STROKE: Float = 1.6f
+
+    class Glyph(val bodies: List<FloatArray>, val lines: List<FloatArray>, val dots: List<FloatArray>)
+
+    /** A glyph on the tile: centre x, y and size (of its 48-unit box) in tile units, rotation in degrees, mirrored on x. */
+    class Placement(val glyph: Int, val x: Float, val y: Float, val size: Float, val rotation: Float, val mirror: Boolean)
+
+    val GLYPHS: List<Glyph> by lazy { listOf(glyph0(), glyph1(), glyph2(), glyph3(), glyph4(), glyph5(), glyph6(), glyph7(), glyph8(), glyph9(), glyph10(), glyph11(), glyph12(), glyph13(), glyph14(), glyph15(), glyph16(), glyph17(), glyph18(), glyph19(), glyph20(), glyph21(), glyph22()) }
+
+    val PLACEMENTS: List<Placement> by lazy {
+        // glyph, x, y, size, rotation, mirror (1 or 0) per placement.
+        val v = floatArrayOf(
+            0f, 140.76f, 256.67f, 67.18f, -18.33f, 0f,
+            15f, 421.33f, 91.58f, 65.52f, -32.07f, 1f,
+            13f, 262.99f, 365.7f, 66.12f, -38.29f, 0f,
+            9f, -16.32f, 299.7f, 69.74f, 37.91f, 0f,
+            9f, 463.68f, 299.7f, 69.74f, 37.91f, 0f,
+            6f, 83.97f, 171.35f, 41.77f, -6.72f, 1f,
+            4f, 368.65f, 177.11f, 42.21f, -6.6f, 1f,
+            10f, 337.57f, 330.38f, 50.11f, -15.24f, 1f,
+            2f, 63.98f, 438.26f, 42.68f, -15.98f, 1f,
+            12f, 161.65f, 20.94f, 47.22f, 16.58f, 0f,
+            12f, 161.65f, 500.94f, 47.22f, 16.58f, 0f,
+            5f, 396.76f, 314.52f, 46.44f, 37.79f, 1f,
+            1f, 311.6f, 427.71f, 46.28f, 41.44f, 0f,
+            14f, -17.34f, -15.6f, 46.87f, 4.37f, 0f,
+            14f, -17.34f, 464.4f, 46.87f, 4.37f, 0f,
+            14f, 462.66f, -15.6f, 46.87f, 4.37f, 0f,
+            14f, 462.66f, 464.4f, 46.87f, 4.37f, 0f,
+            3f, 247.72f, 157.47f, 41.45f, 20.18f, 0f,
+            11f, 113.68f, 4.47f, 48.35f, -42.83f, 0f,
+            11f, 113.68f, 484.47f, 48.35f, -42.83f, 0f,
+            7f, 302.69f, 6.91f, 49.07f, 10.7f, 0f,
+            7f, 302.69f, 486.91f, 49.07f, 10.7f, 0f,
+            8f, -2.47f, 133.44f, 48f, 43.76f, 0f,
+            8f, 477.53f, 133.44f, 48f, 43.76f, 0f,
+            12f, 353.5f, -21.41f, 47.01f, -0.97f, 1f,
+            12f, 353.5f, 458.59f, 47.01f, -0.97f, 1f,
+            9f, 381.93f, 409.88f, 46.77f, -27.91f, 0f,
+            11f, 252.31f, 86.5f, 45.79f, -22.44f, 1f,
+            1f, 176.76f, 172.81f, 45.79f, 26.24f, 0f,
+            13f, 197.84f, 270.07f, 48.76f, -18.66f, 0f,
+            5f, 171.32f, 441.76f, 48.54f, -22.38f, 1f,
+            10f, -6.7f, 403.68f, 45.79f, -0.39f, 1f,
+            10f, 473.3f, 403.68f, 45.79f, -0.39f, 1f,
+            15f, 315.54f, 77.94f, 47.82f, 17.4f, 1f,
+            3f, 298.32f, 285.21f, 47.01f, -20.53f, 0f,
+            8f, 67.11f, 346.82f, 45.84f, -3.25f, 0f,
+            4f, 73.58f, 48.84f, 46.47f, -19.18f, 0f,
+            14f, 254.45f, 435.82f, 45.01f, -19.91f, 1f,
+            2f, 1.28f, 80.39f, 49.92f, 22.74f, 1f,
+            2f, 481.28f, 80.39f, 49.92f, 22.74f, 1f,
+            6f, 282.87f, 125.84f, 42.16f, 26.45f, 0f,
+            7f, 214.4f, -9.84f, 41.93f, -37.59f, 1f,
+            7f, 214.4f, 470.16f, 41.93f, -37.59f, 1f,
+            0f, 51.05f, 231.69f, 44.91f, -5.66f, 0f,
+            2f, 248.61f, 33.98f, 50.49f, 1.44f, 1f,
+            11f, 81.82f, 114.66f, 48.57f, -26.58f, 0f,
+            4f, 442.12f, 232.19f, 41.68f, 6.81f, 0f,
+            8f, 405.69f, 33.48f, 42.97f, 6.32f, 1f,
+            9f, 166.84f, 380.78f, 41.91f, 29.13f, 0f,
+            0f, 330.26f, 148.16f, 48.52f, -8.7f, 0f,
+            1f, 204.73f, 341.37f, 44.41f, -23.26f, 0f,
+            6f, 262.47f, 217.65f, 46.18f, 15.48f, 0f,
+            7f, 358.63f, 248.96f, 48.22f, 29.23f, 1f,
+            14f, 157.06f, 336.26f, 43.08f, 13.13f, 1f,
+            5f, 30.52f, 191.37f, 42.39f, -24.74f, 0f,
+            3f, 21.05f, 24.08f, 42.9f, -8.8f, 1f,
+            3f, 21.05f, 504.08f, 42.9f, -8.8f, 1f,
+            3f, 501.05f, 24.08f, 42.9f, -8.8f, 1f,
+            3f, 501.05f, 504.08f, 42.9f, -8.8f, 1f,
+            12f, 88.69f, 282.35f, 47.63f, -24.73f, 1f,
+            10f, 116.35f, 388.38f, 45.4f, -31.99f, 1f,
+            15f, 138.5f, 89.09f, 48.68f, 40.37f, 0f,
+            13f, 237.64f, 297.84f, 44.8f, 30.02f, 1f,
+            0f, 206.59f, 115.18f, 43.79f, 39.1f, 0f,
+            3f, 323.99f, 203.73f, 44.66f, 31.48f, 1f,
+            12f, 419.43f, 151.27f, 48.47f, 23.34f, 0f,
+            10f, 206.78f, 211.42f, 47.5f, -27.21f, 0f,
+            11f, 364.67f, 76.76f, 47.32f, -9.78f, 1f,
+            8f, 400.68f, -21.53f, 43.83f, -18.91f, 0f,
+            8f, 400.68f, 458.47f, 43.83f, -18.91f, 0f,
+            4f, 444.1f, 356.62f, 46.59f, -5.88f, 1f,
+            2f, 374.11f, 123.28f, 43.38f, -41.79f, 0f,
+            13f, 129.9f, 176.68f, 45.46f, -14.46f, 1f,
+            15f, 19.23f, 357.83f, 44.24f, 34.03f, 1f,
+            15f, 499.23f, 357.83f, 44.24f, 34.03f, 1f,
+            7f, 344.2f, 31.76f, 41.79f, 40.66f, 1f,
+            6f, 199.17f, 66.28f, 47.52f, -7.28f, 1f,
+            9f, 448.95f, 189.5f, 41.42f, -2.92f, 0f,
+            5f, 336.97f, 384.44f, 48.12f, 5.58f, 0f,
+            14f, 208.92f, 406.63f, 45.56f, 28.41f, 1f,
+            8f, 43.04f, 305.9f, 46.3f, 15.35f, 0f,
+            13f, 122.92f, 442.42f, 26.74f, 3.51f, 0f,
+            14f, 155.84f, 140.1f, 27.25f, -23.15f, 0f,
+            15f, 123.05f, 307.05f, 29.78f, 9.78f, 1f,
+            5f, 38.47f, 65.54f, 26.22f, 35.08f, 0f,
+            0f, 24.07f, 261.88f, 29.69f, -34.2f, 0f,
+            3f, 129.43f, 45.77f, 26.14f, 36.17f, 0f,
+            12f, 399.8f, 236.74f, 29.32f, -27.41f, 0f,
+            7f, 292.53f, 246.77f, 25.87f, 14.64f, 1f,
+            6f, 393.67f, 368.14f, 27.73f, -6.3f, 1f,
+            10f, 47.75f, 142.92f, 26.08f, 5.81f, 0f,
+            11f, 25.91f, 457.09f, 31.03f, -9.1f, 0f,
+            12f, 423.68f, 266.35f, 29.84f, -30.23f, 0f,
+            8f, 104.4f, 207.84f, 27.77f, 42.33f, 1f,
+            5f, 379.97f, 212.68f, 26.13f, 21.89f, 1f,
+            2f, 432.52f, 430.21f, 29.89f, 26.79f, 1f,
+            10f, 0.11f, 239.21f, 29.94f, 37.59f, 1f,
+            10f, 480.11f, 239.21f, 29.94f, 37.59f, 1f,
+            3f, 454.61f, 37.04f, 28.45f, -38.54f, 1f,
+            6f, 112.44f, 344.88f, 27.74f, -12.81f, 0f,
+            1f, 40.75f, 389.73f, 26.66f, -32.71f, 1f,
+            13f, 289.31f, 167.42f, 30.54f, -17.14f, 0f,
+            9f, 362.43f, 293.03f, 26.11f, 30.28f, 1f,
+            14f, 76.34f, 389.75f, 29.04f, -38.98f, 1f,
+            11f, 418.6f, 391.02f, 28.07f, 41.83f, 1f,
+            7f, 116.83f, 138.3f, 29.44f, 41.41f, 0f,
+            15f, 407.73f, 196.74f, 30.39f, -30.82f, 1f,
+            4f, 236.55f, 255.51f, 25.84f, 14.13f, 1f,
+            6f, 161.1f, 208.68f, 25.82f, 7.64f, 0f,
+            9f, 66.7f, 8.92f, 26.94f, 20.76f, 1f,
+            9f, 66.7f, 488.92f, 26.94f, 20.76f, 1f,
+            5f, 42.3f, 101.08f, 26.37f, -33.22f, 0f,
+            22f, 241.73f, 189.93f, 15.37f, -5.23f, 0f,
+            22f, 92.01f, 324.75f, 13.57f, 14.62f, 0f,
+            22f, 286.62f, 46.85f, 11.62f, 41.65f, 0f,
+            21f, 274.65f, 309.66f, 9.93f, 27.5f, 1f,
+            17f, 91.31f, 368.75f, 10.97f, 24.56f, 1f,
+            21f, 54.51f, 273.72f, 14.53f, -30.85f, 1f,
+            17f, 267.8f, 250.39f, 14.63f, -15.24f, 0f,
+            19f, 135.09f, 418.49f, 16.6f, 26.29f, 1f,
+            18f, 17.38f, 160.36f, 11.89f, 11.93f, 0f,
+            17f, 342.31f, 417.56f, 11.25f, 0.12f, 1f,
+            21f, 140.11f, 363.79f, 13.59f, 22.31f, 1f,
+            16f, 208.89f, 308.1f, 10.19f, 41.82f, 0f,
+            21f, 432.15f, -5.2f, 11.96f, -33.47f, 1f,
+            21f, 432.15f, 474.8f, 11.96f, -33.47f, 1f,
+            17f, 344.38f, 102.34f, 11.91f, 7.04f, 1f,
+            21f, 202.58f, 147.64f, 14f, 20.62f, 0f,
+            17f, 93.56f, 240.62f, 10.87f, 10.13f, 1f,
+            20f, 316.9f, 45.05f, 10.3f, 5.02f, 1f,
+            19f, 206.21f, 442.3f, 9.38f, 7.9f, 1f,
+            20f, 183.07f, -5.68f, 11.69f, -26.83f, 1f,
+            20f, 183.07f, 474.32f, 11.69f, -26.83f, 1f,
+            19f, 266.64f, 470.21f, 12.99f, -8.39f, 0f,
+            19f, 260.17f, 267.7f, 10.49f, -39.77f, 0f,
+            16f, 275.97f, 413.78f, 10.73f, -9.73f, 1f,
+            16f, 94.97f, 450.3f, 14.95f, -8.05f, 0f,
+            20f, 332.65f, 287.26f, 16.65f, 13.17f, 0f,
+            18f, 17.36f, 220.05f, 13.45f, -7.37f, 1f,
+            18f, 0.89f, 175.87f, 11.88f, -29.74f, 0f,
+            18f, 480.89f, 175.87f, 11.88f, -29.74f, 0f,
+            21f, 67.66f, 205.57f, 10.65f, 37.89f, 0f,
+            17f, 243.44f, 120.98f, 12.24f, -0.53f, 0f,
+            19f, 313.44f, 118.08f, 9.18f, 35.75f, 1f,
+            21f, 166.51f, 302.17f, 15.76f, 40.22f, 0f,
+            20f, 362.82f, 354.95f, 9.45f, -11.73f, 1f,
+            20f, 387.69f, 273.86f, 13.94f, -14.29f, 1f,
+            17f, 91.48f, 410.83f, 16.39f, 44.01f, 1f,
+            21f, 139.29f, 123.62f, 12.17f, -35.7f, 0f,
+            16f, 437.6f, 19.38f, 11.78f, -24.04f, 1f,
+            22f, 170.66f, 110.41f, 13.45f, -21.51f, 1f,
+            20f, 178.63f, 236.11f, 9.19f, 27.9f, 0f,
+            21f, 215.51f, 169.81f, 16.5f, -4.54f, 0f,
+            22f, 469.62f, 213.7f, 16.6f, 11.09f, 0f,
+            17f, 179.4f, 131.65f, 9.71f, 16.74f, 1f,
+            19f, 146.4f, 467.2f, 14.27f, -25.74f, 1f,
+            20f, 324.3f, 257.94f, 10.83f, -1.97f, 0f,
+            17f, 294.89f, 322.07f, 9.74f, 13.31f, 1f,
+            17f, 39.86f, 415.14f, 9.36f, 29.82f, 0f,
+            21f, 101.6f, 86.1f, 12.32f, 27.11f, 1f,
+            18f, 381.67f, 12.09f, 9.83f, 43.72f, 0f,
+            19f, 26.17f, 410.2f, 10.11f, -22.94f, 0f,
+            17f, 303.88f, 395.05f, 11.56f, 25.61f, 0f,
+            21f, 165.79f, 59.34f, 9.78f, -44.36f, 1f,
+            18f, 113.08f, 419.8f, 10.28f, 17.11f, 0f,
+            18f, 197.58f, 18.32f, 12.36f, 32.6f, 1f,
+            17f, 237.35f, 328.7f, 10.73f, 19.69f, 1f,
+            18f, 324.6f, 240.03f, 14.32f, 13.56f, 0f,
+            22f, 266f, 183.35f, 9.25f, -25.76f, 1f,
+            18f, 466.4f, 257.91f, 9.16f, -1.61f, 1f,
+            18f, 312.1f, 360.08f, 11.07f, 26.52f, 0f,
+        )
+        List(v.size / 6) { i -> Placement(v[i * 6].toInt(), v[i * 6 + 1], v[i * 6 + 2], v[i * 6 + 3], v[i * 6 + 4], v[i * 6 + 5] == 1f) }
+    }
+
+    // acai
+    private fun glyph0() = Glyph(listOf(floatArrayOf(0f, 23f, 18f, 2f, 23f, 20.21f, 21.21f, 22f, 19f, 22f, 2f, 16.79f, 22f, 15f, 20.21f, 15f, 18f, 2f, 15f, 15.79f, 16.79f, 14f, 19f, 14f, 2f, 21.21f, 14f, 23f, 15.79f, 23f, 18f, 3f), floatArrayOf(0f, 32f, 18f, 2f, 32f, 20.21f, 30.21f, 22f, 28f, 22f, 2f, 25.79f, 22f, 24f, 20.21f, 24f, 18f, 2f, 24f, 15.79f, 25.79f, 14f, 28f, 14f, 2f, 30.21f, 14f, 32f, 15.79f, 32f, 18f, 3f), floatArrayOf(0f, 18.5f, 26f, 2f, 18.5f, 28.21f, 16.71f, 30f, 14.5f, 30f, 2f, 12.29f, 30f, 10.5f, 28.21f, 10.5f, 26f, 2f, 10.5f, 23.79f, 12.29f, 22f, 14.5f, 22f, 2f, 16.71f, 22f, 18.5f, 23.79f, 18.5f, 26f, 3f), floatArrayOf(0f, 27.5f, 26f, 2f, 27.5f, 28.21f, 25.71f, 30f, 23.5f, 30f, 2f, 21.29f, 30f, 19.5f, 28.21f, 19.5f, 26f, 2f, 19.5f, 23.79f, 21.29f, 22f, 23.5f, 22f, 2f, 25.71f, 22f, 27.5f, 23.79f, 27.5f, 26f, 3f), floatArrayOf(0f, 36.5f, 26f, 2f, 36.5f, 28.21f, 34.71f, 30f, 32.5f, 30f, 2f, 30.29f, 30f, 28.5f, 28.21f, 28.5f, 26f, 2f, 28.5f, 23.79f, 30.29f, 22f, 32.5f, 22f, 2f, 34.71f, 22f, 36.5f, 23.79f, 36.5f, 26f, 3f), floatArrayOf(0f, 23f, 34f, 2f, 23f, 36.21f, 21.21f, 38f, 19f, 38f, 2f, 16.79f, 38f, 15f, 36.21f, 15f, 34f, 2f, 15f, 31.79f, 16.79f, 30f, 19f, 30f, 2f, 21.21f, 30f, 23f, 31.79f, 23f, 34f, 3f), floatArrayOf(0f, 32f, 34f, 2f, 32f, 36.21f, 30.21f, 38f, 28f, 38f, 2f, 25.79f, 38f, 24f, 36.21f, 24f, 34f, 2f, 24f, 31.79f, 25.79f, 30f, 28f, 30f, 2f, 30.21f, 30f, 32f, 31.79f, 32f, 34f, 3f), floatArrayOf(0f, 27.5f, 42f, 2f, 27.5f, 44.21f, 25.71f, 46f, 23.5f, 46f, 2f, 21.29f, 46f, 19.5f, 44.21f, 19.5f, 42f, 2f, 19.5f, 39.79f, 21.29f, 38f, 23.5f, 38f, 2f, 25.71f, 38f, 27.5f, 39.79f, 27.5f, 42f, 3f)), listOf(floatArrayOf(0f, 24f, 13f, 1f, 24f, 6f, 0f, 24f, 9f, 2f, 27f, 3f, 34f, 3f, 37f, 5f, 2f, 34f, 9f, 28f, 10f, 24f, 9f)), listOf(floatArrayOf(0f, 18.5f, 16.6f, 2f, 18.5f, 17.1f, 18.1f, 17.5f, 17.6f, 17.5f, 2f, 17.1f, 17.5f, 16.7f, 17.1f, 16.7f, 16.6f, 2f, 16.7f, 16.1f, 17.1f, 15.7f, 17.6f, 15.7f, 2f, 18.1f, 15.7f, 18.5f, 16.1f, 18.5f, 16.6f, 3f), floatArrayOf(0f, 27.5f, 16.6f, 2f, 27.5f, 17.1f, 27.1f, 17.5f, 26.6f, 17.5f, 2f, 26.1f, 17.5f, 25.7f, 17.1f, 25.7f, 16.6f, 2f, 25.7f, 16.1f, 26.1f, 15.7f, 26.6f, 15.7f, 2f, 27.1f, 15.7f, 27.5f, 16.1f, 27.5f, 16.6f, 3f), floatArrayOf(0f, 23f, 24.6f, 2f, 23f, 25.1f, 22.6f, 25.5f, 22.1f, 25.5f, 2f, 21.6f, 25.5f, 21.2f, 25.1f, 21.2f, 24.6f, 2f, 21.2f, 24.1f, 21.6f, 23.7f, 22.1f, 23.7f, 2f, 22.6f, 23.7f, 23f, 24.1f, 23f, 24.6f, 3f), floatArrayOf(0f, 27.5f, 32.6f, 2f, 27.5f, 33.1f, 27.1f, 33.5f, 26.6f, 33.5f, 2f, 26.1f, 33.5f, 25.7f, 33.1f, 25.7f, 32.6f, 2f, 25.7f, 32.1f, 26.1f, 31.7f, 26.6f, 31.7f, 2f, 27.1f, 31.7f, 27.5f, 32.1f, 27.5f, 32.6f, 3f)))
+
+    // goiaba
+    private fun glyph1() = Glyph(listOf(floatArrayOf(0f, 24f, 10f, 2f, 30f, 10f, 33f, 14f, 33f, 18f, 2f, 39f, 21f, 42f, 27f, 41f, 32f, 2f, 40f, 40f, 33f, 44f, 24f, 44f, 2f, 15f, 44f, 8f, 40f, 7f, 32f, 2f, 6f, 27f, 9f, 21f, 15f, 18f, 2f, 15f, 14f, 18f, 10f, 24f, 10f, 3f)), listOf(floatArrayOf(0f, 24f, 10f, 1f, 25f, 5f), floatArrayOf(0f, 25f, 6f, 2f, 27.19f, 1.48f, 31.7f, -0.16f, 36.28f, 1.9f, 2f, 34.09f, 6.42f, 29.58f, 8.06f, 25f, 6f, 3f, 0f, 27.26f, 5.18f, 1f, 33.46f, 2.92f), floatArrayOf(0f, 13f, 31f, 2f, 13.33f, 27f, 14.83f, 24f, 17.5f, 22f), floatArrayOf(0f, 22f, 44f, 1f, 24f, 41.5f, 1f, 26f, 44f)), listOf())
+
+    // pitanga
+    private fun glyph2() = Glyph(listOf(floatArrayOf(0f, 42f, 28f, 2f, 42f, 35.18f, 33.94f, 41f, 24f, 41f, 2f, 14.06f, 41f, 6f, 35.18f, 6f, 28f, 2f, 6f, 20.82f, 14.06f, 15f, 24f, 15f, 2f, 33.94f, 15f, 42f, 20.82f, 42f, 28f, 3f)), listOf(floatArrayOf(0f, 17f, 16.5f, 2f, 14f, 24.17f, 14f, 31.83f, 17f, 39.5f, 0f, 31f, 16.5f, 2f, 34f, 24.17f, 34f, 31.83f, 31f, 39.5f, 0f, 24f, 15f, 1f, 24f, 41f), floatArrayOf(0f, 19f, 15.5f, 1f, 24f, 17.5f, 1f, 29f, 15.5f, 0f, 24f, 15f, 1f, 25.5f, 8f)), listOf())
+
+    // maracuja
+    private fun glyph3() = Glyph(listOf(floatArrayOf(0f, 42f, 24f, 2f, 42f, 33.94f, 33.94f, 42f, 24f, 42f, 2f, 14.06f, 42f, 6f, 33.94f, 6f, 24f, 2f, 6f, 14.06f, 14.06f, 6f, 24f, 6f, 2f, 33.94f, 6f, 42f, 14.06f, 42f, 24f, 3f)), listOf(floatArrayOf(0f, 37.5f, 24f, 2f, 37.5f, 31.46f, 31.46f, 37.5f, 24f, 37.5f, 2f, 16.54f, 37.5f, 10.5f, 31.46f, 10.5f, 24f, 2f, 10.5f, 16.54f, 16.54f, 10.5f, 24f, 10.5f, 2f, 31.46f, 10.5f, 37.5f, 16.54f, 37.5f, 24f, 3f)), listOf(floatArrayOf(0f, 33.2f, 24f, 2f, 33.2f, 24.94f, 32.44f, 25.7f, 31.5f, 25.7f, 2f, 30.56f, 25.7f, 29.8f, 24.94f, 29.8f, 24f, 2f, 29.8f, 23.06f, 30.56f, 22.3f, 31.5f, 22.3f, 2f, 32.44f, 22.3f, 33.2f, 23.06f, 33.2f, 24f, 3f), floatArrayOf(0f, 30.38f, 29.86f, 2f, 30.38f, 30.8f, 29.62f, 31.56f, 28.68f, 31.56f, 2f, 27.74f, 31.56f, 26.98f, 30.8f, 26.98f, 29.86f, 2f, 26.98f, 28.92f, 27.74f, 28.16f, 28.68f, 28.16f, 2f, 29.62f, 28.16f, 30.38f, 28.92f, 30.38f, 29.86f, 3f), floatArrayOf(0f, 24.03f, 31.31f, 2f, 24.03f, 32.25f, 23.27f, 33.01f, 22.33f, 33.01f, 2f, 21.39f, 33.01f, 20.63f, 32.25f, 20.63f, 31.31f, 2f, 20.63f, 30.37f, 21.39f, 29.61f, 22.33f, 29.61f, 2f, 23.27f, 29.61f, 24.03f, 30.37f, 24.03f, 31.31f, 3f), floatArrayOf(0f, 18.94f, 27.25f, 2f, 18.94f, 28.19f, 18.18f, 28.95f, 17.24f, 28.95f, 2f, 16.3f, 28.95f, 15.54f, 28.19f, 15.54f, 27.25f, 2f, 15.54f, 26.32f, 16.3f, 25.55f, 17.24f, 25.55f, 2f, 18.18f, 25.55f, 18.94f, 26.32f, 18.94f, 27.25f, 3f), floatArrayOf(0f, 18.94f, 20.75f, 2f, 18.94f, 21.68f, 18.18f, 22.45f, 17.24f, 22.45f, 2f, 16.3f, 22.45f, 15.54f, 21.68f, 15.54f, 20.75f, 2f, 15.54f, 19.81f, 16.3f, 19.05f, 17.24f, 19.05f, 2f, 18.18f, 19.05f, 18.94f, 19.81f, 18.94f, 20.75f, 3f), floatArrayOf(0f, 24.03f, 16.69f, 2f, 24.03f, 17.63f, 23.27f, 18.39f, 22.33f, 18.39f, 2f, 21.39f, 18.39f, 20.63f, 17.63f, 20.63f, 16.69f, 2f, 20.63f, 15.75f, 21.39f, 14.99f, 22.33f, 14.99f, 2f, 23.27f, 14.99f, 24.03f, 15.75f, 24.03f, 16.69f, 3f), floatArrayOf(0f, 30.38f, 18.14f, 2f, 30.38f, 19.08f, 29.62f, 19.84f, 28.68f, 19.84f, 2f, 27.74f, 19.84f, 26.98f, 19.08f, 26.98f, 18.14f, 2f, 26.98f, 17.2f, 27.74f, 16.44f, 28.68f, 16.44f, 2f, 29.62f, 16.44f, 30.38f, 17.2f, 30.38f, 18.14f, 3f), floatArrayOf(0f, 25.7f, 24f, 2f, 25.7f, 24.94f, 24.94f, 25.7f, 24f, 25.7f, 2f, 23.06f, 25.7f, 22.3f, 24.94f, 22.3f, 24f, 2f, 22.3f, 23.06f, 23.06f, 22.3f, 24f, 22.3f, 2f, 24.94f, 22.3f, 25.7f, 23.06f, 25.7f, 24f, 3f)))
+
+    // jenipapo
+    private fun glyph4() = Glyph(listOf(floatArrayOf(0f, 35.07f, 24.76f, 2f, 37.36f, 33.3f, 33.81f, 41.67f, 27.14f, 43.45f, 2f, 20.47f, 45.24f, 13.21f, 39.77f, 10.93f, 31.24f, 2f, 8.64f, 22.7f, 12.19f, 14.33f, 18.86f, 12.55f, 2f, 25.53f, 10.76f, 32.79f, 16.23f, 35.07f, 24.76f, 3f)), listOf(floatArrayOf(0f, 27f, 12.5f, 1f, 30f, 5f), floatArrayOf(0f, 30f, 6f, 2f, 31.1f, 1.9f, 34.56f, -0.1f, 38.66f, 1f, 2f, 37.56f, 5.1f, 34.1f, 7.1f, 30f, 6f, 3f, 0f, 31.73f, 5f, 1f, 36.5f, 2.25f), floatArrayOf(0f, 19.8f, 42f, 2f, 19.8f, 42.99f, 18.99f, 43.8f, 18f, 43.8f, 2f, 17.01f, 43.8f, 16.2f, 42.99f, 16.2f, 42f, 2f, 16.2f, 41.01f, 17.01f, 40.2f, 18f, 40.2f, 2f, 18.99f, 40.2f, 19.8f, 41.01f, 19.8f, 42f, 3f)), listOf(floatArrayOf(0f, 20.3f, 24f, 2f, 20.3f, 24.72f, 19.72f, 25.3f, 19f, 25.3f, 2f, 18.28f, 25.3f, 17.7f, 24.72f, 17.7f, 24f, 2f, 17.7f, 23.28f, 18.28f, 22.7f, 19f, 22.7f, 2f, 19.72f, 22.7f, 20.3f, 23.28f, 20.3f, 24f, 3f), floatArrayOf(0f, 26.3f, 22f, 2f, 26.3f, 22.72f, 25.72f, 23.3f, 25f, 23.3f, 2f, 24.28f, 23.3f, 23.7f, 22.72f, 23.7f, 22f, 2f, 23.7f, 21.28f, 24.28f, 20.7f, 25f, 20.7f, 2f, 25.72f, 20.7f, 26.3f, 21.28f, 26.3f, 22f, 3f), floatArrayOf(0f, 28.3f, 30f, 2f, 28.3f, 30.72f, 27.72f, 31.3f, 27f, 31.3f, 2f, 26.28f, 31.3f, 25.7f, 30.72f, 25.7f, 30f, 2f, 25.7f, 29.28f, 26.28f, 28.7f, 27f, 28.7f, 2f, 27.72f, 28.7f, 28.3f, 29.28f, 28.3f, 30f, 3f), floatArrayOf(0f, 21.3f, 32f, 2f, 21.3f, 32.72f, 20.72f, 33.3f, 20f, 33.3f, 2f, 19.28f, 33.3f, 18.7f, 32.72f, 18.7f, 32f, 2f, 18.7f, 31.28f, 19.28f, 30.7f, 20f, 30.7f, 2f, 20.72f, 30.7f, 21.3f, 31.28f, 21.3f, 32f, 3f), floatArrayOf(0f, 25.3f, 37f, 2f, 25.3f, 37.72f, 24.72f, 38.3f, 24f, 38.3f, 2f, 23.28f, 38.3f, 22.7f, 37.72f, 22.7f, 37f, 2f, 22.7f, 36.28f, 23.28f, 35.7f, 24f, 35.7f, 2f, 24.72f, 35.7f, 25.3f, 36.28f, 25.3f, 37f, 3f)))
+
+    // jabuticaba
+    private fun glyph5() = Glyph(listOf(floatArrayOf(0f, 23f, 24f, 2f, 23f, 27.31f, 20.31f, 30f, 17f, 30f, 2f, 13.69f, 30f, 11f, 27.31f, 11f, 24f, 2f, 11f, 20.69f, 13.69f, 18f, 17f, 18f, 2f, 20.31f, 18f, 23f, 20.69f, 23f, 24f, 3f), floatArrayOf(0f, 35f, 32f, 2f, 35f, 35.31f, 32.31f, 38f, 29f, 38f, 2f, 25.69f, 38f, 23f, 35.31f, 23f, 32f, 2f, 23f, 28.69f, 25.69f, 26f, 29f, 26f, 2f, 32.31f, 26f, 35f, 28.69f, 35f, 32f, 3f), floatArrayOf(0f, 38f, 15f, 2f, 38f, 18.31f, 35.31f, 21f, 32f, 21f, 2f, 28.69f, 21f, 26f, 18.31f, 26f, 15f, 2f, 26f, 11.69f, 28.69f, 9f, 32f, 9f, 2f, 35.31f, 9f, 38f, 11.69f, 38f, 15f, 3f)), listOf(floatArrayOf(0f, 5f, 42f, 2f, 15f, 33f, 27f, 22f, 43f, 7f), floatArrayOf(0f, 13.4f, 24f, 2f, 13.4f, 22.01f, 15.01f, 20.4f, 17f, 20.4f), floatArrayOf(0f, 25.4f, 32f, 2f, 25.4f, 30.01f, 27.01f, 28.4f, 29f, 28.4f), floatArrayOf(0f, 28.4f, 15f, 2f, 28.4f, 13.01f, 30.01f, 11.4f, 32f, 11.4f)), listOf())
+
+    // caju
+    private fun glyph6() = Glyph(listOf(floatArrayOf(0f, 15f, 9f, 2f, 19f, 6f, 29f, 6f, 33f, 9f, 2f, 35f, 17f, 35f, 25f, 31f, 29f, 2f, 28f, 32f, 20f, 32f, 17f, 29f, 2f, 13f, 25f, 13f, 17f, 15f, 9f, 3f)), listOf(floatArrayOf(0f, 19f, 32f, 2f, 15f, 37f, 18f, 44f, 24f, 44f, 2f, 30f, 44f, 32f, 39f, 29f, 36f, 2f, 27f, 34f, 25f, 37f, 23.5f, 35.5f, 2f, 22.5f, 34f, 21f, 32f, 19f, 32f), floatArrayOf(0f, 19f, 14f, 2f, 18.33f, 18f, 18.5f, 21.33f, 19.5f, 24f), floatArrayOf(0f, 24f, 7f, 1f, 24f, 3f)), listOf())
+
+    // banana
+    private fun glyph7() = Glyph(listOf(floatArrayOf(0f, 8f, 12f, 2f, 9f, 30f, 24f, 42f, 42f, 36f, 2f, 40f, 33f, 37f, 33f, 35f, 34f, 2f, 22f, 36f, 14f, 27f, 12f, 12f, 2f, 11.5f, 10f, 8.5f, 10f, 8f, 12f, 3f)), listOf(floatArrayOf(0f, 8f, 12f, 1f, 7.5f, 8f), floatArrayOf(0f, 13f, 20f, 2f, 16f, 28f, 23f, 32f, 31f, 33f)), listOf())
+
+    // abacaxi
+    private fun glyph8() = Glyph(listOf(floatArrayOf(0f, 35f, 32f, 2f, 35f, 39.46f, 30.08f, 45.5f, 24f, 45.5f, 2f, 17.92f, 45.5f, 13f, 39.46f, 13f, 32f, 2f, 13f, 24.54f, 17.92f, 18.5f, 24f, 18.5f, 2f, 30.08f, 18.5f, 35f, 24.54f, 35f, 32f, 3f)), listOf(floatArrayOf(0f, 17f, 26f, 1f, 21f, 30f, 1f, 25f, 26f, 1f, 29f, 30f, 0f, 15f, 33f, 1f, 19f, 37f, 1f, 23f, 33f, 1f, 27f, 37f, 1f, 31f, 33f, 0f, 19f, 40f, 1f, 23f, 44f, 0f, 29f, 40f, 1f, 25f, 44f), floatArrayOf(0f, 24f, 18.5f, 1f, 24f, 5f, 0f, 24f, 18.5f, 1f, 17f, 8f, 0f, 24f, 18.5f, 1f, 31f, 8f, 0f, 24f, 18.5f, 1f, 13f, 14f, 0f, 24f, 18.5f, 1f, 35f, 14f)), listOf())
+
+    // melancia
+    private fun glyph9() = Glyph(listOf(floatArrayOf(0f, 6f, 16f, 2f, 6f, 25.94f, 14.06f, 34f, 24f, 34f, 2f, 33.94f, 34f, 42f, 25.94f, 42f, 16f, 3f)), listOf(floatArrayOf(0f, 10.5f, 16f, 2f, 10.5f, 23.46f, 16.54f, 29.5f, 24f, 29.5f, 2f, 31.46f, 29.5f, 37.5f, 23.46f, 37.5f, 16f)), listOf(floatArrayOf(0f, 19.5f, 21f, 2f, 19.5f, 21.83f, 18.83f, 22.5f, 18f, 22.5f, 2f, 17.17f, 22.5f, 16.5f, 21.83f, 16.5f, 21f, 2f, 16.5f, 20.17f, 17.17f, 19.5f, 18f, 19.5f, 2f, 18.83f, 19.5f, 19.5f, 20.17f, 19.5f, 21f, 3f), floatArrayOf(0f, 25.5f, 24f, 2f, 25.5f, 24.83f, 24.83f, 25.5f, 24f, 25.5f, 2f, 23.17f, 25.5f, 22.5f, 24.83f, 22.5f, 24f, 2f, 22.5f, 23.17f, 23.17f, 22.5f, 24f, 22.5f, 2f, 24.83f, 22.5f, 25.5f, 23.17f, 25.5f, 24f, 3f), floatArrayOf(0f, 31.5f, 21f, 2f, 31.5f, 21.83f, 30.83f, 22.5f, 30f, 22.5f, 2f, 29.17f, 22.5f, 28.5f, 21.83f, 28.5f, 21f, 2f, 28.5f, 20.17f, 29.17f, 19.5f, 30f, 19.5f, 2f, 30.83f, 19.5f, 31.5f, 20.17f, 31.5f, 21f, 3f), floatArrayOf(0f, 22.5f, 28f, 2f, 22.5f, 28.83f, 21.83f, 29.5f, 21f, 29.5f, 2f, 20.17f, 29.5f, 19.5f, 28.83f, 19.5f, 28f, 2f, 19.5f, 27.17f, 20.17f, 26.5f, 21f, 26.5f, 2f, 21.83f, 26.5f, 22.5f, 27.17f, 22.5f, 28f, 3f), floatArrayOf(0f, 28.5f, 28f, 2f, 28.5f, 28.83f, 27.83f, 29.5f, 27f, 29.5f, 2f, 26.17f, 29.5f, 25.5f, 28.83f, 25.5f, 28f, 2f, 25.5f, 27.17f, 26.17f, 26.5f, 27f, 26.5f, 2f, 27.83f, 26.5f, 28.5f, 27.17f, 28.5f, 28f, 3f)))
+
+    // coco
+    private fun glyph10() = Glyph(listOf(floatArrayOf(0f, 41f, 26f, 2f, 41f, 35.39f, 33.39f, 43f, 24f, 43f, 2f, 14.61f, 43f, 7f, 35.39f, 7f, 26f, 2f, 7f, 16.61f, 14.61f, 9f, 24f, 9f, 2f, 33.39f, 9f, 41f, 16.61f, 41f, 26f, 3f)), listOf(floatArrayOf(0f, 12f, 34f, 2f, 14.67f, 36.67f, 18f, 38.33f, 22f, 39f)), listOf(floatArrayOf(0f, 22f, 18f, 2f, 22f, 19.1f, 21.1f, 20f, 20f, 20f, 2f, 18.9f, 20f, 18f, 19.1f, 18f, 18f, 2f, 18f, 16.9f, 18.9f, 16f, 20f, 16f, 2f, 21.1f, 16f, 22f, 16.9f, 22f, 18f, 3f), floatArrayOf(0f, 30f, 18f, 2f, 30f, 19.1f, 29.1f, 20f, 28f, 20f, 2f, 26.9f, 20f, 26f, 19.1f, 26f, 18f, 2f, 26f, 16.9f, 26.9f, 16f, 28f, 16f, 2f, 29.1f, 16f, 30f, 16.9f, 30f, 18f, 3f), floatArrayOf(0f, 26f, 24f, 2f, 26f, 25.1f, 25.1f, 26f, 24f, 26f, 2f, 22.9f, 26f, 22f, 25.1f, 22f, 24f, 2f, 22f, 22.9f, 22.9f, 22f, 24f, 22f, 2f, 25.1f, 22f, 26f, 22.9f, 26f, 24f, 3f)))
+
+    // limao
+    private fun glyph11() = Glyph(listOf(floatArrayOf(0f, 42f, 24f, 2f, 42f, 33.94f, 33.94f, 42f, 24f, 42f, 2f, 14.06f, 42f, 6f, 33.94f, 6f, 24f, 2f, 6f, 14.06f, 14.06f, 6f, 24f, 6f, 2f, 33.94f, 6f, 42f, 14.06f, 42f, 24f, 3f)), listOf(floatArrayOf(0f, 38.5f, 24f, 2f, 38.5f, 32.01f, 32.01f, 38.5f, 24f, 38.5f, 2f, 15.99f, 38.5f, 9.5f, 32.01f, 9.5f, 24f, 2f, 9.5f, 15.99f, 15.99f, 9.5f, 24f, 9.5f, 2f, 32.01f, 9.5f, 38.5f, 15.99f, 38.5f, 24f, 3f), floatArrayOf(0f, 26.5f, 24f, 1f, 36f, 24f, 0f, 25.77f, 25.77f, 1f, 32.49f, 32.49f, 0f, 24f, 26.5f, 1f, 24f, 36f, 0f, 22.23f, 25.77f, 1f, 15.51f, 32.49f, 0f, 21.5f, 24f, 1f, 12f, 24f, 0f, 22.23f, 22.23f, 1f, 15.51f, 15.51f, 0f, 24f, 21.5f, 1f, 24f, 12f, 0f, 25.77f, 22.23f, 1f, 32.49f, 15.51f)), listOf())
+
+    // manga
+    private fun glyph12() = Glyph(listOf(floatArrayOf(0f, 14f, 37f, 2f, 5f, 29f, 9f, 13f, 23f, 11f, 2f, 35f, 10f, 42f, 18f, 39f, 28f, 2f, 36f, 37f, 24f, 43f, 14f, 37f, 3f)), listOf(floatArrayOf(0f, 23f, 11f, 1f, 24f, 5f), floatArrayOf(0f, 24f, 6f, 2f, 26.57f, 1.69f, 31.21f, 0.45f, 35.59f, 2.89f, 2f, 33.02f, 7.21f, 28.38f, 8.45f, 24f, 6f, 3f, 0f, 26.32f, 5.38f, 1f, 32.69f, 3.67f), floatArrayOf(0f, 15f, 30f, 2f, 15.67f, 24.67f, 18f, 21f, 22f, 19f)), listOf())
+
+    // carambola
+    private fun glyph13() = Glyph(listOf(floatArrayOf(0f, 24f, 5f, 1f, 29.88f, 15.91f, 1f, 42.07f, 18.13f, 1f, 33.51f, 27.09f, 1f, 35.17f, 39.37f, 1f, 24f, 34f, 1f, 12.83f, 39.37f, 1f, 14.49f, 27.09f, 1f, 5.93f, 18.13f, 1f, 18.12f, 15.91f, 3f)), listOf(floatArrayOf(0f, 24f, 15f, 1f, 26.94f, 19.95f, 1f, 32.56f, 21.22f, 1f, 28.76f, 25.55f, 1f, 29.29f, 31.28f, 1f, 24f, 29f, 1f, 18.71f, 31.28f, 1f, 19.24f, 25.55f, 1f, 15.44f, 21.22f, 1f, 21.06f, 19.95f, 3f)), listOf(floatArrayOf(0f, 25.3f, 24f, 2f, 25.3f, 24.72f, 24.72f, 25.3f, 24f, 25.3f, 2f, 23.28f, 25.3f, 22.7f, 24.72f, 22.7f, 24f, 2f, 22.7f, 23.28f, 23.28f, 22.7f, 24f, 22.7f, 2f, 24.72f, 22.7f, 25.3f, 23.28f, 25.3f, 24f, 3f)))
+
+    // cacau
+    private fun glyph14() = Glyph(listOf(floatArrayOf(0f, 32.48f, 29.3f, 2f, 26.63f, 38.67f, 18.09f, 43.89f, 13.4f, 40.96f, 2f, 8.72f, 38.03f, 9.67f, 28.07f, 15.52f, 18.7f, 2f, 21.37f, 9.33f, 29.91f, 4.11f, 34.6f, 7.04f, 2f, 39.28f, 9.97f, 38.33f, 19.93f, 32.48f, 29.3f, 3f)), listOf(floatArrayOf(0f, 34.33f, 7.46f, 1f, 13.67f, 40.54f, 0f, 27.66f, 6.83f, 2f, 20.13f, 15.1f, 14.3f, 24.42f, 10.17f, 34.81f, 0f, 37.83f, 13.19f, 2f, 33.7f, 23.58f, 27.87f, 32.9f, 20.34f, 41.17f)), listOf())
+
+    // folha
+    private fun glyph15() = Glyph(listOf(floatArrayOf(0f, 7f, 38f, 2f, 9.76f, 22.63f, 22.02f, 12.34f, 37.64f, 12.29f, 2f, 34.88f, 27.66f, 22.62f, 37.95f, 7f, 38f, 3f, 0f, 13.13f, 32.86f, 1f, 29.98f, 18.72f)), listOf(floatArrayOf(0f, 17f, 31f, 1f, 19f, 23f, 0f, 25f, 26f, 1f, 28f, 18f, 0f, 32f, 20f, 1f, 35f, 14f)), listOf())
+
+    // ponto
+    private fun glyph16() = Glyph(listOf(), listOf(), listOf(floatArrayOf(0f, 29f, 24f, 2f, 29f, 26.76f, 26.76f, 29f, 24f, 29f, 2f, 21.24f, 29f, 19f, 26.76f, 19f, 24f, 2f, 19f, 21.24f, 21.24f, 19f, 24f, 19f, 2f, 26.76f, 19f, 29f, 21.24f, 29f, 24f, 3f)))
+
+    // anel
+    private fun glyph17() = Glyph(listOf(), listOf(floatArrayOf(0f, 32f, 24f, 2f, 32f, 28.42f, 28.42f, 32f, 24f, 32f, 2f, 19.58f, 32f, 16f, 28.42f, 16f, 24f, 2f, 16f, 19.58f, 19.58f, 16f, 24f, 16f, 2f, 28.42f, 16f, 32f, 19.58f, 32f, 24f, 3f)), listOf())
+
+    // semente
+    private fun glyph18() = Glyph(listOf(), listOf(), listOf(floatArrayOf(0f, 27.9f, 26.25f, 2f, 25.96f, 29.6f, 22.65f, 31.3f, 20.5f, 30.06f, 2f, 18.35f, 28.82f, 18.17f, 25.1f, 20.1f, 21.75f, 2f, 22.04f, 18.4f, 25.35f, 16.7f, 27.5f, 17.94f, 2f, 29.65f, 19.18f, 29.83f, 22.9f, 27.9f, 26.25f, 3f)))
+
+    // brilho
+    private fun glyph19() = Glyph(listOf(), listOf(floatArrayOf(0f, 24f, 10f, 2f, 25.33f, 18f, 30f, 22.67f, 38f, 24f, 2f, 30f, 25.33f, 25.33f, 30f, 24f, 38f, 2f, 22.67f, 30f, 18f, 25.33f, 10f, 24f, 2f, 18f, 22.67f, 22.67f, 18f, 24f, 10f, 3f)), listOf())
+
+    // folhinha
+    private fun glyph20() = Glyph(listOf(), listOf(floatArrayOf(0f, 8f, 32f, 2f, 10.7f, 19.12f, 21.19f, 11.78f, 34.21f, 13.65f, 2f, 31.51f, 26.52f, 21.03f, 33.87f, 8f, 32f, 3f, 0f, 13.24f, 28.33f, 1f, 27.66f, 18.23f)), listOf())
+
+    // trio
+    private fun glyph21() = Glyph(listOf(), listOf(), listOf(floatArrayOf(0f, 15f, 24f, 2f, 15f, 25.66f, 13.66f, 27f, 12f, 27f, 2f, 10.34f, 27f, 9f, 25.66f, 9f, 24f, 2f, 9f, 22.34f, 10.34f, 21f, 12f, 21f, 2f, 13.66f, 21f, 15f, 22.34f, 15f, 24f, 3f), floatArrayOf(0f, 27f, 24f, 2f, 27f, 25.66f, 25.66f, 27f, 24f, 27f, 2f, 22.34f, 27f, 21f, 25.66f, 21f, 24f, 2f, 21f, 22.34f, 22.34f, 21f, 24f, 21f, 2f, 25.66f, 21f, 27f, 22.34f, 27f, 24f, 3f), floatArrayOf(0f, 39f, 24f, 2f, 39f, 25.66f, 37.66f, 27f, 36f, 27f, 2f, 34.34f, 27f, 33f, 25.66f, 33f, 24f, 2f, 33f, 22.34f, 34.34f, 21f, 36f, 21f, 2f, 37.66f, 21f, 39f, 22.34f, 39f, 24f, 3f)))
+
+    // gota
+    private fun glyph22() = Glyph(listOf(), listOf(floatArrayOf(0f, 24f, 8f, 2f, 30f, 18f, 34f, 24f, 34f, 30f, 2f, 34f, 35.52f, 29.52f, 40f, 24f, 40f, 2f, 18.48f, 40f, 14f, 35.52f, 14f, 30f, 2f, 14f, 24f, 18f, 18f, 24f, 8f, 3f)), listOf())
 }

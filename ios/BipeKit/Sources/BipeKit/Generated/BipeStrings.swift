@@ -2656,6 +2656,8 @@ public enum BipeStrings {
 
     public static var chatsBackgroundMarca: String { NSLocalizedString("bipe_chats_background_marca", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var chatsBackgroundFrutas: String { NSLocalizedString("bipe_chats_background_frutas", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var chatsBackgroundCor: String { NSLocalizedString("bipe_chats_background_cor", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatsBackgroundLiso: String { NSLocalizedString("bipe_chats_background_liso", tableName: "Bipe", bundle: .module, comment: "") }
