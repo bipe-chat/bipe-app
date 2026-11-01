@@ -101,10 +101,10 @@ jobs:
 
       - name: Install ubrn
         run: |
-          if ! uniffi-bindgen-react-native --version 2>/dev/null | grep -q "$UBRN_VERSION"; then
+          if ! cargo install --list | grep -q "^uniffi-bindgen-react-native v.*$UBRN_VERSION"; then
             cargo install --locked --force --git https://github.com/jhugman/uniffi-bindgen-react-native --tag "$UBRN_VERSION" uniffi-bindgen-react-native
           fi
-          uniffi-bindgen-react-native --version
+          cargo install --list | grep -A1 "^uniffi-bindgen-react-native"
 
       - uses: pnpm/action-setup@v4
         with:
