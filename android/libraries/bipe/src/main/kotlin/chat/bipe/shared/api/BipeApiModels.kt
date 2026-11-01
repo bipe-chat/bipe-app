@@ -324,6 +324,12 @@ data class BipeReservedName(@SerialName("name") val name: String, @SerialName("a
 
 // Recovery (ADR 0057, ADR 0059). Contract: bipe-shared/api/openapi.yaml, schemas RecoveryStarted and RecoveryClaim.
 
+/** The current PIN, for a call that a session alone may not make (bipe-chat/bipe#908). */
+@Serializable
+internal data class BipePinRequest(@SerialName("pin") val pin: String) {
+    override fun toString(): String = "BipePinRequest"
+}
+
 @Serializable
 internal data class BipeTokenRecoveryRequest(
     @SerialName("recovery_token") val recoveryToken: String,

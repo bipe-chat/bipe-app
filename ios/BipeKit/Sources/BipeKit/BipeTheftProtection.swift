@@ -67,9 +67,10 @@ public extension BipeAPIClient {
         try await send(method: "GET", path: ["v1", "me", "guardians"], body: Empty?.none, accessToken: accessToken)
     }
 
-    /// `PUT /v1/me/guardians`. Replaces the list (0 to ``BipeRegistries/theftMaxGuardians`` IDs).
-    func setGuardians(_ userIDs: [String], accessToken: String) async throws(BipeAPIError) -> BipeGuardianState {
-        try await send(method: "PUT", path: ["v1", "me", "guardians"], body: GuardiansRequest(userIds: userIDs), accessToken: accessToken)
+    /// `PUT /v1/me/guardians`. Replaces the list (0 to ``BipeRegistries/theftMaxGuardians`` IDs). Needs the current PIN
+    /// (bipe-chat/bipe#908).
+    func setGuardians(_ userIDs: [String], pin: String, accessToken: String) async throws(BipeAPIError) -> BipeGuardianState {
+        try await send(method: "PUT", path: ["v1", "me", "guardians"], body: GuardiansRequest(userIds: userIDs, pin: pin), accessToken: accessToken)
     }
 
     /// `PUT /v1/me/phone`. Records this phone's ID for the account (bipe-chat/bipe#268).
@@ -97,6 +98,7 @@ public extension BipeAPIClient {
 
 private nonisolated struct GuardiansRequest: Encodable {
     let userIds: [String]
+    let pin: String
 }
 
 private nonisolated struct PhoneRequest: Encodable {

@@ -63,9 +63,10 @@ public struct BipeAPIClient: Sendable {
         try await send(method: "GET", path: ["v1", "me", "account"], body: Empty?.none, accessToken: accessToken)
     }
     
-    /// `PUT /v1/me/pin`. Set or change the PIN. The app checks the device owner first (biometrics).
-    public func setPIN(_ pin: String, accessToken: String) async throws(BipeAPIError) {
-        let _: NoContent = try await send(method: "PUT", path: ["v1", "me", "pin"], body: PINRequest(pin: pin), accessToken: accessToken)
+    /// `PUT /v1/me/pin`. Set or change the PIN. A change needs the current PIN (bipe-chat/bipe#908).
+    public func setPIN(_ pin: String, oldPIN: String?, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "PUT", path: ["v1", "me", "pin"], body: PINChangeRequest(pin: pin, oldPin: oldPIN),
+                                          accessToken: accessToken)
     }
 
     /// `POST /v1/me/pin/check` (spec pin-reminder). A wrong PIN counts against the account; a right one resets the count.
@@ -73,14 +74,15 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "pin", "check"], body: PINRequest(pin: pin), accessToken: accessToken)
     }
     
-    /// `POST /v1/me/device-first`. Moves a beta account to a hidden password. Needs a PIN first.
-    public func moveToDeviceFirst(accessToken: String) async throws(BipeAPIError) -> BipeCredentials {
-        try await send(method: "POST", path: ["v1", "me", "device-first"], body: Empty?.none, accessToken: accessToken)
+    /// `POST /v1/me/device-first`. Moves a beta account to a hidden password, once. Needs the current PIN (bipe-chat/bipe#908).
+    public func moveToDeviceFirst(pin: String, accessToken: String) async throws(BipeAPIError) -> BipeCredentials {
+        try await send(method: "POST", path: ["v1", "me", "device-first"], body: PINRequest(pin: pin), accessToken: accessToken)
     }
     
-    /// `POST /v1/me/recovery-token`. A new token; the old one stops working.
-    public func newRecoveryToken(accessToken: String) async throws(BipeAPIError) -> String {
-        let response: RecoveryTokenResponse = try await send(method: "POST", path: ["v1", "me", "recovery-token"], body: Empty?.none, accessToken: accessToken)
+    /// `POST /v1/me/recovery-token`. A new token; the old one stops working. Needs the current PIN (bipe-chat/bipe#908).
+    public func newRecoveryToken(pin: String, accessToken: String) async throws(BipeAPIError) -> String {
+        let response: RecoveryTokenResponse = try await send(method: "POST", path: ["v1", "me", "recovery-token"], body: PINRequest(pin: pin),
+                                                             accessToken: accessToken)
         return response.recoveryToken
     }
     
@@ -515,6 +517,11 @@ public struct BipeAPIClient: Sendable {
     
     private struct PINRequest: Encodable {
         let pin: String
+    }
+
+    private struct PINChangeRequest: Encodable {
+        let pin: String
+        let oldPin: String?
     }
 
     private struct DeletionRequest: Encodable {
@@ -1157,6 +1164,8 @@ public enum BipeAPIErrorCode: String, Sendable {
     case pinWrong = "pin_wrong"
     case pinBlocked = "pin_blocked"
     case pinNotSet = "pin_not_set"
+    /// `POST /v1/me/device-first` on an account that already moved (bipe-chat/bipe#908).
+    case alreadyDeviceFirst = "already_device_first"
     case recoveryInvalid = "recovery_invalid"
     case emailUnavailable = "email_unavailable"
     /// 403. Reason `missing` or `outdated` (ADR 0113).
@@ -1254,6 +1263,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .pinWrong: BipeStrings.pinWrong(reason ?? "0")
             case .pinBlocked: BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries))
             case .pinNotSet: BipeStrings.pinCreateBody(String(BipeRegistries.pinLength))
+            case .alreadyDeviceFirst: BipeStrings.errorGeneric
             case .recoveryInvalid: BipeStrings.errorRecoveryInvalid
             case .emailUnavailable: BipeStrings.errorEmailUnavailable
             case .termsRequired: BipeStrings.signupTermsRequired
