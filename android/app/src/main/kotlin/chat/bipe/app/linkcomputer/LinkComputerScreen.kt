@@ -159,7 +159,7 @@ private fun ScanContent(state: LinkComputerModel.State, model: LinkComputerModel
                             Text(stringResource(R.string.bipe_link_computer_error_title), style = MaterialTheme.typography.titleMedium, color = colors.trustDangerInk)
                             Text(stringResource(error.message(model.mode)), color = colors.inkPrimary, textAlign = TextAlign.Center)
                             LinkFailureCode(state.errorCode)
-                            if (error == LinkComputerModel.Failure.NEEDS_APPROVAL && encryption != null) {
+                            if (error == LinkComputerModel.Failure.NEEDS_APPROVAL && LocalEncryptionStatus.current != null) {
                                 BipeButton(onClick = model::approvePhone) { Text(stringResource(R.string.bipe_app_link_approve_phone)) }
                             } else {
                                 BipeOutlinedButton(onClick = model::scanAgain) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
