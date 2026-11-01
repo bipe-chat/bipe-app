@@ -54,12 +54,15 @@ async function buildClient(): Promise<Client> {
     .build();
 }
 
+// The SDK registers a native client (ApplicationType::Native) with MAS, so
+// the values match the phones (AccountSession+QRLogin.swift, QrLogin.kt): a
+// private-use redirect scheme and the public site as client URI. The QR flow
+// uses the device grant and never opens the redirect URI.
 export function oauthConfiguration(): OAuthConfiguration {
-  const origin = window.location.origin;
   return {
     clientName: 'Bipe Web',
-    redirectUri: `${origin}/`,
-    clientUri: `${origin}/`,
+    redirectUri: 'chat.bipe:/callback',
+    clientUri: 'https://bipe.chat',
     logoUri: undefined,
     tosUri: undefined,
     policyUri: undefined,
