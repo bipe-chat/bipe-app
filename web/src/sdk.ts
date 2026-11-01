@@ -11,7 +11,7 @@ import {
   ClientBuilder,
   IndexedDbStoreBuilder,
   SlidingSyncVersionBuilder,
-  type Client,
+  type ClientLike as Client,
   type ClientSessionDelegate,
   type OAuthConfiguration,
   type Session,

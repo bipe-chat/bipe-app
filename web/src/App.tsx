@@ -17,14 +17,14 @@ import {
   TimelineDiff,
   TimelineItemContent,
   messageEventContentFromMarkdown,
-  type CheckCodeSender,
-  type Client,
-  type Room,
-  type RoomListEntriesWithDynamicAdaptersResult,
-  type SyncService,
-  type TaskHandle,
-  type Timeline,
-  type TimelineItem,
+  type CheckCodeSenderLike as CheckCodeSender,
+  type ClientLike as Client,
+  type RoomLike as Room,
+  type RoomListEntriesWithDynamicAdaptersResultLike as RoomListEntriesWithDynamicAdaptersResult,
+  type SyncServiceLike as SyncService,
+  type TaskHandleLike as TaskHandle,
+  type TimelineLike as Timeline,
+  type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
 import { forgetSession, newClient, oauthConfiguration, rememberSession, restoreClient } from './sdk';
 

@@ -122,7 +122,7 @@ jobs:
 
       - name: Build matrix-sdk-ffi for wasm32 and generate the bindings
         working-directory: web
-        run: uniffi-bindgen-react-native build wasm2 --config ubrn.config.yaml --profile small-release
+        run: uniffi-bindgen-react-native build wasm2 --config ubrn.config.yaml --profile small-release-stripped
 
       - name: Report bindings
         working-directory: web
