@@ -104,7 +104,7 @@ struct SettingsGroupView: View {
         .dataExport(export)
         .sheet(isPresented: $showsRecoveryKey, onDismiss: { Task { await model.load() } }) {
             // Spec recovery-key-save, from the recovery key row.
-            RecoveryKeySaveView(session: model.session) { showsRecoveryKey = false }
+            RecoveryKeySaveView(session: model.session, api: model.api) { showsRecoveryKey = false }
         }
         .sheet(isPresented: $showsEmail, onDismiss: { Task { await model.load() } }) {
             // Spec recovery-email-add, from the e-mail row of Ways back (bipe-chat/bipe#531).

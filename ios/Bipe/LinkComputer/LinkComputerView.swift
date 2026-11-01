@@ -13,6 +13,8 @@ import UIKit
 struct LinkComputerView: View {
     @StateObject private var model: LinkComputerModel
     @Environment(\.dismiss) private var dismiss
+    /// Action approvePhone opens its sheet once this full-screen flow has gone.
+    @Environment(\.encryptionStatus) private var encryption
 
     init(settings: SettingsModel, mode: LinkComputerModel.Mode = .computer) {
         _model = StateObject(wrappedValue: LinkComputerModel(settings: settings, mode: mode))
@@ -45,7 +47,15 @@ struct LinkComputerView: View {
         .accountPinPrompt(model.pinPrompt)
         .task { await model.open() }
         .onChange(of: model.isClosed) { _, isClosed in
-            if isClosed { dismiss() }
+            guard isClosed else { return }
+            dismiss()
+            if model.opensApproval, let encryption {
+                // A sheet cannot open while the full-screen cover is still on screen.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(600))
+                    encryption.openSheet()
+                }
+            }
         }
     }
 }
@@ -137,12 +147,20 @@ private struct LinkComputerScanView: View {
             Text(error.message(model.mode))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
-            Button {
-                model.scanAgain()
-            } label: {
-                Text(BipeStrings.appLinkComputerScanAgain)
+            LinkFailureCode(code: model.errorCode)
+            if error == .needsApproval {
+                Button(action: model.approvePhone) {
+                    Text(BipeStrings.appLinkApprovePhone)
+                }
+                .buttonStyle(.bipeProminent)
+            } else {
+                Button {
+                    model.scanAgain()
+                } label: {
+                    Text(BipeStrings.appLinkComputerScanAgain)
+                }
+                .buttonStyle(.bipeBordered)
             }
-            .buttonStyle(.bipeBordered)
         }
     }
 
@@ -152,6 +170,20 @@ private struct LinkComputerScanView: View {
             .foregroundStyle(BipeColor.inkPrimary)
             .multilineTextAlignment(.center)
             .frame(maxHeight: .infinity)
+    }
+}
+
+/// State errorCode of link-computer-scan and link-phone-show: a short code for support under the error.
+struct LinkFailureCode: View {
+    let code: String?
+
+    var body: some View {
+        if let code, !code.isEmpty {
+            Text(BipeStrings.appErrorCode(code))
+                .font(.footnote.monospaced())
+                .foregroundStyle(BipeColor.inkSecondary)
+                .textSelection(.enabled)
+        }
     }
 }
 

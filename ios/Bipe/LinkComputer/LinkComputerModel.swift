@@ -6,6 +6,7 @@ import AVFoundation
 import BipeKit
 import Foundation
 import MatrixRustSDK
+import os
 
 /// Calls back on SDK threads; the model reads the updates in order on the main actor.
 final class GrantProgressStream: GrantQrLoginProgressListener {
@@ -103,7 +104,8 @@ final class LinkComputerModel: ObservableObject {
         case notBipeCode
         case expired
         case insecure
-        case needsRecoveryKey
+        /// MissingSecretsBackup with a cross-signing cause: this phone lacks a private cross-signing key.
+        case needsApproval
         case wrongCheckCode
         case stopped
         case network
@@ -117,8 +119,8 @@ final class LinkComputerModel: ObservableObject {
             case (.expired, .phone): BipeStrings.appLinkPhoneExpired
             case (.insecure, .computer): BipeStrings.appLinkComputerInsecure
             case (.insecure, .phone): BipeStrings.appLinkPhoneInsecure
-            case (.needsRecoveryKey, .computer): BipeStrings.appLinkComputerNeedsRecoveryKey
-            case (.needsRecoveryKey, .phone): BipeStrings.appLinkPhoneNeedsRecoveryKey
+            case (.needsApproval, .computer): BipeStrings.appLinkComputerNeedsApproval
+            case (.needsApproval, .phone): BipeStrings.appLinkPhoneNeedsApproval
             case (.wrongCheckCode, _): BipeStrings.appLinkPhoneWrongCheckCode
             case (.stopped, _): BipeStrings.appLinkComputerStopped
             case (.network, _): BipeStrings.errorNetwork
@@ -127,6 +129,17 @@ final class LinkComputerModel: ObservableObject {
             }
         }
     }
+
+    /// State errorCode: the cause of a MissingSecretsBackup. The SDK sends it as text only
+    /// (SecretsBundleExportError, matrix-sdk-crypto export_secrets_bundle).
+    static func secretsCause(_ detail: String) -> (Failure, String) {
+        let text = detail.lowercased()
+        if text.contains("cross-signing") { return (.needsApproval, "keys-missing") }
+        if text.contains("backup version") { return (.generic, "backup-version") }
+        return (.generic, "no-crypto")
+    }
+
+    private static let log = Logger(subsystem: "chat.bipe.app", category: "link-device")
 
     /// Debug builds and the Simulator only: the copy button of link-phone-show (bipe-chat/bipe#608).
     static var canCopyCode: Bool {
@@ -156,8 +169,12 @@ final class LinkComputerModel: ObservableObject {
     @Published private(set) var place: String?
     @Published private(set) var placeKnown = false
     @Published private(set) var approveError: Failure?
+    /// State errorCode: a short code for support under the error. Never a key or a secret.
+    @Published private(set) var errorCode: String?
     /// The flow ended: the view closes.
     @Published private(set) var isClosed = false
+    /// Action approvePhone closed the flow: the view opens the encryption-status sheet after it closes.
+    private(set) var opensApproval = false
     /// The Bipe PIN sheet of the owner check, for a phone with no biometrics (bipe-chat/bipe#785).
     let pinPrompt = AccountPinPrompt()
 
@@ -239,6 +256,7 @@ final class LinkComputerModel: ObservableObject {
             return
         }
         scanError = nil
+        errorCode = nil
         scanPhase = .connecting
         startedAt = .now
         let handler = session.client.newGrantLoginWithQrCodeHandler()
@@ -284,15 +302,21 @@ final class LinkComputerModel: ObservableObject {
     private func taskFailed(_ error: Error) {
         grantTask = nil
         let failure: Failure
-        switch error as? HumanQrGrantLoginError {
+        let grantError = error as? HumanQrGrantLoginError
+        errorCode = grantError.map { "\($0)".components(separatedBy: "(").first ?? "" }
+        switch grantError {
         case .NotFound, .Expired: failure = .expired
         case .InvalidCheckCode where mode == .phone: failure = .wrongCheckCode
         case .ConnectionInsecure, .InvalidCheckCode: failure = .insecure
-        case .MissingSecretsBackup: failure = .needsRecoveryKey
+        case .MissingSecretsBackup(let detail):
+            let cause = Self.secretsCause(detail)
+            failure = cause.0
+            errorCode = cause.1
         case .Cancelled: failure = .stopped
         case .UnsupportedQrCodeType, .UnsupportedProtocol, .OtherDeviceAlreadySignedIn: failure = .notBipeCode
         default: failure = error is URLError ? .network : .generic
         }
+        Self.log.error("link failed (\(self.errorCode ?? "-", privacy: .public)): \(String(describing: error), privacy: .public)")
         switch step {
         case .scan, .show, .warning:
             guard !isClosed else { return }
@@ -327,6 +351,7 @@ final class LinkComputerModel: ObservableObject {
         continuationSender = nil
         checkCode = nil
         scanError = nil
+        errorCode = nil
         step = .scan
         scanPhase = .scanning
     }
@@ -337,6 +362,7 @@ final class LinkComputerModel: ObservableObject {
     private func generate() {
         guard grantTask == nil else { return }
         showError = nil
+        errorCode = nil
         showPhase = .preparing
         startedAt = .now
         codeAttempt += 1
@@ -444,6 +470,12 @@ final class LinkComputerModel: ObservableObject {
         countdown?.cancel()
         approvePhase = .confirmIdentity
         step = .approve
+    }
+
+    /// Action approvePhone: closes the flow; the view then opens the encryption-status sheet.
+    func approvePhone() {
+        opensApproval = true
+        cancel()
     }
 
     /// Action cancel (scan and warning): the computer does not sign in.

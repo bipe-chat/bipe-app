@@ -35,13 +35,32 @@ final class RecoveryKeySaveModel: ObservableObject {
     @Published private(set) var progress: Progress = .starting
     /// Held in memory while showKey lasts. Never logged, never stored by the app.
     @Published private(set) var recoveryKey: String?
+    /// State account: the account the key belongs to, so a screenshot of the key names it.
+    @Published private(set) var account: String
 
     private let session: AccountSession
+    private let api: BipeAPIClient
     private var handle: TaskHandle?
 
-    init(session: AccountSession) {
+    init(session: AccountSession, api: BipeAPIClient) {
         self.session = session
+        self.api = api
+        account = session.userId
         recoveryState = session.client.encryption().recoveryState()
+    }
+
+    /// State account: the display name and @handle; the Matrix user ID while the profile has no handle.
+    func loadAccount() async {
+        let displayName = (try? await session.client.displayName()) ?? ""
+        let api = api
+        let mine = try? await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle in
+            try await api.myHandle(openID: token)
+        }
+        guard let handle = mine?.handle, !handle.isEmpty else {
+            account = displayName.isEmpty ? session.userId : "\(displayName) (\(session.userId))"
+            return
+        }
+        account = displayName.isEmpty ? "@\(handle)" : "\(displayName) (@\(handle))"
     }
 
     deinit {
@@ -139,8 +158,8 @@ struct RecoveryKeySaveView: View {
     @State private var copied = false
     private let close: () -> Void
 
-    init(session: AccountSession, close: @escaping () -> Void) {
-        _model = StateObject(wrappedValue: RecoveryKeySaveModel(session: session))
+    init(session: AccountSession, api: BipeAPIClient, close: @escaping () -> Void) {
+        _model = StateObject(wrappedValue: RecoveryKeySaveModel(session: session, api: api))
         self.close = close
     }
 
@@ -158,6 +177,7 @@ struct RecoveryKeySaveView: View {
         .interactiveDismissDisabled(model.phase == .creating || model.phase == .showKey)
         .accessibilityIdentifier(BipeScreen.recoveryKeySave.rawValue)
         .task { await model.observe() }
+        .task { await model.loadAccount() }
     }
 
     @ViewBuilder
@@ -187,6 +207,10 @@ struct RecoveryKeySaveView: View {
         case .showKey:
             Text(BipeStrings.appRecoveryKeyShowBody)
                 .foregroundStyle(BipeColor.inkSecondary)
+            Text(BipeStrings.appRecoveryKeyAccount(model.account))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(BipeColor.inkPrimary)
+                .textSelection(.enabled)
             Text(model.groupedKey)
                 .font(.title3.monospaced())
                 .foregroundStyle(BipeColor.inkPrimary)
