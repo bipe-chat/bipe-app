@@ -112,10 +112,10 @@ struct PinChangeView: View {
         savedPIN = pin
         phase = .saving
         let api = model.api
-        let oldPIN = oldPIN
+        let previousPIN = oldPIN
         do {
             try await model.authorized { (token: String) async throws(BipeAPIError) in
-                try await api.setPIN(pin, oldPIN: oldPIN, accessToken: token)
+                try await api.setPIN(pin, oldPIN: previousPIN, accessToken: token)
             }
             // One account on the phone and the lock on: the new account PIN is the app lock PIN too (ADR 0086).
             if AppLockModel.shared.store.isOn {
