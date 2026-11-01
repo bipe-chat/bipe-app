@@ -7,6 +7,9 @@
 
 /// Screen ids of Bipe's own client. iOS and Android use the same ids.
 public enum BipeScreen: String, CaseIterable, Sendable {
+    /// Accessibility (flow settings). Spec: bipe-shared/product/screens/accessibility-settings.json
+    case accessibilitySettings = "accessibility-settings"
+
     /// Delete the account (flow settings). Spec: bipe-shared/product/screens/account-delete.json
     case accountDelete = "account-delete"
 
