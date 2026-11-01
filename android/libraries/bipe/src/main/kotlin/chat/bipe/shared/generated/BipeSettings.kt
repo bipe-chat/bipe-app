@@ -61,6 +61,7 @@ enum class BipeSettingsRow(
     ACCOUNT_DELETE("account.delete", BipeSettingsRowKind.DESTRUCTIVE, R.string.bipe_account_delete, null, null, null, null),
     CHATS_APPEARANCE("chats.appearance", BipeSettingsRowKind.CHOICE, R.string.bipe_chats_appearance, null, null, null, null),
     CHATS_COLORS("chats.colors", BipeSettingsRowKind.LINK, R.string.bipe_chats_colors, R.string.bipe_chats_colors_footer, null, null, null),
+    CHATS_ACCESSIBILITY("chats.accessibility", BipeSettingsRowKind.LINK, R.string.bipe_chats_accessibility, null, null, null, null),
     CHATS_LANGUAGE("chats.language", BipeSettingsRowKind.ACTION, R.string.bipe_settings_language, R.string.bipe_settings_language_footer, "ios", null, null),
     CHATS_MEDIA_QUALITY("chats.mediaQuality", BipeSettingsRowKind.LINK, R.string.bipe_chats_media_quality, null, null, null, null),
     CHATS_SHOW_MEDIA("chats.showMedia", BipeSettingsRowKind.CHOICE, R.string.bipe_chats_show_media, null, null, null, null),
@@ -77,6 +78,20 @@ enum class BipeSettingsRow(
 
     /** The page a url row opens, in the app language ("pt" or "en"). */
     fun url(language: String): String? = if (language == "pt") urlPt else urlEn
+}
+
+/** The bipe.chat pages of `urls`, for a screen that links a page outside a url row. */
+enum class BipeSettingsUrl(val pt: String, val en: String) {
+    DOCS("https://bipe.chat/docs/", "https://bipe.chat/en/docs/"),
+    TERMS("https://bipe.chat/termos/", "https://bipe.chat/en/terms/"),
+    PRIVACY("https://bipe.chat/privacidade/", "https://bipe.chat/en/privacy/"),
+    WHO_CAN_READ("https://bipe.chat/quem-pode-ler/", "https://bipe.chat/en/who-can-read/"),
+    LGPD("https://bipe.chat/lgpd/", "https://bipe.chat/en/lgpd/"),
+    ACCESSIBILITY("https://bipe.chat/acessibilidade/", "https://bipe.chat/en/accessibility/"),
+    ;
+
+    /** The page in the app language ("pt" or "en"). */
+    fun url(language: String): String = if (language == "pt") pt else en
 }
 
 data class BipeSettingsSection(
@@ -105,7 +120,7 @@ enum class BipeSettingsGroup(
             PRIVACY -> listOf(BipeSettingsSection("talk", R.string.bipe_privacy_who_can_talk, null, listOf(BipeSettingsRow.PRIVACY_MESSAGING, BipeSettingsRow.PRIVACY_REQUEST_PHOTOS, BipeSettingsRow.PRIVACY_BLOCKED)), BipeSettingsSection("find", R.string.bipe_privacy_who_can_find, null, listOf(BipeSettingsRow.PRIVACY_NUMBER, BipeSettingsRow.PRIVACY_DISCOVERY, BipeSettingsRow.PRIVACY_CONTACTS)), BipeSettingsSection("see", R.string.bipe_privacy_what_others_see, null, listOf(BipeSettingsRow.PRIVACY_PRESENCE, BipeSettingsRow.PRIVACY_READ_RECEIPTS, BipeSettingsRow.PRIVACY_WHO_CAN_READ)), BipeSettingsSection("data", R.string.bipe_privacy_your_data, null, listOf(BipeSettingsRow.PRIVACY_EXPORT, BipeSettingsRow.PRIVACY_WHAT_BIPE_KEEPS)), BipeSettingsSection("assistants", R.string.bipe_privacy_assistants, null, listOf(BipeSettingsRow.PRIVACY_ASSISTANT_SEND)))
             ACCOUNT -> listOf(BipeSettingsSection("status", R.string.bipe_fallback_title, null, listOf(BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS)), BipeSettingsSection("pin", R.string.bipe_account_pin_section, R.string.bipe_account_pin_footer, listOf(BipeSettingsRow.ACCOUNT_CHANGE_PIN, BipeSettingsRow.ACCOUNT_APP_LOCK, BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK)), BipeSettingsSection("waysBack", R.string.bipe_account_ways_back, null, listOf(BipeSettingsRow.ACCOUNT_EMAIL, BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS, BipeSettingsRow.ACCOUNT_RECOVERY_KEY)), BipeSettingsSection("theft", R.string.bipe_theft_title, null, listOf(BipeSettingsRow.ACCOUNT_THEFT_PROTECTION)), BipeSettingsSection("devices", R.string.bipe_account_devices, null, listOf(BipeSettingsRow.ACCOUNT_OLD_MESSAGES, BipeSettingsRow.ACCOUNT_THIS_DEVICE, BipeSettingsRow.ACCOUNT_LINKED_DEVICES)), BipeSettingsSection("accounts", R.string.bipe_account_on_device, null, listOf(BipeSettingsRow.ACCOUNT_ADD)), BipeSettingsSection("leave", null, null, listOf(BipeSettingsRow.ACCOUNT_SIGN_OUT, BipeSettingsRow.ACCOUNT_DELETE)))
             NOTIFICATIONS -> listOf()
-            CHATS -> listOf(BipeSettingsSection("main", null, null, listOf(BipeSettingsRow.CHATS_APPEARANCE, BipeSettingsRow.CHATS_COLORS, BipeSettingsRow.CHATS_LANGUAGE, BipeSettingsRow.CHATS_MEDIA_QUALITY, BipeSettingsRow.CHATS_SHOW_MEDIA, BipeSettingsRow.CHATS_DATA_USE, BipeSettingsRow.CHATS_STICKER_SUGGESTIONS, BipeSettingsRow.CHATS_LIVE_LOCATION)))
+            CHATS -> listOf(BipeSettingsSection("main", null, null, listOf(BipeSettingsRow.CHATS_APPEARANCE, BipeSettingsRow.CHATS_COLORS, BipeSettingsRow.CHATS_ACCESSIBILITY, BipeSettingsRow.CHATS_LANGUAGE, BipeSettingsRow.CHATS_MEDIA_QUALITY, BipeSettingsRow.CHATS_SHOW_MEDIA, BipeSettingsRow.CHATS_DATA_USE, BipeSettingsRow.CHATS_STICKER_SUGGESTIONS, BipeSettingsRow.CHATS_LIVE_LOCATION)))
             HELP -> listOf(BipeSettingsSection("main", null, R.string.bipe_about_steward, listOf(BipeSettingsRow.HELP_SUPPORT, BipeSettingsRow.HELP_DOCS, BipeSettingsRow.HELP_TERMS, BipeSettingsRow.HELP_PRIVACY, BipeSettingsRow.HELP_REPORT_PROBLEM, BipeSettingsRow.HELP_LICENSES)))
         }
 

@@ -13,6 +13,9 @@ package chat.bipe.shared.generated
 
 /** Screen ids of Bipe's own client. iOS and Android use the same ids. */
 enum class BipeScreen(val id: String) {
+    /** Accessibility (flow settings). Spec: bipe-shared/product/screens/accessibility-settings.json */
+    ACCESSIBILITY_SETTINGS("accessibility-settings"),
+
     /** Delete the account (flow settings). Spec: bipe-shared/product/screens/account-delete.json */
     ACCOUNT_DELETE("account-delete"),
 

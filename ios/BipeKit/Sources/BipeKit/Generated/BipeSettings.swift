@@ -48,7 +48,7 @@ public enum BipeSettingsGroup: String, CaseIterable, Sendable {
         case .privacy: [BipeSettingsSection(key: "talk", titleKey: "bipe_privacy_who_can_talk", footerKey: nil, rows: [.privacyMessaging, .privacyRequestPhotos, .privacyBlocked]), BipeSettingsSection(key: "find", titleKey: "bipe_privacy_who_can_find", footerKey: nil, rows: [.privacyNumber, .privacyDiscovery, .privacyContacts]), BipeSettingsSection(key: "see", titleKey: "bipe_privacy_what_others_see", footerKey: nil, rows: [.privacyPresence, .privacyReadReceipts, .privacyWhoCanRead]), BipeSettingsSection(key: "data", titleKey: "bipe_privacy_your_data", footerKey: nil, rows: [.privacyExport, .privacyWhatBipeKeeps]), BipeSettingsSection(key: "assistants", titleKey: "bipe_privacy_assistants", footerKey: nil, rows: [.privacyAssistantSend])]
         case .account: [BipeSettingsSection(key: "status", titleKey: "bipe_fallback_title", footerKey: nil, rows: [.accountWaysBackStatus]), BipeSettingsSection(key: "pin", titleKey: "bipe_account_pin_section", footerKey: "bipe_account_pin_footer", rows: [.accountChangePin, .accountAppLock, .accountBiometricUnlock]), BipeSettingsSection(key: "waysBack", titleKey: "bipe_account_ways_back", footerKey: nil, rows: [.accountEmail, .accountLinkedAccounts, .accountRecoveryKey]), BipeSettingsSection(key: "theft", titleKey: "bipe_theft_title", footerKey: nil, rows: [.accountTheftProtection]), BipeSettingsSection(key: "devices", titleKey: "bipe_account_devices", footerKey: nil, rows: [.accountOldMessages, .accountThisDevice, .accountLinkedDevices]), BipeSettingsSection(key: "accounts", titleKey: "bipe_account_on_device", footerKey: nil, rows: [.accountAdd]), BipeSettingsSection(key: "leave", titleKey: nil, footerKey: nil, rows: [.accountSignOut, .accountDelete])]
         case .notifications: []
-        case .chats: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: nil, rows: [.chatsAppearance, .chatsColors, .chatsLanguage, .chatsMediaQuality, .chatsShowMedia, .chatsDataUse, .chatsStickerSuggestions, .chatsLiveLocation])]
+        case .chats: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: nil, rows: [.chatsAppearance, .chatsColors, .chatsAccessibility, .chatsLanguage, .chatsMediaQuality, .chatsShowMedia, .chatsDataUse, .chatsStickerSuggestions, .chatsLiveLocation])]
         case .help: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: "bipe_about_steward", rows: [.helpSupport, .helpDocs, .helpTerms, .helpPrivacy, .helpReportProblem, .helpLicenses])]
         }
     }
@@ -106,6 +106,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
     case accountDelete = "account.delete"
     case chatsAppearance = "chats.appearance"
     case chatsColors = "chats.colors"
+    case chatsAccessibility = "chats.accessibility"
     case chatsLanguage = "chats.language"
     case chatsMediaQuality = "chats.mediaQuality"
     case chatsShowMedia = "chats.showMedia"
@@ -152,6 +153,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountDelete: .destructive
         case .chatsAppearance: .choice
         case .chatsColors: .link
+        case .chatsAccessibility: .link
         case .chatsLanguage: .action
         case .chatsMediaQuality: .link
         case .chatsShowMedia: .choice
@@ -203,6 +205,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountDelete: "bipe_account_delete"
         case .chatsAppearance: "bipe_chats_appearance"
         case .chatsColors: "bipe_chats_colors"
+        case .chatsAccessibility: "bipe_chats_accessibility"
         case .chatsLanguage: "bipe_settings_language"
         case .chatsMediaQuality: "bipe_chats_media_quality"
         case .chatsShowMedia: "bipe_chats_show_media"
@@ -251,6 +254,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountDelete: nil
         case .chatsAppearance: nil
         case .chatsColors: NSLocalizedString("bipe_chats_colors_footer", tableName: "Bipe", bundle: .module, comment: "")
+        case .chatsAccessibility: nil
         case .chatsLanguage: NSLocalizedString("bipe_settings_language_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .chatsMediaQuality: nil
         case .chatsShowMedia: nil
@@ -301,6 +305,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .accountDelete: nil
         case .chatsAppearance: nil
         case .chatsColors: nil
+        case .chatsAccessibility: nil
         case .chatsLanguage: "ios"
         case .chatsMediaQuality: nil
         case .chatsShowMedia: nil
@@ -325,6 +330,28 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .helpTerms: URL(string: language == "pt" ? "https://bipe.chat/termos/" : "https://bipe.chat/en/terms/")
         case .helpPrivacy: URL(string: language == "pt" ? "https://bipe.chat/privacidade/" : "https://bipe.chat/en/privacy/")
         default: nil
+        }
+    }
+}
+
+/// The bipe.chat pages of `urls`, for a screen that links a page outside a url row.
+public enum BipeSettingsUrl: String, CaseIterable, Sendable {
+    case docs
+    case terms
+    case privacy
+    case whoCanRead
+    case lgpd
+    case accessibility
+
+    /// The page in the app language ("pt" or "en").
+    public func url(language: String) -> URL? {
+        switch self {
+        case .docs: URL(string: language == "pt" ? "https://bipe.chat/docs/" : "https://bipe.chat/en/docs/")
+        case .terms: URL(string: language == "pt" ? "https://bipe.chat/termos/" : "https://bipe.chat/en/terms/")
+        case .privacy: URL(string: language == "pt" ? "https://bipe.chat/privacidade/" : "https://bipe.chat/en/privacy/")
+        case .whoCanRead: URL(string: language == "pt" ? "https://bipe.chat/quem-pode-ler/" : "https://bipe.chat/en/who-can-read/")
+        case .lgpd: URL(string: language == "pt" ? "https://bipe.chat/lgpd/" : "https://bipe.chat/en/lgpd/")
+        case .accessibility: URL(string: language == "pt" ? "https://bipe.chat/acessibilidade/" : "https://bipe.chat/en/accessibility/")
         }
     }
 }
