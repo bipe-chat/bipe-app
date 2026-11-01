@@ -68,6 +68,21 @@ data class BipeColors(
     /** Chat bubble of other people, with ink.primary text. */
     val bubbleOther: Color,
 
+    /** Chat timeline background (ADR 0213), with ink.primary text. High contrast: the flat palette colour. */
+    val chatBackground: Color,
+
+    /** Soft blob on the chat background, top trailing (ADR 0213). */
+    val chatBlob: Color,
+
+    /** Soft blob on the chat background, leading (ADR 0213). */
+    val chatBlobDeep: Color,
+
+    /** Bipe marks on the chat background, the big one included (ADR 0213). */
+    val chatMark: Color,
+
+    /** Bipe marks on the chat background in the second tone (ADR 0213). */
+    val chatMarkAlt: Color,
+
     /** Verified text and the seal. The seal shape carries the meaning, not the colour (trust-ui.md). */
     val trustVerifiedInk: Color,
 
@@ -126,6 +141,11 @@ val BipeLightColors: BipeColors = BipeColors(
     accentWash = Color(0xFFFEF6FD),
     bubbleOwn = Color(0xFFFADDF6),
     bubbleOther = Color(0xFFF2F2F4),
+    chatBackground = Color(0xFFFEF6FD),
+    chatBlob = Color(0xFFFDEDFB),
+    chatBlobDeep = Color(0xFFFADDF6),
+    chatMark = Color(0xFFFDEDFB),
+    chatMarkAlt = Color(0xFFFFFAFE),
     trustVerifiedInk = Color(0xFF802F7C),
     trustVerifiedWash = Color(0xFFFEF6FD),
     trustVerifiedLine = Color(0xFF802F7C),
@@ -159,6 +179,11 @@ val BipeDarkColors: BipeColors = BipeColors(
     accentWash = Color(0xFF2D0B2B),
     bubbleOwn = Color(0xFF451142),
     bubbleOther = Color(0xFF1C1E21),
+    chatBackground = Color(0xFF280A26),
+    chatBlob = Color(0xFF360D34),
+    chatBlobDeep = Color(0xFF451142),
+    chatMark = Color(0xFF2D0B2B),
+    chatMarkAlt = Color(0xFF360D34),
     trustVerifiedInk = Color(0xFFDB91D4),
     trustVerifiedWash = Color(0xFF2D0B2B),
     trustVerifiedLine = Color(0xFFDB91D4),
@@ -192,6 +217,11 @@ val BipeLightHighContrastColors: BipeColors = BipeColors(
     accentWash = Color(0xFFFDEDFB),
     bubbleOwn = Color(0xFFF3C4ED),
     bubbleOther = Color(0xFFE4E6E9),
+    chatBackground = Color(0xFFFFFAFE),
+    chatBlob = Color(0xFFFFFAFE),
+    chatBlobDeep = Color(0xFFFFFAFE),
+    chatMark = Color(0xFFFFFAFE),
+    chatMarkAlt = Color(0xFFFFFAFE),
     trustVerifiedInk = Color(0xFF4E144B),
     trustVerifiedWash = Color(0xFFFEF6FD),
     trustVerifiedLine = Color(0xFF4E144B),
@@ -225,6 +255,11 @@ val BipeDarkHighContrastColors: BipeColors = BipeColors(
     accentWash = Color(0xFF360D34),
     bubbleOwn = Color(0xFF591955),
     bubbleOther = Color(0xFF25272B),
+    chatBackground = Color(0xFF280A26),
+    chatBlob = Color(0xFF280A26),
+    chatBlobDeep = Color(0xFF280A26),
+    chatMark = Color(0xFF280A26),
+    chatMarkAlt = Color(0xFF280A26),
     trustVerifiedInk = Color(0xFFF7D2F3),
     trustVerifiedWash = Color(0xFF2D0B2B),
     trustVerifiedLine = Color(0xFFF7D2F3),
@@ -276,34 +311,89 @@ fun bipeColors(palette: BipePalette, dark: Boolean, highContrast: Boolean): Bipe
     return when (palette) {
         BipePalette.ACAI -> base
         BipePalette.GOIABA -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD2E2), accentFill = Color(0xFFFFD2E2), accentFillPressed = Color(0xFFFFE8EF), accentWash = Color(0xFF420024), bubbleOwn = Color(0xFF6B003C))
-            dark -> base.copy(accentInk = Color(0xFFFC83B6), accentFill = Color(0xFFFC83B6), accentFillPressed = Color(0xFFFFD2E2), accentWash = Color(0xFF39001E), bubbleOwn = Color(0xFF54002E))
-            highContrast -> base.copy(accentInk = Color(0xFF5E0034), accentFill = Color(0xFF5E0034), accentFillPressed = Color(0xFF420023), accentWash = Color(0xFFFFEEF3), bubbleOwn = Color(0xFFFFC3D9))
-            else -> base.copy(accentInk = Color(0xFF9F005D), accentFill = Color(0xFF9F005D), accentFillPressed = Color(0xFF5E0034), accentWash = Color(0xFFFFF6F9), bubbleOwn = Color(0xFFFFDDE9))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD2E2), accentFill = Color(0xFFFFD2E2), accentFillPressed = Color(0xFFFFE8EF), accentWash = Color(0xFF420024), bubbleOwn = Color(0xFF6B003C), chatBackground = Color(0xFF34001A), chatBlob = Color(0xFF34001A), chatBlobDeep = Color(0xFF34001A), chatMark = Color(0xFF34001A), chatMarkAlt = Color(0xFF34001A))
+            dark -> base.copy(accentInk = Color(0xFFFC83B6), accentFill = Color(0xFFFC83B6), accentFillPressed = Color(0xFFFFD2E2), accentWash = Color(0xFF39001E), bubbleOwn = Color(0xFF54002E), chatBackground = Color(0xFF34001A), chatBlob = Color(0xFF420024), chatBlobDeep = Color(0xFF54002E), chatMark = Color(0xFF39001E), chatMarkAlt = Color(0xFF420024))
+            highContrast -> base.copy(accentInk = Color(0xFF5E0034), accentFill = Color(0xFF5E0034), accentFillPressed = Color(0xFF420023), accentWash = Color(0xFFFFEEF3), bubbleOwn = Color(0xFFFFC3D9), chatBackground = Color(0xFFFFFAFC), chatBlob = Color(0xFFFFFAFC), chatBlobDeep = Color(0xFFFFFAFC), chatMark = Color(0xFFFFFAFC), chatMarkAlt = Color(0xFFFFFAFC))
+            else -> base.copy(accentInk = Color(0xFF9F005D), accentFill = Color(0xFF9F005D), accentFillPressed = Color(0xFF5E0034), accentWash = Color(0xFFFFF6F9), bubbleOwn = Color(0xFFFFDDE9), chatBackground = Color(0xFFFFF6F9), chatBlob = Color(0xFFFFEEF3), chatBlobDeep = Color(0xFFFFDDE9), chatMark = Color(0xFFFFEEF3), chatMarkAlt = Color(0xFFFFFAFC))
         }
         BipePalette.PITANGA -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD5C4), accentFill = Color(0xFFFFD5C4), accentFillPressed = Color(0xFFFFE9E1), accentWash = Color(0xFF3B1000), bubbleOwn = Color(0xFF5F1F00))
-            dark -> base.copy(accentInk = Color(0xFFFF895A), accentFill = Color(0xFFFF895A), accentFillPressed = Color(0xFFFFD5C4), accentWash = Color(0xFF330D00), bubbleOwn = Color(0xFF4A1700))
-            highContrast -> base.copy(accentInk = Color(0xFF541B00), accentFill = Color(0xFF541B00), accentFillPressed = Color(0xFF3A1000), accentWash = Color(0xFFFFEEE8), bubbleOwn = Color(0xFFFFC7B1))
-            else -> base.copy(accentInk = Color(0xFF8F3300), accentFill = Color(0xFF8F3300), accentFillPressed = Color(0xFF541B00), accentWash = Color(0xFFFFF7F3), bubbleOwn = Color(0xFFFFDFD4))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFFFD5C4), accentFill = Color(0xFFFFD5C4), accentFillPressed = Color(0xFFFFE9E1), accentWash = Color(0xFF3B1000), bubbleOwn = Color(0xFF5F1F00), chatBackground = Color(0xFF2E0B00), chatBlob = Color(0xFF2E0B00), chatBlobDeep = Color(0xFF2E0B00), chatMark = Color(0xFF2E0B00), chatMarkAlt = Color(0xFF2E0B00))
+            dark -> base.copy(accentInk = Color(0xFFFF895A), accentFill = Color(0xFFFF895A), accentFillPressed = Color(0xFFFFD5C4), accentWash = Color(0xFF330D00), bubbleOwn = Color(0xFF4A1700), chatBackground = Color(0xFF2E0B00), chatBlob = Color(0xFF3B1000), chatBlobDeep = Color(0xFF4A1700), chatMark = Color(0xFF330D00), chatMarkAlt = Color(0xFF3B1000))
+            highContrast -> base.copy(accentInk = Color(0xFF541B00), accentFill = Color(0xFF541B00), accentFillPressed = Color(0xFF3A1000), accentWash = Color(0xFFFFEEE8), bubbleOwn = Color(0xFFFFC7B1), chatBackground = Color(0xFFFFFBF9), chatBlob = Color(0xFFFFFBF9), chatBlobDeep = Color(0xFFFFFBF9), chatMark = Color(0xFFFFFBF9), chatMarkAlt = Color(0xFFFFFBF9))
+            else -> base.copy(accentInk = Color(0xFF8F3300), accentFill = Color(0xFF8F3300), accentFillPressed = Color(0xFF541B00), accentWash = Color(0xFFFFF7F3), bubbleOwn = Color(0xFFFFDFD4), chatBackground = Color(0xFFFFF7F3), chatBlob = Color(0xFFFFEEE8), chatBlobDeep = Color(0xFFFFDFD4), chatMark = Color(0xFFFFEEE8), chatMarkAlt = Color(0xFFFFFBF9))
         }
         BipePalette.MARACUJA -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFE9DE9F), accentFill = Color(0xFFE9DE9F), accentFillPressed = Color(0xFFF4EFCC), accentWash = Color(0xFF241E00), bubbleOwn = Color(0xFF3C3500))
-            dark -> base.copy(accentInk = Color(0xFFC0AB00), accentFill = Color(0xFFC0AB00), accentFillPressed = Color(0xFFE9DE9F), accentWash = Color(0xFF1E1A00), bubbleOwn = Color(0xFF2E2700))
-            highContrast -> base.copy(accentInk = Color(0xFF352E00), accentFill = Color(0xFF352E00), accentFillPressed = Color(0xFF231D00), accentWash = Color(0xFFF7F3D8), bubbleOwn = Color(0xFFE2D584))
-            else -> base.copy(accentInk = Color(0xFF5C5000), accentFill = Color(0xFF5C5000), accentFillPressed = Color(0xFF352E00), accentWash = Color(0xFFFBF8EA), bubbleOwn = Color(0xFFEFE7B8))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFE9DE9F), accentFill = Color(0xFFE9DE9F), accentFillPressed = Color(0xFFF4EFCC), accentWash = Color(0xFF241E00), bubbleOwn = Color(0xFF3C3500), chatBackground = Color(0xFF1B1600), chatBlob = Color(0xFF1B1600), chatBlobDeep = Color(0xFF1B1600), chatMark = Color(0xFF1B1600), chatMarkAlt = Color(0xFF1B1600))
+            dark -> base.copy(accentInk = Color(0xFFC0AB00), accentFill = Color(0xFFC0AB00), accentFillPressed = Color(0xFFE9DE9F), accentWash = Color(0xFF1E1A00), bubbleOwn = Color(0xFF2E2700), chatBackground = Color(0xFF1B1600), chatBlob = Color(0xFF241E00), chatBlobDeep = Color(0xFF2E2700), chatMark = Color(0xFF1E1A00), chatMarkAlt = Color(0xFF241E00))
+            highContrast -> base.copy(accentInk = Color(0xFF352E00), accentFill = Color(0xFF352E00), accentFillPressed = Color(0xFF231D00), accentWash = Color(0xFFF7F3D8), bubbleOwn = Color(0xFFE2D584), chatBackground = Color(0xFFFDFCF4), chatBlob = Color(0xFFFDFCF4), chatBlobDeep = Color(0xFFFDFCF4), chatMark = Color(0xFFFDFCF4), chatMarkAlt = Color(0xFFFDFCF4))
+            else -> base.copy(accentInk = Color(0xFF5C5000), accentFill = Color(0xFF5C5000), accentFillPressed = Color(0xFF352E00), accentWash = Color(0xFFFBF8EA), bubbleOwn = Color(0xFFEFE7B8), chatBackground = Color(0xFFFBF8EA), chatBlob = Color(0xFFF7F3D8), chatBlobDeep = Color(0xFFEFE7B8), chatMark = Color(0xFFF7F3D8), chatMarkAlt = Color(0xFFFDFCF4))
         }
         BipePalette.JENIPAPO -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFBFE2F7), accentFill = Color(0xFFBFE2F7), accentFillPressed = Color(0xFFDDF1FC), accentWash = Color(0xFF002231), bubbleOwn = Color(0xFF003950))
-            dark -> base.copy(accentInk = Color(0xFF67B2DA), accentFill = Color(0xFF67B2DA), accentFillPressed = Color(0xFFBFE2F7), accentWash = Color(0xFF001C29), bubbleOwn = Color(0xFF002B3D))
-            highContrast -> base.copy(accentInk = Color(0xFF003145), accentFill = Color(0xFF003145), accentFillPressed = Color(0xFF002130), accentWash = Color(0xFFE6F5FD), bubbleOwn = Color(0xFFADDAF2))
-            else -> base.copy(accentInk = Color(0xFF005678), accentFill = Color(0xFF005678), accentFillPressed = Color(0xFF003145), accentWash = Color(0xFFF2FAFE), bubbleOwn = Color(0xFFCFEAF9))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFBFE2F7), accentFill = Color(0xFFBFE2F7), accentFillPressed = Color(0xFFDDF1FC), accentWash = Color(0xFF002231), bubbleOwn = Color(0xFF003950), chatBackground = Color(0xFF001925), chatBlob = Color(0xFF001925), chatBlobDeep = Color(0xFF001925), chatMark = Color(0xFF001925), chatMarkAlt = Color(0xFF001925))
+            dark -> base.copy(accentInk = Color(0xFF67B2DA), accentFill = Color(0xFF67B2DA), accentFillPressed = Color(0xFFBFE2F7), accentWash = Color(0xFF001C29), bubbleOwn = Color(0xFF002B3D), chatBackground = Color(0xFF001925), chatBlob = Color(0xFF002231), chatBlobDeep = Color(0xFF002B3D), chatMark = Color(0xFF001C29), chatMarkAlt = Color(0xFF002231))
+            highContrast -> base.copy(accentInk = Color(0xFF003145), accentFill = Color(0xFF003145), accentFillPressed = Color(0xFF002130), accentWash = Color(0xFFE6F5FD), bubbleOwn = Color(0xFFADDAF2), chatBackground = Color(0xFFF8FCFF), chatBlob = Color(0xFFF8FCFF), chatBlobDeep = Color(0xFFF8FCFF), chatMark = Color(0xFFF8FCFF), chatMarkAlt = Color(0xFFF8FCFF))
+            else -> base.copy(accentInk = Color(0xFF005678), accentFill = Color(0xFF005678), accentFillPressed = Color(0xFF003145), accentWash = Color(0xFFF2FAFE), bubbleOwn = Color(0xFFCFEAF9), chatBackground = Color(0xFFF2FAFE), chatBlob = Color(0xFFE6F5FD), chatBlobDeep = Color(0xFFCFEAF9), chatMark = Color(0xFFE6F5FD), chatMarkAlt = Color(0xFFF8FCFF))
         }
         BipePalette.JABUTICABA -> when {
-            dark && highContrast -> base.copy(accentInk = Color(0xFFDADAFF), accentFill = Color(0xFFDADAFF), accentFillPressed = Color(0xFFECECFF), accentWash = Color(0xFF1D193F), bubbleOwn = Color(0xFF322C66))
-            dark -> base.copy(accentInk = Color(0xFFA5A2EC), accentFill = Color(0xFFA5A2EC), accentFillPressed = Color(0xFFDADAFF), accentWash = Color(0xFF181534), bubbleOwn = Color(0xFF262050))
-            highContrast -> base.copy(accentInk = Color(0xFF2C265A), accentFill = Color(0xFF2C265A), accentFillPressed = Color(0xFF1D183D), accentWash = Color(0xFFF0F1FF), bubbleOwn = Color(0xFFCFCFFE))
-            else -> base.copy(accentInk = Color(0xFF4E4694), accentFill = Color(0xFF4E4694), accentFillPressed = Color(0xFF2C265A), accentWash = Color(0xFFF7F8FF), bubbleOwn = Color(0xFFE3E4FF))
+            dark && highContrast -> base.copy(accentInk = Color(0xFFDADAFF), accentFill = Color(0xFFDADAFF), accentFillPressed = Color(0xFFECECFF), accentWash = Color(0xFF1D193F), bubbleOwn = Color(0xFF322C66), chatBackground = Color(0xFF15132E), chatBlob = Color(0xFF15132E), chatBlobDeep = Color(0xFF15132E), chatMark = Color(0xFF15132E), chatMarkAlt = Color(0xFF15132E))
+            dark -> base.copy(accentInk = Color(0xFFA5A2EC), accentFill = Color(0xFFA5A2EC), accentFillPressed = Color(0xFFDADAFF), accentWash = Color(0xFF181534), bubbleOwn = Color(0xFF262050), chatBackground = Color(0xFF15132E), chatBlob = Color(0xFF1D193F), chatBlobDeep = Color(0xFF262050), chatMark = Color(0xFF181534), chatMarkAlt = Color(0xFF1D193F))
+            highContrast -> base.copy(accentInk = Color(0xFF2C265A), accentFill = Color(0xFF2C265A), accentFillPressed = Color(0xFF1D183D), accentWash = Color(0xFFF0F1FF), bubbleOwn = Color(0xFFCFCFFE), chatBackground = Color(0xFFFBFBFF), chatBlob = Color(0xFFFBFBFF), chatBlobDeep = Color(0xFFFBFBFF), chatMark = Color(0xFFFBFBFF), chatMarkAlt = Color(0xFFFBFBFF))
+            else -> base.copy(accentInk = Color(0xFF4E4694), accentFill = Color(0xFF4E4694), accentFillPressed = Color(0xFF2C265A), accentWash = Color(0xFFF7F8FF), bubbleOwn = Color(0xFFE3E4FF), chatBackground = Color(0xFFF7F8FF), chatBlob = Color(0xFFF0F1FF), chatBlobDeep = Color(0xFFE3E4FF), chatMark = Color(0xFFF0F1FF), chatMarkAlt = Color(0xFFFBFBFF))
         }
+    }
+}
+
+/**
+ * Chat background (ADR 0213): the options in Settings, Cores, and the places of the blobs and marks on
+ * chatBackground. Every tone is a themed chat colour, so the composition follows the palette.
+ */
+enum class BipeChatBackground(val id: String) {
+    MARCA("marca"),
+    COR("cor"),
+    LISO("liso"),
+    ;
+
+    /** A colour of the composition: one of the themed chat tokens. */
+    enum class Tone {
+        BLOB, BLOB_DEEP, MARK, MARK_ALT;
+
+        fun colour(colors: BipeColors): Color = when (this) {
+            BLOB -> colors.chatBlob
+            BLOB_DEEP -> colors.chatBlobDeep
+            MARK -> colors.chatMark
+            MARK_ALT -> colors.chatMarkAlt
+        }
+    }
+
+    /** A soft blob: centre x, y as fractions of the width and height; radius as a fraction of the longer side. */
+    data class Blob(val x: Float, val y: Float, val radius: Float, val tone: Tone)
+
+    /** A Bipe mark (the app icon shape, upright): top-start corner x, y as fractions; side as a fraction of the shorter side. */
+    data class Mark(val x: Float, val y: Float, val side: Float, val opacity: Float, val tone: Tone)
+
+    companion object {
+        /** The option of a new install. */
+        val DEFAULT: BipeChatBackground = MARCA
+
+        /** The stored option id, or DEFAULT for a missing or unknown id. */
+        fun fromId(id: String?): BipeChatBackground = entries.firstOrNull { it.id == id } ?: DEFAULT
+
+        const val BLOB_OPACITY: Float = 0.85f
+
+        val BLOBS: List<Blob> = listOf(
+            Blob(0.95f, 0.02f, 0.62f, Tone.BLOB),
+            Blob(0.05f, 0.55f, 0.55f, Tone.BLOB_DEEP),
+        )
+
+        /** In drawing order: the big mark is last. */
+        val MARKS: List<Mark> = listOf(
+            Mark(0.6f, 0.04f, 0.22f, 0.7f, Tone.MARK),
+            Mark(-0.07f, 0.08f, 0.3f, 0.7f, Tone.MARK_ALT),
+            Mark(0.14f, 0.34f, 0.12f, 0.7f, Tone.MARK),
+            Mark(-0.06f, 0.58f, 0.26f, 0.7f, Tone.MARK_ALT),
+            Mark(0.69f, 0.91f, 0.15f, 0.7f, Tone.MARK),
+            Mark(0.37f, 0.18f, 0.075f, 0.7f, Tone.MARK_ALT),
+            Mark(0.44f, 0.37f, 0.86f, 1f, Tone.MARK),
+        )
     }
 }

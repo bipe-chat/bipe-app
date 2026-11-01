@@ -2650,6 +2650,16 @@ public enum BipeStrings {
 
     public static var chatsColorsFooter: String { NSLocalizedString("bipe_chats_colors_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var chatsBackground: String { NSLocalizedString("bipe_chats_background", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsBackgroundFooter: String { NSLocalizedString("bipe_chats_background_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsBackgroundMarca: String { NSLocalizedString("bipe_chats_background_marca", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsBackgroundCor: String { NSLocalizedString("bipe_chats_background_cor", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsBackgroundLiso: String { NSLocalizedString("bipe_chats_background_liso", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var colorsAcai: String { NSLocalizedString("bipe_colors_acai", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var colorsGoiaba: String { NSLocalizedString("bipe_colors_goiaba", tableName: "Bipe", bundle: .module, comment: "") }

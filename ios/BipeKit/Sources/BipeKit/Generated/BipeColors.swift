@@ -223,6 +223,116 @@ public enum BipeColor {
     /// Chat bubble of other people, with ink.primary text.
     public static let bubbleOther = dynamic(0xF2F2F4, 0x1C1E21, 0xE4E6E9, 0x25272B)
 
+    /// Chat timeline background (ADR 0213), with ink.primary text. High contrast: the flat palette colour. Follows the app theme (BipeTheme).
+    public static var chatBackground: Color { chatBackground(BipeTheme.shared.palette) }
+
+    /// Chat timeline background (ADR 0213), with ink.primary text. High contrast: the flat palette colour, in the given palette.
+    public static func chatBackground(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatBackgroundAcai
+        case .goiaba: chatBackgroundGoiaba
+        case .pitanga: chatBackgroundPitanga
+        case .maracuja: chatBackgroundMaracuja
+        case .jenipapo: chatBackgroundJenipapo
+        case .jabuticaba: chatBackgroundJabuticaba
+        }
+    }
+
+    private static let chatBackgroundAcai = dynamic(0xFEF6FD, 0x280A26, 0xFFFAFE, 0x280A26)
+    private static let chatBackgroundGoiaba = dynamic(0xFFF6F9, 0x34001A, 0xFFFAFC, 0x34001A)
+    private static let chatBackgroundPitanga = dynamic(0xFFF7F3, 0x2E0B00, 0xFFFBF9, 0x2E0B00)
+    private static let chatBackgroundMaracuja = dynamic(0xFBF8EA, 0x1B1600, 0xFDFCF4, 0x1B1600)
+    private static let chatBackgroundJenipapo = dynamic(0xF2FAFE, 0x001925, 0xF8FCFF, 0x001925)
+    private static let chatBackgroundJabuticaba = dynamic(0xF7F8FF, 0x15132E, 0xFBFBFF, 0x15132E)
+
+    /// Soft blob on the chat background, top trailing (ADR 0213). Follows the app theme (BipeTheme).
+    public static var chatBlob: Color { chatBlob(BipeTheme.shared.palette) }
+
+    /// Soft blob on the chat background, top trailing (ADR 0213), in the given palette.
+    public static func chatBlob(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatBlobAcai
+        case .goiaba: chatBlobGoiaba
+        case .pitanga: chatBlobPitanga
+        case .maracuja: chatBlobMaracuja
+        case .jenipapo: chatBlobJenipapo
+        case .jabuticaba: chatBlobJabuticaba
+        }
+    }
+
+    private static let chatBlobAcai = dynamic(0xFDEDFB, 0x360D34, 0xFFFAFE, 0x280A26)
+    private static let chatBlobGoiaba = dynamic(0xFFEEF3, 0x420024, 0xFFFAFC, 0x34001A)
+    private static let chatBlobPitanga = dynamic(0xFFEEE8, 0x3B1000, 0xFFFBF9, 0x2E0B00)
+    private static let chatBlobMaracuja = dynamic(0xF7F3D8, 0x241E00, 0xFDFCF4, 0x1B1600)
+    private static let chatBlobJenipapo = dynamic(0xE6F5FD, 0x002231, 0xF8FCFF, 0x001925)
+    private static let chatBlobJabuticaba = dynamic(0xF0F1FF, 0x1D193F, 0xFBFBFF, 0x15132E)
+
+    /// Soft blob on the chat background, leading (ADR 0213). Follows the app theme (BipeTheme).
+    public static var chatBlobDeep: Color { chatBlobDeep(BipeTheme.shared.palette) }
+
+    /// Soft blob on the chat background, leading (ADR 0213), in the given palette.
+    public static func chatBlobDeep(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatBlobDeepAcai
+        case .goiaba: chatBlobDeepGoiaba
+        case .pitanga: chatBlobDeepPitanga
+        case .maracuja: chatBlobDeepMaracuja
+        case .jenipapo: chatBlobDeepJenipapo
+        case .jabuticaba: chatBlobDeepJabuticaba
+        }
+    }
+
+    private static let chatBlobDeepAcai = dynamic(0xFADDF6, 0x451142, 0xFFFAFE, 0x280A26)
+    private static let chatBlobDeepGoiaba = dynamic(0xFFDDE9, 0x54002E, 0xFFFAFC, 0x34001A)
+    private static let chatBlobDeepPitanga = dynamic(0xFFDFD4, 0x4A1700, 0xFFFBF9, 0x2E0B00)
+    private static let chatBlobDeepMaracuja = dynamic(0xEFE7B8, 0x2E2700, 0xFDFCF4, 0x1B1600)
+    private static let chatBlobDeepJenipapo = dynamic(0xCFEAF9, 0x002B3D, 0xF8FCFF, 0x001925)
+    private static let chatBlobDeepJabuticaba = dynamic(0xE3E4FF, 0x262050, 0xFBFBFF, 0x15132E)
+
+    /// Bipe marks on the chat background, the big one included (ADR 0213). Follows the app theme (BipeTheme).
+    public static var chatMark: Color { chatMark(BipeTheme.shared.palette) }
+
+    /// Bipe marks on the chat background, the big one included (ADR 0213), in the given palette.
+    public static func chatMark(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatMarkAcai
+        case .goiaba: chatMarkGoiaba
+        case .pitanga: chatMarkPitanga
+        case .maracuja: chatMarkMaracuja
+        case .jenipapo: chatMarkJenipapo
+        case .jabuticaba: chatMarkJabuticaba
+        }
+    }
+
+    private static let chatMarkAcai = dynamic(0xFDEDFB, 0x2D0B2B, 0xFFFAFE, 0x280A26)
+    private static let chatMarkGoiaba = dynamic(0xFFEEF3, 0x39001E, 0xFFFAFC, 0x34001A)
+    private static let chatMarkPitanga = dynamic(0xFFEEE8, 0x330D00, 0xFFFBF9, 0x2E0B00)
+    private static let chatMarkMaracuja = dynamic(0xF7F3D8, 0x1E1A00, 0xFDFCF4, 0x1B1600)
+    private static let chatMarkJenipapo = dynamic(0xE6F5FD, 0x001C29, 0xF8FCFF, 0x001925)
+    private static let chatMarkJabuticaba = dynamic(0xF0F1FF, 0x181534, 0xFBFBFF, 0x15132E)
+
+    /// Bipe marks on the chat background in the second tone (ADR 0213). Follows the app theme (BipeTheme).
+    public static var chatMarkAlt: Color { chatMarkAlt(BipeTheme.shared.palette) }
+
+    /// Bipe marks on the chat background in the second tone (ADR 0213), in the given palette.
+    public static func chatMarkAlt(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatMarkAltAcai
+        case .goiaba: chatMarkAltGoiaba
+        case .pitanga: chatMarkAltPitanga
+        case .maracuja: chatMarkAltMaracuja
+        case .jenipapo: chatMarkAltJenipapo
+        case .jabuticaba: chatMarkAltJabuticaba
+        }
+    }
+
+    private static let chatMarkAltAcai = dynamic(0xFFFAFE, 0x360D34, 0xFFFAFE, 0x280A26)
+    private static let chatMarkAltGoiaba = dynamic(0xFFFAFC, 0x420024, 0xFFFAFC, 0x34001A)
+    private static let chatMarkAltPitanga = dynamic(0xFFFBF9, 0x3B1000, 0xFFFBF9, 0x2E0B00)
+    private static let chatMarkAltMaracuja = dynamic(0xFDFCF4, 0x241E00, 0xFDFCF4, 0x1B1600)
+    private static let chatMarkAltJenipapo = dynamic(0xF8FCFF, 0x002231, 0xF8FCFF, 0x001925)
+    private static let chatMarkAltJabuticaba = dynamic(0xFBFBFF, 0x1D193F, 0xFBFBFF, 0x15132E)
+
     /// Verified text and the seal. The seal shape carries the meaning, not the colour (trust-ui.md).
     public static let trustVerifiedInk = dynamic(0x802F7C, 0xDB91D4, 0x4E144B, 0xF7D2F3)
 
@@ -278,4 +388,59 @@ public enum BipeColor {
         return Color(red: Double((light >> 16) & 0xFF) / 255, green: Double((light >> 8) & 0xFF) / 255, blue: Double(light & 0xFF) / 255)
         #endif
     }
+}
+
+/// Chat background (ADR 0213): the options in Settings, Cores, and the places of the blobs and marks on
+/// BipeColor.chatBackground. Every tone is a themed chat colour, so the composition follows the palette.
+public enum BipeChatBackground: String, CaseIterable, Sendable {
+    case marca
+    case cor
+    case liso
+
+    /// The option of a new install.
+    public static let standard: BipeChatBackground = .marca
+
+    /// A colour of the composition: one of the themed chat tokens.
+    public enum Tone: Sendable {
+        case blob, blobDeep, mark, markAlt
+
+        public var colour: Color {
+            switch self {
+            case .blob: BipeColor.chatBlob
+            case .blobDeep: BipeColor.chatBlobDeep
+            case .mark: BipeColor.chatMark
+            case .markAlt: BipeColor.chatMarkAlt
+            }
+        }
+    }
+
+    /// A soft blob: a radial gradient from the tone at blobOpacity to clear. Centre x, y as fractions of the width
+    /// and height; radius as a fraction of the longer side.
+    public struct Blob: Sendable {
+        public let x: Double, y: Double, radius: Double, tone: Tone
+    }
+
+    /// A Bipe mark (the app icon shape, upright). Top-leading corner x, y as fractions of the width and height;
+    /// side as a fraction of the shorter side.
+    public struct Mark: Sendable {
+        public let x: Double, y: Double, side: Double, opacity: Double, tone: Tone
+    }
+
+    public static let blobOpacity: Double = 0.85
+
+    public static let blobs: [Blob] = [
+        Blob(x: 0.95, y: 0.02, radius: 0.62, tone: .blob),
+        Blob(x: 0.05, y: 0.55, radius: 0.55, tone: .blobDeep),
+    ]
+
+    /// In drawing order: the big mark is last.
+    public static let marks: [Mark] = [
+        Mark(x: 0.6, y: 0.04, side: 0.22, opacity: 0.7, tone: .mark),
+        Mark(x: -0.07, y: 0.08, side: 0.3, opacity: 0.7, tone: .markAlt),
+        Mark(x: 0.14, y: 0.34, side: 0.12, opacity: 0.7, tone: .mark),
+        Mark(x: -0.06, y: 0.58, side: 0.26, opacity: 0.7, tone: .markAlt),
+        Mark(x: 0.69, y: 0.91, side: 0.15, opacity: 0.7, tone: .mark),
+        Mark(x: 0.37, y: 0.18, side: 0.075, opacity: 0.7, tone: .markAlt),
+        Mark(x: 0.44, y: 0.37, side: 0.86, opacity: 1, tone: .mark),
+    ]
 }

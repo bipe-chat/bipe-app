@@ -153,7 +153,8 @@ struct ChatTimelineView: View {
                 model.openingStickerPack = nil
             }
         }
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
+        // Spec app-colors, ADR 0213: the chat background, still behind the scrolling messages.
+        .background(ChatBackgroundView().ignoresSafeArea())
         .overlay(alignment: .bottom) { noticeView }
         .navigationTitle(model.threadRoot == nil ? model.roomName : BipeStrings.threadTitle)
         .navigationBarTitleDisplayMode(.inline)

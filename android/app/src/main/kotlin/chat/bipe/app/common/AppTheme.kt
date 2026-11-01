@@ -13,16 +13,23 @@ import androidx.compose.runtime.setValue
 import chat.bipe.app.MainActivity
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeChatBackground
 import chat.bipe.shared.generated.BipePalette
 
 /**
- * Spec app-colors: the palette the user picked, kept on the phone. BipeTheme reads [palette], so a change redraws
- * the app at once. The launcher icon is the activity-alias of the palette (AndroidManifest.xml).
+ * Spec app-colors: the palette and the chat background the user picked, kept on the phone. BipeTheme reads
+ * [palette] and the timeline reads [chatBackground], so a change redraws the app at once. The launcher icon is the
+ * activity-alias of the palette (AndroidManifest.xml).
  */
 object AppTheme {
     const val PALETTE_KEY = "palette"
+    const val CHAT_BACKGROUND_KEY = "chatBackground"
 
     var palette by mutableStateOf(BipePalette.DEFAULT)
+        private set
+
+    /** ADR 0213: the chat background. */
+    var chatBackground by mutableStateOf(BipeChatBackground.DEFAULT)
         private set
 
     /** Settings chats.appearance (bipe-chat/bipe#676): system, light or dark for the whole app, on this phone. */
@@ -47,6 +54,7 @@ object AppTheme {
     /** Shows the stored palette. A missing or unknown id is the default palette. Call in Application.onCreate. */
     fun load(context: Context) {
         palette = BipePalette.fromId(prefs(context).getString(PALETTE_KEY, null))
+        chatBackground = BipeChatBackground.fromId(prefs(context).getString(CHAT_BACKGROUND_KEY, null))
         appearance = Appearance.of(prefs(context).getString(chat.bipe.shared.generated.BipeSettingsRow.CHATS_APPEARANCE.id, null))
     }
 
@@ -55,6 +63,12 @@ object AppTheme {
         prefs(context).edit().putString(PALETTE_KEY, palette.id).apply()
         this.palette = palette
         applyLauncherIcon(context, palette)
+    }
+
+    /** Keeps the chat background and shows it in every chat at once. */
+    fun saveChatBackground(context: Context, background: BipeChatBackground) {
+        prefs(context).edit().putString(CHAT_BACKGROUND_KEY, background.id).apply()
+        chatBackground = background
     }
 
     /**
