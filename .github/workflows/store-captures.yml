@@ -5,7 +5,7 @@
 # Store captures of the Play and App Store listings (bipe-chat/bipe#457). Android: the Compose Preview Screenshot
 # Testing plugin renders the previews in android/app/src/screenshotTest on the JVM (no emulator) at 1080x1920.
 # tools/store-captures.mjs copies them into the bipe-web layout appstore/raw/play-phone/light/<locale>/<slug>.png, and
-# the run keeps them as the artifact play-phone-captures. iOS: the UI test BipeStoreCaptures starts the Debug app on
+# the run keeps them as the artifact play-phone-captures, with <slug>.elements.json from the semantics tree. iOS: the UI test BipeStoreCaptures starts the Debug app on
 # the 6.9-inch iPhone simulator once per slug and locale with the scenes of ios/Bipe/StoreCapture, and writes
 # iphone69/light/<locale>/<slug>.png (1320x2868) and <slug>.elements.json (the anchors of the bipe-web callouts) into
 # the artifact iphone69-captures. Both read the sample data in bipe-shared product/store-captures.json. Nothing goes to a store: tools/play.mjs listing sends the listing only in
@@ -46,9 +46,14 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      # The previews also write <slug>.elements.json, the anchors of the bipe-web callouts, from the semantics tree.
       - name: Render the capture previews
         working-directory: android
-        run: ./gradlew --no-daemon :app:updatePlayDebugScreenshotTest
+        env:
+          STORE_CAPTURE_ELEMENTS: ${{ runner.temp }}/captures/play-phone/light
+        run: |
+          ./gradlew --no-daemon :app:updatePlayDebugScreenshotTest
+          find "$STORE_CAPTURE_ELEMENTS" -name '*.elements.json' | sort
       - name: Copy them into the bipe-web layout
         run: |
           find android/app/src -path '*reference*' -name '*.png' | head -20

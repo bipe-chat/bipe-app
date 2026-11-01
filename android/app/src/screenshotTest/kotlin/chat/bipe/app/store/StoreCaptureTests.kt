@@ -5,6 +5,7 @@
 package chat.bipe.app.store
 
 import android.graphics.BitmapFactory
+import android.view.View
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.RootForTest
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -58,6 +68,7 @@ import chat.bipe.shared.ScamWarningKind
 import chat.bipe.shared.company.BipeCompanySealState
 import chat.bipe.shared.generated.BipeScreen
 import com.android.tools.screenshot.PreviewTest
+import java.io.File
 import java.util.Base64
 import java.util.Calendar
 
@@ -71,9 +82,74 @@ import java.util.Calendar
 private const val PHONE = "spec:width=1080px,height=1920px,dpi=480"
 
 @Composable
-private fun StoreFrame(content: @Composable () -> Unit) {
+private fun StoreFrame(slug: String, content: @Composable () -> Unit) {
+    val view = LocalView.current
+    val locale = if (LocalConfiguration.current.locales[0].language == "pt") "pt-BR" else "en-US"
     BipeTheme {
-        Surface(Modifier.fillMaxSize(), color = BipeTheme.colors.surfaceBase) { content() }
+        Surface(
+            Modifier.fillMaxSize().onGloballyPositioned { StoreElements.write(view, slug, locale) },
+            color = BipeTheme.colors.surfaceBase,
+        ) { content() }
+    }
+}
+
+/**
+ * The element tree of a capture, for the bipe-web callouts: `<STORE_CAPTURE_ELEMENTS>/<locale>/<slug>.elements.json`
+ * in the shape of the iOS UI test (frames in dp as points, `width` and `height` of the screen, `type` as the
+ * XCUIElement.ElementType raw values that the anchors use: 9 button, 48 static text, 1 other). Texts come from the
+ * unmerged semantics tree, buttons and rows from the merged one with their merged text. Without the variable the
+ * previews write nothing.
+ */
+private object StoreElements {
+    fun write(view: View, slug: String, locale: String) {
+        val dir = System.getenv("STORE_CAPTURE_ELEMENTS") ?: return
+        val owner = (view as? RootForTest)?.semanticsOwner ?: return
+        val density = view.resources.displayMetrics.density
+        val seen = HashSet<String>()
+        val rows = mutableListOf<String>()
+        fun add(node: SemanticsNode, merged: Boolean) {
+            val config = node.config
+            val label = config.getOrNull(SemanticsProperties.Text)?.joinToString(" ") { it.text }
+                ?: config.getOrNull(SemanticsProperties.EditableText)?.text
+                ?: config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString(" ")
+                ?: ""
+            val clickable = config.contains(SemanticsActions.OnClick) || config.getOrNull(SemanticsProperties.Role) == Role.Button
+            val type = when {
+                merged && clickable -> 9
+                !merged && label.isNotEmpty() -> 48
+                merged -> 1
+                else -> null
+            }
+            val r = node.boundsInRoot
+            if (type != null && r.width > 0 && r.height > 0) {
+                val frame = listOf(r.left, r.top, r.width, r.height).map { it / density }
+                val id = config.getOrNull(SemanticsProperties.TestTag).orEmpty()
+                val row = """{"frame":[${frame.joinToString(",")}],"id":${json(id)},"label":${json(label)},"type":$type}"""
+                if (seen.add(row)) rows.add(row)
+            }
+            node.children.forEach { add(it, merged) }
+        }
+        add(owner.rootSemanticsNode, merged = true)
+        add(owner.unmergedRootSemanticsNode, merged = false)
+        val width = view.width / density
+        val height = view.height / density
+        File(dir, "$locale/$slug.elements.json").apply {
+            parentFile?.mkdirs()
+            writeText("{\"elements\":[\n${rows.joinToString(",\n")}\n],\"width\":$width,\"height\":$height}\n")
+        }
+    }
+
+    private fun json(text: String): String = buildString {
+        append('"')
+        for (c in text) {
+            when {
+                c == '"' -> append("\\\"")
+                c == '\\' -> append("\\\\")
+                c < ' ' -> append("\\u%04x".format(c.code))
+                else -> append(c)
+            }
+        }
+        append('"')
     }
 }
 
@@ -152,7 +228,7 @@ private fun StoreMessages(messages: List<StoreMessage>, isGroup: Boolean) {
 /** aviso-golpe: a DM from a new account that copies a mother's name, with the scam warnings of spec scam-warning. */
 @Composable
 private fun AvisoGolpe() {
-    StoreFrame {
+    StoreFrame("aviso-golpe") {
         Column(Modifier.fillMaxSize()) {
             StoreChatHeader(StoreCaptures.scamChat)
             StoreMessages(StoreCaptures.scamMessages, isGroup = false)
@@ -179,7 +255,7 @@ private fun SeloCnpj() {
         iat = now,
         exp = now + 365L * 24 * 3600,
     )
-    StoreFrame {
+    StoreFrame("selo-cnpj") {
         Column(Modifier.fillMaxSize()) {
             StoreChatHeader(company)
             StoreMessages(StoreCaptures.sealMessages, isGroup = false)
@@ -198,7 +274,7 @@ private fun SeloCnpj() {
 @Composable
 private fun Grupos() {
     val colors = BipeTheme.colors
-    StoreFrame {
+    StoreFrame("grupos") {
         Column(Modifier.fillMaxSize()) {
             Text(
                 stringResource(R.string.bipe_tab_groups),
@@ -228,7 +304,7 @@ private fun Grupos() {
 /** stickers: a group chat with a photo and the sticker made from a picture (spec timeline-media). */
 @Composable
 private fun Stickers() {
-    StoreFrame {
+    StoreFrame("stickers") {
         Column(Modifier.fillMaxSize()) {
             StoreChatHeader(StoreCaptures.stickerChat)
             StoreMessages(StoreCaptures.stickerMessages, isGroup = true)
@@ -251,7 +327,7 @@ private fun Pedidos() {
             isDm = true,
         )
     }
-    StoreFrame {
+    StoreFrame("pedidos") {
         ChatRequestsList(requests, trustOf = { it.trust }, hidePhotos = true, media = null, onBack = {}, onOpen = {}, onOpenWhoCanMessage = {})
     }
 }
@@ -261,7 +337,7 @@ private fun Pedidos() {
 private fun ConferirPix() {
     val code = StoreCaptures.pixCode
     val state = PixCheckReceiveModel.State(phase = PixCheckReceiveModel.Phase.READY, results = listOf(PixCheckedItem(0, code, PixCheck.check(code))))
-    StoreFrame {
+    StoreFrame("conferir-pix") {
         PixCheckScreen(state, onCancel = {}, onClose = {}, onRetry = {})
     }
 }
@@ -270,7 +346,7 @@ private fun ConferirPix() {
 @Composable
 private fun SeuArroba() {
     val link = StoreCaptures.handleOwner.handle?.let(BipeProfileLink::url) ?: return
-    StoreFrame {
+    StoreFrame("seu-arroba") {
         PeopleScaffold(stringResource(R.string.bipe_app_profile_link), BipeScreen.PROFILE_LINK.id, onBack = {}) {
             ProfileLinkContent(link, showingQr = true, onShare = {}, onCopy = {}, onToggleQr = {})
         }
