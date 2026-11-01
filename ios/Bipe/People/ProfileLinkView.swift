@@ -28,47 +28,7 @@ struct ProfileLinkView: View {
     var body: some View {
         List {
             if let link {
-                Section {
-                    Text(link.absoluteString)
-                        .font(.body.monospaced())
-                        .foregroundStyle(BipeColor.inkPrimary)
-                        .textSelection(.enabled)
-                } header: {
-                    Text(BipeStrings.appProfileLink)
-                }
-                Section {
-                    ShareLink(item: link) {
-                        IconLabel(icon: .shareNetwork, text: BipeStrings.profileShare)
-                    }
-                    Button {
-                        UIPasteboard.general.url = link
-                        notice = BipeStrings.appCopied
-                    } label: {
-                        IconLabel(icon: .copy, text: BipeStrings.appCopy)
-                    }
-                    Button {
-                        withBipeAnimation { showingQr.toggle() }
-                    } label: {
-                        IconLabel(icon: .qrCode, text: BipeStrings.profileQrAction)
-                    }
-                }
-                if showingQr {
-                    Section {
-                        VStack(spacing: 12) {
-                            Text(BipeStrings.profileQrTitle)
-                                .font(.headline)
-                                .foregroundStyle(BipeColor.inkPrimary)
-                            QRCodeImage(text: link.absoluteString)
-                                .frame(width: 240, height: 240)
-                            Text(BipeStrings.profileQrFooter)
-                                .font(.footnote)
-                                .foregroundStyle(BipeColor.inkSecondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                    }
-                }
+                ProfileLinkContent(link: link, showingQr: $showingQr, notice: $notice)
             } else if loaded {
                 Section {
                     Text(BipeStrings.publicProfileNeedsHandle)
@@ -98,6 +58,57 @@ struct ProfileLinkView: View {
             try await people.api.myProfile(accessToken: token)
         }
         publicProfileOn = profile?.enabled ?? false
+    }
+}
+
+/// The sections of spec profile-link for a known link, without the server reads; the store captures use it too.
+struct ProfileLinkContent: View {
+    let link: URL
+    @Binding var showingQr: Bool
+    @Binding var notice: String?
+
+    var body: some View {
+        Section {
+            Text(link.absoluteString)
+                .font(.body.monospaced())
+                .foregroundStyle(BipeColor.inkPrimary)
+                .textSelection(.enabled)
+        } header: {
+            Text(BipeStrings.appProfileLink)
+        }
+        Section {
+            ShareLink(item: link) {
+                IconLabel(icon: .shareNetwork, text: BipeStrings.profileShare)
+            }
+            Button {
+                UIPasteboard.general.url = link
+                notice = BipeStrings.appCopied
+            } label: {
+                IconLabel(icon: .copy, text: BipeStrings.appCopy)
+            }
+            Button {
+                withBipeAnimation { showingQr.toggle() }
+            } label: {
+                IconLabel(icon: .qrCode, text: BipeStrings.profileQrAction)
+            }
+        }
+        if showingQr {
+            Section {
+                VStack(spacing: 12) {
+                    Text(BipeStrings.profileQrTitle)
+                        .font(.headline)
+                        .foregroundStyle(BipeColor.inkPrimary)
+                    QRCodeImage(text: link.absoluteString)
+                        .frame(width: 240, height: 240)
+                    Text(BipeStrings.profileQrFooter)
+                        .font(.footnote)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            }
+        }
     }
 }
 

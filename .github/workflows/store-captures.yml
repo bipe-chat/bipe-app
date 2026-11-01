@@ -2,10 +2,13 @@
 # Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 # Copyright 2026 Bipe contributors
 
-# Store captures of the Play listing (bipe-chat/bipe#457). The Compose Preview Screenshot Testing plugin renders
-# the previews in android/app/src/screenshotTest on the JVM (no emulator) at 1080x1920. tools/store-captures.mjs
-# copies them into the bipe-web layout appstore/raw/play-phone/light/<locale>/<slug>.png, and the run keeps them
-# as the artifact play-phone-captures. Nothing goes to a store: tools/play.mjs listing sends the listing only in
+# Store captures of the Play and App Store listings (bipe-chat/bipe#457). Android: the Compose Preview Screenshot
+# Testing plugin renders the previews in android/app/src/screenshotTest on the JVM (no emulator) at 1080x1920.
+# tools/store-captures.mjs copies them into the bipe-web layout appstore/raw/play-phone/light/<locale>/<slug>.png, and
+# the run keeps them as the artifact play-phone-captures. iOS: the UI test BipeStoreCaptures starts the Debug app on
+# the 6.9-inch iPhone simulator once per slug and locale with the scenes of ios/Bipe/StoreCapture, and writes
+# iphone69/light/<locale>/<slug>.png (1320x2868) and <slug>.elements.json (the anchors of the bipe-web callouts) into
+# the artifact iphone69-captures. Both read the sample data in bipe-shared product/store-captures.json. Nothing goes to a store: tools/play.mjs listing sends the listing only in
 # store-release.yml behind BIPE_SWITCH_READY.
 name: store-captures
 
@@ -17,6 +20,9 @@ on:
       - "android/app/build.gradle.kts"
       - "android/gradle/libs.versions.toml"
       - "tools/store-captures.mjs"
+      - "tools/store-captures-ios.mjs"
+      - "ios/Bipe/StoreCapture/**"
+      - "ios/StoreCaptures/**"
       - ".github/workflows/store-captures.yml"
 
 permissions:
@@ -57,3 +63,102 @@ jobs:
           name: play-phone-captures
           path: ${{ runner.temp }}/captures
           if-no-files-found: error
+
+  ios:
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      # The bipe-shared branch of the same name when it exists, else main (bipe-shared AGENTS.md).
+      - name: bipe-shared branch
+        id: shared
+        run: |
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          if git ls-remote --exit-code --heads https://github.com/bipe-chat/bipe-shared "refs/heads/$branch" > /dev/null; then
+            echo "ref=$branch" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-shared
+          path: bipe-shared
+          ref: ${{ steps.shared.outputs.ref }}
+      # The cast photos (people's avatars, the photo and the sticker of the stickers scene).
+      - uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-web
+          path: bipe-web
+          sparse-checkout: src/cast/photos
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Capture inputs
+        run: node tools/store-captures-ios.mjs bipe-shared bipe-web/src/cast/photos "$RUNNER_TEMP/ios-in"
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Use the committed package pins
+        run: |
+          dir=ios/Bipe.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
+          mkdir -p "$dir"
+          cp ios/Package.resolved "$dir/Package.resolved"
+      # The App Store's 6.9-inch size: 440x956 points at 3x. The newest Pro Max of the newest runtime.
+      - name: Simulator
+        id: sim
+        run: |
+          xcrun simctl list runtimes
+          udid=$(xcrun simctl list devices available -j | node -e '
+            const d = JSON.parse(require("fs").readFileSync(0, "utf8")).devices;
+            const rt = Object.keys(d).filter((k) => k.includes("iOS")).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+            for (const k of rt) {
+              const pick = d[k].filter((x) => /^iPhone \d+ Pro Max$/.test(x.name)).sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true }))[0];
+              if (pick) { console.error(k, pick.name); console.log(pick.udid); process.exit(0); }
+            }
+            process.exit(1);')
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+      - name: Run the capture test
+        env:
+          TEST_RUNNER_STORE_CAPTURE_IN: ${{ runner.temp }}/ios-in
+          TEST_RUNNER_STORE_CAPTURE_OUT: ${{ runner.temp }}/ios-out
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ios/Bipe.xcodeproj \
+            -scheme BipeStoreCaptures \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath ios/DerivedData \
+            -resultBundlePath "$RUNNER_TEMP/captures.xcresult" \
+            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error:|Test Case|\*\* TEST" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" "$RUNNER_TEMP/xcodebuild.log"
+      - name: Check the capture size
+        run: |
+          node -e '
+            const fs = require("fs"), path = require("path");
+            const walk = (d) => fs.readdirSync(d).flatMap((n) => { const p = path.join(d, n); return fs.statSync(p).isDirectory() ? walk(p) : [p]; });
+            const pngs = walk(process.argv[1]).filter((p) => p.endsWith(".png"));
+            let bad = 0;
+            for (const p of pngs) {
+              const b = fs.readFileSync(p), w = b.readUInt32BE(16), h = b.readUInt32BE(20);
+              console.log(`${path.relative(process.argv[1], p)} ${w}x${h}`);
+              if (w !== 1320 || h !== 2868) bad++;
+            }
+            if (!pngs.length || bad) { console.error(`::error::${bad} capture(s) are not 1320x2868`); process.exit(1); }
+          ' "$RUNNER_TEMP/ios-out" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphone69-captures
+          path: ${{ runner.temp }}/ios-out
+          if-no-files-found: error
+      - name: Upload the test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-captures-ios-log
+          path: |
+            ${{ runner.temp }}/xcodebuild.log
+            ${{ runner.temp }}/captures.xcresult

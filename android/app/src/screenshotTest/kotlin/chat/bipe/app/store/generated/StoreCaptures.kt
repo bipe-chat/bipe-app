@@ -11,21 +11,36 @@
 
 package chat.bipe.app.store.generated
 
-/** A cast entry of bipe-shared product/cast.json. */
-data class StorePerson(val id: String, val name: String, val short: String, val handle: String?, val isCompany: Boolean)
+/** A cast entry of bipe-shared product/cast.json. photo: the cast photo id (bipe-web src/cast/photos), or null. */
+data class StorePerson(val id: String, val name: String, val short: String, val handle: String?, val isCompany: Boolean, val photo: String?)
 
-/** A sample message. from null: the viewer sent it. warning: the scam warning id of the reference detector, or null. */
-data class StoreMessage(val from: StorePerson?, val time: String, val text: String, val warning: String?)
+/**
+ * A sample message. from null: the viewer sent it. warning: the scam warning id of the reference detector, or null.
+ * image and sticker: the cast photo id that the message shows in place of text.
+ */
+data class StoreMessage(val from: StorePerson?, val time: String, val text: String, val warning: String?, val image: String? = null, val sticker: String? = null)
 
 /** A chat request and its trust line: verified, unverified or external. */
 data class StoreRequest(val from: StorePerson, val trust: String)
 
+/** A group in the chat list with its last message. */
+data class StoreGroup(val group: StorePerson, val from: StorePerson, val time: String, val text: String, val unread: Int, val mentions: Int, val muted: Boolean)
+
 /** The cast people that the captures use. */
 object StoreCast {
-    val clinica = StorePerson("clinica", "Clínica Vida", "Clínica Vida", "clinicavida", isCompany = true)
-    val falsacaju = StorePerson("falsacaju", "CajuNet Segunda Via", "CajuNet Segunda Via", "cajunet.2via", isCompany = false)
-    val gabi = StorePerson("gabi", "Gabriela Moreira", "Gabi", "gabi.moreira", isCompany = false)
-    val golpista = StorePerson("golpista", "Joana Lima", "Joana Lima", "joana.lima.2", isCompany = false)
+    val antonio = StorePerson("antonio", "Antônio Pereira", "Seu Antônio", "antonio.pereira", isCompany = false, photo = "antonio")
+    val avisos = StorePerson("avisos", "Avisos do Bela Vista", "Avisos do Bela Vista", null, isCompany = false, photo = "condominio")
+    val bia = StorePerson("bia", "Beatriz Ramos", "Bia", "biaramos", isCompany = false, photo = "bia")
+    val clinica = StorePerson("clinica", "Clínica Vida", "Clínica Vida", "clinicavida", isCompany = true, photo = "clinica")
+    val debora = StorePerson("debora", "Débora Martins", "Pastora Débora", "pastoradebora", isCompany = false, photo = "debora")
+    val faculdade = StorePerson("faculdade", "Galera da faculdade", "Galera da faculdade", null, isCompany = false, photo = "faculdade")
+    val falsacaju = StorePerson("falsacaju", "CajuNet Segunda Via", "CajuNet Segunda Via", "cajunet.2via", isCompany = false, photo = "caju")
+    val familia = StorePerson("familia", "Família Lima", "Família Lima", null, isCompany = false, photo = "familia")
+    val gabi = StorePerson("gabi", "Gabriela Moreira", "Gabi", "gabi.moreira", isCompany = false, photo = "gabi")
+    val golpista = StorePerson("golpista", "Joana Lima", "Joana Lima", "joana.lima.2", isCompany = false, photo = "joana")
+    val igreja = StorePerson("igreja", "Comunidade Vida Nova", "Comunidade Vida Nova", null, isCompany = false, photo = "igreja")
+    val leo = StorePerson("leo", "Leonardo Costa", "Léo", "leocosta", isCompany = false, photo = "leo")
+    val valdir = StorePerson("valdir", "Valdir Gonçalves", "Seu Valdir", "valdir.sindico", isCompany = false, photo = "valdir")
 }
 
 /** Sample data of the store captures (bipe-shared product/store-captures.json, bipe-chat/bipe#457). */
@@ -34,7 +49,7 @@ object StoreCaptures {
     val slugs: List<String> = listOf("aviso-golpe", "pedidos", "conferir-pix", "seu-arroba", "selo-cnpj", "grupos", "stickers")
 
     /** The slugs that have a capture source here. */
-    val captured: List<String> = listOf("aviso-golpe", "pedidos", "conferir-pix", "seu-arroba")
+    val captured: List<String> = listOf("aviso-golpe", "pedidos", "conferir-pix", "seu-arroba", "selo-cnpj", "grupos", "stickers")
 
     val viewer: StorePerson = StoreCast.gabi
 
@@ -58,4 +73,31 @@ object StoreCaptures {
 
     /** seu-arroba: whose link and QR code the capture shows. */
     val handleOwner: StorePerson = StoreCast.gabi
+
+    /** selo-cnpj: the company chat and its seal. cnpj: 14 digits. */
+    val sealCompany: StorePerson = StoreCast.clinica
+    val sealLegalName: String = "Clínica Vida Serviços Médicos Ltda"
+    val sealCnpj: String = "00000000000100"
+    val sealCheckedMonth: String = "2026-10"
+    val sealMessages: List<StoreMessage> = listOf(
+        StoreMessage(StoreCast.clinica, "10:20", "Sua consulta é amanhã, às 14h, com a Dra. Ana. Responda 1 para confirmar ou 2 para remarcar.", null),
+        StoreMessage(null, "10:21", "1", null),
+        StoreMessage(StoreCast.clinica, "10:22", "Consulta confirmada. Até amanhã.", null),
+    )
+
+    /** grupos: the groups in the list. */
+    val groups: List<StoreGroup> = listOf(
+        StoreGroup(StoreCast.familia, StoreCast.antonio, "10:58", "Gabi, domingo tem almoço aqui em casa", 1, 1, false),
+        StoreGroup(StoreCast.avisos, StoreCast.valdir, "10:41", "A água volta às 14h", 3, 0, true),
+        StoreGroup(StoreCast.faculdade, StoreCast.bia, "10:30", "Sexta tem churrasco lá em casa", 12, 0, true),
+        StoreGroup(StoreCast.igreja, StoreCast.debora, "10:15", "Culto de domingo às 18h", 5, 0, true),
+    )
+
+    /** stickers: the group chat and its messages. */
+    val stickerChat: StorePerson = StoreCast.faculdade
+    val stickerMessages: List<StoreMessage> = listOf(
+        StoreMessage(StoreCast.bia, "10:20", "Sexta tem churrasco lá em casa", null),
+        StoreMessage(StoreCast.leo, "10:21", "", null, image = "rafa"),
+        StoreMessage(null, "10:22", "", null, sticker = "caramelo"),
+    )
 }

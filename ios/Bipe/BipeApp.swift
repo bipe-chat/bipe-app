@@ -21,10 +21,25 @@ struct BipeApp: App {
 
     var body: some Scene {
         WindowGroup {
-            AccountStartView()
-                .modifier(AppLockGate())
-                .bipeRoundedType()
-                .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
+            #if DEBUG
+            // Store captures (bipe-chat/bipe#457): the UI test BipeStoreCapturesTests starts the app with a sample scene.
+            if let capture = StoreCapture.current {
+                StoreCaptureRoot(capture: capture)
+                    .bipeRoundedType()
+                    .preferredColorScheme(.light)
+            } else {
+                appRoot
+            }
+            #else
+            appRoot
+            #endif
         }
+    }
+
+    private var appRoot: some View {
+        AccountStartView()
+            .modifier(AppLockGate())
+            .bipeRoundedType()
+            .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
     }
 }

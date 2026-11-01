@@ -49,18 +49,35 @@ struct ChatRequestsView: View {
     let onOpenWhoCanMessage: () -> Void
 
     var body: some View {
+        ChatRequestsList(requests: model.visibleRequests, trust: model.trust(for:), hidePhotos: model.hidePhotos, media: media,
+                         onOpenWhoCanMessage: onOpenWhoCanMessage) { request in
+            ChatRequestView(model: model, request: request, media: media, onOpenChat: onOpenChat)
+        }
+    }
+}
+
+/// The box of spec chat-requests without its model; the store captures use it too.
+struct ChatRequestsList<Destination: View>: View {
+    let requests: [ChatRequestSummary]
+    let trust: (ChatRequestSummary) -> ChatRequestSummary.Trust
+    let hidePhotos: Bool
+    let media: MediaLoader
+    let onOpenWhoCanMessage: () -> Void
+    @ViewBuilder let destination: (ChatRequestSummary) -> Destination
+
+    var body: some View {
         List {
-            if model.visibleRequests.isEmpty {
+            if requests.isEmpty {
                 // Empty box: bipe_app_requests_empty and a link to the who-can-message setting.
                 Text(BipeStrings.appRequestsEmpty)
                     .foregroundStyle(BipeColor.inkSecondary)
             } else {
-                ForEach(model.visibleRequests) { request in
+                ForEach(requests) { request in
                     // Action openRequest.
                     NavigationLink {
-                        ChatRequestView(model: model, request: request, media: media, onOpenChat: onOpenChat)
+                        destination(request)
                     } label: {
-                        RequestRow(request: request, trust: model.trust(for: request), media: media, hidePhoto: model.hidePhotos)
+                        RequestRow(request: request, trust: trust(request), media: media, hidePhoto: hidePhotos)
                     }
                 }
             }

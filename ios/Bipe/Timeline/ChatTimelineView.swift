@@ -530,7 +530,7 @@ private struct LocationSendRequest: Identifiable {
 
 /// Spec composer: Markdown text, @ mentions in groups, the draft, and the entries to attachments,
 /// stickers and voice. The reply bar (message-reply) and the edit bar (message-edit) sit above it.
-private struct ComposerBar: View {
+struct ComposerBar: View {
     @ObservedObject var model: ChatTimelineModel
     let media: MediaLoader
     let openAttachments: () -> Void

@@ -184,6 +184,22 @@ targets:
       - target: BipeShare
     scheme: {}
 
+  # Store captures (bipe-chat/bipe#457): a UI test that starts the Debug app once per store screenshot with a
+  # sample scene (Bipe/StoreCapture) and writes the screenshot and element tree. store-captures.yml runs it on a
+  # simulator; the normal builds do not build it.
+  BipeStoreCaptures:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: StoreCaptures
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BIPE_APP_ID).storecaptures
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Bipe
+    dependencies:
+      - target: Bipe
+
   # Notification service extension (spec notification-service): fetches and decrypts the event of a
   # content-free push. It opens the account from the store in the app group, so it compiles the app's
   # session files too; keep those free of app-only types.
@@ -282,3 +298,15 @@ targets:
         product: BipeKit
       - package: Phosphor
         product: Phosphor
+
+schemes:
+  # The store captures (store-captures.yml): `xcodebuild test -scheme BipeStoreCaptures` on a simulator.
+  BipeStoreCaptures:
+    build:
+      targets:
+        Bipe: all
+        BipeStoreCaptures: [test]
+    test:
+      config: Debug
+      targets:
+        - BipeStoreCaptures

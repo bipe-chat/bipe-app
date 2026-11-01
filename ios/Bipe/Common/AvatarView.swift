@@ -9,13 +9,30 @@ import UIKit
 
 /// Loads avatar thumbnails through the SDK media API and keeps them in memory.
 final class MediaLoader {
-    let client: Client
+    /// nil only for the store captures, which have no account (StoreCapture).
+    let client: Client?
+    /// Store captures: media bytes by mxc URL, in place of the SDK.
+    private let local: [String: Data]
     private let cache = NSCache<NSString, UIImage>()
     private let accountTypes = NSCache<NSString, NSNumber>()
     private let api = BipeAPIClient(baseURL: AppConfig.apiBaseURL)
 
     init(client: Client) {
         self.client = client
+        local = [:]
+    }
+
+    /// The store captures: no client and no network, only the given media.
+    init(local: [String: Data]) {
+        client = nil
+        self.local = local
+    }
+
+    /// The media content: a local file of the store captures, else the SDK media cache.
+    func content(_ source: MediaSource) async throws -> Data {
+        if let data = local[source.url()] { return data }
+        guard let client else { throw MediaLoaderError.noClient }
+        return try await client.getMediaContent(mediaSource: source)
     }
 
     func thumbnail(mxcUrl: String, size: Int) async -> UIImage? {
@@ -23,25 +40,39 @@ final class MediaLoader {
         if let cached = cache.object(forKey: key) {
             return cached
         }
-        guard let source = try? MediaSource.fromUrl(url: mxcUrl),
-              let data = try? await client.getMediaThumbnail(mediaSource: source, width: UInt64(size), height: UInt64(size)),
-              let image = UIImage(data: data) else { return nil }
+        let data: Data?
+        if let file = local[mxcUrl] {
+            data = file
+        } else if let client, let source = try? MediaSource.fromUrl(url: mxcUrl) {
+            data = try? await client.getMediaThumbnail(mediaSource: source, width: UInt64(size), height: UInt64(size))
+        } else {
+            data = nil
+        }
+        guard let data, let image = UIImage(data: data) else { return nil }
         cache.setObject(image, forKey: key)
         return image
     }
 
     func avatarUrl(userId: String) async -> String? {
-        (try? await client.getProfile(userId: userId))?.avatarUrl
+        guard let client else { return nil }
+        return (try? await client.getProfile(userId: userId))?.avatarUrl
     }
 
     /// The public account-type endpoint, independent of a CNPJ badge. Unknown accounts stay round (ADR 0132).
     func isCompany(userId: String) async -> Bool {
+        // The store captures pass isCompany to AvatarView and ask no server.
+        guard client != nil else { return false }
         if let cached = accountTypes.object(forKey: userId as NSString) { return cached.boolValue }
         guard let type = try? await api.accountType(userID: userId) else { return false }
         let company = type == .company
         accountTypes.setObject(NSNumber(value: company), forKey: userId as NSString)
         return company
     }
+}
+
+enum MediaLoaderError: Error {
+    /// A store-capture loader has no client for media it was not given.
+    case noClient
 }
 
 /// A person's circle or a company's rounded square, with the actual photo or initials (ADR 0132).
