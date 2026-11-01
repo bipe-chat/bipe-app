@@ -322,8 +322,9 @@ private struct StoreChatScene: View {
             if let url = sample.image ?? sample.sticker, let source = try? MediaSource.fromUrl(url: url) {
                 message.kind = .media
                 message.body = nil
-                message.media = MediaMessage(kind: sample.sticker != nil ? .sticker : .image, filename: "\(id).jpg",
-                                             mimeType: "image/jpeg", width: sample.width, height: sample.height,
+                let sticker = sample.sticker != nil
+                message.media = MediaMessage(kind: sticker ? .sticker : .image, filename: "\(id).\(sticker ? "png" : "jpg")",
+                                             mimeType: sticker ? "image/png" : "image/jpeg", width: sample.width, height: sample.height,
                                              source: MediaRef(source: source))
             }
             let warning = message.isOwn ? nil : sample.text.flatMap { ScamDetector.warningKind(for: $0 + "\n", eventID: id) }

@@ -4,10 +4,11 @@
 
 // Store captures, iOS (bipe-chat/bipe#457): writes the input of the UI test BipeStoreCapturesTests, one JSON file
 // per slug and locale (<out>/<locale>/<slug>.json), from bipe-shared product/store-captures.json and cast.json.
-// The app decodes it in ios/Bipe/StoreCapture/StoreCapture.swift. People carry their name, handle and photo; a
-// photo is an mxc URL that `files` maps to a cast photo on disk (bipe-web src/cast/photos), which the Debug app reads
-// in the simulator. The BR Code comes from bipe-shared tools/lib/pix.mjs, as on Android.
-// Usage: node tools/store-captures-ios.mjs <bipe-shared> <cast-photos-dir> <out-dir>
+// The app decodes it in ios/Bipe/StoreCapture/StoreCapture.swift. People carry their name, handle and photo. A
+// photo or sticker is an mxc URL that `files` maps to a file of bipe-web src/cast on disk (photos/<id>.jpg,
+// stickers/<name>.png), which the Debug app reads in the simulator. The BR Code comes from bipe-shared
+// tools/lib/pix.mjs, as on Android.
+// Usage: node tools/store-captures-ios.mjs <bipe-shared> <bipe-web/src/cast> <out-dir>
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -16,8 +17,9 @@ import { isMain } from './lib.mjs';
 
 export const LOCALES = ['pt-BR', 'en-US'];
 
-/** Width and height of a JPEG from its first SOF marker, or null. */
-export function jpegSize(buf) {
+/** Width and height of a PNG (IHDR) or a JPEG (first SOF marker), or null. */
+export function imageSize(buf) {
+  if (buf.length > 24 && buf.toString('latin1', 1, 4) === 'PNG') return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
   if (buf[0] !== 0xff || buf[1] !== 0xd8) return null;
   for (let i = 2; i + 9 < buf.length;) {
     if (buf[i] !== 0xff) return null;
@@ -31,18 +33,19 @@ export function jpegSize(buf) {
   return null;
 }
 
-/** The inputs of every slug of store-captures.json: [{ slug, input }]. `photos` is the cast photo folder. */
-export function inputs({ data, cast }, photos, buildBrCode) {
+/** The inputs of every slug of store-captures.json: [{ slug, input }]. `castDir` is bipe-web src/cast. */
+export function inputs({ data, cast }, castDir, buildBrCode) {
   const files = {};
   const sizes = {};
-  const photoUrl = (photo) => {
-    const path = resolve(photos, `${photo}.jpg`);
-    if (!existsSync(path)) throw new Error(`no cast photo ${path}`);
-    const url = `mxc://store-capture.invalid/${photo}`;
-    files[url] = path;
-    sizes[url] = jpegSize(readFileSync(path));
+  const fileUrl = (path) => {
+    const full = resolve(castDir, path);
+    if (!existsSync(full)) throw new Error(`no cast file ${full}`);
+    const url = `mxc://store-capture.invalid/${path.replace(/[^a-z0-9-]/g, '_')}`;
+    files[url] = full;
+    sizes[url] = imageSize(readFileSync(full));
     return url;
   };
+  const photoUrl = (photo) => fileUrl(`photos/${photo}.jpg`);
   const photoOf = (e) => (e.photo ? e.photo.copyOf ?? e.id : null);
   const person = (key) => {
     const e = cast.get(key === 'viewer' ? data.viewer : key);
@@ -53,7 +56,7 @@ export function inputs({ data, cast }, photos, buildBrCode) {
   const media = (id) => photoUrl(photoOf(cast.get(id)) ?? id);
   const message = (m) => {
     const image = m.image ? media(m.image) : null;
-    const sticker = m.sticker ? media(m.sticker) : null;
+    const sticker = m.sticker ? fileUrl(`stickers/${m.sticker}.png`) : null;
     const size = sizes[image ?? sticker] ?? null;
     return { from: m.from === 'viewer' ? null : person(m.from), time: m.time, text: m.text ?? null, image, sticker, width: size?.width ?? null, height: size?.height ?? null };
   };
@@ -78,15 +81,15 @@ export function inputs({ data, cast }, photos, buildBrCode) {
   });
 }
 
-async function main([shared, photos, out]) {
-  if (!shared || !photos || !out) {
-    console.error('usage: node tools/store-captures-ios.mjs <bipe-shared> <cast-photos-dir> <out-dir>');
+async function main([shared, castDir, out]) {
+  if (!shared || !castDir || !out) {
+    console.error('usage: node tools/store-captures-ios.mjs <bipe-shared> <bipe-web/src/cast> <out-dir>');
     return 2;
   }
   const { buildBrCode } = await import(pathToFileURL(join(resolve(shared), 'tools/lib/pix.mjs')).href);
   const data = JSON.parse(readFileSync(join(shared, 'product/store-captures.json'), 'utf8'));
   const cast = new Map(JSON.parse(readFileSync(join(shared, 'product/cast.json'), 'utf8')).cast.map((e) => [e.id, e]));
-  const list = inputs({ data, cast }, photos, buildBrCode);
+  const list = inputs({ data, cast }, castDir, buildBrCode);
   for (const locale of LOCALES) {
     mkdirSync(join(out, locale), { recursive: true });
     for (const { slug, input } of list) writeFileSync(join(out, locale, `${slug}.json`), `${JSON.stringify(input, null, 2)}\n`);

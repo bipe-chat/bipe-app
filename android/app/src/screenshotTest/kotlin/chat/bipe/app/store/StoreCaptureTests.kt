@@ -52,7 +52,6 @@ import chat.bipe.app.pixcheck.PixCheckedItem
 import chat.bipe.app.store.generated.StoreCaptures
 import chat.bipe.app.store.generated.StoreMessage
 import chat.bipe.app.store.generated.StorePerson
-import chat.bipe.app.store.photos.StorePhotos
 import chat.bipe.app.timeline.Bubble
 import chat.bipe.app.timeline.MessageRichText
 import chat.bipe.app.timeline.MessageTimestamp
@@ -69,7 +68,6 @@ import chat.bipe.shared.company.BipeCompanySealState
 import chat.bipe.shared.generated.BipeScreen
 import com.android.tools.screenshot.PreviewTest
 import java.io.File
-import java.util.Base64
 import java.util.Calendar
 
 // Store captures of the Play listing (bipe-chat/bipe#457): one preview per slug of the bipe-shared
@@ -177,10 +175,13 @@ private fun timelineMessage(index: Int, sample: StoreMessage): TimelineMessage {
     )
 }
 
-/** A cast photo of StorePhotos (tools/store-capture-photos.mjs). */
-private fun photo(id: String): ImageBitmap {
-    val bytes = Base64.getDecoder().decode(StorePhotos.jpeg.getValue(id))
-    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size).asImageBitmap()
+/**
+ * A media file of bipe-web src/cast (photos/<id>.jpg, stickers/<name>.png) from STORE_CAPTURE_CAST, which
+ * store-captures.yml sets. Without it the message shows no image.
+ */
+private fun castImage(path: String): ImageBitmap? {
+    val file = File(System.getenv("STORE_CAPTURE_CAST") ?: return null, path)
+    return BitmapFactory.decodeFile(file.path)?.asImageBitmap()
 }
 
 /** The top of a chat: its avatar and name. */
@@ -207,14 +208,15 @@ private fun StoreMessages(messages: List<StoreMessage>, isGroup: Boolean) {
                 if (isGroup && sample.from != null) {
                     Text(sample.from.short, style = MaterialTheme.typography.labelLarge, color = colors.accentInk)
                 }
-                val media = sample.image ?: sample.sticker
+                val media = sample.image?.let { "photos/$it.jpg" } ?: sample.sticker?.let { "stickers/$it.png" }
                 if (media != null) {
-                    Image(
-                        photo(media),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(if (sample.sticker != null) 200.dp else 260.dp).clip(RoundedCornerShape(12.dp)),
-                    )
+                    val image = castImage(media)
+                    val label = stringResource(if (sample.sticker != null) R.string.bipe_app_media_sticker else R.string.bipe_app_media_image)
+                    if (image != null && sample.sticker != null) {
+                        Image(image, contentDescription = label, contentScale = ContentScale.Fit, modifier = Modifier.size(200.dp))
+                    } else if (image != null) {
+                        Image(image, contentDescription = label, contentScale = ContentScale.Crop, modifier = Modifier.size(260.dp).clip(RoundedCornerShape(12.dp)))
+                    }
                 } else {
                     MessageRichText(message, canOpen = { true })
                 }

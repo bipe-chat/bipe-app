@@ -16,7 +16,8 @@ data class StorePerson(val id: String, val name: String, val short: String, val 
 
 /**
  * A sample message. from null: the viewer sent it. warning: the scam warning id of the reference detector, or null.
- * image and sticker: the cast photo id that the message shows in place of text.
+ * image: the cast photo id (bipe-web src/cast/photos) and sticker: the file name (bipe-web src/cast/stickers) that the
+ * message shows in place of text.
  */
 data class StoreMessage(val from: StorePerson?, val time: String, val text: String, val warning: String?, val image: String? = null, val sticker: String? = null)
 
@@ -31,6 +32,7 @@ object StoreCast {
     val antonio = StorePerson("antonio", "Antônio Pereira", "Seu Antônio", "antonio.pereira", isCompany = false, photo = "antonio")
     val avisos = StorePerson("avisos", "Avisos do Bela Vista", "Avisos do Bela Vista", null, isCompany = false, photo = "condominio")
     val bia = StorePerson("bia", "Beatriz Ramos", "Bia", "biaramos", isCompany = false, photo = "bia")
+    val caio = StorePerson("caio", "Caio Nascimento", "Caio", "caionasc", isCompany = false, photo = "caio")
     val clinica = StorePerson("clinica", "Clínica Vida", "Clínica Vida", "clinicavida", isCompany = true, photo = "clinica")
     val debora = StorePerson("debora", "Débora Martins", "Pastora Débora", "pastoradebora", isCompany = false, photo = "debora")
     val faculdade = StorePerson("faculdade", "Galera da faculdade", "Galera da faculdade", null, isCompany = false, photo = "faculdade")
@@ -97,7 +99,8 @@ object StoreCaptures {
     val stickerChat: StorePerson = StoreCast.faculdade
     val stickerMessages: List<StoreMessage> = listOf(
         StoreMessage(StoreCast.bia, "10:20", "Sexta tem churrasco lá em casa", null),
-        StoreMessage(StoreCast.leo, "10:21", "", null, image = "rafa"),
-        StoreMessage(null, "10:22", "", null, sticker = "caramelo"),
+        StoreMessage(StoreCast.caio, "10:21", "", null, sticker = "caio-bora"),
+        StoreMessage(StoreCast.leo, "10:22", "Posso levar o Caramelo?", null),
+        StoreMessage(null, "10:23", "", null, sticker = "vira-lata"),
     )
 }

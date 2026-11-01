@@ -38,6 +38,23 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      # The photos and stickers that capture messages show (bipe-web src/cast), from the bipe-web branch of the same
+      # name when it exists.
+      - name: bipe-web branch
+        id: web
+        run: |
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          if git ls-remote --exit-code --heads https://github.com/bipe-chat/bipe-web "refs/heads/$branch" > /dev/null; then
+            echo "ref=$branch" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-web
+          path: bipe-web
+          ref: ${{ steps.web.outputs.ref }}
+          sparse-checkout: src/cast
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -51,6 +68,7 @@ jobs:
         working-directory: android
         env:
           STORE_CAPTURE_ELEMENTS: ${{ runner.temp }}/captures/play-phone/light
+          STORE_CAPTURE_CAST: ${{ github.workspace }}/bipe-web/src/cast
         run: |
           ./gradlew --no-daemon :app:updatePlayDebugScreenshotTest
           find "$STORE_CAPTURE_ELEMENTS" -name '*.elements.json' | sort
@@ -91,17 +109,27 @@ jobs:
           repository: bipe-chat/bipe-shared
           path: bipe-shared
           ref: ${{ steps.shared.outputs.ref }}
-      # The cast photos (people's avatars, the photo and the sticker of the stickers scene).
+      # The cast photos and stickers (bipe-web src/cast), from the bipe-web branch of the same name when it exists.
+      - name: bipe-web branch
+        id: web
+        run: |
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          if git ls-remote --exit-code --heads https://github.com/bipe-chat/bipe-web "refs/heads/$branch" > /dev/null; then
+            echo "ref=$branch" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
         with:
           repository: bipe-chat/bipe-web
           path: bipe-web
-          sparse-checkout: src/cast/photos
+          ref: ${{ steps.web.outputs.ref }}
+          sparse-checkout: src/cast
       - uses: actions/setup-node@v4
         with:
           node-version: 24
       - name: Capture inputs
-        run: node tools/store-captures-ios.mjs bipe-shared bipe-web/src/cast/photos "$RUNNER_TEMP/ios-in"
+        run: node tools/store-captures-ios.mjs bipe-shared bipe-web/src/cast "$RUNNER_TEMP/ios-in"
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate the project
