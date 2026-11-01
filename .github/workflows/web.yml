@@ -124,6 +124,22 @@ jobs:
         working-directory: web
         run: uniffi-bindgen-react-native build wasm2 --config ubrn.config.yaml --profile small-release-stripped
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-tools
+
+      # The custom "name" section is about 20 MB of the module (function names
+      # for stack traces). The player and the bindings do not read it.
+      - name: Strip custom sections from the wasm
+        working-directory: web
+        run: |
+          for f in src/generated/*.wasm; do
+            before=$(stat -c %s "$f")
+            wasm-tools strip --all -o "$f.stripped" "$f"
+            mv "$f.stripped" "$f"
+            echo "$f: $before -> $(stat -c %s "$f") bytes"
+          done
+
       - name: Report bindings
         working-directory: web
         run: |
