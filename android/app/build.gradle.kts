@@ -92,8 +92,9 @@ android {
             if (findProperty("bipeIdSet") != "store") {
                 ndk { abiFilters += "arm64-v8a" }
             }
-            // Tester APK for side-loading (bipe-chat/bipe#575): debug signing is enough. The store release signs with
-            // the Play upload key when it is given; Play then signs again with the app signing key.
+            // The "upload" config holds the key given by the workflow: the Play upload key in store-release.yml, the
+            // fixed tester key in testflight.yml (one key for every tester APK, so installs update). Play signs the
+            // store build again with the app signing key. Local builds without a key use debug signing.
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
         }
     }
