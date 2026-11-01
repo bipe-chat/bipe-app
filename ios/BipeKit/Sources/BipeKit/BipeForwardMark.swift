@@ -61,6 +61,18 @@ public enum BipeForwardMark {
         return isVoice ? .recorded : .file
     }
 
+    /// The forward line of any message (bipe-chat/bipe#933): forwardedManyTimes, forwarded, or nil for a count under 1.
+    public static func line(count: Int) -> Source? {
+        if count >= BipeRegistries.forwardedManyTimes { return .forwardedManyTimes }
+        return count >= 1 ? .forwarded : nil
+    }
+
+    /// The most chats one forward goes to (bipe-chat/bipe#933). sentCounts are the counts of the contents the forward
+    /// sends: forwardChatsManyTimes when one reaches forwardedManyTimes, else forwardChats.
+    public static func chatLimit(sentCounts: [Int]) -> Int {
+        sentCounts.contains { $0 >= BipeRegistries.forwardedManyTimes } ? BipeRegistries.forwardChatsManyTimes : BipeRegistries.forwardChats
+    }
+
     /// The content object of event JSON: its "content" when it has one, else the object itself.
     private static func contentObject(_ json: String?) -> [String: Any]? {
         guard let data = json?.data(using: .utf8),

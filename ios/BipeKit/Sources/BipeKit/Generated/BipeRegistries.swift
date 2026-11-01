@@ -862,6 +862,9 @@ public enum BipeRegistries {
     /// Forward marks (bipe-chat/bipe#83; registries/voice-media.json): the content field and the many-times threshold. Rules: BipeForwardMark, test-vectors/forward-marks.json.
     public static let forwardKey = "chat.bipe.forward"
     public static let forwardedManyTimes = 5
+    /// The most chats one forward goes to, and the most when a sent content reaches forwardedManyTimes (bipe-chat/bipe#933).
+    public static let forwardChats = 5
+    public static let forwardChatsManyTimes = 1
 
     /// Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, docs/drafts-room.md). Rules: test-vectors/drafts.json.
     public static let draftsRoomType = "chat.bipe.drafts"

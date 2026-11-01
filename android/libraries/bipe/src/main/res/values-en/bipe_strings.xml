@@ -1985,6 +1985,9 @@
     <string name="bipe_forward_limit">Pick up to %1$s chats.</string>
     <string name="bipe_forward_done">Message forwarded</string>
     <string name="bipe_forward_failed">Could not forward to %1$s.</string>
+    <string name="bipe_forward_line">Forwarded</string>
+    <string name="bipe_forward_line_many">Forwarded many times</string>
+    <string name="bipe_forward_limit_many">Messages forwarded many times can go to only one chat at a time.</string>
     <string name="bipe_gallery_title">Media and files</string>
     <string name="bipe_gallery_media">Media</string>
     <string name="bipe_gallery_files">Files</string>

@@ -4576,6 +4576,12 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_forward_failed", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var forwardLine: String { NSLocalizedString("bipe_forward_line", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var forwardLineMany: String { NSLocalizedString("bipe_forward_line_many", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var forwardLimitMany: String { NSLocalizedString("bipe_forward_limit_many", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var galleryTitle: String { NSLocalizedString("bipe_gallery_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var galleryMedia: String { NSLocalizedString("bipe_gallery_media", tableName: "Bipe", bundle: .module, comment: "") }

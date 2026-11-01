@@ -379,6 +379,23 @@ class SharedVectorTest {
             val count = vector.getValue("count").jsonPrimitive.int
             assertWithMessage("source $isVoice $count").that(BipeForwardMark.source(isVoice, count).code).isEqualTo(vector.string("expected"))
         }
+        assertWithMessage("forward chats").that(file.getValue("forwardChats").jsonPrimitive.int).isEqualTo(BipeRegistries.FORWARD_CHATS)
+        assertWithMessage("forward chats many times").that(file.getValue("forwardChatsManyTimes").jsonPrimitive.int)
+            .isEqualTo(BipeRegistries.FORWARD_CHATS_MANY_TIMES)
+        val lines = vectors("forward-marks.json", "line")
+        assertWithMessage("line vectors").that(lines).isNotEmpty()
+        for (vector in lines) {
+            val count = vector.getValue("count").jsonPrimitive.int
+            val expected = vector.getValue("expected").takeUnless { it is JsonNull }?.jsonPrimitive?.content
+            assertWithMessage("line $count").that(BipeForwardMark.line(count)?.code).isEqualTo(expected)
+        }
+        val limits = vectors("forward-marks.json", "chatLimit")
+        assertWithMessage("chat limit vectors").that(limits).isNotEmpty()
+        for (vector in limits) {
+            val counts = vector.getValue("counts").jsonArray.map { it.jsonPrimitive.int }
+            assertWithMessage("chatLimit ${vector.string("name")}").that(BipeForwardMark.chatLimit(counts))
+                .isEqualTo(vector.getValue("expected").jsonPrimitive.int)
+        }
     }
 
     @Test
