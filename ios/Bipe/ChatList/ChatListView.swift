@@ -772,9 +772,12 @@ private struct FavouritesGrid<MenuContent: View>: View {
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
             ForEach(chats) { chat in
-                Button { open(chat.roomId) } label: { cell(chat) }
+                // A Menu, not .contextMenu: the grid is one List row, and List shows the first
+                // .contextMenu of a row for every cell in it. The Menu belongs to its own cell.
+                Menu { menu(chat.roomId) } label: { cell(chat) } primaryAction: { open(chat.roomId) }
+                    .menuIndicator(.hidden)
+                    .menuStyle(.button)
                     .buttonStyle(.plain)
-                    .contextMenu { menu(chat.roomId) }
                     .accessibilityActions { menu(chat.roomId) }
                     .accessibilityLabel(chat.isUnread ? chat.name + ", " + BipeStrings.chatUnreadState : chat.name)
             }
