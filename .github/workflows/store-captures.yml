@@ -154,20 +154,28 @@ jobs:
             }
             process.exit(1);')
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          # A cold simulator can time out the UI test runner ("AX loaded notification"): boot it and wait first.
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
       - name: Run the capture test
         env:
           TEST_RUNNER_STORE_CAPTURE_IN: ${{ runner.temp }}/ios-in
           TEST_RUNNER_STORE_CAPTURE_OUT: ${{ runner.temp }}/ios-out
         run: |
-          set -o pipefail
-          xcodebuild test \
-            -project ios/Bipe.xcodeproj \
-            -scheme BipeStoreCaptures \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath ios/DerivedData \
-            -resultBundlePath "$RUNNER_TEMP/captures.xcresult" \
-            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error:|Test Case|\*\* TEST" || true
-          grep -q "\*\* TEST SUCCEEDED \*\*" "$RUNNER_TEMP/xcodebuild.log"
+          # Two tries: the runner start on a fresh simulator sometimes times out before any test runs.
+          for try in 1 2; do
+            rm -rf "$RUNNER_TEMP/captures.xcresult"
+            xcodebuild test \
+              -project ios/Bipe.xcodeproj \
+              -scheme BipeStoreCaptures \
+              -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+              -derivedDataPath ios/DerivedData \
+              -resultBundlePath "$RUNNER_TEMP/captures.xcresult" \
+              CODE_SIGNING_ALLOWED=NO > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || true
+            grep -E "error:|Test Case|\*\* TEST|Testing failed|encountered an error" "$RUNNER_TEMP/xcodebuild.log" || true
+            grep -q "\*\* TEST SUCCEEDED \*\*" "$RUNNER_TEMP/xcodebuild.log" && exit 0
+          done
+          exit 1
       - name: Check the capture size
         run: |
           node -e '
