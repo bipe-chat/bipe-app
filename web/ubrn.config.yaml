@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# uniffi-bindgen-react-native (ubrn) config for the wasm2 flavour.
+# CI (.github/workflows/web.yml) checks out matrix-rust-sdk at the commit of
+# ../sdk-version into rust_modules/ and applies patches/*.patch first.
+rust:
+  directory: rust_modules/matrix-rust-sdk
+  manifestPath: bindings/matrix-sdk-ffi/Cargo.toml
+
+wasm2:
+  ts: src/generated
+  defaultFeatures: false
+  features:
+    - js
+    - indexeddb
+    - unstable-msc4274

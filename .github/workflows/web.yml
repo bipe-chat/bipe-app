@@ -1,0 +1,190 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# Web client spike (bipe-chat/bipe#900, ADR 0216): matrix-sdk-ffi for wasm32.
+# 1. Resolve sdk-version to the matrix-rust-sdk commit the phones use. The
+#    release body of matrix-rust-components-swift <sdk-version> links the commit
+#    (the Kotlin release of the same tag is built from the same commit).
+# 2. Check out matrix-rust-sdk at that commit and apply web/patches/*.patch.
+# 3. Build bindings/matrix-sdk-ffi for wasm32-unknown-unknown with
+#    uniffi-bindgen-react-native (ubrn) wasm2, and generate the TypeScript.
+# 4. Build the static page in web/ with pnpm.
+# Artifacts: web-bindings (src/generated), web-dist (the page).
+name: web
+
+on:
+  pull_request:
+    paths:
+      - "web/**"
+      - "sdk-version"
+      - ".github/workflows/web.yml"
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "sdk-version"
+      - ".github/workflows/web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  UBRN_VERSION: 0.31.0-6
+  CARGO_TERM_COLOR: always
+
+jobs:
+  wasm:
+    name: web-wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve sdk-version to a matrix-rust-sdk commit
+        id: sdk
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(tr -d '[:space:]' < sdk-version)"
+          body="$(gh release view "$version" --repo matrix-org/matrix-rust-components-swift --json body --jq .body)"
+          sha="$(grep -oE 'matrix-rust-sdk/tree/[0-9a-f]{40}' <<<"$body" | head -1 | cut -d/ -f3)"
+          if [ -z "$sha" ]; then
+            echo "::error::release $version of matrix-rust-components-swift names no matrix-rust-sdk commit"
+            exit 1
+          fi
+          echo "sdk-version $version -> matrix-rust-sdk $sha"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Check out matrix-rust-sdk
+        run: |
+          dir=web/rust_modules/matrix-rust-sdk
+          git init -q "$dir"
+          git -C "$dir" remote add origin https://github.com/matrix-org/matrix-rust-sdk
+          git -C "$dir" fetch -q --depth 1 origin "${{ steps.sdk.outputs.sha }}"
+          git -C "$dir" checkout -q FETCH_HEAD
+
+      - name: Apply Bipe patches
+        run: |
+          for p in web/patches/*.patch; do
+            echo "applying $p"
+            git -C web/rust_modules/matrix-rust-sdk apply --verbose "$GITHUB_WORKSPACE/$p"
+          done
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: web/rust_modules/matrix-rust-sdk -> target
+          key: ${{ steps.sdk.outputs.sha }}-${{ hashFiles('web/patches/*.patch') }}
+          cache-on-failure: true
+
+      - name: Resolve the lockfile after the patches
+        working-directory: web/rust_modules/matrix-rust-sdk
+        run: |
+          cargo metadata --format-version 1 --manifest-path bindings/matrix-sdk-ffi/Cargo.toml > /dev/null
+          wb="$(awk '/^name = "wasm-bindgen"$/{getline; gsub(/version = |"/,""); print; exit}' Cargo.lock)"
+          echo "wasm-bindgen $wb"
+          echo "WASM_BINDGEN_VERSION=$wb" >> "$GITHUB_ENV"
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@${{ env.WASM_BINDGEN_VERSION }}
+
+      - name: Install ubrn
+        run: |
+          if ! cargo install --list | grep -q "^uniffi-bindgen-react-native v.*$UBRN_VERSION"; then
+            cargo install --locked --force --git https://github.com/jhugman/uniffi-bindgen-react-native --tag "$UBRN_VERSION" uniffi-bindgen-react-native
+          fi
+          cargo install --list | grep -A1 "^uniffi-bindgen-react-native"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build matrix-sdk-ffi for wasm32 and generate the bindings
+        working-directory: web
+        run: uniffi-bindgen-react-native build wasm2 --config ubrn.config.yaml --profile small-release-stripped
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-tools
+
+      # The custom "name" section is about 20 MB of the module (function names
+      # for stack traces). The player and the bindings do not read it.
+      - name: Strip custom sections from the wasm
+        working-directory: web
+        run: |
+          for f in src/generated/*.wasm; do
+            before=$(stat -c %s "$f")
+            wasm-tools strip --all -o "$f.stripped" "$f"
+            mv "$f.stripped" "$f"
+            echo "$f: $before -> $(stat -c %s "$f") bytes"
+          done
+
+      - name: Report bindings
+        working-directory: web
+        run: |
+          command -v brotli > /dev/null || sudo apt-get install -y -qq brotli
+          ls -la src/generated
+          {
+            echo "### matrix-sdk-ffi wasm"
+            echo
+            echo "- sdk-version: ${{ steps.sdk.outputs.version }}"
+            echo "- matrix-rust-sdk: ${{ steps.sdk.outputs.sha }}"
+            echo
+            echo '| File | Bytes | gzip -9 | brotli -q 11 |'
+            echo '| ---- | ----- | ------- | ------------ |'
+            for f in src/generated/*.wasm src/generated/*.js; do
+              [ -f "$f" ] || continue
+              echo "| $(basename "$f") | $(stat -c %s "$f") | $(gzip -9c "$f" | wc -c) | $(brotli -q 11 -c "$f" | wc -c) |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-bindings
+          path: web/src/generated
+          if-no-files-found: error
+
+      - name: Build the page
+        working-directory: web
+        run: pnpm build
+
+      - name: Report page
+        working-directory: web
+        run: |
+          {
+            echo
+            echo "### web/dist"
+            echo
+            echo '| File | Bytes | gzip -9 | brotli -q 11 |'
+            echo '| ---- | ----- | ------- | ------------ |'
+            find dist -type f | sort | while read -r f; do
+              echo "| ${f#dist/} | $(stat -c %s "$f") | $(gzip -9c "$f" | wc -c) | $(brotli -q 11 -c "$f" | wc -c) |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+          if-no-files-found: error
