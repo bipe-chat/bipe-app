@@ -94,7 +94,6 @@ fun BipeCvmLines.Line.text(context: Context): String = when (key) {
 @Composable
 fun CompanySealDialog(state: BipeCompanySealState, onClose: () -> Unit) {
     val colors = BipeTheme.colors
-    val context = LocalContext.current
     val verified = state as? BipeCompanySealState.Verified
     AlertDialog(
         onDismissRequest = onClose,
@@ -106,47 +105,52 @@ fun CompanySealDialog(state: BipeCompanySealState, onClose: () -> Unit) {
             )
         },
         title = { Text(stringResource(R.string.bipe_app_seal_title)) },
-        text = {
-            SelectionContainer {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.testTag(BipeScreen.COMPANY_SEAL.id)) {
-                    Text(state.notice(context) ?: stringResource(R.string.bipe_badge_company), style = MaterialTheme.typography.titleSmall, color = colors.inkPrimary)
-                    // cvmDanger: a stop order is red with a filled icon, above the other facts. The rest is neutral.
-                    val cvm = state.cvm
-                    if (cvm.lines.isNotEmpty()) {
-                        cvm.lines.forEach { line ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (cvm.danger) {
-                                    Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustDangerInk, modifier = Modifier.size(18.dp))
-                                }
-                                Text(
-                                    line.text(context),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (cvm.danger) FontWeight.Bold else null,
-                                    color = if (cvm.danger) colors.trustDangerInk else colors.inkPrimary,
-                                )
-                            }
-                        }
-                        Text(stringResource(R.string.bipe_cvm_source), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-                    }
-                    verified?.payload?.let { payload ->
-                        payload.legalName?.let { Fact(stringResource(R.string.bipe_badge_company_legal_name), it) }
-                        payload.tradeName?.let { Fact(stringResource(R.string.bipe_badge_company_trade_name), it) }
-                        payload.cnpj?.let { Fact(stringResource(R.string.bipe_badge_company_cnpj), BipeCnpj.formatted(it)) }
-                        payload.checkedMonth?.let(BipeCnpj::checkedDate)?.let {
-                            Fact(stringResource(R.string.bipe_badge_company_checked), it.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault())))
-                        }
-                        Fact(
-                            stringResource(R.string.bipe_badge_company_valid_until),
-                            Instant.ofEpochSecond(payload.exp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)),
-                        )
-                        Text(stringResource(R.string.bipe_badge_company_body), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-                    }
-                }
-            }
-        },
+        text = { SelectionContainer { CompanySealFacts(state) } },
         confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.bipe_app_close)) } },
         containerColor = colors.surfaceRaised,
     )
+}
+
+/** The facts of spec company-seal; the dialog and the store captures show them. */
+@Composable
+fun CompanySealFacts(state: BipeCompanySealState) {
+    val colors = BipeTheme.colors
+    val context = LocalContext.current
+    val verified = state as? BipeCompanySealState.Verified
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.testTag(BipeScreen.COMPANY_SEAL.id)) {
+        Text(state.notice(context) ?: stringResource(R.string.bipe_badge_company), style = MaterialTheme.typography.titleSmall, color = colors.inkPrimary)
+        // cvmDanger: a stop order is red with a filled icon, above the other facts. The rest is neutral.
+        val cvm = state.cvm
+        if (cvm.lines.isNotEmpty()) {
+            cvm.lines.forEach { line ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (cvm.danger) {
+                        Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustDangerInk, modifier = Modifier.size(18.dp))
+                    }
+                    Text(
+                        line.text(context),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (cvm.danger) FontWeight.Bold else null,
+                        color = if (cvm.danger) colors.trustDangerInk else colors.inkPrimary,
+                    )
+                }
+            }
+            Text(stringResource(R.string.bipe_cvm_source), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+        }
+        verified?.payload?.let { payload ->
+            payload.legalName?.let { Fact(stringResource(R.string.bipe_badge_company_legal_name), it) }
+            payload.tradeName?.let { Fact(stringResource(R.string.bipe_badge_company_trade_name), it) }
+            payload.cnpj?.let { Fact(stringResource(R.string.bipe_badge_company_cnpj), BipeCnpj.formatted(it)) }
+            payload.checkedMonth?.let(BipeCnpj::checkedDate)?.let {
+                Fact(stringResource(R.string.bipe_badge_company_checked), it.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault())))
+            }
+            Fact(
+                stringResource(R.string.bipe_badge_company_valid_until),
+                Instant.ofEpochSecond(payload.exp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)),
+            )
+            Text(stringResource(R.string.bipe_badge_company_body), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+        }
+    }
 }
 
 @Composable

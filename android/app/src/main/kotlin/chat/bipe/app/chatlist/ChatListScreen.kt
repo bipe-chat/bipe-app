@@ -688,7 +688,7 @@ fun ChatListScreen(
 }
 
 @Composable
-fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = null, actions: @Composable () -> Unit = {}, onClick: () -> Unit) {
+fun ChatRow(chat: ChatSummary, media: MediaLoader?, onLongClick: (() -> Unit)? = null, actions: @Composable () -> Unit = {}, onClick: () -> Unit) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
     val menuLabel = stringResource(R.string.bipe_chat_actions)
