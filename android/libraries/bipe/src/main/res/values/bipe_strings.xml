@@ -1152,6 +1152,7 @@
     <string name="bipe_chats_background">Fundo da conversa</string>
     <string name="bipe_chats_background_footer">O fundo usa a cor que você escolheu.</string>
     <string name="bipe_chats_background_marca">Com a marca do Bipe</string>
+    <string name="bipe_chats_background_frutas">Salada de frutas</string>
     <string name="bipe_chats_background_cor">Só a cor</string>
     <string name="bipe_chats_background_liso">Sem cor</string>
     <string name="bipe_colors_acai">Açaí</string>
