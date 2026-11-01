@@ -869,6 +869,9 @@ object BipeRegistries {
     /** Forward marks (bipe-chat/bipe#83; registries/voice-media.json): the content field and the many-times threshold. Rules: BipeForwardMark, test-vectors/forward-marks.json. */
     const val FORWARD_KEY = "chat.bipe.forward"
     const val FORWARDED_MANY_TIMES = 5
+    /** The most chats one forward goes to, and the most when a sent content reaches FORWARDED_MANY_TIMES (bipe-chat/bipe#933). */
+    const val FORWARD_CHATS = 5
+    const val FORWARD_CHATS_MANY_TIMES = 1
 
     /** Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, docs/drafts-room.md). Rules: test-vectors/drafts.json. */
     const val DRAFTS_ROOM_TYPE = "chat.bipe.drafts"

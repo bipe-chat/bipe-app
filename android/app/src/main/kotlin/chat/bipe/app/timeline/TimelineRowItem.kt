@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -82,6 +83,7 @@ import chat.bipe.shared.bipeHaptic
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BadgePayload
 import chat.bipe.shared.R
+import chat.bipe.shared.media.BipeForwardMark
 import chat.bipe.shared.line
 import androidx.compose.ui.platform.LocalContext
 import chat.bipe.shared.ScamWarningKind
@@ -360,6 +362,8 @@ private fun MessageBubbleRow(
                 if (!message.isOwn && !isDm) {
                     Text(memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
                 }
+                // Spec chat-timeline notes (bipe-chat/bipe#933): voice rows keep their own source line.
+                if (message.voice == null) BipeForwardMark.line(message.forwardCount)?.let { ForwardLine(it) }
                 details.reply?.let { reply ->
                     LaunchedEffect(row.id, reply.state) { model.loadReply(row.id) }
                     ReplyQuote(reply, Modifier.clickable { model.openOriginal(reply.eventId) })
@@ -499,6 +503,27 @@ private fun ReaderAvatars(readers: List<ReceiptReader>, media: MediaLoader, onCl
         if (readers.size > 3) {
             Text("+${readers.size - 3}", style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary, modifier = Modifier.padding(start = 6.dp))
         }
+    }
+}
+
+/** Spec chat-timeline forward line (bipe-chat/bipe#933): a forward arrow and bipe_forward_line or bipe_forward_line_many. */
+@Composable
+private fun ForwardLine(source: BipeForwardMark.Source) {
+    val colors = BipeTheme.colors
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        // The reply arrow, mirrored: a forward arrow.
+        Icon(
+            painterResource(PhosphorIcon.ARROW_BEND_UP_LEFT.drawable),
+            contentDescription = null,
+            tint = colors.inkSecondary,
+            modifier = Modifier.size(12.dp).scale(scaleX = -1f, scaleY = 1f),
+        )
+        Text(
+            stringResource(if (source == BipeForwardMark.Source.FORWARDED_MANY_TIMES) R.string.bipe_forward_line_many else R.string.bipe_forward_line),
+            style = MaterialTheme.typography.labelSmall,
+            fontStyle = FontStyle.Italic,
+            color = colors.inkSecondary,
+        )
     }
 }
 

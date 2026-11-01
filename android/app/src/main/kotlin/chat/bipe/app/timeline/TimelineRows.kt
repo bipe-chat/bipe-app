@@ -245,6 +245,9 @@ object TimelineRowBuilder {
                             (event.senderProfile.isNameAmbiguous || event.sender in ambiguousSenders),
                     )
                     // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
+                    // Specs chat-timeline and voice-message forwardCount: the SDK types have no field for the forward mark
+                    // (bipe-chat/bipe#83, bipe-chat/bipe#933).
+                    val forwardCount = BipeForwardMark.count(event.lazyProvider.debugInfo().originalJson)
                     val mediaContent = when (val found = MediaContent.of(content.kind)) {
                         is MediaContent.Media -> MediaContent.Media(
                             found.media.copy(
@@ -263,10 +266,7 @@ object TimelineRowBuilder {
                                 },
                             ),
                         )
-                        // Spec voice-message forwardCount: the SDK types have no field for the forward mark (bipe-chat/bipe#83).
-                        is MediaContent.Voice -> MediaContent.Voice(
-                            found.voice.copy(forwardCount = BipeForwardMark.count(event.lazyProvider.debugInfo().originalJson)),
-                        )
+                        is MediaContent.Voice -> MediaContent.Voice(found.voice.copy(forwardCount = forwardCount))
                         else -> found
                     }
                     when (val kind = content.kind) {
@@ -305,7 +305,7 @@ object TimelineRowBuilder {
                                 built.copy(assistantLabel = strings.format(R.string.bipe_app_assistant_sent_label, event.senderProfile.displayName(event.sender)))
                             } else {
                                 built
-                            }
+                            }.copy(forwardCount = forwardCount)
                             val isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited ?: false
                             val isSent = event.localSendState.let { it == null || it is EventSendState.Sent }
                             val details = MessageDetails(

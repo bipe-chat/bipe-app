@@ -1968,6 +1968,9 @@
     <string name="bipe_identity_change_send_anyway">Send anyway</string>
     <string name="bipe_forward_action">Forward</string>
     <string name="bipe_forward_title">Forward to</string>
+    <string name="bipe_forward_line">Forwarded</string>
+    <string name="bipe_forward_line_many">Forwarded many times</string>
+    <string name="bipe_forward_limit_many">Messages forwarded many times can go to only one chat at a time.</string>
     <string name="bipe_forward_limit">Pick up to %1$s chats.</string>
     <string name="bipe_forward_done">Message forwarded</string>
     <string name="bipe_forward_failed">Could not forward to %1$s.</string>

@@ -77,6 +77,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var richText: BipeMessageText? = nil
     /// Spec chat-timeline notes (ADR 0210): bipe_app_assistant_sent_label when the sender's assistant sent the message.
     var assistantLabel: String? = nil
+    /// Spec chat-timeline forwardCount (bipe-chat/bipe#933): the count of the forward mark, 0 without one.
+    var forwardCount = 0
 }
 
 /// Type MessageEdit of spec message-edit.

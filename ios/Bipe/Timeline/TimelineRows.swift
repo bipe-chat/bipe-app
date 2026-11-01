@@ -253,14 +253,17 @@ enum TimelineRowBuilder {
                 }
                 mediaContent = .media(media)
             }
-            // Spec voice-message forwardCount: the SDK types have no field for the forward mark (bipe-chat/bipe#83).
+            // Specs chat-timeline and voice-message forwardCount: the SDK types have no field for the forward mark
+            // (bipe-chat/bipe#83, bipe-chat/bipe#933).
+            let forwardCount = BipeForwardMark.count(eventJson: event.lazyProvider.debugInfo().originalJson)
             if case .voice(var voice) = mediaContent {
-                voice.forwardCount = BipeForwardMark.count(eventJson: event.lazyProvider.debugInfo().originalJson)
+                voice.forwardCount = forwardCount
                 mediaContent = .voice(voice)
             }
             switch content.kind {
             case .message(let messageContent):
                 var message = base
+                message.forwardCount = forwardCount
                 // The SDK types have no field for chat.bipe.assistant; it comes from the event JSON (ADR 0210).
                 if BipeAssistantSend.sender(eventId: eventId(event), json: { event.lazyProvider.debugInfo().originalJson }) != nil {
                     message.assistantLabel = BipeStrings.appAssistantSentLabel(event.senderProfile.displayName(or: event.sender))

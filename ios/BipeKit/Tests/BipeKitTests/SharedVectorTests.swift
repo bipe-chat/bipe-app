@@ -422,6 +422,20 @@ struct SharedVectorTests {
             let count = try #require((vector["count"] as? NSNumber)?.intValue)
             #expect(BipeForwardMark.source(isVoice: isVoice, count: count).rawValue == vector["expected"] as? String, "source \(isVoice) \(count)")
         }
+        #expect((file["forwardChats"] as? NSNumber)?.intValue == BipeRegistries.forwardChats)
+        #expect((file["forwardChatsManyTimes"] as? NSNumber)?.intValue == BipeRegistries.forwardChatsManyTimes)
+        let lines = try #require(file["line"] as? [[String: Any]])
+        #expect(!lines.isEmpty)
+        for vector in lines {
+            let count = try #require((vector["count"] as? NSNumber)?.intValue)
+            #expect(BipeForwardMark.line(count: count)?.rawValue == vector["expected"] as? String, "line \(count)")
+        }
+        let limits = try #require(file["chatLimit"] as? [[String: Any]])
+        #expect(!limits.isEmpty)
+        for vector in limits {
+            let counts = try #require(vector["counts"] as? [NSNumber]).map(\.intValue)
+            #expect(BipeForwardMark.chatLimit(sentCounts: counts) == (vector["expected"] as? NSNumber)?.intValue, "chatLimit \(vector["name"] ?? "")")
+        }
     }
 
     @Test

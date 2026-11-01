@@ -1968,6 +1968,9 @@
     <string name="bipe_identity_change_send_anyway">Enviar mesmo assim</string>
     <string name="bipe_forward_action">Encaminhar</string>
     <string name="bipe_forward_title">Encaminhar para</string>
+    <string name="bipe_forward_line">Encaminhada</string>
+    <string name="bipe_forward_line_many">Encaminhada muitas vezes</string>
+    <string name="bipe_forward_limit_many">Mensagens encaminhadas muitas vezes só podem ir para uma conversa por vez.</string>
     <string name="bipe_forward_limit">Escolha até %1$s conversas.</string>
     <string name="bipe_forward_done">Mensagem encaminhada</string>
     <string name="bipe_forward_failed">Não deu para encaminhar para %1$s.</string>
