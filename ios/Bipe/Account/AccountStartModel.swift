@@ -169,6 +169,7 @@ final class AccountStartModel: ObservableObject {
                 await authError(session, isSoftLogout: true)
             } else {
                 await session.syncService.start()
+                await session.resumeSending()
             }
         }
         await PushRegistration.shared.appBecameActive()

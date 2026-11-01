@@ -234,7 +234,12 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         (context.applicationContext as BipeApplication).push.appBecameActive()
         _sessions.value.forEach { session ->
             scope.launch {
-                if (pendingAuthErrors.remove(session.userId)) authError(session, isSoftLogout = true) else session.syncService.start()
+                if (pendingAuthErrors.remove(session.userId)) {
+                    authError(session, isSoftLogout = true)
+                } else {
+                    session.syncService.start()
+                    session.resumeSending()
+                }
             }
             // bipe-chat/bipe#511: this phone's copy of the account's opening hours, for quiet pushes.
             scope.launch { WorkHoursSync.refresh(session, api, (context.applicationContext as BipeApplication).notifications) }

@@ -6,6 +6,7 @@ package chat.bipe.app.account
 
 import android.content.Context
 import android.util.Base64
+import android.util.Log
 import chat.bipe.app.common.AppConfig
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.BipeRoomSubscriptions
@@ -14,12 +15,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
 import org.matrix.rustcomponents.sdk.ClientDelegate
 import org.matrix.rustcomponents.sdk.ClientException
+import org.matrix.rustcomponents.sdk.SendQueueRoomErrorListener
 import org.matrix.rustcomponents.sdk.Session
 import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
 import org.matrix.rustcomponents.sdk.SyncService
@@ -48,6 +51,31 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 override fun onBackgroundTaskErrorReport(taskName: String, error: BackgroundTaskFailureReason) {}
             })
         }.getOrNull()
+    }
+
+    private var sendQueueHandle: TaskHandle? = null
+
+    /**
+     * Switches a room's send queue on again after the SDK switched it off (bipe-chat/bipe#947). matrix-rust-sdk turns a
+     * room's queue off after a failed send and never turns it on by itself, so messages stayed on "Sending…".
+     */
+    private fun watchSendQueues() {
+        sendQueueHandle = runCatching {
+            client.subscribeToSendQueueStatus(object : SendQueueRoomErrorListener {
+                override fun onError(roomId: String, error: ClientException) {
+                    Log.w(AccountStep.TAG, "send queue: off after an error, on again in 15 s")
+                    subscriptionCleanup.launch {
+                        delay(15_000)
+                        runCatching { client.getRoom(roomId)?.enableSendQueue(true) }
+                    }
+                }
+            })
+        }.getOrNull()
+    }
+
+    /** Switches every room's send queue on again, for a queue the SDK left off after a failed send (bipe-chat/bipe#947). */
+    suspend fun resumeSending() {
+        runCatching { client.enableAllSendQueues(true) }
     }
 
     /** Stops the sync and the room subscriptions and keeps everything on this phone (spec soft-logout). */
@@ -120,7 +148,10 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 // Initial sync/reachability responses must never gate local readiness.
                 client.syncService().withOfflineMode().finish().also { it.start() }
             }
-            return AccountSession(client, syncService, client.userId()).also { it.watchAuthErrors() }
+            return AccountSession(client, syncService, client.userId()).also {
+                it.watchAuthErrors()
+                it.watchSendQueues()
+            }
         }
 
         /** true when the account's SDK store folder exists and holds files. */
