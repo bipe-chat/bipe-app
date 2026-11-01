@@ -306,6 +306,9 @@ struct GroupLinkOpenView: View {
                             .foregroundStyle(BipeColor.inkSecondary)
                             .multilineTextAlignment(.center)
                     }
+                    Text(BipeStrings.groupLinkOpenHistory)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                        .multilineTextAlignment(.center)
                     Button(BipeStrings.appRoomLinkJoin) {
                         Task {
                             if let roomId = await model.join() {

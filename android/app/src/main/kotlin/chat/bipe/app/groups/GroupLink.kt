@@ -334,6 +334,7 @@ fun GroupLinkOpenScreen(people: PeopleService, code: String, openChat: (String) 
                     shown?.inviterName?.takeIf { it.isNotBlank() }?.let {
                         Text(stringResource(R.string.bipe_group_link_open_invited_by, it), color = colors.inkSecondary, textAlign = TextAlign.Center)
                     }
+                    Text(stringResource(R.string.bipe_group_link_open_history), color = colors.inkSecondary, textAlign = TextAlign.Center)
                     BipeButton(onClick = ::join, enabled = phase != GroupLinkOpenPhase.JOINING) { Text(stringResource(R.string.bipe_app_room_link_join)) }
                 }
             }
