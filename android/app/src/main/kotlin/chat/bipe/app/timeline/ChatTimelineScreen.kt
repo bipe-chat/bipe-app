@@ -81,11 +81,13 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.business.rememberBusinessChatTools
 import chat.bipe.app.chatlist.ChatMessageSearchSheet
+import chat.bipe.app.common.AppTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.LocalReduceMotion
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
+import chat.bipe.app.common.chatBackground
 import chat.bipe.app.composer.MentionSuggestion
 import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.app.people.BrandMarkHeaderLine
@@ -404,7 +406,8 @@ fun ChatTimelineScreen(
                 LazyColumn(
                     state = listState,
                     reverseLayout = true,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    // Spec app-colors, ADR 0213: the chat background, still behind the scrolling messages.
+                    modifier = Modifier.weight(1f).fillMaxWidth().chatBackground(AppTheme.chatBackground, colors),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {

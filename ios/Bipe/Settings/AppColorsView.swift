@@ -7,9 +7,11 @@ import Phosphor
 import SwiftUI
 import UIKit
 
-/// Spec app-colors: the user picks a palette. It sets the accent colours, the own bubble and the app icon at once.
+/// Spec app-colors: the user picks a palette and a chat background. The palette sets the accent colours, the own
+/// bubble, the chat background and the app icon at once.
 struct AppColorsView: View {
     @State private var selected = AppTheme.stored
+    @State private var selectedBackground = AppTheme.storedChatBackground
 
     var body: some View {
         List {
@@ -39,9 +41,45 @@ struct AppColorsView: View {
             } footer: {
                 Text(BipeStrings.chatsColorsFooter)
             }
+            // ADR 0213: the chat background, in the palette just picked.
+            Section {
+                ForEach(BipeChatBackground.allCases, id: \.self) { background in
+                    Button {
+                        pickBackground(background)
+                    } label: {
+                        HStack(spacing: 16) {
+                            ChatBackgroundPreview(background: background)
+                            Text(background.title)
+                                .foregroundStyle(BipeColor.inkPrimary)
+                            Spacer()
+                            if selectedBackground == background {
+                                PhosphorIcon.check.image
+                                    .resizable()
+                                    .frame(width: 18, height: 18)
+                                    .foregroundStyle(BipeColor.accentInk)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedBackground == background ? .isSelected : [])
+                }
+            } header: {
+                Text(BipeStrings.chatsBackground)
+            } footer: {
+                Text(BipeStrings.chatsBackgroundFooter)
+            }
         }
         .navigationTitle(BipeStrings.chatsColors)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func pickBackground(_ background: BipeChatBackground) {
+        guard background != selectedBackground else { return }
+        selectedBackground = background
+        AppTheme.save(background)
+        BipeHaptics.play(.tick)
     }
 
     private func pick(_ palette: BipePalette) {
@@ -71,6 +109,20 @@ struct AppIconPreview: View {
                     .padding(side * 31 / 128)
             }
             .frame(width: side, height: side)
+            .accessibilityHidden(true)
+    }
+}
+
+/// A chat background option as a small portrait card, the same drawing as the chat.
+struct ChatBackgroundPreview: View {
+    let background: BipeChatBackground
+    @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
+
+    var body: some View {
+        ChatBackgroundView(option: background)
+            .frame(width: height * 0.7, height: height)
+            .clipShape(RoundedRectangle(cornerRadius: height * 0.18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: height * 0.18, style: .continuous).stroke(BipeColor.lineSubtle))
             .accessibilityHidden(true)
     }
 }
