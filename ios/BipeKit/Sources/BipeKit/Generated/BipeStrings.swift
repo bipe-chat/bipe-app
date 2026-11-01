@@ -530,6 +530,10 @@ public enum BipeStrings {
 
     public static var errorGeneric: String { NSLocalizedString("bipe_error_generic", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func appErrorCode(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_error_code", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var errorAttestationInvalid: String { NSLocalizedString("bipe_error_attestation_invalid", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var errorAttestationFailed: String { NSLocalizedString("bipe_error_attestation_failed", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2348,7 +2352,7 @@ public enum BipeStrings {
 
     public static var appLinkComputerInsecure: String { NSLocalizedString("bipe_app_link_computer_insecure", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var appLinkComputerNeedsRecoveryKey: String { NSLocalizedString("bipe_app_link_computer_needs_recovery_key", tableName: "Bipe", bundle: .module, comment: "") }
+    public static var appLinkComputerNeedsApproval: String { NSLocalizedString("bipe_app_link_computer_needs_approval", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appLinkComputerStopped: String { NSLocalizedString("bipe_app_link_computer_stopped", tableName: "Bipe", bundle: .module, comment: "") }
 
@@ -2388,7 +2392,9 @@ public enum BipeStrings {
 
     public static var appLinkPhoneWrongCheckCode: String { NSLocalizedString("bipe_app_link_phone_wrong_check_code", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var appLinkPhoneNeedsRecoveryKey: String { NSLocalizedString("bipe_app_link_phone_needs_recovery_key", tableName: "Bipe", bundle: .module, comment: "") }
+    public static var appLinkPhoneNeedsApproval: String { NSLocalizedString("bipe_app_link_phone_needs_approval", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkApprovePhone: String { NSLocalizedString("bipe_app_link_approve_phone", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appLinkPhoneNewCode: String { NSLocalizedString("bipe_app_link_phone_new_code", tableName: "Bipe", bundle: .module, comment: "") }
 
@@ -3477,6 +3483,10 @@ public enum BipeStrings {
     public static var appRecoveryKeyCreating: String { NSLocalizedString("bipe_app_recovery_key_creating", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appRecoveryKeyShowBody: String { NSLocalizedString("bipe_app_recovery_key_show_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appRecoveryKeyAccount(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_recovery_key_account", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 
     public static var appRecoveryKeyReplace: String { NSLocalizedString("bipe_app_recovery_key_replace", tableName: "Bipe", bundle: .module, comment: "") }
 
