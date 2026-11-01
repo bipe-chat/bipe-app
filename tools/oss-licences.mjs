@@ -23,13 +23,12 @@ export const OUTPUTS = {
   android: 'android/app/src/main/assets/open_source_licences.json',
 };
 
-// A font (ADR 0159) is bundled on Android only; iOS uses the system SF Rounded.
+// A bundled font (ecosystem "font") ships on Android only.
 const ECOSYSTEMS = { ios: ['swiftpm', 'vendored'], android: ['gradle', 'vendored', 'font'] };
 
 // The LICENSE file of each vendored package, per platform.
 const VENDORED_LICENCE = {
   '@phosphor-icons/core': { ios: 'ios/Phosphor/LICENSE', android: 'android/libraries/phosphor/LICENSE' },
-  Nunito: { android: 'android/app/fonts/Nunito-OFL.txt' },
 };
 
 const read = (root, path) => readFileSync(join(root, path), 'utf8').replace(/\r\n/g, '\n').trimEnd();
