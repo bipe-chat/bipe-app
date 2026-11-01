@@ -5,6 +5,7 @@
 #if DEBUG
 import BipeKit
 import MatrixRustSDK
+import Phosphor
 import SwiftUI
 
 // Store captures (bipe-chat/bipe#457): one scene per slug of the bipe-shared appstore.md screenshot table, built
