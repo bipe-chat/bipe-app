@@ -90,7 +90,7 @@ public extension BipeAPIClient {
 
     /// `POST /v1/theft-marks`. At most 100 IDs. The statements are not verified here: see ``BipeTheftMarkVerifier``.
     func theftMarks(userIDs: [String], openID: BipeOpenIDToken) async throws(BipeAPIError) -> [BadgeEnvelope] {
-        let response: TheftMarksResponse = try await send(method: "POST", path: ["v1", "theft-marks"], body: GuardiansRequest(userIds: userIDs),
+        let response: TheftMarksResponse = try await send(method: "POST", path: ["v1", "theft-marks"], body: TheftMarksRequest(userIds: userIDs),
                                                           accessToken: openID.accessToken, serverName: openID.matrixServerName)
         return response.marks
     }
@@ -99,6 +99,10 @@ public extension BipeAPIClient {
 private nonisolated struct GuardiansRequest: Encodable {
     let userIds: [String]
     let pin: String
+}
+
+private nonisolated struct TheftMarksRequest: Encodable {
+    let userIds: [String]
 }
 
 private nonisolated struct PhoneRequest: Encodable {
