@@ -2118,6 +2118,7 @@
     <string name="bipe_group_link_error_access">Could not set up the link. Only group admins can create one.</string>
     <string name="bipe_group_link_open_invited_by">%1$s invited you to this group.</string>
     <string name="bipe_group_link_open_invalid">This link no longer works. Ask whoever sent it for a new one.</string>
+    <string name="bipe_group_link_open_history">You\'ll see messages sent after you join.</string>
     <string name="bipe_group_link_preview_title">Group %1$s on Bipe</string>
     <string name="bipe_group_link_preview_count">People in the group: %1$s. Tap to join.</string>
     <string name="bipe_groups_service_name">Bipe Grupos</string>

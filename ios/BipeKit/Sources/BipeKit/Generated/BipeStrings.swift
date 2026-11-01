@@ -4888,6 +4888,8 @@ public enum BipeStrings {
 
     public static var groupLinkOpenInvalid: String { NSLocalizedString("bipe_group_link_open_invalid", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var groupLinkOpenHistory: String { NSLocalizedString("bipe_group_link_open_history", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static func groupLinkPreviewTitle(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_group_link_preview_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
