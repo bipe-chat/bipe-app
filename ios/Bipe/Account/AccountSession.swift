@@ -24,6 +24,20 @@ private final class AuthErrorRelay: ClientDelegate, @unchecked Sendable {
     func onBackgroundTaskErrorReport(taskName: String, error: BackgroundTaskFailureReason) {}
 }
 
+/// Switches a room's send queue on again after the SDK switched it off (bipe-chat/bipe#947). matrix-rust-sdk turns a
+/// room's queue off after a failed send and never turns it on by itself, so messages stayed on "Sending…".
+private final class SendQueueRelay: SendQueueRoomErrorListener, @unchecked Sendable {
+    weak var client: Client?
+
+    func onError(roomId: String, error: ClientError) {
+        AccountStep.log.error("send queue: off after an error, on again in 15 s: \(String(describing: error), privacy: .private)")
+        Task { [weak client = self.client] in
+            try? await Task.sleep(for: .seconds(15))
+            try? client?.getRoom(roomId: roomId)?.enableSendQueue(enable: true)
+        }
+    }
+}
+
 /// A signed-in account: the SDK client and its sync service.
 /// Also compiled into the notification service extension (project.yml): keep it free of app-only types.
 final class AccountSession {
@@ -40,6 +54,8 @@ final class AccountSession {
     }
     private let authErrors = AuthErrorRelay()
     private var authErrorsHandle: TaskHandle?
+    private let sendQueueErrors = SendQueueRelay()
+    private var sendQueueHandle: TaskHandle?
 
     init(client: Client, syncService: SyncService, userId: String) {
         self.client = client
@@ -95,6 +111,8 @@ final class AccountSession {
         }
         let session = AccountSession(client: client, syncService: syncService, userId: try client.userId())
         session.authErrorsHandle = try? client.setDelegate(delegate: session.authErrors)
+        session.sendQueueErrors.client = client
+        session.sendQueueHandle = client.subscribeToSendQueueStatus(listener: session.sendQueueErrors)
         return session
     }
 
@@ -109,6 +127,11 @@ final class AccountSession {
         }
         SessionStore.save(try client.session())
         return try await start(client)
+    }
+
+    /// Switches every room's send queue on again, for a queue the SDK left off after a failed send (bipe-chat/bipe#947).
+    func resumeSending() async {
+        await client.enableAllSendQueues(enable: true)
     }
 
     /// Stops the sync and the room subscriptions and keeps everything on this phone (spec soft-logout).
