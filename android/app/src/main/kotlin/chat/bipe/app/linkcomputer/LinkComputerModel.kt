@@ -6,6 +6,7 @@ package chat.bipe.app.linkcomputer
 
 import android.content.Context
 import android.util.Base64
+import android.util.Log
 import chat.bipe.app.settings.SettingsModel
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
@@ -77,7 +78,8 @@ class LinkComputerModel(
         NOT_BIPE_CODE(R.string.bipe_app_link_computer_not_bipe_code),
         EXPIRED(R.string.bipe_app_link_computer_expired, R.string.bipe_app_link_phone_expired),
         INSECURE(R.string.bipe_app_link_computer_insecure, R.string.bipe_app_link_phone_insecure),
-        NEEDS_RECOVERY_KEY(R.string.bipe_app_link_computer_needs_recovery_key, R.string.bipe_app_link_phone_needs_recovery_key),
+        /** MissingSecretsBackup with a cross-signing cause: this phone lacks a private cross-signing key. */
+        NEEDS_APPROVAL(R.string.bipe_app_link_computer_needs_approval, R.string.bipe_app_link_phone_needs_approval),
         WRONG_CHECK_CODE(R.string.bipe_app_link_phone_wrong_check_code),
         STOPPED(R.string.bipe_app_link_computer_stopped),
         NETWORK(R.string.bipe_error_network),
@@ -109,7 +111,11 @@ class LinkComputerModel(
         /** The page the web view opens; set once the MAS host is known. */
         val consentUrl: String? = null,
         val masHost: String? = null,
+        /** State errorCode: a short code for support under the error. Never a key or a secret. */
+        val errorCode: String? = null,
         val isClosed: Boolean = false,
+        /** Action approvePhone closed the flow: the screen opens the encryption-status sheet after it closes. */
+        val opensApproval: Boolean = false,
     ) {
         val canContinue: Boolean get() = secondsLeft == 0
     }
@@ -163,7 +169,7 @@ class LinkComputerModel(
             _state.update { it.copy(scanError = Failure.NOT_BIPE_CODE, scanPhase = ScanPhase.FAILED) }
             return
         }
-        _state.update { it.copy(scanError = null, scanPhase = ScanPhase.CONNECTING) }
+        _state.update { it.copy(scanError = null, errorCode = null, scanPhase = ScanPhase.CONNECTING) }
         startedAt = Instant.now()
         val handler = session.client.newGrantLoginWithQrCodeHandler()
         val listener = object : GrantQrLoginProgressListener {
@@ -188,7 +194,7 @@ class LinkComputerModel(
     /** Action open (mode PHONE): GrantLoginWithQrCodeHandler.generate; the code arrives with qrReady. */
     private fun generate() {
         if (grantJob != null) return
-        _state.update { it.copy(showError = null, showPhase = ShowPhase.PREPARING) }
+        _state.update { it.copy(showError = null, errorCode = null, showPhase = ShowPhase.PREPARING) }
         startedAt = Instant.now()
         codeAttempt += 1
         val current = codeAttempt
@@ -291,11 +297,12 @@ class LinkComputerModel(
     /** Action taskFailed: maps the SDK error to a string. */
     private fun taskFailed(error: Exception) {
         grantJob = null
+        var code = if (error is HumanQrGrantLoginException) error::class.simpleName else null
         val failure = when (error) {
             is HumanQrGrantLoginException.NotFound, is HumanQrGrantLoginException.Expired -> Failure.EXPIRED
             is HumanQrGrantLoginException.ConnectionInsecure -> Failure.INSECURE
             is HumanQrGrantLoginException.InvalidCheckCode -> if (mode == Mode.PHONE) Failure.WRONG_CHECK_CODE else Failure.INSECURE
-            is HumanQrGrantLoginException.MissingSecretsBackup -> Failure.NEEDS_RECOVERY_KEY
+            is HumanQrGrantLoginException.MissingSecretsBackup -> secretsCause(error.message.orEmpty()).also { code = it.second }.first
             is HumanQrGrantLoginException.Cancelled -> Failure.STOPPED
             is HumanQrGrantLoginException.UnsupportedQrCodeType,
             is HumanQrGrantLoginException.UnsupportedProtocol,
@@ -304,6 +311,8 @@ class LinkComputerModel(
             is BipeApiException.Network -> Failure.NETWORK
             else -> Failure.GENERIC
         }
+        Log.e(TAG, "link failed (${code ?: "-"}): ${error::class.simpleName}: ${error.message}")
+        _state.update { it.copy(errorCode = code) }
         val state = _state.value
         if (state.isClosed) return
         when (state.step) {
@@ -331,7 +340,7 @@ class LinkComputerModel(
         grantJob?.cancel()
         grantJob = null
         continuationSender = null
-        _state.update { it.copy(step = Step.SCAN, scanPhase = ScanPhase.SCANNING, checkCode = null, scanError = null) }
+        _state.update { it.copy(step = Step.SCAN, scanPhase = ScanPhase.SCANNING, checkCode = null, scanError = null, errorCode = null) }
     }
 
     /** Action appear of the warning: the countdown from the start, also when the screen comes back to the front. */
@@ -355,6 +364,12 @@ class LinkComputerModel(
         if (!_state.value.canContinue) return
         countdown?.cancel()
         _state.update { it.copy(step = Step.APPROVE, approvePhase = ApprovePhase.CONFIRM_IDENTITY) }
+    }
+
+    /** Action approvePhone: closes the flow; the screen then opens the encryption-status sheet. */
+    fun approvePhone() {
+        _state.update { it.copy(opensApproval = true) }
+        cancel()
     }
 
     /** Action cancel (scan and warning): the computer does not sign in. */
@@ -492,4 +507,22 @@ class LinkComputerModel(
         runCatching { settings.authorized { settings.api.finishWebLink(since, it) } }
             .onFailure { android.util.Log.w("Bipe", "web-link finish failed") }
     }
+
+    companion object {
+        private const val TAG = "LinkDevice"
+
+        /**
+         * State errorCode: the cause of a MissingSecretsBackup. The SDK sends it as text only
+         * (SecretsBundleExportError, matrix-sdk-crypto export_secrets_bundle).
+         */
+        fun secretsCause(detail: String): Pair<Failure, String> {
+            val text = detail.lowercase()
+            return when {
+                "cross-signing" in text -> Failure.NEEDS_APPROVAL to "keys-missing"
+                "backup version" in text -> Failure.GENERIC to "backup-version"
+                else -> Failure.GENERIC to "no-crypto"
+            }
+        }
+    }
+
 }

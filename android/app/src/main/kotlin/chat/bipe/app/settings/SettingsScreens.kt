@@ -216,7 +216,7 @@ fun SettingsHost(
         SettingsRoute.TheftProtection -> TheftProtectionScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
         SettingsRoute.DataUse -> DataUseScreen(onBack = pop)
-        SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, onClose = pop)
+        SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, api, onClose = pop)
         SettingsRoute.RecoveryEmail -> {
             val ways = model.state.collectAsState().value.account
             RecoveryEmailAddScreen(api, session, current = ways?.email, pending = ways?.emailPending,

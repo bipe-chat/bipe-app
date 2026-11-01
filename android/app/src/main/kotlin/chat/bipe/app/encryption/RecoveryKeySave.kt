@@ -66,12 +66,13 @@ import org.matrix.rustcomponents.sdk.EnableRecoveryProgressListener
 import org.matrix.rustcomponents.sdk.RecoveryState
 import org.matrix.rustcomponents.sdk.RecoveryStateListener
 import org.matrix.rustcomponents.sdk.TaskHandle
+import chat.bipe.shared.api.BipeApiClient
 
 /**
  * Spec recovery-key-save (bipe-shared product/screens/recovery-key-save.json): makes the recovery key for the message
  * history and shows it once (ADR 0073). Bipe never holds the key and never asks for it.
  */
-class RecoveryKeySaveModel(private val session: AccountSession, private val scope: CoroutineScope) {
+class RecoveryKeySaveModel(private val session: AccountSession, private val api: BipeApiClient, private val scope: CoroutineScope) {
     enum class Phase { INTRO, CREATING, SHOW_KEY, SAVED, FAILED }
 
     enum class Progress { STARTING, CREATING_BACKUP, CREATING_RECOVERY_KEY, BACKING_UP, ROOM_KEY_UPLOAD_ERROR, DONE }
@@ -87,7 +88,24 @@ class RecoveryKeySaveModel(private val session: AccountSession, private val scop
     /** Held in memory while showKey lasts. Never logged, never stored by the app. */
     private val _recoveryKey = MutableStateFlow<String?>(null)
     val recoveryKey: StateFlow<String?> = _recoveryKey.asStateFlow()
+
+    /** State account: the account the key belongs to, so a screenshot of the key names it. */
+    private val _account = MutableStateFlow(session.userId)
+    val account: StateFlow<String> = _account.asStateFlow()
     private var handle: TaskHandle? = null
+
+    /** State account: the display name and @handle; the Matrix user ID while the profile has no handle. */
+    fun loadAccount() {
+        scope.launch {
+            val displayName = runCatching { session.client.displayName() }.getOrNull().orEmpty()
+            val handle = runCatching { BipeApiClient.withOpenIdRetry(session.openId) { api.myHandle(it) } }.getOrNull()?.handle
+            _account.value = when {
+                handle.isNullOrEmpty() -> if (displayName.isEmpty()) session.userId else "$displayName (${session.userId})"
+                displayName.isEmpty() -> "@$handle"
+                else -> "$displayName (@$handle)"
+            }
+        }
+    }
 
     fun observe() {
         val updates = Channel<RecoveryState>(Channel.UNLIMITED)
@@ -182,18 +200,20 @@ class RecoveryKeySaveModel(private val session: AccountSession, private val scop
 private fun grouped(key: String): String = key.filterNot { it.isWhitespace() }.chunked(4).joinToString(" ")
 
 @Composable
-fun RecoveryKeySaveScreen(session: AccountSession, onClose: () -> Unit) {
+fun RecoveryKeySaveScreen(session: AccountSession, api: BipeApiClient, onClose: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val model = remember(session) { RecoveryKeySaveModel(session, scope) }
+    val model = remember(session) { RecoveryKeySaveModel(session, api, scope) }
     DisposableEffect(model) {
         model.observe()
+        model.loadAccount()
         onDispose { model.close() }
     }
     val colors = BipeTheme.colors
     val recoveryState by model.recoveryState.collectAsState()
     val phase by model.phase.collectAsState()
     val key by model.recoveryKey.collectAsState()
+    val account by model.account.collectAsState()
     var copied by remember { mutableStateOf(false) }
     val exists = model.keyExists(recoveryState)
     val ownerTitle = stringResource(R.string.bipe_app_recovery_key_biometric)
@@ -240,6 +260,9 @@ fun RecoveryKeySaveScreen(session: AccountSession, onClose: () -> Unit) {
                 }
                 RecoveryKeySaveModel.Phase.SHOW_KEY -> {
                     Text(stringResource(R.string.bipe_app_recovery_key_show_body), color = colors.inkSecondary)
+                    SelectionContainer {
+                        Text(stringResource(R.string.bipe_app_recovery_key_account, account), color = colors.inkPrimary, fontWeight = FontWeight.SemiBold)
+                    }
                     SelectionContainer {
                         Text(
                             grouped(key.orEmpty()),

@@ -79,6 +79,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import org.json.JSONObject
+import chat.bipe.app.encryption.LocalEncryptionStatus
+import androidx.compose.foundation.text.selection.SelectionContainer
 
 /**
  * The link-a-computer flow: link-computer-scan, then link-computer-warning, then link-computer-approve. The only way
@@ -98,7 +100,13 @@ fun LinkComputerScreen(settings: SettingsModel, onClose: () -> Unit, mode: LinkC
         // The old phone shows a code: no camera.
         if (!allowed && mode == LinkComputerModel.Mode.COMPUTER) cameraPermission.launch(Manifest.permission.CAMERA)
     }
-    LaunchedEffect(state.isClosed) { if (state.isClosed) onClose() }
+    // Action approvePhone opens the encryption-status sheet once this flow has gone.
+    val encryption = LocalEncryptionStatus.current
+    LaunchedEffect(state.isClosed) {
+        if (!state.isClosed) return@LaunchedEffect
+        onClose()
+        if (state.opensApproval) encryption?.openSheet()
+    }
     val closeOrCancel = { if (state.step == LinkComputerModel.Step.APPROVE) model.close() else model.cancel() }
     BackHandler(onBack = closeOrCancel)
     val colors = BipeTheme.colors
@@ -150,7 +158,12 @@ private fun ScanContent(state: LinkComputerModel.State, model: LinkComputerModel
                         state.scanError?.let { error ->
                             Text(stringResource(R.string.bipe_link_computer_error_title), style = MaterialTheme.typography.titleMedium, color = colors.trustDangerInk)
                             Text(stringResource(error.message(model.mode)), color = colors.inkPrimary, textAlign = TextAlign.Center)
-                            BipeOutlinedButton(onClick = model::scanAgain) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
+                            LinkFailureCode(state.errorCode)
+                            if (error == LinkComputerModel.Failure.NEEDS_APPROVAL && encryption != null) {
+                                BipeButton(onClick = model::approvePhone) { Text(stringResource(R.string.bipe_app_link_approve_phone)) }
+                            } else {
+                                BipeOutlinedButton(onClick = model::scanAgain) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
+                            }
                         }
                     }
                     LinkComputerModel.ScanPhase.CONNECTING -> {
@@ -365,4 +378,18 @@ private fun MasWebView(url: String, masHost: String, model: LinkComputerModel, m
 private fun clearWebData() {
     CookieManager.getInstance().removeAllCookies(null)
     WebStorage.getInstance().deleteAllData()
+}
+
+/** State errorCode of link-computer-scan and link-phone-show: a short code for support under the error. */
+@Composable
+internal fun LinkFailureCode(code: String?) {
+    if (code.isNullOrEmpty()) return
+    SelectionContainer {
+        Text(
+            stringResource(R.string.bipe_app_error_code, code),
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            color = BipeTheme.colors.inkSecondary,
+        )
+    }
 }
