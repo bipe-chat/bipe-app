@@ -510,7 +510,10 @@ final class LinkComputerModel: ObservableObject {
         }
         password = secret
         approvePhase = .loading
-        await openConsent()
+        // Phase loading removes the view whose .task runs this method, and SwiftUI cancels that task. A cancelled
+        // task cancels the auth metadata request (-999), and the flow then cancels the new device's login.
+        // The consent load therefore runs in its own task.
+        Task { await openConsent() }
     }
 
     /// Action open: the MAS host from the auth metadata; the verification page must be on it.
@@ -519,6 +522,7 @@ final class LinkComputerModel: ObservableObject {
               let host = metadata.host,
               let url = verificationURL,
               BipeWebLink.isAllowed(url, host: host) else {
+            Self.log.error("link failed (consent): no auth metadata or the page is off the MAS host")
             fail(.signIn)
             return
         }
