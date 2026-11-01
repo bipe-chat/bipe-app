@@ -49,8 +49,12 @@ final class TheftProtectionModel: ObservableObject {
     @Published private(set) var phase: Phase = .loading
     @Published private(set) var error: String?
 
+    /// The Bipe PIN sheet: a guardian change needs the current PIN (bipe-chat/bipe#908).
+    let pinPrompt = AccountPinPrompt()
+
     private let settings: SettingsModel
     private var names: [String: String] = [:]
+    private var savedState: BipeGuardianState?
 
     init(settings: SettingsModel) {
         self.settings = settings
@@ -145,19 +149,23 @@ final class TheftProtectionModel: ObservableObject {
         await appear()
     }
 
+    /// Action save: PUT /v1/me/guardians with the current Bipe PIN, typed in the PIN sheet. The sheet shows a wrong PIN.
     private func save(_ userIds: [String]) async {
-        phase = .saving
         let api = settings.api
-        do {
+        let settings = settings
+        savedState = nil
+        let passed = await pinPrompt.ask(title: BipeStrings.pinEnterTitle) { (pin: String) async throws(BipeAPIError) in
             let state = try await settings.authorized { (token: String) async throws(BipeAPIError) -> BipeGuardianState in
-                try await api.setGuardians(userIds, accessToken: token)
+                try await api.setGuardians(userIds, pin: pin, accessToken: token)
             }
-            await show(state)
-            phase = .shown
-            error = nil
-        } catch {
-            fail(error)
+            self.savedState = state
         }
+        guard passed, let state = savedState else { return }
+        savedState = nil
+        phase = .saving
+        await show(state)
+        phase = .shown
+        error = nil
     }
 
     private func fail(_ apiError: BipeAPIError) {
@@ -235,6 +243,7 @@ struct TheftProtectionView: View {
         .navigationTitle(BipeStrings.theftTitle)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.theftProtection.rawValue)
+        .accountPinPrompt(model.pinPrompt)
         .task { await model.appear() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await model.appear() } }

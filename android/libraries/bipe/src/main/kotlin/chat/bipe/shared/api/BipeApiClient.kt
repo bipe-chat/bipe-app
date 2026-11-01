@@ -163,9 +163,15 @@ class BipeApiClient(baseUrl: String) {
 
     // Recovery (ADR 0057, ADR 0059)
 
-    /** `POST /v1/me/device-first`. A beta account gets a hidden password and a recovery token, once. */
-    suspend fun moveToDeviceFirst(accessToken: String): BipeCredentials =
-        send("POST", listOf("v1", "me", "device-first"), accessToken = accessToken, response = BipeCredentials.serializer())
+    /** `POST /v1/me/device-first`. A beta account gets a hidden password and a recovery token, once. Needs the current PIN (bipe-chat/bipe#908). */
+    suspend fun moveToDeviceFirst(pin: String, accessToken: String): BipeCredentials =
+        send(
+            "POST",
+            listOf("v1", "me", "device-first"),
+            body = encode(BipePinRequest.serializer(), BipePinRequest(pin)),
+            accessToken = accessToken,
+            response = BipeCredentials.serializer(),
+        )
 
     /**
      * `POST /v1/me/approval-nudge` (bipe-chat/bipe#628): a push to the other devices of the account while this device
@@ -401,6 +407,9 @@ enum class BipeApiErrorCode(val id: String) {
     PIN_WRONG("pin_wrong"),
     PIN_BLOCKED("pin_blocked"),
     PIN_NOT_SET("pin_not_set"),
+
+    /** `POST /v1/me/device-first` on an account that already moved (bipe-chat/bipe#908). */
+    ALREADY_DEVICE_FIRST("already_device_first"),
     RECOVERY_INVALID("recovery_invalid"),
     EMAIL_UNAVAILABLE("email_unavailable"),
 
@@ -516,6 +525,7 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.PIN_WRONG -> context.getString(R.string.bipe_pin_wrong, (triesLeft ?: 0).toString())
             BipeApiErrorCode.PIN_BLOCKED -> context.getString(R.string.bipe_pin_blocked_body, BipeRegistries.PIN_MAX_WRONG_TRIES.toString())
             BipeApiErrorCode.PIN_NOT_SET -> context.getString(R.string.bipe_deletion_pin_not_set)
+            BipeApiErrorCode.ALREADY_DEVICE_FIRST -> context.getString(R.string.bipe_error_generic)
             BipeApiErrorCode.DELETION_PENDING -> context.getString(R.string.bipe_deletion_error)
             BipeApiErrorCode.RECOVERY_INVALID -> context.getString(R.string.bipe_error_recovery_invalid)
             BipeApiErrorCode.EMAIL_UNAVAILABLE -> context.getString(R.string.bipe_error_email_unavailable)

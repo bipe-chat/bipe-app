@@ -132,6 +132,10 @@ class RecoveryFlowModel(
     val betaEmail: StateFlow<String> = _betaEmail.asStateFlow()
     private val _betaPassword = MutableStateFlow("")
     val betaPassword: StateFlow<String> = _betaPassword.asStateFlow()
+
+    /** Optional: the account PIN that the move to device-first needs (bipe-chat/bipe#908). Never stored. */
+    private val _betaPin = MutableStateFlow("")
+    val betaPin: StateFlow<String> = _betaPin.asStateFlow()
     private val _betaBusy = MutableStateFlow(false)
     val betaBusy: StateFlow<Boolean> = _betaBusy.asStateFlow()
     private val _betaError = MutableStateFlow<String?>(null)
@@ -500,6 +504,10 @@ class RecoveryFlowModel(
         _betaError.value = null
     }
 
+    fun editBetaPin(text: String) {
+        _betaPin.value = BipePin.sanitize(text).take(BipeRegistries.PIN_LENGTH)
+    }
+
     fun canSubmitBeta(email: String, password: String, busy: Boolean): Boolean = !busy && email.isNotBlank() && password.isNotEmpty()
 
     /** An e-mail has an @ inside; a Matrix ID (@localpart:server) starts with it. */
@@ -520,9 +528,14 @@ class RecoveryFlowModel(
                 val user = if (isBetaEmail(input)) api.betaLogin(input, password) else input
                 val session = AccountSession.signIn(context, user, password, sessionStore)
                 _betaPassword.value = ""
-                runCatching {
-                    val credentials = api.moveToDeviceFirst(session.client.session().accessToken)
-                    vault.store(credentials.userId, credentials.password, credentials.recoveryToken)
+                // bipe-chat/bipe#908: the move needs the account PIN; without one the account keeps its beta password.
+                val pin = _betaPin.value
+                _betaPin.value = ""
+                if (pin.length == BipeRegistries.PIN_LENGTH) {
+                    runCatching {
+                        val credentials = api.moveToDeviceFirst(pin, session.client.session().accessToken)
+                        vault.store(credentials.userId, credentials.password, credentials.recoveryToken)
+                    }
                 }
                 onSignedIn(session)
             } catch (error: Exception) {

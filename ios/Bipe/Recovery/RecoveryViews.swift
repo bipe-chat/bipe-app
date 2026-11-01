@@ -332,6 +332,12 @@ private struct RecoveryBetaView: View {
                 .textContentType(.password)
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceSunken))
+            // Optional: with the account PIN the account moves to device-first after sign-in (bipe-chat/bipe#908).
+            SecureField(BipeStrings.pinEnterTitle, text: Binding(get: { model.betaPIN }, set: model.editBetaPIN))
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceSunken))
             if let error = model.betaError {
                 Footer(text: error, isError: true)
             }
