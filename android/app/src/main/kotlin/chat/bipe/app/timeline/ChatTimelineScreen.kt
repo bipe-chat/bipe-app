@@ -4,6 +4,7 @@
 
 package chat.bipe.app.timeline
 
+import chat.bipe.app.common.BipeToasts
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -537,18 +538,12 @@ fun ChatTimelineScreen(
                     else -> composerBar()
                 }
             }
-            ui.notice?.let { notice ->
-                Text(
-                    noticeText(notice, ui.noticeArg),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkPrimary,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 110.dp)
-                        .background(colors.surfaceRaised, CircleShape)
-                        .border(1.dp, colors.lineSubtle, CircleShape)
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                )
+            val noticeShown = ui.notice?.let { noticeText(it, ui.noticeArg) }
+            LaunchedEffect(ui.notice, ui.noticeArg) {
+                when {
+                    ui.notice == TimelineNotice.COPIED -> BipeToasts.copied(context)
+                    noticeShown != null -> BipeToasts.show(noticeShown)
+                }
             }
         }
     }

@@ -4,6 +4,7 @@
 
 package chat.bipe.app.business
 
+import chat.bipe.app.common.BipeToasts
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -312,6 +313,7 @@ private fun CreatedCode(context: Context, created: BipeCreatedBrandMarkInvite) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = {
                 context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(created.code, created.link))
+                BipeToasts.copied(context)
             }) { Text(stringResource(R.string.bipe_app_copy)) }
             TextButton(onClick = {
                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, created.link), null))

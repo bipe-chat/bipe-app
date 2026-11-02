@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -509,6 +508,8 @@ private fun QrDialog(link: String, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // A dialog's own error shows in the dialog, not as a toast behind it (bipe/docs/design/toasts.md).
+    var shareFailed by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onClose,
         title = { Text(stringResource(R.string.bipe_queue_qr_title)) },
@@ -516,12 +517,13 @@ private fun QrDialog(link: String, onClose: () -> Unit) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                 QrCode(link)
                 Text(stringResource(R.string.bipe_queue_qr_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
+                if (shareFailed) Text(stringResource(R.string.bipe_queue_error), color = colors.trustDangerInk, textAlign = TextAlign.Center)
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 scope.launch {
-                    if (!shareQr(context, link)) Toast.makeText(context, context.getString(R.string.bipe_queue_error), Toast.LENGTH_SHORT).show()
+                    shareFailed = !shareQr(context, link)
                 }
             }) { Text(stringResource(R.string.bipe_app_share)) }
         },

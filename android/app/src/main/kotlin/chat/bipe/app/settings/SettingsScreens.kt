@@ -4,6 +4,7 @@
 
 package chat.bipe.app.settings
 
+import chat.bipe.app.common.BipeToasts
 import chat.bipe.app.location.LiveLocationRule
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,7 +24,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -380,7 +380,6 @@ fun SettingsGroupScreen(
     val lockOffReason = stringResource(R.string.bipe_account_app_lock_off_reason)
     val biometricReason = stringResource(R.string.bipe_app_lock_biometric, word)
     val cancel = stringResource(R.string.bipe_app_cancel)
-    val copied = stringResource(R.string.bipe_help_device_id_copied)
     val deletionCancelReason = stringResource(R.string.bipe_deletion_cancel_reason)
     val deletionCancelled = stringResource(R.string.bipe_deletion_cancelled)
     val deletionCancelError = stringResource(R.string.bipe_deletion_cancel_error)
@@ -445,7 +444,7 @@ fun SettingsGroupScreen(
                         cancellingDeletion = true
                         val cancelled = model.cancelDeletion(deletion)
                         cancellingDeletion = false
-                        Toast.makeText(context, if (cancelled) deletionCancelled else deletionCancelError, Toast.LENGTH_SHORT).show()
+                        BipeToasts.show(if (cancelled) deletionCancelled else deletionCancelError)
                     }
                 }
             }
@@ -546,7 +545,7 @@ fun SettingsGroupScreen(
                     val clipboard = context.getSystemService(ClipboardManager::class.java)
                     clipboard?.setPrimaryClip(ClipData.newPlainText(null, deviceId))
                     view.bipeHaptic(BipeHaptic.Tap)
-                    Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
+                    BipeToasts.copied(context, R.string.bipe_help_device_id_copied)
                 }
             }
         }
