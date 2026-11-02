@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   EditedContent,
+  ReceiptType,
   TimelineDiff,
   messageEventContentFromMarkdown,
   type RoomLike as Room,
@@ -16,7 +17,7 @@ import {
   type TimelineLike as Timeline,
   type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
-import { arrowBendUpLeft, caretLeft, check, paperPlaneRight, pencilSimple, x } from './phosphor/icons';
+import { arrowBendUpLeft, caretLeft, caretRight, check, paperPlaneRight, pencilSimple, x } from './phosphor/icons';
 import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
 import { ChatInfo } from './ChatInfo';
 import { useRoomFace } from './room-face';
@@ -25,6 +26,7 @@ import { Avatar } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
 import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
+import { readReceiptsOn } from './Settings';
 import { applyDiffs, describe, type DiffVariants } from './util';
 
 // The composer's mode (specs message-reply, message-edit): a reply bar or an edit bar above the field.
@@ -48,6 +50,25 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   }, [toast]);
   const timeline = useRef<Timeline>(undefined);
   const listener = useRef<TaskHandle>(undefined);
+  const scroller = useRef<HTMLDivElement>(null);
+  // Action loadHistory (ChatTimelineView historyHeader): one page at a time, until the start of the chat.
+  const history = useRef({ loading: false, reachedStart: false });
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const loadHistory = useCallback(async () => {
+    const t = timeline.current;
+    if (!t || history.current.loading || history.current.reachedStart) return;
+    history.current.loading = true;
+    setLoadingHistory(true);
+    try {
+      history.current.reachedStart = await t.paginateBackwards(30);
+    } finally {
+      history.current.loading = false;
+      setLoadingHistory(false);
+    }
+  }, []);
+  // The column is reversed: scrollTop is 0 at the newest message and negative above it.
+  const [atBottom, setAtBottom] = useState(true);
+  const [missed, setMissed] = useState(0);
 
   useEffect(() => {
     let stopped = false;
@@ -59,7 +80,7 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
           if (!stopped) setItems((prev) => applyDiffs(prev, diffs, TimelineDiff as unknown as DiffVariants));
         },
       });
-      await t.paginateBackwards(30);
+      await loadHistory();
     })().catch((e) => setNote(describe(e)));
     return () => {
       stopped = true;
@@ -73,8 +94,35 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   const isDm = face.isDirect ?? true;
   const itemRows = items.map((i) => itemRow(i, ownUserId)).filter((r) => r !== undefined);
   // Read ticks only in a DM (spec read-receipts); groups keep the sent tick.
-  const rows = face.isDirect ? markRead(itemRows) : itemRows;
+  // With the read receipts switch off, DMs show no read ticks either (bipe_privacy_read_receipts_footer).
+  const rows = face.isDirect && readReceiptsOn() ? markRead(itemRows) : itemRows;
   const typing = useTyping(room, ownUserId);
+  // Messages from others that arrive while the person reads older ones count on the jump button.
+  const lastKey = useRef<string>(undefined);
+  const newest = itemRows.length > 0 ? itemRows[itemRows.length - 1] : undefined;
+  useEffect(() => {
+    if (!newest || newest.key === lastKey.current) return;
+    const first = lastKey.current === undefined;
+    lastKey.current = newest.key;
+    if (!first && !atBottom && newest.kind === 'message' && !newest.own) setMissed((n) => n + 1);
+  }, [newest, atBottom]);
+  // Action markAsRead (ChatTimelineModel.swift): a read receipt for the newest event while the newest rows
+  // are on screen and the page is visible. Public, except in a DM with the read receipts switch off.
+  useEffect(() => {
+    if (!atBottom || !newest || document.visibilityState !== 'visible') return;
+    const type = face.isDirect !== false && !readReceiptsOn() ? ReceiptType.ReadPrivate : ReceiptType.Read;
+    timeline.current?.markAsRead(type).catch(() => undefined);
+  }, [newest?.key, atBottom, face.isDirect]);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && atBottom)
+        timeline.current?.markAsRead(receiptType()).catch(() => undefined);
+    };
+    const receiptType = () =>
+      face.isDirect !== false && !readReceiptsOn() ? ReceiptType.ReadPrivate : ReceiptType.Read;
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [atBottom, face.isDirect]);
   const lastTyping = useRef(0);
   const typingNotice = (text: string) => {
     // Spec typing-indicator: draftChanged; at most one notice every 4 s while typing, off when empty.
@@ -113,6 +161,8 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
     loadReply,
   };
   const name = face.name;
+  // TODO(string): the label of the button that scrolls back to the newest message.
+  const newestLabel = 'Newest messages';
   const canSend = draft.trim() !== '';
 
   return (
@@ -168,13 +218,46 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
           </button>
         </header>
         {/* column-reverse keeps the newest message in view as rows come in. */}
-        <div className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto">
+        <div
+          ref={scroller}
+          className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto overscroll-contain"
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            const bottom = Math.abs(el.scrollTop) < 80;
+            setAtBottom(bottom);
+            if (bottom) setMissed(0);
+            // Older messages load while the top of the list is near; the reversed column keeps the view still.
+            if (el.scrollHeight - el.clientHeight - Math.abs(el.scrollTop) < 400)
+              void loadHistory().catch(() => undefined);
+          }}
+        >
           <ol className="mx-auto flex w-full max-w-[760px] flex-col gap-1.5 px-3 py-2">
+            {loadingHistory && (
+              <li className="py-2 text-center text-footnote text-ink-secondary">
+                {s('bipe_app_timeline_loading_history')}
+              </li>
+            )}
             {rows.map((r) => (
               <TimelineRowView key={r.key} row={r} isDm={isDm} on={on} />
             ))}
           </ol>
         </div>
+        {!atBottom && (
+          // Back to the newest message, with the count of messages that came in meanwhile.
+          <button
+            type="button"
+            className="bipe-glass absolute right-4 bottom-24 z-10 grid size-11 place-items-center rounded-full text-glyph-primary shadow"
+            aria-label={newestLabel}
+            onClick={() => scroller.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            <Icon path={caretRight} size={22} className="rotate-90" />
+            {missed > 0 && (
+              <span className="absolute -top-1 -right-1 rounded-full bg-accent-fill px-1.5 text-caption font-bold text-ink-on-accent">
+                {missed.toLocaleString()}
+              </span>
+            )}
+          </button>
+        )}
         <div className="mx-auto w-full max-w-[760px] shrink-0">
           {note && <p className="px-4 pt-2 text-footnote break-words text-trust-danger-ink">{note}</p>}
           {toast && (
