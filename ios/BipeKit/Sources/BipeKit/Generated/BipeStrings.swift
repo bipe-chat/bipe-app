@@ -5010,6 +5010,24 @@ public enum BipeStrings {
 
     public static var yearRecapShareNote: String { NSLocalizedString("bipe_year_recap_share_note", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var yearRecapByMonth: String { NSLocalizedString("bipe_year_recap_by_month", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapByHour: String { NSLocalizedString("bipe_year_recap_by_hour", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapByWeekday: String { NSLocalizedString("bipe_year_recap_by_weekday", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func yearRecapChartPeak(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_year_recap_chart_peak", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var yearRecapPeakDawn: String { NSLocalizedString("bipe_year_recap_peak_dawn", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapPeakMorning: String { NSLocalizedString("bipe_year_recap_peak_morning", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapPeakAfternoon: String { NSLocalizedString("bipe_year_recap_peak_afternoon", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapPeakEvening: String { NSLocalizedString("bipe_year_recap_peak_evening", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var inviteJoinedPushTitle: String { NSLocalizedString("bipe_invite_joined_push_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var inviteJoinedPushBody: String { NSLocalizedString("bipe_invite_joined_push_body", tableName: "Bipe", bundle: .module, comment: "") }
@@ -5023,4 +5041,64 @@ public enum BipeStrings {
     public static var notificationsGroupLinkJoined: String { NSLocalizedString("bipe_notifications_group_link_joined", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var notificationsJoinsFooter: String { NSLocalizedString("bipe_notifications_joins_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninTitle: String { NSLocalizedString("bipe_web_signin_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninStepOpen: String { NSLocalizedString("bipe_web_signin_step_open", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func webSigninStepPath(_ p1: String, _ p2: String, _ p3: String, _ p4: String) -> String {
+        String(format: NSLocalizedString("bipe_web_signin_step_path", tableName: "Bipe", bundle: .module, comment: ""), p1, p2, p3, p4)
+    }
+
+    public static var webSigninStepScan: String { NSLocalizedString("bipe_web_signin_step_scan", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninCheckCodeTitle: String { NSLocalizedString("bipe_web_signin_check_code_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninCheckCodeSend: String { NSLocalizedString("bipe_web_signin_check_code_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninApprove: String { NSLocalizedString("bipe_web_signin_approve", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninKeys: String { NSLocalizedString("bipe_web_signin_keys", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninExpired: String { NSLocalizedString("bipe_web_signin_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webLoading: String { NSLocalizedString("bipe_web_loading", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webTimelineUndecryptable: String { NSLocalizedString("bipe_web_timeline_undecryptable", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appTimelineUnsupported: String { NSLocalizedString("bipe_app_timeline_unsupported", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadRemove: String { NSLocalizedString("bipe_app_upload_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yScrollToNewest: String { NSLocalizedString("bipe_a11y_scroll_to_newest", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSignOutHistory: String { NSLocalizedString("bipe_web_sign_out_history", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webHistoryBanner: String { NSLocalizedString("bipe_web_history_banner", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webRecoveryHistoryNote: String { NSLocalizedString("bipe_web_recovery_history_note", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webHistoryNone: String { NSLocalizedString("bipe_web_history_none", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webEncryptionVerified: String { NSLocalizedString("bipe_web_encryption_verified", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webRecoveryKeyEnterBody: String { NSLocalizedString("bipe_web_recovery_key_enter_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webVerificationVerified: String { NSLocalizedString("bipe_web_verification_verified", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webVerificationUnverified: String { NSLocalizedString("bipe_web_verification_unverified", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webUploadCancel: String { NSLocalizedString("bipe_web_upload_cancel", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webEmojiSearch: String { NSLocalizedString("bipe_web_emoji_search", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAccountSwitcherTitle: String { NSLocalizedString("bipe_web_account_switcher_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAccountUnreadLastSync: String { NSLocalizedString("bipe_web_account_unread_last_sync", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func webAccountCapReached(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_web_account_cap_reached", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var webSignOutAll: String { NSLocalizedString("bipe_web_sign_out_all", tableName: "Bipe", bundle: .module, comment: "") }
 }
