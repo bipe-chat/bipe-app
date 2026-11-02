@@ -115,7 +115,7 @@
       "licence": "MIT",
       "source": "https://github.com/phosphor-icons/core/blob/main/LICENSE",
       "checked": "2026-10-22",
-      "note": "Vendored by tools/phosphor.mjs into ios/Phosphor and android/libraries/phosphor, with its LICENSE file. Version in tools/phosphor.json."
+      "note": "Vendored by tools/phosphor.mjs into ios/Phosphor, android/libraries/phosphor and web/src/phosphor, with its LICENSE file. Version in tools/phosphor.json."
     },
     "org.jetbrains.kotlinx:kotlinx-coroutines-core": {
       "ecosystem": "gradle",
