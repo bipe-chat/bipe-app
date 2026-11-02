@@ -161,7 +161,7 @@ final class NotificationActions: ObservableObject {
             try await timeline.sendReply(msg: content, eventId: eventId)
             try await Self.waitUntilSent(timeline)
             guard sessions[target.accountUserId] === session, NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
-            try? await room.markAsRead(receiptType: .read)
+            try? await room.markAsRead(receiptType: ReadReceiptSetting.receiptType(isDm: info.isDm))
             guard sessions[target.accountUserId] === session, NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
             removeNotifications(target: target)
         } catch {
@@ -175,7 +175,8 @@ final class NotificationActions: ObservableObject {
         }
     }
 
-    /// Action markAsRead: a public read receipt, then the chat's notifications go away.
+    /// Action markAsRead: a read receipt (private in a DM while the read receipts switch is off, ADR 0222), then the
+    /// chat's notifications go away.
     private func markAsRead(target: BipeNotificationTarget, route: String) async {
         let backgroundTask = UIApplication.shared.beginBackgroundTask()
         defer { UIApplication.shared.endBackgroundTask(backgroundTask) }
@@ -187,7 +188,7 @@ final class NotificationActions: ObservableObject {
             let info = try await room.roomInfo()
             guard info.membership == .joined, !info.isSpace, sessions[target.accountUserId] === session,
                   NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
-            try await room.markAsRead(receiptType: .read)
+            try await room.markAsRead(receiptType: ReadReceiptSetting.receiptType(isDm: info.isDm))
             guard sessions[target.accountUserId] === session, NotificationKeys.accountRoutes?.account(for: route) == target.accountUserId else { return }
             removeNotifications(target: target)
         } catch {

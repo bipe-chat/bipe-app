@@ -109,6 +109,8 @@ struct MessageReceipt: Equatable {
     enum Tick: Equatable {
         case sending
         case sent
+        /// DM only: a device of the other person acked this event or a newer one (ADR 0222).
+        case delivered
         case read
         case failed
     }
@@ -148,6 +150,10 @@ struct RoomFacts {
     var roomMembers: Set<String> = []
     /// Cached handle changes of the room members (BipeHandleChangeStore), oldest first.
     var handleChanges: [BipeHandleChange] = []
+    /// DM only: the event IDs that a device of the other person acked (DeliveredLog, spec read-receipts).
+    var deliveredEventIds: Set<String> = []
+    /// False in a DM while the own read receipts switch is off: the read tick of the other person stays hidden.
+    var showsOthersRead = true
 }
 
 /// Builds the rows of spec timeline-rows from the SDK timeline items, oldest first.
@@ -170,10 +176,15 @@ enum TimelineRowBuilder {
         var readUpToHere: [String: Receipt] = [:]
         var receipts: [Int: MessageReceipt] = [:]
         var newestOwnIndex: Int?
+        // A delivered ack covers this event and every older one (spec read-receipts notes).
+        var deliveredUpToHere = false
         for (index, item) in items.enumerated().reversed() {
             guard let event = item.asEvent() else { continue }
             for (userId, receipt) in event.readReceipts where userId != facts.ownUserId && readUpToHere[userId] == nil {
                 readUpToHere[userId] = receipt
+            }
+            if !deliveredUpToHere, case .eventId(let eventId) = event.eventOrTransactionId, facts.deliveredEventIds.contains(eventId) {
+                deliveredUpToHere = true
             }
             guard event.isOwn, isShownMessage(event) else { continue }
             if newestOwnIndex == nil { newestOwnIndex = index }
@@ -183,8 +194,13 @@ enum TimelineRowBuilder {
             case .some(.sendingFailed): tick = .failed
             default:
                 let othersInRoom = max(1, facts.joinedMembers - 1)
-                let isRead = facts.isDm ? !readUpToHere.isEmpty : readUpToHere.count >= othersInRoom
-                tick = isRead ? .read : .sent
+                if facts.isDm {
+                    // Read wins over delivered; a hidden read still means the phone got it.
+                    let isRead = !readUpToHere.isEmpty
+                    tick = isRead && facts.showsOthersRead ? .read : (isRead || deliveredUpToHere ? .delivered : .sent)
+                } else {
+                    tick = readUpToHere.count >= othersInRoom ? .read : .sent
+                }
             }
             func readers(_ receipts: [String: Receipt]) -> [ReceiptReader] {
                 guard !facts.isDm else { return [] }

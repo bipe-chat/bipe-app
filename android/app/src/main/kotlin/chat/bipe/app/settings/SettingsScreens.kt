@@ -354,6 +354,7 @@ fun SettingsGroupScreen(
     val prefs = remember { context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE) }
     var hideRequestPhotos by remember { mutableStateOf(prefs.getBoolean(SettingsKeys.HIDE_REQUEST_PHOTOS, true)) }
     var sharePresence by remember { mutableStateOf(prefs.getBoolean(SettingsKeys.SHARE_PRESENCE, true)) }
+    var readReceipts by remember { mutableStateOf(prefs.getBoolean(SettingsKeys.READ_RECEIPTS, true)) }
     var showsSignOut by remember { mutableStateOf(false) }
     var showsDelete by remember { mutableStateOf(false) }
     var cancellingDeletion by remember { mutableStateOf(false) }
@@ -466,6 +467,11 @@ fun SettingsGroupScreen(
                     BipeSettingsRow.PRIVACY_PRESENCE -> SettingsSwitchItem(title, footer, sharePresence) {
                         sharePresence = it
                         prefs.edit().putBoolean(SettingsKeys.SHARE_PRESENCE, it).apply()
+                    }
+                    // Spec read-receipts readReceiptsEnabled (ADR 0222): DMs only; groups always send and show receipts.
+                    BipeSettingsRow.PRIVACY_READ_RECEIPTS -> SettingsSwitchItem(title, footer, readReceipts) {
+                        readReceipts = it
+                        prefs.edit().putBoolean(SettingsKeys.READ_RECEIPTS, it).apply()
                     }
                     BipeSettingsRow.ACCOUNT_APP_LOCK -> SettingsSwitchItem(title, footer, lockOn) { isOn ->
                         if (isOn) {
@@ -584,7 +590,6 @@ private fun isAvailable(
 /** The current value of a row, formatted (spec settings-group, SettingsRow.value). */
 private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSettingsRow): String? = when (row) {
     BipeSettingsRow.PRIVACY_MESSAGING -> state.whoCanMessage?.let { context.getString(it.settingsSummary) }
-    BipeSettingsRow.PRIVACY_READ_RECEIPTS -> context.getString(R.string.bipe_privacy_read_receipts_value)
     BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS -> state.waysBack?.summary(context)
     BipeSettingsRow.PRIVACY_NUMBER -> state.phone?.summary(context, state.phoneNumber)
     BipeSettingsRow.ACCOUNT_EMAIL -> state.account?.let { it.email ?: context.getString(R.string.bipe_account_email_none) }
@@ -611,6 +616,8 @@ object SettingsKeys {
     const val FILE = "bipe_settings"
     const val HIDE_REQUEST_PHOTOS = "hide_request_photos"
     const val SHARE_PRESENCE = "share_presence"
+    /** Spec read-receipts readReceiptsEnabled (ADR 0222). */
+    const val READ_RECEIPTS = "read_receipts"
     const val SHOW_MEDIA = "show_media"
 }
 

@@ -146,6 +146,13 @@ class PhoneNotifications(private val context: Context) {
         val status = runCatching {
             withTimeout(FETCH_TIMEOUT_MS) { client(session).getNotification(roomId, eventId) }
         }.getOrNull()
+        // Spec read-receipts, ack send (ADR 0222): a DM event from the other person is delivered to this phone.
+        (status as? NotificationStatus.Event)?.item?.let { item ->
+            val sender = (item.event as? NotificationEvent.Timeline)?.event?.senderId()
+            if (item.roomInfo.isDm && sender != null && sender != session.userId) {
+                runCatching { session.client.getRoom(roomId) }.getOrNull()?.let { session.delivered.send(it, eventId, sender) }
+            }
+        }
         if (!isActive(session) || !owns(target, route) || target == visibleRoom) return
         when (status) {
             is NotificationStatus.Event -> {

@@ -9,6 +9,8 @@ import MatrixRustSDK
 /// The Matrix transport of a call (spec call, ADR 0186): the matrix-sdk-ffi widget driver with no page.
 /// The app is the widget. It answers the driver's toWidget requests and sends fromWidget requests
 /// (MSC2762 events and state, MSC3819 to-device, MSC4157 delayed events).
+/// The delivered ack of spec read-receipts uses the same transport with to-device capabilities only (DeliveredAcks).
+/// Also compiled into the notification service extension (project.yml): keep it free of app-only types.
 actor CallWidget {
     struct Failure: Error {
         let message: String
@@ -36,21 +38,30 @@ actor CallWidget {
     private var isClosed = false
     private var counter = 0
 
-    init(userId: String, deviceId: String, extraSend: [String] = [], extraRead: [String] = [],
+    /// A widget with exactly these capabilities. `capabilityNames` is what the widget asks for; `approved` is what
+    /// the capabilities provider grants of it.
+    init(idPrefix: String, capabilityNames: [String], approved: WidgetCapabilities,
          onIncoming: @escaping @Sendable (Incoming) -> Void) throws {
-        let id = "bipe-call-\(UUID().uuidString.lowercased())"
+        let id = "\(idPrefix)-\(UUID().uuidString.lowercased())"
         widgetId = id
         // The driver needs a URL; nothing loads it.
         let settings = WidgetSettings(widgetId: id, initAfterContentLoad: false, rawUrl: "https://bipe.chat/call")
         let made = try makeWidgetDriver(settings: settings)
         driver = made.driver
         handle = made.handle
+        self.capabilityNames = capabilityNames
+        self.approved = approved
+        self.onIncoming = onIncoming
+    }
+
+    init(userId: String, deviceId: String, extraSend: [String] = [], extraRead: [String] = [],
+         onIncoming: @escaping @Sendable (Incoming) -> Void) throws {
         let ownKey = BipeCall.stateKey(userId: userId, deviceId: deviceId)
         let member = BipeCall.memberEventType
         let key = BipeCall.keyEventType
         let sendEvents = [key] + extraSend
         let readEvents = [key] + extraRead
-        capabilityNames = [
+        let capabilityNames = [
             "org.matrix.msc4157.send.delayed_event",
             "org.matrix.msc4157.update_delayed_event",
             "org.matrix.msc2762.receive.state_event:\(member)",
@@ -58,12 +69,12 @@ actor CallWidget {
             "org.matrix.msc3819.send.to_device:\(key)",
             "org.matrix.msc3819.receive.to_device:\(key)",
         ] + sendEvents.map { "org.matrix.msc2762.send.event:\($0)" } + readEvents.map { "org.matrix.msc2762.receive.event:\($0)" }
-        approved = WidgetCapabilities(
+        let approved = WidgetCapabilities(
             read: [.stateWithType(eventType: member), .toDevice(eventType: key)] + readEvents.map { WidgetEventFilter.messageLikeWithType(eventType: $0) },
             send: [.stateWithTypeAndStateKey(eventType: member, stateKey: ownKey), .toDevice(eventType: key)]
                 + sendEvents.map { WidgetEventFilter.messageLikeWithType(eventType: $0) },
             requiresClient: false, updateDelayedEvent: true, sendDelayedEvent: true, downloadFiles: false, rtcTransports: false)
-        self.onIncoming = onIncoming
+        try self.init(idPrefix: "bipe-call", capabilityNames: capabilityNames, approved: approved, onIncoming: onIncoming)
     }
 
     /// Runs the driver for the room and reads its messages until `close`.
@@ -97,6 +108,12 @@ actor CallWidget {
         if let stateKey { data["state_key"] = stateKey }
         if let delayMs { data["delay"] = delayMs }
         return try await request("send_event", data: data)
+    }
+
+    /// An MSC3819 to-device message: `messages` maps user ID to device ID (or "*") to content. In an encrypted room
+    /// the driver encrypts it with Olm.
+    func sendToDevice(type: String, messages: [String: [String: [String: Any]]]) async throws {
+        _ = try await request("send_to_device", data: ["type": type, "messages": messages])
     }
 
     /// action: restart, cancel or send.

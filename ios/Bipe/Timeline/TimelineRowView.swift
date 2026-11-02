@@ -402,6 +402,10 @@ private struct ReceiptTick: View {
             icon(.check)
                 .accessibilityLabel(BipeStrings.appReceiptSent)
             if receipt.showsLabel { Text(BipeStrings.appReceiptSent).accessibilityHidden(true) }
+        case .delivered:
+            icon(.checks)
+                .accessibilityLabel(BipeStrings.appReceiptDelivered)
+            if receipt.showsLabel { Text(BipeStrings.appReceiptDelivered).accessibilityHidden(true) }
         case .read:
             icon(.checks)
                 .foregroundStyle(BipeColor.accentInk)
