@@ -7,14 +7,15 @@ package chat.bipe.shared
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** ADR 0141: a DM never shows its own m.room.name; the person's name, then the localpart, wins. */
+/** ADR 0141: a DM never shows its own m.room.name; the person's name, then the @handle, wins. Never the localpart. */
 class BipeChatRowNameDmTest {
     private val ana = "@ana:example.test"
 
     // sdkName, peerName, peerId, dmRoomName -> shown name
     private val cases = listOf(
         listOf("Renamed", "Ana", ana, "Renamed") to "Ana",
-        listOf(" Renamed ", null, ana, "Renamed") to "ana",
+        listOf(" Renamed ", null, ana, "Renamed") to "Unnamed",
+        listOf("ana", "ana", ana, null) to "Unnamed",
         listOf("Renamed", null, null, "Renamed") to "Unnamed",
         listOf("Ana", null, ana, null) to "Ana",
     )

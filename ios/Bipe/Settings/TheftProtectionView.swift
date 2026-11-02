@@ -184,7 +184,7 @@ final class TheftProtectionModel: ObservableObject {
         }
     }
 
-    /// The display name the app knows, else the @ (POST /v1/handles/resolve), else the localpart. Never the Matrix ID.
+    /// The display name the app knows, else the @ (POST /v1/handles/resolve), else bipe_person_no_name. Never the Matrix ID.
     private func loadNames(_ userIds: [String]) async {
         let missing = Array(Set(userIds).filter { names[$0] == nil })
         guard !missing.isEmpty else { return }
@@ -201,7 +201,7 @@ final class TheftProtectionModel: ObservableObject {
     }
 
     private func name(_ userId: String) -> String {
-        names[userId] ?? Person.localpart(of: userId)
+        names[userId] ?? BipeChatRowName.person(userID: userId, displayName: nil, handle: nil)
     }
 }
 

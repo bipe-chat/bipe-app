@@ -90,7 +90,7 @@ final class NotificationService: UNNotificationServiceExtension {
                 guard case .timeline(let event) = item.event, shown.categoryIdentifier == NotificationKeys.messageCategory,
                       NotificationPrefs.preview(for: target.accountUserId), let text = messageText(event),
                       let mutable = shown.mutableCopy() as? UNMutableNotificationContent else { return shown }
-                let senderName = item.senderInfo.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? event.senderId()
+                let senderName = BipeChatRowName.person(userID: event.senderId(), displayName: item.senderInfo.displayName, handle: nil)
                 return await CommunicationNotification.updated(
                     mutable, text: text, senderId: event.senderId(), senderName: senderName,
                     senderAvatarUrl: item.senderInfo.avatarUrl, roomId: target.roomId,
@@ -110,12 +110,15 @@ final class NotificationService: UNNotificationServiceExtension {
 
     private static func content(item: NotificationItem, target: BipeNotificationTarget, route: String, eventId: String, unreadCount: Int?) -> UNNotificationContent {
         let room = item.roomInfo
-        let senderName = item.senderInfo.displayName.flatMap { $0.isEmpty ? nil : $0 }
+        // People names: the real display name, else the @ the app cached in the app group, else bipe_person_no_name.
+        func senderName(_ userId: String) -> String {
+            BipeChatRowName.person(userID: userId, displayName: item.senderInfo.displayName, handle: nil)
+        }
         let content = UNMutableNotificationContent()
         var kind = "message"
         switch item.event {
         case .timeline(let event):
-            if room.isDm, let ring = ring(event: event, sender: senderName ?? event.senderId(), target: target, route: route, eventId: eventId) {
+            if room.isDm, let ring = ring(event: event, sender: senderName(event.senderId()), target: target, route: route, eventId: eventId) {
                 return ring
             }
             // Spec location-view notes: a live location update (MSC3672 beacon) never shows a notification.
@@ -127,7 +130,7 @@ final class NotificationService: UNNotificationServiceExtension {
             guard let text = messageText(event) else {
                 return fallback(target: target, route: route, eventId: eventId, unreadCount: unreadCount)
             }
-            let sender = senderName ?? event.senderId()
+            let sender = senderName(event.senderId())
             // ADR 0141: a DM shows the other person, never the room name.
             if room.isDm {
                 content.title = sender
@@ -139,7 +142,7 @@ final class NotificationService: UNNotificationServiceExtension {
             content.categoryIdentifier = NotificationKeys.messageCategory
         case .invite(let senderId):
             kind = room.isDm ? "chatRequest" : "groupInvite"
-            let sender = senderName ?? senderId
+            let sender = senderName(senderId)
             if room.isDm {
                 content.title = sender
                 content.body = BipeStrings.appNotificationChatRequest(sender)

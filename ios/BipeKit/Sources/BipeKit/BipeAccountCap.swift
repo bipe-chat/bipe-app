@@ -43,9 +43,16 @@ public nonisolated enum BipeAccountLabels {
         defaults.set(displayName, forKey: key(userID))
     }
     
-    /// The remembered name, else the Matrix ID.
+    /// The remembered name when it is a real name, else the @handle, else Você. Never the Matrix ID (People names).
     public static func label(for userID: String, defaults: UserDefaults = .standard) -> String {
-        defaults.string(forKey: key(userID)) ?? userID
+        name(for: userID, defaults: defaults) ?? BipeStrings.tabYou
+    }
+
+    /// The remembered name when it is a real name, else the cached @handle, else nil.
+    public static func name(for userID: String, defaults: UserDefaults = .standard) -> String? {
+        let name = BipeChatRowName.person(userID: userID, displayName: defaults.string(forKey: key(userID)), handle: nil,
+                                          placeholder: "")
+        return name.isEmpty ? nil : name
     }
     
     /// ADR 0087: a company account does not count in the cap, and the app shows it as the company.

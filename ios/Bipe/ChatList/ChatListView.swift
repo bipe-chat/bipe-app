@@ -318,7 +318,7 @@ struct ChatListView: View {
                                   newGroup: { userId in
                                       Task {
                                           let person = try? await people.person(userId)
-                                          newGroupWith = [person ?? Person(userId: userId, displayName: Person.localpart(of: userId), avatarUrl: nil)]
+                                          newGroupWith = [person ?? Person(userId: userId, displayName: nil, avatarUrl: nil)]
                                       }
                                   },
                                   notifications: { notificationsRoom = $0 },

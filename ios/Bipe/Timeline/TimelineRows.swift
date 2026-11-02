@@ -163,7 +163,7 @@ enum TimelineRowBuilder {
             if userId == facts.ownUserId { return BipeStrings.appYou }
             if let member = facts.members[userId] { return member.name }
             unknown.insert(userId)
-            return userId
+            return BipeChatRowName.person(userID: userId, displayName: nil, handle: nil)
         }
 
         // Read receipts, newest first: who has read this event or a newer one (spec read-receipts notes).
@@ -266,7 +266,7 @@ enum TimelineRowBuilder {
                 message.forwardCount = forwardCount
                 // The SDK types have no field for chat.bipe.assistant; it comes from the event JSON (ADR 0210).
                 if BipeAssistantSend.sender(eventId: eventId(event), json: { event.lazyProvider.debugInfo().originalJson }) != nil {
-                    message.assistantLabel = BipeStrings.appAssistantSentLabel(event.senderProfile.displayName(or: event.sender))
+                    message.assistantLabel = BipeStrings.appAssistantSentLabel(event.senderProfile.realName(of: event.sender) ?? name(event.sender))
                 }
                 switch mediaContent {
                 case .media(let media):
@@ -491,7 +491,7 @@ enum TimelineRowBuilder {
                                kind: .unsupported,
                                body: nil,
                                senderId: event.sender,
-                               senderName: event.isOwn ? senderName : event.senderProfile.displayName(or: senderName),
+                               senderName: event.isOwn ? senderName : event.senderProfile.realName(of: event.sender) ?? senderName,
                                isOwn: event.isOwn,
                                sentAt: Date(milliseconds: event.timestamp),
                                sendState: event.isOwn ? sendState : .sent,
@@ -505,7 +505,7 @@ enum TimelineRowBuilder {
         let eventId = details.eventId()
         switch details.event() {
         case .ready(let content, let sender, let senderProfile, _, _):
-            let senderName = sender == facts.ownUserId ? BipeStrings.appYou : senderProfile.displayName(or: name(sender))
+            let senderName = sender == facts.ownUserId ? BipeStrings.appYou : senderProfile.realName(of: sender) ?? name(sender)
             return MessageReply(eventId: eventId, state: .ready, senderName: senderName,
                                 preview: replyPreview(content, isOwn: sender == facts.ownUserId))
         case .error:

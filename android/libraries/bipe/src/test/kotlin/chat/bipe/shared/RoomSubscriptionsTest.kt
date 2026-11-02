@@ -59,6 +59,17 @@ class RoomSubscriptionsTest {
     @Test fun SDKNameSurvivesMissingHeroMetadata() {
         assertThat(BipeChatRowName.resolve("!room:example.test", " Example Support ", null, null, "Unnamed")).isEqualTo("Example Support")
         assertThat(BipeChatRowName.resolve("!room:example.test", " ", "Example Person", "@person:example.test", "Unnamed")).isEqualTo("Example Person")
-        assertThat(BipeChatRowName.resolve("!room:example.test", "!room:example.test", "@person:example.test", "@person:example.test", "Unnamed")).isEqualTo("person")
+        assertThat(BipeChatRowName.resolve("!room:example.test", "!room:example.test", "@person:example.test", "@person:example.test", "Unnamed")).isEqualTo("Unnamed")
+        assertThat(BipeChatRowName.resolve("!room:example.test", "person", "person", "@person:example.test", "Unnamed", peerHandle = "pessoa")).isEqualTo("@pessoa")
+    }
+
+    /** People names (MZ, 2 November 2026): contact, real display name, @handle, placeholder. Never the ID or its localpart. */
+    @Test fun personNameNeverShowsTheMatrixId() {
+        val id = "@s9d89sa89sas0:bipe.net.br"
+        assertThat(BipeChatRowName.person(id, " Mãe ", "Ana", "ana", "Sem nome")).isEqualTo("Mãe")
+        assertThat(BipeChatRowName.person(id, null, "Ana", "ana", "Sem nome")).isEqualTo("Ana")
+        assertThat(BipeChatRowName.person(id, null, "s9d89sa89sas0", "ana", "Sem nome")).isEqualTo("@ana")
+        assertThat(BipeChatRowName.person(id, null, id, null, "Sem nome")).isEqualTo("Sem nome")
+        assertThat(BipeChatRowName.person(id, null, " ", "", "Sem nome")).isEqualTo("Sem nome")
     }
 }

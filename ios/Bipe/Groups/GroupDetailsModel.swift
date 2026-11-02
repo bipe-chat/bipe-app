@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 import UIKit
@@ -132,7 +133,9 @@ final class GroupDetailsModel: ObservableObject {
     }
 
     private func apply(_ info: RoomInfo) {
-        name = info.displayName ?? info.id
+        name = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName, peerName: nil, peerID: nil,
+                                       unnamed: BipeStrings.groupCommonNoRoomName,
+                                       groupHeroes: ChatTimelineModel.groupHeroes(of: info, ownUserId: session.userId))
         avatarUrl = info.avatarUrl
         description = info.topic.flatMap { $0.isEmpty ? nil : $0 }
         memberCount = Int(info.joinedMembersCount)

@@ -382,7 +382,7 @@ final class ChatListModel: ObservableObject {
         switch content {
         case .roomMembership(let userId, let displayName, let change?, _):
             let own = userId == ownUserId
-            let name = displayName.flatMap { $0.isEmpty ? nil : $0 } ?? userId
+            let name = BipeChatRowName.person(userID: userId, displayName: displayName, handle: nil)
             switch change {
             case .joined, .invitationAccepted, .knockAccepted:
                 if isDm { return own ? BipeStrings.dmJoinedByYou : BipeStrings.dmJoined(name) }
@@ -425,7 +425,8 @@ final class ChatListModel: ObservableObject {
         let peer = info.isDm ? info.heroes.first(where: { $0.userId != ownUserId }) : nil
         let name = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName,
             peerName: peer?.displayName, peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
-            dmRoomName: info.isDm ? info.rawName : nil)
+            dmRoomName: info.isDm ? info.rawName : nil,
+            groupHeroes: ChatTimelineModel.groupHeroes(of: info, ownUserId: ownUserId))
         return ChatSummary(roomId: info.id,
                            name: name,
                            // ADR 0141: a DM shows the person's photo, never m.room.avatar.

@@ -267,8 +267,7 @@ private struct RecoveryPinView: View {
     }
 
     private static func name(of userId: String) -> String {
-        let label = BipeAccountLabels.label(for: userId)
-        return label == userId ? BipeStrings.tabYou : label
+        BipeAccountLabels.label(for: userId)
     }
 
     private var errorText: String? {

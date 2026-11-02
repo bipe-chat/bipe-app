@@ -233,7 +233,10 @@ struct ChatTimelineView: View {
             PollDetailView(timeline: model, session: session, eventId: poll.id)
         }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
-        .task { await model.start() }
+        .task {
+            model.handles = people?.handles
+            await model.start()
+        }
         .task(id: model.isGroup) { if model.isGroup { await pinned.observe() } }
         // Spec chat-search openMessage (bipe#671): scroll to the message once the first rows are in.
         .task(id: focusEventId) {
