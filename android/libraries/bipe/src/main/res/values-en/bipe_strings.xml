@@ -2169,6 +2169,14 @@
     <string name="bipe_year_recap_partial">This phone does not have the whole year\'s history, so the numbers count only what is on it.</string>
     <string name="bipe_year_recap_empty">You have not sent any messages in %1$s yet.</string>
     <string name="bipe_year_recap_share_note">The image shows only the numbers, with no names of people or chats.</string>
+    <string name="bipe_year_recap_by_month">Messages by month</string>
+    <string name="bipe_year_recap_by_hour">Time of day</string>
+    <string name="bipe_year_recap_by_weekday">Day of the week</string>
+    <string name="bipe_year_recap_chart_peak">Peak: %1$s</string>
+    <string name="bipe_year_recap_peak_dawn">You chat most late at night</string>
+    <string name="bipe_year_recap_peak_morning">You chat most in the morning</string>
+    <string name="bipe_year_recap_peak_afternoon">You chat most in the afternoon</string>
+    <string name="bipe_year_recap_peak_evening">You chat most in the evening</string>
     <string name="bipe_invite_joined_push_title">Invite accepted</string>
     <string name="bipe_invite_joined_push_body">Someone joined Bipe with your invite. Tap to see who.</string>
     <string name="bipe_group_link_joined_push_title">New group member</string>

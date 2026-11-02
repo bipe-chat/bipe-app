@@ -5010,6 +5010,24 @@ public enum BipeStrings {
 
     public static var yearRecapShareNote: String { NSLocalizedString("bipe_year_recap_share_note", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var yearRecapByMonth: String { NSLocalizedString("bipe_year_recap_by_month", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapByHour: String { NSLocalizedString("bipe_year_recap_by_hour", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapByWeekday: String { NSLocalizedString("bipe_year_recap_by_weekday", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func yearRecapChartPeak(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_year_recap_chart_peak", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var yearRecapPeakDawn: String { NSLocalizedString("bipe_year_recap_peak_dawn", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapPeakMorning: String { NSLocalizedString("bipe_year_recap_peak_morning", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapPeakAfternoon: String { NSLocalizedString("bipe_year_recap_peak_afternoon", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapPeakEvening: String { NSLocalizedString("bipe_year_recap_peak_evening", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var inviteJoinedPushTitle: String { NSLocalizedString("bipe_invite_joined_push_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var inviteJoinedPushBody: String { NSLocalizedString("bipe_invite_joined_push_body", tableName: "Bipe", bundle: .module, comment: "") }
