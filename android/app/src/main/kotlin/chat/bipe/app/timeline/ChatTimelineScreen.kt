@@ -103,6 +103,8 @@ import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.calls.CallHeaderButtons
 import chat.bipe.app.calls.CallMenuItems
 import chat.bipe.app.calls.rememberCallStart
+import chat.bipe.app.groups.ChatNotificationsScreen
+import chat.bipe.app.media.ChatMediaGalleryScreen
 import chat.bipe.app.calls.OngoingCallBar
 import chat.bipe.app.media.MediaViewer
 import chat.bipe.app.media.VoicePlayer
@@ -254,6 +256,19 @@ fun ChatTimelineScreen(
         PollCreateScreen(model) { creatingPoll = false }
         return
     }
+    // Spec chat-timeline notes: chat-notifications and chat-media-gallery from the DM chat menu.
+    var showsNotifications by rememberSaveable { mutableStateOf(false) }
+    if (showsNotifications) {
+        BackHandler { showsNotifications = false }
+        ChatNotificationsScreen(session, roomId, onBack = { showsNotifications = false })
+        return
+    }
+    var showsGallery by rememberSaveable { mutableStateOf(false) }
+    if (showsGallery) {
+        BackHandler { showsGallery = false }
+        ChatMediaGalleryScreen(session, media, roomId, onClose = { showsGallery = false })
+        return
+    }
     // Spec location-send, with the reply target taken when it opened.
     var locationSend by remember { mutableStateOf<LocationSendRequest?>(null) }
     locationSend?.let { request ->
@@ -383,6 +398,20 @@ fun ChatTimelineScreen(
                                         },
                                     )
                                 }
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_settings_notifications)) },
+                                    onClick = {
+                                        dmMenu = false
+                                        showsNotifications = true
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_gallery_title)) },
+                                    onClick = {
+                                        dmMenu = false
+                                        showsGallery = true
+                                    },
+                                )
                                 CallMenuItems(startCall, dismiss = { dmMenu = false })
                                 business?.MenuItems(dismiss = { dmMenu = false })
                                 archive?.let { toggle ->

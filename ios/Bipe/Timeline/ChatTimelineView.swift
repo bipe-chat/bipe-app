@@ -14,6 +14,9 @@ struct ChatTimelineView: View {
     @Environment(\.scenePhase) private var scenePhase
     /// The account's call focus, for the call rows of the DM chat menu.
     @State private var callFocus: String?
+    /// The DM chat menu's chat-notifications and chat-media-gallery rows.
+    @State private var showsNotifications = false
+    @State private var showsGallery = false
     /// Spec chat-timeline searchInChat (bipe-chat/bipe#861).
     @State private var searchingChat = false
     /// The group menu's group-details row.
@@ -210,6 +213,8 @@ struct ChatTimelineView: View {
                         if let openInfo {
                             Button(action: openInfo) { Label(BipeStrings.dmDetailsTitle, systemImage: "info.circle") }
                         }
+                        Button { showsNotifications = true } label: { Label(BipeStrings.settingsNotifications, systemImage: "bell") }
+                        Button { showsGallery = true } label: { Label(BipeStrings.galleryTitle, systemImage: "photo.on.rectangle") }
                         CallMenuItems(model: model, session: session, focus: callFocus)
                         BusinessMenuItems(model: business)
                         if let archive {
@@ -233,6 +238,12 @@ struct ChatTimelineView: View {
                     .task(id: session.userId) { callFocus = await CallCenter.shared.focusUrl(for: session) }
                 }
             }
+        }
+        .sheet(isPresented: $showsNotifications) {
+            NavigationStack { ChatNotificationsView(session: session, roomId: roomId) }
+        }
+        .sheet(isPresented: $showsGallery) {
+            ChatMediaGalleryView(session: session, media: media, roomId: roomId)
         }
         .navigationDestination(isPresented: $showsGroupDetails) {
             GroupDetailsView(session: session, media: media, roomId: roomId)
