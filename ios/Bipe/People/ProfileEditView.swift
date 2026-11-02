@@ -138,7 +138,7 @@ struct ProfileEditView: View {
         removesPhoto = false
     }
 
-    /// Action save: sends only what changed, then closes.
+    /// Action save: sends only what changed, syncs the public photo after a photo change, then closes.
     private func save() async {
         guard nameProblem == nil else { return }
         phase = .saving
@@ -153,6 +153,10 @@ struct ProfileEditView: View {
                 try await client.uploadAvatar(mimeType: "image/jpeg", data: newPhoto)
             } else if removesPhoto {
                 try await client.removeAvatar()
+            }
+            if newPhoto != nil || removesPhoto {
+                // The public profile photo is a copy of this one (ADR 0041, amended 2 Nov 2026).
+                await people.syncPublicPhoto()
             }
             phase = .saved
             dismiss()
