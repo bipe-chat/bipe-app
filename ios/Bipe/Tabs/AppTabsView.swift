@@ -78,7 +78,16 @@ struct AppTabsView: View {
             Tab(value: AppTabsModel.Tab.voce) {
                 VoceView(model: model, chatList: chatList, api: api, onNewAccount: { showsNewAccount = true })
             } label: {
-                Label(BipeStrings.tabYou, systemImage: "person.crop.circle")
+                // The current account's photo or initial (MZ, 2 Nov 2026); the generic person until it loads.
+                Label {
+                    Text(BipeStrings.tabYou)
+                } icon: {
+                    if let icon = model.voceIcon {
+                        Image(uiImage: icon).renderingMode(.original)
+                    } else {
+                        Image(systemName: "person.crop.circle")
+                    }
+                }
             }
             // The other-account dot (ADR 0135), as the system tab badge.
             .badge(model.otherAccountUnread ? Text("•") : nil)
@@ -125,10 +134,11 @@ struct AppTabsView: View {
         .modifier(IncomingCallCover(session: session))
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
-                                   menu: { AccountMenu.make(model: model) { showsNewAccount = true } },
-                                   switcher: { AnyView(AccountSwitcherPopover(model: model, fallbackMedia: chatList.media) {
-                                       showsNewAccount = true
-                                   }) },
+                                   switcher: { bottomInset, close in
+                                       AnyView(AccountSwitcherPanel(model: model, fallbackMedia: chatList.media,
+                                                                    bottomInset: bottomInset,
+                                                                    onNewAccount: { showsNewAccount = true }, close: close))
+                                   },
                                    showsSwitchAction: model.accounts.count > 1))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
