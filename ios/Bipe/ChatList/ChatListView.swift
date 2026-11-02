@@ -779,10 +779,10 @@ private struct FavouritesGrid<MenuContent: View>: View {
     @ViewBuilder let menu: (String) -> MenuContent
     @State private var gridWidth: CGFloat = 0
 
-    /// The avatar fills its column, so it follows the screen width, not Dynamic Type. Capped at 115 pt on wide screens.
+    /// The avatar is 80% of its column, so it follows the screen width, not Dynamic Type. Capped at 92 pt on wide screens.
     private var avatarSize: CGFloat {
         guard gridWidth > 0 else { return 72 }
-        return min((gridWidth - 2 * 12) / 3, 115)
+        return min((gridWidth - 2 * 12) / 3 * 0.8, 92)
     }
 
     var body: some View {

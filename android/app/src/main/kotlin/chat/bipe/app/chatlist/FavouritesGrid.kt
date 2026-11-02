@@ -70,12 +70,13 @@ private fun FavouriteCell(chat: ChatSummary, media: MediaLoader, ownerId: String
                 .padding(vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // The avatar fills its column, so it follows the screen width, not the font scale.
+            // The avatar is 80% of its column, so it follows the screen width, not the font scale.
             BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Avatar(chat.name, chat.avatarUrl, media, size = minOf(maxWidth, AVATAR_MAX.dp), userId = chat.peerUserId)
+                val avatar = minOf(maxWidth * 0.8f, AVATAR_MAX.dp)
+                Avatar(chat.name, chat.avatarUrl, media, size = avatar, userId = chat.peerUserId)
                 if (chat.isUnread) {
                     Box(
-                        Modifier.align(Alignment.TopEnd).padding(end = (maxWidth - minOf(maxWidth, AVATAR_MAX.dp)) / 2).size(20.dp)
+                        Modifier.align(Alignment.TopEnd).padding(end = (maxWidth - avatar) / 2).size(20.dp)
                             .border(2.dp, colors.surfaceBase, CircleShape)
                             .padding(2.dp)
                             .background(colors.accentFill, CircleShape),
@@ -97,4 +98,4 @@ private fun FavouriteCell(chat: ChatSummary, media: MediaLoader, ownerId: String
 }
 
 private const val COLUMNS = 3
-private const val AVATAR_MAX = 115
+private const val AVATAR_MAX = 92
