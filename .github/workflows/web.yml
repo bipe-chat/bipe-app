@@ -13,16 +13,20 @@
 # Artifacts: web-bindings (src/generated), web-dist (the page).
 name: web
 
+# The bipe-shared output in web/src/bipe/generated changes with every string; web-vectors.yml checks it, so it
+# does not start this wasm build.
 on:
   pull_request:
     paths:
       - "web/**"
+      - "!web/src/bipe/**"
       - "sdk-version"
       - ".github/workflows/web.yml"
   push:
     branches: [main]
     paths:
       - "web/**"
+      - "!web/src/bipe/**"
       - "sdk-version"
       - ".github/workflows/web.yml"
   workflow_dispatch:
