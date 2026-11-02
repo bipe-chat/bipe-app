@@ -264,6 +264,8 @@ final class ChatTimelineModel: ObservableObject {
     private var typingSentAt: Date?
     private var typingUserIds: [String] = []
     private var handleChangesTask: Task<Void, Never>?
+    private var factsTask: Task<Void, Never>?
+    private var factsStale = false
     /// Spec read-receipts: a new delivered ack for this room rebuilds the ticks.
     private var deliveredChanges: AnyCancellable?
     private var lastReadEventId: String?
@@ -367,8 +369,10 @@ final class ChatTimelineModel: ObservableObject {
             for diff in diffs {
                 items.apply(diff.vectorDiff)
             }
-            await loadRoomFacts(room)
+            // The rows follow the SDK at once. The room facts can wait on the network (a DM peer's @handle,
+            // the peer's membership), so they load after and build the rows again.
             rebuild()
+            refreshRoomFacts(room)
         }
     }
 
@@ -405,6 +409,21 @@ final class ChatTimelineModel: ObservableObject {
         replyingTo = nil
         replyingToRowId = nil
         return eventId
+    }
+
+    /// Loads the room facts off the timeline update path, then builds the rows again. One load at a time;
+    /// a change during a load runs one more.
+    private func refreshRoomFacts(_ room: Room) {
+        factsStale = true
+        guard factsTask == nil else { return }
+        factsTask = Task { [weak self] in
+            while let self, self.factsStale {
+                self.factsStale = false
+                await self.loadRoomFacts(room)
+                self.rebuild()
+            }
+            self?.factsTask = nil
+        }
     }
 
     private func loadRoomFacts(_ room: Room) async {
