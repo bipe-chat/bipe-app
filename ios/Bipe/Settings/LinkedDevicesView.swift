@@ -133,6 +133,8 @@ final class LinkedDevicesModel: ObservableObject {
 struct LinkedDevicesView: View {
     @StateObject private var devices: LinkedDevicesModel
     private let settings: SettingsModel
+    /// Set by AppTabsView for the account row of Link a computer (bipe-chat/bipe#985).
+    @EnvironmentObject private var tabs: AppTabsModel
     @State private var showsLinkComputer = false
 
     init(model: SettingsModel) {
@@ -167,7 +169,7 @@ struct LinkedDevicesView: View {
         .task { await devices.load() }
         .refreshable { await devices.load() }
         .fullScreenCover(isPresented: $showsLinkComputer, onDismiss: { Task { await devices.load() } }) {
-            LinkComputerView(settings: settings)
+            LinkComputerView(settings: settings, tabs: tabs)
         }
         .confirmationDialog(signOutTitle,
                             isPresented: Binding(get: { devices.signOutCandidate != nil && devices.signOutPhase == .idle },

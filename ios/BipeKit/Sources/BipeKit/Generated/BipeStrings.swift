@@ -2352,6 +2352,10 @@ public enum BipeStrings {
 
     public static var appLinkComputerScanBody: String { NSLocalizedString("bipe_app_link_computer_scan_body", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appLinkComputerAccount: String { NSLocalizedString("bipe_app_link_computer_account", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appLinkComputerSwitchAccount: String { NSLocalizedString("bipe_app_link_computer_switch_account", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appLinkComputerConnecting: String { NSLocalizedString("bipe_app_link_computer_connecting", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appLinkComputerCheckCodeTitle: String { NSLocalizedString("bipe_app_link_computer_check_code_title", tableName: "Bipe", bundle: .module, comment: "") }

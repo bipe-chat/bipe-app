@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import chat.bipe.app.common.BipeOutlinedButton
@@ -39,8 +41,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +61,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.Avatar
+import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.encryption.rememberApprovalCheck
 import chat.bipe.app.settings.OwnerCheck
 import chat.bipe.app.settings.SettingsModel
@@ -133,6 +140,15 @@ private fun ScanContent(state: LinkComputerModel.State, model: LinkComputerModel
             LinkComputerModel.Support.NOT_SUPPORTED -> Message(stringResource(R.string.bipe_link_computer_not_supported))
             LinkComputerModel.Support.SUPPORTED -> {
                 Text(stringResource(R.string.bipe_app_link_computer_scan_title), style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary, textAlign = TextAlign.Center)
+                if (model.mode == LinkComputerModel.Mode.COMPUTER && state.scanPhase != LinkComputerModel.ScanPhase.CONNECTING &&
+                    state.scanPhase != LinkComputerModel.ScanPhase.SHOW_CHECK_CODE) {
+                    val tabs = (context.applicationContext as BipeApplication).appTabs
+                    LinkComputerAccountRow(tabs) { userId ->
+                        // Action switchAccount: no computer signs in; Linked devices is a setting of the chosen account.
+                        model.cancel()
+                        tabs.switchAccount(userId)
+                    }
+                }
                 when (state.scanPhase) {
                     LinkComputerModel.ScanPhase.CAMERA_DENIED -> {
                         Message(stringResource(R.string.bipe_camera_permission_body))
@@ -172,6 +188,46 @@ private fun ScanContent(state: LinkComputerModel.State, model: LinkComputerModel
                             modifier = Modifier.semantics { heading() },
                         )
                         Text(stringResource(R.string.bipe_app_link_computer_check_code_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * State account and otherAccounts of link-computer-scan (bipe-chat/bipe#985, ADR 0225): the account the computer gets.
+ * Only on a phone with more than one account. Read only when [onSwitch] is null (the consent screen).
+ */
+@Composable
+private fun LinkComputerAccountRow(tabs: AppTabsModel, onSwitch: ((String) -> Unit)? = null) {
+    val accounts = tabs.state.collectAsState().value.accounts
+    val account = accounts.firstOrNull { it.isCurrent }
+    if (accounts.size < 2 || account == null) return
+    val colors = BipeTheme.colors
+    var showsMenu by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised, RoundedCornerShape(12.dp)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Avatar(account.displayName, account.avatarUrl, tabs.media(account.userId), size = 40.dp, userId = account.userId, isCompany = account.isCompany)
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.bipe_app_link_computer_account), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+            Text(account.displayName, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1)
+            account.handle?.takeIf { "@$it" != account.displayName }?.let {
+                Text("@$it", style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, maxLines = 1)
+            }
+        }
+        if (onSwitch != null) {
+            Column {
+                TextButton(onClick = { showsMenu = true }) { Text(stringResource(R.string.bipe_app_link_computer_switch_account)) }
+                DropdownMenu(expanded = showsMenu, onDismissRequest = { showsMenu = false }) {
+                    accounts.filterNot { it.isCurrent }.forEach { other ->
+                        DropdownMenuItem(text = { Text(other.displayName) }, onClick = {
+                            showsMenu = false
+                            onSwitch(other.userId)
+                        })
                     }
                 }
             }
@@ -267,6 +323,10 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
             }
             LinkComputerModel.ApprovePhase.CONSENT -> {
                 Column(modifier = Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (!phone) {
+                        LinkComputerAccountRow((context.applicationContext as BipeApplication).appTabs)
+                        Spacer(Modifier.size(8.dp))
+                    }
                     Text(stringResource(if (phone) R.string.bipe_app_link_phone_consent_hint else R.string.bipe_link_computer_consent_hint), color = colors.inkPrimary)
                     Spacer(Modifier.size(8.dp))
                     val device = state.device

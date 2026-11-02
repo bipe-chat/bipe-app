@@ -1008,6 +1008,8 @@
     <string name="bipe_link_computer_done">Computer linked.</string>
     <string name="bipe_app_link_computer_scan_title">Scan the code on the computer</string>
     <string name="bipe_app_link_computer_scan_body">Point the camera at the QR code on web.bipe.chat.</string>
+    <string name="bipe_app_link_computer_account">Sign in on the computer as</string>
+    <string name="bipe_app_link_computer_switch_account">Switch account</string>
     <string name="bipe_app_link_computer_connecting">Connecting to the computer…</string>
     <string name="bipe_app_link_computer_check_code_title">Type this number on the computer</string>
     <string name="bipe_app_link_computer_check_code_body">The computer asks for it to make sure it\'s connected to this phone.</string>
