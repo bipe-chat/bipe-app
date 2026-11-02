@@ -21,6 +21,7 @@ import {
   type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
 import { caretLeft, check, clock, lockSimple, paperPlaneRight, trash, warningCircle } from './phosphor/icons';
+import { useRoomFace } from './room-face';
 import { Avatar } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
 import { dayText, s, timeText } from './ui/i18n';
@@ -77,7 +78,6 @@ function itemRow(item: TimelineItem): Row | undefined {
 
 export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void }) {
   const [items, setItems] = useState<TimelineItem[]>([]);
-  const [isDm, setIsDm] = useState(true);
   const [draft, setDraft] = useState('');
   const [note, setNote] = useState('');
   const timeline = useRef<Timeline>(undefined);
@@ -95,11 +95,6 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
       });
       await t.paginateBackwards(30);
     })().catch((e) => setNote(describe(e)));
-    // Group rows show the sender's name; DM rows do not.
-    room
-      .isDirect()
-      .then((direct) => !stopped && setIsDm(direct))
-      .catch(() => undefined);
     return () => {
       stopped = true;
       listener.current?.cancel();
@@ -107,7 +102,10 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   }, [room]);
 
   const rows = items.map(itemRow).filter((r) => r !== undefined);
-  const name = room.displayName() ?? room.id();
+  const face = useRoomFace(room);
+  const name = face.name;
+  // Group rows show the sender's name; DM rows do not. Until RoomInfo comes, no names.
+  const isDm = face.isDirect ?? true;
   const canSend = draft.trim() !== '';
 
   return (
@@ -123,7 +121,7 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
           <Icon path={caretLeft} size={22} />
         </button>
         <div className="flex min-w-0 items-center justify-center gap-2">
-          <Avatar name={name} size={32} />
+          <Avatar name={name} size={32} mxcUrl={face.avatarUrl} />
           <h2 className="truncate text-headline text-ink-primary">{name}</h2>
         </div>
       </header>
