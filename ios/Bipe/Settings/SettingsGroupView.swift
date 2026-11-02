@@ -32,6 +32,7 @@ struct SettingsGroupView: View {
     @State private var showsRecoveryKey = false
     @State private var showsEmail = false
     @State private var showsLockSetup = false
+    @State private var showsLinkPhone = false
     @State private var pinCheck: PinCheckRequest?
     @State private var notice: String?
     /// Spec encryption-status, from AppTabsView. The oldMessages row opens its sheet.
@@ -109,6 +110,10 @@ struct SettingsGroupView: View {
         }
         .sheet(isPresented: $showsDelete, onDismiss: { Task { await model.load() } }) {
             AccountDeleteView(model: model)
+        }
+        // Spec link-phone-show: Sua conta › Aparelhos › Trocar de celular is the only way in (bipe-chat/bipe#988).
+        .fullScreenCover(isPresented: $showsLinkPhone) {
+            LinkComputerView(settings: model, mode: .phone)
         }
         .sheet(isPresented: $showsSignOut) {
             SignOutView(model: model, onSignedOut: onSignedOut)
@@ -388,6 +393,8 @@ struct SettingsGroupView: View {
             showsDelete = true
         case .accountRecoveryKey:
             showsRecoveryKey = true
+        case .accountLinkPhone:
+            showsLinkPhone = true
         case .accountOldMessages:
             // Spec encryption-status, action openSheet: the same sheet as the chat list banner.
             encryption?.openSheet()
