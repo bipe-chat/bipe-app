@@ -18,12 +18,16 @@ import { useChatSummaries, type ChatSummary } from './chat-model';
 import {
   RoomListEntriesDynamicFilterKind,
   RoomListEntriesUpdate,
+  RoomNotificationMode,
   type ClientLike as Client,
   type RoomLike as Room,
   type RoomListEntriesWithDynamicAdaptersResultLike as RoomListEntriesWithDynamicAdaptersResult,
   type SyncServiceLike as SyncService,
 } from './generated/matrix_sdk_ffi';
-import { archive as archiveIcon, caretLeft, gear, userCircle } from './phosphor/icons';
+import { archive as archiveIcon, bellSlash, caretLeft, gear, magnifyingGlass, userCircle, x } from './phosphor/icons';
+import { isOfficial } from './registries';
+import { rowPreview, rowTime } from './row-preview';
+import { OfficialBadge } from './ui/List';
 import { RequestScreen, RequestsList, requesterOf } from './Requests';
 import { ClientContext } from './media';
 import { Settings } from './Settings';
@@ -46,6 +50,7 @@ export function Chats({ client }: { client: Client }) {
   const [scope, setScope] = useState<Scope>('conversas');
   const [showingArchived, setShowingArchived] = useState(false);
   const [menu, setMenu] = useState<{ chat: ChatSummary; x: number; y: number }>();
+  const [query, setQuery] = useState('');
   const [sync, setSync] = useState<SyncState>({ kind: 'starting' });
   const keep = useRef<{ sync?: SyncService; entries?: RoomListEntriesWithDynamicAdaptersResult }>({});
 
@@ -108,7 +113,14 @@ export function Chats({ client }: { client: Client }) {
   const showsDetail = detail !== undefined;
 
   const openChat = (room: Room) => setDetail({ kind: 'room', room });
-  const rows = showingArchived ? archived : active;
+  const searching = query.trim() !== '';
+  const needle = normalize(query.trim());
+  // Search covers both scopes and archived chats; it opens any of them.
+  const found = summaries.filter(
+    (c) => (c.kind === 'dm' || c.kind === 'group') && normalize(c.face.name).includes(needle),
+  );
+  const rows = searching ? found : showingArchived ? archived : active;
+  const ownUserId = client.userId();
 
   return (
     <ClientContext value={client}>
@@ -130,14 +142,17 @@ export function Chats({ client }: { client: Client }) {
             </button>
           </div>
           <h1 className="shrink-0 px-4 pb-2 text-large-title text-ink-primary">{scopeTitle}</h1>
-          <ScopePicker
-            scope={scope}
-            badges={{ conversas: chatsBadge, grupos: groupsBadge }}
-            onChange={(next) => {
-              setScope(next);
-              setShowingArchived(false);
-            }}
-          />
+          <SearchField value={query} onChange={setQuery} />
+          {!searching && (
+            <ScopePicker
+              scope={scope}
+              badges={{ conversas: chatsBadge, grupos: groupsBadge }}
+              onChange={(next) => {
+                setScope(next);
+                setShowingArchived(false);
+              }}
+            />
+          )}
           {sync.kind === 'failed' && (
             <div className="px-4 py-2">
               <p className="text-subheadline text-trust-danger-ink">{s('bipe_error_generic')}</p>
@@ -161,7 +176,7 @@ export function Chats({ client }: { client: Client }) {
                 keep.current.entries?.controller().addOnePage();
             }}
           >
-            {showingArchived ? (
+            {searching ? null : showingArchived ? (
               <EntryRow icon={caretLeft} title={scopeTitle} onOpen={() => setShowingArchived(false)} />
             ) : scope === 'conversas' ? (
               requests.length > 0 && (
@@ -184,17 +199,20 @@ export function Chats({ client }: { client: Client }) {
             )}
             {rows.length === 0 && sync.kind === 'ready' && (
               <li className="px-6 py-12 text-center text-ink-secondary">
-                {showingArchived
-                  ? s('bipe_archived_empty')
-                  : scope === 'conversas'
-                    ? s('bipe_app_chat_list_empty')
-                    : s('bipe_app_groups_empty')}
+                {searching
+                  ? s('bipe_app_search_no_results', query.trim())
+                  : showingArchived
+                    ? s('bipe_archived_empty')
+                    : scope === 'conversas'
+                      ? s('bipe_app_chat_list_empty')
+                      : s('bipe_app_groups_empty')}
               </li>
             )}
             {rows.map((chat) => (
               <ChatRow
                 key={chat.roomId}
                 chat={chat}
+                ownUserId={ownUserId}
                 selected={open?.id() === chat.roomId}
                 onOpen={() => openChat(chat.room)}
                 onMenu={(e) => {
@@ -203,7 +221,7 @@ export function Chats({ client }: { client: Client }) {
                 }}
               />
             ))}
-            {!showingArchived && sync.kind === 'ready' && (
+            {!searching && !showingArchived && sync.kind === 'ready' && (
               <EntryRow icon={archiveIcon} title={s('bipe_archived_title')} onOpen={() => setShowingArchived(true)} />
             )}
           </ul>
@@ -425,20 +443,29 @@ function ChatMenu({
   );
 }
 
-// ChatRow (ChatListView.swift): a 48 pt avatar, 12 pt gap, the name in headline. The separator starts
-// at the text, not at the avatar.
+// ChatRow (ChatListView.swift): a 48 pt avatar, 12 pt gap; the name in headline with the date in caption
+// on the first line; the preview in subheadline (two lines) with the muted bell, the @ mark and the
+// unread count (or the marked-unread dot) on the second. The separator starts at the text.
 function ChatRow({
   chat,
+  ownUserId,
   selected,
   onOpen,
   onMenu,
 }: {
   chat: ChatSummary;
+  ownUserId: string;
   selected: boolean;
   onOpen: () => void;
   onMenu: (e: MouseEvent) => void;
 }) {
   const { name, avatarUrl } = chat.face;
+  const info = chat.info;
+  const preview = rowPreview(chat.latest, chat.kind === 'dm', ownUserId);
+  const unread = Number(info?.numUnreadMessages ?? 0);
+  const mentions = Number(info?.numUnreadMentions ?? 0);
+  const muted = info?.cachedUserDefinedNotificationMode === RoomNotificationMode.Mute;
+  const count = unread.toLocaleString();
   return (
     <li>
       <button
@@ -448,10 +475,101 @@ function ChatRow({
         onContextMenu={onMenu}
       >
         <Avatar name={name} size={48} mxcUrl={avatarUrl} />
-        <span className="flex min-h-[72px] min-w-0 flex-1 items-center border-b-[0.5px] border-line-subtle pr-4">
-          <span className="truncate text-headline text-ink-primary">{name}</span>
+        <span className="flex min-h-[72px] min-w-0 flex-1 flex-col justify-center gap-1 border-b-[0.5px] border-line-subtle py-2 pr-4">
+          <span className="flex items-baseline gap-2">
+            <span className="min-w-0 flex-1 truncate text-headline text-ink-primary">{name}</span>
+            {isOfficial(chat.face.peer?.userId) && <OfficialBadge />}
+            {chat.latest && (
+              <time
+                className="shrink-0 text-caption text-ink-secondary tabular-nums"
+                dateTime={new Date(chat.latest.at).toISOString()}
+              >
+                {rowTime(chat.latest.at)}
+              </time>
+            )}
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="line-clamp-2 min-w-0 flex-1 text-subheadline break-words text-ink-secondary">
+              {preview ?? ''}
+            </span>
+            {muted && (
+              <Icon
+                path={bellSlash}
+                size={16}
+                label={s('bipe_app_notification_mode_off')}
+                className="shrink-0 text-ink-secondary"
+              />
+            )}
+            {unread > 0 ? (
+              <>
+                {mentions > 0 && (
+                  <span
+                    aria-hidden
+                    className="grid size-5 shrink-0 place-items-center rounded-full bg-accent-fill text-caption font-bold text-ink-on-accent"
+                  >
+                    @
+                  </span>
+                )}
+                <span
+                  className="shrink-0 rounded-full bg-accent-fill px-[7px] py-0.5 text-caption font-bold text-ink-on-accent"
+                  aria-label={
+                    mentions > 0
+                      ? `${s('bipe_app_chat_list_unread', count)}, ${s('bipe_a11y_mention')}`
+                      : s('bipe_app_chat_list_unread', count)
+                  }
+                >
+                  {count}
+                </span>
+              </>
+            ) : (
+              info?.isMarkedUnread && (
+                <span
+                  role="img"
+                  aria-label={s('bipe_chat_unread_state')}
+                  className="size-2 shrink-0 rounded-full bg-accent-fill"
+                />
+              )
+            )}
+          </span>
         </span>
       </button>
     </li>
   );
+}
+
+// The search field under the title (ChatSearchView, by name only on the web).
+function SearchField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="mx-4 mb-2 flex h-9 shrink-0 items-center gap-1.5 rounded-[10px] bg-surface-sunken px-2 text-ink-secondary">
+      <Icon path={magnifyingGlass} size={18} />
+      <input
+        id="chat-search"
+        type="search"
+        className="min-w-0 flex-1 bg-transparent text-body text-ink-primary outline-none placeholder:text-ink-secondary [&::-webkit-search-cancel-button]:hidden"
+        placeholder={s('bipe_app_search_placeholder')}
+        aria-label={s('bipe_app_search_placeholder')}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.key === 'Escape' && onChange('')}
+      />
+      {value && (
+        <button
+          type="button"
+          className="grid size-6 place-items-center"
+          aria-label={s('bipe_a11y_clear_search')}
+          onClick={() => onChange('')}
+        >
+          <Icon path={x} size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Lower case without accents, so "joao" finds "João". */
+export function normalize(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
 }
