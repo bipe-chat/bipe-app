@@ -23,7 +23,8 @@ import { ChatInfo } from './ChatInfo';
 import { useRoomFace } from './room-face';
 import { itemRow, markRead, TimelineRowView, type MessageRow, type RowHandlers } from './TimelineRows';
 import { Alert } from './ui/Alert';
-import { Avatar } from './ui/Avatar';
+import { useAccounts } from './accounts-context';
+import { Avatar, useIsCompany } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
 import { pending as pendingString, s } from './ui/i18n';
 import { Icon } from './ui/Icon';
@@ -132,6 +133,8 @@ export function RoomTimeline({
   // With the read receipts switch off, DMs show no read ticks either (bipe_privacy_read_receipts_footer).
   const rows = face.isDirect && readReceiptsOn() ? markRead(itemRows) : itemRows;
   const typing = useTyping(room, ownUserId);
+  const account = useAccounts().current;
+  const companyName = useIsCompany(ownUserId) ? (account.name ?? undefined) : undefined;
   // A message link (/c/<room>/e/<event>): load older pages until the message is there, then bring it into
   // view and mark it for a moment, as the reply quote jump does.
   const focused = useRef<string>(undefined);
@@ -299,7 +302,7 @@ export function RoomTimeline({
             aria-expanded={showsInfo}
             onClick={() => onInfo(!showsInfo)}
           >
-            <Avatar name={name} size={32} mxcUrl={face.avatarUrl} />
+            <Avatar name={name} size={32} mxcUrl={face.avatarUrl} userId={face.peer?.userId} />
             <h2 className="truncate text-headline text-ink-primary">{name}</h2>
           </button>
         </header>
@@ -355,6 +358,10 @@ export function RoomTimeline({
             </p>
           )}
           {typing.length > 0 && <TypingLine names={typing} />}
+          {companyName && (
+            // ADR 0121: a company account writes as the company; the composer says so.
+            <p className="px-4 pt-1 text-caption text-ink-secondary">{s('bipe_company_replying_as', companyName)}</p>
+          )}
           {suggestions.length > 0 && <SuggestionList suggestions={suggestions} onPick={pickSuggestion} />}
           {mode && (
             <ComposerBar
@@ -600,7 +607,7 @@ function SuggestionList({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onPick(m)}
           >
-            <Avatar name={m.name} size={32} mxcUrl={m.avatarUrl} />
+            <Avatar name={m.name} size={32} mxcUrl={m.avatarUrl} userId={m.userId} />
             <span className="min-w-0 flex-1 truncate text-body text-ink-primary">{m.name}</span>
           </button>
         </li>

@@ -20,6 +20,7 @@ import {
   type ClientLike as Client,
   type RoomLike as Room,
 } from './generated/matrix_sdk_ffi';
+import { apiFor } from './api';
 import { useClient } from './media';
 import { check, magnifyingGlass } from './phosphor/icons';
 import { Avatar } from './ui/Avatar';
@@ -29,7 +30,7 @@ import { NavBar } from './ui/List';
 import { Spinner } from './ui/Spinner';
 import { describe, normalize } from './util';
 
-type Person = { userId: string; name: string; avatarUrl?: string };
+type Person = { userId: string; name: string; avatarUrl?: string; handle?: string };
 
 /** The DM content of registries dmPowerLevels for these people (BipeDmPowerLevels.content). */
 function dmPowerLevelsContent(userIds: string[]): string {
@@ -113,6 +114,30 @@ function usePeople(chats: ChatSummary[], query: string): { people: Person[]; sea
   const [found, setFound] = useState<Person[]>([]);
   const [searching, setSearching] = useState(false);
   const term = query.trim().replace(/^@/, '');
+  // An @handle (spec start chat; BipeHandleResolver exact lookup): GET /v1/handles/{handle}, then the
+  // holder's Matrix profile. No search and no directory: only the exact handle.
+  const [byHandle, setByHandle] = useState<Person>();
+  useEffect(() => {
+    setByHandle(undefined);
+    if (!/^[a-z0-9._]{3,}$/i.test(term)) return;
+    let stopped = false;
+    const timer = setTimeout(async () => {
+      const record = await apiFor(client).lookupHandle(term);
+      if (!record || stopped) return;
+      const profile = await client.getProfile(record.user_id).catch(() => undefined);
+      if (!stopped)
+        setByHandle({
+          userId: record.user_id,
+          name: profile?.displayName ?? `@${record.handle}`,
+          avatarUrl: profile?.avatarUrl,
+          handle: record.handle,
+        });
+    }, 300);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [client, term]);
   useEffect(() => {
     if (term.length < 2) return setFound([]);
     let stopped = false;
@@ -140,7 +165,8 @@ function usePeople(chats: ChatSummary[], query: string): { people: Person[]; sea
     .map((c) => ({ userId: c.face.peer!.userId, name: c.face.name, avatarUrl: c.face.avatarUrl }));
   const needle = normalize(term);
   const all = new Map<string, Person>();
-  for (const p of [...known.filter((p) => !needle || normalize(p.name).includes(needle)), ...found]) {
+  const fromHandle = byHandle ? [byHandle] : [];
+  for (const p of [...fromHandle, ...known.filter((p) => !needle || normalize(p.name).includes(needle)), ...found]) {
     if (p.userId !== me && !all.has(p.userId)) all.set(p.userId, p);
   }
   return { people: [...all.values()], searching };
@@ -173,8 +199,11 @@ function PersonRow({ person, picked, onClick }: { person: Person; picked?: boole
         className="flex w-full items-center gap-3 px-4 py-1.5 text-left hover:bg-surface-raised"
         onClick={onClick}
       >
-        <Avatar name={person.name} size={40} mxcUrl={person.avatarUrl} />
-        <span className="min-w-0 flex-1 truncate text-body text-ink-primary">{person.name}</span>
+        <Avatar name={person.name} size={40} mxcUrl={person.avatarUrl} userId={person.userId} />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-body text-ink-primary">{person.name}</span>
+          {person.handle && <span className="truncate text-footnote text-ink-secondary">@{person.handle}</span>}
+        </span>
         {picked !== undefined && (
           <span
             className={`grid size-6 shrink-0 place-items-center rounded-full border ${picked ? 'border-accent-fill bg-accent-fill text-ink-on-accent' : 'border-line-strong'}`}

@@ -186,7 +186,7 @@ export function ForwardSheet({
                 className="flex w-full items-center gap-3 px-4 py-1.5 text-left hover:bg-surface-raised"
                 onClick={() => toggle(c.roomId)}
               >
-                <Avatar name={c.face.name} size={40} mxcUrl={c.face.avatarUrl} />
+                <Avatar name={c.face.name} size={40} mxcUrl={c.face.avatarUrl} userId={c.face.peer?.userId} />
                 <span className="min-w-0 flex-1 truncate text-body text-ink-primary">
                   {c.face.name || s('bipe_dm_no_name')}
                 </span>
@@ -327,7 +327,7 @@ export function ReactionSenders({
         <ul className="py-1">
           {people.map((p) => (
             <li key={p.userId} className="flex items-center gap-3 px-4 py-1.5">
-              <Avatar name={p.name} size={32} mxcUrl={p.avatarUrl} />
+              <Avatar name={p.name} size={32} mxcUrl={p.avatarUrl} userId={p.userId} />
               <span className="min-w-0 flex-1 truncate text-body text-ink-primary">
                 {p.userId === own ? s('bipe_app_you') : p.name}
               </span>

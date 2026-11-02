@@ -24,6 +24,8 @@ import {
   type RoomListEntriesWithDynamicAdaptersResultLike as RoomListEntriesWithDynamicAdaptersResult,
   type SyncServiceLike as SyncService,
 } from './generated/matrix_sdk_ffi';
+import { useAccounts } from './accounts-context';
+import { AccountSwitcher } from './AccountSwitcher';
 import { NewChat, NewGroup } from './NewChat';
 import {
   archive as archiveIcon,
@@ -46,7 +48,7 @@ import { RequestScreen, RequestsList, requesterOf } from './Requests';
 import { ClientContext } from './media';
 import { Settings } from './Settings';
 import { RoomTimeline } from './Timeline';
-import { Avatar } from './ui/Avatar';
+import { Avatar, useIsCompany } from './ui/Avatar';
 import { BipeMark } from './ui/BipeMark';
 import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
@@ -204,6 +206,23 @@ export function Chats({ client }: { client: Client }) {
             ? s('bipe_settings_section')
             : undefined;
   useTabTitle(chatsBadge + groupsBadge, page);
+  // The switcher shows each account's last known name, photo and unread badge (ADR 0225 point 4).
+  const { remember, current: account } = useAccounts();
+  // Company mode (ADR 0121 point kept by ADR 0225, ADR 0087): the account type from bipe-api.
+  const isCompany = useIsCompany(client.userId());
+  useEffect(() => remember({ isCompany }), [isCompany, remember]);
+  useEffect(() => {
+    if (sync.kind === 'ready') remember({ unread: chatsBadge + groupsBadge });
+  }, [chatsBadge, groupsBadge, sync.kind, remember]);
+  useEffect(() => {
+    let stopped = false;
+    Promise.all([client.displayName().catch(() => undefined), client.avatarUrl().catch(() => undefined)]).then(
+      ([name, avatarUrl]) => !stopped && remember({ name: name ?? undefined, avatarUrl: avatarUrl ?? undefined }),
+    );
+    return () => {
+      stopped = true;
+    };
+  }, [client, remember]);
   const [permission, askPermission] = useNotificationPermission();
   // Escape closes the settings and request screens (the chat info and viewers handle their own).
   useEscape(
@@ -255,7 +274,13 @@ export function Chats({ client }: { client: Client }) {
           className={`${showsDetail ? 'hidden md:flex' : 'flex'} min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface-base md:w-[360px] md:shrink-0 md:border-r md:border-line-subtle`}
         >
           {/* The navigation bar: the toolbar row with its glass button, then the large title. */}
-          <div className="flex h-11 shrink-0 items-center justify-end gap-2 px-2">
+          <div className="flex h-11 shrink-0 items-center gap-2 px-2">
+            <AccountSwitcher />
+            {isCompany && (
+              // The company's name in the top bar: the person sees which identity writes (ADR 0121).
+              <span className="min-w-0 truncate text-headline text-ink-primary">{account.name}</span>
+            )}
+            <span className="flex-1" />
             {/* Nova conversa (the apps' create button): the person search, with Novo grupo at its top. */}
             <button
               className={`grid size-11 place-items-center rounded-full ${overlay === 'newChat' || overlay === 'newGroup' ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}
@@ -430,6 +455,7 @@ export function Chats({ client }: { client: Client }) {
             <RequestScreen
               key={request.roomId}
               request={request}
+              contactNames={summaries.filter((c) => c.kind === 'dm').map((c) => c.face.name)}
               onAccepted={() => openChat(request.room)}
               onDone={() => setDetail({ kind: 'requests' })}
               onBack={() => setDetail({ kind: 'requests' })}
@@ -561,7 +587,7 @@ function GroupInviteRow({ invite, onJoined }: { invite: ChatSummary; onJoined: (
   };
   return (
     <li className="flex items-start gap-3 border-b-[0.5px] border-line-subtle px-4 py-3">
-      <Avatar name={invite.face.name} size={48} mxcUrl={invite.face.avatarUrl} />
+      <Avatar name={invite.face.name} size={48} mxcUrl={invite.face.avatarUrl} userId={invite.info?.inviter?.userId} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="truncate text-headline text-ink-primary">{invite.face.name}</span>
         <span className="text-subheadline text-ink-secondary">
@@ -673,7 +699,7 @@ function ChatRow({
         onClick={onOpen}
         onContextMenu={onMenu}
       >
-        <Avatar name={name} size={48} mxcUrl={avatarUrl} />
+        <Avatar name={name} size={48} mxcUrl={avatarUrl} userId={chat.face.peer?.userId} />
         <span className="flex min-h-[72px] min-w-0 flex-1 flex-col justify-center gap-1 border-b-[0.5px] border-line-subtle py-2 pr-4">
           <span className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1 truncate text-headline text-ink-primary">{name}</span>
