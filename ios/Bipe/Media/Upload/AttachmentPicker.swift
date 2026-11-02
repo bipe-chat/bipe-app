@@ -10,18 +10,50 @@ import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Spec attachment-picker: the sheet behind the composer's attach button. Each choice hands over to
-/// the system picker; the picked items open upload-preview through onPicked.
+/// The choices of spec attachment-picker.
+enum AttachmentChoice {
+    case photos, camera, file, location, sticker, poll
+}
+
+/// Spec attachment-picker: the menu behind the composer's + button. The order of rows is photos and videos,
+/// camera, file, location, sticker, poll (spec attachment-picker notes).
+struct AttachmentMenu<Label: View>: View {
+    /// canPoll of spec attachment-picker: false hides the poll row.
+    let canPoll: Bool
+    let choose: (AttachmentChoice) -> Void
+    @ViewBuilder let label: () -> Label
+
+    var body: some View {
+        Menu {
+            Button { choose(.photos) } label: { IconLabel(icon: .image, text: BipeStrings.appAttachPhotos) }
+            Button { choose(.camera) } label: { IconLabel(icon: .camera, text: BipeStrings.appAttachCamera) }
+            Button { choose(.file) } label: { IconLabel(icon: .file, text: BipeStrings.appAttachFile) }
+            // Phosphor has no pin in tools/phosphor.json.
+            Button { choose(.location) } label: { SwiftUI.Label(BipeStrings.appAttachLocation, systemImage: "mappin.and.ellipse") }
+            Button { choose(.sticker) } label: { IconLabel(icon: .sticker, text: BipeStrings.actionStickers) }
+            if canPoll {
+                Button { choose(.poll) } label: { IconLabel(icon: .chartBar, text: BipeStrings.appAttachPoll) }
+            }
+        } label: {
+            label()
+        }
+        .menuOrder(.fixed)
+        .accessibilityIdentifier(BipeScreen.attachmentPicker.rawValue)
+    }
+}
+
+/// Spec attachment-picker: runs the choice made in AttachmentMenu. Each choice hands over to the system
+/// picker; the picked items open upload-preview through onPicked.
 struct AttachmentPicker: ViewModifier {
-    @Binding var isPresented: Bool
+    @Binding var choice: AttachmentChoice?
     /// The picked files, copied into the app cache.
     let onPicked: ([URL]) -> Void
     /// Action sticker: opens sticker-picker.
     let onStickers: () -> Void
     /// Action location: opens location-send.
     let onLocation: () -> Void
-    /// Action poll: opens poll-create. nil hides the row (canPoll false).
-    let onPoll: (() -> Void)?
+    /// Action poll: opens poll-create.
+    let onPoll: () -> Void
 
     /// permissionProblem of spec attachment-picker.
     enum PermissionProblem {
@@ -38,10 +70,10 @@ struct AttachmentPicker: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .sheet(isPresented: $isPresented) {
-                sheet
-                    .presentationDetents([.height(436)])
-                    .presentationDragIndicator(.visible)
+            .onChange(of: choice) { _, choice in
+                guard let choice else { return }
+                self.choice = nil
+                run(choice)
             }
             .photosPicker(isPresented: $showsPhotos,
                           selection: $photoItems,
@@ -78,74 +110,15 @@ struct AttachmentPicker: ViewModifier {
         permissionProblem == .camera ? BipeStrings.cameraPermissionBody : BipeStrings.appAttachPhotosPermission
     }
 
-    /// Order of rows: photos and videos, camera, file, location, sticker, poll (spec attachment-picker notes).
-    private var sheet: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(BipeStrings.appComposerAttach)
-                .font(.headline)
-                .foregroundStyle(BipeColor.inkPrimary)
-                .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 8)
-            row(.image, BipeStrings.appAttachPhotos) {
-                isPresented = false
-                showsPhotos = true
-            }
-            row(.camera, BipeStrings.appAttachCamera) {
-                isPresented = false
-                openCamera()
-            }
-            row(.file, BipeStrings.appAttachFile) {
-                isPresented = false
-                showsFiles = true
-            }
-            row(BipeStrings.appAttachLocation, icon: { MapPin().scaleEffect(0.8) }) {
-                isPresented = false
-                onLocation()
-            }
-            row(.sticker, BipeStrings.actionStickers) {
-                isPresented = false
-                onStickers()
-            }
-            if let onPoll {
-                row(.chartBar, BipeStrings.appAttachPoll) {
-                    isPresented = false
-                    onPoll()
-                }
-            }
-            Spacer(minLength: 0)
+    private func run(_ choice: AttachmentChoice) {
+        switch choice {
+        case .photos: showsPhotos = true
+        case .camera: openCamera()
+        case .file: showsFiles = true
+        case .location: onLocation()
+        case .sticker: onStickers()
+        case .poll: onPoll()
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(BipeColor.surfaceRaised.ignoresSafeArea())
-        .accessibilityIdentifier(BipeScreen.attachmentPicker.rawValue)
-    }
-
-    private func row(_ icon: PhosphorIcon, _ title: String, action: @escaping () -> Void) -> some View {
-        row(title, icon: {
-            icon.image
-                .resizable()
-                .frame(width: 22, height: 22)
-                .foregroundStyle(BipeColor.accentInk)
-        }, action: action)
-    }
-
-    /// A row with any icon view; the location row draws the map pin (Phosphor has no pin in tools/phosphor.json).
-    private func row<Icon: View>(_ title: String, @ViewBuilder icon: () -> Icon, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                icon()
-                    .frame(width: 40, height: 40)
-                    .background(Circle().fill(BipeColor.accentWash))
-                    .accessibilityHidden(true)
-                Text(title)
-                    .foregroundStyle(BipeColor.inkPrimary)
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     /// Action camera: the system camera for a photo or a video.
@@ -245,9 +218,9 @@ private struct CameraPicker: UIViewControllerRepresentable {
 }
 
 extension View {
-    func attachmentPicker(isPresented: Binding<Bool>, onPicked: @escaping ([URL]) -> Void, onStickers: @escaping () -> Void,
-                          onLocation: @escaping () -> Void, onPoll: (() -> Void)?) -> some View {
-        modifier(AttachmentPicker(isPresented: isPresented, onPicked: onPicked, onStickers: onStickers,
+    func attachmentPicker(choice: Binding<AttachmentChoice?>, onPicked: @escaping ([URL]) -> Void, onStickers: @escaping () -> Void,
+                          onLocation: @escaping () -> Void, onPoll: @escaping () -> Void) -> some View {
+        modifier(AttachmentPicker(choice: choice, onPicked: onPicked, onStickers: onStickers,
                                   onLocation: onLocation, onPoll: onPoll))
     }
 }
