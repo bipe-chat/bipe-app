@@ -3834,8 +3834,6 @@ public enum BipeStrings {
 
     public static var appNotificationModeAll: String { NSLocalizedString("bipe_app_notification_mode_all", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var appNotificationModeMentions: String { NSLocalizedString("bipe_app_notification_mode_mentions", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static var appNotificationModeOff: String { NSLocalizedString("bipe_app_notification_mode_off", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func appNotificationModeDefault(_ p1: String) -> String {
@@ -4127,8 +4125,6 @@ public enum BipeStrings {
     public static func chatListOwnPreview(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_chat_list_own_preview", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
-
-    public static var chatListMore: String { NSLocalizedString("bipe_chat_list_more", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatActions: String { NSLocalizedString("bipe_chat_actions", tableName: "Bipe", bundle: .module, comment: "") }
 

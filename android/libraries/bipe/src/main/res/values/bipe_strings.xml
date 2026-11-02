@@ -1658,7 +1658,6 @@
     <string name="bipe_app_notification_mark_read">Marcar como lida</string>
     <string name="bipe_app_notification_channel_messages">Mensagens</string>
     <string name="bipe_app_notification_mode_all">Todas as mensagens</string>
-    <string name="bipe_app_notification_mode_mentions">Só quando te mencionam</string>
     <string name="bipe_app_notification_mode_off">Silenciar</string>
     <string name="bipe_app_notification_mode_default">Como nas configurações (%1$s)</string>
     <string name="bipe_app_requests_empty">Nenhum pedido de conversa. Quando alguém que você não conhece te escrever, o pedido aparece aqui.</string>
@@ -1789,7 +1788,6 @@
     <string name="bipe_archived_empty">Nenhuma conversa arquivada.</string>
     <string name="bipe_archive_error">Não deu para salvar as conversas arquivadas. Tente de novo.</string>
     <string name="bipe_chat_list_own_preview">Você: %1$s</string>
-    <string name="bipe_chat_list_more">Carregar mais conversas</string>
     <string name="bipe_chat_actions">Ações da conversa</string>
     <string name="bipe_message_actions">Ações da mensagem</string>
     <string name="bipe_chat_mark_unread">Marcar como não lida</string>
