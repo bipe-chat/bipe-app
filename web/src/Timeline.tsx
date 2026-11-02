@@ -36,13 +36,22 @@ import {
   type ComposerMention,
   type MentionSuggestion,
 } from './mentions';
+import type { ChatSummary } from './chat-model';
+import { EmojiPicker, ForwardSheet, forwardContentOf, ReactionSenders } from './MessageSheets';
+import type { ReactionPill } from './Reactions';
 import { readReceiptsOn } from './Settings';
 import { applyDiffs, describe, type DiffVariants } from './util';
 
 // The composer's mode (specs message-reply, message-edit): a reply bar or an edit bar above the field.
 type Mode = { kind: 'reply'; row: MessageRow } | { kind: 'edit'; row: MessageRow } | undefined;
 
-export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void }) {
+export function RoomTimeline({ room, chats, onBack }: { room: Room; chats: ChatSummary[]; onBack: () => void }) {
+  // The sheets of the message menu: forward, the emoji picker, who reacted.
+  const [sheet, setSheet] = useState<
+    | { kind: 'forward'; content: Record<string, unknown> }
+    | { kind: 'emoji'; row: MessageRow }
+    | { kind: 'senders'; pill: ReactionPill }
+  >();
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [draft, setDraft] = useState('');
   const [note, setNote] = useState('');
@@ -183,6 +192,13 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
       void navigator.clipboard.writeText(row.media?.caption ?? row.text).then(() => setToast(s('bipe_app_copied')));
     },
     loadReply,
+    forward: (row) => {
+      const info = row.provider.debugInfo();
+      const content = forwardContentOf(info.originalJson, info.latestEditJson);
+      if (content) setSheet({ kind: 'forward', content });
+    },
+    moreReactions: (row) => setSheet({ kind: 'emoji', row }),
+    senders: (_row, pill) => setSheet({ kind: 'senders', pill }),
     retry: (row) => {
       row.provider
         .getSendHandle()
@@ -403,6 +419,20 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
           </form>
         </div>
       </section>
+      {sheet?.kind === 'forward' && (
+        <ForwardSheet content={sheet.content} chats={chats} onClose={() => setSheet(undefined)} onDone={setToast} />
+      )}
+      {sheet?.kind === 'emoji' && (
+        <EmojiPicker onPick={(key) => on.react(sheet.row, key)} onClose={() => setSheet(undefined)} />
+      )}
+      {sheet?.kind === 'senders' && (
+        <ReactionSenders
+          room={room}
+          reactionKey={sheet.pill.key}
+          senders={sheet.pill.senders}
+          onClose={() => setSheet(undefined)}
+        />
+      )}
       {showsInfo && <ChatInfo room={room} face={face} onClose={() => setShowsInfo(false)} />}
       {deleting && (
         <DeleteDialog

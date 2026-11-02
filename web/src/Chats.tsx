@@ -40,7 +40,7 @@ import { BipeMark } from './ui/BipeMark';
 import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import { Spinner } from './ui/Spinner';
-import { applyDiffs, describe, type DiffVariants } from './util';
+import { applyDiffs, describe, normalize, type DiffVariants } from './util';
 
 type SyncState = { kind: 'starting' } | { kind: 'ready' } | { kind: 'failed'; message: string };
 type Scope = 'conversas' | 'grupos';
@@ -322,7 +322,7 @@ export function Chats({ client }: { client: Client }) {
               onBack={() => setDetail({ kind: 'requests' })}
             />
           ) : open ? (
-            <RoomTimeline key={open.id()} room={open} onBack={() => setDetail(undefined)} />
+            <RoomTimeline key={open.id()} room={open} chats={summaries} onBack={() => setDetail(undefined)} />
           ) : (
             // A wide window with no chat open. The list beside it is the call to action, so no text here.
             <div className="grid flex-1 place-items-center bg-surface-base">
@@ -642,12 +642,4 @@ function SearchField({ value, onChange }: { value: string; onChange: (value: str
       )}
     </div>
   );
-}
-
-/** Lower case without accents, so "joao" finds "João". */
-export function normalize(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
 }

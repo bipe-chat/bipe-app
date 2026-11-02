@@ -28,11 +28,14 @@ import {
   dotsThree,
   lockSimple,
   pencilSimple,
+  smiley,
   trash,
   warningCircle,
 } from './phosphor/icons';
 import { MessageMenu, pillsOf, ReactionPills, type MessageAction, type ReactionPill } from './Reactions';
+import { voiceMedia } from './bipe/generated/registries.json';
 import { mentionLinksOf, type MentionLink } from './mentions';
+import { forwardCountOf } from './MessageSheets';
 import { previewText } from './row-preview';
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
 import { dayText, s, timeText } from './ui/i18n';
@@ -71,6 +74,10 @@ export type MessageRow = {
   provider: LazyTimelineItemProviderLike;
   /** People other than the account whose read receipt sits on this event. */
   readBy: string[];
+  /** The chat.bipe.forward count of the content, for the forward line. */
+  forwardCount: number;
+  /** Spec message-forward: a sent message (with an event ID) of kind message. */
+  canForward: boolean;
   /** Mention links in the HTML body, drawn as pills. */
   mentions: MentionLink[];
   ownUserId: string;
@@ -85,7 +92,18 @@ function nameOf(profile: ProfileDetails, userId: string): string {
   return ProfileDetails.Ready.instanceOf(profile) ? (profile.inner.displayName ?? userId) : userId;
 }
 
+// Rows are made once per SDK item: the timeline hands over a new item when it changes.
+const made = new WeakMap<TimelineItem, Row | null>();
+
 export function itemRow(item: TimelineItem, ownUserId: string): Row | undefined {
+  const hit = made.get(item);
+  if (hit !== undefined) return hit ?? undefined;
+  const row = makeRow(item, ownUserId);
+  made.set(item, row ?? null);
+  return row;
+}
+
+function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
   const key = item.uniqueId().id;
   const virtual = item.asVirtual();
   if (virtual) {
@@ -177,6 +195,8 @@ export function itemRow(item: TimelineItem, ownUserId: string): Row | undefined 
     readBy: [...event.readReceipts.keys()].filter((id) => id !== ownUserId),
     mentions,
     ownUserId,
+    forwardCount: live && eventId ? forwardCountOf(event.lazyProvider.debugInfo().originalJson) : 0,
+    canForward: (body === 'text' || body === 'media') && eventId !== undefined,
   };
 }
 
@@ -204,6 +224,9 @@ export type RowHandlers = {
   remove: (row: MessageRow) => void;
   copy: (row: MessageRow) => void;
   loadReply: (eventId: string) => void;
+  forward: (row: MessageRow) => void;
+  moreReactions: (row: MessageRow) => void;
+  senders: (row: MessageRow, pill: ReactionPill) => void;
   /** Spec read-receipts failed tick: send again (SendHandle.tryResend). */
   retry: (row: MessageRow) => void;
   /** Spec timeline-media upload overlay: stop the upload (SendHandle.abort). */
@@ -243,6 +266,19 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
     actions.push({ label: s('bipe_app_message_action_reply'), icon: arrowBendUpLeft, run: () => on.reply(row) });
   if (row.canEdit)
     actions.push({ label: s('bipe_app_message_action_edit'), icon: pencilSimple, run: () => on.edit(row) });
+  if (row.canForward)
+    actions.push({
+      label: s('bipe_forward_action'),
+      icon: arrowBendUpLeft,
+      iconClass: '-scale-x-100',
+      run: () => on.forward(row),
+    });
+  if (row.canReact)
+    actions.push({
+      label: s('bipe_app_message_action_more_reactions'),
+      icon: smiley,
+      run: () => on.moreReactions(row),
+    });
   if (row.body === 'text' || row.media?.caption)
     actions.push({ label: s('bipe_app_copy'), icon: copy, run: () => on.copy(row) });
   if (row.canDelete)
@@ -252,6 +288,7 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
       id={row.eventId ? `ev-${row.eventId}` : undefined}
       own={row.own}
       pills={row.pills}
+      onSenders={(pill) => on.senders(row, pill)}
       onReact={row.canReact ? (key) => on.react(row, key) : undefined}
       actions={actions}
     >
@@ -262,6 +299,7 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
           {row.who}
         </span>
       )}
+      {row.forwardCount > 0 && <ForwardLine count={row.forwardCount} />}
       {row.reply && <ReplyQuote reply={row.reply} onLoad={on.loadReply} />}
       {row.media ? (
         <TimelineMediaRow
@@ -343,6 +381,7 @@ function Bubble({
   id,
   own,
   pills,
+  onSenders,
   onReact,
   actions,
   children,
@@ -350,6 +389,7 @@ function Bubble({
   id?: string;
   own: boolean;
   pills: ReactionPill[];
+  onSenders: (pill: ReactionPill) => void;
   onReact?: (key: string) => void;
   actions: MessageAction[];
   children: ReactNode;
@@ -385,7 +425,9 @@ function Bubble({
         )}
         {menu && <MessageMenu own={own} onPick={onReact} actions={actions} onClose={() => setMenu(false)} />}
       </div>
-      {pills.length > 0 && <ReactionPills pills={pills} onToggle={onReact ?? (() => undefined)} />}
+      {pills.length > 0 && (
+        <ReactionPills pills={pills} onToggle={onReact ?? (() => undefined)} onSenders={onSenders} />
+      )}
     </li>
   );
 }
@@ -443,4 +485,16 @@ function MentionText({ text, mentions, ownUserId }: { text: string; mentions: Me
   }
   parts.push(rest);
   return <>{parts}</>;
+}
+
+// The forward line (ForwardLine, TimelineRowView.swift; spec chat-timeline, bipe-chat/bipe#933): a forward
+// arrow and Encaminhada, or Encaminhada muitas vezes, in caption italic ink.secondary.
+function ForwardLine({ count }: { count: number }) {
+  const many = count >= voiceMedia.forwardedManyTimes;
+  return (
+    <span className="flex items-center gap-1 text-caption text-ink-secondary italic">
+      <Icon path={arrowBendUpLeft} size={12} className="-scale-x-100" />
+      {many ? s('bipe_forward_line_many') : s('bipe_forward_line')}
+    </span>
+  );
 }

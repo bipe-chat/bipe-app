@@ -46,3 +46,11 @@ export function applyDiffs<T>(list: T[], diffs: unknown[], V: DiffVariants): T[]
   }
   return next;
 }
+
+/** Lower case without accents, so "joao" finds "João". */
+export function normalize(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+}
