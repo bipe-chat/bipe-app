@@ -47,7 +47,6 @@ import {
   useNames,
   type WorkScreenProps,
 } from './common';
-import { w } from './strings';
 
 // ---- Business time zone ----------------------------------------------------------------------------------------
 
@@ -394,7 +393,7 @@ function WeekScreen({
     void bookings.reload();
     setPanel(booking ? { kind: 'booking', booking } : undefined);
   };
-  const closeLabel = day === today ? s('bipe_agenda_close_today') : w('bipe_web_agenda_close_day');
+  const closeLabel = day === today ? s('bipe_agenda_close_today') : s('bipe_web_agenda_close_day');
   const selected = panel?.kind === 'booking' ? panel.booking.id : undefined;
 
   return (
@@ -408,7 +407,7 @@ function WeekScreen({
             <button
               type="button"
               className="grid size-11 place-items-center rounded-full text-glyph-primary"
-              aria-label={w('bipe_web_agenda_prev_week')}
+              aria-label={s('bipe_web_agenda_prev_week')}
               onClick={() => goToWeek(addDays(monday, -7))}
             >
               <Icon path={caretLeft} size={18} />
@@ -416,7 +415,7 @@ function WeekScreen({
             <button
               type="button"
               className="grid size-11 place-items-center rounded-full text-glyph-primary"
-              aria-label={w('bipe_web_agenda_next_week')}
+              aria-label={s('bipe_web_agenda_next_week')}
               onClick={() => goToWeek(addDays(monday, 7))}
             >
               <Icon path={caretRight} size={18} />
@@ -472,7 +471,7 @@ function WeekScreen({
           ) : (
             <>
               {bookings.data.bookings.length === 0 && (
-                <p className="px-4 pb-3 text-footnote text-ink-secondary">{w('bipe_web_agenda_empty_week')}</p>
+                <p className="px-4 pb-3 text-footnote text-ink-secondary">{s('bipe_web_agenda_empty_week')}</p>
               )}
               <div className="grid grid-cols-1 gap-3 px-4 pb-8 @min-[640px]:grid-cols-7 @min-[640px]:gap-2">
                 {days.map((date) => (
@@ -823,7 +822,7 @@ function NewBookingPanel({
     >
       <PanelHeader title={s('bipe_agenda_walk_in')} onClose={onClose} />
       {services.length === 0 ? (
-        <p className="text-footnote text-ink-secondary">{w('bipe_web_agenda_no_services')}</p>
+        <p className="text-footnote text-ink-secondary">{s('bipe_web_agenda_no_services')}</p>
       ) : (
         <>
           <Field label={s('bipe_agenda_service')}>
@@ -912,10 +911,10 @@ function BlockPanel({
         <input type="date" className={inputClass} value={date} onChange={(e) => setDate(e.target.value)} />
       </Field>
       <div className="flex gap-2">
-        <Field label={w('bipe_web_agenda_start')}>
+        <Field label={s('bipe_web_agenda_start')}>
           <input type="time" className={inputClass} value={start} onChange={(e) => setStart(e.target.value)} />
         </Field>
-        <Field label={w('bipe_web_agenda_end')}>
+        <Field label={s('bipe_web_agenda_end')}>
           <input type="time" className={inputClass} value={end} onChange={(e) => setEnd(e.target.value)} />
         </Field>
       </div>
@@ -942,7 +941,7 @@ function ClosePanel({
   const today = localParts(state.time_zone, Date.now()).date;
   const [date, setDate] = useState(day);
   const save = useAction();
-  const title = date === today ? s('bipe_agenda_close_today') : w('bipe_web_agenda_close_day');
+  const title = date === today ? s('bipe_agenda_close_today') : s('bipe_web_agenda_close_day');
   return (
     <div className="flex flex-col gap-4 px-4 pb-8">
       <PanelHeader title={title} onClose={onClose} />
@@ -985,11 +984,11 @@ function SettingsScreen({ onBack, ...props }: SettingsProps & { onBack: () => vo
     window.matchMedia('(min-width: 900px)').matches ? 'general' : undefined,
   );
   const pages: { page: SettingsPage; title: string }[] = [
-    { page: 'general', title: w('bipe_web_agenda_rules') },
+    { page: 'general', title: s('bipe_web_agenda_rules') },
     { page: 'people', title: s('bipe_agenda_setup_people') },
     { page: 'hours', title: s('bipe_agenda_setup_hours') },
-    { page: 'services', title: w('bipe_web_agenda_services') },
-    { page: 'overrides', title: w('bipe_web_agenda_overrides') },
+    { page: 'services', title: s('bipe_web_agenda_services') },
+    { page: 'overrides', title: s('bipe_web_agenda_overrides') },
   ];
   const title = pages.find((p) => p.page === page)?.title ?? '';
 
@@ -1154,7 +1153,7 @@ function GeneralPage({ client, state, onState }: SettingsProps) {
           </Row>
         </Section>
         <AgendaError error={save.error} />
-        {saved && !changed && <p className="text-footnote text-ink-secondary">{w('bipe_web_agenda_saved')}</p>}
+        {saved && !changed && <p className="text-footnote text-ink-secondary">{s('bipe_web_agenda_saved')}</p>}
         <div>
           <PrimaryButton type="submit" disabled={!changed || save.busy}>
             {s('bipe_app_save')}
@@ -1246,12 +1245,12 @@ function PersonRow({ client, agenda, reload }: { client: BusinessClient; agenda:
             disabled={action.busy}
             onChange={(e) => void replace({ name: agenda.name, active: e.target.checked })}
           />
-          {w('bipe_web_agenda_takes_bookings')}
+          {s('bipe_web_agenda_takes_bookings')}
         </label>
       </div>
       {confirmsRemove ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-footnote text-ink-secondary">{w('bipe_web_agenda_remove_person_body')}</span>
+          <span className="text-footnote text-ink-secondary">{s('bipe_web_agenda_remove_person_body')}</span>
           <TextButton
             danger
             disabled={action.busy}
@@ -1289,21 +1288,21 @@ function RangesEditor({ ranges, onChange }: { ranges: TimeRange[]; onChange: (ra
           <input
             type="time"
             className={inputClass}
-            aria-label={w('bipe_web_agenda_start')}
+            aria-label={s('bipe_web_agenda_start')}
             value={r.start}
             onChange={(e) => onChange(ranges.map((o, j) => (j === i ? { ...o, start: e.target.value } : o)))}
           />
           <input
             type="time"
             className={inputClass}
-            aria-label={w('bipe_web_agenda_end')}
+            aria-label={s('bipe_web_agenda_end')}
             value={r.end}
             onChange={(e) => onChange(ranges.map((o, j) => (j === i ? { ...o, end: e.target.value } : o)))}
           />
           <button
             type="button"
             className="grid size-11 place-items-center rounded-full text-glyph-secondary"
-            aria-label={w('bipe_web_work_remove')}
+            aria-label={s('bipe_web_work_remove')}
             onClick={() => onChange(ranges.filter((_, j) => j !== i))}
           >
             <Icon path={x} size={16} />
@@ -1396,7 +1395,7 @@ function WeekHours({ client, agendaId }: { client: BusinessClient; agendaId: str
               </div>
               {ranges.length > 0 && <RangesEditor ranges={ranges} onChange={(next) => setDay(weekday, next)} />}
               {!rangesValid(ranges) && (
-                <p className="text-footnote text-trust-danger-ink">{w('bipe_web_agenda_ranges_invalid')}</p>
+                <p className="text-footnote text-trust-danger-ink">{s('bipe_web_agenda_ranges_invalid')}</p>
               )}
             </li>
           );
@@ -1553,7 +1552,7 @@ function ServiceEditor({
           </Row>
         ))}
       </Section>
-      <Section footer={w('bipe_web_agenda_price_in_catalog')}>
+      <Section footer={s('bipe_web_agenda_price_in_catalog')}>
         <Row>
           <Switch label={s('bipe_catalog_active')} checked={active} onChange={setActive} />
         </Row>
@@ -1642,7 +1641,7 @@ function OverridesPage({ client, state }: SettingsProps) {
               <button
                 type="button"
                 className="grid size-11 place-items-center rounded-full text-glyph-secondary disabled:opacity-50"
-                aria-label={w('bipe_web_work_remove')}
+                aria-label={s('bipe_web_work_remove')}
                 disabled={remove.busy}
                 onClick={async () => {
                   const done = await remove.run(async () => {
@@ -1661,7 +1660,7 @@ function OverridesPage({ client, state }: SettingsProps) {
       <AgendaError error={remove.error} />
       <div>
         <PrimaryButton onClick={() => setEditing('new')} disabled={state.agendas.length === 0}>
-          {w('bipe_web_agenda_add_override')}
+          {s('bipe_web_agenda_add_override')}
         </PrimaryButton>
       </div>
     </>
@@ -1713,10 +1712,10 @@ function OverrideEditor({
         </select>
       </Field>
       <div className="flex gap-2">
-        <Field label={w('bipe_web_agenda_date_from')}>
+        <Field label={s('bipe_web_agenda_date_from')}>
           <input type="date" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
         </Field>
-        <Field label={w('bipe_web_agenda_date_to')}>
+        <Field label={s('bipe_web_agenda_date_to')}>
           <input type="date" className={inputClass} value={to} min={from} onChange={(e) => setTo(e.target.value)} />
         </Field>
       </div>
@@ -1727,7 +1726,7 @@ function OverrideEditor({
       </Section>
       {!closed && <RangesEditor ranges={ranges} onChange={setRanges} />}
       {!closed && !rangesValid(ranges) && (
-        <p className="text-footnote text-trust-danger-ink">{w('bipe_web_agenda_ranges_invalid')}</p>
+        <p className="text-footnote text-trust-danger-ink">{s('bipe_web_agenda_ranges_invalid')}</p>
       )}
       <AgendaError error={save.error} />
       <div className="flex gap-2">

@@ -20,7 +20,6 @@ import { LoadState, setNameLookup, PrimaryButton, inputClass, useAction, useLoad
 import { OrdersScreen } from './Orders';
 import { QueueScreen } from './Queue';
 import { QuotesScreen } from './Quotes';
-import { w } from './strings';
 
 // The URL segment of each tool: /trabalho/<tool> (router.ts).
 type Tool = 'agenda' | 'catalogo' | 'pedidos' | 'orcamentos' | 'fila' | 'horario';
@@ -97,7 +96,7 @@ function ToolList({ client, onOpen, onClose }: { client: BusinessClient; onOpen:
         <Section>
           <ToolRow title={s('bipe_work_hours_title')} onClick={() => onOpen('horario')} />
         </Section>
-        <p className="px-4 text-footnote text-ink-secondary">{w('bipe_web_work_phone_only')}</p>
+        <p className="px-4 text-footnote text-ink-secondary">{s('bipe_web_work_phone_only')}</p>
       </div>
     </div>
   );

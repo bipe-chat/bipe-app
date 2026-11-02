@@ -26,7 +26,6 @@ import {
   useNames,
   type WorkScreenProps,
 } from './common';
-import { w } from './strings';
 
 /** Action refresh: every 30 seconds while the screen shows (refreshEvery30Seconds on iOS). */
 const REFRESH_MS = 30_000;
@@ -231,11 +230,11 @@ export function QueueScreen({ client, onBack }: WorkScreenProps) {
         {/* The counter display: the place now called, and Chamar próximo. */}
         <div className="flex flex-col gap-4 rounded-2xl bg-grouped-cell p-6 min-[900px]:flex-row min-[900px]:items-center">
           <div className="flex min-w-0 flex-1 flex-col gap-1" aria-live="polite">
-            <span className="text-headline text-ink-secondary">{w('bipe_web_queue_now_calling')}</span>
+            <span className="text-headline text-ink-secondary">{s('bipe_web_queue_now_calling')}</span>
             {current ? (
               <>
                 <span className="text-[96px] font-bold leading-none tabular-nums text-trust-verified-ink">
-                  {w('bipe_web_queue_number', String(numbers.get(current.id) ?? ''))}
+                  {s('bipe_web_queue_number', String(numbers.get(current.id) ?? ''))}
                 </span>
                 <span className="truncate text-[40px] font-bold leading-tight text-ink-primary">
                   {placeName(current)}
@@ -243,14 +242,14 @@ export function QueueScreen({ client, onBack }: WorkScreenProps) {
                 <span className="text-subheadline text-ink-secondary">
                   {[
                     serviceName(current.service_id),
-                    current.called_at ? w('bipe_web_queue_called_at', timeText(Date.parse(current.called_at))) : '',
+                    current.called_at ? s('bipe_web_queue_called_at', timeText(Date.parse(current.called_at))) : '',
                   ]
                     .filter(Boolean)
                     .join(' · ')}
                 </span>
               </>
             ) : (
-              <span className="text-title2 text-ink-secondary">{w('bipe_web_queue_none_called')}</span>
+              <span className="text-title2 text-ink-secondary">{s('bipe_web_queue_none_called')}</span>
             )}
           </div>
           <div className="flex flex-col items-stretch gap-2 min-[900px]:w-[320px]">
@@ -264,7 +263,7 @@ export function QueueScreen({ client, onBack }: WorkScreenProps) {
                 >
                   {s('bipe_queue_call_next')}
                 </button>
-                <span className="text-center text-footnote text-ink-secondary">{w('bipe_web_queue_key_hint')}</span>
+                <span className="text-center text-footnote text-ink-secondary">{s('bipe_web_queue_key_hint')}</span>
               </>
             ) : (
               <span className="text-center text-body text-ink-secondary">{s('bipe_queue_owner_empty')}</span>
@@ -290,7 +289,7 @@ export function QueueScreen({ client, onBack }: WorkScreenProps) {
               </Section>
             )}
             {done.length > 0 && (
-              <Section header={w('bipe_web_queue_earlier')}>
+              <Section header={s('bipe_web_queue_earlier')}>
                 {done.map((place) => (
                   <PlaceRow
                     key={place.id}
@@ -359,7 +358,7 @@ function PlaceRow({
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-headline text-ink-primary">{placeName(place)}</span>
         <span className="truncate text-footnote text-ink-secondary">
-          {[service, w('bipe_web_queue_waiting_since', timeText(Date.parse(place.joined_at)))]
+          {[service, s('bipe_web_queue_waiting_since', timeText(Date.parse(place.joined_at)))]
             .filter(Boolean)
             .join(' · ')}
         </span>
@@ -424,7 +423,7 @@ function WalkInForm({
       {services.length > 0 && (
         <Field label={s('bipe_agenda_service')}>
           <select className={inputClass} value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
-            <option value="">{w('bipe_web_queue_no_service')}</option>
+            <option value="">{s('bipe_web_queue_no_service')}</option>
             {services.map((sv) => (
               <option key={sv.id} value={sv.id}>
                 {sv.name}
@@ -465,7 +464,7 @@ function PolicyForm({
   return (
     <form className="flex flex-col gap-3 rounded-xl bg-grouped-cell p-4" onSubmit={(e) => void submit(e)}>
       <h3 className="text-headline text-ink-primary">{s('bipe_queue_settings')}</h3>
-      <Field label={s('bipe_queue_no_show_window')} hint={w('bipe_web_queue_window_range')}>
+      <Field label={s('bipe_queue_no_show_window')} hint={s('bipe_web_queue_window_range')}>
         <input
           className={inputClass}
           type="number"

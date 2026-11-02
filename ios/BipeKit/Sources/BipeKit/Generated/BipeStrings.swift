@@ -2356,6 +2356,84 @@ public enum BipeStrings {
 
     public static var appLinkComputerSwitchAccount: String { NSLocalizedString("bipe_app_link_computer_switch_account", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var webWorkPhoneOnly: String { NSLocalizedString("bipe_web_work_phone_only", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webWorkInApp: String { NSLocalizedString("bipe_web_work_in_app", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webQueueNowCalling: String { NSLocalizedString("bipe_web_queue_now_calling", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func webQueueNumber(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_web_queue_number", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var webQueueNoneCalled: String { NSLocalizedString("bipe_web_queue_none_called", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func webQueueCalledAt(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_web_queue_called_at", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var webQueueKeyHint: String { NSLocalizedString("bipe_web_queue_key_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func webQueueWaitingSince(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_web_queue_waiting_since", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var webQueueEarlier: String { NSLocalizedString("bipe_web_queue_earlier", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webQueueNoService: String { NSLocalizedString("bipe_web_queue_no_service", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webQueueWindowRange: String { NSLocalizedString("bipe_web_queue_window_range", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webOrdersClosed: String { NSLocalizedString("bipe_web_orders_closed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webOrdersKeep: String { NSLocalizedString("bipe_web_orders_keep", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webQuotesPreview: String { NSLocalizedString("bipe_web_quotes_preview", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webCatalogMoveUp: String { NSLocalizedString("bipe_web_catalog_move_up", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webCatalogMoveDown: String { NSLocalizedString("bipe_web_catalog_move_down", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webCatalogPhotoDrop: String { NSLocalizedString("bipe_web_catalog_photo_drop", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaPrevWeek: String { NSLocalizedString("bipe_web_agenda_prev_week", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaNextWeek: String { NSLocalizedString("bipe_web_agenda_next_week", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaEmptyWeek: String { NSLocalizedString("bipe_web_agenda_empty_week", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaCloseDay: String { NSLocalizedString("bipe_web_agenda_close_day", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaStart: String { NSLocalizedString("bipe_web_agenda_start", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaEnd: String { NSLocalizedString("bipe_web_agenda_end", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaNoServices: String { NSLocalizedString("bipe_web_agenda_no_services", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaRules: String { NSLocalizedString("bipe_web_agenda_rules", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaServices: String { NSLocalizedString("bipe_web_agenda_services", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaOverrides: String { NSLocalizedString("bipe_web_agenda_overrides", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaAddOverride: String { NSLocalizedString("bipe_web_agenda_add_override", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaDateFrom: String { NSLocalizedString("bipe_web_agenda_date_from", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaDateTo: String { NSLocalizedString("bipe_web_agenda_date_to", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaRangesInvalid: String { NSLocalizedString("bipe_web_agenda_ranges_invalid", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaTakesBookings: String { NSLocalizedString("bipe_web_agenda_takes_bookings", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaRemovePersonBody: String { NSLocalizedString("bipe_web_agenda_remove_person_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaPriceInCatalog: String { NSLocalizedString("bipe_web_agenda_price_in_catalog", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAgendaSaved: String { NSLocalizedString("bipe_web_agenda_saved", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webWorkRemove: String { NSLocalizedString("bipe_web_work_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appLinkComputerConnecting: String { NSLocalizedString("bipe_app_link_computer_connecting", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appLinkComputerCheckCodeTitle: String { NSLocalizedString("bipe_app_link_computer_check_code_title", tableName: "Bipe", bundle: .module, comment: "") }
