@@ -14,14 +14,16 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test \"src/bipe/*.test.mjs\""
   },
   "dependencies": {
     "@ubjs/core": "0.31.0-6",
     "@ubjs/wasm": "0.31.0-6",
     "qrcode": "1.5.4",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "unicode-emoji-json": "0.9.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",

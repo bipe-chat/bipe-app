@@ -2,4 +2,148 @@
 /* Additional permission: APP-STORE-PERMISSION.md (AGPL section 7) */
 /* Copyright 2026 Bipe contributors */
 
-@import "tailwindcss";
+@import 'tailwindcss';
+/* Bipe's colour tokens (bipe-shared design/tokens.json): light, dark and high contrast follow the system. */
+@import './bipe/generated/tokens.css';
+
+/* The tokens as Tailwind names (bg-surface-base, text-ink-primary, ...). inline keeps var() in each
+   utility, so the media queries of tokens.css switch the colours. */
+@theme inline {
+  --color-surface-base: var(--bipe-surface-base);
+  --color-surface-raised: var(--bipe-surface-raised);
+  --color-surface-sunken: var(--bipe-surface-sunken);
+  --color-ink-primary: var(--bipe-ink-primary);
+  --color-ink-secondary: var(--bipe-ink-secondary);
+  --color-ink-disabled: var(--bipe-ink-disabled);
+  --color-ink-on-accent: var(--bipe-ink-on-accent);
+  --color-glyph-primary: var(--bipe-glyph-primary);
+  --color-glyph-secondary: var(--bipe-glyph-secondary);
+  --color-line-subtle: var(--bipe-line-subtle);
+  --color-line-strong: var(--bipe-line-strong);
+  --color-accent-ink: var(--bipe-accent-ink);
+  --color-accent-fill: var(--bipe-accent-fill);
+  --color-accent-fill-pressed: var(--bipe-accent-fill-pressed);
+  --color-accent-wash: var(--bipe-accent-wash);
+  --color-bubble-own: var(--bipe-bubble-own);
+  --color-bubble-other: var(--bipe-bubble-other);
+  --color-chat-background: var(--bipe-chat-background);
+  --color-trust-danger-ink: var(--bipe-trust-danger-ink);
+  --color-trust-verified-ink: var(--bipe-trust-verified-ink);
+  --color-trust-caution-ink: var(--bipe-trust-caution-ink);
+  --color-trust-neutral-ink: var(--bipe-trust-neutral-ink);
+  --color-trust-caution-wash: var(--bipe-trust-caution-wash);
+  --color-trust-caution-line: var(--bipe-trust-caution-line);
+  --color-trust-verified-wash: var(--bipe-trust-verified-wash);
+  --color-trust-verified-line: var(--bipe-trust-verified-line);
+  --color-grouped-screen: var(--grouped-screen);
+  --color-grouped-cell: var(--grouped-cell);
+}
+
+/* insetGrouped lists (info and settings screens), as iOS draws them from the system colours: in light a
+   raised screen with base cells, in dark a base screen with raised cells. Both are tokens. */
+:root {
+  --grouped-screen: var(--bipe-surface-raised);
+  --grouped-cell: var(--bipe-surface-base);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grouped-screen: var(--bipe-surface-base);
+    --grouped-cell: var(--bipe-surface-raised);
+  }
+}
+
+/* App UI type (ADR 0159): SF Rounded where the browser has it (Safari on Apple), else the system face,
+   as on Android (BipeType.kt). Sizes and line heights are the iOS text styles at the default
+   Dynamic Type size, the same values that BipeType.kt uses. */
+@theme {
+  --font-sans: ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-large-title: 34px;
+  --text-large-title--line-height: 41px;
+  --text-large-title--font-weight: 700;
+  --text-title2: 22px;
+  --text-title2--line-height: 28px;
+  --text-title2--font-weight: 700;
+  --text-headline: 17px;
+  --text-headline--line-height: 22px;
+  --text-headline--font-weight: 600;
+  --text-body: 17px;
+  --text-body--line-height: 22px;
+  --text-subheadline: 15px;
+  --text-subheadline--line-height: 20px;
+  --text-footnote: 13px;
+  --text-footnote--line-height: 18px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption2: 11px;
+  --text-caption2--line-height: 13px;
+}
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
+  /* A fixed app shell: the page never scrolls; each column scrolls on its own. */
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    margin: 0;
+    background: var(--bipe-surface-base);
+    color: var(--bipe-ink-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--bipe-accent-fill);
+    outline-offset: 2px;
+  }
+}
+
+/* bipeGlass and bipeMaterial (Contrast.swift): a blur over the chat background, a solid raised
+   surface when the person asks for less transparency. */
+@utility bipe-glass {
+  background-color: color-mix(in srgb, var(--bipe-surface-raised) 72%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--bipe-surface-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* The inline navigation bar over the chat background. */
+@utility bipe-bar {
+  background-color: color-mix(in srgb, var(--bipe-surface-base) 72%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--bipe-surface-base);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* mediaScrim (TimelineMediaRow.swift): a dark blur over a photo with light glyphs. iOS forces the dark
+   scheme there, and no token keeps one value in both schemes, so the two colours are fixed. */
+@utility bipe-scrim {
+  background-color: rgb(0 0 0 / 0.45);
+  color: #fff;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: rgb(0 0 0 / 0.75);
+  }
+}
+
+/* A message reached by a link or a reply quote: the 2 px accent.fill edge of the highlighted bubble
+   (Bubble isHighlighted, TimelineRowView.swift), for a moment. */
+li[data-highlight='true'] > div > div:first-child {
+  outline: 2px solid var(--bipe-accent-fill);
+}

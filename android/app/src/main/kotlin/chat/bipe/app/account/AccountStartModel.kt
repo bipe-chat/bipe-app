@@ -384,6 +384,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             if (app.roomToOpen.value?.accountUserId == current.userId) app.roomToOpen.value = null
             if (app.accountToOpen.value == current.userId) app.accountToOpen.value = null
             if (app.recoveryToCheck.value == current.userId) app.recoveryToCheck.value = null
+            if (app.invitesToRefresh.value == current.userId) app.invitesToRefresh.value = null
             // The pusher still goes before the SDK session ends.
             if (_userId.value == current.userId) app.push.signOut()
             current.signOut(context, sessionStore, vault, alreadyLoggedOut)

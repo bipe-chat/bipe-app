@@ -45,7 +45,7 @@ import uniffi.matrix_sdk_crypto.QrCodeIntent
  * Specs link-computer-scan, link-computer-warning and link-computer-approve (bipe-shared product/screens): the phone
  * scans the QR code of the computer, opens the MSC4108 secure channel, warns, waits through the cooldown, checks the
  * owner and approves on a native consent screen; MasDeviceApproval posts the MAS forms with no web view (ADR 0116,
- * ADR 0118, ADR 0223).
+ * ADR 0118, ADR 0224).
  *
  * Mode PHONE is specs link-phone-show and link-phone-approve: this old phone shows the code, the new phone scans it
  * (ADR 0059), and the same warning, owner check and consent screen approve it.
@@ -412,7 +412,7 @@ class LinkComputerModel(
 
     /**
      * Action open: the MAS host from the auth metadata; the verification page must be on it. Then the MAS pages with
-     * the hidden password, up to the consent page (ADR 0223).
+     * the hidden password, up to the consent page (ADR 0224).
      */
     private suspend fun openConsent() {
         val host = runCatching { matrix.authMetadata().host }.getOrNull()

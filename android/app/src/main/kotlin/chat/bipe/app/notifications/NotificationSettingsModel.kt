@@ -9,7 +9,10 @@ import chat.bipe.shared.account.BipeWorkHours
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.isCompany
+import chat.bipe.shared.settings.BipeNotificationPrefs
 import chat.bipe.shared.settings.newsState
+import chat.bipe.shared.settings.notificationPrefs
+import chat.bipe.shared.settings.setNotificationPrefs
 import chat.bipe.shared.settings.setNews
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -80,6 +83,8 @@ class NotificationSettingsModel(
         val newsRoomId: String? = null,
         val newsBusy: Boolean = false,
         val showsNewsError: Boolean = false,
+        /** Spec joinPrefs, inviteJoined, groupLinkJoined (bipe-chat/bipe#967). Null: not read, the switches hide. */
+        val joinPrefs: BipeNotificationPrefs? = null,
         /** Spec notification-settings, state preview (per account on this phone). */
         val preview: Boolean = true,
         /** Spec notification-settings, state isCompany: the opening-hours row shows. */
@@ -115,6 +120,7 @@ class NotificationSettingsModel(
             load(settings)
         }
         scope.launch { loadNews() }
+        scope.launch { loadJoinPrefs() }
         scope.launch { loadWorkSide() }
     }
 
@@ -137,6 +143,41 @@ class NotificationSettingsModel(
     fun setPreview(isOn: Boolean) {
         notifications.setPreview(session.userId, isOn)
         _state.update { it.copy(preview = notifications.preview(session.userId)) }
+    }
+
+    private suspend fun loadJoinPrefs() {
+        val prefs = try {
+            BipeApiClient.withTokenRetry({ session.accessToken() }) { api.notificationPrefs(it) }
+        } catch (error: Exception) {
+            if (error is CancellationException) throw error
+            null
+        }
+        _state.update { it.copy(joinPrefs = prefs) }
+    }
+
+    /** Action setInviteJoined. */
+    fun setInviteJoined(isOn: Boolean) {
+        _state.value.joinPrefs?.let { saveJoinPrefs(it.copy(inviteJoined = isOn)) }
+    }
+
+    /** Action setGroupLinkJoined. */
+    fun setGroupLinkJoined(isOn: Boolean) {
+        _state.value.joinPrefs?.let { saveJoinPrefs(it.copy(groupLinkJoined = isOn)) }
+    }
+
+    /** Shows the new value at once; a failure puts the switch back and shows bipe_error_generic. */
+    private fun saveJoinPrefs(prefs: BipeNotificationPrefs) {
+        val old = _state.value.joinPrefs
+        _state.update { it.copy(joinPrefs = prefs) }
+        scope.launch {
+            try {
+                val saved = BipeApiClient.withTokenRetry({ session.accessToken() }) { api.setNotificationPrefs(prefs, it) }
+                _state.update { it.copy(joinPrefs = saved) }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                _state.update { it.copy(joinPrefs = old, showsError = true) }
+            }
+        }
     }
 
     /** news: on only when the API has the user subscribed and the user is joined to or invited in the room. */

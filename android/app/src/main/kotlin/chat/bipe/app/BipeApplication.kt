@@ -43,6 +43,12 @@ class BipeApplication : Application() {
     /** A recovery alert push or its tap (bipe-chat/bipe#171): the account whose recovery-alert runs check at once. */
     val recoveryToCheck = MutableStateFlow<String?>(null)
 
+    /** An invite join push or its tap (bipe-chat/bipe#967): the account whose invites refresh at once. */
+    val invitesToRefresh = MutableStateFlow<String?>(null)
+
+    /** True while MainActivity is on screen: an invite join then shows only the join notice (bipe-chat/bipe#967). */
+    @Volatile var activityVisible = false
+
     /** Spec pix-check-result, action sendToChat: the preview the home screen offers next. */
     val pixPreview = MutableStateFlow<PixPreview?>(null)
 
@@ -102,6 +108,11 @@ class BipeApplication : Application() {
                 notifications.recoveryAlert(message.accountUserId, message.completed)
                 recoveryToCheck.value = message.accountUserId
             }
+            is BipePushMessage.InviteJoined -> {
+                if (!activityVisible) notifications.inviteJoined(message.accountUserId)
+                invitesToRefresh.value = message.accountUserId
+            }
+            is BipePushMessage.GroupLinkJoined -> notifications.groupLinkJoined(message.accountUserId, message.roomId)
             BipePushMessage.Ignored -> Unit
         }
     }
