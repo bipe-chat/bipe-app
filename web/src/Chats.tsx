@@ -12,7 +12,7 @@
 // The apps switch them with the tab bar; the web has a segmented control under the title. Archived chats
 // leave both lists and show under the Arquivadas row at the end of each scope.
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { ChatArchive, useArchiveVersion } from './archive';
 import { useChatSummaries, type ChatSummary } from './chat-model';
 import {
@@ -25,6 +25,7 @@ import {
   type SyncServiceLike as SyncService,
 } from './generated/matrix_sdk_ffi';
 import { archive as archiveIcon, bellSlash, caretLeft, gear, magnifyingGlass, userCircle, x } from './phosphor/icons';
+import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
 import { isOfficial } from './registries';
 import { rowPreview, rowTime } from './row-preview';
 import { OfficialBadge } from './ui/List';
@@ -98,6 +99,7 @@ export function Chats({ client }: { client: Client }) {
   }, [summaries, archive]);
 
   const open = detail?.kind === 'room' ? detail.room : undefined;
+  const ownUserId = client.userId();
   const inScope = (c: ChatSummary) => (scope === 'conversas' ? c.kind === 'dm' : c.kind === 'group');
   const active = summaries.filter((c) => inScope(c) && !archive.isArchived(c.roomId));
   const archived = summaries.filter((c) => inScope(c) && archive.isArchived(c.roomId));
@@ -112,7 +114,11 @@ export function Chats({ client }: { client: Client }) {
   const request = detail?.kind === 'request' ? summaries.find((c) => c.roomId === detail.roomId) : undefined;
   const showsDetail = detail !== undefined;
 
-  const openChat = (room: Room) => setDetail({ kind: 'room', room });
+  const openChat = useCallback((room: Room) => setDetail({ kind: 'room', room }), []);
+  useDesktopNotifications(summaries, open?.id(), ownUserId, openChat);
+  useTabTitle(chatsBadge + groupsBadge);
+  const [permission, askPermission] = useNotificationPermission();
+  const [bannerClosed, setBannerClosed] = useState(false);
   const searching = query.trim() !== '';
   const needle = normalize(query.trim());
   // Search covers both scopes and archived chats; it opens any of them.
@@ -120,7 +126,6 @@ export function Chats({ client }: { client: Client }) {
     (c) => (c.kind === 'dm' || c.kind === 'group') && normalize(c.face.name).includes(needle),
   );
   const rows = searching ? found : showingArchived ? archived : active;
-  const ownUserId = client.userId();
 
   return (
     <ClientContext value={client}>
@@ -152,6 +157,31 @@ export function Chats({ client }: { client: Client }) {
                 setShowingArchived(false);
               }}
             />
+          )}
+          {permission === 'default' && !bannerClosed && (
+            // Desktop notifications need the person's yes, asked from this banner, never on load.
+            <div className="mx-4 mb-2 flex items-start gap-3 rounded-xl bg-accent-wash p-3">
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <p className="text-subheadline font-semibold text-ink-primary">
+                  {s('bipe_notifications_permission_title')}
+                </p>
+                <button
+                  type="button"
+                  className="min-h-9 self-start rounded-full bg-accent-fill px-4 text-subheadline font-semibold text-ink-on-accent"
+                  onClick={askPermission}
+                >
+                  {s('bipe_notifications_prompt_allow')}
+                </button>
+              </div>
+              <button
+                type="button"
+                className="grid size-8 place-items-center rounded-full text-glyph-secondary"
+                aria-label={s('bipe_app_close')}
+                onClick={() => setBannerClosed(true)}
+              >
+                <Icon path={x} size={14} />
+              </button>
+            </div>
           )}
           {sync.kind === 'failed' && (
             <div className="px-4 py-2">
