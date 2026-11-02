@@ -16,10 +16,10 @@ import {
   type RoomListEntriesWithDynamicAdaptersResultLike as RoomListEntriesWithDynamicAdaptersResult,
   type SyncServiceLike as SyncService,
 } from './generated/matrix_sdk_ffi';
-import { signOut } from './phosphor/icons';
+import { gear } from './phosphor/icons';
 import { ClientContext } from './media';
 import { useRoomFace } from './room-face';
-import { forgetSession } from './sdk';
+import { Settings } from './Settings';
 import { RoomTimeline } from './Timeline';
 import { Avatar } from './ui/Avatar';
 import { BipeMark } from './ui/BipeMark';
@@ -33,6 +33,7 @@ type SyncState = { kind: 'starting' } | { kind: 'ready' } | { kind: 'failed'; me
 export function Chats({ client }: { client: Client }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [open, setOpen] = useState<Room>();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sync, setSync] = useState<SyncState>({ kind: 'starting' });
   const keep = useRef<{ sync?: SyncService; entries?: RoomListEntriesWithDynamicAdaptersResult }>({});
 
@@ -63,21 +64,22 @@ export function Chats({ client }: { client: Client }) {
     <ClientContext value={client}>
       <div className="flex h-full">
         <aside
-          className={`${open ? 'hidden md:flex' : 'flex'} w-full min-w-0 flex-col bg-surface-base md:w-[360px] md:shrink-0 md:border-r md:border-line-subtle`}
+          className={`${open || settingsOpen ? 'hidden md:flex' : 'flex'} w-full min-w-0 flex-col bg-surface-base md:w-[360px] md:shrink-0 md:border-r md:border-line-subtle`}
         >
           {/* The navigation bar: the toolbar row with its glass button, then the large title. */}
           <div className="flex h-11 shrink-0 items-center justify-end px-2">
+            {/* Settings for this browser; sign out lives there, in Sua conta. */}
             <button
-              className="bipe-glass grid size-11 place-items-center rounded-full text-glyph-primary"
-              aria-label={s('bipe_account_sign_out')}
-              title={s('bipe_account_sign_out')}
-              onClick={async () => {
-                await client.logout().catch(() => undefined);
-                await forgetSession();
-                window.location.reload();
+              className={`grid size-11 place-items-center rounded-full ${settingsOpen ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}
+              aria-label={s('bipe_settings_section')}
+              title={s('bipe_settings_section')}
+              aria-pressed={settingsOpen}
+              onClick={() => {
+                setSettingsOpen(true);
+                setOpen(undefined);
               }}
             >
-              <Icon path={signOut} size={22} />
+              <Icon path={gear} size={22} />
             </button>
           </div>
           <h1 className="shrink-0 px-4 pb-2 text-large-title text-ink-primary">{s('bipe_app_chat_list_title')}</h1>
@@ -98,13 +100,23 @@ export function Chats({ client }: { client: Client }) {
           ) : (
             <ul className="flex-1 overflow-y-auto">
               {rooms.map((room) => (
-                <ChatRow key={room.id()} room={room} selected={open?.id() === room.id()} onOpen={() => setOpen(room)} />
+                <ChatRow
+                  key={room.id()}
+                  room={room}
+                  selected={open?.id() === room.id()}
+                  onOpen={() => {
+                    setSettingsOpen(false);
+                    setOpen(room);
+                  }}
+                />
               ))}
             </ul>
           )}
         </aside>
-        <main className={`${open ? 'flex' : 'hidden md:flex'} min-w-0 flex-1 flex-col`}>
-          {open ? (
+        <main className={`${open || settingsOpen ? 'flex' : 'hidden md:flex'} min-w-0 flex-1 flex-col`}>
+          {settingsOpen ? (
+            <Settings onClose={() => setSettingsOpen(false)} />
+          ) : open ? (
             <RoomTimeline key={open.id()} room={open} onBack={() => setOpen(undefined)} />
           ) : (
             // A wide window with no chat open. The list beside it is the call to action, so no text here.
