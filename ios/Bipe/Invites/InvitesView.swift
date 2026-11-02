@@ -331,5 +331,13 @@ struct InviteCardView: View {
 
 struct InviteJoinNotice: ViewModifier {
     @ObservedObject var model: InvitesModel
-    func body(content: Content) -> some View { content.toast($model.notice) }
+    func body(content: Content) -> some View {
+        content.toast($model.notice)
+            // An invite join push for this account, or its tap (bipe-chat/bipe#967): refresh at once.
+            .onReceive(NotificationActions.shared.$invitesToRefresh) { userId in
+                guard let userId, userId == model.session.userId else { return }
+                NotificationActions.shared.invitesToRefresh = nil
+                Task { await model.refresh() }
+            }
+    }
 }

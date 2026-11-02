@@ -14,7 +14,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test \"src/bipe/*.test.mjs\""
   },
   "dependencies": {
     "@ubjs/core": "0.31.0-6",

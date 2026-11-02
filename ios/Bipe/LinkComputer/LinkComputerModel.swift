@@ -47,7 +47,7 @@ final class GrantGeneratedProgressStream: GrantGeneratedQrLoginProgressListener 
 /// Specs link-computer-scan, link-computer-warning and link-computer-approve (bipe-shared product/screens):
 /// the phone scans the QR code of the computer, opens the MSC4108 secure channel, warns, waits through the
 /// cooldown, checks the owner and approves on a native consent screen; MASDeviceApproval posts the MAS forms
-/// with no web view (ADR 0116, ADR 0118, ADR 0223).
+/// with no web view (ADR 0116, ADR 0118, ADR 0224).
 ///
 /// Mode phone is specs link-phone-show and link-phone-approve: this old phone shows the code, the new phone scans it
 /// (ADR 0059), and the same warning, owner check and MAS page approve it.
@@ -524,7 +524,7 @@ final class LinkComputerModel: ObservableObject {
     }
 
     /// Action open: the MAS host from the auth metadata; the verification page must be on it. Then the MAS pages
-    /// with the hidden password, up to the consent page (ADR 0223).
+    /// with the hidden password, up to the consent page (ADR 0224).
     private func openConsent() async {
         guard let metadata = try? await matrix?.authMetadata(),
               let host = metadata.host,

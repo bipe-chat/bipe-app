@@ -3,7 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 // The MAS device-grant approval of specs link-computer-approve and link-phone-approve without a web view
-// (ADR 0223). Written from the specs and the MAS form fields they name: login form csrf, username, password;
+// (ADR 0224). Written from the specs and the MAS form fields they name: login form csrf, username, password;
 // consent form csrf, confirm_device, action=consent; reject form csrf, action=reject.
 
 import Foundation

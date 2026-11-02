@@ -96,6 +96,20 @@ struct NotificationSettingsView: View {
                 }
             }
 
+            // Join pushes (bipe-chat/bipe#967): account settings on the server. Hidden until read.
+            if let prefs = model.joinPrefs {
+                Section {
+                    Toggle(isOn: binding(prefs.inviteJoined) { isOn in Task { await model.setInviteJoined(isOn) } }) {
+                        Text(BipeStrings.notificationsInviteJoined)
+                    }
+                    Toggle(isOn: binding(prefs.groupLinkJoined) { isOn in Task { await model.setGroupLinkJoined(isOn) } }) {
+                        Text(BipeStrings.notificationsGroupLinkJoined)
+                    }
+                } footer: {
+                    Text(BipeStrings.notificationsJoinsFooter)
+                }
+            }
+
             if model.news != .unknown {
                 Section {
                     Toggle(isOn: binding(model.news != .off) { isOn in Task { await model.setNews(isOn) } }) {

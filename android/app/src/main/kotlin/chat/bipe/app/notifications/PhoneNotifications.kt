@@ -198,9 +198,25 @@ class PhoneNotifications(private val context: Context) {
         context.getString(if (completed) R.string.bipe_recovery_push_completed_body else R.string.bipe_recovery_push_started_body),
     )
 
+    /**
+     * Kind inviteJoined (bipe-chat/bipe#967): someone signed up with an invite of [userId]. The tap opens that account and
+     * refreshes its invites, which shows the join notice and sends the inviter's note.
+     */
+    fun inviteJoined(userId: String) = accountNotice(
+        userId, KIND_INVITE_JOINED, "invite_joined",
+        context.getString(R.string.bipe_invite_joined_push_title), context.getString(R.string.bipe_invite_joined_push_body),
+    )
+
+    /** Kind groupLinkJoined (bipe-chat/bipe#967): someone joined [roomId] with a link of [userId]. The tap opens the group. */
+    fun groupLinkJoined(userId: String, roomId: String?) = accountNotice(
+        userId, KIND_GROUP_LINK_JOINED, "group_link_joined",
+        context.getString(R.string.bipe_group_link_joined_push_title), context.getString(R.string.bipe_group_link_joined_push_body),
+        roomId,
+    )
+
     /** A content-free push about the account, not a room: one notification per account and [tagName], no actions. */
     @SuppressLint("MissingPermission")
-    private fun accountNotice(userId: String, kind: String, tagName: String, title: String, body: String) {
+    private fun accountNotice(userId: String, kind: String, tagName: String, title: String, body: String, roomId: String? = null) {
         if (!manager.areNotificationsEnabled()) return
         val route = accountRoutes.routeFor(userId)
         val intent = Intent(context, MainActivity::class.java)
@@ -210,6 +226,7 @@ class PhoneNotifications(private val context: Context) {
             .putExtra(EXTRA_ACCOUNT_ROUTE, route)
             .putExtra(EXTRA_KIND, kind)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        if (roomId != null) intent.putExtra(EXTRA_ROOM_ID, roomId)
         val notification = NotificationCompat.Builder(context, messagesChannel(userId))
             .setSmallIcon(chat.bipe.app.R.drawable.ic_notification)
             .addExtras(Bundle().apply { putString(EXTRA_ACCOUNT_USER_ID, userId) })
@@ -223,10 +240,9 @@ class PhoneNotifications(private val context: Context) {
         manager.notify(tagName + "_" + accountDigest(userId), NOTIFICATION_ID, notification)
     }
 
-    /** The owner of a tapped approval nudge or recovery alert, while its registration lifetime is still live. */
+    /** The owner of a tapped account notice, while its registration lifetime is still live. */
     fun noticeOwner(intent: Intent): String? {
-        val kind = intent.getStringExtra(EXTRA_KIND)
-        if (kind != KIND_DEVICE_APPROVAL && kind != KIND_RECOVERY) return null
+        if (intent.getStringExtra(EXTRA_KIND) !in ACCOUNT_NOTICE_KINDS) return null
         val route = intent.getStringExtra(EXTRA_ACCOUNT_ROUTE) ?: return null
         val userId = intent.getStringExtra(EXTRA_ACCOUNT_USER_ID) ?: return null
         return userId.takeIf { accountRoutes.accountFor(route) == it }
@@ -609,6 +625,10 @@ class PhoneNotifications(private val context: Context) {
         const val EXTRA_ROOM_ID = "room_id"
         const val KIND_DEVICE_APPROVAL = "deviceApproval"
         const val KIND_RECOVERY = "recovery"
+        const val KIND_INVITE_JOINED = "inviteJoined"
+        const val KIND_GROUP_LINK_JOINED = "groupLinkJoined"
+        /** Content-free pushes about the account, shown by accountNotice. */
+        val ACCOUNT_NOTICE_KINDS = setOf(KIND_DEVICE_APPROVAL, KIND_RECOVERY, KIND_INVITE_JOINED, KIND_GROUP_LINK_JOINED)
         private const val OLD_INVITES_CHANNEL = "invites"
         private const val KEY_SOUND = "sound"
         private const val KEY_PREVIEW = "preview"
