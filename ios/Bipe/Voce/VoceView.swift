@@ -22,7 +22,7 @@ struct VoceView: View {
     @State private var notesFailed = false
     @State private var showsLinkPhone = false
     @State private var govbrFlow: BipeGovbrFlow?
-    private enum Destination: Hashable { case notes(String), invites, trust, myBookings, claim }
+    private enum Destination: Hashable { case notes(String), invites, trust, myBookings, claim, yearRecap }
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
@@ -80,6 +80,18 @@ struct VoceView: View {
                     Button { showsLinkPhone = true } label: {
                         IconLabel(icon: .devices, text: BipeStrings.appLinkPhoneAction)
                     }
+                    // Spec voce openYearRecap (ADR 0223): counted on this phone only.
+                    NavigationLink(value: Destination.yearRecap) {
+                        HStack(spacing: 12) {
+                            PhosphorIcon.chartBar.image.resizable().frame(width: 20, height: 20)
+                                .foregroundStyle(BipeColor.inkPrimary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(BipeStrings.yearRecapTitle).foregroundStyle(BipeColor.inkPrimary)
+                                Text(BipeStrings.yearRecapRowSubtitle(String(YearRecap.year())))
+                                    .font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                            }
+                        }
+                    }
                 }
                 SettingsRootSection(model: settings)
                 // Spec settings-root: a personal account has Meus agendamentos after the groups (agenda-my-bookings).
@@ -109,6 +121,8 @@ struct VoceView: View {
                     }
                 case .myBookings:
                     MyBookingsView(people: people, openChat: { path.append(Destination.notes($0)) })
+                case .yearRecap:
+                    YearRecapView(chatList: chatList)
                 case .claim:
                     BusinessClaimView(session: chatList.session, api: api) {
                         let isCompany = model.accounts.first(where: \.isCurrent)?.isCompany ?? false
