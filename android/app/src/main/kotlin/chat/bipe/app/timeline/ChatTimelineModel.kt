@@ -448,7 +448,8 @@ class ChatTimelineModel(
 
     /**
      * Action loadHistory: back-paginates 20 events at a time until the rows have HISTORY_FILL more messages,
-     * at most HISTORY_PAGES_PER_LOAD pages. A failed page is tried again. Does nothing at the start or while a load runs.
+     * at most HISTORY_PAGES_PER_LOAD pages. A failed page is tried again. After a failed load it waits HISTORY_RETRY_MS,
+     * then changes historyLoads so the top of the list tries again. Does nothing at the start or while a load runs.
      */
     fun loadHistory() {
         scope.launch { paginate(HISTORY_PAGES_PER_LOAD) }
@@ -461,7 +462,12 @@ class ChatTimelineModel(
         try {
             val before = _messages.value.size
             for (page in 1..maxPages) {
-                val hitStart = paginateBackwards(timeline) ?: return
+                val hitStart = paginateBackwards(timeline) ?: run {
+                    // Without a new historyLoads the header effect keeps its keys and history stops loading.
+                    delay(HISTORY_RETRY_MS)
+                    _historyLoads.update { it + 1 }
+                    return
+                }
                 if (hitStart) {
                     _reachedStart.value = true
                     break
@@ -1361,6 +1367,8 @@ class ChatTimelineModel(
         const val HISTORY_PAGES_PER_LOAD = 5
         /** The tries of one page before the load stops: a fresh login can fail the first pages during the first sync. */
         const val HISTORY_TRIES = 3
+        /** The pause after a failed load before the top of the list tries again. */
+        const val HISTORY_RETRY_MS = 10_000L
         /** Spec message-reply openOriginal: at most 5 pages back. */
         const val ORIGINAL_SEARCH_PAGES = 5
         /** Spec typing-indicator: typing on at most once every 4 seconds. */

@@ -157,6 +157,8 @@ final class ChatTimelineModel: ObservableObject {
     static let historyPagesPerLoad = 5
     /// The tries of one page before the load stops: a fresh login can fail the first pages during the first sync.
     static let historyTries = 3
+    /// The pause after a failed load before the top of the list tries again.
+    static let historyRetry: Duration = .seconds(10)
     /// Spec message-reactions notes: the quick reactions, in this order.
     static let quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"]
     /// Spec message-reply openOriginal: at most 5 pages back.
@@ -448,14 +450,20 @@ final class ChatTimelineModel: ObservableObject {
     // MARK: chat-timeline
 
     /// Action loadHistory: back-paginates 20 events at a time until the rows have historyFill more messages,
-    /// at most maxPages pages. A failed page is tried again. Does nothing at the start or while a load runs.
+    /// at most maxPages pages. A failed page is tried again. After a failed load it waits historyRetry, then
+    /// changes historyLoads so the top of the list tries again. Does nothing at the start or while a load runs.
     func loadHistory(maxPages: Int = ChatTimelineModel.historyPagesPerLoad) async {
         guard let timeline, !reachedStart, !isLoadingHistory else { return }
         isLoadingHistory = true
         defer { isLoadingHistory = false }
         let before = messages.count
         for _ in 0..<maxPages {
-            guard let hitStart = await paginateBackwards(timeline) else { return }
+            guard let hitStart = await paginateBackwards(timeline) else {
+                // Without a new historyLoads the header task keeps its id and history stops loading.
+                try? await Task.sleep(for: Self.historyRetry)
+                if !Task.isCancelled { historyLoads += 1 }
+                return
+            }
             if hitStart {
                 reachedStart = true
                 break

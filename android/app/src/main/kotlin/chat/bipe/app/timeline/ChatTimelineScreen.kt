@@ -457,7 +457,7 @@ fun ChatTimelineScreen(
                     }
                     item(key = "history") {
                         // Composed while the top of the list is on screen, again after each load and each change of the rows
-                        // (action loadHistory). After a failed load, the next change of the rows tries again.
+                        // (action loadHistory). After a failed load, the model changes historyLoads after a pause.
                         LaunchedEffect(rows.size, historyLoads) { model.loadHistory() }
                         if (isLoadingHistory && !reachedStart) {
                             Text(
