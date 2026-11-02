@@ -12,8 +12,14 @@ import UIKit
 struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     @Environment(\.scenePhase) private var scenePhase
-    @State private var deletingDm = false
+    /// The account's call focus, for the call rows of the DM chat menu.
+    @State private var callFocus: String?
+    /// The DM chat menu's chat-notifications and chat-media-gallery rows.
+    @State private var showsNotifications = false
+    @State private var showsGallery = false
     @State private var toast: String?
+    /// The list keeps to the newest message until the person scrolls (chat-timeline opens at the bottom).
+    @State private var followsNewest = true
     /// Spec chat-timeline searchInChat (bipe-chat/bipe#861).
     @State private var searchingChat = false
     /// The group menu's group-details row.
@@ -34,7 +40,7 @@ struct ChatTimelineView: View {
     @StateObject private var identity: IdentityChangeModel
     @State private var viewerRowId: String?
     // composer
-    @State private var attaching = false
+    @State private var attaching: AttachmentChoice?
     @State private var upload: PickedUpload?
     @State private var showsStickers = false
     /// Spec location-send, with the reply target taken when it opened.
@@ -42,6 +48,8 @@ struct ChatTimelineView: View {
     private let media: MediaLoader
     /// Opens the chat's info: person-profile for a DM.
     private let openInfo: (() -> Void)?
+    /// Spec chat-archive from the DM chat menu. nil: no archive row.
+    private let archive: ChatArchiveToggle?
     private let session: AccountSession
     private let roomId: String
     /// Spec chat-search openMessage: the message to scroll to after the chat opens.
@@ -51,7 +59,8 @@ struct ChatTimelineView: View {
 
     /// threadRoot: the thread view of spec threads (bipe#667); nil for the main timeline.
     init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil,
-         focusEventId: String? = nil, threadRoot: String? = nil, openInfo: (() -> Void)? = nil) {
+         focusEventId: String? = nil, threadRoot: String? = nil, openInfo: (() -> Void)? = nil,
+         archive: ChatArchiveToggle? = nil) {
         self.focusEventId = focusEventId
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId, threadRoot: threadRoot))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
@@ -59,6 +68,7 @@ struct ChatTimelineView: View {
         _identity = StateObject(wrappedValue: IdentityChangeModel(session: session, roomId: roomId))
         self.media = media
         self.openInfo = openInfo
+        self.archive = archive
         self.session = session
         self.roomId = roomId
         self.people = people
@@ -117,11 +127,11 @@ struct ChatTimelineView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { VStack(spacing: 0) { bottomBar } }
         .frame(maxWidth: 760)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .attachmentPicker(isPresented: $attaching,
+        .attachmentPicker(choice: $attaching,
                           onPicked: { urls in upload = PickedUpload(urls: urls, replyToEventId: model.takeReplyEventId()) },
                           onStickers: { showsStickers = true },
                           onLocation: { locationSend = LocationSendRequest(replyToEventId: model.takeReplyEventId()) },
-                          onPoll: model.canPoll ? { creatingPoll = true } : nil)
+                          onPoll: { creatingPoll = true })
         .fullScreenCover(item: $locationSend) { request in
             LocationSendView(timeline: model, session: session, replyToEventId: request.replyToEventId, close: { locationSend = nil })
         }
@@ -170,8 +180,10 @@ struct ChatTimelineView: View {
                     if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
                     else { chatTitle }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    CallHeaderButtons(model: model, session: session)
+                if !model.isDm {
+                    ToolbarItem(placement: .primaryAction) {
+                        CallHeaderButtons(model: model, session: session)
+                    }
                 }
             }
             if model.isGroup, model.threadRoot == nil {
@@ -190,27 +202,45 @@ struct ChatTimelineView: View {
                     .labelStyle(.iconOnly)
                 }
             }
-            if model.isDm {
+            if model.isDm, model.threadRoot == nil {
                 ToolbarItem(placement: .primaryAction) {
+                    // Spec chat-timeline notes: the DM chat menu is the one button on the right. Archive, never delete.
                     Menu {
-                        BusinessMenuItems(model: business)
                         Button { searchingChat = true } label: { Label(BipeStrings.searchInChat, systemImage: "magnifyingglass") }
-                        Button(BipeStrings.dmDeleteAction, role: .destructive) {
-                            deletingDm = true
+                        if let openInfo {
+                            Button(action: openInfo) { Label(BipeStrings.dmDetailsTitle, systemImage: "info.circle") }
+                        }
+                        Button { showsNotifications = true } label: { Label(BipeStrings.settingsNotifications, systemImage: "bell") }
+                        Button { showsGallery = true } label: { Label(BipeStrings.galleryTitle, systemImage: "photo.on.rectangle") }
+                        CallMenuItems(model: model, session: session, focus: callFocus)
+                        BusinessMenuItems(model: business)
+                        if let archive {
+                            let archived = archive.isArchived()
+                            Button {
+                                archive.set(!archived)
+                                if !archived { closeChat() }
+                            } label: {
+                                Label(archived ? BipeStrings.unarchiveAction : BipeStrings.archiveAction,
+                                      systemImage: archived ? "tray.and.arrow.up" : "archivebox")
+                            }
                         }
                     } label: {
                         Label {
-                            Text(BipeStrings.dmDetailsTitle)
+                            Text(BipeStrings.chatActions)
                         } icon: {
-                            PhosphorIcon.info.toolbarImage(size: 22)
+                            PhosphorIcon.dotsThree.toolbarImage(size: 22)
                         }
                     }
                     .labelStyle(.iconOnly)
+                    .task(id: session.userId) { callFocus = await CallCenter.shared.focusUrl(for: session) }
                 }
             }
         }
-        .sheet(isPresented: $deletingDm) {
-            DmDeleteView(session: session, roomId: roomId) { closeChat() }
+        .sheet(isPresented: $showsNotifications) {
+            NavigationStack { ChatNotificationsView(session: session, roomId: roomId) }
+        }
+        .sheet(isPresented: $showsGallery) {
+            ChatMediaGalleryView(session: session, media: media, roomId: roomId)
         }
         .navigationDestination(isPresented: $showsGroupDetails) {
             GroupDetailsView(session: session, media: media, roomId: roomId)
@@ -363,6 +393,22 @@ struct ChatTimelineView: View {
             }
             .defaultScrollAnchor(.bottom)
             .scrollDismissesKeyboard(.interactively)
+            // The chat opens at the newest message. The first rows and the history pages come in batches,
+            // and the lazy stack guesses row heights, so the bottom anchor alone can land higher up.
+            // Until the person scrolls, each batch scrolls to the newest message again.
+            .onScrollPhaseChange { _, phase in
+                if phase == .interacting { followsNewest = false }
+            }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 40
+            } action: { _, atBottom in
+                if atBottom { followsNewest = true }
+            }
+            .onChange(of: model.rows.count) {
+                if followsNewest, let lastId = model.rows.last?.id {
+                    proxy.scrollTo(lastId, anchor: .bottom)
+                }
+            }
             .onChange(of: model.rows.last?.id) { _, lastId in
                 if let lastId {
                     withBipeAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
@@ -370,6 +416,7 @@ struct ChatTimelineView: View {
             }
             .onChange(of: model.scrollTarget) { _, target in
                 guard let target else { return }
+                followsNewest = false
                 withBipeAnimation { proxy.scrollTo(target, anchor: .center) }
                 model.scrolledToTarget()
             }
@@ -413,7 +460,7 @@ struct ChatTimelineView: View {
     }
 
     private var composerBar: some View {
-        ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
+        ComposerBar(model: model, media: media, openAttachments: { attaching = $0 }, openStickers: { showsStickers = true })
             // Spec identity-change blocksSending: until the person taps Entendi.
             .disabled(identity.blocksSending)
     }
@@ -535,7 +582,7 @@ private struct LocationSendRequest: Identifiable {
 private struct ComposerBar: View {
     @ObservedObject var model: ChatTimelineModel
     let media: MediaLoader
-    let openAttachments: () -> Void
+    let openAttachments: (AttachmentChoice) -> Void
     let openStickers: () -> Void
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @FocusState private var focused: Bool
@@ -593,7 +640,10 @@ private struct ComposerBar: View {
         }
         HStack(alignment: .bottom, spacing: 8) {
             if model.editing == nil {
-                iconButton(.paperclip, label: BipeStrings.appComposerAttach, action: openAttachments)
+                AttachmentMenu(canPoll: model.canPoll, choose: openAttachments) {
+                    iconImage(.plus)
+                }
+                .accessibilityLabel(BipeStrings.appComposerAttach)
             }
             HStack(alignment: .bottom, spacing: 4) {
                 TextField(BipeStrings.appTimelineComposerPlaceholder,
@@ -687,17 +737,14 @@ private struct ComposerBar: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func iconButton(_ icon: PhosphorIcon, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            icon.image
-                .resizable()
-                .frame(width: 22, height: 22)
-                .padding(11)
-                .foregroundStyle(BipeColor.glyphPrimary)
-                .bipeTapTarget()
-                .bipeGlass(in: Circle())
-        }
-        .accessibilityLabel(label)
+    private func iconImage(_ icon: PhosphorIcon) -> some View {
+        icon.image
+            .resizable()
+            .frame(width: 22, height: 22)
+            .padding(11)
+            .foregroundStyle(BipeColor.glyphPrimary)
+            .bipeTapTarget()
+            .bipeGlass(in: Circle())
     }
 
     private func bar(icon: PhosphorIcon, title: String, preview: String?, onClose: @escaping () -> Void) -> some View {
@@ -800,4 +847,10 @@ private struct CvmStopOrderCard: View {
 /// The sheet item of spec threads openThread: the root event ID.
 private struct ThreadSheetId: Identifiable {
     let id: String
+}
+
+/// Spec chat-archive from the DM chat menu: reads and sets the chat's archived state in the account's archive.
+struct ChatArchiveToggle {
+    let isArchived: @MainActor () -> Bool
+    let set: @MainActor (Bool) -> Void
 }

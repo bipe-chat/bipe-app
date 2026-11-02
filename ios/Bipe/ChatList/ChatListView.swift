@@ -61,7 +61,6 @@ struct ChatListView: View {
     @State private var newGroupWith: [Person]?
     @State private var notificationsRoom: String?
     @State private var groupDetailsRoom: String?
-    @State private var deletingFromProfile: String?
     private let scope: ChatScope
     private let api: BipeAPIClient
     @State private var showingInvites = false
@@ -243,9 +242,6 @@ struct ChatListView: View {
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button(BipeStrings.appClose) { groupDetailsRoom = nil } } }
             }
         }
-        .sheet(item: Binding(get: { deletingFromProfile.map(RoomSheetId.init) }, set: { deletingFromProfile = $0?.id })) { room in
-            DmDeleteView(session: model.session, roomId: room.id) { closeDetail() }
-        }
         // invite-signed-in: the inviter's chat or profile-link-open, in the Conversas list.
         .onReceive(TabsLinks.shared.$link.compactMap { $0 }) { link in
             guard scope != .grupos else { return }
@@ -329,8 +325,7 @@ struct ChatListView: View {
                                           newGroupWith = [person ?? Person(userId: userId, displayName: nil, avatarUrl: nil)]
                                       }
                                   },
-                                  notifications: { notificationsRoom = $0 },
-                                  deleteChat: { deletingFromProfile = $0 }))
+                                  notifications: { notificationsRoom = $0 }))
         case .profileEdit:
             ProfileEditView(people: people)
         case .publicProfile:
@@ -503,7 +498,11 @@ struct ChatListView: View {
                 topRows
                 if showingArchived {
                     Text(BipeStrings.archivedEmpty).foregroundStyle(BipeColor.inkSecondary)
-                } else { emptyState }
+                } else {
+                    emptyState
+                        // Spec chat-list loadMore: a page with no chat for this tab asks for the next page.
+                        .task(id: model.chats.count) { model.loadMore(in: scope) }
+                }
                 moreRows
                     .listRowSeparator(.hidden)
             }
@@ -528,10 +527,9 @@ struct ChatListView: View {
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
                     .contextMenu { rowMenu(chat.roomId) }
                     .accessibilityActions { rowMenu(chat.roomId) }
-                    .onAppear {
-                        if chat.id == chats.last?.id {
-                            if !showingArchived { model.loadMore(in: scope) }
-                        }
+                    // Runs again when a page adds rooms while the last row is still on screen.
+                    .task(id: chat.id == chats.last?.id ? model.chats.count : -1) {
+                        if chat.id == chats.last?.id && !showingArchived { model.loadMore(in: scope) }
                     }
                 }
                 moreRows
@@ -592,7 +590,6 @@ struct ChatListView: View {
 
     @ViewBuilder private var moreRows: some View {
         if !showingArchived {
-            Button(BipeStrings.chatListMore) { model.loadMore(in: scope) }
             Button { showingArchived = true } label: {
                 ListEntryRow(icon: .archive, title: BipeStrings.archivedTitle)
             }
@@ -691,13 +688,23 @@ struct ChatListView: View {
 
     private func timeline(_ roomId: String, focusEventId: String? = nil) -> some View {
         ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people,
-                         focusEventId: focusEventId) {
+                         focusEventId: focusEventId, openInfo: {
             Task {
                 if let userId = await people.dmPartner(roomId: roomId) {
                     path.append(PeopleRoute.person(userId: userId, fromDm: true))
                 }
             }
-        }
+        }, archive: archiveToggle(roomId))
+    }
+
+    /// Spec chat-archive from the DM chat menu, on the same archive as the row action.
+    private func archiveToggle(_ roomId: String) -> ChatArchiveToggle {
+        ChatArchiveToggle(
+            isArchived: { [archive] in archive.markers[roomId] != nil },
+            set: { [model, archive] archived in
+                if let chat = model.chats.first(where: { $0.roomId == roomId }) { archive.set(chat, archived: archived) }
+            }
+        )
     }
 
     private var requestsScreen: some View {
