@@ -55,7 +55,12 @@ export function AccountSwitcher() {
         title={SWITCHER_TITLE}
         onClick={() => setOpen((v) => !v)}
       >
-        <Avatar name={current.name ?? current.userId ?? ''} size={32} mxcUrl={current.avatarUrl} />
+        <Avatar
+          name={current.name ?? current.userId ?? ''}
+          size={32}
+          mxcUrl={current.avatarUrl}
+          userId={current.userId}
+        />
         {othersUnread && (
           <span className="absolute top-1 right-1 size-2.5 rounded-full border-2 border-surface-base bg-accent-fill" />
         )}
@@ -92,7 +97,7 @@ export function AccountSwitcher() {
                     if (!isCurrent && a.userId) switchTo(a.userId);
                   }}
                 >
-                  <Avatar name={name} size={32} mxcUrl={a.avatarUrl} />
+                  <Avatar name={name} size={32} mxcUrl={a.avatarUrl} userId={a.userId} />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-body text-ink-primary">{name}</span>
                     {handle && <span className="truncate text-footnote text-ink-secondary">@{handle}</span>}

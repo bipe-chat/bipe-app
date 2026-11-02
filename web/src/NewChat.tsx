@@ -173,7 +173,7 @@ function PersonRow({ person, picked, onClick }: { person: Person; picked?: boole
         className="flex w-full items-center gap-3 px-4 py-1.5 text-left hover:bg-surface-raised"
         onClick={onClick}
       >
-        <Avatar name={person.name} size={40} mxcUrl={person.avatarUrl} />
+        <Avatar name={person.name} size={40} mxcUrl={person.avatarUrl} userId={person.userId} />
         <span className="min-w-0 flex-1 truncate text-body text-ink-primary">{person.name}</span>
         {picked !== undefined && (
           <span

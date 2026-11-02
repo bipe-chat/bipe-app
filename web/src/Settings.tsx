@@ -136,7 +136,7 @@ export function Settings({
       <NavBar title={s('bipe_tab_you')} onBack={onClose} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-6">
         <div className="flex flex-col items-center gap-1 py-2 text-center">
-          <Avatar name={me.name} size={96} mxcUrl={me.avatarUrl} />
+          <Avatar name={me.name} size={96} mxcUrl={me.avatarUrl} userId={client.userId()} />
           <h3 className="mt-2 text-title2 text-ink-primary">{me.name}</h3>
         </div>
         <Section header={s('bipe_settings_section')}>
