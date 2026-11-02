@@ -29,10 +29,11 @@ enum NotificationMode: Hashable {
         }
     }
 
-    var label: String {
+    /// One name per mode on every screen: in a group, mentions is the quiet mode of chat-notifications.
+    func label(isDm: Bool) -> String {
         switch self {
         case .all: BipeStrings.appNotificationModeAll
-        case .mentions: BipeStrings.appNotificationModeMentions
+        case .mentions: isDm ? BipeStrings.appNotifyMentionsLegacy : BipeStrings.appNotifyQuiet
         case .off: BipeStrings.appNotificationModeOff
         }
     }
