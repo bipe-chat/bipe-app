@@ -24,7 +24,17 @@ import {
   type RoomListEntriesWithDynamicAdaptersResultLike as RoomListEntriesWithDynamicAdaptersResult,
   type SyncServiceLike as SyncService,
 } from './generated/matrix_sdk_ffi';
-import { archive as archiveIcon, bellSlash, caretLeft, gear, magnifyingGlass, userCircle, x } from './phosphor/icons';
+import { NewChat, NewGroup } from './NewChat';
+import {
+  archive as archiveIcon,
+  pencilSimple,
+  bellSlash,
+  caretLeft,
+  gear,
+  magnifyingGlass,
+  userCircle,
+  x,
+} from './phosphor/icons';
 import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
 import { bannerDismissed, EncryptionBanner, EncryptionSheet, needsApproval, useEncryptionState } from './Encryption';
 import { isOfficial } from './registries';
@@ -50,13 +60,18 @@ type Detail =
   | { kind: 'settings' }
   | { kind: 'requests' }
   | { kind: 'request'; roomId: string }
-  | { kind: 'encryption' };
+  | { kind: 'encryption' }
+  | { kind: 'newChat' }
+  | { kind: 'newGroup' };
 
 export function Chats({ client }: { client: Client }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   // The page comes from the URL (router.ts); the encryption sheet is an overlay without one.
   const route = useRoute();
-  const [encryptionOpen, setEncryptionOpen] = useState(false);
+  // Screens without a URL: the encryption sheet, Nova conversa and Novo grupo.
+  const [overlay, setOverlay] = useState<'encryption' | 'newChat' | 'newGroup'>();
+  // A new page (a link, back or forward) closes them.
+  useEffect(() => setOverlay(undefined), [route]);
   const lastScope = useRef<Scope>('conversas');
   if (route.kind === 'list') lastScope.current = route.scope;
   const scope: Scope = route.kind === 'list' ? route.scope : lastScope.current;
@@ -121,8 +136,8 @@ export function Chats({ client }: { client: Client }) {
       routeRoom = undefined;
     }
   }
-  const detail: Detail | undefined = encryptionOpen
-    ? { kind: 'encryption' }
+  const detail: Detail | undefined = overlay
+    ? { kind: overlay }
     : route.kind === 'chat' && routeRoom
       ? { kind: 'room', room: routeRoom }
       : route.kind === 'settings'
@@ -133,8 +148,9 @@ export function Chats({ client }: { client: Client }) {
             ? { kind: 'request', roomId: route.roomId }
             : undefined;
   const setDetail = (next: Detail | undefined) => {
-    setEncryptionOpen(next?.kind === 'encryption');
-    if (next?.kind === 'encryption') return;
+    const kind = next?.kind;
+    setOverlay(kind === 'encryption' || kind === 'newChat' || kind === 'newGroup' ? kind : undefined);
+    if (kind === 'encryption' || kind === 'newChat' || kind === 'newGroup') return;
     if (!next) return navigate(showingArchived ? { kind: 'archived' } : { kind: 'list', scope });
     if (next.kind === 'room') return navigate({ kind: 'chat', roomId: next.room.id() });
     if (next.kind === 'request') return navigate({ kind: 'request', roomId: next.roomId });
@@ -172,7 +188,10 @@ export function Chats({ client }: { client: Client }) {
   const request = detail?.kind === 'request' ? summaries.find((c) => c.roomId === detail.roomId) : undefined;
   const showsDetail = detail !== undefined;
 
-  const openChat = useCallback((room: Room) => navigate({ kind: 'chat', roomId: room.id() }), []);
+  const openChat = useCallback((room: Room) => {
+    setOverlay(undefined);
+    navigate({ kind: 'chat', roomId: room.id() });
+  }, []);
   useDesktopNotifications(summaries, open?.id(), ownUserId, openChat);
   const page =
     detail?.kind === 'room'
@@ -192,7 +211,9 @@ export function Chats({ client }: { client: Client }) {
     detail?.kind === 'settings' ||
       detail?.kind === 'requests' ||
       detail?.kind === 'request' ||
-      detail?.kind === 'encryption',
+      detail?.kind === 'encryption' ||
+      detail?.kind === 'newChat' ||
+      detail?.kind === 'newGroup',
   );
   // Keyboard: Cmd or Ctrl+K finds a chat; Alt+Up and Alt+Down open the chat above or below the open one.
   const listed = useRef<ChatSummary[]>([]);
@@ -234,7 +255,16 @@ export function Chats({ client }: { client: Client }) {
           className={`${showsDetail ? 'hidden md:flex' : 'flex'} min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface-base md:w-[360px] md:shrink-0 md:border-r md:border-line-subtle`}
         >
           {/* The navigation bar: the toolbar row with its glass button, then the large title. */}
-          <div className="flex h-11 shrink-0 items-center justify-end px-2">
+          <div className="flex h-11 shrink-0 items-center justify-end gap-2 px-2">
+            {/* Nova conversa (the apps' create button): the person search, with Novo grupo at its top. */}
+            <button
+              className={`grid size-11 place-items-center rounded-full ${overlay === 'newChat' || overlay === 'newGroup' ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}
+              aria-label={s('bipe_action_start_chat')}
+              title={s('bipe_action_start_chat')}
+              onClick={() => setDetail({ kind: 'newChat' })}
+            >
+              <Icon path={pencilSimple} size={22} />
+            </button>
             {/* Settings for this browser; sign out lives there, in Sua conta. */}
             <button
               className={`grid size-11 place-items-center rounded-full ${detail?.kind === 'settings' ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}
@@ -363,7 +393,26 @@ export function Chats({ client }: { client: Client }) {
           </ul>
         </aside>
         <main className={`${showsDetail ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col overflow-hidden`}>
-          {detail?.kind === 'encryption' ? (
+          {detail?.kind === 'newChat' ? (
+            <NewChat
+              chats={summaries}
+              onOpen={(roomId) => {
+                setOverlay(undefined);
+                navigate({ kind: 'chat', roomId });
+              }}
+              onNewGroup={() => setDetail({ kind: 'newGroup' })}
+              onClose={() => setDetail(undefined)}
+            />
+          ) : detail?.kind === 'newGroup' ? (
+            <NewGroup
+              chats={summaries}
+              onOpen={(roomId) => {
+                setOverlay(undefined);
+                navigate({ kind: 'chat', roomId });
+              }}
+              onClose={() => setDetail({ kind: 'newChat' })}
+            />
+          ) : detail?.kind === 'encryption' ? (
             <EncryptionSheet state={encryption} onClose={() => setDetail(undefined)} />
           ) : detail?.kind === 'settings' ? (
             <Settings
