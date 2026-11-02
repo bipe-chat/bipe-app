@@ -8,11 +8,11 @@
 // such row is left out. The root rows are the iPhone Settings layout: a 29 px accent.fill tile with an
 // 18 px ink.onAccent glyph, the title and a chevron.
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useClient } from './media';
 import { caretRight, chatCircle, bell, info, lockSimple, userCircle } from './phosphor/icons';
 import { settings } from './registries';
-import { signOutOfBrowser } from './sdk';
+import { useAccounts } from './accounts-context';
 import { Alert } from './ui/Alert';
 import { RecoveryState, VerificationState } from './generated/matrix_sdk_ffi';
 import { EncryptionSheet, useEncryptionState } from './Encryption';
@@ -167,13 +167,14 @@ export function Settings({
 }
 
 function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
-  const [signingOut, setSigningOut] = useState(false);
+  const [signingOut, setSigningOut] = useState<'one' | 'all'>();
+  const accountCount = useAccounts().accounts.list.length;
   const [showsEncryption, setShowsEncryption] = useState(false);
   const encryption = useEncryptionState(useClient());
   if (showsEncryption) return <EncryptionSheet state={encryption} onClose={() => setShowsEncryption(false)} />;
   return (
     <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
-      {signingOut && <SignOutAlert onClose={() => setSigningOut(false)} />}
+      {signingOut && <SignOutAlert all={signingOut === 'all'} onClose={() => setSigningOut(undefined)} />}
       <NavBar title={s(key(group.title))} onBack={onBack} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
         {webSections(group).map((section) => (
@@ -218,15 +219,30 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
                   </a>
                 </Row>
               ) : (
-                <Row key={row.key}>
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 py-1 text-left text-body text-trust-danger-ink"
-                    onClick={() => setSigningOut(true)}
-                  >
-                    {s(key(row.title))}
-                  </button>
-                </Row>
+                <Fragment key={row.key}>
+                  <Row>
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 py-1 text-left text-body text-trust-danger-ink"
+                      onClick={() => setSigningOut('one')}
+                    >
+                      {s(key(row.title))}
+                    </button>
+                  </Row>
+                  {/* ADR 0225: a browser that holds several accounts offers to sign out of all of them. */}
+                  {accountCount > 1 && (
+                    <Row>
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 py-1 text-left text-body text-trust-danger-ink"
+                        onClick={() => setSigningOut('all')}
+                      >
+                        {/* TODO(string): bipe_web_sign_out_all, "Sair de todas as contas deste navegador". */}
+                        {SIGN_OUT_ALL}
+                      </button>
+                    </Row>
+                  )}
+                </Fragment>
               ),
             )}
           </Section>
@@ -248,8 +264,11 @@ function footerOf(section: ReturnType<typeof webSections>[number]): string | und
  * message keys (Encryption.isLastDevice) and the account has no recovery key. The phone's ways-back list is
  * about getting the account back on a phone; a browser comes back by scanning a new code, so it is left out.
  */
-function SignOutAlert({ onClose }: { onClose: () => void }) {
+const SIGN_OUT_ALL = 'Sair de todas as contas deste navegador';
+
+function SignOutAlert({ all, onClose }: { all: boolean; onClose: () => void }) {
   const client = useClient();
+  const accounts = useAccounts();
   const [onlyCopy, setOnlyCopy] = useState(false);
   const [phase, setPhase] = useState<'confirm' | 'signingOut' | 'failed'>('confirm');
   useEffect(() => {
@@ -265,13 +284,13 @@ function SignOutAlert({ onClose }: { onClose: () => void }) {
   }, [client]);
   return (
     <Alert
-      title={s('bipe_account_sign_out')}
-      action={phase === 'signingOut' ? s('bipe_app_signing_out') : s('bipe_account_sign_out')}
+      title={all ? SIGN_OUT_ALL : s('bipe_account_sign_out')}
+      action={phase === 'signingOut' ? s('bipe_app_signing_out') : all ? SIGN_OUT_ALL : s('bipe_account_sign_out')}
       busy={phase === 'signingOut'}
       onCancel={onClose}
       onAction={() => {
         setPhase('signingOut');
-        signOutOfBrowser(client).catch((e: unknown) => {
+        (all ? accounts.signOutAll() : accounts.signOut()).catch((e: unknown) => {
           console.warn('[trace] sign-out failed', e);
           setPhase('failed');
         });

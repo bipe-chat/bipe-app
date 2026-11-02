@@ -121,3 +121,15 @@ export class BipeApi {
     return r?.facts.find((f) => f.user_id === userId);
   }
 }
+
+const apis = new WeakMap<Client, BipeApi>();
+
+/** The API of one account's client, made once per client. */
+export function apiFor(client: Client): BipeApi {
+  let api = apis.get(client);
+  if (!api) {
+    api = new BipeApi(client);
+    apis.set(client, api);
+  }
+  return api;
+}

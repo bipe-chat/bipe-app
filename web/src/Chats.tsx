@@ -24,6 +24,8 @@ import {
   type RoomListEntriesWithDynamicAdaptersResultLike as RoomListEntriesWithDynamicAdaptersResult,
   type SyncServiceLike as SyncService,
 } from './generated/matrix_sdk_ffi';
+import { useAccounts } from './accounts-context';
+import { AccountSwitcher } from './AccountSwitcher';
 import { NewChat, NewGroup } from './NewChat';
 import {
   archive as archiveIcon,
@@ -204,6 +206,20 @@ export function Chats({ client }: { client: Client }) {
             ? s('bipe_settings_section')
             : undefined;
   useTabTitle(chatsBadge + groupsBadge, page);
+  // The switcher shows each account's last known name, photo and unread badge (ADR 0225 point 4).
+  const { remember } = useAccounts();
+  useEffect(() => {
+    if (sync.kind === 'ready') remember({ unread: chatsBadge + groupsBadge });
+  }, [chatsBadge, groupsBadge, sync.kind, remember]);
+  useEffect(() => {
+    let stopped = false;
+    Promise.all([client.displayName().catch(() => undefined), client.avatarUrl().catch(() => undefined)]).then(
+      ([name, avatarUrl]) => !stopped && remember({ name: name ?? undefined, avatarUrl: avatarUrl ?? undefined }),
+    );
+    return () => {
+      stopped = true;
+    };
+  }, [client, remember]);
   const [permission, askPermission] = useNotificationPermission();
   // Escape closes the settings and request screens (the chat info and viewers handle their own).
   useEscape(
@@ -255,7 +271,9 @@ export function Chats({ client }: { client: Client }) {
           className={`${showsDetail ? 'hidden md:flex' : 'flex'} min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface-base md:w-[360px] md:shrink-0 md:border-r md:border-line-subtle`}
         >
           {/* The navigation bar: the toolbar row with its glass button, then the large title. */}
-          <div className="flex h-11 shrink-0 items-center justify-end gap-2 px-2">
+          <div className="flex h-11 shrink-0 items-center gap-2 px-2">
+            <AccountSwitcher />
+            <span className="flex-1" />
             {/* Nova conversa (the apps' create button): the person search, with Novo grupo at its top. */}
             <button
               className={`grid size-11 place-items-center rounded-full ${overlay === 'newChat' || overlay === 'newGroup' ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}

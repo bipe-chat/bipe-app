@@ -2,8 +2,9 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// The browser's secrets for the account: the Matrix session (tokens, user, device) and the passphrase of the
-// SDK stores, both encrypted at rest with one browser key. One account per browser (ADR 0121).
+// The browser's secrets for its accounts: per account the Matrix session (tokens, user, device) and the
+// passphrase of its SDK stores, and the list of accounts, all encrypted at rest with one browser key. Several
+// accounts per browser (ADR 0225); no account reads another's records.
 //
 // Why this design (bipe-chat/bipe#903 follow-up, item C):
 // - The SDK keeps the account's state, message keys and media in IndexedDB. Without a passphrase those
@@ -25,9 +26,11 @@ const DB = 'bipe-web-session';
 const VERSION = 2;
 const SESSION = 'session';
 const KEYS = 'keys';
-const SESSION_KEY = 'current';
 const DEVICE_KEY = 'device';
-const PASSPHRASE = 'passphrase';
+const ACCOUNTS_KEY = 'accounts';
+/** The record keys of the first account, from before several accounts (#381): kept, so nobody signs in again. */
+export const FIRST_SESSION_KEY = 'current';
+export const FIRST_PASSPHRASE_KEY = 'passphrase';
 
 type Bytes = Uint8Array<ArrayBuffer>;
 type Sealed = { v: 2; iv: Bytes; data: ArrayBuffer };
@@ -83,37 +86,50 @@ function isSealed(value: unknown): value is Sealed {
   return typeof value === 'object' && value !== null && (value as { v?: unknown }).v === 2;
 }
 
-/** The passphrase of the SDK stores, as base64 of 32 random bytes; made once per browser. */
-export async function storePassphrase(): Promise<string> {
-  const saved = await run<unknown>(KEYS, 'readonly', (s) => s.get(PASSPHRASE));
+/** The passphrase of one account's SDK stores, as base64 of 32 random bytes; made on first use. */
+export async function storePassphrase(passphraseKey: string): Promise<string> {
+  const saved = await run<unknown>(KEYS, 'readonly', (s) => s.get(passphraseKey));
   let raw: Bytes;
   if (isSealed(saved)) {
     raw = await unseal(saved);
   } else {
     raw = crypto.getRandomValues(new Uint8Array(32));
     const sealed = await seal(raw);
-    await run<void>(KEYS, 'readwrite', (s) => s.put(sealed, PASSPHRASE));
+    await run<void>(KEYS, 'readwrite', (s) => s.put(sealed, passphraseKey));
   }
   return btoa(String.fromCharCode(...raw));
 }
 
 export type Loaded<T> = { kind: 'none' } | { kind: 'legacy' } | { kind: 'session'; session: T };
 
-/** The saved session. A record from before encryption comes back as legacy. */
-export async function loadSession<T>(): Promise<Loaded<T>> {
-  const saved = await run<unknown>(SESSION, 'readonly', (s) => s.get(SESSION_KEY));
+async function loadSealed<T>(store: string, key: string): Promise<Loaded<T>> {
+  const saved = await run<unknown>(store, 'readonly', (s) => s.get(key));
   if (saved === undefined) return { kind: 'none' };
   if (!isSealed(saved)) return { kind: 'legacy' };
   const json = new TextDecoder().decode(await unseal(saved));
   return { kind: 'session', session: JSON.parse(json) as T };
 }
 
-export async function saveSession<T>(session: T): Promise<void> {
-  const sealed = await seal(new TextEncoder().encode(JSON.stringify(session)));
-  await run<void>(SESSION, 'readwrite', (s) => s.put(sealed, SESSION_KEY));
+async function saveSealed<T>(store: string, key: string, value: T): Promise<void> {
+  const sealed = await seal(new TextEncoder().encode(JSON.stringify(value)));
+  await run<void>(store, 'readwrite', (s) => s.put(sealed, key));
 }
 
-/** Deletes the session, the passphrase and the browser key: the next sign-in makes new ones. */
+/** One account's saved session. A record from before encryption comes back as legacy. */
+export const loadSession = <T>(sessionKey: string) => loadSealed<T>(SESSION, sessionKey);
+export const saveSession = <T>(sessionKey: string, session: T) => saveSealed(SESSION, sessionKey, session);
+
+/** The list of accounts in this browser (sdk.ts Accounts). */
+export const loadAccounts = <T>() => loadSealed<T>(SESSION, ACCOUNTS_KEY);
+export const saveAccounts = <T>(accounts: T) => saveSealed(SESSION, ACCOUNTS_KEY, accounts);
+
+/** Deletes one account's session and passphrase. */
+export async function deleteSecrets(sessionKey: string, passphraseKey: string): Promise<void> {
+  await run<void>(SESSION, 'readwrite', (s) => s.delete(sessionKey));
+  await run<void>(KEYS, 'readwrite', (s) => s.delete(passphraseKey));
+}
+
+/** Deletes every session, passphrase, the account list and the browser key: the next sign-in makes new ones. */
 export async function clearSecrets(): Promise<void> {
   await run<void>(SESSION, 'readwrite', (s) => s.clear());
   await run<void>(KEYS, 'readwrite', (s) => s.clear());

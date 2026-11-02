@@ -15,7 +15,7 @@ import {
   type CheckCodeSenderLike as CheckCodeSender,
   type ClientLike as Client,
 } from './generated/matrix_sdk_ffi';
-import { newClient, oauthConfiguration, rememberSession } from './sdk';
+import { newClient, oauthConfiguration, type Slot } from './sdk';
 import { pending, s } from './ui/i18n';
 import { Spinner } from './ui/Spinner';
 import { describe } from './util';
@@ -23,7 +23,25 @@ import { describe } from './util';
 // The steps (bipe_web_signin_*): ready shows the three instructions beside the code; scanned asks for the
 // check code; then approve on the phone, keys, done.
 type Step = 'starting' | 'ready' | 'checkCode' | 'approve' | 'keys' | 'expired' | 'done';
-export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m: string) => void }) {
+// slot: the new account's empty slot. onCancel: Adicionar conta from an account goes back to it.
+export function QrLogin({
+  slot,
+  onDone,
+  onError,
+  onCancel,
+}: {
+  slot: Slot;
+  onDone: (c: Client) => void;
+  onError: (m: string) => void;
+  onCancel?: () => void;
+}) {
+  const cancelled = useRef(false);
+  useEffect(
+    () => () => {
+      cancelled.current = true;
+    },
+    [],
+  );
   const canvas = useRef<HTMLCanvasElement>(null);
   const [step, setStep] = useState<Step>('starting');
   const [qr, setQr] = useState<ArrayBuffer>();
@@ -41,7 +59,7 @@ export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onEr
     // Expired). Before the phone scans it, make a new code instead of failing.
     let scanned = false;
     const attempt = async (): Promise<Client> => {
-      const client = await newClient();
+      const client = await newClient(slot);
       const handler = client.newLoginWithQrCodeHandler(oauthConfiguration());
       await handler.generate({
         onUpdate(state) {
@@ -70,8 +88,7 @@ export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onEr
       for (;;) {
         try {
           const client = await attempt();
-          await rememberSession(client);
-          onDone(client);
+          if (!cancelled.current) onDone(client);
           return;
         } catch (e) {
           if (scanned || !/\b(NotFound|Expired)\b/.test(describe(e))) throw e;
@@ -80,7 +97,7 @@ export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onEr
         }
       }
     })().catch((e) => onError(describe(e)));
-  }, [onDone, onError]);
+  }, [onDone, onError, slot]);
 
   useEffect(() => {
     const target = canvas.current;
@@ -100,7 +117,19 @@ export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onEr
   const showsQr = qr !== undefined && !wasScanned;
 
   return (
-    <section className="flex h-full flex-col items-center overflow-y-auto p-4">
+    <section className="relative flex h-full flex-col items-center overflow-y-auto p-4">
+      {onCancel && (
+        <button
+          type="button"
+          className="absolute top-2 left-2 min-h-11 px-3 text-body text-accent-ink"
+          onClick={() => {
+            cancelled.current = true;
+            onCancel();
+          }}
+        >
+          {s('bipe_app_cancel')}
+        </button>
+      )}
       <div className="my-auto flex w-full max-w-[860px] flex-col items-center gap-8 md:flex-row md:items-center md:justify-center">
         {step === 'ready' ? (
           <div className="flex max-w-[400px] flex-col gap-5">
