@@ -1665,6 +1665,10 @@
    "accessibility": {
     "pt": "https://bipe.chat/acessibilidade/",
     "en": "https://bipe.chat/en/accessibility/"
+   },
+   "versions": {
+    "pt": "https://bipe.chat/versoes/",
+    "en": "https://bipe.chat/en/versions/"
    }
   },
   "groups": [
@@ -2045,6 +2049,12 @@
         "key": "licenses",
         "title": "bipe_help_licenses",
         "kind": "link"
+       },
+       {
+        "key": "versions",
+        "title": "bipe_help_versions",
+        "kind": "url",
+        "url": "versions"
        }
       ]
      }
@@ -4651,7 +4661,7 @@
    "bipe_account_old_messages_footer": "Aprove este celular para ver suas conversas antigas aqui.",
    "bipe_linked_devices_title": "Aparelhos conectados",
    "bipe_linked_devices_link_computer": "Conectar um computador",
-   "bipe_linked_devices_footer": "Abra chat.bipe.net.br no computador e leia o código com este celular.",
+   "bipe_linked_devices_footer": "Abra web.bipe.chat no computador e leia o código com este celular.",
    "bipe_linked_devices_empty": "Nenhum outro aparelho está conectado à sua conta.",
    "bipe_linked_devices_last_used": "Último uso: %1$s",
    "bipe_linked_devices_unknown_name": "Aparelho sem nome",
@@ -4661,7 +4671,7 @@
    "bipe_linked_devices_sign_out_biometric": "Confirme que é você para desconectar um aparelho.",
    "bipe_linked_devices_error": "Não deu para carregar os aparelhos. Tente de novo.",
    "bipe_link_computer_warning_title": "Este computador vai ter acesso a todas as suas conversas",
-   "bipe_link_computer_warning_body": "Quem usar o computador pode ler suas mensagens e mandar mensagens no seu nome. Continue só se o computador for seu e se foi você que abriu chat.bipe.net.br nele.",
+   "bipe_link_computer_warning_body": "Quem usar o computador pode ler suas mensagens e mandar mensagens no seu nome. Continue só se o computador for seu e se foi você que abriu web.bipe.chat nele.",
    "bipe_link_computer_warning_scam": "Se alguém pediu para você ler este código, pare. É golpe.",
    "bipe_link_computer_continue": "Continuar",
    "bipe_link_computer_biometric": "Confirme que é você para conectar um computador.",
@@ -4681,12 +4691,12 @@
    "bipe_link_computer_create_pin": "Criar senha",
    "bipe_link_computer_done": "Computador conectado.",
    "bipe_app_link_computer_scan_title": "Leia o código do computador",
-   "bipe_app_link_computer_scan_body": "Aponte a câmera para o QR code que aparece em chat.bipe.net.br.",
+   "bipe_app_link_computer_scan_body": "Aponte a câmera para o QR code que aparece em web.bipe.chat.",
    "bipe_app_link_computer_connecting": "Conectando ao computador…",
    "bipe_app_link_computer_check_code_title": "Digite este número no computador",
    "bipe_app_link_computer_check_code_body": "O computador pede este número para ter certeza de que está conectado a este celular.",
-   "bipe_app_link_computer_not_bipe_code": "Este código não é do chat.bipe.net.br. Abra o site no computador e leia o código que aparece lá.",
-   "bipe_app_link_computer_expired": "O código do computador venceu. Recarregue chat.bipe.net.br e leia o código novo.",
+   "bipe_app_link_computer_not_bipe_code": "Este código não é do web.bipe.chat. Abra o site no computador e leia o código que aparece lá.",
+   "bipe_app_link_computer_expired": "O código do computador venceu. Recarregue web.bipe.chat e leia o código novo.",
    "bipe_app_link_computer_insecure": "Não deu para fazer uma conexão segura com o computador. Leia o código de novo.",
    "bipe_app_link_computer_needs_approval": "Este celular precisa de aprovação antes de conectar um computador. Aprove o celular e tente de novo.",
    "bipe_app_link_computer_stopped": "A conexão parou. Nada mudou na sua conta.",
@@ -4816,6 +4826,7 @@
    "bipe_help_terms": "Termos de uso",
    "bipe_help_privacy": "Política de privacidade",
    "bipe_help_licenses": "Licenças de código aberto",
+   "bipe_help_versions": "Histórico de versões",
    "bipe_help_version": "Versão %1$s",
    "bipe_help_device_id_copied": "ID do aparelho copiado",
    "bipe_profile_display_name": "Seu nome",
@@ -6830,7 +6841,7 @@
    "bipe_account_old_messages_footer": "Approve this phone to see your old chats here.",
    "bipe_linked_devices_title": "Linked devices",
    "bipe_linked_devices_link_computer": "Link a computer",
-   "bipe_linked_devices_footer": "Open chat.bipe.net.br on the computer and scan the code with this phone.",
+   "bipe_linked_devices_footer": "Open web.bipe.chat on the computer and scan the code with this phone.",
    "bipe_linked_devices_empty": "No other device is linked to your account.",
    "bipe_linked_devices_last_used": "Last used: %1$s",
    "bipe_linked_devices_unknown_name": "Unnamed device",
@@ -6840,7 +6851,7 @@
    "bipe_linked_devices_sign_out_biometric": "Confirm it's you to sign out a device.",
    "bipe_linked_devices_error": "Couldn't load the devices. Try again.",
    "bipe_link_computer_warning_title": "This computer will get access to all your chats",
-   "bipe_link_computer_warning_body": "Anyone at the computer can read your messages and send messages as you. Only continue if the computer is yours and you opened chat.bipe.net.br on it.",
+   "bipe_link_computer_warning_body": "Anyone at the computer can read your messages and send messages as you. Only continue if the computer is yours and you opened web.bipe.chat on it.",
    "bipe_link_computer_warning_scam": "If someone asked you to scan this code, stop. It's a scam.",
    "bipe_link_computer_continue": "Continue",
    "bipe_link_computer_biometric": "Confirm it's you to link a computer.",
@@ -6860,12 +6871,12 @@
    "bipe_link_computer_create_pin": "Create PIN",
    "bipe_link_computer_done": "Computer linked.",
    "bipe_app_link_computer_scan_title": "Scan the code on the computer",
-   "bipe_app_link_computer_scan_body": "Point the camera at the QR code on chat.bipe.net.br.",
+   "bipe_app_link_computer_scan_body": "Point the camera at the QR code on web.bipe.chat.",
    "bipe_app_link_computer_connecting": "Connecting to the computer…",
    "bipe_app_link_computer_check_code_title": "Type this number on the computer",
    "bipe_app_link_computer_check_code_body": "The computer asks for it to make sure it's connected to this phone.",
-   "bipe_app_link_computer_not_bipe_code": "This isn't a code from chat.bipe.net.br. Open the site on the computer and scan the code there.",
-   "bipe_app_link_computer_expired": "The code on the computer expired. Reload chat.bipe.net.br and scan the new code.",
+   "bipe_app_link_computer_not_bipe_code": "This isn't a code from web.bipe.chat. Open the site on the computer and scan the code there.",
+   "bipe_app_link_computer_expired": "The code on the computer expired. Reload web.bipe.chat and scan the new code.",
    "bipe_app_link_computer_insecure": "Couldn't make a safe connection to the computer. Scan the code again.",
    "bipe_app_link_computer_needs_approval": "This phone needs approval before it can link a computer. Approve it, then try again.",
    "bipe_app_link_computer_stopped": "The link stopped. Nothing changed on your account.",
@@ -6995,6 +7006,7 @@
    "bipe_help_terms": "Terms of use",
    "bipe_help_privacy": "Privacy policy",
    "bipe_help_licenses": "Open source licences",
+   "bipe_help_versions": "Version history",
    "bipe_help_version": "Version %1$s",
    "bipe_help_device_id_copied": "Device ID copied",
    "bipe_profile_display_name": "Your name",

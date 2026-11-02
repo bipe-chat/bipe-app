@@ -2642,6 +2642,8 @@ public enum BipeStrings {
 
     public static var helpLicenses: String { NSLocalizedString("bipe_help_licenses", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var helpVersions: String { NSLocalizedString("bipe_help_versions", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static func helpVersion(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_help_version", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
