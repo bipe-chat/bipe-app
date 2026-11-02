@@ -50,7 +50,7 @@ fun accountAsks(session: AccountSession, openProfileEdit: () -> Unit): Map<BipeC
         notifications.markDone()
         changed++
     }
-    val finishOsTheft = {
+    val finishOsTheft: () -> Unit = {
         osTheft.markDone()
         changed++
     }
