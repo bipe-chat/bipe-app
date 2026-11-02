@@ -1006,6 +1006,8 @@
 "bipe_link_computer_done" = "Computer linked.";
 "bipe_app_link_computer_scan_title" = "Scan the code on the computer";
 "bipe_app_link_computer_scan_body" = "Point the camera at the QR code on web.bipe.chat.";
+"bipe_app_link_computer_account" = "Sign in on the computer as";
+"bipe_app_link_computer_switch_account" = "Switch account";
 "bipe_app_link_computer_connecting" = "Connecting to the computer…";
 "bipe_app_link_computer_check_code_title" = "Type this number on the computer";
 "bipe_app_link_computer_check_code_body" = "The computer asks for it to make sure it's connected to this phone.";
@@ -2167,6 +2169,14 @@
 "bipe_year_recap_partial" = "This phone does not have the whole year's history, so the numbers count only what is on it.";
 "bipe_year_recap_empty" = "You have not sent any messages in %1$@ yet.";
 "bipe_year_recap_share_note" = "The image shows only the numbers, with no names of people or chats.";
+"bipe_year_recap_by_month" = "Messages by month";
+"bipe_year_recap_by_hour" = "Time of day";
+"bipe_year_recap_by_weekday" = "Day of the week";
+"bipe_year_recap_chart_peak" = "Peak: %1$@";
+"bipe_year_recap_peak_dawn" = "You chat most late at night";
+"bipe_year_recap_peak_morning" = "You chat most in the morning";
+"bipe_year_recap_peak_afternoon" = "You chat most in the afternoon";
+"bipe_year_recap_peak_evening" = "You chat most in the evening";
 "bipe_invite_joined_push_title" = "Invite accepted";
 "bipe_invite_joined_push_body" = "Someone joined Bipe with your invite. Tap to see who.";
 "bipe_group_link_joined_push_title" = "New group member";

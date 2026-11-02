@@ -1008,6 +1008,8 @@
     <string name="bipe_link_computer_done">Computador conectado.</string>
     <string name="bipe_app_link_computer_scan_title">Leia o código do computador</string>
     <string name="bipe_app_link_computer_scan_body">Aponte a câmera para o QR code que aparece em web.bipe.chat.</string>
+    <string name="bipe_app_link_computer_account">Entrar no computador como</string>
+    <string name="bipe_app_link_computer_switch_account">Trocar de conta</string>
     <string name="bipe_app_link_computer_connecting">Conectando ao computador…</string>
     <string name="bipe_app_link_computer_check_code_title">Digite este número no computador</string>
     <string name="bipe_app_link_computer_check_code_body">O computador pede este número para ter certeza de que está conectado a este celular.</string>
@@ -2169,6 +2171,14 @@
     <string name="bipe_year_recap_partial">Este celular não tem o histórico do ano inteiro, então os números contam só o que está nele.</string>
     <string name="bipe_year_recap_empty">Você ainda não mandou mensagens em %1$s.</string>
     <string name="bipe_year_recap_share_note">A imagem mostra só os números, sem nomes de pessoas ou conversas.</string>
+    <string name="bipe_year_recap_by_month">Mensagens por mês</string>
+    <string name="bipe_year_recap_by_hour">Hora do dia</string>
+    <string name="bipe_year_recap_by_weekday">Dia da semana</string>
+    <string name="bipe_year_recap_chart_peak">Pico: %1$s</string>
+    <string name="bipe_year_recap_peak_dawn">Você conversa mais de madrugada</string>
+    <string name="bipe_year_recap_peak_morning">Você conversa mais de manhã</string>
+    <string name="bipe_year_recap_peak_afternoon">Você conversa mais à tarde</string>
+    <string name="bipe_year_recap_peak_evening">Você conversa mais à noite</string>
     <string name="bipe_invite_joined_push_title">Convite aceito</string>
     <string name="bipe_invite_joined_push_body">Alguém entrou no Bipe com seu convite. Toque para ver quem.</string>
     <string name="bipe_group_link_joined_push_title">Novo membro no grupo</string>
