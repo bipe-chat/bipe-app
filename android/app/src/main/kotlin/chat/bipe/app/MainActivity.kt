@@ -4,10 +4,11 @@
 
 package chat.bipe.app
 
+import chat.bipe.app.common.BipeToastHost
+import chat.bipe.app.common.BipeToasts
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.Bundle
-import android.widget.Toast
 import chat.bipe.app.share.ShareIntake
 import chat.bipe.app.voce.GovbrInbox
 import chat.bipe.shared.R
@@ -47,8 +48,10 @@ class MainActivity : ComponentActivity() {
         accountStart.start()
         setContent {
             BipeTheme {
-                AppLockGate {
-                    AccountStartScreen(accountStart, (application as BipeApplication).appTabs)
+                BipeToastHost {
+                    AppLockGate {
+                        AccountStartScreen(accountStart, (application as BipeApplication).appTabs)
+                    }
                 }
             }
         }
@@ -74,7 +77,7 @@ class MainActivity : ComponentActivity() {
         app.scope.launch {
             val share = ShareIntake.read(applicationContext, shared)
             if (share == null) {
-                Toast.makeText(applicationContext, R.string.bipe_share_nothing, Toast.LENGTH_LONG).show()
+                BipeToasts.show(applicationContext, R.string.bipe_share_nothing)
                 return@launch
             }
             accountStart.start()
@@ -82,7 +85,7 @@ class MainActivity : ComponentActivity() {
             // FAILED keeps the share: the account is on the phone, and the share expires by itself.
             if (phase == AccountStartModel.Phase.NO_ACCOUNT) {
                 share.delete()
-                Toast.makeText(applicationContext, R.string.bipe_share_signed_out, Toast.LENGTH_LONG).show()
+                BipeToasts.show(applicationContext, R.string.bipe_share_signed_out)
                 return@launch
             }
             app.pendingShare.value?.delete()

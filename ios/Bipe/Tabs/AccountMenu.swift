@@ -7,98 +7,127 @@ import Phosphor
 import SwiftUI
 import UIKit
 
-/// Spec account-switcher (ADR 0086, 0135): the native context menu a long press on Você opens. Each account shows its
-/// photo or initial, name and @handle, with the system check on the current one; then Nova conta (spec account-new).
-@MainActor
-enum AccountMenu {
-    static func make(model: AppTabsModel, onNewAccount: @escaping () -> Void) -> UIMenu {
-        // One inline group per owner and its company accounts (bipe-chat/bipe#444).
-        var groups: [[UIAction]] = []
-        for account in model.accounts {
-            let action = UIAction(title: account.displayName,
-                                  subtitle: account.ownerName.map(BipeStrings.accountCompanyOwner) ?? account.handleLine,
-                                  image: model.menuAvatar(of: account),
-                                  state: account.isCurrent ? .on : .off) { _ in
-                model.switchAccount(to: account.userId)
-            }
-            if account.ownerId != nil, !groups.isEmpty {
-                groups[groups.count - 1].append(action)
-            } else {
-                groups.append([action])
-            }
-        }
-        var children: [UIMenuElement] = groups.map { UIMenu(options: .displayInline, children: $0) }
-        children.append(UIAction(title: BipeStrings.appAccountNew, image: UIImage(systemName: "plus")) { _ in
-            onNewAccount()
-        })
-        return UIMenu(title: BipeStrings.appAccountSwitcherTitle, children: children)
-    }
-}
-
 struct AccountRows: View {
     @ObservedObject var model: AppTabsModel
     let fallbackMedia: MediaLoader
+    /// A tap on the current account: no switch, the switcher only closes.
+    var onCurrent: () -> Void = {}
 
     var body: some View {
         ForEach(model.accounts) { account in
-            Button { model.switchAccount(to: account.userId) } label: {
+            Button {
+                if account.isCurrent { onCurrent() } else { model.switchAccount(to: account.userId) }
+            } label: {
                 HStack(spacing: 12) {
                     AvatarView(name: account.displayName, mxcUrl: account.avatarUrl,
-                               loader: model.media(for: account.userId) ?? fallbackMedia,
+                               loader: model.media(for: account.userId) ?? fallbackMedia, size: 32,
                                userId: account.userId, isCompany: account.isCompany)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(account.displayName).foregroundStyle(BipeColor.inkPrimary)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(account.displayName).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
                         if let owner = account.ownerName {
-                            Text(BipeStrings.accountCompanyOwner(owner)).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                            Text(BipeStrings.accountCompanyOwner(owner)).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                                .lineLimit(1)
                         } else if let handle = account.handleLine {
-                            Text(verbatim: handle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                            Text(verbatim: handle).font(.footnote).foregroundStyle(BipeColor.inkSecondary).lineLimit(1)
                         }
                     }
-                    Spacer()
+                    Spacer(minLength: 8)
                     if account.hasUnread {
                         Circle().fill(BipeColor.accentFill).frame(width: 8, height: 8).accessibilityHidden(true)
                     }
                     if account.isCurrent {
-                        PhosphorIcon.check.image.resizable().frame(width: 24, height: 24)
+                        PhosphorIcon.check.image.resizable().frame(width: 20, height: 20)
                             .foregroundStyle(BipeColor.accentInk).accessibilityHidden(true)
                     }
                 }
-                .padding(.vertical, 4)
                 // A company account sits under its owner (bipe-chat/bipe#444).
-                .padding(.leading, account.ownerId == nil ? 0 : 24)
+                .padding(.leading, account.ownerId == nil ? 16 : 40)
+                .padding(.trailing, 16)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .accessibilityAddTraits(account.isCurrent ? .isSelected : [])
             .accessibilityLabel(account.isCurrent ? BipeStrings.appAccountCurrentA11y(account.displayName) : account.displayName)
         }
     }
 }
 
-/// Spec account-switcher in the popover a hold on the Você tab opens when the iOS tab bar holds back the native menu:
-/// the same accounts, then Nova conta. A switch or Nova conta closes it.
-struct AccountSwitcherPopover: View {
+/// Spec account-switcher: the panel a hold on Você opens. It sits right on top of the tab bar and is as wide as it, so it
+/// reads as part of the bar (MZ, 2 Nov 2026; it replaces the native menu of ADR 0135, which floated high and had wide
+/// rows). Every account, then Nova conta. A tap outside, a switch or Nova conta closes it.
+struct AccountSwitcherPanel: View {
     @ObservedObject var model: AppTabsModel
     let fallbackMedia: MediaLoader
+    /// From the panel's bottom edge to the bottom of the screen: just above the tab bar.
+    let bottomInset: CGFloat
     let onNewAccount: () -> Void
-    @Environment(\.dismiss) private var dismiss
+    let close: () -> Void
+    @State private var shows = false
 
     var body: some View {
-        List {
-            Section {
-                AccountRows(model: model, fallbackMedia: fallbackMedia)
-                Button {
-                    dismiss()
-                    onNewAccount()
-                } label: {
-                    Label { Text(BipeStrings.appAccountNew) } icon: { Image(systemName: "plus") }
-                }
-                .listRowBackground(BipeColor.surfaceRaised)
-            } header: {
-                Text(BipeStrings.appAccountSwitcherTitle)
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(shows ? 0.08 : 0)
+                .contentShape(Rectangle())
+                .onTapGesture { hide() }
+                .accessibilityHidden(true)
+            if shows {
+                panel
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, bottomInset)
+                    .transition(UIAccessibility.isReduceMotionEnabled ? .opacity : .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(BipeColor.surfaceBase)
-        .onChange(of: model.accounts.first(where: \.isCurrent)?.userId) { _, _ in dismiss() }
+        .ignoresSafeArea()
+        .onAppear { withBipeAnimation(.snappy(duration: 0.25)) { shows = true } }
+        .onChange(of: model.accounts.first(where: \.isCurrent)?.userId) { _, _ in hide() }
+        .accessibilityAction(.escape) { hide() }
+    }
+
+    private var panel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(BipeStrings.appAccountSwitcherTitle)
+                .font(.footnote)
+                .foregroundStyle(BipeColor.inkSecondary)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 2)
+                .accessibilityAddTraits(.isHeader)
+            AccountRows(model: model, fallbackMedia: fallbackMedia, onCurrent: { hide() })
+            Divider().padding(.leading, 60)
+            Button { hide(then: onNewAccount) } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "plus").font(.body.weight(.medium)).frame(width: 32, height: 32)
+                    Text(BipeStrings.appAccountNew)
+                    Spacer()
+                }
+                .foregroundStyle(BipeColor.inkPrimary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.bottom, 6)
+        .modifier(PanelSurface())
+    }
+
+    private func hide(then next: @escaping () -> Void = {}) {
+        guard shows else { return }
+        withBipeAnimation(.snappy(duration: 0.2)) { shows = false } completion: {
+            close()
+            next()
+        }
+    }
+}
+
+/// The tab bar's own glass on iOS 26 and later, else the system material (solid under Reduce Transparency).
+private struct PanelSurface: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            content.glassEffect(.regular, in: .rect(cornerRadius: 28))
+        } else {
+            content.bipeMaterial(in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        }
     }
 }

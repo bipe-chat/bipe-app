@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -72,30 +75,34 @@ fun AppTabsScreen(
         searchFrom = state.selectedTab
         tabs.selectTab(AppTabsModel.Tab.SEARCH)
     }
+    // Spec app-tabs: an open chat or thread hides the tab bar.
+    val tabBarHiders = remember { mutableIntStateOf(0) }
     Column(modifier = Modifier.fillMaxSize().testTag(BipeScreen.APP_TABS.id)) {
         Box(modifier = Modifier.weight(1f)) {
-            when (state.selectedTab) {
-                AppTabsModel.Tab.CONVERSAS ->
-                    ChatListScreen(chatList, if (state.isCompany) ChatScope.TODAS else ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        prompts = prompts,
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
-                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
-                        api = tabs.start.api, onBringPeople = onBringPeople)
-                AppTabsModel.Tab.GRUPOS ->
-                    ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        prompts = prompts,
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
-                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
-                // Spec business-tools: the company account's Trabalho tab, in the place of Grupos.
-                AppTabsModel.Tab.TRABALHO -> WorkScreen(session, chatList, onOpenChat)
-                AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
-                AppTabsModel.Tab.SEARCH -> {
-                    BackHandler { tabs.selectTab(searchFrom) }
-                    ChatSearchScreen(search, media, onOpenChat, onFindHandle, onOpenMessage)
+            CompositionLocalProvider(LocalTabBarHiders provides tabBarHiders) {
+                when (state.selectedTab) {
+                    AppTabsModel.Tab.CONVERSAS ->
+                        ChatListScreen(chatList, if (state.isCompany) ChatScope.TODAS else ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
+                            prompts = prompts,
+                            onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
+                            requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
+                            api = tabs.start.api, onBringPeople = onBringPeople)
+                    AppTabsModel.Tab.GRUPOS ->
+                        ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
+                            prompts = prompts,
+                            onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
+                            requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
+                    // Spec business-tools: the company account's Trabalho tab, in the place of Grupos.
+                    AppTabsModel.Tab.TRABALHO -> WorkScreen(session, chatList, onOpenChat)
+                    AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
+                    AppTabsModel.Tab.SEARCH -> {
+                        BackHandler { tabs.selectTab(searchFrom) }
+                        ChatSearchScreen(search, media, onOpenChat, onFindHandle, onOpenMessage)
+                    }
                 }
             }
         }
-        BipeTabBar(
+        if (tabBarHiders.intValue == 0) BipeTabBar(
             state = state,
             onSelect = tabs::selectTab,
             onDoubleTapVoce = { if (tabs.doubleTapVoce()) view.bipeHaptic(BipeHaptic.Tick) },

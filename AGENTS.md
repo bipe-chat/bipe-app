@@ -124,6 +124,8 @@ adb install -r Bipe-Next-<n>.apk
 
 - One PR per issue. The PR covers iOS and Android together ([ADR 0031](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0031-platform-lockstep.md)).
 - The PR body links `bipe-chat/bipe#N`.
+- The iOS and Android build checks are not required checks on `main`, so `gh pr merge --auto` lands a PR with a red iOS or Android build. Before you turn on auto-merge, or when a build check fails after, read `gh pr checks <n>`. Never let a PR with a red build land. On 2 Nov 2026 #331 landed red and broke the iOS archive on `main`.
+- A "Regenerate from bipe-shared#N" commit carries the whole bipe-shared `main` output, not only PR N. It can bring in string or API changes that another open PR still has to follow (on 2 Nov 2026: `invitesShareMessage` got a second argument from bipe-shared#334, which bipe-app#329 follows). When your PR gets a regen commit, diff it, and wait for or merge the PR that follows those changes first.
 - The PR body carries a `Provenance:` line. The line names every source of the change: a spec id in bipe-shared `product/screens`, a Matrix spec section, a `matrix-sdk-ffi` API, an ADR, or a Bipe file. Example: `Provenance: bipe-shared product/screens/chat-list; Matrix spec client-server 10.2 (sync); matrix-sdk-ffi RoomListService`.
 
 ## Specs and generated files

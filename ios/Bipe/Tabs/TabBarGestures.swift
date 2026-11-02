@@ -7,19 +7,16 @@ import SwiftUI
 import UIKit
 
 /// Double tap and long press on the Você tab (ADR 0135). SwiftUI `Tab` has neither, so this finds the `UITabBar` of
-/// the enclosing tab bar controller and adds a double tap recognizer and a context menu interaction to it. A long press
-/// (hold) on Você opens the native account menu in place; neither cancels the tab bar's own taps, so a tap on Você
-/// still opens Você. The tab bar of iOS 26 and later has its own press-and-drag gesture, which can hold back the menu
-/// interaction's own press: a long press recognizer that runs at the same time then shows the same switcher as a popover
-/// anchored on the Você item (MZ decision 25 Oct 2026).
+/// the enclosing tab bar controller and adds a double tap and a long press recognizer to it. A long press (hold) on Você
+/// opens the account switcher panel right on top of the tab bar (MZ, 2 Nov 2026). A tap is not cancelled, so a tap on
+/// Você still opens Você; a recognized hold cancels the touch, so letting go does not open Você.
 struct TabBarGestures: UIViewRepresentable {
     /// The accessibility label of the Você tab item: it finds the item in the tab bar.
     let voceLabel: String
     let onDoubleTap: () -> Void
-    /// The account menu, built when the long press begins so it shows the latest accounts.
-    let menu: () -> UIMenu
-    /// The same switcher as a view, for the popover when the menu does not show.
-    let switcher: () -> AnyView
+    /// The switcher panel, built when the hold begins: the distance from its bottom edge to the bottom of the screen,
+    /// and the call that closes it.
+    let switcher: (_ bottomInset: CGFloat, _ close: @escaping () -> Void) -> AnyView
     /// Two or more accounts: the Você item gets the VoiceOver action that opens the switcher (spec app-tabs).
     var showsSwitchAction = false
 
@@ -36,7 +33,6 @@ struct TabBarGestures: UIViewRepresentable {
     func updateUIView(_ view: ProbeView, context: Context) {
         context.coordinator.voceLabel = voceLabel
         context.coordinator.onDoubleTap = onDoubleTap
-        context.coordinator.menu = menu
         context.coordinator.switcher = switcher
         context.coordinator.showsSwitchAction = showsSwitchAction
         view.install()
@@ -70,12 +66,10 @@ struct TabBarGestures: UIViewRepresentable {
         }
     }
 
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate, UIContextMenuInteractionDelegate,
-                             UIPopoverPresentationControllerDelegate {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var voceLabel = ""
         var onDoubleTap: () -> Void = {}
-        var menu: () -> UIMenu = { UIMenu(children: []) }
-        var switcher: () -> AnyView = { AnyView(EmptyView()) }
+        var switcher: (CGFloat, @escaping () -> Void) -> AnyView = { _, _ in AnyView(EmptyView()) }
         var showsSwitchAction = false
         private weak var tabBar: UITabBar?
         private lazy var doubleTap: UITapGestureRecognizer = {
@@ -89,28 +83,23 @@ struct TabBarGestures: UIViewRepresentable {
         private lazy var longPress: UILongPressGestureRecognizer = {
             let recognizer = UILongPressGestureRecognizer(target: self, action: #selector(didLongPress(_:)))
             recognizer.minimumPressDuration = 0.5
-            recognizer.cancelsTouchesInView = false
             recognizer.delaysTouchesEnded = false
             recognizer.delegate = self
             return recognizer
         }()
-        private lazy var menuInteraction = UIContextMenuInteraction(delegate: self)
-        private var menuShows = false
 
         func attach(to tabBar: UITabBar) {
             updateSwitchAction(in: tabBar)
             guard self.tabBar !== tabBar else { return }
             self.tabBar?.removeGestureRecognizer(doubleTap)
             self.tabBar?.removeGestureRecognizer(longPress)
-            self.tabBar?.removeInteraction(menuInteraction)
             tabBar.addGestureRecognizer(doubleTap)
             tabBar.addGestureRecognizer(longPress)
-            tabBar.addInteraction(menuInteraction)
             self.tabBar = tabBar
         }
 
         /// VoiceOver cannot hold, and Você has no account rows: the Você item carries a custom action that opens the
-        /// same switcher popover (spec app-tabs). Set again on each update, since the tab bar can rebuild its items.
+        /// same switcher panel (spec app-tabs). Set again on each update, since the tab bar can rebuild its items.
         private func updateSwitchAction(in tabBar: UITabBar) {
             guard let item = voceItem(in: tabBar) else { return }
             item.accessibilityCustomActions = showsSwitchAction
@@ -126,80 +115,23 @@ struct TabBarGestures: UIViewRepresentable {
             onDoubleTap()
         }
 
-        /// Shows the switcher popover when the interaction's own press did not open the menu (it shows by then).
         @objc private func didLongPress(_ recognizer: UILongPressGestureRecognizer) {
             guard recognizer.state == .began, isOnVoce(recognizer) else { return }
-            DispatchQueue.main.async { [weak self] in
-                guard let self, !self.menuShows else { return }
-                self.presentSwitcher()
-            }
+            presentSwitcher()
         }
 
+        /// The panel in a clear full-screen host, its bottom edge just above the tab bar.
         private func presentSwitcher() {
-            guard let tabBar, let item = voceItem(in: tabBar), var top = tabBar.window?.rootViewController else { return }
+            guard let tabBar, let window = tabBar.window, var top = window.rootViewController else { return }
             while let presented = top.presentedViewController { top = presented }
-            let host = UIHostingController(rootView: switcher())
-            host.modalPresentationStyle = .popover
-            host.preferredContentSize = CGSize(width: 320, height: 360)
-            if let popover = host.popoverPresentationController {
-                popover.sourceView = tabBar
-                popover.sourceRect = item.convert(item.bounds, to: tabBar)
-                popover.permittedArrowDirections = .down
-                popover.delegate = self
-            }
+            guard !(top is SwitcherHost) else { return }
+            let barTop = tabBar.convert(tabBar.bounds, to: window).minY
+            let host = SwitcherHost(rootView: AnyView(EmptyView()))
+            host.rootView = switcher(window.bounds.height - barTop + 4) { [weak host] in host?.dismiss(animated: false) }
+            host.modalPresentationStyle = .overFullScreen
+            host.view.backgroundColor = .clear
             BipeHaptic.hold.play()
-            top.present(host, animated: true)
-        }
-
-        /// A popover on iPhone too: the switcher opens in place, on the tab.
-        func adaptivePresentationStyle(for controller: UIPresentationController,
-                                       traitCollection: UITraitCollection) -> UIModalPresentationStyle {
-            .none
-        }
-
-        func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
-                                    willDisplayMenuFor configuration: UIContextMenuConfiguration,
-                                    animator: (any UIContextMenuInteractionAnimating)?) {
-            menuShows = true
-        }
-
-        func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
-                                    willEndFor configuration: UIContextMenuConfiguration,
-                                    animator: (any UIContextMenuInteractionAnimating)?) {
-            menuShows = false
-        }
-
-        func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
-                                    configurationForMenuAtLocation location: CGPoint) -> UIContextMenuConfiguration? {
-            guard let tabBar, let item = voceItem(in: tabBar),
-                  item.convert(item.bounds, to: tabBar).contains(location) else { return nil }
-            return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in self?.menu() }
-        }
-
-        /// The menu opens from the Você item and lifts nothing: a snapshot of the item floated above the iOS 26 glass
-        /// tab bar, away from the item. A clear view on the item's frame anchors the menu; the tab bar shows the press.
-        func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
-                                    configuration: UIContextMenuConfiguration,
-                                    highlightPreviewForItemWithIdentifier identifier: any NSCopying) -> UITargetedPreview? {
-            anchorPreview()
-        }
-
-        func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
-                                    configuration: UIContextMenuConfiguration,
-                                    dismissalPreviewForItemWithIdentifier identifier: any NSCopying) -> UITargetedPreview? {
-            anchorPreview()
-        }
-
-        private func anchorPreview() -> UITargetedPreview? {
-            guard let tabBar, tabBar.window != nil, let item = voceItem(in: tabBar) else { return nil }
-            let frame = item.convert(item.bounds, to: tabBar)
-            let anchor = UIView(frame: CGRect(origin: .zero, size: frame.size))
-            anchor.backgroundColor = .clear
-            let parameters = UIPreviewParameters()
-            parameters.backgroundColor = .clear
-            parameters.shadowPath = UIBezierPath()
-            return UITargetedPreview(view: anchor, parameters: parameters,
-                                     target: UIPreviewTarget(container: tabBar, center: CGPoint(x: frame.midX, y: frame.midY)))
+            top.present(host, animated: false)
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
@@ -240,3 +172,5 @@ struct TabBarGestures: UIViewRepresentable {
         }
     }
 }
+
+private final class SwitcherHost: UIHostingController<AnyView> {}

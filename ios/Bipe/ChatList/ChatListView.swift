@@ -34,7 +34,7 @@ struct ChatListView: View {
     // Specs bring-people and bring-people-reminder (bipe-chat/bipe#752).
     @StateObject private var bringPeople: BringPeopleModel
     @State private var showsBringPeople = false
-    @State private var bringShare: ShareItem?
+    @State private var bringShare: BipeInviteShare?
     @StateObject private var requests: ChatRequestsModel
     @StateObject private var banner: RemoteBannerModel
     @Environment(\.scenePhase) private var scenePhase
@@ -190,7 +190,7 @@ struct ChatListView: View {
                             openInvites: { Task { try? await Task.sleep(for: .milliseconds(500)); showingInvites = true } })
         }
         .sheet(item: $bringShare) { item in
-            ShareSheet(items: [BipeStrings.invitesShareMessage(item.url.absoluteString)]).ignoresSafeArea()
+            ShareSheet(items: [item.message]).ignoresSafeArea()
         }
         .sheet(isPresented: $showsPinChange) {
             NavigationStack { PinChangeView(model: settings) }
@@ -390,7 +390,7 @@ struct ChatListView: View {
         case .bringPeopleReminder:
             if let reminder = bringPeople.reminder {
                 BringPeopleReminderCard(model: bringPeople, reminder: reminder,
-                                        share: { bringShare = ShareItem(url: $0) },
+                                        share: { bringShare = $0 },
                                         openInvites: { showingInvites = true })
             }
         case .profile, .invite, .notes:

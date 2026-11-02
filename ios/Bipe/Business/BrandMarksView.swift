@@ -53,6 +53,7 @@ struct BrandMarksView: View {
     @State private var label = BipeRegistries.brandMarkLabels.first ?? ""
     @State private var created: BipeCreatedBrandMarkInvite?
     @State private var problem: Problem?
+    @State private var toast: String?
     @State private var working = false
     @State private var removing: BipeHeldBrandMark?
     @State private var ending: BipeGrantedBrandMark?
@@ -75,6 +76,7 @@ struct BrandMarksView: View {
         .listStyle(.insetGrouped)
         .navigationTitle(BipeStrings.brandMarksTitle)
         .accessibilityIdentifier(BipeScreen.brandMarks.rawValue)
+        .toast($toast)
         .disabled(working)
         .task { await load() }
         .sheet(item: $offer) { offer in
@@ -157,7 +159,10 @@ struct BrandMarksView: View {
                             .font(.footnote)
                             .foregroundStyle(BipeColor.inkSecondary)
                         HStack {
-                            Button(BipeStrings.appCopy) { UIPasteboard.general.string = created.link }
+                            Button(BipeStrings.appCopy) {
+                                UIPasteboard.general.string = created.link
+                                toast = BipeStrings.appCopied
+                            }
                                 .buttonStyle(.borderless)
                             Spacer()
                             ShareLink(item: created.link) {

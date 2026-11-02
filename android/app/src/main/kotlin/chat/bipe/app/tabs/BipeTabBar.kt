@@ -25,6 +25,9 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -37,6 +40,19 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import chat.bipe.shared.R
 import java.text.NumberFormat
+
+/** The number of open screens that hide the tab bar (spec app-tabs: an open chat or thread). null outside app-tabs. */
+internal val LocalTabBarHiders = compositionLocalOf<MutableIntState?> { null }
+
+/** Hides the tab bar of app-tabs while this composable is on screen. */
+@Composable
+fun HidesTabBar() {
+    val hiders = LocalTabBarHiders.current ?: return
+    DisposableEffect(hiders) {
+        hiders.intValue += 1
+        onDispose { hiders.intValue -= 1 }
+    }
+}
 
 /**
  * The bottom bar of app-tabs: the standard Material 3 navigation bar with Material icons; the system sets their size,
