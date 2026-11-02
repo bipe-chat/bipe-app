@@ -102,7 +102,10 @@ function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    (async () => {
+    // The rendezvous code expires unscanned (HumanQrLoginError.NotFound or
+    // Expired). Before the phone scans it, make a new code instead of failing.
+    let scanned = false;
+    const attempt = async (): Promise<Client> => {
       const client = await newClient();
       const handler = client.newLoginWithQrCodeHandler(oauthConfiguration());
       await handler.generate({
@@ -111,6 +114,7 @@ function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m
             setQr(state.inner.qrCode.toBytes());
             setStep('Scan this code with Bipe on your phone.');
           } else if (GeneratedQrLoginProgress.QrScanned.instanceOf(state)) {
+            scanned = true;
             setCheckSender(state.inner.checkCodeSender);
             setStep('Type the two-digit code that your phone shows.');
           } else if (GeneratedQrLoginProgress.WaitingForToken.instanceOf(state)) {
@@ -123,8 +127,21 @@ function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m
           }
         },
       });
-      await rememberSession(client);
-      onDone(client);
+      return client;
+    };
+    (async () => {
+      for (;;) {
+        try {
+          const client = await attempt();
+          await rememberSession(client);
+          onDone(client);
+          return;
+        } catch (e) {
+          if (scanned || !/\b(NotFound|Expired)\b/.test(describe(e))) throw e;
+          setQr(undefined);
+          setStep('The code expired. Making a new one…');
+        }
+      }
     })().catch((e) => onError(describe(e)));
   }, [onDone, onError]);
 
