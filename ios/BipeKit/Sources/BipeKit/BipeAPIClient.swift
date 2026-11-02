@@ -853,6 +853,8 @@ public struct BipeInvitePreview: Decodable, Sendable {
     public let valid: Bool
     /// Without @. Only for a valid personal invite whose inviter has a handle.
     public let inviterHandle: String?
+    /// Only for a valid invite: when it stops working.
+    public let expiresAt: Date?
 }
 
 /// `GET /v1/group-links/{code}` (ADR 0184).

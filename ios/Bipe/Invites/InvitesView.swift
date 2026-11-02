@@ -95,7 +95,7 @@ struct InvitesView: View {
     /// Long press on a pending invite: share and copy need the link on this phone; rename and revoke work everywhere.
     @ViewBuilder private func pendingActions(_ invite: BipeInvite) -> some View {
         if let url = model.links[invite.id] {
-            ShareLink(item: BipeStrings.invitesShareMessage(url.absoluteString)) {
+            ShareLink(item: BipeInviteShare(url: url, expiresAt: invite.expiresAt).message) {
                 Label(BipeStrings.appShare, systemImage: "square.and.arrow.up")
             }
             Button { UIPasteboard.general.url = url; toast = BipeStrings.appCopied } label: {
@@ -275,7 +275,7 @@ struct InviteCardView: View {
                         Text(BipeStrings.invitesExpires(card.expiresAt.formatted(date: .abbreviated, time: .omitted)))
                             .font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                         VStack(spacing: 12) {
-                            ShareLink(item: BipeStrings.invitesShareMessage(url.absoluteString)) {
+                            ShareLink(item: BipeInviteShare(url: url, expiresAt: card.expiresAt).message) {
                                 Label { Text(BipeStrings.appShare) } icon: { PhosphorIcon.shareNetwork.image.resizable().frame(width: 20, height: 20) }
                                     .frame(maxWidth: .infinity)
                             }
