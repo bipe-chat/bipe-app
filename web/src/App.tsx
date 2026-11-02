@@ -165,7 +165,7 @@ function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m
           onSubmit={(e) => {
             e.preventDefault();
             const n = Number(code);
-            if (!Number.isInteger(n) || n < 0 || n > 99 || code === "") return;
+            if (!Number.isInteger(n) || n < 0 || n > 99 || code === '') return;
             // The SDK takes the check code once; a second send fails with CheckCodeAlreadySent
             // and must not end a sign-in that is still waiting for the phone.
             if (sent.current) return;
