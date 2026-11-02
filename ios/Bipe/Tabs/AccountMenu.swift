@@ -75,11 +75,11 @@ struct AccountSwitcherPanel: View {
                 panel
                     .padding(.horizontal, 20)
                     .padding(.bottom, bottomInset)
-                    .transition(.scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
+                    .transition(UIAccessibility.isReduceMotionEnabled ? .opacity : .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
             }
         }
         .ignoresSafeArea()
-        .onAppear { withAnimation(.snappy(duration: 0.25)) { shows = true } }
+        .onAppear { withBipeAnimation(.snappy(duration: 0.25)) { shows = true } }
         .onChange(of: model.accounts.first(where: \.isCurrent)?.userId) { _, _ in hide() }
         .accessibilityAction(.escape) { hide() }
     }
@@ -114,20 +114,20 @@ struct AccountSwitcherPanel: View {
 
     private func hide(then next: @escaping () -> Void = {}) {
         guard shows else { return }
-        withAnimation(.snappy(duration: 0.2)) { shows = false } completion: {
+        withBipeAnimation(.snappy(duration: 0.2)) { shows = false } completion: {
             close()
             next()
         }
     }
 }
 
-/// The tab bar's own glass on iOS 26 and later, else the system material.
+/// The tab bar's own glass on iOS 26 and later, else the system material (solid under Reduce Transparency).
 private struct PanelSurface: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 26, *) {
             content.glassEffect(.regular, in: .rect(cornerRadius: 28))
         } else {
-            content.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            content.bipeMaterial(in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         }
     }
 }
