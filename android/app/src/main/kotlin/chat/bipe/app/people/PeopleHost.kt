@@ -83,8 +83,6 @@ class PeopleNavigation(
     val newGroup: ((String) -> Unit)? = null,
     /** person-profile notifications (fromDm): chat-notifications for the DM. */
     val notifications: ((String) -> Unit)? = null,
-    /** person-profile deleteChat (fromDm): dm-delete for the DM. */
-    val deleteChat: ((String) -> Unit)? = null,
     /** contacts invite: opens invites. */
     val invite: (() -> Unit)? = null,
 )
@@ -109,7 +107,6 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
                 openReport = { roomId -> navigation.push(PeopleRoute.ReportChat(roomId, isDm = true, otherUserId = route.userId)) },
                 newGroup = navigation.newGroup,
                 notifications = navigation.notifications,
-                deleteChat = navigation.deleteChat,
             ),
             onBack = navigation.pop,
         )

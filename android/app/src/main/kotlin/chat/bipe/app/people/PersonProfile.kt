@@ -247,7 +247,6 @@ data class PersonProfileRoutes(
     val openReport: (roomId: String) -> Unit,
     val newGroup: ((String) -> Unit)? = null,
     val notifications: ((String) -> Unit)? = null,
-    val deleteChat: ((String) -> Unit)? = null,
 )
 
 /** Spec person-profile. From a DM header it is also the DM's info screen (ADR 0141). */
@@ -314,14 +313,11 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
                         chat.bipe.app.media.ChatMediaGalleryScreen(people.session, people.media, dmRoomId, onClose = { showsGallery = false })
                     }
                 }
-                if (fromDm && dmRoomId != null && (routes.notifications != null || routes.deleteChat != null)) {
+                // Spec person-profile notes: a DM is archived from the chat menu, never deleted here.
+                val notifications = routes.notifications
+                if (fromDm && dmRoomId != null && notifications != null) {
                     RowGroup {
-                        routes.notifications?.let { open ->
-                            IconRow(PhosphorIcon.BELL, stringResource(R.string.bipe_settings_notifications)) { open(dmRoomId) }
-                        }
-                        routes.deleteChat?.let { open ->
-                            IconRow(PhosphorIcon.TRASH, stringResource(R.string.bipe_dm_delete_action), tint = colors.trustDangerInk) { open(dmRoomId) }
-                        }
+                        IconRow(PhosphorIcon.BELL, stringResource(R.string.bipe_settings_notifications)) { notifications(dmRoomId) }
                     }
                 }
                 RowGroup {

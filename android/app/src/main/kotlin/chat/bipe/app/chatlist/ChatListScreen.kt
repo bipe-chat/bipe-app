@@ -402,7 +402,6 @@ fun HomeScreen(
                             }
                         },
                         notifications = groups.openNotifications,
-                        deleteChat = groups.deleteDm,
                         invite = groups.openInvites,
                     )
                     PeopleScreen(peopleStack.last(), people, withGroups)

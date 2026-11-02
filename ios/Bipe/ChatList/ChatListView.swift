@@ -61,7 +61,6 @@ struct ChatListView: View {
     @State private var newGroupWith: [Person]?
     @State private var notificationsRoom: String?
     @State private var groupDetailsRoom: String?
-    @State private var deletingFromProfile: String?
     private let scope: ChatScope
     private let api: BipeAPIClient
     @State private var showingInvites = false
@@ -235,9 +234,6 @@ struct ChatListView: View {
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button(BipeStrings.appClose) { groupDetailsRoom = nil } } }
             }
         }
-        .sheet(item: Binding(get: { deletingFromProfile.map(RoomSheetId.init) }, set: { deletingFromProfile = $0?.id })) { room in
-            DmDeleteView(session: model.session, roomId: room.id) { closeDetail() }
-        }
         // invite-signed-in: the inviter's chat or profile-link-open, in the Conversas list.
         .onReceive(TabsLinks.shared.$link.compactMap { $0 }) { link in
             guard scope != .grupos else { return }
@@ -321,8 +317,7 @@ struct ChatListView: View {
                                           newGroupWith = [person ?? Person(userId: userId, displayName: nil, avatarUrl: nil)]
                                       }
                                   },
-                                  notifications: { notificationsRoom = $0 },
-                                  deleteChat: { deletingFromProfile = $0 }))
+                                  notifications: { notificationsRoom = $0 }))
         case .profileEdit:
             ProfileEditView(people: people)
         case .publicProfile:
