@@ -100,8 +100,9 @@ import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.groups.ClearedChatsStore
-import chat.bipe.app.groups.DmDeleteSheet
 import chat.bipe.app.calls.CallHeaderButtons
+import chat.bipe.app.calls.CallMenuItems
+import chat.bipe.app.calls.rememberCallStart
 import chat.bipe.app.calls.OngoingCallBar
 import chat.bipe.app.media.MediaViewer
 import chat.bipe.app.media.VoicePlayer
@@ -135,9 +136,10 @@ fun ChatTimelineScreen(
     onBack: () -> Unit,
     onOpenGroupDetails: (() -> Unit)? = null,
     onHistoryHelp: () -> Unit = {},
-    onDmDeleted: () -> Unit = onBack,
     /** Opens the chat's info: person-profile for a DM. */
     onOpenInfo: (() -> Unit)? = null,
+    /** Spec chat-archive from the DM chat menu. null: no archive row. */
+    archive: ChatArchiveToggle? = null,
     /** The account's people service, for the blocked bar of a DM (block-person). null: no bar. */
     people: PeopleService? = null,
     /** Opens another chat in place of this one (a new DM from inviteAgain). */
@@ -246,13 +248,6 @@ fun ChatTimelineScreen(
     }
     // Spec business-chat-bar: the tools and booking cards of a DM with a company (or, on a company, with a customer).
     val business = rememberBusinessChatTools(session, media, peerUserId.takeIf { isDm })
-    var deletingDm by rememberSaveable { mutableStateOf(false) }
-    if (deletingDm) {
-        DmDeleteSheet(session, roomId, onDismiss = { deletingDm = false }, onDeleted = {
-            deletingDm = false
-            onDmDeleted()
-        })
-    }
     var creatingPoll by rememberSaveable { mutableStateOf(false) }
     var openPollId by rememberSaveable { mutableStateOf<String?>(null) }
     if (creatingPoll) {
@@ -331,7 +326,7 @@ fun ChatTimelineScreen(
                             if (isDm) BrandMarkHeaderLine(peerUserId, people?.brandMarks)
                         }
                     }
-                    if (threadRoot == null) CallHeaderButtons(model, session, roomName)
+                    if (threadRoot == null && !isDm) CallHeaderButtons(model, session, roomName)
                     if (isGroup && onOpenGroupDetails != null && threadRoot == null) {
                         // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
                         Box {
@@ -360,17 +355,18 @@ fun ChatTimelineScreen(
                             }
                         }
                     }
-                    if (isDm) {
+                    if (isDm && threadRoot == null) {
+                        // Spec chat-timeline notes: the DM chat menu is the one button on the right. Archive, never delete.
+                        val startCall = rememberCallStart(model, session, roomName)
                         Box {
                             IconButton(onClick = { dmMenu = true }) {
                                 Icon(
-                                    painterResource(PhosphorIcon.INFO.drawable),
-                                    contentDescription = stringResource(R.string.bipe_dm_details_title),
+                                    painterResource(PhosphorIcon.DOTS_THREE.drawable),
+                                    contentDescription = stringResource(R.string.bipe_chat_actions),
                                     tint = colors.glyphPrimary,
                                 )
                             }
                             DropdownMenu(expanded = dmMenu, onDismissRequest = { dmMenu = false }) {
-                                business?.MenuItems(dismiss = { dmMenu = false })
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.bipe_search_in_chat)) },
                                     onClick = {
@@ -378,13 +374,27 @@ fun ChatTimelineScreen(
                                         searchingChat = true
                                     },
                                 )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) },
-                                    onClick = {
-                                        dmMenu = false
-                                        deletingDm = true
-                                    },
-                                )
+                                onOpenInfo?.let { open ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.bipe_dm_details_title)) },
+                                        onClick = {
+                                            dmMenu = false
+                                            open()
+                                        },
+                                    )
+                                }
+                                CallMenuItems(startCall, dismiss = { dmMenu = false })
+                                business?.MenuItems(dismiss = { dmMenu = false })
+                                archive?.let { toggle ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(if (toggle.archived) R.string.bipe_unarchive_action else R.string.bipe_archive_action)) },
+                                        onClick = {
+                                            dmMenu = false
+                                            toggle.set(!toggle.archived)
+                                            if (!toggle.archived) onBack()
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -985,3 +995,6 @@ private fun CvmStopOrderCard(people: PeopleService, userId: String) {
         Text(stringResource(R.string.bipe_cvm_stop_order_card, date), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = colors.trustDangerInk)
     }
 }
+
+/** Spec chat-archive from the DM chat menu: the chat's archived state in the account's archive, and its setter. */
+class ChatArchiveToggle(val archived: Boolean, val set: (Boolean) -> Unit)

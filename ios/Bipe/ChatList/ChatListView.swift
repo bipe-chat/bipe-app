@@ -671,13 +671,23 @@ struct ChatListView: View {
 
     private func timeline(_ roomId: String, focusEventId: String? = nil) -> some View {
         ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people,
-                         focusEventId: focusEventId) {
+                         focusEventId: focusEventId, openInfo: {
             Task {
                 if let userId = await people.dmPartner(roomId: roomId) {
                     path.append(PeopleRoute.person(userId: userId, fromDm: true))
                 }
             }
-        }
+        }, archive: archiveToggle(roomId))
+    }
+
+    /// Spec chat-archive from the DM chat menu, on the same archive as the row action.
+    private func archiveToggle(_ roomId: String) -> ChatArchiveToggle {
+        ChatArchiveToggle(
+            isArchived: { [archive] in archive.markers[roomId] != nil },
+            set: { [model, archive] archived in
+                if let chat = model.chats.first(where: { $0.roomId == roomId }) { archive.set(chat, archived: archived) }
+            }
+        )
     }
 
     private var requestsScreen: some View {

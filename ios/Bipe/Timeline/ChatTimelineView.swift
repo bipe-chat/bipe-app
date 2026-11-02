@@ -12,7 +12,8 @@ import UIKit
 struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     @Environment(\.scenePhase) private var scenePhase
-    @State private var deletingDm = false
+    /// The account's call focus, for the call rows of the DM chat menu.
+    @State private var callFocus: String?
     /// Spec chat-timeline searchInChat (bipe-chat/bipe#861).
     @State private var searchingChat = false
     /// The group menu's group-details row.
@@ -41,6 +42,8 @@ struct ChatTimelineView: View {
     private let media: MediaLoader
     /// Opens the chat's info: person-profile for a DM.
     private let openInfo: (() -> Void)?
+    /// Spec chat-archive from the DM chat menu. nil: no archive row.
+    private let archive: ChatArchiveToggle?
     private let session: AccountSession
     private let roomId: String
     /// Spec chat-search openMessage: the message to scroll to after the chat opens.
@@ -50,7 +53,8 @@ struct ChatTimelineView: View {
 
     /// threadRoot: the thread view of spec threads (bipe#667); nil for the main timeline.
     init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil,
-         focusEventId: String? = nil, threadRoot: String? = nil, openInfo: (() -> Void)? = nil) {
+         focusEventId: String? = nil, threadRoot: String? = nil, openInfo: (() -> Void)? = nil,
+         archive: ChatArchiveToggle? = nil) {
         self.focusEventId = focusEventId
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId, threadRoot: threadRoot))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
@@ -58,6 +62,7 @@ struct ChatTimelineView: View {
         _identity = StateObject(wrappedValue: IdentityChangeModel(session: session, roomId: roomId))
         self.media = media
         self.openInfo = openInfo
+        self.archive = archive
         self.session = session
         self.roomId = roomId
         self.people = people
@@ -175,8 +180,10 @@ struct ChatTimelineView: View {
                     if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
                     else { chatTitle }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    CallHeaderButtons(model: model, session: session)
+                if !model.isDm {
+                    ToolbarItem(placement: .primaryAction) {
+                        CallHeaderButtons(model: model, session: session)
+                    }
                 }
             }
             if model.isGroup, model.threadRoot == nil {
@@ -195,27 +202,37 @@ struct ChatTimelineView: View {
                     .labelStyle(.iconOnly)
                 }
             }
-            if model.isDm {
+            if model.isDm, model.threadRoot == nil {
                 ToolbarItem(placement: .primaryAction) {
+                    // Spec chat-timeline notes: the DM chat menu is the one button on the right. Archive, never delete.
                     Menu {
-                        BusinessMenuItems(model: business)
                         Button { searchingChat = true } label: { Label(BipeStrings.searchInChat, systemImage: "magnifyingglass") }
-                        Button(BipeStrings.dmDeleteAction, role: .destructive) {
-                            deletingDm = true
+                        if let openInfo {
+                            Button(action: openInfo) { Label(BipeStrings.dmDetailsTitle, systemImage: "info.circle") }
+                        }
+                        CallMenuItems(model: model, session: session, focus: callFocus)
+                        BusinessMenuItems(model: business)
+                        if let archive {
+                            let archived = archive.isArchived()
+                            Button {
+                                archive.set(!archived)
+                                if !archived { closeChat() }
+                            } label: {
+                                Label(archived ? BipeStrings.unarchiveAction : BipeStrings.archiveAction,
+                                      systemImage: archived ? "tray.and.arrow.up" : "archivebox")
+                            }
                         }
                     } label: {
                         Label {
-                            Text(BipeStrings.dmDetailsTitle)
+                            Text(BipeStrings.chatActions)
                         } icon: {
-                            PhosphorIcon.info.toolbarImage(size: 22)
+                            PhosphorIcon.dotsThree.toolbarImage(size: 22)
                         }
                     }
                     .labelStyle(.iconOnly)
+                    .task(id: session.userId) { callFocus = await CallCenter.shared.focusUrl(for: session) }
                 }
             }
-        }
-        .sheet(isPresented: $deletingDm) {
-            DmDeleteView(session: session, roomId: roomId) { closeChat() }
         }
         .navigationDestination(isPresented: $showsGroupDetails) {
             GroupDetailsView(session: session, media: media, roomId: roomId)
@@ -789,4 +806,10 @@ private struct CvmStopOrderCard: View {
 /// The sheet item of spec threads openThread: the root event ID.
 private struct ThreadSheetId: Identifiable {
     let id: String
+}
+
+/// Spec chat-archive from the DM chat menu: reads and sets the chat's archived state in the account's archive.
+struct ChatArchiveToggle {
+    let isArchived: @MainActor () -> Bool
+    let set: @MainActor (Bool) -> Void
 }
