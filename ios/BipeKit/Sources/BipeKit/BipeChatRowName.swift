@@ -9,11 +9,11 @@ public enum BipeChatRowName {
     /// A DM passes its m.room.name (RoomInfo.rawName) as `dmRoomName`: a DM never shows it (ADR 0141).
     /// After the names: the peer's @handle, else `unnamed`. Never the Matrix ID or its localpart (People names).
     /// A group without m.room.name passes its heroes as `groupHeroes`: the SDK builds that name from display names,
-    /// which can be localparts, so the row names the heroes by the people-names rule.
+    /// which can be localparts, so when a hero has no real name the row names the heroes by the people-names rule.
     public static func resolve(roomID: String, sdkName: String?, peerName: String?, peerID: String?, unnamed: String,
                                dmRoomName: String? = nil, peerHandle: String? = nil,
                                groupHeroes: [(userID: String, displayName: String?)]? = nil) -> String {
-        if let groupHeroes, !groupHeroes.isEmpty {
+        if let groupHeroes, groupHeroes.contains(where: { realName($0.displayName, userID: $0.userID) == nil }) {
             return groupHeroes.map { person(userID: $0.userID, displayName: $0.displayName, handle: nil) }.joined(separator: ", ")
         }
         let roomName = dmRoomName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -55,9 +55,9 @@ public enum BipeChatRowName {
         return trimmed.split(separator: ":", maxSplits: 1).first.map(String.init) ?? trimmed
     }
 
-    /// "@localpart:server" or "!room:server": text that is an ID, not a name.
+    /// "@localpart:server", "!room:server" or "#alias:server": text that is an ID, not a name.
     static func isMatrixID(_ text: String) -> Bool {
-        guard let first = text.first, first == "@" || first == "!" else { return false }
+        guard let first = text.first, first == "@" || first == "!" || first == "#" else { return false }
         return text.contains(":") && !text.contains(" ")
     }
 }

@@ -9,8 +9,8 @@ object BipeChatRowName {
      * Missing heroes must not discard an explicit/computed SDK room name.
      * A DM passes its m.room.name (RoomInfo.rawName) as [dmRoomName]: a DM never shows it (ADR 0141).
      * After the names: the peer's @handle, else [unnamed]. Never the Matrix ID or its localpart (People names).
-     * A group without m.room.name passes its heroes (user ID, display name) as [groupHeroes]: the row names them by the
-     * people-names rule, each without a name as [noName].
+     * A group without m.room.name passes its heroes (user ID, display name) as [groupHeroes]: when a hero has no real
+     * name, the row names them by the people-names rule, each without a name as [noName].
      */
     fun resolve(
         roomId: String, sdkName: String?, peerName: String?, peerId: String?, unnamed: String,
@@ -18,7 +18,7 @@ object BipeChatRowName {
         noName: String = unnamed,
     ): String {
         // A group without m.room.name: the SDK builds the name from display names, which can be localparts.
-        if (!groupHeroes.isNullOrEmpty()) return groupHeroes.joinToString(", ") { (id, name) -> person(id, null, name, null, noName) }
+        if (groupHeroes != null && groupHeroes.any { (id, name) -> realName(name, id) == null }) return groupHeroes.joinToString(", ") { (id, name) -> person(id, null, name, null, noName) }
         val roomName = dmRoomName?.trim()
         val name = if (!roomName.isNullOrEmpty() && sdkName?.trim() == roomName) null else sdkName
         for (value in listOf(name, peerName)) {
@@ -55,7 +55,7 @@ object BipeChatRowName {
     /** The localpart of a Matrix ID, for comparison only: never a name to show. */
     internal fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
 
-    /** "@localpart:server" or "!room:server": text that is an ID, not a name. */
+    /** "@localpart:server", "!room:server" or "#alias:server": text that is an ID, not a name. */
     internal fun isMatrixId(text: String): Boolean =
-        (text.startsWith("@") || text.startsWith("!")) && ':' in text && ' ' !in text
+        (text.startsWith("@") || text.startsWith("!") || text.startsWith("#")) && ':' in text && ' ' !in text
 }
