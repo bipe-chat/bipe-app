@@ -102,9 +102,19 @@ function urlOf(name: string): string | undefined {
   return urls[name]?.[locale === 'en' ? 'en' : 'pt'];
 }
 
-export function Settings({ onClose }: { onClose: () => void }) {
+export function Settings({
+  group,
+  onGroup,
+  onClose,
+}: {
+  group?: string;
+  onGroup: (group: string | undefined) => void;
+  onClose: () => void;
+}) {
   const client = useClient();
-  const [open, setOpen] = useState<Group>();
+  // The open group comes from the URL (/ajustes/<group>).
+  const open = settings.groups.find((g) => g.key === group);
+  const setOpen = (g: Group | undefined) => onGroup(g?.key);
   const [me, setMe] = useState<{ name: string; avatarUrl?: string }>({ name: client.userId() });
   useEffect(() => {
     let stopped = false;

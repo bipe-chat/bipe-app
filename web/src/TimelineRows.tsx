@@ -26,6 +26,7 @@ import {
   clock,
   copy,
   dotsThree,
+  link,
   lockSimple,
   pencilSimple,
   smiley,
@@ -225,6 +226,7 @@ export type RowHandlers = {
   copy: (row: MessageRow) => void;
   loadReply: (eventId: string) => void;
   forward: (row: MessageRow) => void;
+  copyLink: (row: MessageRow) => void;
   moreReactions: (row: MessageRow) => void;
   senders: (row: MessageRow, pill: ReactionPill) => void;
   /** Spec read-receipts failed tick: send again (SendHandle.tryResend). */
@@ -281,6 +283,8 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
     });
   if (row.body === 'text' || row.media?.caption)
     actions.push({ label: s('bipe_app_copy'), icon: copy, run: () => on.copy(row) });
+  if (row.eventId)
+    actions.push({ label: s('bipe_app_message_action_copy_link'), icon: link, run: () => on.copyLink(row) });
   if (row.canDelete)
     actions.push({ label: s('bipe_app_message_action_delete'), icon: trash, danger: true, run: () => on.remove(row) });
   return (
@@ -345,7 +349,13 @@ function ReplyQuote({ reply, onLoad }: { reply: ReplyQuoteData; onLoad: (eventId
       type="button"
       className="flex min-w-0 gap-2 rounded-lg bg-surface-sunken/60 p-1.5 text-left text-caption"
       aria-label={s('bipe_a11y_open_original')}
-      onClick={() => document.getElementById(`ev-${reply.eventId}`)?.scrollIntoView({ block: 'center' })}
+      onClick={() => {
+        const el = document.getElementById(`ev-${reply.eventId}`);
+        if (!el) return;
+        el.scrollIntoView({ block: 'center' });
+        el.dataset.highlight = 'true';
+        setTimeout(() => delete el.dataset.highlight, 2000);
+      }}
     >
       <span className="w-[3px] shrink-0 rounded-[1.5px] bg-accent-fill" />
       <span className="flex min-w-0 flex-col gap-0.5">

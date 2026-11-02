@@ -28,6 +28,7 @@ import { archive as archiveIcon, bellSlash, caretLeft, gear, magnifyingGlass, us
 import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
 import { bannerDismissed, EncryptionBanner, EncryptionSheet, needsApproval, useEncryptionState } from './Encryption';
 import { isOfficial } from './registries';
+import { navigate, useRoute } from './router';
 import { useEscape } from './ui/keys';
 import { rowPreview, rowTime } from './row-preview';
 import { OfficialBadge } from './ui/List';
@@ -53,9 +54,15 @@ type Detail =
 
 export function Chats({ client }: { client: Client }) {
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [detail, setDetail] = useState<Detail>();
-  const [scope, setScope] = useState<Scope>('conversas');
-  const [showingArchived, setShowingArchived] = useState(false);
+  // The page comes from the URL (router.ts); the encryption sheet is an overlay without one.
+  const route = useRoute();
+  const [encryptionOpen, setEncryptionOpen] = useState(false);
+  const lastScope = useRef<Scope>('conversas');
+  if (route.kind === 'list') lastScope.current = route.scope;
+  const scope: Scope = route.kind === 'list' ? route.scope : lastScope.current;
+  const showingArchived = route.kind === 'archived';
+  const setScope = (next: Scope) => navigate({ kind: 'list', scope: next });
+  const setShowingArchived = (on: boolean) => navigate(on ? { kind: 'archived' } : { kind: 'list', scope });
   const [menu, setMenu] = useState<{ chat: ChatSummary; x: number; y: number }>();
   const [query, setQuery] = useState('');
   const [sync, setSync] = useState<SyncState>({ kind: 'starting' });
@@ -104,6 +111,49 @@ export function Chats({ client }: { client: Client }) {
     );
   }, [summaries, archive]);
 
+  // A chat link opens any room this account has: a loaded row, or the SDK's room beyond the loaded page.
+  const routeSummary = route.kind === 'chat' ? summaries.find((c) => c.roomId === route.roomId) : undefined;
+  let routeRoom: Room | undefined = routeSummary?.room;
+  if (route.kind === 'chat' && !routeRoom) {
+    try {
+      routeRoom = client.getRoom(route.roomId);
+    } catch {
+      routeRoom = undefined;
+    }
+  }
+  const detail: Detail | undefined = encryptionOpen
+    ? { kind: 'encryption' }
+    : route.kind === 'chat' && routeRoom
+      ? { kind: 'room', room: routeRoom }
+      : route.kind === 'settings'
+        ? { kind: 'settings' }
+        : route.kind === 'requests'
+          ? { kind: 'requests' }
+          : route.kind === 'request'
+            ? { kind: 'request', roomId: route.roomId }
+            : undefined;
+  const setDetail = (next: Detail | undefined) => {
+    setEncryptionOpen(next?.kind === 'encryption');
+    if (next?.kind === 'encryption') return;
+    if (!next) return navigate(showingArchived ? { kind: 'archived' } : { kind: 'list', scope });
+    if (next.kind === 'room') return navigate({ kind: 'chat', roomId: next.room.id() });
+    if (next.kind === 'request') return navigate({ kind: 'request', roomId: next.roomId });
+    navigate({ kind: next.kind });
+  };
+  // A dead or wrong link goes to the right page without an error: an invite to its request, a room this
+  // account does not have to the list.
+  useEffect(() => {
+    if (sync.kind !== 'ready') return;
+    if (route.kind === 'chat') {
+      if (routeSummary?.info && routeSummary.kind === 'request')
+        navigate({ kind: 'request', roomId: route.roomId }, true);
+      else if ((routeSummary?.info && routeSummary.kind === 'hidden') || !routeRoom)
+        navigate({ kind: 'list', scope: 'conversas' }, true);
+    } else if (route.kind === 'request') {
+      const r = summaries.find((c) => c.roomId === route.roomId);
+      if (r?.info && r.kind !== 'request') navigate({ kind: 'chat', roomId: route.roomId }, true);
+    }
+  }, [route, routeSummary, routeRoom, sync.kind, summaries]);
   const open = detail?.kind === 'room' ? detail.room : undefined;
   const openId = useRef<string>(undefined);
   openId.current = open?.id();
@@ -122,9 +172,19 @@ export function Chats({ client }: { client: Client }) {
   const request = detail?.kind === 'request' ? summaries.find((c) => c.roomId === detail.roomId) : undefined;
   const showsDetail = detail !== undefined;
 
-  const openChat = useCallback((room: Room) => setDetail({ kind: 'room', room }), []);
+  const openChat = useCallback((room: Room) => navigate({ kind: 'chat', roomId: room.id() }), []);
   useDesktopNotifications(summaries, open?.id(), ownUserId, openChat);
-  useTabTitle(chatsBadge + groupsBadge);
+  const page =
+    detail?.kind === 'room'
+      ? (routeSummary?.face.name ?? detail.room.displayName())
+      : route.kind === 'requests' || route.kind === 'request'
+        ? s('bipe_requests_title')
+        : route.kind === 'archived'
+          ? s('bipe_archived_title')
+          : route.kind === 'settings'
+            ? s('bipe_settings_section')
+            : undefined;
+  useTabTitle(chatsBadge + groupsBadge, page);
   const [permission, askPermission] = useNotificationPermission();
   // Escape closes the settings and request screens (the chat info and viewers handle their own).
   useEscape(
@@ -306,7 +366,11 @@ export function Chats({ client }: { client: Client }) {
           {detail?.kind === 'encryption' ? (
             <EncryptionSheet state={encryption} onClose={() => setDetail(undefined)} />
           ) : detail?.kind === 'settings' ? (
-            <Settings onClose={() => setDetail(undefined)} />
+            <Settings
+              group={route.kind === 'settings' ? route.group : undefined}
+              onGroup={(group) => navigate({ kind: 'settings', group })}
+              onClose={() => setDetail(undefined)}
+            />
           ) : detail?.kind === 'requests' ? (
             <RequestsList
               requests={requests}
@@ -322,7 +386,15 @@ export function Chats({ client }: { client: Client }) {
               onBack={() => setDetail({ kind: 'requests' })}
             />
           ) : open ? (
-            <RoomTimeline key={open.id()} room={open} chats={summaries} onBack={() => setDetail(undefined)} />
+            <RoomTimeline
+              key={open.id()}
+              room={open}
+              chats={summaries}
+              showsInfo={route.kind === 'chat' && route.info === true}
+              onInfo={(show) => navigate({ kind: 'chat', roomId: open.id(), info: show })}
+              focusEventId={route.kind === 'chat' ? route.eventId : undefined}
+              onBack={() => setDetail(undefined)}
+            />
           ) : (
             // A wide window with no chat open. The list beside it is the call to action, so no text here.
             <div className="grid flex-1 place-items-center bg-surface-base">

@@ -39,13 +39,28 @@ import {
 import type { ChatSummary } from './chat-model';
 import { EmojiPicker, ForwardSheet, forwardContentOf, ReactionSenders } from './MessageSheets';
 import type { ReactionPill } from './Reactions';
+import { messageLink } from './router';
 import { readReceiptsOn } from './Settings';
 import { applyDiffs, describe, type DiffVariants } from './util';
 
 // The composer's mode (specs message-reply, message-edit): a reply bar or an edit bar above the field.
 type Mode = { kind: 'reply'; row: MessageRow } | { kind: 'edit'; row: MessageRow } | undefined;
 
-export function RoomTimeline({ room, chats, onBack }: { room: Room; chats: ChatSummary[]; onBack: () => void }) {
+export function RoomTimeline({
+  room,
+  chats,
+  showsInfo,
+  onInfo,
+  focusEventId,
+  onBack,
+}: {
+  room: Room;
+  chats: ChatSummary[];
+  showsInfo: boolean;
+  onInfo: (show: boolean) => void;
+  focusEventId?: string;
+  onBack: () => void;
+}) {
   // The sheets of the message menu: forward, the emoji picker, who reacted.
   const [sheet, setSheet] = useState<
     | { kind: 'forward'; content: Record<string, unknown> }
@@ -58,7 +73,6 @@ export function RoomTimeline({ room, chats, onBack }: { room: Room; chats: ChatS
   // Files picked, pasted or dropped, waiting in the upload preview.
   const [pending, setPending] = useState<File[]>();
   const [dropping, setDropping] = useState(false);
-  const [showsInfo, setShowsInfo] = useState(false);
   const [mode, setMode] = useState<Mode>();
   const [mentions, setMentions] = useState<ComposerMention[]>([]);
   const [suggestionsHidden, setSuggestionsHidden] = useState(false);
@@ -118,6 +132,21 @@ export function RoomTimeline({ room, chats, onBack }: { room: Room; chats: ChatS
   // With the read receipts switch off, DMs show no read ticks either (bipe_privacy_read_receipts_footer).
   const rows = face.isDirect && readReceiptsOn() ? markRead(itemRows) : itemRows;
   const typing = useTyping(room, ownUserId);
+  // A message link (/c/<room>/e/<event>): load older pages until the message is there, then bring it into
+  // view and mark it for a moment, as the reply quote jump does.
+  const focused = useRef<string>(undefined);
+  useEffect(() => {
+    if (!focusEventId || focused.current === focusEventId) return;
+    const el = document.getElementById(`ev-${focusEventId}`);
+    if (el) {
+      focused.current = focusEventId;
+      el.scrollIntoView({ block: 'center' });
+      el.dataset.highlight = 'true';
+      setTimeout(() => delete el.dataset.highlight, 2000);
+    } else if (!history.current.reachedStart && timeline.current) {
+      void loadHistory().catch(() => undefined);
+    }
+  }, [focusEventId, items, loadHistory]);
   // Spec composer mentions: groups only (ADR 0141).
   const suggest = useMentionDirectory(room, face.isDirect === false);
   const query =
@@ -198,6 +227,12 @@ export function RoomTimeline({ room, chats, onBack }: { room: Room; chats: ChatS
       if (content) setSheet({ kind: 'forward', content });
     },
     moreReactions: (row) => setSheet({ kind: 'emoji', row }),
+    copyLink: (row) => {
+      if (!row.eventId) return;
+      void navigator.clipboard
+        .writeText(messageLink(room.id(), row.eventId))
+        .then(() => setToast(s('bipe_app_copied')));
+    },
     senders: (_row, pill) => setSheet({ kind: 'senders', pill }),
     retry: (row) => {
       row.provider
@@ -263,7 +298,7 @@ export function RoomTimeline({ room, chats, onBack }: { room: Room; chats: ChatS
             type="button"
             className="flex min-w-0 items-center justify-center gap-2 justify-self-center rounded-full px-2"
             aria-expanded={showsInfo}
-            onClick={() => setShowsInfo((v) => !v)}
+            onClick={() => onInfo(!showsInfo)}
           >
             <Avatar name={name} size={32} mxcUrl={face.avatarUrl} />
             <h2 className="truncate text-headline text-ink-primary">{name}</h2>
@@ -433,7 +468,7 @@ export function RoomTimeline({ room, chats, onBack }: { room: Room; chats: ChatS
           onClose={() => setSheet(undefined)}
         />
       )}
-      {showsInfo && <ChatInfo room={room} face={face} onClose={() => setShowsInfo(false)} />}
+      {showsInfo && <ChatInfo room={room} face={face} onClose={() => onInfo(false)} />}
       {deleting && (
         <DeleteDialog
           onCancel={() => setDeleting(undefined)}

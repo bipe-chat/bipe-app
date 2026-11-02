@@ -137,3 +137,9 @@
     background-color: rgb(0 0 0 / 0.75);
   }
 }
+
+/* A message reached by a link or a reply quote: the 2 px accent.fill edge of the highlighted bubble
+   (Bubble isHighlighted, TimelineRowView.swift), for a moment. */
+li[data-highlight='true'] > div > div:first-child {
+  outline: 2px solid var(--bipe-accent-fill);
+}
