@@ -5007,4 +5007,17 @@ public enum BipeStrings {
     }
 
     public static var yearRecapShareNote: String { NSLocalizedString("bipe_year_recap_share_note", tableName: "Bipe", bundle: .module, comment: "") }
+    public static var inviteJoinedPushTitle: String { NSLocalizedString("bipe_invite_joined_push_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var inviteJoinedPushBody: String { NSLocalizedString("bipe_invite_joined_push_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkJoinedPushTitle: String { NSLocalizedString("bipe_group_link_joined_push_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkJoinedPushBody: String { NSLocalizedString("bipe_group_link_joined_push_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var notificationsInviteJoined: String { NSLocalizedString("bipe_notifications_invite_joined", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var notificationsGroupLinkJoined: String { NSLocalizedString("bipe_notifications_group_link_joined", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var notificationsJoinsFooter: String { NSLocalizedString("bipe_notifications_joins_footer", tableName: "Bipe", bundle: .module, comment: "") }
 }

@@ -42,6 +42,15 @@ final class NotificationService: UNNotificationServiceExtension {
             deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.recoveryKind,
                                        title: BipeStrings.appName, body: BipeStrings.recoveryPushCompletedBody))
             return
+        case NotificationKeys.inviteJoinedPush:
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.inviteJoinedKind,
+                                       title: BipeStrings.inviteJoinedPushTitle, body: BipeStrings.inviteJoinedPushBody))
+            return
+        case NotificationKeys.groupLinkJoinedPush:
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.groupLinkJoinedKind,
+                                       title: BipeStrings.groupLinkJoinedPushTitle, body: BipeStrings.groupLinkJoinedPushBody,
+                                       roomId: userInfo[NotificationKeys.roomIdPush] as? String))
+            return
         default:
             break
         }
@@ -258,7 +267,7 @@ final class NotificationService: UNNotificationServiceExtension {
     /// for approval; the app's sync brings the request) or kind recovery (bipe-chat/bipe#171, a recovery started or
     /// completed; the app reads GET /v1/me/account). Nothing to fetch here. An unknown route, or an account no longer on
     /// this phone, shows nothing.
-    private static func accountNotice(route: String?, kind: String, title: String, body: String) -> UNNotificationContent {
+    private static func accountNotice(route: String?, kind: String, title: String, body: String, roomId: String? = nil) -> UNNotificationContent {
         guard let route, let userId = NotificationKeys.accountRoutes?.account(for: route),
               SessionStore.loadForPush(userId: userId) != nil else {
             return UNMutableNotificationContent()
@@ -268,6 +277,8 @@ final class NotificationService: UNNotificationServiceExtension {
         content.body = body
         content.userInfo = [NotificationKeys.accountUserId: userId, NotificationKeys.accountRoute: route,
                             NotificationKeys.kind: kind]
+        // group_link_joined (bipe-chat/bipe#967): the tap opens the group.
+        if let roomId { content.userInfo[NotificationKeys.roomId] = roomId }
         apply(sound: sound(isNoisy: true, userId: userId), to: content, userId: userId)
         return content
     }

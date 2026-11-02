@@ -29,11 +29,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     /// The open chat shows its messages itself; other chats show a banner. A recovery alert that arrives while the app
-    /// is open runs recovery-alert check at once (bipe-chat/bipe#171).
+    /// is open runs recovery-alert check at once (bipe-chat/bipe#171). An invite join refreshes the invites at once and
+    /// shows no banner: the join notice covers it (bipe-chat/bipe#967).
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         if let owner = NotificationKeys.noticeOwner(notification.request.content.userInfo, kind: NotificationKeys.recoveryKind) {
             await MainActor.run { NotificationActions.shared.recoveryToCheck = owner }
+        }
+        if let owner = NotificationKeys.noticeOwner(notification.request.content.userInfo, kind: NotificationKeys.inviteJoinedKind) {
+            await MainActor.run { NotificationActions.shared.invitesToRefresh = owner }
+            return []
         }
         let target = NotificationKeys.target(notification.request.content.userInfo)
         let isOpen = await MainActor.run { target != nil && NotificationActions.shared.visibleRoom == target }
@@ -55,6 +60,8 @@ final class NotificationActions: ObservableObject {
     @Published var accountToOpen: String?
     /// A recovery alert push (bipe-chat/bipe#171): the account whose recovery-alert runs check at once.
     @Published var recoveryToCheck: String?
+    /// An invite join push or its tap (bipe-chat/bipe#967): the account whose invites refresh at once.
+    @Published var invitesToRefresh: String?
     /// The chat on screen, so its pushes do not show a banner.
     var visibleRoom: BipeNotificationTarget?
 
@@ -95,6 +102,7 @@ final class NotificationActions: ObservableObject {
         if roomToOpen?.accountUserId == userId { roomToOpen = nil }
         if accountToOpen == userId { accountToOpen = nil }
         if recoveryToCheck == userId { recoveryToCheck = nil }
+        if invitesToRefresh == userId { invitesToRefresh = nil }
         if visibleRoom?.accountUserId == userId { visibleRoom = nil }
     }
 
@@ -107,6 +115,20 @@ final class NotificationActions: ObservableObject {
                   let kind, let userId = NotificationKeys.noticeOwner(userInfo, kind: kind) else { return }
             accountToOpen = userId
             if kind == NotificationKeys.recoveryKind { recoveryToCheck = userId }
+            return
+        }
+        if kind == NotificationKeys.inviteJoinedKind || kind == NotificationKeys.groupLinkJoinedKind {
+            // Join pushes (bipe-chat/bipe#967): the owner's invites refresh, or the owner's group opens.
+            guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+                  let kind, let userId = NotificationKeys.noticeOwner(userInfo, kind: kind) else { return }
+            if kind == NotificationKeys.inviteJoinedKind {
+                accountToOpen = userId
+                invitesToRefresh = userId
+            } else if let target = BipeNotificationTarget(accountUserId: userId, roomId: userInfo[NotificationKeys.roomId] as? String) {
+                open(target: target, kind: "message")
+            } else {
+                accountToOpen = userId
+            }
             return
         }
         guard let target = NotificationKeys.target(userInfo),
