@@ -2,8 +2,8 @@
 
 A change a tester can see in the iOS or Android app gets one file in
 `changelog/updates/`. The changelog groups the files by build. It shows on
-the site (`bipe.chat/novidades/`, built by bipe-web) and opens from
-Configurações › Ajuda › Novidades in the app.
+the site (`bipe.chat/versoes/`, built by bipe-web) and opens from
+Configurações › Ajuda › Histórico de versões in the app.
 
 ## Write one
 
