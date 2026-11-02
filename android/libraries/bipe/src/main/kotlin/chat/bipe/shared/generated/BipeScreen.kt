@@ -217,7 +217,7 @@ enum class BipeScreen(val id: String) {
     /** Invite people to Bipe (flow invites). Spec: bipe-shared/product/screens/invites.json */
     INVITES("invites"),
 
-    /** Link a computer: approve on the MAS page (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json */
+    /** Link a computer: approve natively (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json */
     LINK_COMPUTER_APPROVE("link-computer-approve"),
 
     /** Link a computer: scan the code (flow devices). Spec: bipe-shared/product/screens/link-computer-scan.json */

@@ -6,6 +6,7 @@ import BipeKit
 import Contacts
 import Foundation
 import MatrixRustSDK
+import UIKit
 
 /// Type Person of the people specs: the name to show, the photo and the @. Never the Matrix ID (ADR 0013).
 struct Person: Identifiable, Equatable, Hashable {
@@ -173,6 +174,50 @@ final class PeopleService: ObservableObject {
     /// Calls bipe-api with the account's token, retrying once on 401.
     func withToken<T>(_ request: (String) async throws(BipeAPIError) -> T) async throws(BipeAPIError) -> T {
         try await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }, request)
+    }
+
+    /// Spec public-profile-edit syncPhoto (ADR 0041, amended 2 Nov 2026): the public photo is a copy of the Matrix
+    /// avatar, because the web page cannot read Matrix media. Only for a published profile. Uploads only when the
+    /// avatar differs from photo_source. Returns the new profile, or `profile` when nothing changed or a step failed:
+    /// the next run tries again.
+    @discardableResult
+    func syncPublicPhoto(_ profile: BipeMyProfile) async -> BipeMyProfile {
+        guard profile.enabled else { return profile }
+        let client = session.client
+        let avatar: String?
+        do {
+            avatar = try await client.avatarUrl()
+        } catch {
+            return profile
+        }
+        let api = api
+        do throws(BipeAPIError) {
+            guard let mxc = avatar else {
+                guard profile.hasPhoto else { return profile }
+                return try await withToken { (token: String) async throws(BipeAPIError) -> BipeMyProfile in
+                    try await api.deleteMyProfilePhoto(accessToken: token)
+                }
+            }
+            guard mxc != profile.photoSource,
+                  let source = try? MediaSource.fromUrl(url: mxc),
+                  let data = try? await client.getMediaContent(mediaSource: source),
+                  let image = UIImage(data: data),
+                  let jpeg = BipeProfilePhoto.jpegData(from: image.centreSquare()) else { return profile }
+            return try await withToken { (token: String) async throws(BipeAPIError) -> BipeMyProfile in
+                try await api.setMyProfilePhoto(jpeg: jpeg, source: mxc, accessToken: token)
+            }
+        } catch {
+            return profile
+        }
+    }
+
+    /// syncPhoto after a photo change in profile-edit: GET /v1/me/profile first.
+    func syncPublicPhoto() async {
+        let api = api
+        guard let profile = try? await withToken({ (token: String) async throws(BipeAPIError) -> BipeMyProfile in
+            try await api.myProfile(accessToken: token)
+        }) else { return }
+        await syncPublicPhoto(profile)
     }
 
     /// Runs `request` with the OpenID token, for the core routes (bipe-chat/bipe#646).

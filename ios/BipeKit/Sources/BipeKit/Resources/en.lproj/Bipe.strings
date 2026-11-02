@@ -945,14 +945,12 @@
 "bipe_settings_account_paths_none" = "Add a way to get back into your account";
 "bipe_settings_account_paths" = "Ways back: %1$@";
 "bipe_account_paths_warning" = "Add another way to get back into your account if you lose your phone.";
-"bipe_account_pin_section" = "PIN";
 "bipe_account_app_lock" = "Lock the app";
 "bipe_account_app_lock_off_reason" = "Confirm it's you to turn off the lock";
 "bipe_account_biometric_unlock" = "Unlock with %1$@";
 "bipe_account_pin_footer" = "Your %1$@-digit PIN protects your way back into your account. With the lock on, Bipe asks for a PIN when it opens.";
 "bipe_account_pin_footer_device" = "This PIN protects your way back into this account. With the lock on, Bipe asks for this phone's PIN when it opens.";
 "bipe_account_add" = "New account";
-"bipe_account_on_device" = "Accounts on this phone";
 "bipe_account_new_title" = "New account";
 "bipe_account_new_personal" = "Personal account";
 "bipe_account_new_personal_body" = "Another account of yours, with another name and other contacts.";
@@ -975,7 +973,6 @@
 "bipe_account_devices" = "Devices";
 "bipe_account_old_messages" = "Old messages";
 "bipe_account_old_messages_footer" = "Approve this phone to see your old chats here.";
-"bipe_account_this_device" = "This phone";
 "bipe_linked_devices_title" = "Linked devices";
 "bipe_linked_devices_link_computer" = "Link a computer";
 "bipe_linked_devices_footer" = "Open chat.bipe.net.br on the computer and scan the code with this phone.";
@@ -992,13 +989,17 @@
 "bipe_link_computer_warning_scam" = "If someone asked you to scan this code, stop. It's a scam.";
 "bipe_link_computer_continue" = "Continue";
 "bipe_link_computer_biometric" = "Confirm it's you to link a computer.";
-"bipe_link_computer_loading" = "Opening the approval page…";
+"bipe_link_computer_loading" = "Getting the approval ready…";
 "bipe_link_computer_place" = "Approximate place: %1$@";
 "bipe_link_computer_place_unknown" = "Approximate place: unknown";
 "bipe_link_computer_place_source" = "IP Geolocation by DB-IP";
-"bipe_link_computer_consent_hint" = "Check the browser, the IP and the place. If it is your computer, approve on the page below.";
+"bipe_link_computer_device" = "Device: %1$@";
+"bipe_link_computer_device_unknown" = "Device: unknown";
+"bipe_link_computer_ip" = "IP: %1$@";
+"bipe_link_computer_approve" = "Connect";
+"bipe_link_computer_consent_hint" = "Check the device, the IP and the place. Tap Connect only if it is your computer.";
 "bipe_link_computer_error_title" = "Couldn't link the computer";
-"bipe_link_computer_error_sign_in" = "Bipe couldn't open the approval page. Try again.";
+"bipe_link_computer_error_sign_in" = "Bipe couldn't get the approval ready. Try again.";
 "bipe_link_computer_not_supported" = "This phone can't link a computer right now.";
 "bipe_link_computer_needs_pin" = "To link a computer, create your %1$@-digit PIN first.";
 "bipe_link_computer_create_pin" = "Create PIN";
@@ -1038,7 +1039,7 @@
 "bipe_app_link_phone_scam" = "If someone asked you to show or send this code, stop. It is a scam.";
 "bipe_app_link_phone_time" = "Request made at %1$@";
 "bipe_app_link_phone_biometric" = "Confirm it is you to link the new phone.";
-"bipe_app_link_phone_consent_hint" = "Check the phone model, the IP and the place. If it is your new phone, approve on the page below.";
+"bipe_app_link_phone_consent_hint" = "Check the device, the IP and the place. Tap Connect only if it is your new phone.";
 "bipe_app_link_phone_finishing" = "Finishing on the new phone…";
 "bipe_app_link_phone_done" = "Done. Your account is on the new phone.";
 "bipe_app_old_phone_title" = "Scan the code of the old phone";
@@ -1136,7 +1137,6 @@
 "bipe_data_use_saver_system" = "Your phone is saving data, so Bipe saves too.";
 "bipe_chats_live_location" = "Live location";
 "bipe_chats_live_location_footer" = "How far you need to move before your live location updates on the map.";
-"bipe_help_docs" = "Help";
 "bipe_help_terms" = "Terms of use";
 "bipe_help_privacy" = "Privacy policy";
 "bipe_help_licenses" = "Open source licences";
@@ -1255,6 +1255,7 @@
 "bipe_a11y_open_original" = "Show the original message";
 "bipe_a11y_show_controls" = "Show or hide the controls";
 "bipe_help_problem_language" = "Describe the problem in your own words.";
+"bipe_help_center" = "Help center";
 "bipe_chat_message_no_access" = "You don't have access to this message";
 "bipe_sticker_label" = "Sticker";
 "bipe_onboarding_invited_by" = "%1$@ invited you to Bipe.";
@@ -1292,6 +1293,8 @@
 "bipe_handle_suggestions" = "Suggestions";
 "bipe_handle_prompt_action" = "Pick an @";
 "bipe_settings_support" = "Talk to support";
+"bipe_settings_messaging" = "Messages";
+"bipe_settings_discovery" = "Find by phone number";
 "bipe_support_open_failed" = "Couldn't open support right now. Try again.";
 "bipe_support_room_name" = "Bipe Support";
 "bipe_support_room_topic" = "A chat with the Bipe team. The team reads what you write here in a support tool. Photos and files stay on the Bipe server.";
@@ -1867,6 +1870,7 @@
 "bipe_order_load_failed" = "Couldn't open the orders. Try again.";
 "bipe_order_refuse_reason_label" = "Reason: %1$@";
 "bipe_account_delete" = "Delete account";
+"bipe_account_pin_lock_section" = "PIN and app lock";
 "bipe_deletion_title" = "Delete your account";
 "bipe_deletion_intro" = "Your account is deleted %1$@ hours after you ask. Until then it works as usual, and any signed-in device can cancel.";
 "bipe_deletion_point_handle" = "Your handle stays reserved for %1$@ days. After that, someone else can use it.";
@@ -2013,6 +2017,8 @@
 "bipe_poll_state_ended" = "Ended";
 "bipe_chats_media_quality_standard" = "Standard, smaller files";
 "bipe_chats_media_quality_high" = "High, as they were taken";
+"bipe_chats_theme" = "Theme";
+"bipe_chats_photos_videos" = "Photos and videos";
 "bipe_room_upgrade_replaced" = "This group was replaced by a new group. New messages go there.";
 "bipe_room_upgrade_go" = "Go to the new group";
 "bipe_room_upgrade_continues" = "Continues %1$@. Tap to see the older messages.";
