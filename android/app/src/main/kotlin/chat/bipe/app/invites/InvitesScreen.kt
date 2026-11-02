@@ -201,8 +201,20 @@ private fun JoinedInviteRow(invite: BipeInvite, people: PeopleService, openChat:
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Avatar(person?.displayName.orEmpty(), person?.avatarUrl, people.media, size = 40.dp, userId = invite.joinedUserId)
         Spacer(Modifier.width(12.dp))
-        Text(person?.displayName ?: stringResource(R.string.bipe_invites_status_used), modifier = Modifier.weight(1f))
-        TextButton(enabled = !busy, onClick = {
+        // The name the user gave the invite first, then the name the person chose under it.
+        val savedName = invite.name?.takeIf { it.isNotBlank() }
+        val displayName = person?.displayName
+        Column(Modifier.weight(1f)) {
+            Text(savedName ?: displayName ?: stringResource(R.string.bipe_invites_status_used))
+            val caption = when {
+                invite.joinedUserId == null -> savedName?.let { stringResource(R.string.bipe_invites_status_used) }
+                savedName != null && displayName != null && displayName != savedName -> displayName
+                else -> null
+            }
+            if (caption != null) Text(caption, style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary)
+        }
+        // No joined account (a company sign-up, a deleted account): no chat to open.
+        if (invite.joinedUserId != null) TextButton(enabled = !busy, onClick = {
             val userId = invite.joinedUserId ?: return@TextButton
             busy = true
             scope.launch {
