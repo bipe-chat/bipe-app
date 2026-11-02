@@ -26,6 +26,7 @@ import {
 } from './generated/matrix_sdk_ffi';
 import { archive as archiveIcon, bellSlash, caretLeft, gear, magnifyingGlass, userCircle, x } from './phosphor/icons';
 import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
+import { bannerDismissed, EncryptionBanner, EncryptionSheet, needsApproval, useEncryptionState } from './Encryption';
 import { isOfficial } from './registries';
 import { useEscape } from './ui/keys';
 import { rowPreview, rowTime } from './row-preview';
@@ -44,7 +45,11 @@ import { applyDiffs, describe, type DiffVariants } from './util';
 type SyncState = { kind: 'starting' } | { kind: 'ready' } | { kind: 'failed'; message: string };
 type Scope = 'conversas' | 'grupos';
 type Detail =
-  { kind: 'room'; room: Room } | { kind: 'settings' } | { kind: 'requests' } | { kind: 'request'; roomId: string };
+  | { kind: 'room'; room: Room }
+  | { kind: 'settings' }
+  | { kind: 'requests' }
+  | { kind: 'request'; roomId: string }
+  | { kind: 'encryption' };
 
 export function Chats({ client }: { client: Client }) {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -124,7 +129,10 @@ export function Chats({ client }: { client: Client }) {
   // Escape closes the settings and request screens (the chat info and viewers handle their own).
   useEscape(
     () => setDetail(undefined),
-    detail?.kind === 'settings' || detail?.kind === 'requests' || detail?.kind === 'request',
+    detail?.kind === 'settings' ||
+      detail?.kind === 'requests' ||
+      detail?.kind === 'request' ||
+      detail?.kind === 'encryption',
   );
   // Keyboard: Cmd or Ctrl+K finds a chat; Alt+Up and Alt+Down open the chat above or below the open one.
   const listed = useRef<ChatSummary[]>([]);
@@ -148,6 +156,8 @@ export function Chats({ client }: { client: Client }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [openChat]);
   const [bannerClosed, setBannerClosed] = useState(false);
+  const encryption = useEncryptionState(client);
+  const [encryptionDismissed, setEncryptionDismissed] = useState(bannerDismissed);
   const searching = query.trim() !== '';
   const needle = normalize(query.trim());
   // Search covers both scopes and archived chats; it opens any of them.
@@ -236,6 +246,12 @@ export function Chats({ client }: { client: Client }) {
                 keep.current.entries?.controller().addOnePage();
             }}
           >
+            {!searching && !showingArchived && needsApproval(encryption) && !encryptionDismissed && (
+              <EncryptionBanner
+                onOpen={() => setDetail({ kind: 'encryption' })}
+                onDismiss={() => setEncryptionDismissed(true)}
+              />
+            )}
             {searching ? null : showingArchived ? (
               <EntryRow icon={caretLeft} title={scopeTitle} onOpen={() => setShowingArchived(false)} />
             ) : scope === 'conversas' ? (
@@ -287,7 +303,9 @@ export function Chats({ client }: { client: Client }) {
           </ul>
         </aside>
         <main className={`${showsDetail ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col overflow-hidden`}>
-          {detail?.kind === 'settings' ? (
+          {detail?.kind === 'encryption' ? (
+            <EncryptionSheet state={encryption} onClose={() => setDetail(undefined)} />
+          ) : detail?.kind === 'settings' ? (
             <Settings onClose={() => setDetail(undefined)} />
           ) : detail?.kind === 'requests' ? (
             <RequestsList

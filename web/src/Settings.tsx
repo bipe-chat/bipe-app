@@ -14,7 +14,8 @@ import { caretRight, chatCircle, bell, info, lockSimple, userCircle } from './ph
 import { settings } from './registries';
 import { signOutOfBrowser } from './sdk';
 import { Alert } from './ui/Alert';
-import { RecoveryState } from './generated/matrix_sdk_ffi';
+import { RecoveryState, VerificationState } from './generated/matrix_sdk_ffi';
+import { EncryptionSheet, useEncryptionState } from './Encryption';
 import type { StringKey } from './bipe/generated/strings';
 import { Avatar } from './ui/Avatar';
 import { locale, s } from './ui/i18n';
@@ -39,7 +40,9 @@ const key = (k: string) => k as StringKey;
 const LOCAL_SWITCHES: Record<string, string> = { readReceipts: 'bipe.settings.readReceipts' };
 
 function webRow(row: SettingsRow): boolean {
-  return row.kind === 'url' || row.key === 'signOut' || LOCAL_SWITCHES[row.key] !== undefined;
+  return (
+    row.kind === 'url' || row.key === 'signOut' || row.key === 'oldMessages' || LOCAL_SWITCHES[row.key] !== undefined
+  );
 }
 
 function readSwitch(storageKey: string): boolean {
@@ -155,6 +158,9 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
 function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
   const [signingOut, setSigningOut] = useState(false);
+  const [showsEncryption, setShowsEncryption] = useState(false);
+  const encryption = useEncryptionState(useClient());
+  if (showsEncryption) return <EncryptionSheet state={encryption} onClose={() => setShowsEncryption(false)} />;
   return (
     <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
       {signingOut && <SignOutAlert onClose={() => setSigningOut(false)} />}
@@ -167,7 +173,28 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
             footer={footerOf(section)}
           >
             {section.rows.map((row) =>
-              LOCAL_SWITCHES[row.key] ? (
+              row.key === 'oldMessages' ? (
+                // Settings row account.oldMessages (Sua conta › Aparelhos) opens the encryption-status sheet,
+                // with this browser's verification state as its value.
+                <li key={row.key}>
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full items-center gap-2 px-4 text-left hover:bg-surface-sunken"
+                    onClick={() => setShowsEncryption(true)}
+                  >
+                    <span className="min-w-0 flex-1 text-body text-ink-primary">{s(key(row.title))}</span>
+                    <span className="text-body text-ink-secondary">
+                      {/* TODO(string): bipe_web_verification_verified and _unverified, this browser's state. */}
+                      {encryption.verification === VerificationState.Verified
+                        ? 'Approved'
+                        : encryption.verification === VerificationState.Unverified
+                          ? 'Needs approval'
+                          : ''}
+                    </span>
+                    <Icon path={caretRight} size={16} className="text-glyph-secondary" />
+                  </button>
+                </li>
+              ) : LOCAL_SWITCHES[row.key] ? (
                 <SwitchRow key={row.key} title={s(key(row.title))} storageKey={LOCAL_SWITCHES[row.key]} />
               ) : row.kind === 'url' ? (
                 <Row key={row.key}>
