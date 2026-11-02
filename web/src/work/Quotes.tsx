@@ -39,7 +39,6 @@ import {
   useNames,
   type WorkScreenProps,
 } from './common';
-import { w } from './strings';
 
 /** The lists refresh this often while the screen is open, as the phone does on scene activation. */
 const REFRESH_MS = 30_000;
@@ -259,7 +258,7 @@ function QuoteDetail({
           <QuoteCard
             card={versionCard(current, catalog)}
             status={quote.status}
-            caption={w('bipe_web_quotes_preview')}
+            caption={s('bipe_web_quotes_preview')}
           />
         )}
         {revisable && (
@@ -492,7 +491,7 @@ function QuoteBuilder({
 
         {lines.length > 0 && (
           <QuoteCard
-            caption={w('bipe_web_quotes_preview')}
+            caption={s('bipe_web_quotes_preview')}
             status="offered"
             card={{
               version: revising && target.kind === 'revise' ? target.quote.current_version + 1 : 1,

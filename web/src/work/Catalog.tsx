@@ -30,7 +30,6 @@ import {
   useLoad,
   type WorkScreenProps,
 } from './common';
-import { w } from './strings';
 
 type Kind = CatalogItem['kind'];
 type PriceMode = CatalogPrice['mode'];
@@ -225,7 +224,7 @@ export function CatalogScreen({ client, onBack }: WorkScreenProps) {
                   <button
                     type="button"
                     className="grid size-11 place-items-center text-glyph-primary disabled:opacity-30"
-                    aria-label={w('bipe_web_catalog_move_up')}
+                    aria-label={s('bipe_web_catalog_move_up')}
                     disabled={index === 0}
                     onClick={() => move(index, index - 1)}
                   >
@@ -234,7 +233,7 @@ export function CatalogScreen({ client, onBack }: WorkScreenProps) {
                   <button
                     type="button"
                     className="grid size-11 place-items-center text-glyph-primary disabled:opacity-30"
-                    aria-label={w('bipe_web_catalog_move_down')}
+                    aria-label={s('bipe_web_catalog_move_down')}
                     disabled={index === shown.length - 1}
                     onClick={() => move(index, index + 1)}
                   >
@@ -603,7 +602,7 @@ function ItemEditor({
                   {s('bipe_catalog_remove_photo')}
                 </TextButton>
               )}
-              <span className="px-2 text-caption text-ink-secondary">{w('bipe_web_catalog_photo_drop')}</span>
+              <span className="px-2 text-caption text-ink-secondary">{s('bipe_web_catalog_photo_drop')}</span>
             </div>
             {converting && <Spinner />}
           </li>

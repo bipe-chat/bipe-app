@@ -38,7 +38,6 @@ import {
   useNames,
   type WorkScreenProps,
 } from './common';
-import { w } from './strings';
 
 /** New orders show without a reload: the list reads again this often while the screen is open. */
 const REFRESH_MS = 30_000;
@@ -78,7 +77,7 @@ const GROUPS: { statuses: OrderStatus[]; header: () => string }[] = [
   { statuses: ['sent'], header: () => s('bipe_order_status_sent') },
   { statuses: ['accepted'], header: () => s('bipe_order_status_accepted') },
   { statuses: ['ready'], header: () => s('bipe_order_status_ready') },
-  { statuses: ['done', 'refused', 'cancelled'], header: () => w('bipe_web_orders_closed') },
+  { statuses: ['done', 'refused', 'cancelled'], header: () => s('bipe_web_orders_closed') },
 ];
 
 /** The right column: an order, the new order, or the order settings. */
@@ -256,7 +255,7 @@ function OrderDetail({
             {fulfilmentText(order.fulfilment)} ·{' '}
             {order.payment === 'pix' ? s('bipe_order_pay_pix') : s('bipe_order_pay_on_site')}
           </span>
-          {order.payment === 'pix' && <span className="text-footnote text-ink-secondary">{w('bipe_web_work_in_app')}</span>}
+          {order.payment === 'pix' && <span className="text-footnote text-ink-secondary">{s('bipe_web_work_in_app')}</span>}
           <StatusLine status={order.status} />
           {order.status === 'refused' && order.refuse_reason && (
             <span className="text-subheadline text-ink-secondary">
@@ -299,7 +298,7 @@ function OrderDetail({
               {s('bipe_order_cancel')}
             </TextButton>
             <TextButton disabled={action.busy} onClick={() => setConfirmsCancel(false)}>
-              {w('bipe_web_orders_keep')}
+              {s('bipe_web_orders_keep')}
             </TextButton>
           </div>
         </div>
