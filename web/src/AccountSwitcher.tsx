@@ -50,9 +50,8 @@ export function AccountSwitcher() {
         className="relative grid size-11 place-items-center rounded-full"
         aria-haspopup="menu"
         aria-expanded={open}
-        // TODO(string): bipe_web_account_switcher_title, "Contas neste navegador" (the app says "neste celular").
-        aria-label={SWITCHER_TITLE}
-        title={SWITCHER_TITLE}
+        aria-label={s('bipe_web_account_switcher_title')}
+        title={s('bipe_web_account_switcher_title')}
         onClick={() => setOpen((v) => !v)}
       >
         <Avatar
@@ -76,10 +75,10 @@ export function AccountSwitcher() {
           />
           <div
             role="menu"
-            aria-label={SWITCHER_TITLE}
+            aria-label={s('bipe_web_account_switcher_title')}
             className="bipe-glass absolute top-full left-0 z-50 mt-1 flex w-[300px] flex-col overflow-hidden rounded-[28px] pb-1.5 shadow-lg"
           >
-            <p className="px-4 pt-3 pb-0.5 text-footnote text-ink-secondary">{SWITCHER_TITLE}</p>
+            <p className="px-4 pt-3 pb-0.5 text-footnote text-ink-secondary">{s('bipe_web_account_switcher_title')}</p>
             {accounts.list.map((a) => {
               const isCurrent = a.userId === current.userId;
               const name = a.name ?? a.userId ?? '';
@@ -106,9 +105,8 @@ export function AccountSwitcher() {
                     // The count of the last sync of that account, not live (ADR 0225 point 4).
                     <span
                       className="size-2 shrink-0 rounded-full bg-accent-fill"
-                      // TODO(string): bipe_web_account_unread_last_sync, "Mensagens não lidas na última sincronização".
-                      title={UNREAD_LAST_SYNC}
-                      aria-label={UNREAD_LAST_SYNC}
+                      title={s('bipe_web_account_unread_last_sync')}
+                      aria-label={s('bipe_web_account_unread_last_sync')}
                     />
                   )}
                   {isCurrent && <Icon path={check} size={20} className="shrink-0 text-accent-ink" />}
@@ -132,9 +130,8 @@ export function AccountSwitcher() {
               <span className="text-body">{s('bipe_app_account_new')}</span>
             </button>
             {!canAdd && (
-              // TODO(string): bipe_web_account_cap_reached, the browser variant of bipe_account_cap_reached ("Este celular").
               <p className="px-4 pb-1 text-footnote text-ink-secondary">
-                {`Este navegador já tem ${accountRules.maxPersonalAccounts} contas, o limite.`}
+                {s('bipe_web_account_cap_reached', String(accountRules.maxPersonalAccounts))}
               </p>
             )}
           </div>
@@ -143,6 +140,3 @@ export function AccountSwitcher() {
     </div>
   );
 }
-
-const SWITCHER_TITLE = 'Contas neste navegador';
-const UNREAD_LAST_SYNC = 'Mensagens não lidas na última sincronização';

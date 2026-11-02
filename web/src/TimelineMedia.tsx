@@ -183,8 +183,7 @@ function UploadRing({ upload, scrim }: { upload: Upload; scrim?: boolean }) {
     <span
       role="button"
       tabIndex={0}
-      // TODO(string): bipe_web_upload_cancel, the label of the button that stops an upload (iOS uses bipe_app_cancel).
-      aria-label={s('bipe_app_cancel')}
+      aria-label={s('bipe_web_upload_cancel')}
       className={`relative grid size-11 place-items-center rounded-full ${scrim ? 'bipe-scrim' : 'text-accent-ink'}`}
       onClick={(e) => {
         e.stopPropagation();

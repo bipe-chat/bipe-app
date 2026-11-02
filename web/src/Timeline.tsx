@@ -35,7 +35,7 @@ import { Alert } from './ui/Alert';
 import { useAccounts } from './accounts-context';
 import { Avatar, useIsCompany } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
-import { pending as pendingString, s } from './ui/i18n';
+import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import {
   contentWithMentions,
@@ -290,7 +290,7 @@ export function RoomTimeline({
     },
   };
   const name = face.name;
-  const newestLabel = pendingString('bipe_a11y_scroll_to_newest');
+  const newestLabel = s('bipe_a11y_scroll_to_newest');
   const canSend = draft.trim() !== '';
 
   return (
