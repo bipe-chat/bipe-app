@@ -352,6 +352,7 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
   return (
     <Bubble
       id={row.eventId ? `ev-${row.eventId}` : undefined}
+      at={row.at}
       own={row.own}
       pills={row.pills}
       onSenders={(pill) => on.senders(row, pill)}
@@ -471,9 +472,12 @@ function Bubble({
   onReact,
   actions,
   plain,
+  at,
   children,
 }: {
   id?: string;
+  /** The message time, for the floating date. */
+  at?: number;
   own: boolean;
   pills: ReactionPill[];
   onSenders: (pill: ReactionPill) => void;
@@ -486,7 +490,7 @@ function Bubble({
   const [menu, setMenu] = useState(false);
   const hasMenu = onReact !== undefined || actions.length > 0;
   return (
-    <li id={id} className={`flex flex-col gap-1 ${own ? 'items-end pl-12' : 'items-start pr-12'}`}>
+    <li id={id} data-at={at} className={`flex flex-col gap-1 ${own ? 'items-end pl-12' : 'items-start pr-12'}`}>
       <div className={`group relative flex max-w-full items-center gap-1 ${own ? 'flex-row-reverse' : ''}`}>
         <div
           className={`flex max-w-full min-w-0 flex-col gap-1 rounded-2xl ${plain ? '' : `px-3 py-2 ${own ? 'bg-bubble-own' : 'bg-bubble-other'}`}`}

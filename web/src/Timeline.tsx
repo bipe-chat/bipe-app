@@ -17,7 +17,16 @@ import {
   type TimelineLike as Timeline,
   type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
-import { arrowBendUpLeft, caretLeft, caretRight, check, paperPlaneRight, pencilSimple, x } from './phosphor/icons';
+import {
+  arrowBendUpLeft,
+  magnifyingGlass,
+  caretLeft,
+  caretRight,
+  check,
+  paperPlaneRight,
+  pencilSimple,
+  x,
+} from './phosphor/icons';
 import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
 import { ChatInfo } from './ChatInfo';
 import { useRoomFace } from './room-face';
@@ -40,8 +49,9 @@ import {
 import type { ChatSummary } from './chat-model';
 import { EmojiPicker, ForwardSheet, forwardContentOf, ReactionSenders } from './MessageSheets';
 import type { ReactionPill } from './Reactions';
-import { messageLink } from './router';
+import { messageLink, navigate } from './router';
 import { readReceiptsOn } from './Settings';
+import { ChatSearch, firstEventOfDay, FloatingDate } from './ChatSearch';
 import { BlockAlert } from './ChatActions';
 import { useClearedChats, useIgnoredUsers } from './chat-actions';
 import { clearedChatKeepsEvent } from './bipe/generated/lib/registries.mjs';
@@ -108,6 +118,15 @@ export function RoomTimeline({
   }, []);
   // The column is reversed: scrollTop is 0 at the newest message and negative above it.
   const [atBottom, setAtBottom] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const [floating, setFloating] = useState<{ at?: number; visible: boolean }>({ visible: false });
+  const floatTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [jumpNotice, setJumpNotice] = useState('');
+  useEffect(() => {
+    if (!jumpNotice) return;
+    const t = setTimeout(() => setJumpNotice(''), 2500);
+    return () => clearTimeout(t);
+  }, [jumpNotice]);
   const [missed, setMissed] = useState(0);
 
   useEffect(() => {
@@ -325,13 +344,60 @@ export function RoomTimeline({
             <Avatar name={name} size={32} mxcUrl={face.avatarUrl} userId={face.peer?.userId} />
             <h2 className="truncate text-headline text-ink-primary">{name}</h2>
           </button>
+          {/* Buscar na conversa (spec chat-search with roomId). */}
+          <button
+            type="button"
+            className="grid size-11 place-items-center rounded-full text-glyph-primary"
+            aria-label={s('bipe_search_in_chat')}
+            title={s('bipe_search_in_chat')}
+            aria-pressed={searching}
+            onClick={() => setSearching((v) => !v)}
+          >
+            <Icon path={magnifyingGlass} size={22} />
+          </button>
         </header>
+        {searching && (
+          <ChatSearch
+            rows={rows}
+            loadMore={async () => {
+              await loadHistory();
+              return !history.current.reachedStart;
+            }}
+            onOpen={(eventId) => {
+              setSearching(false);
+              navigate({ kind: 'chat', roomId: room.id(), eventId });
+            }}
+            onClose={() => setSearching(false)}
+          />
+        )}
+        <FloatingDate
+          at={floating.at}
+          visible={floating.visible}
+          notice={jumpNotice}
+          onPick={(day) => {
+            setJumpNotice('');
+            firstEventOfDay(client, room.id(), day)
+              .then((eventId) => {
+                if (eventId) navigate({ kind: 'chat', roomId: room.id(), eventId });
+                // TODO(string): bipe_jump_to_date_empty, "Nenhuma mensagem neste dia." (bipe-app PR #295).
+                else setJumpNotice('Nenhuma mensagem neste dia.');
+              })
+              .catch(() => setJumpNotice(s('bipe_error_generic')));
+          }}
+        />
         {/* column-reverse keeps the newest message in view as rows come in. */}
         <div
           ref={scroller}
           className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto overscroll-contain"
           onScroll={(e) => {
             const el = e.currentTarget;
+            // The floating date: the day of the top row on screen, hidden 1 s after scrolling stops.
+            const box = el.getBoundingClientRect();
+            const top = document.elementFromPoint(box.left + box.width / 2, box.top + 24)?.closest('[data-at]');
+            const at = top ? Number((top as HTMLElement).dataset.at) : undefined;
+            setFloating({ at, visible: true });
+            if (floatTimer.current) clearTimeout(floatTimer.current);
+            floatTimer.current = setTimeout(() => setFloating((f) => ({ ...f, visible: false })), 1000);
             const bottom = Math.abs(el.scrollTop) < 80;
             setAtBottom(bottom);
             if (bottom) setMissed(0);
