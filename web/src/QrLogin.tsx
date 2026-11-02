@@ -83,11 +83,17 @@ export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onEr
   }, [onDone, onError]);
 
   useEffect(() => {
-    if (!qr || !canvas.current) return;
-    void QRCode.toCanvas(canvas.current, [{ data: new Uint8ClampedArray(qr), mode: 'byte' }], {
+    const target = canvas.current;
+    if (!qr || !target) return;
+    void QRCode.toCanvas(target, [{ data: new Uint8ClampedArray(qr), mode: 'byte' }], {
       errorCorrectionLevel: 'L',
       margin: 2,
       scale: 6,
+    }).then(() => {
+      // toCanvas writes a fixed pixel width and height into the inline style. That beats w-full, so the code sat at
+      // the left of the white field. Without them the canvas fills the field and stays square.
+      target.style.removeProperty('width');
+      target.style.removeProperty('height');
     });
   }, [qr]);
 
