@@ -236,6 +236,13 @@ fun HomeScreen(
         app.recoveryToCheck.value = null
         recoveryAlert.check()
     }
+    // invites, refresh: at once on an invite join push for this account or its tap (bipe-chat/bipe#967).
+    val invitesToRefresh by app.invitesToRefresh.collectAsState()
+    LaunchedEffect(invitesToRefresh) {
+        if (invitesToRefresh != session.userId) return@LaunchedEffect
+        app.invitesToRefresh.value = null
+        app.appTabs.invites(session).refresh()
+    }
     // phone-link-status, action checkNotice: on launch and on every return to the foreground.
     LaunchedEffect(foregroundCount) { phoneNotice.check() }
     PhoneConfirmNoticeDialog(phoneNotice)

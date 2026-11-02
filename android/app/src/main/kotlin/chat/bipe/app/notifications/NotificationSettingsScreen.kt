@@ -196,6 +196,18 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
                 )
             }
 
+            // Join pushes (bipe-chat/bipe#967): account settings on the server, hidden until read.
+            state.joinPrefs?.let { prefs ->
+                SwitchRow(stringResource(R.string.bipe_notifications_invite_joined), prefs.inviteJoined, true, model::setInviteJoined)
+                SwitchRow(stringResource(R.string.bipe_notifications_group_link_joined), prefs.groupLinkJoined, true, model::setGroupLinkJoined)
+                Text(
+                    stringResource(R.string.bipe_notifications_joins_footer),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkSecondary,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+
             // Spec news (ADR 0117): hidden until the API answered.
             if (state.news != NotificationSettingsModel.News.UNKNOWN) {
                 SwitchRow(stringResource(R.string.bipe_settings_news), state.news == NotificationSettingsModel.News.ON, !state.newsBusy, model::setNews)

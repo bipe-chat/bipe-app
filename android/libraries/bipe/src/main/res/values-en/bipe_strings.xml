@@ -2148,4 +2148,11 @@
     <string name="bipe_group_link_preview_title">Group %1$s on Bipe</string>
     <string name="bipe_group_link_preview_count">People in the group: %1$s. Tap to join.</string>
     <string name="bipe_groups_service_name">Bipe Grupos</string>
+    <string name="bipe_invite_joined_push_title">Invite accepted</string>
+    <string name="bipe_invite_joined_push_body">Someone joined Bipe with your invite. Tap to see who.</string>
+    <string name="bipe_group_link_joined_push_title">New group member</string>
+    <string name="bipe_group_link_joined_push_body">Someone joined one of your groups through its link. Tap to open the group.</string>
+    <string name="bipe_notifications_invite_joined">When someone joins with my invite</string>
+    <string name="bipe_notifications_group_link_joined">When someone joins with my group link</string>
+    <string name="bipe_notifications_joins_footer">Applies to all your devices.</string>
 </resources>

@@ -25,6 +25,7 @@ import chat.bipe.app.account.AccountStartScreen
 import chat.bipe.app.notifications.PhoneNotifications
 import chat.bipe.shared.BipeNotificationDestination
 import chat.bipe.shared.BipeNotificationOpen
+import chat.bipe.shared.BipeNotificationTarget
 import chat.bipe.app.settings.AppLockGate
 import chat.bipe.app.settings.AppLockModel
 
@@ -118,11 +119,23 @@ class MainActivity : ComponentActivity() {
         if (intent?.action != PhoneNotifications.ACTION_OPEN_CHAT) return
         val app = application as BipeApplication
         val kind = intent.getStringExtra(PhoneNotifications.EXTRA_KIND)
-        if (kind == PhoneNotifications.KIND_DEVICE_APPROVAL || kind == PhoneNotifications.KIND_RECOVERY) {
+        if (kind in PhoneNotifications.ACCOUNT_NOTICE_KINDS) {
             app.notifications.noticeOwner(intent)?.let {
-                app.accountToOpen.value = it
+                val group = if (kind == PhoneNotifications.KIND_GROUP_LINK_JOINED) {
+                    BipeNotificationTarget.create(it, intent.getStringExtra(PhoneNotifications.EXTRA_ROOM_ID))
+                } else {
+                    null
+                }
+                // groupLinkJoined (bipe-chat/bipe#967): the group opens; else the owner's conversation list.
+                if (group != null) {
+                    app.roomToOpen.value = BipeNotificationOpen(group, BipeNotificationDestination.CHAT)
+                } else {
+                    app.accountToOpen.value = it
+                }
                 if (kind == PhoneNotifications.KIND_RECOVERY) app.recoveryToCheck.value = it
+                if (kind == PhoneNotifications.KIND_INVITE_JOINED) app.invitesToRefresh.value = it
             }
+            intent.removeExtra(PhoneNotifications.EXTRA_ROOM_ID)
             intent.removeExtra(PhoneNotifications.EXTRA_KIND)
             intent.removeExtra(PhoneNotifications.EXTRA_ACCOUNT_ROUTE)
             intent.removeExtra(PhoneNotifications.EXTRA_ACCOUNT_USER_ID)
@@ -138,12 +151,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        (application as BipeApplication).activityVisible = true
         accountStart.resume()
         LinkWebFlow.appResumed()
     }
 
     override fun onStop() {
         super.onStop()
+        (application as BipeApplication).activityVisible = false
         // Spec app-lock, action lock: covers the app at once when it goes to the background.
         AppLockModel.get(this).onBackground()
     }
