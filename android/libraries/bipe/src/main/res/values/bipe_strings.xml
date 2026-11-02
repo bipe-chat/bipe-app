@@ -1101,7 +1101,7 @@
     <string name="bipe_privacy_presence_footer">Se desligar, ninguém vê quando você está online ou digitando. Você também deixa de ver isso nos outros.</string>
     <string name="bipe_privacy_read_receipts">Confirmação de leitura</string>
     <string name="bipe_privacy_read_receipts_value">Sempre ligada</string>
-    <string name="bipe_privacy_read_receipts_footer">No Bipe, quem te manda mensagem sabe quando você leu, e você sabe quando a pessoa leu. Não tem como desligar.</string>
+    <string name="bipe_privacy_read_receipts_footer">Se desligar, ninguém vê quando você lê as mensagens de uma conversa. Você também deixa de ver quando os outros leem as suas. Nos grupos, quem leu aparece sempre.</string>
     <string name="bipe_privacy_who_can_read">Quem pode ler suas mensagens</string>
     <string name="bipe_privacy_your_data">Seus dados</string>
     <string name="bipe_privacy_export">Baixar meus dados</string>
@@ -1569,6 +1569,7 @@
     <string name="bipe_app_reaction_label">Reação %1$s: %2$s</string>
     <string name="bipe_app_reaction_failed">Não deu para enviar a reação. Tente de novo.</string>
     <string name="bipe_app_receipt_sent">Enviada</string>
+    <string name="bipe_app_receipt_delivered">Entregue</string>
     <string name="bipe_app_receipt_read">Lida</string>
     <string name="bipe_app_receipt_read_by_title">Lida por</string>
     <string name="bipe_app_receipt_read_by">Lida por: %1$s</string>
