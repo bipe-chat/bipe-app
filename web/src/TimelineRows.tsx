@@ -35,7 +35,10 @@ import {
 } from './phosphor/icons';
 import { MessageMenu, pillsOf, ReactionPills, type MessageAction, type ReactionPill } from './Reactions';
 import { voiceMedia } from './bipe/generated/registries.json';
+import { linkify } from './linkify';
 import { mentionLinksOf, type MentionLink } from './mentions';
+import { internalRoute, navigate } from './router';
+import { pauseLeft, ScamWarningCard, scamKindOf, type ScamKind } from './ScamWarning';
 import { forwardCountOf } from './MessageSheets';
 import { previewText } from './row-preview';
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
@@ -75,6 +78,8 @@ export type MessageRow = {
   provider: LazyTimelineItemProviderLike;
   /** People other than the account whose read receipt sits on this event. */
   readBy: string[];
+  /** Spec scam-warning: the kind of a received message that looks like a scam pattern. */
+  scamKind?: ScamKind;
   /** The chat.bipe.forward count of the content, for the forward line. */
   forwardCount: number;
   /** Spec message-forward: a sent message (with an event ID) of kind message. */
@@ -196,6 +201,8 @@ function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
     readBy: [...event.readReceipts.keys()].filter((id) => id !== ownUserId),
     mentions,
     ownUserId,
+    // The check reads the text and its links (safetyText), on received messages only.
+    scamKind: !event.isOwn && body === 'text' ? scamKindOf(text) : undefined,
     forwardCount: live && eventId ? forwardCountOf(event.lazyProvider.debugInfo().originalJson) : 0,
     canForward: (body === 'text' || body === 'media') && eventId !== undefined,
   };
@@ -281,7 +288,8 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
       icon: smiley,
       run: () => on.moreReactions(row),
     });
-  if (row.body === 'text' || row.media?.caption)
+  // Copy stays off while a money pause runs (MessageContextActions on iOS).
+  if ((row.body === 'text' || row.media?.caption) && pauseLeft(row.key) === 0)
     actions.push({ label: s('bipe_app_copy'), icon: copy, run: () => on.copy(row) });
   if (row.eventId)
     actions.push({ label: s('bipe_app_message_action_copy_link'), icon: link, run: () => on.copyLink(row) });
@@ -316,7 +324,7 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
         />
       ) : row.body === 'text' ? (
         <p className="text-body break-words whitespace-pre-wrap text-ink-primary">
-          <MentionText text={row.text} mentions={row.mentions} ownUserId={row.ownUserId} />
+          <RichText text={row.text} mentions={row.mentions} canOpen={() => pauseLeft(row.key) === 0} />
         </p>
       ) : (
         <p className="flex items-start gap-1.5 text-subheadline text-ink-secondary italic">
@@ -327,6 +335,7 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
           {row.text}
         </p>
       )}
+      {row.scamKind && <ScamWarningCard rowKey={row.key} kind={row.scamKind} />}
       <Footer
         at={row.at}
         edited={row.edited}
@@ -473,27 +482,53 @@ function Footer({ at, edited, send, onRetry }: { at: number; edited: boolean; se
 }
 
 // The text with each mention as a pill: accent.wash with accent.ink, or accent.fill when it names the account.
-function MentionText({ text, mentions, ownUserId }: { text: string; mentions: MentionLink[]; ownUserId: string }) {
-  if (mentions.length === 0) return <>{text}</>;
+// The text of a message (MessageRichText.swift): links in accent.ink that open in a new tab (Bipe web
+// links open in place), matrix.to mentions as pills on surface.sunken in accent.ink. Links stay shut while
+// a money pause runs (canOpen).
+function RichText({ text, mentions, canOpen }: { text: string; mentions: MentionLink[]; canOpen: () => boolean }) {
   const parts: ReactNode[] = [];
-  let rest = text;
   let key = 0;
+  const pushLinked = (chunk: string) => {
+    for (const run of linkify(chunk)) {
+      if (!run.link) {
+        parts.push(run.text);
+        continue;
+      }
+      const href = run.link;
+      parts.push(
+        <a
+          key={key++}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent-ink hover:underline"
+          onClick={(e) => {
+            if (!canOpen()) return e.preventDefault();
+            const route = internalRoute(href);
+            if (route && /^https?:/i.test(href)) {
+              e.preventDefault();
+              navigate(route);
+            }
+          }}
+        >
+          {run.text}
+        </a>,
+      );
+    }
+  };
+  let rest = text;
   for (const m of mentions) {
     const at = rest.indexOf(m.text);
     if (at === -1) continue;
-    parts.push(rest.slice(0, at));
-    const own = m.userId === ownUserId;
+    pushLinked(rest.slice(0, at));
     parts.push(
-      <span
-        key={key++}
-        className={`rounded-md px-1 font-semibold ${own ? 'bg-accent-fill text-ink-on-accent' : 'bg-accent-wash text-accent-ink'}`}
-      >
+      <span key={key++} className="rounded-md bg-surface-sunken px-1 text-accent-ink">
         {m.text}
       </span>,
     );
     rest = rest.slice(at + m.text.length);
   }
-  parts.push(rest);
+  pushLinked(rest);
   return <>{parts}</>;
 }
 
