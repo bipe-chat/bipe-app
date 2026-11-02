@@ -8,6 +8,7 @@
 // maps.bipe.net.br only, never another map service).
 
 import { useEffect, useState } from 'react';
+import { isDark } from './appearance';
 import { maps } from './bipe/generated/registries.json';
 import { PollKind, type MediaSourceLike } from './generated/matrix_sdk_ffi';
 import { previewOf, useClient, useObjectUrl } from './media';
@@ -170,7 +171,7 @@ function staticMap(loc: LocationInfo, width: number, height: number): string {
   const inside = loc.lon >= d.west && loc.lon <= d.east && loc.lat >= d.south && loc.lat <= d.north;
   const wanted = loc.zoom ?? maps.defaultZoom;
   const zoom = Math.max(maps.minZoom, Math.min(inside ? maps.maxZoom : maps.outsideMaxZoom, wanted));
-  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = isDark();
   const fix = (n: number) => n.toFixed(maps.coordinateDecimals);
   const size = (n: number) => Math.min(maps.maxStaticSize, Math.round(n));
   return (
