@@ -93,6 +93,7 @@ import chat.bipe.app.common.LocalReduceMotion
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.common.chatBackground
+import chat.bipe.app.common.floatingSurface
 import chat.bipe.app.composer.MentionSuggestion
 import chat.bipe.app.notifications.NotificationsPrompt
 import chat.bipe.app.people.BrandMarkHeaderLine
@@ -926,10 +927,6 @@ private fun ComposerBar(
         }
     }
 }
-
-/** A control that floats over the chat: a solid surface with a hairline and a soft shadow (spec composer). */
-private fun Modifier.floatingSurface(shape: Shape, fill: Color, line: Color): Modifier =
-    shadow(6.dp, shape, clip = false).background(fill, shape).border(1.dp, line, shape)
 
 @Composable
 private fun ComposerContextBar(icon: PhosphorIcon, title: String, preview: String?, onClose: () -> Unit) {
