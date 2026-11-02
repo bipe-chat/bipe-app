@@ -27,6 +27,15 @@ import { Avatar } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
 import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
+import {
+  contentWithMentions,
+  insertMention,
+  mentionQuery,
+  mentionsIn,
+  useMentionDirectory,
+  type ComposerMention,
+  type MentionSuggestion,
+} from './mentions';
 import { readReceiptsOn } from './Settings';
 import { applyDiffs, describe, type DiffVariants } from './util';
 
@@ -42,6 +51,8 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   const [dropping, setDropping] = useState(false);
   const [showsInfo, setShowsInfo] = useState(false);
   const [mode, setMode] = useState<Mode>();
+  const [mentions, setMentions] = useState<ComposerMention[]>([]);
+  const [suggestionsHidden, setSuggestionsHidden] = useState(false);
   const [deleting, setDeleting] = useState<MessageRow>();
   const [toast, setToast] = useState('');
   useEffect(() => {
@@ -98,6 +109,18 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   // With the read receipts switch off, DMs show no read ticks either (bipe_privacy_read_receipts_footer).
   const rows = face.isDirect && readReceiptsOn() ? markRead(itemRows) : itemRows;
   const typing = useTyping(room, ownUserId);
+  // Spec composer mentions: groups only (ADR 0141).
+  const suggest = useMentionDirectory(room, face.isDirect === false);
+  const query =
+    face.isDirect === false && mode?.kind !== 'edit' && !suggestionsHidden ? mentionQuery(draft) : undefined;
+  const everyoneLabel = s('bipe_app_composer_mention_everyone');
+  const suggestions = query === undefined ? [] : suggest(query, everyoneLabel);
+  const pickSuggestion = (suggestion: MentionSuggestion) => {
+    const inserted = insertMention(draft, suggestion, everyoneLabel);
+    setDraft(inserted.text);
+    setMentions((m) => [...m, inserted.mention]);
+    field.current?.focus();
+  };
   // Messages from others that arrive while the person reads older ones count on the jump button.
   const lastKey = useRef<string>(undefined);
   const newest = itemRows.length > 0 ? itemRows[itemRows.length - 1] : undefined;
@@ -282,6 +305,7 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
             </p>
           )}
           {typing.length > 0 && <TypingLine names={typing} />}
+          {suggestions.length > 0 && <SuggestionList suggestions={suggestions} onPick={pickSuggestion} />}
           {mode && (
             <ComposerBar
               icon={mode.kind === 'edit' ? pencilSimple : arrowBendUpLeft}
@@ -307,7 +331,9 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
               setDraft('');
               setMode(undefined);
               typingNotice('');
-              const content = messageEventContentFromMarkdown(text);
+              const content =
+                mode?.kind === 'edit' ? messageEventContentFromMarkdown(text) : contentWithMentions(text, mentions);
+              setMentions([]);
               const sent =
                 mode?.kind === 'edit'
                   ? t.edit(mode.row.itemId, new EditedContent.RoomMessage({ content }))
@@ -330,10 +356,20 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
                 onChange={(e) => {
                   setDraft(e.target.value);
                   typingNotice(e.target.value);
+                  setMentions((m) => mentionsIn(m, e.target.value));
+                  setSuggestionsHidden(false);
                 }}
                 onKeyDown={(e) => {
+                  // Tab or Return picks the first @ suggestion; Escape hides the list.
+                  if (suggestions.length > 0 && (e.key === 'Tab' || e.key === 'Enter') && !e.shiftKey) {
+                    e.preventDefault();
+                    pickSuggestion(suggestions[0]);
+                  } else if (suggestions.length > 0 && e.key === 'Escape') {
+                    e.preventDefault();
+                    setSuggestionsHidden(true);
+                  }
                   // Return sends, Shift+Return makes a new line (desktop keyboards).
-                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
                     e.currentTarget.form?.requestSubmit();
                   } else if (e.key === 'Escape' && mode) {
@@ -476,5 +512,35 @@ function TypingLine({ names }: { names: string[] }) {
       </span>
       <span className="truncate text-caption text-ink-secondary">{text}</span>
     </div>
+  );
+}
+
+// The @ suggestions of a group (ChatTimelineView suggestionList): a 32 px avatar and the name, 16 x 6 px
+// insets, at most 200 px high.
+function SuggestionList({
+  suggestions,
+  onPick,
+}: {
+  suggestions: MentionSuggestion[];
+  onPick: (s: MentionSuggestion) => void;
+}) {
+  return (
+    <ul role="listbox" className="bipe-glass mx-3 mt-2 max-h-[200px] overflow-y-auto rounded-[22px] py-1">
+      {suggestions.map((m) => (
+        <li key={m.userId ?? '@room'}>
+          <button
+            type="button"
+            role="option"
+            aria-selected={false}
+            className="flex w-full items-center gap-2.5 px-4 py-1.5 text-left hover:bg-surface-sunken"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onPick(m)}
+          >
+            <Avatar name={m.name} size={32} mxcUrl={m.avatarUrl} />
+            <span className="min-w-0 flex-1 truncate text-body text-ink-primary">{m.name}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }

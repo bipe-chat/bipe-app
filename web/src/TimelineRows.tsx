@@ -32,6 +32,7 @@ import {
   warningCircle,
 } from './phosphor/icons';
 import { MessageMenu, pillsOf, ReactionPills, type MessageAction, type ReactionPill } from './Reactions';
+import { mentionLinksOf, type MentionLink } from './mentions';
 import { previewText } from './row-preview';
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
 import { dayText, s, timeText } from './ui/i18n';
@@ -70,6 +71,9 @@ export type MessageRow = {
   provider: LazyTimelineItemProviderLike;
   /** People other than the account whose read receipt sits on this event. */
   readBy: string[];
+  /** Mention links in the HTML body, drawn as pills. */
+  mentions: MentionLink[];
+  ownUserId: string;
 };
 export type Row =
   | MessageRow
@@ -100,9 +104,11 @@ export function itemRow(item: TimelineItem, ownUserId: string): Row | undefined 
   // TODO(string): '(event)' is spike text for a message kind this page does not draw (sticker, poll, ...).
   let text = '(event)';
   let media: MediaInfo | undefined;
+  let mentions: MentionLink[] = [];
   let edited = false;
   if (MsgLikeKind.Message.instanceOf(kind)) {
     media = mediaOf(kind.inner.content.msgType);
+    mentions = mentionLinksOf(kind.inner.content.msgType);
     body = media ? 'media' : 'text';
     text = kind.inner.content.body;
     edited = kind.inner.content.isEdited;
@@ -169,6 +175,8 @@ export function itemRow(item: TimelineItem, ownUserId: string): Row | undefined 
     edited,
     reply,
     readBy: [...event.readReceipts.keys()].filter((id) => id !== ownUserId),
+    mentions,
+    ownUserId,
   };
 }
 
@@ -265,7 +273,9 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
           }
         />
       ) : row.body === 'text' ? (
-        <p className="text-body break-words whitespace-pre-wrap text-ink-primary">{row.text}</p>
+        <p className="text-body break-words whitespace-pre-wrap text-ink-primary">
+          <MentionText text={row.text} mentions={row.mentions} ownUserId={row.ownUserId} />
+        </p>
       ) : (
         <p className="flex items-start gap-1.5 text-subheadline text-ink-secondary italic">
           {row.body === 'deleted' && <Icon path={trash} size={14} className="mt-[3px] shrink-0 text-glyph-secondary" />}
@@ -408,4 +418,29 @@ function Footer({ at, edited, send, onRetry }: { at: number; edited: boolean; se
       )}
     </span>
   );
+}
+
+// The text with each mention as a pill: accent.wash with accent.ink, or accent.fill when it names the account.
+function MentionText({ text, mentions, ownUserId }: { text: string; mentions: MentionLink[]; ownUserId: string }) {
+  if (mentions.length === 0) return <>{text}</>;
+  const parts: ReactNode[] = [];
+  let rest = text;
+  let key = 0;
+  for (const m of mentions) {
+    const at = rest.indexOf(m.text);
+    if (at === -1) continue;
+    parts.push(rest.slice(0, at));
+    const own = m.userId === ownUserId;
+    parts.push(
+      <span
+        key={key++}
+        className={`rounded-md px-1 font-semibold ${own ? 'bg-accent-fill text-ink-on-accent' : 'bg-accent-wash text-accent-ink'}`}
+      >
+        {m.text}
+      </span>,
+    );
+    rest = rest.slice(at + m.text.length);
+  }
+  parts.push(rest);
+  return <>{parts}</>;
 }
