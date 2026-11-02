@@ -239,7 +239,7 @@ private struct LinkComputerWarningView: View {
     }
 }
 
-/// Spec link-computer-approve: the owner check, then the native consent screen (ADR 0223).
+/// Spec link-computer-approve: the owner check, then the native consent screen (ADR 0224).
 private struct LinkComputerApproveView: View {
     @ObservedObject var model: LinkComputerModel
 
