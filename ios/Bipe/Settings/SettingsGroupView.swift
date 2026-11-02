@@ -13,9 +13,6 @@ struct SettingsGroupView: View {
     @ObservedObject var model: SettingsModel
     let group: BipeSettingsGroup
     let onSignedOut: () -> Void
-    /// Opens account-new, the same flow as the account switcher (ADR 0135). Nil where no tabs host it: the add row
-    /// is then left out.
-    let onNewAccount: (() -> Void)?
 
     @AppStorage(SettingsKeys.hideRequestPhotos) private var hideRequestPhotos = true
     @AppStorage(SettingsKeys.sharePresence) private var sharePresence = true
@@ -40,12 +37,10 @@ struct SettingsGroupView: View {
     /// Spec encryption-status, from AppTabsView. The oldMessages row opens its sheet.
     @Environment(\.encryptionStatus) private var encryption
 
-    init(model: SettingsModel, group: BipeSettingsGroup, onSignedOut: @escaping () -> Void,
-         onNewAccount: (() -> Void)? = nil) {
+    init(model: SettingsModel, group: BipeSettingsGroup, onSignedOut: @escaping () -> Void) {
         self.model = model
         self.group = group
         self.onSignedOut = onSignedOut
-        self.onNewAccount = onNewAccount
         _export = StateObject(wrappedValue: DataExportModel(model: model))
     }
 
@@ -137,7 +132,6 @@ struct SettingsGroupView: View {
         case .accountBiometricUnlock: model.appLockOn && OwnerCheck.biometricKind != .none
         // While a deletion waits, the banner (or the alert on the other devices) takes its place.
         case .accountDelete: model.account?.deletion == nil
-        case .accountAdd: onNewAccount != nil
         // Shown while the model says needsApproval; OldMessagesRow follows it (bipe-chat/bipe#793).
         case .accountOldMessages: encryption != nil
         default: true
@@ -148,7 +142,7 @@ struct SettingsGroupView: View {
     private func footer(of section: BipeSettingsSection) -> some View {
         if section.key == "pin" {
             Text(BipeStrings.accountPinFooter(String(BipeRegistries.pinLength)))
-        } else if group == .help {
+        } else if group == .help && section.key == "about" {
             VStack(alignment: .leading, spacing: 8) {
                 if let footer = section.footer {
                     Text(footer)
@@ -377,7 +371,6 @@ struct SettingsGroupView: View {
         case .privacyNumber: model.phone?.summary(number: model.phoneNumber)
         case .accountEmail: model.account.map { $0.email ?? BipeStrings.accountEmailNone }
         case .accountRecoveryKey: model.hasRecoveryKey ? BipeStrings.accountRecoveryKeySaved : BipeStrings.accountRecoveryKeyMissing
-        case .accountThisDevice: UIDevice.current.model
         default: nil
         }
     }
@@ -400,9 +393,6 @@ struct SettingsGroupView: View {
             encryption?.openSheet()
         case .accountEmail:
             showsEmail = true
-        case .accountAdd:
-            // account-new shows the cap on the personal choice when the phone is full, as from the switcher.
-            onNewAccount?()
         case .privacyExport:
             Task { await export.start() }
         case .chatsLanguage:

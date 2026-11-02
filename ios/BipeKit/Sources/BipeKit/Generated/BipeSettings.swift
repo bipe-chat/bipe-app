@@ -30,6 +30,18 @@ public enum BipeSettingsGroup: String, CaseIterable, Sendable {
         }
     }
 
+    /// The Phosphor icon name of the root row (bipe-app PhosphorIcon raw value). nil for `profile`.
+    public var icon: String? {
+        switch self {
+        case .profile: nil
+        case .privacy: "lock-simple"
+        case .account: "user-circle"
+        case .notifications: "bell"
+        case .chats: "chat-circle"
+        case .help: "info"
+        }
+    }
+
     /// True when the group keeps its Element screen and lists no rows here.
     public var usesElementScreen: Bool {
         switch self {
@@ -45,11 +57,11 @@ public enum BipeSettingsGroup: String, CaseIterable, Sendable {
     public var sections: [BipeSettingsSection] {
         switch self {
         case .profile: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: nil, rows: [.profileNamePhoto, .profileHandle, .profilePublicProfile])]
-        case .privacy: [BipeSettingsSection(key: "talk", titleKey: "bipe_privacy_who_can_talk", footerKey: nil, rows: [.privacyMessaging, .privacyRequestPhotos, .privacyBlocked]), BipeSettingsSection(key: "find", titleKey: "bipe_privacy_who_can_find", footerKey: nil, rows: [.privacyNumber, .privacyDiscovery, .privacyContacts]), BipeSettingsSection(key: "see", titleKey: "bipe_privacy_what_others_see", footerKey: nil, rows: [.privacyPresence, .privacyReadReceipts, .privacyWhoCanRead]), BipeSettingsSection(key: "data", titleKey: "bipe_privacy_your_data", footerKey: nil, rows: [.privacyExport, .privacyWhatBipeKeeps]), BipeSettingsSection(key: "assistants", titleKey: "bipe_privacy_assistants", footerKey: nil, rows: [.privacyAssistantSend])]
-        case .account: [BipeSettingsSection(key: "status", titleKey: "bipe_fallback_title", footerKey: nil, rows: [.accountWaysBackStatus]), BipeSettingsSection(key: "pin", titleKey: "bipe_account_pin_section", footerKey: "bipe_account_pin_footer", rows: [.accountChangePin, .accountAppLock, .accountBiometricUnlock]), BipeSettingsSection(key: "waysBack", titleKey: "bipe_account_ways_back", footerKey: nil, rows: [.accountEmail, .accountLinkedAccounts, .accountRecoveryKey]), BipeSettingsSection(key: "theft", titleKey: "bipe_theft_title", footerKey: nil, rows: [.accountTheftProtection]), BipeSettingsSection(key: "devices", titleKey: "bipe_account_devices", footerKey: nil, rows: [.accountOldMessages, .accountThisDevice, .accountLinkedDevices]), BipeSettingsSection(key: "accounts", titleKey: "bipe_account_on_device", footerKey: nil, rows: [.accountAdd]), BipeSettingsSection(key: "leave", titleKey: nil, footerKey: nil, rows: [.accountSignOut, .accountDelete])]
+        case .privacy: [BipeSettingsSection(key: "talk", titleKey: "bipe_privacy_who_can_talk", footerKey: nil, rows: [.privacyMessaging, .privacyRequestPhotos, .privacyBlocked]), BipeSettingsSection(key: "find", titleKey: "bipe_privacy_who_can_find", footerKey: nil, rows: [.privacyNumber, .privacyDiscovery, .privacyContacts]), BipeSettingsSection(key: "see", titleKey: "bipe_privacy_what_others_see", footerKey: nil, rows: [.privacyPresence, .privacyReadReceipts]), BipeSettingsSection(key: "data", titleKey: "bipe_privacy_your_data", footerKey: nil, rows: [.privacyExport, .privacyWhatBipeKeeps, .privacyWhoCanRead]), BipeSettingsSection(key: "assistants", titleKey: "bipe_privacy_assistants", footerKey: nil, rows: [.privacyAssistantSend])]
+        case .account: [BipeSettingsSection(key: "waysBack", titleKey: "bipe_fallback_title", footerKey: nil, rows: [.accountWaysBackStatus, .accountEmail, .accountLinkedAccounts, .accountRecoveryKey, .accountTheftProtection]), BipeSettingsSection(key: "pin", titleKey: "bipe_account_pin_lock_section", footerKey: "bipe_account_pin_footer", rows: [.accountChangePin, .accountAppLock, .accountBiometricUnlock]), BipeSettingsSection(key: "devices", titleKey: "bipe_account_devices", footerKey: nil, rows: [.accountLinkedDevices, .accountOldMessages]), BipeSettingsSection(key: "leave", titleKey: nil, footerKey: nil, rows: [.accountSignOut, .accountDelete])]
         case .notifications: []
-        case .chats: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: nil, rows: [.chatsAppearance, .chatsColors, .chatsAccessibility, .chatsLanguage, .chatsMediaQuality, .chatsShowMedia, .chatsDataUse, .chatsStickerSuggestions, .chatsLiveLocation])]
-        case .help: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: "bipe_about_steward", rows: [.helpSupport, .helpDocs, .helpTerms, .helpPrivacy, .helpReportProblem, .helpLicenses, .helpVersions])]
+        case .chats: [BipeSettingsSection(key: "look", titleKey: "bipe_chats_appearance", footerKey: nil, rows: [.chatsAppearance, .chatsColors, .chatsAccessibility, .chatsLanguage]), BipeSettingsSection(key: "media", titleKey: "bipe_chats_photos_videos", footerKey: nil, rows: [.chatsShowMedia, .chatsMediaQuality, .chatsDataUse]), BipeSettingsSection(key: "more", titleKey: nil, footerKey: nil, rows: [.chatsStickerSuggestions, .chatsLiveLocation])]
+        case .help: [BipeSettingsSection(key: "help", titleKey: nil, footerKey: nil, rows: [.helpDocs, .helpSupport, .helpReportProblem]), BipeSettingsSection(key: "about", titleKey: nil, footerKey: "bipe_about_steward", rows: [.helpTerms, .helpPrivacy, .helpLicenses])]
         }
     }
 }
@@ -86,38 +98,36 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
     case privacyContacts = "privacy.contacts"
     case privacyPresence = "privacy.presence"
     case privacyReadReceipts = "privacy.readReceipts"
-    case privacyWhoCanRead = "privacy.whoCanRead"
     case privacyExport = "privacy.export"
     case privacyWhatBipeKeeps = "privacy.whatBipeKeeps"
+    case privacyWhoCanRead = "privacy.whoCanRead"
     case privacyAssistantSend = "privacy.assistantSend"
     case accountWaysBackStatus = "account.waysBackStatus"
-    case accountChangePin = "account.changePin"
-    case accountAppLock = "account.appLock"
-    case accountBiometricUnlock = "account.biometricUnlock"
     case accountEmail = "account.email"
     case accountLinkedAccounts = "account.linkedAccounts"
     case accountRecoveryKey = "account.recoveryKey"
     case accountTheftProtection = "account.theftProtection"
-    case accountOldMessages = "account.oldMessages"
-    case accountThisDevice = "account.thisDevice"
+    case accountChangePin = "account.changePin"
+    case accountAppLock = "account.appLock"
+    case accountBiometricUnlock = "account.biometricUnlock"
     case accountLinkedDevices = "account.linkedDevices"
-    case accountAdd = "account.add"
+    case accountOldMessages = "account.oldMessages"
     case accountSignOut = "account.signOut"
     case accountDelete = "account.delete"
     case chatsAppearance = "chats.appearance"
     case chatsColors = "chats.colors"
     case chatsAccessibility = "chats.accessibility"
     case chatsLanguage = "chats.language"
-    case chatsMediaQuality = "chats.mediaQuality"
     case chatsShowMedia = "chats.showMedia"
+    case chatsMediaQuality = "chats.mediaQuality"
     case chatsDataUse = "chats.dataUse"
     case chatsStickerSuggestions = "chats.stickerSuggestions"
     case chatsLiveLocation = "chats.liveLocation"
-    case helpSupport = "help.support"
     case helpDocs = "help.docs"
+    case helpSupport = "help.support"
+    case helpReportProblem = "help.reportProblem"
     case helpTerms = "help.terms"
     case helpPrivacy = "help.privacy"
-    case helpReportProblem = "help.reportProblem"
     case helpLicenses = "help.licenses"
     case helpVersions = "help.versions"
 
@@ -134,38 +144,36 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .privacyContacts: .link
         case .privacyPresence: .switch
         case .privacyReadReceipts: .switch
-        case .privacyWhoCanRead: .url
         case .privacyExport: .action
         case .privacyWhatBipeKeeps: .url
+        case .privacyWhoCanRead: .url
         case .privacyAssistantSend: .switch
         case .accountWaysBackStatus: .info
-        case .accountChangePin: .link
-        case .accountAppLock: .switch
-        case .accountBiometricUnlock: .switch
         case .accountEmail: .link
         case .accountLinkedAccounts: .link
         case .accountRecoveryKey: .link
         case .accountTheftProtection: .link
-        case .accountOldMessages: .link
-        case .accountThisDevice: .info
+        case .accountChangePin: .link
+        case .accountAppLock: .switch
+        case .accountBiometricUnlock: .switch
         case .accountLinkedDevices: .link
-        case .accountAdd: .action
+        case .accountOldMessages: .link
         case .accountSignOut: .destructive
         case .accountDelete: .destructive
         case .chatsAppearance: .choice
         case .chatsColors: .link
         case .chatsAccessibility: .link
         case .chatsLanguage: .action
-        case .chatsMediaQuality: .link
         case .chatsShowMedia: .choice
+        case .chatsMediaQuality: .link
         case .chatsDataUse: .link
         case .chatsStickerSuggestions: .switch
         case .chatsLiveLocation: .link
-        case .helpSupport: .action
         case .helpDocs: .url
+        case .helpSupport: .action
+        case .helpReportProblem: .action
         case .helpTerms: .url
         case .helpPrivacy: .url
-        case .helpReportProblem: .action
         case .helpLicenses: .link
         case .helpVersions: .url
         }
@@ -179,46 +187,44 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .profileNamePhoto: "bipe_settings_profile_name_photo"
         case .profileHandle: "bipe_settings_handle"
         case .profilePublicProfile: "bipe_settings_public_profile"
-        case .privacyMessaging: "bipe_messaging_title"
+        case .privacyMessaging: "bipe_settings_messaging"
         case .privacyRequestPhotos: "bipe_privacy_requests_hide_photos"
         case .privacyBlocked: "bipe_privacy_blocked"
         case .privacyNumber: "bipe_privacy_number"
-        case .privacyDiscovery: "bipe_discovery_toggle"
+        case .privacyDiscovery: "bipe_settings_discovery"
         case .privacyContacts: "bipe_contacts_title"
         case .privacyPresence: "bipe_privacy_presence"
         case .privacyReadReceipts: "bipe_privacy_read_receipts"
-        case .privacyWhoCanRead: "bipe_privacy_who_can_read"
         case .privacyExport: "bipe_privacy_export"
         case .privacyWhatBipeKeeps: "bipe_privacy_what_bipe_keeps"
+        case .privacyWhoCanRead: "bipe_privacy_who_can_read"
         case .privacyAssistantSend: "bipe_privacy_assistant_send"
         case .accountWaysBackStatus: "bipe_account_ways_back"
-        case .accountChangePin: "bipe_pin_change_title"
-        case .accountAppLock: "bipe_account_app_lock"
-        case .accountBiometricUnlock: "bipe_account_biometric_unlock"
         case .accountEmail: "bipe_email_title"
         case .accountLinkedAccounts: "bipe_linked_accounts_title"
         case .accountRecoveryKey: "bipe_account_recovery_key"
         case .accountTheftProtection: "bipe_theft_title"
-        case .accountOldMessages: "bipe_account_old_messages"
-        case .accountThisDevice: "bipe_account_this_device"
+        case .accountChangePin: "bipe_pin_change_title"
+        case .accountAppLock: "bipe_account_app_lock"
+        case .accountBiometricUnlock: "bipe_account_biometric_unlock"
         case .accountLinkedDevices: "bipe_linked_devices_title"
-        case .accountAdd: "bipe_account_add"
+        case .accountOldMessages: "bipe_account_old_messages"
         case .accountSignOut: "bipe_account_sign_out"
         case .accountDelete: "bipe_account_delete"
-        case .chatsAppearance: "bipe_chats_appearance"
+        case .chatsAppearance: "bipe_chats_theme"
         case .chatsColors: "bipe_chats_colors"
         case .chatsAccessibility: "bipe_chats_accessibility"
         case .chatsLanguage: "bipe_settings_language"
-        case .chatsMediaQuality: "bipe_chats_media_quality"
         case .chatsShowMedia: "bipe_chats_show_media"
+        case .chatsMediaQuality: "bipe_chats_media_quality"
         case .chatsDataUse: "bipe_chats_data_use"
         case .chatsStickerSuggestions: "bipe_chats_sticker_suggestions"
         case .chatsLiveLocation: "bipe_chats_live_location"
+        case .helpDocs: "bipe_help_center"
         case .helpSupport: "bipe_settings_support"
-        case .helpDocs: "bipe_help_docs"
+        case .helpReportProblem: "bipe_help_report_problem"
         case .helpTerms: "bipe_help_terms"
         case .helpPrivacy: "bipe_help_privacy"
-        case .helpReportProblem: "bipe_help_report_problem"
         case .helpLicenses: "bipe_help_licenses"
         case .helpVersions: "bipe_help_versions"
         }
@@ -237,38 +243,36 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .privacyContacts: nil
         case .privacyPresence: NSLocalizedString("bipe_privacy_presence_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .privacyReadReceipts: NSLocalizedString("bipe_privacy_read_receipts_footer", tableName: "Bipe", bundle: .module, comment: "")
-        case .privacyWhoCanRead: nil
         case .privacyExport: NSLocalizedString("bipe_privacy_export_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .privacyWhatBipeKeeps: nil
+        case .privacyWhoCanRead: nil
         case .privacyAssistantSend: NSLocalizedString("bipe_privacy_assistant_send_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .accountWaysBackStatus: nil
-        case .accountChangePin: nil
-        case .accountAppLock: nil
-        case .accountBiometricUnlock: nil
         case .accountEmail: nil
         case .accountLinkedAccounts: nil
         case .accountRecoveryKey: NSLocalizedString("bipe_account_recovery_key_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .accountTheftProtection: nil
-        case .accountOldMessages: NSLocalizedString("bipe_account_old_messages_footer", tableName: "Bipe", bundle: .module, comment: "")
-        case .accountThisDevice: nil
+        case .accountChangePin: nil
+        case .accountAppLock: nil
+        case .accountBiometricUnlock: nil
         case .accountLinkedDevices: nil
-        case .accountAdd: nil
+        case .accountOldMessages: NSLocalizedString("bipe_account_old_messages_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .accountSignOut: nil
         case .accountDelete: nil
         case .chatsAppearance: nil
         case .chatsColors: NSLocalizedString("bipe_chats_colors_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .chatsAccessibility: nil
         case .chatsLanguage: NSLocalizedString("bipe_settings_language_footer", tableName: "Bipe", bundle: .module, comment: "")
-        case .chatsMediaQuality: nil
         case .chatsShowMedia: nil
+        case .chatsMediaQuality: nil
         case .chatsDataUse: nil
         case .chatsStickerSuggestions: NSLocalizedString("bipe_chats_sticker_suggestions_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .chatsLiveLocation: NSLocalizedString("bipe_chats_live_location_footer", tableName: "Bipe", bundle: .module, comment: "")
-        case .helpSupport: nil
         case .helpDocs: nil
+        case .helpSupport: nil
+        case .helpReportProblem: nil
         case .helpTerms: nil
         case .helpPrivacy: nil
-        case .helpReportProblem: nil
         case .helpLicenses: nil
         case .helpVersions: nil
         }
@@ -289,38 +293,36 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .privacyContacts: nil
         case .privacyPresence: nil
         case .privacyReadReceipts: nil
-        case .privacyWhoCanRead: nil
         case .privacyExport: nil
         case .privacyWhatBipeKeeps: nil
+        case .privacyWhoCanRead: nil
         case .privacyAssistantSend: "planned:439"
         case .accountWaysBackStatus: nil
-        case .accountChangePin: nil
-        case .accountAppLock: nil
-        case .accountBiometricUnlock: nil
         case .accountEmail: nil
         case .accountLinkedAccounts: nil
         case .accountRecoveryKey: nil
         case .accountTheftProtection: nil
-        case .accountOldMessages: nil
-        case .accountThisDevice: nil
+        case .accountChangePin: nil
+        case .accountAppLock: nil
+        case .accountBiometricUnlock: nil
         case .accountLinkedDevices: nil
-        case .accountAdd: nil
+        case .accountOldMessages: nil
         case .accountSignOut: nil
         case .accountDelete: nil
         case .chatsAppearance: nil
         case .chatsColors: nil
         case .chatsAccessibility: nil
         case .chatsLanguage: "ios"
-        case .chatsMediaQuality: nil
         case .chatsShowMedia: nil
+        case .chatsMediaQuality: nil
         case .chatsDataUse: nil
         case .chatsStickerSuggestions: "planned:841"
         case .chatsLiveLocation: nil
-        case .helpSupport: nil
         case .helpDocs: nil
+        case .helpSupport: nil
+        case .helpReportProblem: nil
         case .helpTerms: nil
         case .helpPrivacy: nil
-        case .helpReportProblem: nil
         case .helpLicenses: nil
         case .helpVersions: nil
         }
@@ -329,8 +331,8 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
     /// The page a url row opens, in the app language ("pt" or "en").
     public func url(language: String) -> URL? {
         switch self {
-        case .privacyWhoCanRead: URL(string: language == "pt" ? "https://bipe.chat/quem-pode-ler/" : "https://bipe.chat/en/who-can-read/")
         case .privacyWhatBipeKeeps: URL(string: language == "pt" ? "https://bipe.chat/lgpd/" : "https://bipe.chat/en/lgpd/")
+        case .privacyWhoCanRead: URL(string: language == "pt" ? "https://bipe.chat/quem-pode-ler/" : "https://bipe.chat/en/who-can-read/")
         case .helpDocs: URL(string: language == "pt" ? "https://bipe.chat/docs/" : "https://bipe.chat/en/docs/")
         case .helpTerms: URL(string: language == "pt" ? "https://bipe.chat/termos/" : "https://bipe.chat/en/terms/")
         case .helpPrivacy: URL(string: language == "pt" ? "https://bipe.chat/privacidade/" : "https://bipe.chat/en/privacy/")
