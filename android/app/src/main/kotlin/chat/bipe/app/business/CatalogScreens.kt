@@ -4,7 +4,7 @@
 
 package chat.bipe.app.business
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -266,7 +266,7 @@ fun CatalogOwnerScreen(business: BusinessApi, onClose: () -> Unit) {
     var adding by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<BipeCatalogItem?>(null) }
     var working by remember { mutableStateOf(false) }
-    val notice: (Int) -> Unit = { Toast.makeText(context, context.getString(it), Toast.LENGTH_SHORT).show() }
+    val notice: (Int) -> Unit = { BipeToasts.show(context.getString(it)) }
     LaunchedEffect(attempt) {
         failed = false
         try {
@@ -500,7 +500,7 @@ fun CatalogItemEditScreen(
                             return@launch
                         }
                 }
-                Toast.makeText(context, context.getString(R.string.bipe_catalog_saved), Toast.LENGTH_SHORT).show()
+                BipeToasts.show(context.getString(R.string.bipe_catalog_saved))
                 onClose(true)
             } catch (failure: CancellationException) {
                 throw failure
@@ -641,7 +641,7 @@ fun CatalogItemEditScreen(
             scope.launch {
                 runCatching { business.withToken { archiveCatalogItem(item.id, it) } }
                     .onSuccess {
-                        Toast.makeText(context, context.getString(R.string.bipe_catalog_removed), Toast.LENGTH_SHORT).show()
+                        BipeToasts.show(context.getString(R.string.bipe_catalog_removed))
                         onClose(true)
                     }
                     .onFailure { error = context.getString(R.string.bipe_catalog_save_failed) }

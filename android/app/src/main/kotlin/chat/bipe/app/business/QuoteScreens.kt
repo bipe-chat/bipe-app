@@ -4,7 +4,7 @@
 
 package chat.bipe.app.business
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -116,7 +116,7 @@ fun RequestQuoteDialog(business: BusinessApi, route: String, onClose: (Boolean) 
                 scope.launch {
                     runCatching { business.withToken { requestQuote(route, it) } }
                         .onSuccess {
-                            Toast.makeText(context, context.getString(R.string.bipe_quote_requested), Toast.LENGTH_LONG).show()
+                            BipeToasts.show(context.getString(R.string.bipe_quote_requested))
                             onClose(true)
                         }
                         .onFailure { error = BusinessText.error(context, it, R.string.bipe_quote_error) }
@@ -271,7 +271,7 @@ fun QuoteAcceptOrderDialog(business: BusinessApi, route: String, quote: BipeQuot
                 scope.launch {
                     runCatching { business.withToken { acceptQuoteForOrder(route, quote.id, quote.currentVersion, fulfilment, it) } }
                         .onSuccess {
-                            Toast.makeText(context, context.getString(R.string.bipe_order_sent), Toast.LENGTH_LONG).show()
+                            BipeToasts.show(context.getString(R.string.bipe_order_sent))
                             onClose(true)
                         }
                         .onFailure { failure ->
@@ -280,7 +280,7 @@ fun QuoteAcceptOrderDialog(business: BusinessApi, route: String, quote: BipeQuot
                             val code = (failure as? BipeApiException.Server)?.code
                             // The card must show the new version or the expiry: close and reload.
                             if (code == BipeApiErrorCode.QUOTE_VERSION_CHANGED || code == BipeApiErrorCode.QUOTE_EXPIRED) {
-                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                                BipeToasts.show(message)
                                 onClose(true)
                             }
                         }

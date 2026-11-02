@@ -12,6 +12,17 @@ func withBipeAnimation<Result>(_ animation: Animation? = .default, _ body: () th
     try withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : animation, body)
 }
 
+/// withBipeAnimation with a completion. Under Reduce Motion the change and the completion happen at once.
+@MainActor
+func withBipeAnimation(_ animation: Animation? = .default, _ body: () -> Void, completion: @escaping () -> Void) {
+    if UIAccessibility.isReduceMotionEnabled {
+        body()
+        completion()
+    } else {
+        withAnimation(animation, body, completion: completion)
+    }
+}
+
 extension View {
     /// .animation(_:value:) that honours Reduce Motion: no animation when the setting is on.
     func bipeAnimation<V: Equatable>(_ animation: Animation? = .default, value: V) -> some View {

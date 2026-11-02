@@ -4,6 +4,7 @@
 
 package chat.bipe.app.settings
 
+import chat.bipe.app.common.BipeToasts
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
@@ -13,7 +14,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -174,7 +174,7 @@ class LinkedDevicesModel(private val context: Context, private val model: Settin
             val devices = runCatching { matrix.devices(token) }.getOrNull() ?: return@launch
             _state.update { it.copy(phase = Phase.LOADED, devices = devices.filter { d -> d.deviceId != ownId }.sortedByDescending { d -> d.lastSeenTs ?: 0 }) }
             if (device != null && devices.none { it.deviceId == device.deviceId }) {
-                Toast.makeText(context, R.string.bipe_app_linked_devices_signed_out, Toast.LENGTH_SHORT).show()
+                BipeToasts.show(context, R.string.bipe_app_linked_devices_signed_out)
             }
         }
     }

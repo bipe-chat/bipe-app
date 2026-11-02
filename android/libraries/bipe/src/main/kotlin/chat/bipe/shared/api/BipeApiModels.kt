@@ -100,6 +100,8 @@ data class BipeInvitePreview(
     @SerialName("valid") val valid: Boolean,
     /** Without @. */
     @SerialName("inviter_handle") val inviterHandle: String? = null,
+    /** Only for a valid invite: when it stops working. */
+    @SerialName("expires_at") val expiresAt: String? = null,
 )
 
 /** `HandleAvailability`. */
