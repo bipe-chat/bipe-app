@@ -358,8 +358,11 @@ public struct BipeAPIClient: Sendable {
     }
     
     /// `PUT /v1/me/profile/photo`. `jpeg` must already fit the limits: see ``BipeProfilePhoto``.
-    public func setMyProfilePhoto(jpeg: Data, accessToken: String) async throws(BipeAPIError) -> BipeMyProfile {
-        try await send(method: "PUT", path: ["v1", "me", "profile", "photo"], rawBody: (data: jpeg, contentType: "image/jpeg"), accessToken: accessToken)
+    /// `source`: the mxc URI of the Matrix avatar that `jpeg` copies (ADR 0041, amended 2 Nov 2026).
+    public func setMyProfilePhoto(jpeg: Data, source: String?, accessToken: String) async throws(BipeAPIError) -> BipeMyProfile {
+        try await send(method: "PUT", path: ["v1", "me", "profile", "photo"],
+                       query: source.map { [URLQueryItem(name: "source", value: $0)] } ?? [],
+                       rawBody: (data: jpeg, contentType: "image/jpeg"), accessToken: accessToken)
     }
     
     /// `DELETE /v1/me/profile/photo`.
@@ -1105,6 +1108,8 @@ public struct BipeMyProfile: Decodable, Sendable, Equatable {
     public let handle: String?
     /// Absent without a photo.
     public let photoUrl: URL?
+    /// The mxc URI of the Matrix avatar that the photo copies. Absent without a photo or for an older upload.
+    public let photoSource: String?
 }
 
 /// Contract: `ProfileUpdate`.

@@ -63,10 +63,8 @@ import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeMyProfile
 import chat.bipe.shared.api.BipeProfileUpdate
-import chat.bipe.shared.api.deleteMyProfilePhoto
 import chat.bipe.shared.api.myProfile
 import chat.bipe.shared.api.setMyProfile
-import chat.bipe.shared.api.setMyProfilePhoto
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import com.google.zxing.BarcodeFormat
@@ -74,11 +72,9 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.io.ByteArrayOutputStream
-import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.matrix.rustcomponents.sdk.MediaSource
 
 /** Square JPEG for profile photos: at most `profilePhotoMaxPixels` on each side and `profilePhotoMaxBytes`. */
 object BipeProfilePhoto {
@@ -206,6 +202,8 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit) {
                         } else if (removesPhoto) {
                             client.removeAvatar()
                         }
+                        // The public profile photo is a copy of this one (ADR 0041, amended 2 Nov 2026).
+                        if (photo != null || removesPhoto) people.syncPublicPhoto()
                         Unit
                     }
                     saving = false
@@ -218,7 +216,7 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit) {
     }
 }
 
-/** Spec public-profile-edit: the public profile behind bipe.chat/@handle, in no search (ADR 0041). */
+/** Spec public-profile-edit: the public profile behind bipe.chat/@handle, in no search (ADR 0041). The photo is the profile photo (syncPhoto). */
 @Composable
 fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openLink: () -> Unit, onBack: () -> Unit) {
     val colors = BipeTheme.colors
@@ -230,9 +228,8 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
     var handle by remember { mutableStateOf<String?>(null) }
     var name by remember { mutableStateOf("") }
     var bio by remember { mutableStateOf("") }
-    var photoUrl by remember { mutableStateOf<String?>(null) }
-    var remotePhoto by remember { mutableStateOf<ByteArray?>(null) }
-    var newPhoto by remember { mutableStateOf<ByteArray?>(null) }
+    // Client.avatarUrl: the public page shows a copy of it.
+    var avatarUrl by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
     var savedOnce by remember { mutableStateOf(false) }
@@ -243,7 +240,6 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
         handle = profile.handle
         name = profile.name
         bio = profile.bio
-        photoUrl = profile.photoUrl
     }
 
     fun message(failure: Throwable): String {
@@ -254,37 +250,21 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
             ?: context.getString(R.string.bipe_error_network)
     }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) {
-            scope.launch {
-                val jpeg = BipeProfilePhoto.load(context, uri)?.let { BipeProfilePhoto.jpeg(it) }
-                if (jpeg == null) error = context.getString(R.string.bipe_public_profile_photo_invalid) else { error = null; newPhoto = jpeg }
-            }
-        }
-    }
-
-    // Action appear: GET /v1/me/profile. A profile never saved starts from the Matrix profile.
+    // Action appear: GET /v1/me/profile, then syncPhoto. A profile never saved starts from the Matrix name.
     LaunchedEffect(Unit) {
         isCompany = people.media.isCompany(people.session.userId)
-        runCatching { people.withToken { people.api.myProfile(it) } }
+        avatarUrl = runCatching { people.session.client.avatarUrl() }.getOrNull()
+        val loaded = runCatching { people.withToken { people.api.myProfile(it) } }
             .onSuccess { profile ->
                 applyProfile(profile)
                 savedOnce = profile.enabled
                 if (profile.name.isEmpty()) {
                     name = runCatching { people.session.client.displayName() }.getOrNull().orEmpty()
-                    if (!profile.hasPhoto) {
-                        val mxc = runCatching { people.session.client.avatarUrl() }.getOrNull()
-                        val bytes = mxc?.let { url -> runCatching { people.session.client.getMediaContent(MediaSource.fromUrl(url)) }.getOrNull() }
-                        newPhoto = bytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }?.let { BipeProfilePhoto.jpeg(it) }
-                    }
                 }
             }
             .onFailure { error = message(it) }
         loading = false
-    }
-    LaunchedEffect(photoUrl) {
-        val url = photoUrl
-        remotePhoto = if (url == null) null else withContext(Dispatchers.IO) { runCatching { URL(url).readBytes() }.getOrNull() }
+        loaded.getOrNull()?.let { people.syncPublicPhoto(it) }
     }
 
     val problem = BipeProfileRules.problem(name, bio)
@@ -301,29 +281,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
             Text(stringResource(R.string.bipe_public_profile_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
         }
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            PhotoPreview(newPhoto ?: remotePhoto, isCompany = isCompany,
-                fallback = { Avatar(name, null, people.media, size = 96.dp, userId = people.session.userId, isCompany = isCompany) })
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
-                    Text(stringResource(R.string.bipe_public_profile_photo_change))
-                }
-                if (newPhoto != null || photoUrl != null) {
-                    TextButton(onClick = {
-                        if (newPhoto != null) {
-                            newPhoto = null
-                        } else {
-                            // Action removePhoto: DELETE /v1/me/profile/photo.
-                            scope.launch {
-                                runCatching { people.withToken { people.api.deleteMyProfilePhoto(it) } }
-                                    .onSuccess { photoUrl = it.photoUrl }
-                                    .onFailure { error = message(it) }
-                            }
-                        }
-                    }) {
-                        Text(stringResource(R.string.bipe_public_profile_photo_remove), color = colors.trustDangerInk)
-                    }
-                }
-            }
+            Avatar(name, avatarUrl, people.media, size = 96.dp, userId = people.session.userId, isCompany = isCompany)
         }
         OutlinedTextField(
             value = name,
@@ -349,17 +307,15 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
             enabled = problem == null && !saving,
             modifier = Modifier.fillMaxWidth(),
             onClick = {
-                // Action save: PUT /v1/me/profile, then the new photo.
+                // Action save: PUT /v1/me/profile, then syncPhoto.
                 saving = true
                 error = null
                 val isOn = enabled && handle != null
                 scope.launch {
                     runCatching {
-                        var profile = people.withToken { people.api.setMyProfile(BipeProfileUpdate(isOn, name.trim(), bio.trim()), it) }
-                        newPhoto?.let { jpeg -> profile = people.withToken { people.api.setMyProfilePhoto(jpeg, it) } }
-                        profile
+                        val profile = people.withToken { people.api.setMyProfile(BipeProfileUpdate(isOn, name.trim(), bio.trim()), it) }
+                        people.syncPublicPhoto(profile)
                     }.onSuccess {
-                        newPhoto = null
                         applyProfile(it)
                         saved = true
                         savedOnce = true
