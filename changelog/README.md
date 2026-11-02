@@ -35,7 +35,9 @@ detail: what a person notices.
   internal paths, no people's names.
 
 A change nobody sees (CI, tools, docs, generated code, a refactor, web/)
-needs no update.
+needs no update. CI (`changelog.yml`) fails a pull request that changes iOS
+or Android app code and adds no file. When a tester sees nothing, put the
+line `Changelog: none` in the PR description.
 
 ## Commands
 
@@ -43,6 +45,7 @@ needs no update.
 node tools/changelog.mjs                    # the changelog, newest build first
 node tools/changelog.mjs --since 330        # the builds after 330, for tester notes
 node tools/changelog.mjs --check            # every file is well formed (CI)
+node tools/changelog.mjs --require origin/main  # this branch adds a file if it needs one (CI)
 node tools/changelog.mjs --json --ref origin/main   # what bipe-web renders
 node tools/changelog.mjs --backfill <range> # draft files from commits, then edit them
 ```
