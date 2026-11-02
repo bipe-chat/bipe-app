@@ -2169,6 +2169,14 @@
     <string name="bipe_year_recap_partial">Este celular não tem o histórico do ano inteiro, então os números contam só o que está nele.</string>
     <string name="bipe_year_recap_empty">Você ainda não mandou mensagens em %1$s.</string>
     <string name="bipe_year_recap_share_note">A imagem mostra só os números, sem nomes de pessoas ou conversas.</string>
+    <string name="bipe_year_recap_by_month">Mensagens por mês</string>
+    <string name="bipe_year_recap_by_hour">Hora do dia</string>
+    <string name="bipe_year_recap_by_weekday">Dia da semana</string>
+    <string name="bipe_year_recap_chart_peak">Pico: %1$s</string>
+    <string name="bipe_year_recap_peak_dawn">Você conversa mais de madrugada</string>
+    <string name="bipe_year_recap_peak_morning">Você conversa mais de manhã</string>
+    <string name="bipe_year_recap_peak_afternoon">Você conversa mais à tarde</string>
+    <string name="bipe_year_recap_peak_evening">Você conversa mais à noite</string>
     <string name="bipe_invite_joined_push_title">Convite aceito</string>
     <string name="bipe_invite_joined_push_body">Alguém entrou no Bipe com seu convite. Toque para ver quem.</string>
     <string name="bipe_group_link_joined_push_title">Novo membro no grupo</string>
@@ -2176,4 +2184,18 @@
     <string name="bipe_notifications_invite_joined">Quando alguém entra com meu convite</string>
     <string name="bipe_notifications_group_link_joined">Quando alguém entra com meu link de grupo</string>
     <string name="bipe_notifications_joins_footer">Vale para todos os seus aparelhos.</string>
+    <string name="bipe_web_signin_title">Use o Bipe no computador</string>
+    <string name="bipe_web_signin_step_open">Abra o Bipe no celular.</string>
+    <string name="bipe_web_signin_step_path">Toque em %1$s › %2$s › %3$s › %4$s.</string>
+    <string name="bipe_web_signin_step_scan">Aponte a câmera do celular para este código.</string>
+    <string name="bipe_web_signin_check_code_title">Digite o número que aparece no celular</string>
+    <string name="bipe_web_signin_check_code_send">Confirmar</string>
+    <string name="bipe_web_signin_approve">Aprove no celular para entrar.</string>
+    <string name="bipe_web_signin_keys">Trazendo suas chaves do celular…</string>
+    <string name="bipe_web_signin_expired">O código venceu. Criando outro…</string>
+    <string name="bipe_web_loading">Carregando…</string>
+    <string name="bipe_web_timeline_undecryptable">Ainda não dá para ler esta mensagem neste computador.</string>
+    <string name="bipe_app_timeline_unsupported">Este tipo de mensagem ainda não aparece aqui.</string>
+    <string name="bipe_app_upload_remove">Remover</string>
+    <string name="bipe_a11y_scroll_to_newest">Ir para as mensagens mais novas</string>
 </resources>
