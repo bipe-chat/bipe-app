@@ -52,8 +52,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -113,6 +116,7 @@ fun UploadPreviewScreen(
     val colors = BipeTheme.colors
     val canSend = model.canSend(items, isPreparing)
     val pager = rememberPagerState { items.size }
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(model) { model.appear() }
     LaunchedEffect(isClosed) {
@@ -142,7 +146,8 @@ fun UploadPreviewScreen(
                     }
                 }
             }
-            HorizontalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth(), key = { items.getOrNull(it)?.id ?: it }) { page ->
+            // A tap on the media closes the keyboard (bipe-chat/bipe#965); a swipe still turns the page.
+            HorizontalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth().pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }, key = { items.getOrNull(it)?.id ?: it }) { page ->
                 items.getOrNull(page)?.let { PickedMediaPage(it, maxUploadLabel) }
             }
             if (items.size > 1) {

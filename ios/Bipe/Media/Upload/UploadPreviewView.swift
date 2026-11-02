@@ -27,6 +27,14 @@ struct UploadPreviewView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            // The page view keeps the image's full height. When the keyboard opens, the media gives up its
+            // height first, so the top bar stays on screen and Send stays above the keyboard.
+            .frame(minHeight: 0, maxHeight: .infinity)
+            .layoutPriority(-1)
+            .clipped()
+            .contentShape(Rectangle())
+            // a11y: a tap on the media only closes the keyboard; VoiceOver closes it with its own gesture.
+            .onTapGesture { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) }
 
             if model.items.count > 1 {
                 ThumbnailStrip(items: model.items, page: $page)
