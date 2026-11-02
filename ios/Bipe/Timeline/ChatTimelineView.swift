@@ -471,7 +471,7 @@ struct ChatTimelineView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Text(model.roomName).font(.headline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
-                    if model.isDm, BipeOfficialAccounts.isOfficial(model.peerUserId) {
+                    if model.isNewsRoom || (model.isDm && BipeOfficialAccounts.isOfficial(model.peerUserId)) {
                         OfficialBadge()
                     }
                 }

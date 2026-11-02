@@ -4,8 +4,13 @@
 
 package chat.bipe.shared.invites
 
-/** ADR 0034: the API's invite pair skips Pedidos for that DM only. Blocking still wins. */
+import chat.bipe.shared.BipeOfficialAccounts
+
+/**
+ * ADR 0034: the API's invite pair skips Pedidos for that DM only. An official account (exact user ID) skips Pedidos
+ * and the group invites for any room (bipe-chat/bipe#978). Blocking still wins.
+ */
 object BipeInviteTrust {
     fun acceptsAutomatically(isDm: Boolean, inviterId: String, isIgnored: Boolean, pairs: Set<String>): Boolean =
-        isDm && !isIgnored && inviterId.isNotEmpty() && inviterId in pairs
+        !isIgnored && inviterId.isNotEmpty() && (BipeOfficialAccounts.isOfficial(inviterId) || (isDm && inviterId in pairs))
 }

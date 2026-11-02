@@ -4,9 +4,11 @@
 
 import Foundation
 
-/// ADR 0034: the API's invite pair skips Pedidos for that DM only. Blocking still wins.
+/// ADR 0034: the API's invite pair skips Pedidos for that DM only. An official account (exact user ID) skips Pedidos
+/// and the group invites for any room (bipe-chat/bipe#978). Blocking still wins.
 public nonisolated enum BipeInviteTrust {
     public static func acceptsAutomatically(isDm: Bool, inviterID: String, isIgnored: Bool, pairs: Set<String>) -> Bool {
-        isDm && !isIgnored && !inviterID.isEmpty && pairs.contains(inviterID)
+        guard !isIgnored, !inviterID.isEmpty else { return false }
+        return BipeOfficialAccounts.isOfficial(inviterID) || (isDm && pairs.contains(inviterID))
     }
 }
