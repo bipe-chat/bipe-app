@@ -14,6 +14,8 @@ struct ChatTimelineView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var deletingDm = false
     @State private var toast: String?
+    /// The list keeps to the newest message until the person scrolls (chat-timeline opens at the bottom).
+    @State private var followsNewest = true
     /// Spec chat-timeline searchInChat (bipe-chat/bipe#861).
     @State private var searchingChat = false
     /// The group menu's group-details row.
@@ -363,6 +365,22 @@ struct ChatTimelineView: View {
             }
             .defaultScrollAnchor(.bottom)
             .scrollDismissesKeyboard(.interactively)
+            // The chat opens at the newest message. The first rows and the history pages come in batches,
+            // and the lazy stack guesses row heights, so the bottom anchor alone can land higher up.
+            // Until the person scrolls, each batch scrolls to the newest message again.
+            .onScrollPhaseChange { _, phase in
+                if phase == .interacting { followsNewest = false }
+            }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 40
+            } action: { _, atBottom in
+                if atBottom { followsNewest = true }
+            }
+            .onChange(of: model.rows.count) {
+                if followsNewest, let lastId = model.rows.last?.id {
+                    proxy.scrollTo(lastId, anchor: .bottom)
+                }
+            }
             .onChange(of: model.rows.last?.id) { _, lastId in
                 if let lastId {
                     withBipeAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
@@ -370,6 +388,7 @@ struct ChatTimelineView: View {
             }
             .onChange(of: model.scrollTarget) { _, target in
                 guard let target else { return }
+                followsNewest = false
                 withBipeAnimation { proxy.scrollTo(target, anchor: .center) }
                 model.scrolledToTarget()
             }
