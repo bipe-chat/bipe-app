@@ -80,19 +80,25 @@ const MAX_WIDTH = 260;
 // Device pixels for the preview: the 260 px box on a 3x screen.
 const PREVIEW = 800;
 
-export function TimelineMediaRow({ media }: { media: MediaInfo }) {
+export type Upload = { percent: number; cancel: () => void };
+
+export function TimelineMediaRow({ media, upload }: { media: MediaInfo; upload?: Upload }) {
   const [viewing, setViewing] = useState(false);
   const caption = media.caption?.trim();
   return (
     <div className="flex flex-col gap-1">
-      {media.kind === 'file' ? <FileCard media={media} /> : <Visual media={media} onOpen={() => setViewing(true)} />}
+      {media.kind === 'file' ? (
+        <FileCard media={media} upload={upload} />
+      ) : (
+        <Visual media={media} upload={upload} onOpen={() => setViewing(true)} />
+      )}
       {caption && <p className="max-w-[260px] text-body break-words whitespace-pre-wrap text-ink-primary">{caption}</p>}
       {viewing && <Viewer media={media} onClose={() => setViewing(false)} />}
     </div>
   );
 }
 
-function Visual({ media, onOpen }: { media: MediaInfo; onOpen: () => void }) {
+function Visual({ media, upload, onOpen }: { media: MediaInfo; upload?: Upload; onOpen: () => void }) {
   const client = useClient();
   // The preview of a video is its thumbnail; without one the box shows only the play mark.
   const hasPreview = media.kind === 'image' || media.thumbnail !== undefined;
@@ -130,12 +136,59 @@ function Visual({ media, onOpen }: { media: MediaInfo; onOpen: () => void }) {
           media.kind === 'video' && <PlayMark />
         )}
       </span>
+      {upload && (
+        <span className="absolute inset-0 grid place-items-center">
+          <UploadRing upload={upload} scrim />
+        </span>
+      )}
       {media.kind === 'video' && media.duration !== undefined && (
         <span className="bipe-scrim absolute bottom-2 left-2 rounded-full px-1.5 py-0.5 text-caption2 tabular-nums">
           {durationText(media.duration)}
         </span>
       )}
     </button>
+  );
+}
+
+// The upload overlay (uploadOverlay, TimelineMediaRow.swift): a ring that fills with the progress and an x
+// that cancels. On a photo it sits on the scrim; on a file card it fills the 40 px circle.
+function UploadRing({ upload, scrim }: { upload: Upload; scrim?: boolean }) {
+  const r = 18;
+  const length = 2 * Math.PI * r;
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      // TODO(string): bipe_web_upload_cancel, the label of the button that stops an upload (iOS uses bipe_app_cancel).
+      aria-label={s('bipe_app_cancel')}
+      className={`relative grid size-11 place-items-center rounded-full ${scrim ? 'bipe-scrim' : 'text-accent-ink'}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        upload.cancel();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          upload.cancel();
+        }
+      }}
+    >
+      <svg viewBox="0 0 44 44" className="absolute inset-0 size-full -rotate-90" aria-hidden>
+        <circle
+          cx="22"
+          cy="22"
+          r={r}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={length}
+          strokeDashoffset={length * (1 - upload.percent / 100)}
+          className={scrim ? '' : 'text-accent-fill'}
+        />
+      </svg>
+      <Icon path={x} size={16} />
+    </span>
   );
 }
 
@@ -147,7 +200,7 @@ function PlayMark() {
   );
 }
 
-function FileCard({ media }: { media: MediaInfo }) {
+function FileCard({ media, upload }: { media: MediaInfo; upload?: Upload }) {
   const client = useClient();
   const [state, setState] = useState<'idle' | 'opening' | 'failed'>('idle');
   return (
@@ -171,8 +224,14 @@ function FileCard({ media }: { media: MediaInfo }) {
         }
       }}
     >
-      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-ink">
-        {state === 'opening' ? <Spinner /> : <Icon path={state === 'failed' ? arrowClockwise : file} size={20} />}
+      <span className="relative grid size-10 shrink-0 place-items-center rounded-full bg-accent-wash text-accent-ink">
+        {upload ? (
+          <UploadRing upload={upload} />
+        ) : state === 'opening' ? (
+          <Spinner />
+        ) : (
+          <Icon path={state === 'failed' ? arrowClockwise : file} size={20} />
+        )}
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="line-clamp-2 text-subheadline font-semibold break-all text-ink-primary">{media.filename}</span>

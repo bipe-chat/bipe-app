@@ -160,6 +160,18 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
       void navigator.clipboard.writeText(row.media?.caption ?? row.text).then(() => setToast(s('bipe_app_copied')));
     },
     loadReply,
+    retry: (row) => {
+      row.provider
+        .getSendHandle()
+        ?.tryResend()
+        .catch((e: unknown) => setNote(describe(e)));
+    },
+    cancelUpload: (row) => {
+      row.provider
+        .getSendHandle()
+        ?.abort()
+        .catch((e: unknown) => setNote(describe(e)));
+    },
   };
   const name = face.name;
   // TODO(string): the label of the button that scrolls back to the newest message.

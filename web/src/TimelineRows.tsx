@@ -16,6 +16,7 @@ import {
   TimelineItemContent,
   VirtualTimelineItem,
   type EventOrTransactionId,
+  type LazyTimelineItemProviderLike,
   type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
 import {
@@ -63,6 +64,10 @@ export type MessageRow = {
   canDelete: boolean;
   edited: boolean;
   reply?: ReplyQuoteData;
+  /** Upload progress of an own media message in the send queue, 0 to 100. */
+  uploadPercent?: number;
+  /** The SDK's handle to the item: its send handle retries or aborts a local echo. */
+  provider: LazyTimelineItemProviderLike;
   /** People other than the account whose read receipt sits on this event. */
   readBy: string[];
 };
@@ -110,10 +115,14 @@ export function itemRow(item: TimelineItem, ownUserId: string): Row | undefined 
     text = event.isOwn ? s('bipe_app_message_deleted_own') : s('bipe_app_message_deleted');
   }
   let send: Send | undefined;
+  let uploadPercent: number | undefined;
   if (event.isOwn) {
     const state = event.localSendState;
-    if (state && EventSendState.NotSentYet.instanceOf(state)) send = 'sending';
-    else if (state && EventSendState.SendingFailed.instanceOf(state)) send = 'failed';
+    if (state && EventSendState.NotSentYet.instanceOf(state)) {
+      send = 'sending';
+      const p = state.inner.progress?.progress;
+      if (p && p.total > 0n) uploadPercent = Math.min(100, Math.round((Number(p.current) / Number(p.total)) * 100));
+    } else if (state && EventSendState.SendingFailed.instanceOf(state)) send = 'failed';
     else send = 'sent';
   }
   const eventId = EventOrTransactionIdValue.EventId.instanceOf(event.eventOrTransactionId)
@@ -155,6 +164,8 @@ export function itemRow(item: TimelineItem, ownUserId: string): Row | undefined 
     canReply: live && event.canBeRepliedTo && eventId !== undefined,
     canEdit: event.isOwn && event.isEditable && body === 'text',
     canDelete: event.isOwn && body !== 'deleted',
+    uploadPercent,
+    provider: event.lazyProvider,
     edited,
     reply,
     readBy: [...event.readReceipts.keys()].filter((id) => id !== ownUserId),
@@ -185,6 +196,10 @@ export type RowHandlers = {
   remove: (row: MessageRow) => void;
   copy: (row: MessageRow) => void;
   loadReply: (eventId: string) => void;
+  /** Spec read-receipts failed tick: send again (SendHandle.tryResend). */
+  retry: (row: MessageRow) => void;
+  /** Spec timeline-media upload overlay: stop the upload (SendHandle.abort). */
+  cancelUpload: (row: MessageRow) => void;
 };
 
 export function TimelineRowView({ row, isDm, on }: { row: Row; isDm: boolean; on: RowHandlers }) {
@@ -241,7 +256,14 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
       )}
       {row.reply && <ReplyQuote reply={row.reply} onLoad={on.loadReply} />}
       {row.media ? (
-        <TimelineMediaRow media={row.media} />
+        <TimelineMediaRow
+          media={row.media}
+          upload={
+            row.send === 'sending' && row.uploadPercent !== undefined
+              ? { percent: row.uploadPercent, cancel: () => on.cancelUpload(row) }
+              : undefined
+          }
+        />
       ) : row.body === 'text' ? (
         <p className="text-body break-words whitespace-pre-wrap text-ink-primary">{row.text}</p>
       ) : (
@@ -257,6 +279,7 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
         at={row.at}
         edited={row.edited}
         send={row.body === 'text' || row.body === 'media' ? row.send : undefined}
+        onRetry={() => on.retry(row)}
       />
     </Bubble>
   );
@@ -359,7 +382,7 @@ function Bubble({
 
 // The time, the edited label (message-edit) and, on an own message, the send state (spec read-receipts):
 // a clock while it sends, a tick once the server has it, a warning when it failed.
-function Footer({ at, edited, send }: { at: number; edited: boolean; send?: Send }) {
+function Footer({ at, edited, send, onRetry }: { at: number; edited: boolean; send?: Send; onRetry: () => void }) {
   return (
     <span className="flex items-center gap-1 self-end text-caption2 whitespace-nowrap text-ink-secondary">
       <time className="tabular-nums" dateTime={new Date(at).toISOString()}>
@@ -377,10 +400,11 @@ function Footer({ at, edited, send }: { at: number; edited: boolean; send?: Send
         <Icon path={checks} size={14} label={s('bipe_app_receipt_read')} className="text-accent-ink" />
       )}
       {send === 'failed' && (
-        <span className="flex items-center gap-1 text-trust-danger-ink">
+        // A tap sends again, as bipe_app_timeline_failed says (ReceiptTick .failed on iOS).
+        <button type="button" className="flex items-center gap-1 text-trust-danger-ink" onClick={onRetry}>
           <Icon path={warningCircle} size={14} />
           {s('bipe_app_timeline_failed')}
-        </span>
+        </button>
       )}
     </span>
   );
