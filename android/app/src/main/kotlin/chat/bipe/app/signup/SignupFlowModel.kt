@@ -596,7 +596,7 @@ class SignupFlowModel(
             if (linkChosen && provider != null) {
                 linkChosen = false
                 LinkedAccountsModel.runLink(context, api, provider) { session.accessToken() }?.let { error ->
-                    BipeToasts.show(error)
+                    BipeToasts.show(context, error)
                 }
             }
             createPhase.value = CreatePhase.DONE
