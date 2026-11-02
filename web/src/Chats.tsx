@@ -62,9 +62,9 @@ export function Chats({ client }: { client: Client }) {
 
   return (
     <ClientContext value={client}>
-      <div className="flex h-full">
+      <div className="flex h-full min-h-0 overflow-hidden">
         <aside
-          className={`${open || settingsOpen ? 'hidden md:flex' : 'flex'} w-full min-w-0 flex-col bg-surface-base md:w-[360px] md:shrink-0 md:border-r md:border-line-subtle`}
+          className={`${open || settingsOpen ? 'hidden md:flex' : 'flex'} min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface-base md:w-[360px] md:shrink-0 md:border-r md:border-line-subtle`}
         >
           {/* The navigation bar: the toolbar row with its glass button, then the large title. */}
           <div className="flex h-11 shrink-0 items-center justify-end px-2">
@@ -98,7 +98,7 @@ export function Chats({ client }: { client: Client }) {
               )}
             </div>
           ) : (
-            <ul className="flex-1 overflow-y-auto">
+            <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {rooms.map((room) => (
                 <ChatRow
                   key={room.id()}
@@ -113,7 +113,9 @@ export function Chats({ client }: { client: Client }) {
             </ul>
           )}
         </aside>
-        <main className={`${open || settingsOpen ? 'flex' : 'hidden md:flex'} min-w-0 flex-1 flex-col`}>
+        <main
+          className={`${open || settingsOpen ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col overflow-hidden`}
+        >
           {settingsOpen ? (
             <Settings onClose={() => setSettingsOpen(false)} />
           ) : open ? (

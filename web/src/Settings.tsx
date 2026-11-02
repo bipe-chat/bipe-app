@@ -68,7 +68,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
   if (open) return <GroupScreen group={open} onBack={() => setOpen(undefined)} />;
   return (
-    <div className="flex h-full flex-col bg-grouped-screen">
+    <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
       <NavBar title={s('bipe_tab_you')} onBack={onClose} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-6">
         <div className="flex flex-col items-center gap-1 py-2 text-center">
@@ -105,7 +105,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
 function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
   const client = useClient();
   return (
-    <div className="flex h-full flex-col bg-grouped-screen">
+    <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
       <NavBar title={s(key(group.title))} onBack={onBack} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
         {webSections(group).map((section) => (

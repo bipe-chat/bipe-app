@@ -19,7 +19,7 @@ import { Spinner } from './ui/Spinner';
 export function ChatInfo({ room, face, onClose }: { room: Room; face: RoomFace; onClose: () => void }) {
   const isDm = face.isDirect === true;
   return (
-    <aside className="fixed inset-0 z-40 flex flex-col bg-grouped-screen md:static md:z-auto md:w-[360px] md:shrink-0 md:border-l md:border-line-subtle">
+    <aside className="fixed inset-0 z-40 flex min-h-0 flex-col bg-grouped-screen md:static md:z-auto md:w-[360px] md:shrink-0 md:border-l md:border-line-subtle">
       <NavBar
         title={isDm ? s('bipe_dm_details_title') : s('bipe_app_group_details_title')}
         onBack={onClose}
