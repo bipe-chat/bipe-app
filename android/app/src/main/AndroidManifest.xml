@@ -19,7 +19,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Spec notification-checkup (bipe-chat/bipe#823): the battery optimisation dialog; Play allows it for messaging apps. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <!-- Link a computer (spec link-computer-scan): the camera reads the QR code of chat.bipe.net.br. -->
+    <!-- Link a computer (spec link-computer-scan): the camera reads the QR code of the web client (web.bipe.chat). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Spec location-send (bipe-chat/bipe#768): positions while the app is open, asked at the first send. A live share
          goes on in the background through the location foreground service, started from the open app, so the app asks
