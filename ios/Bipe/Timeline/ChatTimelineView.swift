@@ -593,7 +593,8 @@ private struct ComposerBar: View {
                           axis: .vertical)
                     .focused($focused)
                     .lineLimit(1...(verticalSizeClass == .compact ? 3 : 5))
-                    .padding(.vertical, 8)
+                    // 22 pt line + 2 x 11 = 44 pt, the sticker button's height, so one line sits in the middle.
+                    .padding(.vertical, 11)
                     .foregroundStyle(BipeColor.inkPrimary)
                 if model.editing == nil {
                     Button(action: openStickers) {

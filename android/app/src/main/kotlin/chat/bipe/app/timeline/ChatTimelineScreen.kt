@@ -854,7 +854,8 @@ private fun ComposerBar(
                     modifier = Modifier
                         .weight(1f)
                         .focusRequester(focus)
-                        .padding(vertical = 10.dp),
+                        // 22 dp line + 2 x 13 = 48 dp, the sticker button's height, so one line sits in the middle.
+                        .padding(vertical = 13.dp),
                     decorationBox = { inner ->
                         Box {
                             if (draft.isEmpty()) {
