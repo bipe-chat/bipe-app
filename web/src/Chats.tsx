@@ -455,6 +455,7 @@ export function Chats({ client }: { client: Client }) {
             <RequestScreen
               key={request.roomId}
               request={request}
+              contactNames={summaries.filter((c) => c.kind === 'dm').map((c) => c.face.name)}
               onAccepted={() => openChat(request.room)}
               onDone={() => setDetail({ kind: 'requests' })}
               onBack={() => setDetail({ kind: 'requests' })}

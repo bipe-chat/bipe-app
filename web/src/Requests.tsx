@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import type { ChatSummary } from './chat-model';
 import { useClient } from './media';
+import { ProfileFactsLines, RequestTrust, useHandle } from './Trust';
 import { Avatar } from './ui/Avatar';
 import { s } from './ui/i18n';
 import { NavBar } from './ui/List';
@@ -63,15 +64,18 @@ export function RequestsList({
 
 type Outcome = { kind: 'idle' } | { kind: 'working' } | { kind: 'error' } | { kind: 'reported' };
 
-// TODO: the trust block (verified name or Nome não verificado, account age, name and photo warnings) needs
-// bipe-api (badges, handles) and the phone's contacts; the web shows the person's name only.
+// The trust block (spec chat-request): the @handle, the profile facts and Nome não verificado or the
+// external line from bipe-api and the generated rules (Trust.tsx), and the contact collision line.
 export function RequestScreen({
   request,
+  contactNames,
   onAccepted,
   onDone,
   onBack,
 }: {
   request: ChatSummary;
+  /** The names of people with a joined DM, for the contact collision check. */
+  contactNames: string[];
   onAccepted: () => void;
   onDone: () => void;
   onBack: () => void;
@@ -80,6 +84,7 @@ export function RequestScreen({
   const [outcome, setOutcome] = useState<Outcome>({ kind: 'idle' });
   const [confirmBlock, setConfirmBlock] = useState(false);
   const who = requesterOf(request);
+  const handle = useHandle(who.userId);
   const run = (work: () => Promise<void>, after: () => void) => {
     setOutcome({ kind: 'working' });
     work()
@@ -97,6 +102,9 @@ export function RequestScreen({
       <div className="mx-auto flex w-full max-w-[480px] min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto p-6 text-center">
         <Avatar name={who.name} size={72} userId={who.userId} />
         <h3 className="text-title2 text-ink-primary">{who.name}</h3>
+        {handle && <p className="text-subheadline text-ink-secondary">@{handle}</p>}
+        <ProfileFactsLines userId={who.userId} />
+        <RequestTrust userId={who.userId} name={who.name} contactNames={contactNames} />
         {outcome.kind === 'error' && (
           <p className="text-subheadline text-trust-danger-ink">{s('bipe_error_generic')}</p>
         )}

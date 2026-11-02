@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { MembershipState, type RoomLike as Room, type RoomMember } from './generated/matrix_sdk_ffi';
 import type { RoomFace } from './room-face';
 import { isOfficial } from './registries';
+import { ProfileFactsLines, useHandle } from './Trust';
 import { Avatar } from './ui/Avatar';
 import { s } from './ui/i18n';
 import { NavBar, OfficialBadge, Row, Section } from './ui/List';
@@ -59,16 +60,21 @@ function Header({
   );
 }
 
-// TODO: the @handle (BipeHandleResolver, POST /v1/handles/resolve), the trust facts and marks, the bio
-// and the company square need the Bipe API with an OpenID token, which the web client does not use yet.
+// The @handle and the profile facts come from bipe-api (Trust.tsx). TODO: trust marks and the bio
+// (public profile) are not read yet.
 function PersonInfo({ face }: { face: RoomFace }) {
+  const handle = useHandle(face.peer?.userId);
   return (
-    <Header
-      name={face.name}
-      avatarUrl={face.avatarUrl}
-      badge={isOfficial(face.peer?.userId)}
-      userId={face.peer?.userId}
-    />
+    <>
+      <Header
+        name={face.name}
+        avatarUrl={face.avatarUrl}
+        badge={isOfficial(face.peer?.userId)}
+        userId={face.peer?.userId}
+        subtitle={handle ? `@${handle}` : undefined}
+      />
+      <ProfileFactsLines userId={face.peer?.userId} />
+    </>
   );
 }
 

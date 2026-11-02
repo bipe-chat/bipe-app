@@ -30,6 +30,7 @@
   --color-trust-danger-ink: var(--bipe-trust-danger-ink);
   --color-trust-verified-ink: var(--bipe-trust-verified-ink);
   --color-trust-caution-ink: var(--bipe-trust-caution-ink);
+  --color-trust-neutral-ink: var(--bipe-trust-neutral-ink);
   --color-trust-caution-wash: var(--bipe-trust-caution-wash);
   --color-trust-caution-line: var(--bipe-trust-caution-line);
   --color-trust-verified-wash: var(--bipe-trust-verified-wash);
