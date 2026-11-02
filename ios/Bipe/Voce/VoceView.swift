@@ -23,8 +23,6 @@ struct VoceView: View {
     @State private var showsLinkPhone = false
     @State private var govbrFlow: BipeGovbrFlow?
     private enum Destination: Hashable { case notes(String), invites, trust, myBookings, claim }
-    @State private var photoPromptDismissed = false
-    @State private var osTheftPromptDone = OsTheftPromptMemory.isDone
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
@@ -34,7 +32,6 @@ struct VoceView: View {
         _settings = StateObject(wrappedValue: SettingsModel(session: chatList.session, api: api))
         _people = StateObject(wrappedValue: PeopleService(session: chatList.session, api: api, media: chatList.media))
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: chatList.session))
-        _photoPromptDismissed = State(initialValue: UserDefaults.standard.bool(forKey: "bipe.photoPrompt.dismissed.\(chatList.session.userId)"))
     }
 
     var body: some View {
@@ -46,25 +43,7 @@ struct VoceView: View {
                                openQr: { path.append(PeopleRoute.profileQr) })
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets())
-                    // Spec voce photoPrompt (bipe-chat/bipe#200): one card while the account has no photo.
-                    let slot = BipePromptSlot(userID: account.userId)
-                    let showsPhotoPrompt = account.isLoaded && account.avatarUrl == nil && !photoPromptDismissed
-                        && slot.allows(.photo)
-                    if showsPhotoPrompt {
-                        VocePromptCard(prompt: .photo, open: { path.append(PeopleRoute.profileEdit) }, dismiss: dismissPhotoPrompt)
-                            .onAppear { slot.didShow(.photo) }
-                            .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                    } else if !osTheftPromptDone, OsTheftPromptMemory.isDue(userID: account.userId),
-                              slot.allows(.osTheftProtection) {
-                        // Spec voce osTheftPrompt (bipe-chat/bipe#125): one day after this phone first saw the account.
-                        VocePromptCard(prompt: .osTheftProtection, detail: OsTheftProtection.pathText,
-                                       open: { finishOsTheftPrompt(); OsTheftProtection.openSettings() },
-                                       dismiss: finishOsTheftPrompt)
-                            .onAppear { slot.didShow(.osTheftProtection) }
-                            .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                    }
+                    // Spec voce (bipe-chat/bipe#894): no prompt cards here; chat-list-prompt shows every ask.
                 }
                 // Spec voce (MZ decision 25 Oct 2026): no account rows; the Você tab switches (hold, double tap,
                 // VoiceOver action). Nova conta stays here (spec account-new).
@@ -195,20 +174,6 @@ struct VoceView: View {
                      } : nil)
     }
 
-    private var photoPromptKey: String { "bipe.photoPrompt.dismissed.\(chatList.session.userId)" }
-
-    /// Agora não: the photo prompt never comes back on this account.
-    private func dismissPhotoPrompt() {
-        UserDefaults.standard.set(true, forKey: photoPromptKey)
-        photoPromptDismissed = true
-    }
-
-    /// Conferir proteção or Agora não: the prompt never comes back on this phone.
-    private func finishOsTheftPrompt() {
-        OsTheftPromptMemory.markDone()
-        osTheftPromptDone = true
-    }
-
     private func openNotes() {
         guard !openingNotes else { return }
         openingNotes = true
@@ -217,54 +182,6 @@ struct VoceView: View {
             do { path.append(Destination.notes(try await chatList.openNotes())) }
             catch { if !Task.isCancelled { notesFailed = true } }
         }
-    }
-}
-
-/// A slot prompt of registries/onboarding.json on the Você tab: photo (trigger voceWithoutPhoto) and
-/// osTheftProtection (trigger voceAfterDays). `detail` is an extra line under the body.
-private struct VocePromptCard: View {
-    let prompt: BipeOnboardingPrompt
-    var detail: String?
-    let open: () -> Void
-    let dismiss: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(BipeLocalized.string(prompt.titleKey))
-                .font(.headline)
-                .foregroundStyle(BipeColor.inkPrimary)
-            if let bodyKey = prompt.bodyKey {
-                Text(BipeLocalized.string(bodyKey))
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkSecondary)
-            }
-            if let detail {
-                Text(detail)
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkSecondary)
-            }
-            HStack(spacing: 16) {
-                Button(action: open) {
-                    Text(prompt.primary.title)
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .foregroundStyle(BipeColor.inkOnAccent)
-                        .background(Capsule().fill(BipeColor.accentFill))
-                }
-                ForEach(prompt.text, id: \.titleKey) { button in
-                    Button(action: dismiss) {
-                        Text(button.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BipeColor.accentInk)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.accentWash))
     }
 }
 

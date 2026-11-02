@@ -9,40 +9,12 @@ import android.content.Context
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import chat.bipe.app.common.BipeButton
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import chat.bipe.app.BipeApplication
-import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.timeline.TimelineMessage
-import chat.bipe.phosphor.PhosphorIcon
-import chat.bipe.shared.R
-import chat.bipe.shared.generated.BipeOnboardingPrompt
-import chat.bipe.shared.generated.BipeScreen
 
 /**
  * Opens the system permission dialog (Android 13 and later). Older Android versions allow notifications at
@@ -65,82 +37,39 @@ fun rememberNotificationPermission(push: PushRegistration, onResult: (Boolean) -
 }
 
 /**
- * Spec notifications-prompt: after the first own message shows as sent, a sheet asks whether the person wants
- * to know when the reply comes. Only while the system permission was never asked, and once per phone.
+ * Spec notifications-prompt: the entry notifications of chat-list-prompt (bipe-chat/bipe#894). This class keeps its
+ * memory on this phone; the chat list shows the card (accountAsks).
  */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun NotificationsPrompt(session: AccountSession, roomId: String, messages: List<TimelineMessage>) {
-    val context = LocalContext.current
-    val app = context.applicationContext as BipeApplication
-    val prefs = remember { context.getSharedPreferences("push", Context.MODE_PRIVATE) }
-    val openedAt = remember(roomId) { System.currentTimeMillis() }
-    var isShown by remember { mutableStateOf(false) }
-    var isAsking by remember { mutableStateOf(false) }
-    var recipientName by remember { mutableStateOf<String?>(null) }
-    // Own messages sent since the chat opened: history does not count.
-    val newSent = messages.count { it.isOwn && it.sendState == TimelineMessage.SendState.SENT && it.sentAt >= openedAt }
+class NotificationsPromptMemory(context: Context) {
+    private val prefs = context.getSharedPreferences("push", Context.MODE_PRIVATE)
 
-    fun close() {
+    /** True after Ligar notificações or Agora não. The card never comes back on this phone. */
+    val isDone: Boolean get() = prefs.getBoolean(KEY_SHOWN, false)
+
+    fun markDone() {
         prefs.edit().putBoolean(KEY_SHOWN, true).apply()
-        isShown = false
     }
 
-    val askPermission = rememberNotificationPermission(app.push) {
-        isAsking = false
-        close()
+    /** Trigger messageSent: this account sent a message on this phone. */
+    fun messageSent(userId: String): Boolean = prefs.getBoolean(sentKey(userId), false)
+
+    fun markMessageSent(userId: String) {
+        prefs.edit().putBoolean(sentKey(userId), true).apply()
     }
 
-    LaunchedEffect(newSent) {
-        if (newSent == 0 || isShown || prefs.getBoolean(KEY_SHOWN, false)) return@LaunchedEffect
-        app.push.appBecameActive()
-        if (app.push.permission.value != PushRegistration.Permission.NOT_ASKED) return@LaunchedEffect
-        val info = runCatching { session.client.getRoom(roomId)?.roomInfo() }.getOrNull()
-        // ADR 0141: the person, never the DM's m.room.name.
-        val peer = info?.takeIf { it.isDm }?.heroes?.firstOrNull { it.userId != session.userId }
-        recipientName = peer?.let { chat.bipe.app.people.Person.name(it.userId, it.displayName) }
-        isShown = true
-    }
+    private fun sentKey(userId: String) = "messageSent_$userId"
+}
 
-    if (!isShown) return
-    val colors = BipeTheme.colors
-    val prompt = BipeOnboardingPrompt.NOTIFICATIONS
-    ModalBottomSheet(onDismissRequest = ::close, containerColor = colors.surfaceRaised) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(24.dp).testTag(BipeScreen.NOTIFICATIONS_PROMPT.id),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(painterResource(PhosphorIcon.BELL.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(48.dp))
-            val name = recipientName
-            Text(
-                if (name != null) stringResource(R.string.bipe_notifications_prompt_title, name) else stringResource(R.string.bipe_notifications_prompt_title_generic),
-                style = MaterialTheme.typography.titleLarge,
-                color = colors.inkPrimary,
-                textAlign = TextAlign.Center,
-            )
-            prompt.body?.let { body ->
-                Text(
-                    stringResource(body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkSecondary,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            // Action allow: the system dialog; either way the sheet closes for good.
-            BipeButton(onClick = {
-                isAsking = true
-                askPermission()
-            }, enabled = !isAsking, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(prompt.primary.title))
-            }
-            // Action notNow.
-            prompt.text.forEach { button ->
-                TextButton(onClick = ::close, enabled = !isAsking) {
-                    Text(stringResource(button.title))
-                }
-            }
-        }
+/** Trigger messageSent (registries/onboarding.json): an own message shows as sent in this chat. */
+@Composable
+fun NotificationsPromptTrigger(session: AccountSession, roomId: String, messages: List<TimelineMessage>) {
+    val context = LocalContext.current
+    val memory = remember { NotificationsPromptMemory(context.applicationContext) }
+    val openedAt = remember(roomId) { System.currentTimeMillis() }
+    // Own messages sent since the chat opened: history does not count.
+    val sentSinceOpen = messages.any { it.isOwn && it.sendState == TimelineMessage.SendState.SENT && it.sentAt >= openedAt }
+    LaunchedEffect(sentSinceOpen) {
+        if (sentSinceOpen) memory.markMessageSent(session.userId)
     }
 }
 
