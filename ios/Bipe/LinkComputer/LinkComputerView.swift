@@ -239,7 +239,7 @@ private struct LinkComputerWarningView: View {
     }
 }
 
-/// Spec link-computer-approve: the owner check, then the MAS consent page in a private web view.
+/// Spec link-computer-approve: the owner check, then the native consent screen (ADR 0223).
 private struct LinkComputerApproveView: View {
     @ObservedObject var model: LinkComputerModel
 
@@ -250,18 +250,13 @@ private struct LinkComputerApproveView: View {
                 ProgressView()
                     .frame(maxHeight: .infinity)
                     .task { await model.confirmIdentity() }
-            case .loading, .consent:
-                if model.approvePhase == .consent {
-                    placeHeader
-                } else {
-                    Text(BipeStrings.linkComputerLoading)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                }
-                if model.masHost != nil {
-                    MASWebView(model: model)
-                        // The user never sees the MAS login form.
-                        .opacity(model.approvePhase == .consent ? 1 : 0)
-                }
+            case .loading:
+                ProgressView()
+                Text(BipeStrings.linkComputerLoading)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                    .frame(maxHeight: .infinity)
+            case .consent:
+                consent
             case .finishing:
                 ProgressView()
                 Text(model.mode == .computer ? BipeStrings.appLinkComputerFinishing : BipeStrings.appLinkPhoneFinishing)
@@ -285,6 +280,7 @@ private struct LinkComputerApproveView: View {
                 Text(model.approveError?.message(model.mode) ?? BipeStrings.errorGeneric)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
+                LinkFailureCode(code: model.errorCode)
                 Button {
                     model.retry()
                 } label: {
@@ -298,19 +294,44 @@ private struct LinkComputerApproveView: View {
         .accessibilityIdentifier(model.mode == .computer ? BipeScreen.linkComputerApprove.rawValue : BipeScreen.linkPhoneApprove.rawValue)
     }
 
-    private var placeHeader: some View {
-        VStack(alignment: .leading, spacing: 4) {
+    /// The device, the IP and the place of the MAS consent page, then Connect and Cancel.
+    private var consent: some View {
+        VStack(alignment: .leading, spacing: 12) {
             Text(model.mode == .computer ? BipeStrings.linkComputerConsentHint : BipeStrings.appLinkPhoneConsentHint)
                 .font(.subheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
-            if model.placeKnown {
-                Text(model.place.map(BipeStrings.linkComputerPlace) ?? BipeStrings.linkComputerPlaceUnknown)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(model.device.map(BipeStrings.linkComputerDevice) ?? BipeStrings.linkComputerDeviceUnknown)
                     .font(.subheadline.bold())
-                    .foregroundStyle(BipeColor.inkPrimary)
-                Text(BipeStrings.linkComputerPlaceSource)
-                    .font(.caption)
-                    .foregroundStyle(BipeColor.inkSecondary)
+                if let ip = model.ip {
+                    Text(BipeStrings.linkComputerIp(ip))
+                        .font(.subheadline)
+                }
+                if model.placeKnown {
+                    Text(model.place.map(BipeStrings.linkComputerPlace) ?? BipeStrings.linkComputerPlaceUnknown)
+                        .font(.subheadline.bold())
+                    Text(BipeStrings.linkComputerPlaceSource)
+                        .font(.caption)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                }
             }
+            .foregroundStyle(BipeColor.inkPrimary)
+            Spacer()
+            Button {
+                model.approve()
+            } label: {
+                Text(BipeStrings.linkComputerApprove)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bipeProminent)
+            .disabled(!model.placeKnown)
+            Button {
+                model.reject()
+            } label: {
+                Text(BipeStrings.appCancel)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bipeBordered)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -16,6 +16,7 @@ import chat.bipe.shared.settings.checkPin
 import chat.bipe.shared.weblink.BipeLinkComputer
 import chat.bipe.shared.weblink.BipeMatrixAccountApi
 import chat.bipe.shared.weblink.BipeWebLink
+import chat.bipe.shared.weblink.MasDeviceApproval
 import chat.bipe.shared.weblink.finishWebLink
 import chat.bipe.shared.weblink.webLinkPlace
 import java.time.Instant
@@ -42,11 +43,12 @@ import uniffi.matrix_sdk_crypto.QrCodeIntent
 
 /**
  * Specs link-computer-scan, link-computer-warning and link-computer-approve (bipe-shared product/screens): the phone
- * scans the QR code of chat.bipe.net.br, opens the MSC4108 secure channel, warns, waits through the cooldown, checks
- * the owner and approves on the MAS consent page in a private web view (ADR 0116, ADR 0118).
+ * scans the QR code of the computer, opens the MSC4108 secure channel, warns, waits through the cooldown, checks the
+ * owner and approves on a native consent screen; MasDeviceApproval posts the MAS forms with no web view (ADR 0116,
+ * ADR 0118, ADR 0223).
  *
  * Mode PHONE is specs link-phone-show and link-phone-approve: this old phone shows the code, the new phone scans it
- * (ADR 0059), and the same warning, owner check and MAS page approve it.
+ * (ADR 0059), and the same warning, owner check and consent screen approve it.
  */
 class LinkComputerModel(
     private val context: Context,
@@ -108,8 +110,9 @@ class LinkComputerModel(
         val place: String? = null,
         val placeKnown: Boolean = false,
         val approveError: Failure? = null,
-        /** The page the web view opens; set once the MAS host is known. */
-        val consentUrl: String? = null,
+        /** The device card text and the IP of the MAS consent page. */
+        val device: String? = null,
+        val ip: String? = null,
         val masHost: String? = null,
         /** State errorCode: a short code for support under the error. Never a key or a secret. */
         val errorCode: String? = null,
@@ -131,10 +134,14 @@ class LinkComputerModel(
     private var grantJob: Job? = null
     private var countdown: Job? = null
     private var startedAt: Instant = Instant.now()
-    private var filledLoginForm = false
-    private var sawConsentPage = false
+    private var approval: MasDeviceApproval? = null
+    private var consent: MasDeviceApproval.Consent? = null
+    /** Approve posted the MAS consent form: close then confirms. */
+    private var approved = false
+    /** Reject: a cancel from the SDK is the decline and closes with no message. */
+    private var rejected = false
     private var finished = false
-    /** Held only between the owner check and the one submit of the MAS login form. */
+    /** Held only between the owner check and the one post of the MAS login form. */
     private var password: String? = null
 
     /** Action open: the Bipe support gate (never Client.isLoginWithQrCodeSupported, ADR 0118). */
@@ -324,8 +331,8 @@ class LinkComputerModel(
                 }
             }
             Step.APPROVE -> {
-                // Cancelled after the consent page: the user declined on the MAS page.
-                if (failure == Failure.STOPPED && sawConsentPage) {
+                // Cancelled after reject: the user declined.
+                if (failure == Failure.STOPPED && rejected) {
                     close()
                     return
                 }
@@ -403,62 +410,79 @@ class LinkComputerModel(
         }
     }
 
-    /** Action open: the MAS host from the auth metadata; the verification page must be on it. */
+    /**
+     * Action open: the MAS host from the auth metadata; the verification page must be on it. Then the MAS pages with
+     * the hidden password, up to the consent page (ADR 0223).
+     */
     private suspend fun openConsent() {
         val host = runCatching { matrix.authMetadata().host }.getOrNull()
         val url = verificationUri
-        if (host == null || url == null || !BipeWebLink.isAllowed(url, host)) {
+        val secret = password
+        password = null
+        if (host == null || url == null || secret == null || !BipeWebLink.isAllowed(url, host)) {
+            Log.e(TAG, "link failed (consent-host): no auth metadata or the page is off the MAS host")
+            _state.update { it.copy(errorCode = "consent-host") }
             fail(Failure.SIGN_IN)
             return
         }
-        _state.update { it.copy(masHost = host, consentUrl = url) }
+        _state.update { it.copy(masHost = host) }
+        val approval = MasDeviceApproval(host)
+        this.approval = approval
+        try {
+            val consent = approval.open(url, BipeWebLink.localpart(session.userId), secret)
+            if (_state.value.approvePhase != ApprovePhase.LOADING) return
+            this.consent = consent
+            _state.update { it.copy(device = consent.device, ip = consent.ip, approvePhase = ApprovePhase.CONSENT) }
+            val ip = consent.ip
+            if (ip == null) _state.update { it.copy(placeKnown = true) } else lookUpPlace(ip)
+        } catch (error: MasDeviceApproval.Failure) {
+            approvalFailed(error)
+        }
     }
 
-    /** The script that fills the MAS login form once. null when nothing is to be filled. */
-    fun pageLoaded(url: String, hasPasswordField: Boolean, hasForm: Boolean, text: String): String? {
-        if (hasPasswordField) {
-            val secret = password
-            if (filledLoginForm || secret == null) {
-                // A second login form: a wrong password or a MAS rate limit.
-                fail(Failure.SIGN_IN)
-                return null
-            }
-            filledLoginForm = true
-            password = null
-            return BipeWebLink.loginScript(BipeWebLink.localpart(session.userId), secret)
-        }
-        if (BipeLinkComputer.isDeviceConsentPath(url) && hasForm) {
-            if (!sawConsentPage) {
-                sawConsentPage = true
-                _state.update { it.copy(approvePhase = ApprovePhase.CONSENT) }
-                val ip = BipeLinkComputer.firstIpAddress(text)
-                if (ip == null) {
-                    _state.update { it.copy(placeKnown = true) }
-                } else {
-                    scope.launch { lookUpPlace(ip) }
-                }
-            }
-            return null
-        }
-        if (sawConsentPage && _state.value.approvePhase == ApprovePhase.CONSENT) {
-            // The user approved or declined; the SDK learns the result from MAS.
-            _state.update { it.copy(approvePhase = ApprovePhase.FINISHING) }
-            val sender = continuationSender
-            scope.launch {
-                runCatching { sender?.confirm() }
-                finish()
+    /** Action approve: posts the MAS consent form; MAS then grants the computer's request. */
+    fun approve() {
+        val approval = approval ?: return
+        val consent = consent ?: return
+        if (_state.value.approvePhase != ApprovePhase.CONSENT) return
+        _state.update { it.copy(approvePhase = ApprovePhase.FINISHING) }
+        scope.launch {
+            try {
+                approval.approve(consent)
+                approved = true
+                runCatching { continuationSender?.confirm() }
+            } catch (error: MasDeviceApproval.Failure) {
+                approvalFailed(error)
             }
         }
-        return null
     }
 
-    /** A navigation off the MAS host stops the load. */
-    fun blockedNavigation() = fail(Failure.SIGN_IN)
+    /** Action reject: posts the MAS reject form, then the SDK cancel closes the flow with no message. */
+    fun reject() {
+        val approval = approval ?: return
+        val consent = consent ?: return
+        if (_state.value.approvePhase != ApprovePhase.CONSENT) return
+        rejected = true
+        _state.update { it.copy(isClosed = true) }
+        val sender = continuationSender
+        scope.launch {
+            approval.reject(consent)
+            runCatching { sender?.cancel() }
+            finish()
+        }
+    }
+
+    private fun approvalFailed(error: MasDeviceApproval.Failure) {
+        val page = (error as? MasDeviceApproval.Failure.NotConsentPage)?.let { ": page ${it.path}" }.orEmpty()
+        Log.e(TAG, "link failed (${error.code})$page")
+        _state.update { it.copy(errorCode = error.code) }
+        fail(if (error is MasDeviceApproval.Failure.Network) Failure.NETWORK else Failure.SIGN_IN)
+    }
 
     /** Action close. */
     fun close() {
         val sender = continuationSender
-        val confirm = sawConsentPage
+        val confirm = approved
         _state.update { it.copy(isClosed = true) }
         scope.launch {
             runCatching { if (confirm) sender?.confirm() else sender?.cancel() }
@@ -470,10 +494,11 @@ class LinkComputerModel(
     fun retry() {
         scope.launch { finish() }
         password = null
-        filledLoginForm = false
-        sawConsentPage = false
+        approved = false
+        rejected = false
+        consent = null
         verificationUri = null
-        _state.update { it.copy(place = null, placeKnown = false, approveError = null, consentUrl = null, masHost = null) }
+        _state.update { it.copy(place = null, placeKnown = false, approveError = null, device = null, ip = null, masHost = null) }
         finished = false
         when (mode) {
             Mode.COMPUTER -> scanAgain()
@@ -497,12 +522,15 @@ class LinkComputerModel(
     }
 
     /**
-     * Action finish: once per flow. The screen clears the web view cookies and storage; bipe-api ends the MAS browser
-     * sessions the web view made. A failure is logged and not shown.
+     * Action finish: once per flow. The approval drops its cookies; bipe-api ends the MAS browser sessions it made. A
+     * failure is logged and not shown.
      */
     private suspend fun finish() {
         if (finished || _state.value.masHost == null) return
         finished = true
+        approval?.close()
+        approval = null
+        consent = null
         val since = startedAt
         runCatching { settings.authorized { settings.api.finishWebLink(since, it) } }
             .onFailure { android.util.Log.w("Bipe", "web-link finish failed") }

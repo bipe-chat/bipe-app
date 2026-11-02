@@ -45,8 +45,9 @@ final class GrantGeneratedProgressStream: GrantGeneratedQrLoginProgressListener 
 }
 
 /// Specs link-computer-scan, link-computer-warning and link-computer-approve (bipe-shared product/screens):
-/// the phone scans the QR code of chat.bipe.net.br, opens the MSC4108 secure channel, warns, waits through the
-/// cooldown, checks the owner and approves on the MAS consent page in a private web view (ADR 0116, ADR 0118).
+/// the phone scans the QR code of the computer, opens the MSC4108 secure channel, warns, waits through the
+/// cooldown, checks the owner and approves on a native consent screen; MASDeviceApproval posts the MAS forms
+/// with no web view (ADR 0116, ADR 0118, ADR 0223).
 ///
 /// Mode phone is specs link-phone-show and link-phone-approve: this old phone shows the code, the new phone scans it
 /// (ADR 0059), and the same warning, owner check and MAS page approve it.
@@ -168,6 +169,9 @@ final class LinkComputerModel: ObservableObject {
     @Published private(set) var approvePhase: ApprovePhase = .confirmIdentity
     @Published private(set) var place: String?
     @Published private(set) var placeKnown = false
+    /// The device card text and the IP of the MAS consent page.
+    @Published private(set) var device: String?
+    @Published private(set) var ip: String?
     @Published private(set) var approveError: Failure?
     /// State errorCode: a short code for support under the error. Never a key or a secret.
     @Published private(set) var errorCode: String?
@@ -180,9 +184,11 @@ final class LinkComputerModel: ObservableObject {
 
     let settings: SettingsModel
     var session: AccountSession { settings.session }
-    /// The page the web view opens, and the only host it loads.
+    /// The MAS page of the grant, and the only host the approval loads.
     private(set) var verificationURL: URL?
     private(set) var masHost: String?
+    private var approval: MASDeviceApproval?
+    private var consent: MASDeviceApproval.Consent?
     private var continuationSender: ContinuationMessageSender?
     private var checkCodeSender: CheckCodeSender?
     /// Mode phone: each code has its own number, so that a dropped code never touches the next one.
@@ -190,10 +196,11 @@ final class LinkComputerModel: ObservableObject {
     private var grantTask: Task<Void, Never>?
     private var countdown: Task<Void, Never>?
     private var startedAt = Date.now
-    private var filledLoginForm = false
-    private var sawConsentPage = false
+    /// Approve posted the MAS consent form: close then confirms, and a cancel from the SDK is the decline.
+    private var approved = false
+    private var rejected = false
     private var finished = false
-    /// Held only between the owner check and the one submit of the MAS login form.
+    /// Held only between the owner check and the one post of the MAS login form.
     private var password: String?
 
     init(settings: SettingsModel, mode: Mode = .computer) {
@@ -333,8 +340,8 @@ final class LinkComputerModel: ObservableObject {
                 showPhase = .failed
             }
         case .approve:
-            // Cancelled after the consent page: the user declined on the MAS page.
-            if failure == .stopped && sawConsentPage {
+            // Cancelled after reject: the user declined.
+            if failure == .stopped && rejected {
                 close()
                 return
             }
@@ -516,73 +523,82 @@ final class LinkComputerModel: ObservableObject {
         Task { await openConsent() }
     }
 
-    /// Action open: the MAS host from the auth metadata; the verification page must be on it.
+    /// Action open: the MAS host from the auth metadata; the verification page must be on it. Then the MAS pages
+    /// with the hidden password, up to the consent page (ADR 0223).
     private func openConsent() async {
         guard let metadata = try? await matrix?.authMetadata(),
               let host = metadata.host,
               let url = verificationURL,
-              BipeWebLink.isAllowed(url, host: host) else {
-            Self.log.error("link failed (consent): no auth metadata or the page is off the MAS host")
+              BipeWebLink.isAllowed(url, host: host),
+              let secret = password else {
+            Self.log.error("link failed (consent-host): no auth metadata or the page is off the MAS host")
+            errorCode = "consent-host"
             fail(.signIn)
             return
         }
+        password = nil
         masHost = host
+        let approval = MASDeviceApproval(host: host)
+        self.approval = approval
+        do throws(MASDeviceApproval.Failure) {
+            let consent = try await approval.open(url, username: BipeWebLink.localpart(of: session.userId), password: secret)
+            guard approvePhase == .loading else { return }
+            self.consent = consent
+            device = consent.device
+            ip = consent.ip
+            approvePhase = .consent
+            if let ip = consent.ip {
+                await lookUpPlace(ip: ip)
+            } else {
+                placeKnown = true
+            }
+        } catch {
+            approvalFailed(error)
+        }
     }
 
-    /// What the web view found on a loaded page.
-    struct Page {
-        var url: URL
-        var hasPasswordField: Bool
-        var hasForm: Bool
-        var text: String
+    /// Action approve: posts the MAS consent form; MAS then grants the computer's request.
+    func approve() {
+        guard approvePhase == .consent, let approval, let consent else { return }
+        approvePhase = .finishing
+        Task {
+            do throws(MASDeviceApproval.Failure) {
+                try await approval.approve(consent)
+                approved = true
+                try? await continuationSender?.confirm()
+            } catch {
+                approvalFailed(error)
+            }
+        }
     }
 
-    /// The script that fills the MAS login form once. nil when the form was filled before or no password is held.
-    func pageLoaded(_ page: Page) -> String? {
-        if page.hasPasswordField {
-            guard !filledLoginForm, let password,
-                  let script = BipeWebLink.loginScript(username: BipeWebLink.localpart(of: session.userId), password: password) else {
-                // A second login form: a wrong password or a MAS rate limit.
-                fail(.signIn)
-                return nil
-            }
-            filledLoginForm = true
-            self.password = nil
-            return script
+    /// Action reject: posts the MAS reject form, then the SDK cancel closes the flow with no message.
+    func reject() {
+        guard approvePhase == .consent, let approval, let consent else { return }
+        rejected = true
+        isClosed = true
+        let sender = continuationSender
+        Task {
+            await approval.reject(consent)
+            try? await sender?.cancel()
+            await finish()
         }
-        if BipeWebLink.isDeviceConsentPath(page.url) && page.hasForm {
-            if !sawConsentPage {
-                sawConsentPage = true
-                approvePhase = .consent
-                if let ip = BipeWebLink.firstIPAddress(in: page.text) {
-                    Task { await lookUpPlace(ip: ip) }
-                } else {
-                    placeKnown = true
-                }
-            }
-            return nil
-        }
-        if sawConsentPage && approvePhase == .consent {
-            // The user approved or declined; the SDK learns the result from MAS.
-            approvePhase = .finishing
-            let sender = continuationSender
-            Task {
-                try? await sender?.confirm()
-                await finish()
-            }
-        }
-        return nil
     }
 
-    /// A navigation off the MAS host stops the load.
-    func blockedNavigation() {
-        fail(.signIn)
+    private func approvalFailed(_ error: MASDeviceApproval.Failure) {
+        errorCode = error.code
+        if case .notConsentPage(let path) = error {
+            Self.log.error("link failed (\(error.code, privacy: .public)): page \(path, privacy: .public)")
+        } else {
+            Self.log.error("link failed (\(error.code, privacy: .public))")
+        }
+        fail(error == .network ? .network : .signIn)
     }
 
     /// Action close.
     func close() {
         let sender = continuationSender
-        let confirm = sawConsentPage
+        let confirm = approved
         isClosed = true
         Task {
             if confirm {
@@ -598,8 +614,11 @@ final class LinkComputerModel: ObservableObject {
     func retry() {
         Task { await finish() }
         password = nil
-        filledLoginForm = false
-        sawConsentPage = false
+        approved = false
+        rejected = false
+        device = nil
+        ip = nil
+        consent = nil
         place = nil
         placeKnown = false
         approveError = nil
@@ -632,11 +651,14 @@ final class LinkComputerModel: ObservableObject {
         placeKnown = true
     }
 
-    /// Action finish: once per flow. The view drops its non-persistent data store; bipe-api ends the MAS browser
-    /// sessions the web view made. A failure is logged and not shown.
+    /// Action finish: once per flow. The approval drops its HTTP session and cookies; bipe-api ends the MAS browser
+    /// sessions it made. A failure is logged and not shown.
     private func finish() async {
         guard !finished, masHost != nil else { return }
         finished = true
+        approval?.close()
+        approval = nil
+        consent = nil
         let api = settings.api
         let since = startedAt
         do {

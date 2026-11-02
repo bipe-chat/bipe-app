@@ -2326,6 +2326,18 @@ public enum BipeStrings {
 
     public static var linkComputerPlaceSource: String { NSLocalizedString("bipe_link_computer_place_source", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func linkComputerDevice(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_link_computer_device", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var linkComputerDeviceUnknown: String { NSLocalizedString("bipe_link_computer_device_unknown", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func linkComputerIp(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_link_computer_ip", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var linkComputerApprove: String { NSLocalizedString("bipe_link_computer_approve", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var linkComputerConsentHint: String { NSLocalizedString("bipe_link_computer_consent_hint", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var linkComputerErrorTitle: String { NSLocalizedString("bipe_link_computer_error_title", tableName: "Bipe", bundle: .module, comment: "") }
