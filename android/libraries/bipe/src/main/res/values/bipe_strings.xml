@@ -257,7 +257,7 @@
     <string name="bipe_invite_already_signed_in">Você já tem uma conta. O convite é para quem ainda não está no Bipe.</string>
     <string name="bipe_invites_title">Convidar pessoas</string>
     <string name="bipe_invites_available">Convites disponíveis: %1$s</string>
-    <string name="bipe_invites_explainer">Convide sua família primeiro. Cada convite vale para uma pessoa e vence em 30 dias.</string>
+    <string name="bipe_invites_explainer">Convide sua família primeiro. Cada convite vale para uma pessoa e vence em 7 dias.</string>
     <string name="bipe_invites_create">Criar convite</string>
     <string name="bipe_invites_invite_someone">Convidar alguém</string>
     <string name="bipe_invites_show_qr">Mostrar QR code</string>
@@ -268,10 +268,11 @@
     <string name="bipe_invites_name_action">Para quem é?</string>
     <string name="bipe_invites_name_placeholder">Nome</string>
     <string name="bipe_invites_name_footer">Só você vê esse nome.</string>
-    <string name="bipe_invites_share_message">Entra no Bipe comigo: %1$s</string>
+    <string name="bipe_invites_share_message">Entra no Bipe comigo. O convite só vale até %2$s: %1$s</string>
     <string name="bipe_invites_none_left">Nenhum convite disponível agora.</string>
     <string name="bipe_invites_empty">Convide alguém para conversar com você no Bipe.</string>
     <string name="bipe_invites_expires">Vale até %1$s</string>
+    <string name="bipe_invite_link_expires">Este convite só vale até %1$s.</string>
     <string name="bipe_invites_status_pending">Ainda não usado</string>
     <string name="bipe_invites_status_used">Usado</string>
     <string name="bipe_invites_status_expired">Vencido</string>
