@@ -124,15 +124,15 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
             val chatOptions = if (state.chatsMode == NotificationMode.MENTIONS) NotificationMode.entries else listOf(NotificationMode.ALL, NotificationMode.OFF)
             ChoiceRow(
                 stringResource(R.string.bipe_notifications_chats),
-                stringResource(state.chatsMode.label),
-                chatOptions.map { stringResource(it.label) to it },
+                stringResource(state.chatsMode.label(isDm = true)),
+                chatOptions.map { stringResource(it.label(isDm = true)) to it },
                 enabled = state.isLoaded,
                 onSelect = model::setChatsMode,
             )
             ChoiceRow(
                 stringResource(R.string.bipe_notifications_groups),
-                stringResource(state.groupsMode.label),
-                NotificationMode.entries.map { stringResource(it.label) to it },
+                stringResource(state.groupsMode.label(isDm = false)),
+                NotificationMode.entries.map { stringResource(it.label(isDm = false)) to it },
                 enabled = state.isLoaded,
                 onSelect = model::setGroupsMode,
             )
