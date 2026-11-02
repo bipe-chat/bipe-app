@@ -12,7 +12,9 @@ import { useEffect, useState } from 'react';
 import { useClient } from './media';
 import { caretRight, chatCircle, bell, info, lockSimple, userCircle } from './phosphor/icons';
 import { settings } from './registries';
-import { forgetSession } from './sdk';
+import { signOutOfBrowser } from './sdk';
+import { Alert } from './ui/Alert';
+import { RecoveryState } from './generated/matrix_sdk_ffi';
 import type { StringKey } from './bipe/generated/strings';
 import { Avatar } from './ui/Avatar';
 import { locale, s } from './ui/i18n';
@@ -152,9 +154,10 @@ export function Settings({ onClose }: { onClose: () => void }) {
 }
 
 function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
-  const client = useClient();
+  const [signingOut, setSigningOut] = useState(false);
   return (
     <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
+      {signingOut && <SignOutAlert onClose={() => setSigningOut(false)} />}
       <NavBar title={s(key(group.title))} onBack={onBack} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
         {webSections(group).map((section) => (
@@ -182,11 +185,7 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
                   <button
                     type="button"
                     className="min-w-0 flex-1 py-1 text-left text-body text-trust-danger-ink"
-                    onClick={async () => {
-                      await client.logout().catch(() => undefined);
-                      await forgetSession();
-                      window.location.reload();
-                    }}
+                    onClick={() => setSigningOut(true)}
                   >
                     {s(key(row.title))}
                   </button>
@@ -205,4 +204,45 @@ function footerOf(section: ReturnType<typeof webSections>[number]): string | und
   if ('footer' in section && section.footer) return s(key(section.footer));
   const row = section.rows.length === 1 ? section.rows[0] : undefined;
   return row && 'footer' in row && row.footer ? s(key(row.footer)) : undefined;
+}
+
+/**
+ * Spec sign-out, for a browser: a confirmation, with the history warning when no other device holds the
+ * message keys (Encryption.isLastDevice) and the account has no recovery key. The phone's ways-back list is
+ * about getting the account back on a phone; a browser comes back by scanning a new code, so it is left out.
+ */
+function SignOutAlert({ onClose }: { onClose: () => void }) {
+  const client = useClient();
+  const [onlyCopy, setOnlyCopy] = useState(false);
+  const [phase, setPhase] = useState<'confirm' | 'signingOut' | 'failed'>('confirm');
+  useEffect(() => {
+    let stopped = false;
+    const encryption = client.encryption();
+    encryption
+      .isLastDevice()
+      .then((last) => !stopped && setOnlyCopy(last && encryption.recoveryState() !== RecoveryState.Enabled))
+      .catch(() => undefined);
+    return () => {
+      stopped = true;
+    };
+  }, [client]);
+  return (
+    <Alert
+      title={s('bipe_account_sign_out')}
+      action={phase === 'signingOut' ? s('bipe_app_signing_out') : s('bipe_account_sign_out')}
+      busy={phase === 'signingOut'}
+      onCancel={onClose}
+      onAction={() => {
+        setPhase('signingOut');
+        signOutOfBrowser(client).catch((e: unknown) => {
+          console.warn('[trace] sign-out failed', e);
+          setPhase('failed');
+        });
+      }}
+    >
+      {/* TODO(string): bipe_web_sign_out_history, the web variant of bipe_app_sign_out_history ("neste celular"). */}
+      {onlyCopy && <p>Your old messages are only in this browser. Without the recovery key they do not come back.</p>}
+      {phase === 'failed' && <p className="text-trust-danger-ink">{s('bipe_error_generic')}</p>}
+    </Alert>
+  );
 }

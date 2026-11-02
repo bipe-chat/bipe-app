@@ -134,9 +134,15 @@ export async function rememberSession(client: Client): Promise<void> {
   await saveSession(session);
 }
 
-/** Forgets this browser's session: the stores go on the next load, before any client opens them. */
-export async function forgetSession(): Promise<void> {
+/**
+ * Sign out of this browser (spec sign-out): ends the session on the server (Client.logout), then deletes the
+ * session, the store passphrase and the SDK stores, and shows the QR code again. The stores go on the next
+ * load, before any client opens them.
+ */
+export async function signOutOfBrowser(client: Client): Promise<void> {
+  await client.logout();
   current = undefined;
   localStorage.setItem(WIPE, '1');
   await clearSecrets();
+  window.location.reload();
 }

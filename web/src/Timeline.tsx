@@ -22,6 +22,7 @@ import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
 import { ChatInfo } from './ChatInfo';
 import { useRoomFace } from './room-face';
 import { itemRow, markRead, TimelineRowView, type MessageRow, type RowHandlers } from './TimelineRows';
+import { Alert } from './ui/Alert';
 import { Avatar } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
 import { s } from './ui/i18n';
@@ -403,41 +404,15 @@ function ComposerBar({
 
 // The delete alert (spec message-delete): bipe_app_message_delete_title and _body, Cancelar and Apagar.
 function DeleteDialog({ onCancel, onDelete }: { onCancel: () => void; onDelete: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCancel();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
   return (
-    // The dim behind an alert is black at 40% in both schemes, as the system draws it; no token covers it.
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-6" onClick={onCancel}>
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="delete-title"
-        className="flex w-full max-w-[300px] flex-col overflow-hidden rounded-[14px] bg-surface-raised text-center"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex flex-col gap-1 p-4">
-          <h3 id="delete-title" className="text-headline text-ink-primary">
-            {s('bipe_app_message_delete_title')}
-          </h3>
-          <p className="text-footnote text-ink-primary">{s('bipe_app_message_delete_body')}</p>
-        </div>
-        <div className="grid grid-cols-2 border-t-[0.5px] border-line-subtle">
-          <button type="button" autoFocus className="min-h-11 text-body text-accent-ink" onClick={onCancel}>
-            {s('bipe_app_cancel')}
-          </button>
-          <button
-            type="button"
-            className="min-h-11 border-l-[0.5px] border-line-subtle text-headline text-trust-danger-ink"
-            onClick={onDelete}
-          >
-            {s('bipe_app_message_action_delete')}
-          </button>
-        </div>
-      </div>
-    </div>
+    <Alert
+      title={s('bipe_app_message_delete_title')}
+      action={s('bipe_app_message_action_delete')}
+      onCancel={onCancel}
+      onAction={onDelete}
+    >
+      {s('bipe_app_message_delete_body')}
+    </Alert>
   );
 }
 
