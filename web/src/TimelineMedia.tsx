@@ -7,16 +7,16 @@
 // circle, the name and the size. A tap on a photo or video opens the viewer (media-viewer, simplified);
 // a tap on a file saves it.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MessageType, type MediaSourceLike, type MessageType as MessageTypeValue } from './generated/matrix_sdk_ffi';
 import { objectUrlOfContent, previewOf, useClient, useObjectUrl } from './media';
-import { arrowClockwise, file, play, x } from './phosphor/icons';
+import { arrowClockwise, file, pause, play, x } from './phosphor/icons';
 import { locale, s } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import { Spinner } from './ui/Spinner';
 
 export type MediaInfo = {
-  kind: 'image' | 'video' | 'file';
+  kind: 'image' | 'video' | 'file' | 'audio';
   source: MediaSourceLike;
   thumbnail?: MediaSourceLike;
   filename: string;
@@ -25,6 +25,10 @@ export type MediaInfo = {
   width?: number;
   height?: number;
   size?: number;
+  /** audio: a voice message (MSC3245 voice field) rather than an audio file. */
+  isVoice?: boolean;
+  /** audio: the sender's waveform (MSC1767, values 0 to 1024). */
+  waveform?: number[];
   /** Milliseconds. */
   duration?: number;
 };
@@ -62,6 +66,20 @@ export function mediaOf(type: MessageTypeValue): MediaInfo | undefined {
       duration: c.info?.duration,
     };
   }
+  if (MessageType.Audio.instanceOf(type)) {
+    const c = type.inner.content;
+    return {
+      kind: 'audio',
+      source: c.source,
+      filename: c.filename,
+      caption: c.caption,
+      mimetype: c.info?.mimetype,
+      size: num(c.info?.size),
+      duration: c.audio?.duration ?? c.info?.duration,
+      waveform: c.audio?.waveform,
+      isVoice: c.voice !== undefined,
+    };
+  }
   if (MessageType.File.instanceOf(type)) {
     const c = type.inner.content;
     return {
@@ -87,10 +105,16 @@ export function TimelineMediaRow({ media, upload }: { media: MediaInfo; upload?:
   const caption = media.caption?.trim();
   return (
     <div className="flex flex-col gap-1">
-      {media.kind === 'file' ? (
+      {media.kind === 'audio' ? (
+        <VoiceRow media={media} />
+      ) : media.kind === 'file' ? (
         <FileCard media={media} upload={upload} />
       ) : (
         <Visual media={media} upload={upload} onOpen={() => setViewing(true)} />
+      )}
+      {caption && media.kind === 'audio' && media.isVoice && (
+        // ADR 0023: the caption of a voice message is the sender's transcript.
+        <span className="text-caption font-semibold text-ink-secondary">{s('bipe_voice_transcript_title')}</span>
       )}
       {caption && <p className="max-w-[260px] text-body break-words whitespace-pre-wrap text-ink-primary">{caption}</p>}
       {viewing && <Viewer media={media} onClose={() => setViewing(false)} />}
@@ -330,4 +354,133 @@ function durationText(ms: number): string {
   const m = Math.floor(total / 60);
   const sec = String(total % 60).padStart(2, '0');
   return `${m}:${sec}`;
+}
+
+// Spec voice-message (VoiceMessageRow.swift, VoicePlayer.swift): a 40 px accent.fill play button, the
+// waveform (2 px gaps, played bars in accent.fill, the rest in line.strong, drag or click to seek), the
+// duration, and the speed button (1×, 1,5×, 2×, kept for the next row). One row plays at a time. The
+// audio comes from the SDK as bytes (decrypted) and plays from a Blob object URL.
+const SPEEDS = [1, 1.5, 2];
+let speedIndex = 0;
+let playing: HTMLAudioElement | undefined;
+const BARS = 36;
+
+function bars(waveform: number[] | undefined): number[] {
+  if (!waveform || waveform.length === 0) return Array.from({ length: BARS }, () => 0.3);
+  const max = Math.max(1, ...waveform);
+  return Array.from({ length: BARS }, (_, i) => {
+    const from = Math.floor((i * waveform.length) / BARS);
+    const to = Math.max(from + 1, Math.floor(((i + 1) * waveform.length) / BARS));
+    const slice = waveform.slice(from, to);
+    return Math.max(0.1, slice.reduce((a, b) => a + b, 0) / slice.length / max);
+  });
+}
+
+function VoiceRow({ media }: { media: MediaInfo }) {
+  const client = useClient();
+  const audio = useRef<HTMLAudioElement>(undefined);
+  const url = useRef<string>(undefined);
+  const [state, setState] = useState<'idle' | 'loading' | 'playing' | 'paused' | 'failed'>('idle');
+  const [progress, setProgress] = useState(0);
+  const [speed, setSpeed] = useState(SPEEDS[speedIndex]);
+  const values = bars(media.waveform);
+  useEffect(
+    () => () => {
+      audio.current?.pause();
+      if (url.current) URL.revokeObjectURL(url.current);
+    },
+    [],
+  );
+  const element = async (): Promise<HTMLAudioElement> => {
+    if (audio.current) return audio.current;
+    const made = new Audio();
+    url.current = await objectUrlOfContent(client, media.source, media.mimetype);
+    made.src = url.current;
+    made.preservesPitch = true;
+    made.ontimeupdate = () => setProgress(made.duration ? made.currentTime / made.duration : 0);
+    made.onended = () => {
+      setState('paused');
+      setProgress(0);
+    };
+    made.onpause = () => setState((s) => (s === 'playing' ? 'paused' : s));
+    audio.current = made;
+    return made;
+  };
+  const toggle = async () => {
+    try {
+      if (state === 'playing') return audio.current?.pause();
+      setState((s) => (s === 'idle' || s === 'failed' ? 'loading' : s));
+      const a = await element();
+      if (playing && playing !== a) playing.pause();
+      playing = a;
+      a.playbackRate = SPEEDS[speedIndex];
+      setSpeed(SPEEDS[speedIndex]);
+      await a.play();
+      setState('playing');
+    } catch (e) {
+      console.warn('[trace] voice playback failed', e);
+      setState('failed');
+    }
+  };
+  const seek = (fraction: number) => {
+    const a = audio.current;
+    if (a && a.duration) a.currentTime = fraction * a.duration;
+    setProgress(fraction);
+  };
+  const speedLabel = speed.toLocaleString(locale);
+  return (
+    <div className="flex w-[256px] max-w-full flex-col gap-1">
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-fill text-ink-on-accent"
+          aria-label={state === 'playing' ? s('bipe_app_voice_pause') : s('bipe_app_voice_play')}
+          onClick={() => void toggle()}
+        >
+          {state === 'loading' ? <Spinner /> : <Icon path={state === 'playing' ? pause : play} size={18} />}
+        </button>
+        <div
+          role="slider"
+          tabIndex={0}
+          aria-label={media.isVoice ? s('bipe_app_media_voice') : media.filename}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progress * 100)}
+          className="flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-0.5"
+          onPointerDown={(e) => {
+            const box = e.currentTarget.getBoundingClientRect();
+            seek(Math.min(1, Math.max(0, (e.clientX - box.left) / box.width)));
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowRight') seek(Math.min(1, progress + 0.05));
+            if (e.key === 'ArrowLeft') seek(Math.max(0, progress - 0.05));
+          }}
+        >
+          {values.map((v, i) => (
+            <span
+              key={i}
+              className={`min-w-0 flex-1 rounded-full ${i / values.length < progress ? 'bg-accent-fill' : 'bg-line-strong'}`}
+              style={{ height: `${Math.max(3, v * 32)}px` }}
+            />
+          ))}
+        </div>
+        {media.duration !== undefined && (
+          <span className="shrink-0 text-caption text-ink-secondary tabular-nums">{durationText(media.duration)}</span>
+        )}
+        <button
+          type="button"
+          className="min-h-11 shrink-0 px-1 text-caption font-semibold text-accent-ink tabular-nums"
+          aria-label={s('bipe_voice_speed_label', speedLabel)}
+          onClick={() => {
+            speedIndex = (speedIndex + 1) % SPEEDS.length;
+            setSpeed(SPEEDS[speedIndex]);
+            if (audio.current) audio.current.playbackRate = SPEEDS[speedIndex];
+          }}
+        >
+          {s('bipe_voice_speed', speedLabel)}
+        </button>
+      </div>
+      {state === 'failed' && <span className="text-caption text-trust-danger-ink">{s('bipe_app_media_failed')}</span>}
+    </div>
+  );
 }

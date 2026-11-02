@@ -26,6 +26,7 @@ export function previewText(content: TimelineItemContent): string | undefined {
     const type = kind.inner.content.msgType;
     const media = mediaOf(type);
     if (media) {
+      if (media.kind === 'audio') return media.isVoice ? s('bipe_app_media_voice') : media.filename;
       return media.kind === 'image'
         ? s('bipe_app_media_image')
         : media.kind === 'video'
@@ -33,7 +34,6 @@ export function previewText(content: TimelineItemContent): string | undefined {
           : s('bipe_app_media_file');
     }
     if (MessageType.Location.instanceOf(type)) return s('bipe_app_location_title');
-    if (MessageType.Audio.instanceOf(type)) return s('bipe_app_media_voice');
     return kind.inner.content.body;
   }
   if (MsgLikeKind.Sticker.instanceOf(kind)) return s('bipe_app_media_sticker');
