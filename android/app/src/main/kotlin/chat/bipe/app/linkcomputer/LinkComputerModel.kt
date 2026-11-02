@@ -136,6 +136,10 @@ class LinkComputerModel(
     private var finished = false
     /** Held only between the owner check and the one submit of the MAS login form. */
     private var password: String? = null
+    /** Phase LOADING ends in a failure after CONSENT_LOAD_SECONDS. */
+    private var loadingLimit: Job? = null
+    /** The path of the last MAS page, for the log when phase LOADING runs out. Never the query: it holds the code. */
+    private var lastPagePath: String? = null
 
     /** Action open: the Bipe support gate (never Client.isLoginWithQrCodeSupported, ADR 0118). */
     fun open(cameraAllowed: Boolean) {
@@ -380,6 +384,7 @@ class LinkComputerModel(
         grantJob?.cancel()
         grantJob = null
         countdown?.cancel()
+        loadingLimit?.cancel()
         _state.update { it.copy(isClosed = true) }
         scope.launch { runCatching { sender?.cancel() } }
     }
@@ -399,7 +404,21 @@ class LinkComputerModel(
             }
             password = secret
             _state.update { it.copy(approvePhase = ApprovePhase.LOADING) }
+            startLoadingLimit()
             openConsent()
+        }
+    }
+
+    /** Phase LOADING still on after CONSENT_LOAD_SECONDS: the flow fails and the log names the last MAS page. */
+    private fun startLoadingLimit() {
+        loadingLimit?.cancel()
+        lastPagePath = null
+        loadingLimit = scope.launch {
+            delay(CONSENT_LOAD_SECONDS * 1000L)
+            if (_state.value.approvePhase != ApprovePhase.LOADING) return@launch
+            Log.e(TAG, "link failed (consent-timeout): last page ${lastPagePath ?: "none"}")
+            _state.update { it.copy(errorCode = "consent-timeout") }
+            fail(Failure.SIGN_IN)
         }
     }
 
@@ -416,6 +435,9 @@ class LinkComputerModel(
 
     /** The script that fills the MAS login form once. null when nothing is to be filled. */
     fun pageLoaded(url: String, hasPasswordField: Boolean, hasForm: Boolean, text: String): String? {
+        val path = runCatching { java.net.URI(url).path }.getOrNull()
+        lastPagePath = path
+        Log.i(TAG, "link page $path password=$hasPasswordField form=$hasForm")
         if (hasPasswordField) {
             val secret = password
             if (filledLoginForm || secret == null) {
@@ -455,10 +477,20 @@ class LinkComputerModel(
     /** A navigation off the MAS host stops the load. */
     fun blockedNavigation() = fail(Failure.SIGN_IN)
 
+    /** A MAS page that did not load (network, TLS, server error) ends the flow at once. */
+    fun pageFailed(code: Int, description: String?) {
+        val phase = _state.value.approvePhase
+        if (phase != ApprovePhase.LOADING && phase != ApprovePhase.CONSENT) return
+        Log.e(TAG, "link failed (consent-load): $code $description")
+        _state.update { it.copy(errorCode = "consent-load") }
+        fail(Failure.SIGN_IN)
+    }
+
     /** Action close. */
     fun close() {
         val sender = continuationSender
         val confirm = sawConsentPage
+        loadingLimit?.cancel()
         _state.update { it.copy(isClosed = true) }
         scope.launch {
             runCatching { if (confirm) sender?.confirm() else sender?.cancel() }
@@ -469,6 +501,7 @@ class LinkComputerModel(
     /** Action retry: a new QR code is needed for each try. */
     fun retry() {
         scope.launch { finish() }
+        loadingLimit?.cancel()
         password = null
         filledLoginForm = false
         sawConsentPage = false
@@ -482,6 +515,7 @@ class LinkComputerModel(
     }
 
     private fun fail(failure: Failure) {
+        loadingLimit?.cancel()
         password = null
         _state.update { it.copy(approveError = failure, approvePhase = ApprovePhase.FAILED) }
         val sender = continuationSender
@@ -510,6 +544,13 @@ class LinkComputerModel(
 
     companion object {
         private const val TAG = "LinkDevice"
+
+        /**
+         * The longest wait on phase LOADING (the hidden MAS login form, then the consent page). Phase LOADING has no
+         * visible page, so without a limit an unexpected MAS page or a stalled load leaves the spinner forever. The
+         * Synapse rendezvous lives 60 seconds from the QR code, so a later approval cannot finish anyway.
+         */
+        const val CONSENT_LOAD_SECONDS = 30
 
         /**
          * State errorCode: the cause of a MissingSecretsBackup. The SDK sends it as text only

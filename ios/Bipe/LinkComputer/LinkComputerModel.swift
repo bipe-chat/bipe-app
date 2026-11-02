@@ -195,6 +195,15 @@ final class LinkComputerModel: ObservableObject {
     private var finished = false
     /// Held only between the owner check and the one submit of the MAS login form.
     private var password: String?
+    /// Phase loading ends in a failure after consentLoadSeconds.
+    private var loadingLimit: Task<Void, Never>?
+    /// The path of the last MAS page, for the log when phase loading runs out. Never the query: it holds the code.
+    private var lastPagePath: String?
+
+    /// The longest wait on phase loading (the hidden MAS login form, then the consent page). Phase loading has no
+    /// visible page, so without a limit an unexpected MAS page or a stalled load leaves the spinner forever. The
+    /// Synapse rendezvous lives 60 seconds from the QR code, so a later approval cannot finish anyway.
+    static let consentLoadSeconds = 30
 
     init(settings: SettingsModel, mode: Mode = .computer) {
         self.settings = settings
@@ -487,6 +496,7 @@ final class LinkComputerModel: ObservableObject {
         grantTask?.cancel()
         grantTask = nil
         countdown?.cancel()
+        loadingLimit?.cancel()
         Task { try? await sender?.cancel() }
     }
 
@@ -510,10 +520,24 @@ final class LinkComputerModel: ObservableObject {
         }
         password = secret
         approvePhase = .loading
+        startLoadingLimit()
         // Phase loading removes the view whose .task runs this method, and SwiftUI cancels that task. A cancelled
         // task cancels the auth metadata request (-999), and the flow then cancels the new device's login.
         // The consent load therefore runs in its own task.
         Task { await openConsent() }
+    }
+
+    /// Phase loading still on after consentLoadSeconds: the flow fails and the log names the last MAS page.
+    private func startLoadingLimit() {
+        loadingLimit?.cancel()
+        lastPagePath = nil
+        loadingLimit = Task { [weak self] in
+            guard (try? await Task.sleep(for: .seconds(Self.consentLoadSeconds))) != nil,
+                  let self, self.approvePhase == .loading else { return }
+            Self.log.error("link failed (consent-timeout): last page \(self.lastPagePath ?? "none", privacy: .public)")
+            self.errorCode = "consent-timeout"
+            self.fail(.signIn)
+        }
     }
 
     /// Action open: the MAS host from the auth metadata; the verification page must be on it.
@@ -539,6 +563,8 @@ final class LinkComputerModel: ObservableObject {
 
     /// The script that fills the MAS login form once. nil when the form was filled before or no password is held.
     func pageLoaded(_ page: Page) -> String? {
+        lastPagePath = page.url.path()
+        Self.log.info("link page \(page.url.path(), privacy: .public) password=\(page.hasPasswordField) form=\(page.hasForm)")
         if page.hasPasswordField {
             guard !filledLoginForm, let password,
                   let script = BipeWebLink.loginScript(username: BipeWebLink.localpart(of: session.userId), password: password) else {
@@ -579,11 +605,20 @@ final class LinkComputerModel: ObservableObject {
         fail(.signIn)
     }
 
+    /// A MAS page that did not load (network, TLS, server error) ends the flow at once.
+    func pageFailed(_ error: NSError) {
+        guard approvePhase == .loading || approvePhase == .consent else { return }
+        Self.log.error("link failed (consent-load): \(error.domain, privacy: .public) \(error.code, privacy: .public)")
+        errorCode = "consent-load"
+        fail(.signIn)
+    }
+
     /// Action close.
     func close() {
         let sender = continuationSender
         let confirm = sawConsentPage
         isClosed = true
+        loadingLimit?.cancel()
         Task {
             if confirm {
                 try? await sender?.confirm()
@@ -597,6 +632,7 @@ final class LinkComputerModel: ObservableObject {
     /// Action retry: a new QR code is needed for each try.
     func retry() {
         Task { await finish() }
+        loadingLimit?.cancel()
         password = nil
         filledLoginForm = false
         sawConsentPage = false
@@ -613,6 +649,7 @@ final class LinkComputerModel: ObservableObject {
     }
 
     private func fail(_ failure: Failure) {
+        loadingLimit?.cancel()
         password = nil
         approveError = failure
         approvePhase = .failed

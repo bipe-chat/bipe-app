@@ -13,7 +13,9 @@ import android.os.Build
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import android.webkit.CookieManager
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -352,6 +354,15 @@ private fun MasWebView(url: String, masHost: String, model: LinkComputerModel, m
                         if (BipeWebLink.isAllowed(target, masHost)) return false
                         model.blockedNavigation()
                         return true
+                    }
+
+                    override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                        if (request.isForMainFrame) model.pageFailed(error.errorCode, error.description?.toString())
+                    }
+
+                    // A MAS error page (an expired or unknown code, a server error) is a dead end in phase LOADING.
+                    override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
+                        if (request.isForMainFrame) model.pageFailed(errorResponse.statusCode, errorResponse.reasonPhrase)
                     }
 
                     override fun onPageFinished(view: WebView, pageUrl: String) {

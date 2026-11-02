@@ -87,6 +87,35 @@ struct MASWebView: UIViewRepresentable {
             }
         }
 
+        /// A MAS error page (an expired or unknown code, a server error) is a dead end in phase loading.
+        func webView(_ webView: WKWebView,
+                     decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+            if navigationResponse.isForMainFrame, let http = navigationResponse.response as? HTTPURLResponse,
+               http.statusCode >= 400 {
+                model.pageFailed(NSError(domain: "HTTP", code: http.statusCode))
+                return .cancel
+            }
+            return .allow
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            loadFailed(error)
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            loadFailed(error)
+        }
+
+        /// A load that this delegate cancelled (a blocked navigation, or the next form submit) is not a failure:
+        /// blockedNavigation already ended the flow.
+        private func loadFailed(_ error: Error) {
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled { return }
+            // WebKitErrorFrameLoadInterruptedByPolicyChange.
+            if nsError.domain == "WebKitErrorDomain" && nsError.code == 102 { return }
+            model.pageFailed(nsError)
+        }
+
         private struct Probe: Decodable {
             let password: Bool
             let form: Bool
