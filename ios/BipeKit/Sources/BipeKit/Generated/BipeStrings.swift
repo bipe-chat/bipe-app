@@ -5071,34 +5071,4 @@ public enum BipeStrings {
     public static var appUploadRemove: String { NSLocalizedString("bipe_app_upload_remove", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var a11yScrollToNewest: String { NSLocalizedString("bipe_a11y_scroll_to_newest", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webSignOutHistory: String { NSLocalizedString("bipe_web_sign_out_history", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webHistoryBanner: String { NSLocalizedString("bipe_web_history_banner", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webRecoveryHistoryNote: String { NSLocalizedString("bipe_web_recovery_history_note", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webHistoryNone: String { NSLocalizedString("bipe_web_history_none", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webEncryptionVerified: String { NSLocalizedString("bipe_web_encryption_verified", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webRecoveryKeyEnterBody: String { NSLocalizedString("bipe_web_recovery_key_enter_body", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webVerificationVerified: String { NSLocalizedString("bipe_web_verification_verified", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webVerificationUnverified: String { NSLocalizedString("bipe_web_verification_unverified", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webUploadCancel: String { NSLocalizedString("bipe_web_upload_cancel", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webEmojiSearch: String { NSLocalizedString("bipe_web_emoji_search", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webAccountSwitcherTitle: String { NSLocalizedString("bipe_web_account_switcher_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var webAccountUnreadLastSync: String { NSLocalizedString("bipe_web_account_unread_last_sync", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func webAccountCapReached(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_web_account_cap_reached", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static var webSignOutAll: String { NSLocalizedString("bipe_web_sign_out_all", tableName: "Bipe", bundle: .module, comment: "") }
 }

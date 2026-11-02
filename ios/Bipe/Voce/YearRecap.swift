@@ -17,12 +17,27 @@ struct YearRecap: Equatable {
     var topChatName: String?
     var topReaction: String?
     var longestVoice: TimeInterval?
+    /// Own messages a month (January first), a local hour (0 first) and a weekday (Sunday first).
+    var byMonth = [Int](repeating: 0, count: 12)
+    var byHour = [Int](repeating: 0, count: 24)
+    var byWeekday = [Int](repeating: 0, count: 7)
     var isPartial = false
 
     /// Spec year-recap notes: the current year; in January, the year before.
     static func year(now: Date = Date(), calendar: Calendar = .current) -> Int {
         let year = calendar.component(.year, from: now)
         return calendar.component(.month, from: now) == 1 ? year - 1 : year
+    }
+
+    /// Spec year-recap messagesByHour: the busiest block of six hours.
+    var peakPeriod: String {
+        let blocks = stride(from: 0, to: 24, by: 6).map { byHour[$0..<($0 + 6)].reduce(0, +) }
+        switch blocks.firstIndex(of: blocks.max() ?? 0) {
+        case 0: return BipeStrings.yearRecapPeakDawn
+        case 1: return BipeStrings.yearRecapPeakMorning
+        case 2: return BipeStrings.yearRecapPeakAfternoon
+        default: return BipeStrings.yearRecapPeakEvening
+        }
     }
 }
 
@@ -38,6 +53,9 @@ struct YearRecapTally {
     private var perRoom: [String: Int] = [:]
     private var reactions: [String: (count: Int, newest: UInt64)] = [:]
     private var longestVoice: TimeInterval?
+    private var byMonth = [Int](repeating: 0, count: 12)
+    private var byHour = [Int](repeating: 0, count: 24)
+    private var byWeekday = [Int](repeating: 0, count: 7)
     private(set) var isPartial = false
 
     init(ownUserId: String, year: Int, calendar: Calendar = .current) {
@@ -69,7 +87,14 @@ struct YearRecapTally {
             guard event.isOwn else { continue }
             if case .redacted = content.kind { continue }
             sent += 1
-            days.insert(Int(calendar.startOfDay(for: Date(milliseconds: event.timestamp)).timeIntervalSince1970))
+            let date = Date(milliseconds: event.timestamp)
+            days.insert(Int(calendar.startOfDay(for: date).timeIntervalSince1970))
+            let parts = calendar.dateComponents([.month, .hour, .weekday], from: date)
+            if let month = parts.month, let hour = parts.hour, let weekday = parts.weekday {
+                byMonth[month - 1] += 1
+                byHour[hour] += 1
+                byWeekday[weekday - 1] += 1
+            }
             if case .message(let message) = content.kind, case .audio(let audio) = message.msgType, audio.voice != nil,
                let duration = audio.audio?.duration ?? audio.info?.duration {
                 longestVoice = max(longestVoice ?? 0, duration)
@@ -87,7 +112,8 @@ struct YearRecapTally {
         let topReaction = reactions.max { ($0.value.count, $0.value.newest) < ($1.value.count, $1.value.newest) }?.key
         return YearRecap(year: year, messagesSent: messages, activeDays: days.count, people: dms,
                          topChatName: topRoom.flatMap(chatName), topReaction: topReaction,
-                         longestVoice: longestVoice, isPartial: isPartial)
+                         longestVoice: longestVoice, byMonth: byMonth, byHour: byHour, byWeekday: byWeekday,
+                         isPartial: isPartial)
     }
 }
 
@@ -273,6 +299,12 @@ struct YearRecapCard: View {
             if !forShare, let chat = recap.topChatName {
                 tile(chat, BipeStrings.yearRecapTopChat)
             }
+            Text(recap.peakPeriod)
+                .font(.headline)
+                .foregroundStyle(BipeColor.inkPrimary)
+            ForEach(YearRecapChart.all(recap), id: \.title) { chart in
+                YearRecapBars(chart: chart)
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -305,6 +337,76 @@ struct YearRecapCard: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// One bar chart of the card: values, axis labels (every labelEvery bars) and the name of the peak.
+struct YearRecapChart {
+    let title: String
+    let values: [Int]
+    let labels: [String]
+    let labelEvery: Int
+    let peak: String
+
+    /// Spec year-recap charts: by month, by hour, by weekday from the locale's first weekday. Ties go to the earliest.
+    static func all(_ recap: YearRecap, calendar: Calendar = .current) -> [YearRecapChart] {
+        func peakIndex(_ values: [Int]) -> Int { values.firstIndex(of: values.max() ?? 0) ?? 0 }
+        let months = calendar.standaloneMonthSymbols
+        let month = YearRecapChart(title: BipeStrings.yearRecapByMonth, values: recap.byMonth,
+                                   labels: calendar.veryShortStandaloneMonthSymbols, labelEvery: 1,
+                                   peak: months[peakIndex(recap.byMonth)])
+        let peakHour = calendar.date(bySettingHour: peakIndex(recap.byHour), minute: 0, second: 0, of: Date()) ?? Date()
+        let hour = YearRecapChart(title: BipeStrings.yearRecapByHour, values: recap.byHour,
+                                  labels: (0..<24).map { String($0) }, labelEvery: 6,
+                                  peak: peakHour.formatted(date: .omitted, time: .shortened))
+        let order = (0..<7).map { ($0 + calendar.firstWeekday - 1) % 7 }
+        let weekdayValues = order.map { recap.byWeekday[$0] }
+        let weekday = YearRecapChart(title: BipeStrings.yearRecapByWeekday, values: weekdayValues,
+                                     labels: order.map { calendar.veryShortStandaloneWeekdaySymbols[$0] }, labelEvery: 1,
+                                     peak: calendar.standaloneWeekdaySymbols[order[peakIndex(weekdayValues)]])
+        return [month, hour, weekday]
+    }
+}
+
+/// Plain bars, no chart library; ImageRenderer draws them for the share image.
+struct YearRecapBars: View {
+    let chart: YearRecapChart
+    private static let height: CGFloat = 64
+
+    var body: some View {
+        let top = chart.values.max() ?? 0
+        let peak = chart.values.firstIndex(of: top)
+        let spacing: CGFloat = chart.values.count > 12 ? 2 : 4
+        VStack(alignment: .leading, spacing: 6) {
+            Text(chart.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(BipeColor.inkPrimary)
+            HStack(alignment: .bottom, spacing: spacing) {
+                ForEach(chart.values.indices, id: \.self) { index in
+                    let share = top == 0 ? 0 : CGFloat(chart.values[index]) / CGFloat(top)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(index == peak ? BipeColor.accentFill : BipeColor.accentFill.opacity(0.3))
+                        .frame(height: max(2, Self.height * share))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: Self.height, alignment: .bottom)
+            // One label for each group of labelEvery bars; the groups have the width of their bars.
+            HStack(spacing: spacing) {
+                ForEach(Array(stride(from: 0, to: chart.labels.count, by: chart.labelEvery)), id: \.self) { index in
+                    Text(chart.labels[index])
+                        .font(.caption2)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: chart.labelEvery == 1 ? .center : .leading)
+                }
+            }
+            Text(BipeStrings.yearRecapChartPeak(chart.peak))
+                .font(.footnote)
+                .foregroundStyle(BipeColor.inkSecondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(chart.title). \(BipeStrings.yearRecapChartPeak(chart.peak))")
     }
 }
 
