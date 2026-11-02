@@ -323,6 +323,20 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
                     e.currentTarget.form?.requestSubmit();
+                  } else if (e.key === 'Escape' && mode) {
+                    // Escape ends a reply or an edit before it closes anything else.
+                    e.preventDefault();
+                    if (mode.kind === 'edit') setDraft('');
+                    setMode(undefined);
+                  } else if (e.key === 'ArrowUp' && draft === '' && !mode) {
+                    // Up in an empty field edits the newest own text message, as on desktop chat apps.
+                    const last = [...rows]
+                      .reverse()
+                      .find((r): r is MessageRow => r.kind === 'message' && r.own && r.canEdit);
+                    if (last) {
+                      e.preventDefault();
+                      on.edit(last);
+                    }
                   }
                 }}
               />

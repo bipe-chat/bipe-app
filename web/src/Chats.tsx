@@ -27,6 +27,7 @@ import {
 import { archive as archiveIcon, bellSlash, caretLeft, gear, magnifyingGlass, userCircle, x } from './phosphor/icons';
 import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
 import { isOfficial } from './registries';
+import { useEscape } from './ui/keys';
 import { rowPreview, rowTime } from './row-preview';
 import { OfficialBadge } from './ui/List';
 import { RequestScreen, RequestsList, requesterOf } from './Requests';
@@ -99,6 +100,8 @@ export function Chats({ client }: { client: Client }) {
   }, [summaries, archive]);
 
   const open = detail?.kind === 'room' ? detail.room : undefined;
+  const openId = useRef<string>(undefined);
+  openId.current = open?.id();
   const ownUserId = client.userId();
   const inScope = (c: ChatSummary) => (scope === 'conversas' ? c.kind === 'dm' : c.kind === 'group');
   const active = summaries.filter((c) => inScope(c) && !archive.isArchived(c.roomId));
@@ -118,6 +121,32 @@ export function Chats({ client }: { client: Client }) {
   useDesktopNotifications(summaries, open?.id(), ownUserId, openChat);
   useTabTitle(chatsBadge + groupsBadge);
   const [permission, askPermission] = useNotificationPermission();
+  // Escape closes the settings and request screens (the chat info and viewers handle their own).
+  useEscape(
+    () => setDetail(undefined),
+    detail?.kind === 'settings' || detail?.kind === 'requests' || detail?.kind === 'request',
+  );
+  // Keyboard: Cmd or Ctrl+K finds a chat; Alt+Up and Alt+Down open the chat above or below the open one.
+  const listed = useRef<ChatSummary[]>([]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        // A narrow window shows the list first.
+        if (window.matchMedia('(max-width: 767px)').matches) setDetail(undefined);
+        requestAnimationFrame(() => document.getElementById('chat-search')?.focus());
+      } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        const list = listed.current;
+        if (list.length === 0) return;
+        e.preventDefault();
+        const at = list.findIndex((c) => c.roomId === openId.current);
+        const next = at === -1 ? 0 : Math.min(list.length - 1, Math.max(0, at + (e.key === 'ArrowUp' ? -1 : 1)));
+        openChat(list[next].room);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [openChat]);
   const [bannerClosed, setBannerClosed] = useState(false);
   const searching = query.trim() !== '';
   const needle = normalize(query.trim());
@@ -126,6 +155,7 @@ export function Chats({ client }: { client: Client }) {
     (c) => (c.kind === 'dm' || c.kind === 'group') && normalize(c.face.name).includes(needle),
   );
   const rows = searching ? found : showingArchived ? archived : active;
+  listed.current = rows;
 
   return (
     <ClientContext value={client}>
