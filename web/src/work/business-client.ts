@@ -8,6 +8,7 @@
 // (bipe-api MatrixAuth.userId, whoami), not an OpenID token. A failed call throws WorkError with the API's
 // error code, so a screen can show what went wrong; reads that a screen may skip are the caller's choice.
 
+import type { ClientLike as Client } from '../generated/matrix_sdk_ffi';
 import type {
   Agenda,
   AgendaActivation,
@@ -44,14 +45,14 @@ import type {
 
 export const API_BASE = 'https://api.bipe.net.br';
 
-/** An error answer of bipe-api: { error, message? }, or network for no answer. */
+/** An error answer of bipe-api: { error, reason? }, or network for no answer. */
 export class WorkError extends Error {
   constructor(
     readonly code: string,
     readonly status: number,
-    detail?: string,
+    readonly reason?: string,
   ) {
-    super(detail ? `${code}: ${detail}` : code);
+    super(reason ? `${code}: ${reason}` : code);
   }
 }
 
@@ -96,8 +97,9 @@ export class BusinessClient {
       throw new WorkError('network', 0);
     }
     if (res.status === 204) return undefined as T;
-    const json = (await res.json().catch(() => undefined)) as { error?: string; message?: string } | undefined;
-    if (!res.ok) throw new WorkError(json?.error ?? 'internal', res.status, json?.message);
+    // bipe-api errors are { error, reason? } (src/errors.ts ApiError.body()).
+    const json = (await res.json().catch(() => undefined)) as { error?: string; reason?: string } | undefined;
+    if (!res.ok) throw new WorkError(json?.error ?? 'internal', res.status, json?.reason);
     return json as T;
   }
 
@@ -192,6 +194,24 @@ export class BusinessClient {
     this.post<Order>(`/v1/me/business/orders/${enc(id)}/${action}`);
   refuseOrder = (id: string, reason: OrderRefuseReason) =>
     this.post<Order>(`/v1/me/business/orders/${enc(id)}/refuse`, { reason });
+}
+
+const clients = new WeakMap<Client, BusinessClient>();
+
+/** The business client of one account, made once per SDK client. The token is read at each call: it rotates. */
+export function businessClientFor(client: Client): BusinessClient {
+  let business = clients.get(client);
+  if (!business) {
+    business = new BusinessClient(async () => {
+      try {
+        return client.session().accessToken;
+      } catch {
+        return undefined;
+      }
+    });
+    clients.set(client, business);
+  }
+  return business;
 }
 
 const enc = encodeURIComponent;

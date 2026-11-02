@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { s } from '../ui/i18n';
 import { Spinner } from '../ui/Spinner';
+import type { BookingCustomer } from '../bipe/generated/business-api';
 import { WorkError, type BusinessClient } from './business-client';
 
 /** Every Trabalho tool screen takes the account's business client and a way back to the Trabalho list. */
@@ -161,6 +162,47 @@ export function SplitPane({ list, detail }: { list: ReactNode; detail?: ReactNod
       {detail && <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{detail}</div>}
     </div>
   );
+}
+
+// Customer names. A record holds a signed-in customer as a Matrix user ID; the name comes from the
+// customer's Matrix profile, as the phone's names lookup does. The cache lives for the page; useNames() makes
+// a screen draw again when a name arrives. A Matrix ID never shows: an unknown name is bipe_person_no_name.
+type NameLookup = (userId: string) => Promise<string | undefined>;
+let lookup: NameLookup | undefined;
+const names = new Map<string, string | null>();
+const nameListeners = new Set<() => void>();
+
+/** Set by WorkView with the current account's Matrix client. */
+export function setNameLookup(next: NameLookup) {
+  lookup = next;
+}
+
+/** Call once at the top of a screen that shows customer names. */
+export function useNames() {
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    const listener = () => redraw((v) => v + 1);
+    nameListeners.add(listener);
+    return () => {
+      nameListeners.delete(listener);
+    };
+  }, []);
+}
+
+/** The display name of a customer: the typed name, the profile name, or bipe_person_no_name. */
+export function customerName(customer: BookingCustomer | string): string {
+  if (typeof customer !== 'string' && 'name' in customer) return customer.name;
+  const userId = typeof customer === 'string' ? customer : customer.user_id;
+  if (!names.has(userId) && lookup) {
+    names.set(userId, null);
+    void lookup(userId)
+      .catch(() => undefined)
+      .then((name) => {
+        names.set(userId, name ?? null);
+        nameListeners.forEach((l) => l());
+      });
+  }
+  return names.get(userId) ?? s('bipe_person_no_name');
 }
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });

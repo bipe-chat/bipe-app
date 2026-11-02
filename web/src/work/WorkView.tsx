@@ -16,45 +16,62 @@ import { NavBar, Row, Section } from '../ui/List';
 import type { BusinessClient, WorkHours } from './business-client';
 import { AgendaScreen } from './Agenda';
 import { CatalogScreen } from './Catalog';
-import { LoadState, PrimaryButton, inputClass, useAction, useLoad } from './common';
+import { LoadState, setNameLookup, PrimaryButton, inputClass, useAction, useLoad } from './common';
 import { OrdersScreen } from './Orders';
 import { QueueScreen } from './Queue';
 import { QuotesScreen } from './Quotes';
 import { w } from './strings';
 
-type Tool = 'agenda' | 'catalog' | 'orders' | 'quotes' | 'queue' | 'hours';
+// The URL segment of each tool: /trabalho/<tool> (router.ts).
+type Tool = 'agenda' | 'catalogo' | 'pedidos' | 'orcamentos' | 'fila' | 'horario';
 
 const TOOLS: { tool: Tool; title: StringKey }[] = [
   { tool: 'agenda', title: 'bipe_tab_agenda' },
-  { tool: 'catalog', title: 'bipe_catalog_title' },
-  { tool: 'orders', title: 'bipe_orders_title' },
-  { tool: 'quotes', title: 'bipe_quotes_title' },
-  { tool: 'queue', title: 'bipe_queue_title' },
+  { tool: 'catalogo', title: 'bipe_catalog_title' },
+  { tool: 'pedidos', title: 'bipe_orders_title' },
+  { tool: 'orcamentos', title: 'bipe_quotes_title' },
+  { tool: 'fila', title: 'bipe_queue_title' },
 ];
 
-/** Shown only when the current account is a company account (bipe-api account type, ADR 0132). */
-export function WorkView({ client }: { client: BusinessClient }) {
-  const [open, setOpen] = useState<Tool>();
-  const back = () => setOpen(undefined);
-  switch (open) {
+/**
+ * Shown only when the current account is a company account (bipe-api account type, ADR 0132). tool is the open
+ * tool from the URL; onTool changes it (undefined: the list); onClose leaves Trabalho. nameOf gives the
+ * Matrix profile name of a signed-in customer.
+ */
+export function WorkView({
+  client,
+  tool,
+  onTool,
+  onClose,
+  nameOf,
+}: {
+  client: BusinessClient;
+  tool?: string;
+  onTool: (tool: string | undefined) => void;
+  onClose: () => void;
+  nameOf: (userId: string) => Promise<string | undefined>;
+}) {
+  setNameLookup(nameOf);
+  const back = () => onTool(undefined);
+  switch (tool as Tool | undefined) {
     case 'agenda':
       return <AgendaScreen client={client} onBack={back} />;
-    case 'catalog':
+    case 'catalogo':
       return <CatalogScreen client={client} onBack={back} />;
-    case 'orders':
+    case 'pedidos':
       return <OrdersScreen client={client} onBack={back} />;
-    case 'quotes':
+    case 'orcamentos':
       return <QuotesScreen client={client} onBack={back} />;
-    case 'queue':
+    case 'fila':
       return <QueueScreen client={client} onBack={back} />;
-    case 'hours':
+    case 'horario':
       return <HoursScreen client={client} onBack={back} />;
     default:
-      return <ToolList client={client} onOpen={setOpen} />;
+      return <ToolList client={client} onOpen={onTool} onClose={onClose} />;
   }
 }
 
-function ToolList({ client, onOpen }: { client: BusinessClient; onOpen: (t: Tool) => void }) {
+function ToolList({ client, onOpen, onClose }: { client: BusinessClient; onOpen: (t: Tool) => void; onClose: () => void }) {
   // The Agenda row's subtitle (spec business-tools agendaPublished). A failed read shows no subtitle.
   const agenda = useLoad(() => client.agenda().catch(() => undefined), [client]);
   const agendaSubtitle =
@@ -65,9 +82,7 @@ function ToolList({ client, onOpen }: { client: BusinessClient; onOpen: (t: Tool
         : s('bipe_agenda_not_published');
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-grouped-screen">
-      <header className="px-4 pb-2 pt-4">
-        <h1 className="text-title2 font-bold text-ink-primary">{s('bipe_tab_work')}</h1>
-      </header>
+      <NavBar title={s('bipe_tab_work')} onBack={onClose} />
       <div className="flex flex-col gap-6 px-4 pb-8">
         <Section header={s('bipe_business_tools_title')} footer={s('bipe_business_tools_footer')}>
           {TOOLS.map(({ tool, title }) => (
@@ -80,7 +95,7 @@ function ToolList({ client, onOpen }: { client: BusinessClient; onOpen: (t: Tool
           ))}
         </Section>
         <Section>
-          <ToolRow title={s('bipe_work_hours_title')} onClick={() => onOpen('hours')} />
+          <ToolRow title={s('bipe_work_hours_title')} onClick={() => onOpen('horario')} />
         </Section>
         <p className="px-4 text-footnote text-ink-secondary">{w('bipe_web_work_phone_only')}</p>
       </div>

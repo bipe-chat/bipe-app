@@ -34,6 +34,7 @@ import {
   archive as archiveIcon,
   pencilSimple,
   bellSlash,
+  briefcase,
   caretLeft,
   gear,
   magnifyingGlass,
@@ -50,10 +51,12 @@ import { isOfficial } from './registries';
 import { navigate, useRoute } from './router';
 import { useEscape } from './ui/keys';
 import { rowPreview, rowTime } from './row-preview';
-import { OfficialBadge } from './ui/List';
+import { NavBar, OfficialBadge } from './ui/List';
 import { RequestScreen, RequestsList, requesterOf } from './Requests';
 import { ClientContext } from './media';
 import { Settings } from './Settings';
+import { businessClientFor } from './work/business-client';
+import { WorkView } from './work/WorkView';
 import { RoomTimeline } from './Timeline';
 import { Avatar, useIsCompany } from './ui/Avatar';
 import { BipeMark } from './ui/BipeMark';
@@ -67,6 +70,7 @@ type Scope = 'conversas' | 'grupos';
 type Detail =
   | { kind: 'room'; room: Room }
   | { kind: 'settings' }
+  | { kind: 'work' }
   | { kind: 'requests' }
   | { kind: 'request'; roomId: string }
   | { kind: 'encryption' }
@@ -154,11 +158,13 @@ export function Chats({ client }: { client: Client }) {
       ? { kind: 'room', room: routeRoom }
       : route.kind === 'settings'
         ? { kind: 'settings' }
-        : route.kind === 'requests'
-          ? { kind: 'requests' }
-          : route.kind === 'request'
-            ? { kind: 'request', roomId: route.roomId }
-            : undefined;
+        : route.kind === 'work'
+          ? { kind: 'work' }
+          : route.kind === 'requests'
+            ? { kind: 'requests' }
+            : route.kind === 'request'
+              ? { kind: 'request', roomId: route.roomId }
+              : undefined;
   const setDetail = (next: Detail | undefined) => {
     const kind = next?.kind;
     setOverlay(kind === 'encryption' || kind === 'newChat' || kind === 'newGroup' ? kind : undefined);
@@ -217,7 +223,9 @@ export function Chats({ client }: { client: Client }) {
           ? s('bipe_archived_title')
           : route.kind === 'settings'
             ? s('bipe_settings_section')
-            : undefined;
+            : route.kind === 'work'
+              ? s('bipe_tab_work')
+              : undefined;
   useTabTitle(chatsBadge + groupsBadge, page);
   // The switcher shows each account's last known name, photo and unread badge (ADR 0225 point 4).
   const { remember, current: account } = useAccounts();
@@ -342,6 +350,18 @@ export function Chats({ client }: { client: Client }) {
             >
               <Icon path={pencilSimple} size={22} />
             </button>
+            {isCompany && (
+              // Trabalho: the business tools of a company account on the web (ADR 0226).
+              <button
+                className={`grid size-11 place-items-center rounded-full ${detail?.kind === 'work' ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}
+                aria-label={s('bipe_tab_work')}
+                title={s('bipe_tab_work')}
+                aria-pressed={detail?.kind === 'work'}
+                onClick={() => navigate({ kind: 'work' })}
+              >
+                <Icon path={briefcase} size={22} />
+              </button>
+            )}
             {/* Settings for this browser; sign out lives there, in Sua conta. */}
             <button
               className={`grid size-11 place-items-center rounded-full ${detail?.kind === 'settings' ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}
@@ -491,6 +511,19 @@ export function Chats({ client }: { client: Client }) {
             />
           ) : detail?.kind === 'encryption' ? (
             <EncryptionSheet state={encryption} onClose={() => setDetail(undefined)} />
+          ) : detail?.kind === 'work' ? (
+            isCompany ? (
+              <WorkView
+                client={businessClientFor(client)}
+                tool={route.kind === 'work' ? route.tool : undefined}
+                onTool={(tool) => navigate({ kind: 'work', tool })}
+                onClose={() => setDetail(undefined)}
+                nameOf={(userId) => client.getProfile(userId).then((p) => p.displayName ?? undefined)}
+              />
+            ) : (
+              // A personal account, or bipe-api has not answered yet: only the way back.
+              <NavBar title={s('bipe_tab_work')} onBack={() => setDetail(undefined)} />
+            )
           ) : detail?.kind === 'settings' ? (
             <Settings
               group={route.kind === 'settings' ? route.group : undefined}
