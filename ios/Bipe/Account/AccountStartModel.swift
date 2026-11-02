@@ -349,7 +349,8 @@ final class AccountStartModel: ObservableObject {
         }
     }
 
-    private static func name(of userId: String) -> String {
+    /// The account's remembered name, else Você.
+    static func name(of userId: String) -> String {
         let label = BipeAccountLabels.label(for: userId)
         return label == userId ? BipeStrings.tabYou : label
     }
