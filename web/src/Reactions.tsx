@@ -11,6 +11,7 @@
 import { useEffect } from 'react';
 import type { Reaction } from './generated/matrix_sdk_ffi';
 import { s } from './ui/i18n';
+import { Icon } from './ui/Icon';
 
 /** Spec message-reactions notes: the 6 keys in this order. */
 export const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -52,14 +53,21 @@ export function ReactionPills({ pills, onToggle }: { pills: ReactionPill[]; onTo
   );
 }
 
-/** The row of quick reactions, anchored above the bubble. */
-export function QuickReactions({
+export type MessageAction = { label: string; icon: string; danger?: boolean; run: () => void };
+
+/**
+ * The message menu (MessageContextMenu.swift): the quick reactions as one row of emoji at the top, then
+ * the actions. Anchored above the bubble, on its side.
+ */
+export function MessageMenu({
   own,
   onPick,
+  actions,
   onClose,
 }: {
   own: boolean;
-  onPick: (key: string) => void;
+  onPick?: (key: string) => void;
+  actions: MessageAction[];
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -72,21 +80,41 @@ export function QuickReactions({
       <button type="button" className="fixed inset-0 z-20 cursor-default" tabIndex={-1} aria-hidden onClick={onClose} />
       <div
         role="menu"
-        aria-label={s('bipe_a11y_react')}
-        className={`absolute bottom-full z-30 mb-1 flex gap-0.5 rounded-full bg-surface-raised p-1 shadow-lg ring-1 ring-line-subtle ${own ? 'right-0' : 'left-0'}`}
+        aria-label={s('bipe_message_actions')}
+        className={`absolute bottom-full z-30 mb-1 flex w-max max-w-[min(320px,90vw)] flex-col overflow-hidden rounded-[18px] bg-surface-raised shadow-lg ring-1 ring-line-subtle ${own ? 'right-0' : 'left-0'}`}
       >
-        {QUICK_REACTIONS.map((key) => (
+        {onPick && (
+          <div role="group" aria-label={s('bipe_a11y_react')} className="flex gap-0.5 p-1">
+            {QUICK_REACTIONS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                role="menuitem"
+                className="grid size-10 place-items-center rounded-full text-[24px] hover:bg-surface-sunken"
+                onClick={() => {
+                  onClose();
+                  onPick(key);
+                }}
+              >
+                {key}
+              </button>
+            ))}
+          </div>
+        )}
+        {actions.map((a, i) => (
           <button
-            key={key}
+            key={a.label}
             type="button"
             role="menuitem"
-            className="grid size-10 place-items-center rounded-full text-[24px] hover:bg-surface-sunken"
+            autoFocus={!onPick && i === 0}
+            className={`flex min-h-11 items-center justify-between gap-6 px-4 text-left text-body hover:bg-surface-sunken ${onPick || i > 0 ? 'border-t-[0.5px] border-line-subtle' : ''} ${a.danger ? 'text-trust-danger-ink' : 'text-ink-primary'}`}
             onClick={() => {
               onClose();
-              onPick(key);
+              a.run();
             }}
           >
-            {key}
+            {a.label}
+            <Icon path={a.icon} size={20} className={a.danger ? '' : 'text-glyph-primary'} />
           </button>
         ))}
       </div>

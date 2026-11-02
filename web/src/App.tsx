@@ -39,7 +39,7 @@ export function App() {
   }, []);
 
   return (
-    <div className="h-full bg-surface-base text-ink-primary">
+    <div className="h-dvh overflow-hidden bg-surface-base text-ink-primary">
       {phase.kind === 'loading' && (
         <div className="grid h-full place-items-center">
           <Spinner label={phase.note} />

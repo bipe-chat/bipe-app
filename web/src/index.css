@@ -79,10 +79,12 @@
   :root {
     color-scheme: light dark;
   }
+  /* A fixed app shell: the page never scrolls; each column scrolls on its own. */
   html,
   body,
   #root {
     height: 100%;
+    overflow: hidden;
   }
   body {
     margin: 0;

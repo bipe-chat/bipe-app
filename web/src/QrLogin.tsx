@@ -91,8 +91,8 @@ export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onEr
   const showsQr = qr !== undefined && !wasScanned;
 
   return (
-    <section className="flex min-h-full flex-col items-center justify-center overflow-y-auto p-4">
-      <div className="flex w-full max-w-[420px] flex-col items-center gap-4 text-center">
+    <section className="flex h-full flex-col items-center overflow-y-auto p-4">
+      <div className="my-auto flex w-full max-w-[420px] flex-col items-center gap-4 text-center">
         <h1 className="text-title2 text-ink-primary">{step}</h1>
         {/* A white field with a quiet zone, in light and dark mode (LinkPhoneShowView.swift). */}
         <div className={showsQr ? 'w-full max-w-[320px] rounded-2xl bg-white p-4' : 'hidden'}>

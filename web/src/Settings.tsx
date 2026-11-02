@@ -33,8 +33,57 @@ const ICONS: Record<string, string> = {
 
 const key = (k: string) => k as StringKey;
 
+// The rows of switches the web keeps itself, in this browser, under the key the apps use on the phone.
+const LOCAL_SWITCHES: Record<string, string> = { readReceipts: 'bipe.settings.readReceipts' };
+
 function webRow(row: SettingsRow): boolean {
-  return row.kind === 'url' || row.key === 'signOut';
+  return row.kind === 'url' || row.key === 'signOut' || LOCAL_SWITCHES[row.key] !== undefined;
+}
+
+function readSwitch(storageKey: string): boolean {
+  try {
+    return localStorage.getItem(storageKey) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Spec read-receipts readReceiptsEnabled (ADR 0222): the Privacidade switch, in this browser, on by
+ * default (ReadReceiptSetting on iOS). Off: DMs send private receipts and show no read ticks.
+ */
+export function readReceiptsOn(): boolean {
+  return readSwitch(LOCAL_SWITCHES.readReceipts);
+}
+
+function SwitchRow({ title, storageKey }: { title: string; storageKey: string }) {
+  const [on, setOn] = useState(() => readSwitch(storageKey));
+  return (
+    <Row>
+      <label className="flex min-w-0 flex-1 items-center gap-3 py-1">
+        <span className="min-w-0 flex-1 text-body text-ink-primary">{title}</span>
+        <input
+          type="checkbox"
+          role="switch"
+          className="peer sr-only"
+          checked={on}
+          onChange={(e) => {
+            setOn(e.target.checked);
+            try {
+              localStorage.setItem(storageKey, String(e.target.checked));
+            } catch {
+              // Private windows can refuse storage; the switch then lasts for this page only.
+            }
+          }}
+        />
+        {/* The iOS switch: 51 x 31 with a 27 px knob, accent.fill when on, surface.sunken when off. */}
+        <span
+          aria-hidden
+          className="relative h-[31px] w-[51px] shrink-0 rounded-full bg-surface-sunken transition-colors peer-checked:bg-accent-fill peer-focus-visible:outline-2 peer-focus-visible:outline-accent-fill after:absolute after:top-[2px] after:left-[2px] after:size-[27px] after:rounded-full after:bg-surface-base after:shadow after:transition-transform peer-checked:after:translate-x-5"
+        />
+      </label>
+    </Row>
+  );
 }
 
 function webSections(group: Group) {
@@ -68,7 +117,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
   if (open) return <GroupScreen group={open} onBack={() => setOpen(undefined)} />;
   return (
-    <div className="flex h-full flex-col bg-grouped-screen">
+    <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
       <NavBar title={s('bipe_tab_you')} onBack={onClose} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-6">
         <div className="flex flex-col items-center gap-1 py-2 text-center">
@@ -105,17 +154,19 @@ export function Settings({ onClose }: { onClose: () => void }) {
 function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
   const client = useClient();
   return (
-    <div className="flex h-full flex-col bg-grouped-screen">
+    <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
       <NavBar title={s(key(group.title))} onBack={onBack} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
         {webSections(group).map((section) => (
           <Section
             key={section.key}
             header={'title' in section && section.title ? s(key(section.title)) : undefined}
-            footer={'footer' in section && section.footer ? s(key(section.footer)) : undefined}
+            footer={footerOf(section)}
           >
             {section.rows.map((row) =>
-              row.kind === 'url' ? (
+              LOCAL_SWITCHES[row.key] ? (
+                <SwitchRow key={row.key} title={s(key(row.title))} storageKey={LOCAL_SWITCHES[row.key]} />
+              ) : row.kind === 'url' ? (
                 <Row key={row.key}>
                   <a
                     className="min-w-0 flex-1 py-1 text-body text-ink-primary"
@@ -147,4 +198,11 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
       </div>
     </div>
   );
+}
+
+// The section footer, or the footer of its one row (the apps show a row footer under its section).
+function footerOf(section: ReturnType<typeof webSections>[number]): string | undefined {
+  if ('footer' in section && section.footer) return s(key(section.footer));
+  const row = section.rows.length === 1 ? section.rows[0] : undefined;
+  return row && 'footer' in row && row.footer ? s(key(row.footer)) : undefined;
 }
