@@ -85,6 +85,7 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     var notesFailed by remember { mutableStateOf(false) }
     var showsLinkPhone by rememberSaveable { mutableStateOf(false) }
     var showsMyBookings by rememberSaveable { mutableStateOf(false) }
+    var showsYearRecap by rememberSaveable { mutableStateOf(false) }
     val notesTitle = stringResource(R.string.bipe_self_chat_title)
     val openNotes: () -> Unit = {
         if (!openingNotes) {
@@ -140,6 +141,11 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     }
                     item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
                     item { VoceRow(PhosphorIcon.DEVICES, stringResource(R.string.bipe_app_link_phone_action), onClick = { showsLinkPhone = true }) }
+                    // Spec voce openYearRecap (ADR 0223): counted on this phone only.
+                    item {
+                        VoceRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_year_recap_title),
+                            stringResource(R.string.bipe_year_recap_row_subtitle, YearRecap.year().toString()), onClick = { showsYearRecap = true })
+                    }
                     // Spec voce: Meus agendamentos above Configurações, for a personal account.
                     if (current != null && !current.isCompany) {
                         item(key = "my-bookings") {
@@ -163,6 +169,11 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     }
                 }
             })
+        }
+    }
+    if (showsYearRecap) {
+        BusinessFullScreen(onDismiss = { showsYearRecap = false }) {
+            YearRecapScreen(session, tabs.chatList(session), onBack = { showsYearRecap = false })
         }
     }
     if (notesFailed) {

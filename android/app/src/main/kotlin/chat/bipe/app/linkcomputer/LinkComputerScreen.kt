@@ -239,7 +239,7 @@ private fun LifecycleResumeEffect(onResume: () -> Unit, onPause: () -> Unit) {
     }
 }
 
-/** Spec link-computer-approve: the owner check, then the native consent screen (ADR 0223). */
+/** Spec link-computer-approve: the owner check, then the native consent screen (ADR 0224). */
 @Composable
 private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerModel) {
     val context = LocalContext.current
