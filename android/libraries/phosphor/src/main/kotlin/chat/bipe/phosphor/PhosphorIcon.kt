@@ -11,6 +11,7 @@ import androidx.annotation.DrawableRes
 /** Phosphor icons (MIT) that the app uses. Add an icon in tools/phosphor.json, then run tools/phosphor.mjs. */
 enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     ADDRESS_BOOK("address-book", R.drawable.phosphor_address_book),
+    ARCHIVE("archive", R.drawable.phosphor_archive),
     ARROW_BEND_UP_LEFT("arrow-bend-up-left", R.drawable.phosphor_arrow_bend_up_left),
     ARROW_CLOCKWISE("arrow-clockwise", R.drawable.phosphor_arrow_clockwise),
     BACKSPACE("backspace", R.drawable.phosphor_backspace),

@@ -11,9 +11,21 @@ struct ChatRequestsRow: View {
     let count: Int
 
     var body: some View {
+        ListEntryRow(icon: .userCircle, title: BipeStrings.requestsTitle, detail: BipeStrings.requestsRowBody, count: count)
+    }
+}
+
+/// A chat-list entry that is not a chat (requests, Archived): an icon in the avatar footprint, then the title.
+struct ListEntryRow: View {
+    let icon: PhosphorIcon
+    let title: String
+    var detail: String?
+    var count: Int?
+
+    var body: some View {
         HStack(spacing: 12) {
-            // Same footprint as the ChatRow avatar (AvatarView, 48), so the title lines up with the chats below.
-            PhosphorIcon.userCircle.image
+            // Same footprint as the ChatRow avatar (AvatarView, 48), so the title lines up with the chats.
+            icon.image
                 .resizable()
                 .frame(width: 24, height: 24)
                 .foregroundStyle(BipeColor.accentInk)
@@ -21,20 +33,25 @@ struct ChatRequestsRow: View {
                 .background(Circle().fill(BipeColor.accentWash))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                Text(BipeStrings.requestsTitle)
+                Text(title)
                     .font(.headline)
                     .foregroundStyle(BipeColor.inkPrimary)
-                Text(BipeStrings.requestsRowBody)
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkSecondary)
+                if let detail {
+                    Text(detail)
+                        .font(.subheadline)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                }
             }
+            .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
             Spacer()
-            Text(count.formatted())
-                .font(.caption.bold())
-                .foregroundStyle(BipeColor.inkOnAccent)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(BipeColor.accentFill))
+            if let count {
+                Text(count.formatted())
+                    .font(.caption.bold())
+                    .foregroundStyle(BipeColor.inkOnAccent)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(BipeColor.accentFill))
+            }
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
