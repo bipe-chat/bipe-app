@@ -2148,6 +2148,8 @@ public enum BipeStrings {
 
     public static var dmNoName: String { NSLocalizedString("bipe_dm_no_name", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var personNoName: String { NSLocalizedString("bipe_person_no_name", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var dmInlineReplyFailed: String { NSLocalizedString("bipe_dm_inline_reply_failed", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var dmErrorMuting: String { NSLocalizedString("bipe_dm_error_muting", tableName: "Bipe", bundle: .module, comment: "") }
