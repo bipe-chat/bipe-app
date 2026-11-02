@@ -18,10 +18,13 @@ final class FirstListCardsModel: ObservableObject {
         done = Set(saved.compactMap(BipeOnboardingCard.init(rawValue:)))
     }
 
-    /// State cards: registry order, only while Conversas lists at most firstListMaxChats chats.
-    func visible(chatCount: Int, handle: String?) -> [BipeOnboardingCard] {
+    /// State cards: registry order, only while Conversas lists at most firstListMaxChats chats. The invite card goes
+    /// once the bring-people sheet showed (needsNoBringPeople).
+    func visible(chatCount: Int, handle: String?, bringPeopleShown: Bool) -> [BipeOnboardingCard] {
         guard chatCount <= BipeOnboarding.firstListMaxChats else { return [] }
-        return BipeOnboardingCard.allCases.filter { !done.contains($0) && (!$0.needsHandle || handle != nil) }
+        return BipeOnboardingCard.allCases.filter {
+            !done.contains($0) && (!$0.needsHandle || handle != nil) && (!$0.needsNoBringPeople || !bringPeopleShown)
+        }
     }
 
     /// Actions dismiss, and every other action once it ran: the card goes for good.

@@ -33,6 +33,12 @@ class BipePromptSlot(context: Context, userId: String) {
         prefs.edit().putString(holderKey, prompt.name).putLong(sinceKey, now).apply()
     }
 
+    /** Call when [prompt] opens and must hold the slot whatever holds it now (spec bring-people: the sheet). */
+    fun claim(prompt: BipeOnboardingPrompt, now: Long = System.currentTimeMillis()) {
+        if (!prompt.usesSlot) return
+        prefs.edit().putString(holderKey, prompt.name).putLong(sinceKey, now).apply()
+    }
+
     /** Spec chat-list-prompt (bipe-chat/bipe#894): the one card of the chat list, from the entries whose condition holds. */
     fun chatListCard(eligible: Set<BipeChatListPrompt>, now: Long = System.currentTimeMillis()): BipeChatListPrompt? =
         chatListCard(eligible, prefs.getString(holderKey, null)?.let(::keyOf), prefs.getLong(sinceKey, 0L), now)

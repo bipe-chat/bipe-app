@@ -159,8 +159,12 @@ final class BringPeopleModel: ObservableObject {
 
     // MARK: - The sheet
 
-    /// The sheet showed. The first time it counts as the first ask.
-    func sheetShown() { memory.asked(sheet: true) }
+    /// The sheet showed. The first time it counts as the first ask. It claims the prompt slot, so no chat list card
+    /// shows for promptSlotHours (spec bring-people).
+    func sheetShown() {
+        memory.asked(sheet: true)
+        promptSlot.claim(.bringPeople)
+    }
 
     /// Action notNow: one decline. Shown only while no slot is filled.
     func notNow() {

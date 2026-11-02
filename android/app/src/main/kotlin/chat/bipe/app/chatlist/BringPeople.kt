@@ -188,8 +188,11 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
         return runCatching { session.client.getDmRoom(userId) }.getOrNull()?.id()
     }
 
-    /** The sheet showed. The first time it counts as the first ask. */
-    fun sheetShown() = memory.asked(sheet = true)
+    /** The sheet showed. The first time it counts as the first ask. It claims the prompt slot, so no chat list card shows for PROMPT_SLOT_HOURS (spec bring-people). */
+    fun sheetShown() {
+        memory.asked(sheet = true)
+        promptSlot.claim(BipeOnboardingPrompt.BRING_PEOPLE)
+    }
 
     /** Action notNow of the sheet: one decline. Shown only while no slot is filled. */
     fun notNow() {

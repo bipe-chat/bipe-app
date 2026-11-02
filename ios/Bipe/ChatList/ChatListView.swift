@@ -352,7 +352,7 @@ struct ChatListView: View {
         if handle.showsPrompt { eligible.insert(.handle) }
         if bringPeople.reminder != nil { eligible.insert(.bringPeopleReminder) }
         let count = model.chats(in: .conversas, archived: false).count
-        for card in cards.visible(chatCount: count, handle: handle.currentHandle) {
+        for card in cards.visible(chatCount: count, handle: handle.currentHandle, bringPeopleShown: bringPeople.memory.sheetShown) {
             if let entry = BipeChatListPrompt(rawValue: card.rawValue) { eligible.insert(entry) }
         }
         return eligible

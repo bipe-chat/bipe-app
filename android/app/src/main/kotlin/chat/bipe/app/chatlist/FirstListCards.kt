@@ -43,10 +43,12 @@ class FirstListCardsModel(context: Context, userId: String) {
     )
     val done: StateFlow<Set<BipeOnboardingCard>> = _done.asStateFlow()
 
-    /** State cards: registry order, only while Conversas lists at most FIRST_LIST_MAX_CHATS chats. */
-    fun visible(done: Set<BipeOnboardingCard>, chatCount: Int, handle: String?): List<BipeOnboardingCard> {
+    /** State cards: registry order, only while Conversas lists at most FIRST_LIST_MAX_CHATS chats. The invite card goes once the bring-people sheet showed (needsNoBringPeople). */
+    fun visible(done: Set<BipeOnboardingCard>, chatCount: Int, handle: String?, bringPeopleShown: Boolean): List<BipeOnboardingCard> {
         if (chatCount > BipeOnboarding.FIRST_LIST_MAX_CHATS) return emptyList()
-        return BipeOnboardingCard.entries.filter { it !in done && (!it.needsHandle || handle != null) }
+        return BipeOnboardingCard.entries.filter {
+            it !in done && (!it.needsHandle || handle != null) && (!it.needsNoBringPeople || !bringPeopleShown)
+        }
     }
 
     /** Actions dismiss, and every other action once it ran: the card goes for good. */
