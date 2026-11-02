@@ -198,10 +198,10 @@ public enum BipeColor {
     private static let accentWashJenipapo = dynamic(0xF2FAFE, 0x001C29, 0xE6F5FD, 0x002231)
     private static let accentWashJabuticaba = dynamic(0xF7F8FF, 0x181534, 0xF0F1FF, 0x1D193F)
 
-    /// Own chat bubble, with ink.primary text. Follows the app theme (BipeTheme).
+    /// Own chat bubble, with ink.primary text. Light: a tint lighter than chat.background, so the bubble stands out (MZ, 2 November 2026). Follows the app theme (BipeTheme).
     public static var bubbleOwn: Color { bubbleOwn(BipeTheme.shared.palette) }
 
-    /// Own chat bubble, with ink.primary text, in the given palette.
+    /// Own chat bubble, with ink.primary text. Light: a tint lighter than chat.background, so the bubble stands out (MZ, 2 November 2026), in the given palette.
     public static func bubbleOwn(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: bubbleOwnAcai
@@ -213,20 +213,20 @@ public enum BipeColor {
         }
     }
 
-    private static let bubbleOwnAcai = dynamic(0xFADDF6, 0x451142, 0xF3C4ED, 0x591955)
-    private static let bubbleOwnGoiaba = dynamic(0xFFDDE9, 0x54002E, 0xFFC3D9, 0x6B003C)
-    private static let bubbleOwnPitanga = dynamic(0xFFDFD4, 0x4A1700, 0xFFC7B1, 0x5F1F00)
-    private static let bubbleOwnMaracuja = dynamic(0xEFE7B8, 0x2E2700, 0xE2D584, 0x3C3500)
-    private static let bubbleOwnJenipapo = dynamic(0xCFEAF9, 0x002B3D, 0xADDAF2, 0x003950)
-    private static let bubbleOwnJabuticaba = dynamic(0xE3E4FF, 0x262050, 0xCFCFFE, 0x322C66)
+    private static let bubbleOwnAcai = dynamic(0xFDEDFB, 0x591955, 0xF3C4ED, 0x591955)
+    private static let bubbleOwnGoiaba = dynamic(0xFFEEF3, 0x6B003C, 0xFFC3D9, 0x6B003C)
+    private static let bubbleOwnPitanga = dynamic(0xFFEEE8, 0x5F1F00, 0xFFC7B1, 0x5F1F00)
+    private static let bubbleOwnMaracuja = dynamic(0xF7F3D8, 0x3C3500, 0xE2D584, 0x3C3500)
+    private static let bubbleOwnJenipapo = dynamic(0xE6F5FD, 0x003950, 0xADDAF2, 0x003950)
+    private static let bubbleOwnJabuticaba = dynamic(0xF0F1FF, 0x322C66, 0xCFCFFE, 0x322C66)
 
-    /// Chat bubble of other people, with ink.primary text.
-    public static let bubbleOther = dynamic(0xF2F2F4, 0x1C1E21, 0xE4E6E9, 0x25272B)
+    /// Chat bubble of other people, with ink.primary text. Light: white on the tinted chat.background (MZ, 2 November 2026).
+    public static let bubbleOther = dynamic(0xFFFFFF, 0x313439, 0xE4E6E9, 0x25272B)
 
-    /// Chat timeline background (ADR 0213), with ink.primary text. High contrast: the flat palette colour. Follows the app theme (BipeTheme).
+    /// Chat timeline background (ADR 0213; light step 500 since 2 November 2026, so white and tinted bubbles stand out), with ink.primary text. High contrast: the flat palette colour. Follows the app theme (BipeTheme).
     public static var chatBackground: Color { chatBackground(BipeTheme.shared.palette) }
 
-    /// Chat timeline background (ADR 0213), with ink.primary text. High contrast: the flat palette colour, in the given palette.
+    /// Chat timeline background (ADR 0213; light step 500 since 2 November 2026, so white and tinted bubbles stand out), with ink.primary text. High contrast: the flat palette colour, in the given palette.
     public static func chatBackground(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: chatBackgroundAcai
@@ -238,12 +238,12 @@ public enum BipeColor {
         }
     }
 
-    private static let chatBackgroundAcai = dynamic(0xFEF6FD, 0x280A26, 0xFFFAFE, 0x280A26)
-    private static let chatBackgroundGoiaba = dynamic(0xFFF6F9, 0x34001A, 0xFFFAFC, 0x34001A)
-    private static let chatBackgroundPitanga = dynamic(0xFFF7F3, 0x2E0B00, 0xFFFBF9, 0x2E0B00)
-    private static let chatBackgroundMaracuja = dynamic(0xFBF8EA, 0x1B1600, 0xFDFCF4, 0x1B1600)
-    private static let chatBackgroundJenipapo = dynamic(0xF2FAFE, 0x001925, 0xF8FCFF, 0x001925)
-    private static let chatBackgroundJabuticaba = dynamic(0xF7F8FF, 0x15132E, 0xFBFBFF, 0x15132E)
+    private static let chatBackgroundAcai = dynamic(0xF3C4ED, 0x280A26, 0xFFFAFE, 0x280A26)
+    private static let chatBackgroundGoiaba = dynamic(0xFFC3D9, 0x34001A, 0xFFFAFC, 0x34001A)
+    private static let chatBackgroundPitanga = dynamic(0xFFC7B1, 0x2E0B00, 0xFFFBF9, 0x2E0B00)
+    private static let chatBackgroundMaracuja = dynamic(0xE2D584, 0x1B1600, 0xFDFCF4, 0x1B1600)
+    private static let chatBackgroundJenipapo = dynamic(0xADDAF2, 0x001925, 0xF8FCFF, 0x001925)
+    private static let chatBackgroundJabuticaba = dynamic(0xCFCFFE, 0x15132E, 0xFBFBFF, 0x15132E)
 
     /// Soft blob on the chat background, top trailing (ADR 0213). Follows the app theme (BipeTheme).
     public static var chatBlob: Color { chatBlob(BipeTheme.shared.palette) }
@@ -260,12 +260,12 @@ public enum BipeColor {
         }
     }
 
-    private static let chatBlobAcai = dynamic(0xFDEDFB, 0x360D34, 0xFFFAFE, 0x280A26)
-    private static let chatBlobGoiaba = dynamic(0xFFEEF3, 0x420024, 0xFFFAFC, 0x34001A)
-    private static let chatBlobPitanga = dynamic(0xFFEEE8, 0x3B1000, 0xFFFBF9, 0x2E0B00)
-    private static let chatBlobMaracuja = dynamic(0xF7F3D8, 0x241E00, 0xFDFCF4, 0x1B1600)
-    private static let chatBlobJenipapo = dynamic(0xE6F5FD, 0x002231, 0xF8FCFF, 0x001925)
-    private static let chatBlobJabuticaba = dynamic(0xF0F1FF, 0x1D193F, 0xFBFBFF, 0x15132E)
+    private static let chatBlobAcai = dynamic(0xEBB1E5, 0x360D34, 0xFFFAFE, 0x280A26)
+    private static let chatBlobGoiaba = dynamic(0xFFABCB, 0x420024, 0xFFFAFC, 0x34001A)
+    private static let chatBlobPitanga = dynamic(0xFFB293, 0x3B1000, 0xFFFBF9, 0x2E0B00)
+    private static let chatBlobMaracuja = dynamic(0xD7C558, 0x241E00, 0xFDFCF4, 0x1B1600)
+    private static let chatBlobJenipapo = dynamic(0x93CCEB, 0x002231, 0xF8FCFF, 0x001925)
+    private static let chatBlobJabuticaba = dynamic(0xBFBFF9, 0x1D193F, 0xFBFBFF, 0x15132E)
 
     /// Soft blob on the chat background, leading (ADR 0213). Follows the app theme (BipeTheme).
     public static var chatBlobDeep: Color { chatBlobDeep(BipeTheme.shared.palette) }
@@ -282,12 +282,12 @@ public enum BipeColor {
         }
     }
 
-    private static let chatBlobDeepAcai = dynamic(0xFADDF6, 0x451142, 0xFFFAFE, 0x280A26)
-    private static let chatBlobDeepGoiaba = dynamic(0xFFDDE9, 0x54002E, 0xFFFAFC, 0x34001A)
-    private static let chatBlobDeepPitanga = dynamic(0xFFDFD4, 0x4A1700, 0xFFFBF9, 0x2E0B00)
-    private static let chatBlobDeepMaracuja = dynamic(0xEFE7B8, 0x2E2700, 0xFDFCF4, 0x1B1600)
-    private static let chatBlobDeepJenipapo = dynamic(0xCFEAF9, 0x002B3D, 0xF8FCFF, 0x001925)
-    private static let chatBlobDeepJabuticaba = dynamic(0xE3E4FF, 0x262050, 0xFBFBFF, 0x15132E)
+    private static let chatBlobDeepAcai = dynamic(0xDD94D6, 0x451142, 0xFFFAFE, 0x280A26)
+    private static let chatBlobDeepGoiaba = dynamic(0xFE87B8, 0x54002E, 0xFFFAFC, 0x34001A)
+    private static let chatBlobDeepPitanga = dynamic(0xFF8E62, 0x4A1700, 0xFFFBF9, 0x2E0B00)
+    private static let chatBlobDeepMaracuja = dynamic(0xC4AE00, 0x2E2700, 0xFDFCF4, 0x1B1600)
+    private static let chatBlobDeepJenipapo = dynamic(0x6CB5DC, 0x002B3D, 0xF8FCFF, 0x001925)
+    private static let chatBlobDeepJabuticaba = dynamic(0xA8A5EE, 0x262050, 0xFBFBFF, 0x15132E)
 
     /// Bipe marks on the chat background, the big one included (ADR 0213). Follows the app theme (BipeTheme).
     public static var chatMark: Color { chatMark(BipeTheme.shared.palette) }
@@ -304,12 +304,12 @@ public enum BipeColor {
         }
     }
 
-    private static let chatMarkAcai = dynamic(0xFDEDFB, 0x2D0B2B, 0xFFFAFE, 0x280A26)
-    private static let chatMarkGoiaba = dynamic(0xFFEEF3, 0x39001E, 0xFFFAFC, 0x34001A)
-    private static let chatMarkPitanga = dynamic(0xFFEEE8, 0x330D00, 0xFFFBF9, 0x2E0B00)
-    private static let chatMarkMaracuja = dynamic(0xF7F3D8, 0x1E1A00, 0xFDFCF4, 0x1B1600)
-    private static let chatMarkJenipapo = dynamic(0xE6F5FD, 0x001C29, 0xF8FCFF, 0x001925)
-    private static let chatMarkJabuticaba = dynamic(0xF0F1FF, 0x181534, 0xFBFBFF, 0x15132E)
+    private static let chatMarkAcai = dynamic(0xEBB1E5, 0x2D0B2B, 0xFFFAFE, 0x280A26)
+    private static let chatMarkGoiaba = dynamic(0xFFABCB, 0x39001E, 0xFFFAFC, 0x34001A)
+    private static let chatMarkPitanga = dynamic(0xFFB293, 0x330D00, 0xFFFBF9, 0x2E0B00)
+    private static let chatMarkMaracuja = dynamic(0xD7C558, 0x1E1A00, 0xFDFCF4, 0x1B1600)
+    private static let chatMarkJenipapo = dynamic(0x93CCEB, 0x001C29, 0xF8FCFF, 0x001925)
+    private static let chatMarkJabuticaba = dynamic(0xBFBFF9, 0x181534, 0xFBFBFF, 0x15132E)
 
     /// Bipe marks on the chat background in the second tone (ADR 0213). Follows the app theme (BipeTheme).
     public static var chatMarkAlt: Color { chatMarkAlt(BipeTheme.shared.palette) }
@@ -326,12 +326,12 @@ public enum BipeColor {
         }
     }
 
-    private static let chatMarkAltAcai = dynamic(0xFFFAFE, 0x360D34, 0xFFFAFE, 0x280A26)
-    private static let chatMarkAltGoiaba = dynamic(0xFFFAFC, 0x420024, 0xFFFAFC, 0x34001A)
-    private static let chatMarkAltPitanga = dynamic(0xFFFBF9, 0x3B1000, 0xFFFBF9, 0x2E0B00)
-    private static let chatMarkAltMaracuja = dynamic(0xFDFCF4, 0x241E00, 0xFDFCF4, 0x1B1600)
-    private static let chatMarkAltJenipapo = dynamic(0xF8FCFF, 0x002231, 0xF8FCFF, 0x001925)
-    private static let chatMarkAltJabuticaba = dynamic(0xFBFBFF, 0x1D193F, 0xFBFBFF, 0x15132E)
+    private static let chatMarkAltAcai = dynamic(0xFADDF6, 0x360D34, 0xFFFAFE, 0x280A26)
+    private static let chatMarkAltGoiaba = dynamic(0xFFDDE9, 0x420024, 0xFFFAFC, 0x34001A)
+    private static let chatMarkAltPitanga = dynamic(0xFFDFD4, 0x3B1000, 0xFFFBF9, 0x2E0B00)
+    private static let chatMarkAltMaracuja = dynamic(0xEFE7B8, 0x241E00, 0xFDFCF4, 0x1B1600)
+    private static let chatMarkAltJenipapo = dynamic(0xCFEAF9, 0x002231, 0xF8FCFF, 0x001925)
+    private static let chatMarkAltJabuticaba = dynamic(0xE3E4FF, 0x1D193F, 0xFBFBFF, 0x15132E)
 
     /// Fruit outlines and dots on the Salada de frutas chat background (ADR 0215). Follows the app theme (BipeTheme).
     public static var chatFruit: Color { chatFruit(BipeTheme.shared.palette) }
@@ -348,12 +348,12 @@ public enum BipeColor {
         }
     }
 
-    private static let chatFruitAcai = dynamic(0xF3C4ED, 0x451142, 0xFFFAFE, 0x280A26)
-    private static let chatFruitGoiaba = dynamic(0xFFC3D9, 0x54002E, 0xFFFAFC, 0x34001A)
-    private static let chatFruitPitanga = dynamic(0xFFC7B1, 0x4A1700, 0xFFFBF9, 0x2E0B00)
-    private static let chatFruitMaracuja = dynamic(0xE2D584, 0x2E2700, 0xFDFCF4, 0x1B1600)
-    private static let chatFruitJenipapo = dynamic(0xADDAF2, 0x002B3D, 0xF8FCFF, 0x001925)
-    private static let chatFruitJabuticaba = dynamic(0xCFCFFE, 0x262050, 0xFBFBFF, 0x15132E)
+    private static let chatFruitAcai = dynamic(0xC06AB9, 0x451142, 0xFFFAFE, 0x280A26)
+    private static let chatFruitGoiaba = dynamic(0xE45396, 0x54002E, 0xFFFAFC, 0x34001A)
+    private static let chatFruitPitanga = dynamic(0xE95C11, 0x4A1700, 0xFFFBF9, 0x2E0B00)
+    private static let chatFruitMaracuja = dynamic(0x9C8A00, 0x2E2700, 0xFDFCF4, 0x1B1600)
+    private static let chatFruitJenipapo = dynamic(0x3392BE, 0x002B3D, 0xF8FCFF, 0x001925)
+    private static let chatFruitJabuticaba = dynamic(0x8580D4, 0x262050, 0xFBFBFF, 0x15132E)
 
     /// Soft fill inside the fruit outlines on the Salada de frutas chat background (ADR 0215). Follows the app theme (BipeTheme).
     public static var chatFruitFill: Color { chatFruitFill(BipeTheme.shared.palette) }
@@ -370,12 +370,12 @@ public enum BipeColor {
         }
     }
 
-    private static let chatFruitFillAcai = dynamic(0xFDEDFB, 0x2D0B2B, 0xFFFAFE, 0x280A26)
-    private static let chatFruitFillGoiaba = dynamic(0xFFEEF3, 0x39001E, 0xFFFAFC, 0x34001A)
-    private static let chatFruitFillPitanga = dynamic(0xFFEEE8, 0x330D00, 0xFFFBF9, 0x2E0B00)
-    private static let chatFruitFillMaracuja = dynamic(0xF7F3D8, 0x1E1A00, 0xFDFCF4, 0x1B1600)
-    private static let chatFruitFillJenipapo = dynamic(0xE6F5FD, 0x001C29, 0xF8FCFF, 0x001925)
-    private static let chatFruitFillJabuticaba = dynamic(0xF0F1FF, 0x181534, 0xFBFBFF, 0x15132E)
+    private static let chatFruitFillAcai = dynamic(0xEBB1E5, 0x2D0B2B, 0xFFFAFE, 0x280A26)
+    private static let chatFruitFillGoiaba = dynamic(0xFFABCB, 0x39001E, 0xFFFAFC, 0x34001A)
+    private static let chatFruitFillPitanga = dynamic(0xFFB293, 0x330D00, 0xFFFBF9, 0x2E0B00)
+    private static let chatFruitFillMaracuja = dynamic(0xD7C558, 0x1E1A00, 0xFDFCF4, 0x1B1600)
+    private static let chatFruitFillJenipapo = dynamic(0x93CCEB, 0x001C29, 0xF8FCFF, 0x001925)
+    private static let chatFruitFillJabuticaba = dynamic(0xBFBFF9, 0x181534, 0xFBFBFF, 0x15132E)
 
     /// Verified text and the seal. The seal shape carries the meaning, not the colour (trust-ui.md).
     public static let trustVerifiedInk = dynamic(0x802F7C, 0xDB91D4, 0x4E144B, 0xF7D2F3)
