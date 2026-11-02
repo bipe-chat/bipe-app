@@ -483,7 +483,11 @@ struct ChatListView: View {
                 topRows
                 if showingArchived {
                     Text(BipeStrings.archivedEmpty).foregroundStyle(BipeColor.inkSecondary)
-                } else { emptyState }
+                } else {
+                    emptyState
+                        // Spec chat-list loadMore: a page with no chat for this tab asks for the next page.
+                        .task(id: model.chats.count) { model.loadMore(in: scope) }
+                }
                 moreRows
                     .listRowSeparator(.hidden)
             }
@@ -508,10 +512,9 @@ struct ChatListView: View {
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
                     .contextMenu { rowMenu(chat.roomId) }
                     .accessibilityActions { rowMenu(chat.roomId) }
-                    .onAppear {
-                        if chat.id == chats.last?.id {
-                            if !showingArchived { model.loadMore(in: scope) }
-                        }
+                    // Runs again when a page adds rooms while the last row is still on screen.
+                    .task(id: chat.id == chats.last?.id ? model.chats.count : -1) {
+                        if chat.id == chats.last?.id && !showingArchived { model.loadMore(in: scope) }
                     }
                 }
                 moreRows
@@ -572,7 +575,6 @@ struct ChatListView: View {
 
     @ViewBuilder private var moreRows: some View {
         if !showingArchived {
-            Button(BipeStrings.chatListMore) { model.loadMore(in: scope) }
             Button { showingArchived = true } label: {
                 ListEntryRow(icon: .archive, title: BipeStrings.archivedTitle)
             }

@@ -671,16 +671,17 @@ fun ChatListScreen(
                         }
                         if (phase == ChatListModel.Phase.EMPTY) item(key = "empty") {
                             if (showingArchived) Text(stringResource(R.string.bipe_archived_empty), color = colors.inkSecondary, modifier = Modifier.padding(16.dp))
-                            else EmptyState(scope, onStartChat = { onOpenPeople(PeopleRoute.Contacts) }, onCreateGroup = onCreateGroup)
+                            else {
+                                EmptyState(scope, onStartChat = { onOpenPeople(PeopleRoute.Contacts) }, onCreateGroup = onCreateGroup)
+                                // Spec chat-list loadMore: a page with no chat for this tab asks for the next page.
+                                LaunchedEffect(allChats.size) { model.loadMore(scope) }
+                            }
                         }
                         items(listChats, key = { it.roomId }) { chat ->
                             ArchivedChatRow(chat, media, ownerId = model.session.userId, commands = commands(chat), onOpen = { onOpenChat(chat.roomId) })
                             if (!showingArchived && chat.roomId == listChats.lastOrNull()?.roomId) {
-                                LaunchedEffect(listChats.size) { model.loadMore(scope) }
+                                LaunchedEffect(allChats.size) { model.loadMore(scope) }
                             }
-                        }
-                        if (!showingArchived) item(key = "load-more") {
-                            TextButton(onClick = { model.loadMore(scope) }) { Text(stringResource(R.string.bipe_chat_list_more)) }
                         }
                         if (!showingArchived) item(key = "archived") {
                             ListEntryRow(PhosphorIcon.ARCHIVE, stringResource(R.string.bipe_archived_title)) { showingArchived = true }
