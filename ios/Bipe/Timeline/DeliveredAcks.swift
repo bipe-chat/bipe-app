@@ -97,18 +97,18 @@ actor DeliveredAcks {
 
     /// Starts the receiver on the first joined DM, when no receiver runs.
     func start() async {
-        guard widget == nil else { return }
+        if let widget, await widget.isRunning() { return }
         for room in client.rooms() {
             guard let info = try? await room.roomInfo(), info.isDm, info.membership == .joined else { continue }
-            _ = bind(room)
+            await bind(room)
             return
         }
     }
 
     /// The running widget, or a new one on `room`.
     @discardableResult
-    func bind(_ room: Room) -> CallWidget? {
-        if let widget { return widget }
+    func bind(_ room: Room) async -> CallWidget? {
+        if let widget, await widget.isRunning() { return widget }
         let made = try? CallWidget(idPrefix: "bipe-delivered", capabilityNames: DeliveredAck.capabilityNames,
                                    approved: DeliveredAck.approved) { [weak self] incoming in
             guard case .toDevice(let message) = incoming, let ack = DeliveredAck.parse(message) else { return }
@@ -124,7 +124,7 @@ actor DeliveredAcks {
     /// acked already.
     func send(room: Room, eventId: String, sender: String) async {
         let roomId = room.id()
-        guard sender != ownUserId, lastSent[roomId] != eventId, let widget = bind(room) else { return }
+        guard sender != ownUserId, lastSent[roomId] != eventId, let widget = await bind(room) else { return }
         lastSent[roomId] = eventId
         do {
             // close() also ends the wait, and the send then fails.

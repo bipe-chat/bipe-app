@@ -91,6 +91,11 @@ actor CallWidget {
         await withCheckedContinuation { waiting.append($0) }
     }
 
+    /// False after `close`, or after the driver stopped.
+    func isRunning() -> Bool {
+        !isClosed
+    }
+
     func close() {
         isClosed = true
         for (_, continuation) in pending { continuation.resume(throwing: Failure(message: "closed")) }

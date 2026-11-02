@@ -203,9 +203,8 @@ object TimelineRowBuilder {
             for ((userId, receipt) in event.readReceipts) {
                 if (userId != facts.ownUserId && userId !in readUpToHere) readUpToHere[userId] = receipt
             }
-            if (!deliveredUpToHere && (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId in facts.deliveredEventIds) {
-                deliveredUpToHere = true
-            }
+            val eventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
+            if (eventId != null && eventId in facts.deliveredEventIds) deliveredUpToHere = true
             if (!event.isOwn || !isShownMessage(event)) continue
             if (newestOwnIndex == null) newestOwnIndex = index
             val tick = when (event.localSendState) {
