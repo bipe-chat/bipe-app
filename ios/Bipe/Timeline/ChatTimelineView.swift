@@ -350,7 +350,7 @@ struct ChatTimelineView: View {
             let target = BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)
             if NotificationActions.shared.visibleRoom == target { NotificationActions.shared.chatOpened(nil) }
         }
-        .notificationsPrompt(session: session, roomId: model.roomId, messages: model.rows.compactMap(\.message))
+        .notificationsPromptTrigger(userID: session.userId, messages: model.rows.compactMap(\.message))
     }
 
     /// Spec dm-delete: events at or below the marker of a cleared DM are gone.

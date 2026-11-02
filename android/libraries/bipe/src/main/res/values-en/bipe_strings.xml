@@ -1281,7 +1281,6 @@
     <string name="bipe_recovery_beta">Sign in with email and password</string>
     <string name="bipe_recovery_beta_body">For accounts that use an email and a password.</string>
     <string name="bipe_recovery_beta_password">Password</string>
-    <string name="bipe_notifications_prompt_title">%1$s will reply. Want to know right away?</string>
     <string name="bipe_notifications_prompt_title_generic">Want to know right away when someone replies?</string>
     <string name="bipe_notifications_prompt_body">Bipe tells you when a new message arrives. You can change this later in Settings.</string>
     <string name="bipe_notifications_prompt_allow">Turn on notifications</string>

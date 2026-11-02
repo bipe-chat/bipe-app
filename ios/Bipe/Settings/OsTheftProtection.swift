@@ -35,7 +35,7 @@ enum OsTheftPromptMemory {
 
     static func markDone() { UserDefaults.standard.set(true, forKey: doneKey) }
 
-    /// Trigger voceAfterDays: this phone first saw the account `BipeOnboarding.osTheftProtectionAfterDays` ago.
+    /// Trigger afterDaysOnPhone: this phone first saw the account `BipeOnboarding.osTheftProtectionAfterDays` ago.
     static func isDue(userID: String, now: Date = Date()) -> Bool {
         let firstSeen = BipePinReminderMemory(userID: userID).firstSeen
         return now.timeIntervalSince(firstSeen) >= TimeInterval(BipeOnboarding.osTheftProtectionAfterDays) * 86_400

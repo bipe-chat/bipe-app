@@ -2938,10 +2938,6 @@ public enum BipeStrings {
 
     public static var recoveryBetaPassword: String { NSLocalizedString("bipe_recovery_beta_password", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static func notificationsPromptTitle(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_notifications_prompt_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
     public static var notificationsPromptTitleGeneric: String { NSLocalizedString("bipe_notifications_prompt_title_generic", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var notificationsPromptBody: String { NSLocalizedString("bipe_notifications_prompt_body", tableName: "Bipe", bundle: .module, comment: "") }
