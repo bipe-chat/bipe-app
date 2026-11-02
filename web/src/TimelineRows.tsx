@@ -42,7 +42,7 @@ import { pauseLeft, ScamWarningCard, scamKindOf, type ScamKind } from './ScamWar
 import { forwardCountOf } from './MessageSheets';
 import { previewText } from './row-preview';
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
-import { dayText, s, timeText } from './ui/i18n';
+import { dayText, pending, s, timeText } from './ui/i18n';
 import { Icon } from './ui/Icon';
 
 type Body = 'text' | 'media' | 'deleted' | 'undecryptable' | 'other';
@@ -125,8 +125,8 @@ function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
   const msgLike = event.content.inner.content;
   const kind = msgLike.kind;
   let body: Body = 'other';
-  // TODO(string): '(event)' is spike text for a message kind this page does not draw (sticker, poll, ...).
-  let text = '(event)';
+  // A message kind this page does not draw (sticker, poll, ...).
+  let text = pending('bipe_app_timeline_unsupported');
   let media: MediaInfo | undefined;
   let mentions: MentionLink[] = [];
   let edited = false;
@@ -138,8 +138,7 @@ function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
     edited = kind.inner.content.isEdited;
   } else if (MsgLikeKind.UnableToDecrypt.instanceOf(kind)) {
     body = 'undecryptable';
-    // TODO(string): bipe_app_timeline_undecryptable says "neste celular"; the web needs a computer variant.
-    text = 'Unable to decrypt this message.';
+    text = pending('bipe_web_timeline_undecryptable');
   } else if (MsgLikeKind.Redacted.instanceOf(kind)) {
     body = 'deleted';
     text = event.isOwn ? s('bipe_app_message_deleted_own') : s('bipe_app_message_deleted');

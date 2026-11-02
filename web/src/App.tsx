@@ -11,7 +11,7 @@ import { type ClientLike as Client } from './generated/matrix_sdk_ffi';
 import { Chats } from './Chats';
 import { QrLogin } from './QrLogin';
 import { restoreClient } from './sdk';
-import { s } from './ui/i18n';
+import { pending, s } from './ui/i18n';
 import { Spinner } from './ui/Spinner';
 import { describe } from './util';
 
@@ -22,8 +22,8 @@ type Phase =
   | { kind: 'chats'; client: Client };
 
 export function App() {
-  // TODO(string): the loading note is spike text; screen readers read it, the page shows a spinner.
-  const [phase, setPhase] = useState<Phase>({ kind: 'loading', note: 'Loading matrix-sdk-ffi (wasm)…' });
+  // Screen readers read the note; the page shows a spinner.
+  const [phase, setPhase] = useState<Phase>({ kind: 'loading', note: pending('bipe_web_loading') });
 
   useEffect(() => {
     let cancelled = false;

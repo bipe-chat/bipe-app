@@ -25,7 +25,7 @@ import { itemRow, markRead, TimelineRowView, type MessageRow, type RowHandlers }
 import { Alert } from './ui/Alert';
 import { Avatar } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
-import { s } from './ui/i18n';
+import { pending as pendingString, s } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import {
   contentWithMentions,
@@ -248,8 +248,7 @@ export function RoomTimeline({
     },
   };
   const name = face.name;
-  // TODO(string): the label of the button that scrolls back to the newest message.
-  const newestLabel = 'Newest messages';
+  const newestLabel = pendingString('bipe_a11y_scroll_to_newest');
   const canSend = draft.trim() !== '';
 
   return (

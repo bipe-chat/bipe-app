@@ -16,7 +16,7 @@ import {
 } from './generated/matrix_sdk_ffi';
 import type { Latest } from './chat-model';
 import { mediaOf } from './TimelineMedia';
-import { locale, s } from './ui/i18n';
+import { locale, pending, s } from './ui/i18n';
 
 /** The plain preview of a message (previewText on iOS); undefined for anything without one. */
 export function previewText(content: TimelineItemContent): string | undefined {
@@ -37,8 +37,7 @@ export function previewText(content: TimelineItemContent): string | undefined {
     return kind.inner.content.body;
   }
   if (MsgLikeKind.Sticker.instanceOf(kind)) return s('bipe_app_media_sticker');
-  // TODO(string): bipe_app_timeline_undecryptable says "neste celular"; the web needs a computer variant.
-  if (MsgLikeKind.UnableToDecrypt.instanceOf(kind)) return 'Unable to decrypt this message.';
+  if (MsgLikeKind.UnableToDecrypt.instanceOf(kind)) return pending('bipe_web_timeline_undecryptable');
   return undefined;
 }
 
