@@ -6,31 +6,32 @@
 // or m.room.avatar; a group shows its own. The DM test is RoomInfo.isDirect; the person is the one hero.
 
 import { useEffect, useState } from 'react';
-import type { RoomHero, RoomLike as Room } from './generated/matrix_sdk_ffi';
+import type { RoomHero, RoomInfo, RoomLike as Room } from './generated/matrix_sdk_ffi';
 
 export type RoomFace = { name: string; avatarUrl?: string; isDirect?: boolean; peer?: RoomHero };
 
+export function faceOf(room: Room, info: RoomInfo | undefined): RoomFace {
+  if (!info) return { name: room.displayName() ?? room.id(), avatarUrl: room.avatarUrl() };
+  const peer = info.isDirect && info.heroes.length === 1 ? info.heroes[0] : undefined;
+  return {
+    name: peer?.displayName ?? info.displayName ?? room.displayName() ?? room.id(),
+    avatarUrl: peer ? peer.avatarUrl : (info.avatarUrl ?? room.avatarUrl()),
+    isDirect: info.isDirect,
+    peer,
+  };
+}
+
 export function useRoomFace(room: Room): RoomFace {
-  const fallback: RoomFace = { name: room.displayName() ?? room.id(), avatarUrl: room.avatarUrl() };
-  const [face, setFace] = useState<RoomFace>(fallback);
+  const [info, setInfo] = useState<RoomInfo>();
   useEffect(() => {
     let stopped = false;
     room
       .roomInfo()
-      .then((info) => {
-        if (stopped) return;
-        const peer = info.isDirect && info.heroes.length === 1 ? info.heroes[0] : undefined;
-        setFace({
-          name: peer?.displayName ?? info.displayName ?? room.displayName() ?? room.id(),
-          avatarUrl: peer ? peer.avatarUrl : (info.avatarUrl ?? room.avatarUrl()),
-          isDirect: info.isDirect,
-          peer,
-        });
-      })
+      .then((i) => !stopped && setInfo(i))
       .catch(() => undefined);
     return () => {
       stopped = true;
     };
   }, [room]);
-  return face;
+  return faceOf(room, info);
 }
