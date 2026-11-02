@@ -264,6 +264,8 @@ final class ChatTimelineModel: ObservableObject {
     private var handleChangesTask: Task<Void, Never>?
     private var lastReadEventId: String?
     private var noticeTask: Task<Void, Never>?
+    /// The account's @ resolver (People names), set by the view before start. nil: names fall back to the cached @.
+    var handles: BipeHandleResolver?
 
     /// Spec threads (bipe#667): the root event of the thread view; nil for the main timeline.
     let threadRoot: String?
@@ -402,9 +404,14 @@ final class ChatTimelineModel: ObservableObject {
             facts.joinedMembers = Int(info.joinedMembersCount)
             isGroup = !info.isDm && !info.isSpace
             let peer = info.isDm ? info.heroes.first(where: { $0.userId != session.userId }) : nil
-            let peerName = peer?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let name = peerName.flatMap { $0.isEmpty ? nil : $0 } ?? peer.map { Person.localpart(of: $0.userId) } ?? BipeStrings.dmNoName
-            roomName = info.isDm ? name : (info.displayName ?? info.id)
+            var peerHandle: String?
+            if let peer, BipeChatRowName.realName(peer.displayName, userID: peer.userId) == nil {
+                peerHandle = await handles?.resolve(peer.userId)
+            }
+            roomName = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName, peerName: peer?.displayName,
+                                               peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
+                                               dmRoomName: info.isDm ? info.rawName : nil, peerHandle: peerHandle,
+                                               groupHeroes: Self.groupHeroes(of: info, ownUserId: session.userId))
             roomAvatarUrl = info.isDm ? peer?.avatarUrl : info.avatarUrl
             peerUserId = peer?.userId
             hasCall = info.hasRoomCall
@@ -472,7 +479,7 @@ final class ChatTimelineModel: ObservableObject {
         // Spec composer editText: pills that left the text go; an @word in a group filters the members.
         mentions = ComposerMarkdown.mentions(mentions, in: text)
         if !isDm, let query = ComposerMarkdown.mentionQuery(text) {
-            suggestions = mentionDirectory.suggestions(query, everyoneLabel: BipeStrings.appComposerMentionEveryone)
+            suggestions = mentionDirectory.suggestions(query, everyoneLabel: BipeStrings.appComposerMentionEveryone, handles: handles)
         } else {
             suggestions = []
         }
@@ -958,7 +965,7 @@ final class ChatTimelineModel: ObservableObject {
             return
         }
         typingUserIds = userIds.filter { $0 != session.userId }
-        typingNames = typingUserIds.map { facts.members[$0]?.name ?? $0 }
+        typingNames = typingUserIds.map { facts.members[$0]?.name ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) }
         loadMembers(Set(typingUserIds).subtracting(facts.members.keys))
     }
 
@@ -1141,8 +1148,11 @@ final class ChatTimelineModel: ObservableObject {
         guard let members = await GroupPeople.members(of: room, cachedOnly: true) else { return }
         let joined = members.filter { $0.membership == .join }
         facts.roomMembers = Set(joined.map(\.userId))
-        for member in joined where facts.members[member.userId] == nil {
-            facts.members[member.userId] = (member.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? member.userId, member.avatarUrl)
+        let newMembers = joined.filter { facts.members[$0.userId] == nil }
+        let found = await resolveHandles(of: newMembers.filter { BipeChatRowName.realName($0.displayName, userID: $0.userId) == nil }.map(\.userId))
+        for member in newMembers where facts.members[member.userId] == nil {
+            facts.members[member.userId] = (BipeChatRowName.person(userID: member.userId, displayName: member.displayName,
+                                                                   handle: found[member.userId]), member.avatarUrl)
         }
         facts.handleChanges = store.changes(for: facts.roomMembers)
         handleChangesTask = Task { [weak self] in
@@ -1180,14 +1190,41 @@ final class ChatTimelineModel: ObservableObject {
         guard let room, !missing.isEmpty else { return }
         membersLoading.formUnion(missing)
         Task {
+            var loaded: [String: (name: String?, avatarUrl: String?)] = [:]
             for userId in missing {
                 let name = (try? await room.memberDisplayName(userId: userId)) ?? nil
                 let avatarUrl = (try? await room.memberAvatarUrl(userId: userId)) ?? nil
-                facts.members[userId] = (name.flatMap { $0.isEmpty ? nil : $0 } ?? userId, avatarUrl)
+                loaded[userId] = (name, avatarUrl)
             }
-            typingNames = typingUserIds.map { facts.members[$0]?.name ?? $0 }
+            let found = await resolveHandles(of: loaded.filter { BipeChatRowName.realName($0.value.name, userID: $0.key) == nil }.map(\.key))
+            for (userId, member) in loaded {
+                facts.members[userId] = (BipeChatRowName.person(userID: userId, displayName: member.name, handle: found[userId]),
+                                         member.avatarUrl)
+            }
+            typingNames = typingUserIds.map { facts.members[$0]?.name ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) }
             rebuild()
         }
+    }
+
+    /// People names: the @handles of members without a real name, through the resolver's batched lookup.
+    private func resolveHandles(of userIds: [String]) async -> [String: String] {
+        guard let handles, !userIds.isEmpty else { return [:] }
+        return await withTaskGroup(of: (String, String?).self) { group in
+            for userId in userIds {
+                group.addTask { (userId, await handles.resolve(userId)) }
+            }
+            var found: [String: String] = [:]
+            for await (userId, handle) in group {
+                if let handle { found[userId] = handle }
+            }
+            return found
+        }
+    }
+
+    /// The heroes of a group without m.room.name, for BipeChatRowName.resolve. nil for a DM or a named group.
+    nonisolated static func groupHeroes(of info: RoomInfo, ownUserId: String) -> [(userID: String, displayName: String?)]? {
+        guard !info.isDm, (info.rawName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return info.heroes.filter { $0.userId != ownUserId }.map { ($0.userId, $0.displayName) }
     }
 
     /// peerAway: Room.member of the DM's other person; a leave or ban is left, and a profile that is not found

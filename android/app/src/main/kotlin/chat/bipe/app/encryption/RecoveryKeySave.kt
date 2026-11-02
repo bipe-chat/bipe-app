@@ -90,17 +90,17 @@ class RecoveryKeySaveModel(private val session: AccountSession, private val api:
     val recoveryKey: StateFlow<String?> = _recoveryKey.asStateFlow()
 
     /** State account: the account the key belongs to, so a screenshot of the key names it. */
-    private val _account = MutableStateFlow(session.userId)
+    private val _account = MutableStateFlow(chat.bipe.app.people.Person.name(session.userId, null))
     val account: StateFlow<String> = _account.asStateFlow()
     private var handle: TaskHandle? = null
 
-    /** State account: the display name and @handle; the Matrix user ID while the profile has no handle. */
+    /** State account: the display name and @handle; never the Matrix user ID (People names). */
     fun loadAccount() {
         scope.launch {
-            val displayName = runCatching { session.client.displayName() }.getOrNull().orEmpty()
+            val displayName = chat.bipe.shared.BipeChatRowName.realName(runCatching { session.client.displayName() }.getOrNull(), session.userId).orEmpty()
             val handle = runCatching { BipeApiClient.withOpenIdRetry(session.openId) { api.myHandle(it) } }.getOrNull()?.handle
             _account.value = when {
-                handle.isNullOrEmpty() -> if (displayName.isEmpty()) session.userId else "$displayName (${session.userId})"
+                handle.isNullOrEmpty() -> displayName.ifEmpty { chat.bipe.app.people.Person.name(session.userId, null) }
                 displayName.isEmpty() -> "@$handle"
                 else -> "$displayName (@$handle)"
             }

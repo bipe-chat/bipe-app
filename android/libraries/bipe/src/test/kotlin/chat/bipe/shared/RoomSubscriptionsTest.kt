@@ -59,6 +59,6 @@ class RoomSubscriptionsTest {
     @Test fun SDKNameSurvivesMissingHeroMetadata() {
         assertThat(BipeChatRowName.resolve("!room:example.test", " Example Support ", null, null, "Unnamed")).isEqualTo("Example Support")
         assertThat(BipeChatRowName.resolve("!room:example.test", " ", "Example Person", "@person:example.test", "Unnamed")).isEqualTo("Example Person")
-        assertThat(BipeChatRowName.resolve("!room:example.test", "!room:example.test", "@person:example.test", "@person:example.test", "Unnamed")).isEqualTo("person")
+        assertThat(BipeChatRowName.resolve("!room:example.test", "!room:example.test", "@person:example.test", "@person:example.test", "Unnamed")).isEqualTo("Unnamed")
     }
 }

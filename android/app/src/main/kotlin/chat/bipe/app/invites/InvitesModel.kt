@@ -95,7 +95,7 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
             prefs.edit().putStringSet(key, seen.orEmpty() + joined.map { it.id }).apply()
             if (seen != null) for (invite in joined.filter { it.id !in seen }) {
                 val userId = invite.joinedUserId ?: continue
-                val name = runCatching { session.client.getProfile(userId).displayName }.getOrNull() ?: Person.localpart(userId)
+                val name = Person.name(userId, runCatching { session.client.getProfile(userId).displayName }.getOrNull())
                 Toast.makeText(context, context.getString(R.string.bipe_invites_joined, name), Toast.LENGTH_LONG).show()
             }
             runCatching { withToken { api.inviteConnections(it) } }.getOrNull()?.let {

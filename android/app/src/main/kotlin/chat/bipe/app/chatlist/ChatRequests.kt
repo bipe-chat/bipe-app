@@ -286,8 +286,7 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         if (inviter?.isIgnored == true) return null
         val invitedAt = (room.latestEvent() as? LatestEventValue.RemoteInvite)?.timestamp?.toLong()
         val inviterId = inviter?.userId.orEmpty()
-        val inviterName = inviter?.displayName?.takeIf { it.isNotBlank() }
-            ?: inviterId.takeIf { it.isNotEmpty() }?.let { chat.bipe.app.people.Person.localpart(it) }
+        val inviterName = inviterId.takeIf { it.isNotEmpty() }?.let { chat.bipe.app.people.Person.name(it, inviter?.displayName) }
         val isDm = isDirectInvite(info)
         return ChatRequestSummary(
             roomId = info.id,

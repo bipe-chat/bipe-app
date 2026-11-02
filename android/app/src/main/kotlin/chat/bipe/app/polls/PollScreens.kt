@@ -184,7 +184,7 @@ fun PollDetailScreen(session: AccountSession, timeline: ChatTimelineModel, event
                             Text(stringResource(R.string.bipe_app_poll_most_votes), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = colors.accentInk)
                         }
                         if (option.voterIds.isNotEmpty()) {
-                            Text(option.voterIds.joinToString { names[it] ?: it }, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
+                            Text(option.voterIds.joinToString { names[it] ?: chat.bipe.app.people.Person.name(it, null) }, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
                         }
                     }
                 }

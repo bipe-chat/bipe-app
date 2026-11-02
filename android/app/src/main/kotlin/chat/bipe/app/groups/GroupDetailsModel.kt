@@ -147,7 +147,8 @@ class GroupDetailsModel(
 
     private fun applyInfo(info: RoomInfo) {
         _info.value = Info(
-            name = info.displayName ?: info.id,
+            name = chat.bipe.shared.BipeChatRowName.resolve(info.id, info.displayName, null, null, chat.bipe.app.people.Person.noName(),
+                groupHeroes = chat.bipe.app.timeline.groupHeroes(info, session.userId)),
             avatarUrl = info.avatarUrl,
             description = info.topic?.takeIf { it.isNotEmpty() },
             memberCount = info.joinedMembersCount.toInt(),

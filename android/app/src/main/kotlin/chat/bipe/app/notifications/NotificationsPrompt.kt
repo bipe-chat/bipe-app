@@ -98,7 +98,7 @@ fun NotificationsPrompt(session: AccountSession, roomId: String, messages: List<
         val info = runCatching { session.client.getRoom(roomId)?.roomInfo() }.getOrNull()
         // ADR 0141: the person, never the DM's m.room.name.
         val peer = info?.takeIf { it.isDm }?.heroes?.firstOrNull { it.userId != session.userId }
-        recipientName = peer?.displayName?.takeIf { it.isNotBlank() } ?: peer?.userId?.let { chat.bipe.app.people.Person.localpart(it) }
+        recipientName = peer?.let { chat.bipe.app.people.Person.name(it.userId, it.displayName) }
         isShown = true
     }
 

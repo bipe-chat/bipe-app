@@ -921,6 +921,7 @@
     <string name="bipe_dm_notifications_mentions_disclaimer">The server doesn\'t support this option in encrypted chats. You may not get notified in this chat.</string>
     <string name="bipe_dm_permalink_same">You\'re already in this chat</string>
     <string name="bipe_dm_no_name">Unnamed chat</string>
+    <string name="bipe_person_no_name">No name</string>
     <string name="bipe_dm_inline_reply_failed">Couldn\'t send. Open the chat.</string>
     <string name="bipe_dm_error_muting">Couldn\'t mute the chat. Try again.</string>
     <string name="bipe_dm_error_unmuting">Couldn\'t turn the chat sound on. Try again.</string>

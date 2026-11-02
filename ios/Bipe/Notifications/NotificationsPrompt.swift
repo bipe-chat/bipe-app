@@ -124,7 +124,7 @@ private struct NotificationsPromptTrigger: ViewModifier {
         if let room = try? session.client.getRoom(roomId: roomId), let info = try? await room.roomInfo(), info.isDm {
             // ADR 0141: the person, never the DM's m.room.name.
             let peer = info.heroes.first { $0.userId != session.userId }
-            recipientName = peer?.displayName?.nilIfBlank ?? peer.map { Person.localpart(of: $0.userId) }
+            recipientName = peer.map { BipeChatRowName.person(userID: $0.userId, displayName: $0.displayName, handle: nil) }
         }
         isShown = true
     }

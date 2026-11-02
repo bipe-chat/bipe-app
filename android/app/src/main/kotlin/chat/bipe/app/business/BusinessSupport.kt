@@ -103,11 +103,10 @@ class BusinessApi(val session: AccountSession) {
     suspend fun <T> withOpenId(request: suspend BipeApiClient.(BipeOpenIdToken) -> T): T =
         BipeApiClient.withOpenIdRetry(session.openId) { token -> api.request(token) }
 
-    /** A display name of a Matrix account: the profile name, else the ID's localpart. Never the full Matrix ID. */
+    /** A display name of a Matrix account by People names: the real profile name, else the @, else bipe_person_no_name. */
     suspend fun displayName(userId: String): String {
         names[userId]?.let { return it }
-        val name = runCatching { session.client.getProfile(userId).displayName }.getOrNull()?.takeIf { it.isNotBlank() }
-            ?: userId.removePrefix("@").substringBefore(':')
+        val name = chat.bipe.app.people.Person.name(userId, runCatching { session.client.getProfile(userId).displayName }.getOrNull())
         names[userId] = name
         return name
     }

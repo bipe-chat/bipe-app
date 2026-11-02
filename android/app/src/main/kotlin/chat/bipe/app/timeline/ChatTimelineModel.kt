@@ -42,6 +42,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -215,6 +218,8 @@ class ChatTimelineModel(
     val voiceMedia: VoiceMediaStore? = null,
     /** Spec threads (bipe-chat/bipe#667): the root event of the thread view; null for the main timeline. */
     val threadRoot: String? = null,
+    /** The account's @ resolver (People names). null: names fall back to the cached @. */
+    private val handles: chat.bipe.shared.BipeHandleResolver? = null,
 ) {
     private val _openThreadRoot = MutableStateFlow<String?>(null)
     /** The thread the main timeline asks the screen to open (spec threads openThread). */
@@ -377,9 +382,13 @@ class ChatTimelineModel(
             facts = facts.copy(isDm = info.isDm, joinedMembers = info.joinedMembersCount.toInt())
             _isGroup.value = !info.isDm && !info.isSpace
             val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
-            val peerName = peer?.displayName?.takeIf { it.isNotBlank() }
-                ?: peer?.userId?.let { chat.bipe.app.people.Person.localpart(it) } ?: unnamedChatText
-            _roomName.value = if (info.isDm) peerName else info.displayName ?: info.id
+            val peerHandle = peer?.takeIf { chat.bipe.shared.BipeChatRowName.realName(it.displayName, it.userId) == null }
+                ?.let { handles?.resolve(it.userId) }
+            _roomName.value = chat.bipe.shared.BipeChatRowName.resolve(
+                info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText,
+                dmRoomName = if (info.isDm) info.rawName else null, peerHandle = peerHandle,
+                groupHeroes = groupHeroes(info, session.userId), noName = chat.bipe.app.people.Person.noName(),
+            )
             _roomAvatarUrl.value = if (info.isDm) peer?.avatarUrl else info.avatarUrl
             _peerUserId.value = peer?.userId
             _hasCall.value = info.hasRoomCall
@@ -489,7 +498,7 @@ class ChatTimelineModel(
         _composer.update {
             it.copy(
                 mentions = ComposerMarkdown.mentions(it.mentions, text),
-                suggestions = query?.let { q -> mentionDirectory.suggestions(q, strings.label(R.string.bipe_app_composer_mention_everyone)) } ?: emptyList(),
+                suggestions = query?.let { q -> mentionDirectory.suggestions(q, strings.label(R.string.bipe_app_composer_mention_everyone), handles) } ?: emptyList(),
             )
         }
         if (text.isBlank()) {
@@ -1061,7 +1070,7 @@ class ChatTimelineModel(
     }
 
     private fun updateTypingNames() {
-        _ui.update { state -> state.copy(typingNames = typingUserIds.map { facts.members[it]?.name ?: it }) }
+        _ui.update { state -> state.copy(typingNames = typingUserIds.map { facts.members[it]?.name ?: chat.bipe.app.people.Person.name(it, null) }) }
     }
 
     private fun sendTyping(isTyping: Boolean) {
@@ -1090,8 +1099,10 @@ class ChatTimelineModel(
         val store = handleChanges ?: return
         val members = GroupPeople.members(room, cachedOnly = true) ?: return
         val joined = members.filter { it.membership is MembershipState.Join }
-        val names = joined.filter { it.userId !in facts.members }.associate { member ->
-            member.userId to MemberInfo(member.displayName?.takeIf { it.isNotEmpty() } ?: member.userId, member.avatarUrl)
+        val newMembers = joined.filter { it.userId !in facts.members }
+        val found = resolveHandles(newMembers.filter { chat.bipe.shared.BipeChatRowName.realName(it.displayName, it.userId) == null }.map { it.userId })
+        val names = newMembers.associate { member ->
+            member.userId to MemberInfo(chat.bipe.app.people.Person.name(member.userId, member.displayName, found[member.userId]), member.avatarUrl)
         }
         val roomMembers = joined.map { it.userId }.toSet()
         facts = facts.copy(roomMembers = roomMembers, members = facts.members + names, handleChanges = store.changes(roomMembers))
@@ -1121,6 +1132,15 @@ class ChatTimelineModel(
         loadMembers(built.unknownUsers)
     }
 
+    /** People names: the @handles of members without a real name, through the resolver's batched lookup. */
+    private suspend fun resolveHandles(userIds: List<String>): Map<String, String> {
+        val resolver = handles ?: return emptyMap()
+        if (userIds.isEmpty()) return emptyMap()
+        return coroutineScope {
+            userIds.map { userId -> async { userId to resolver.resolve(userId) } }.awaitAll()
+        }.mapNotNull { (userId, handle) -> handle?.let { userId to it } }.toMap()
+    }
+
     /** Display names and avatars of members for receipts, reactions and typing. */
     private fun loadMembers(userIds: Set<String>) {
         val room = room ?: return
@@ -1128,9 +1148,12 @@ class ChatTimelineModel(
         if (missing.isEmpty()) return
         membersLoading += missing
         scope.launch {
-            val loaded = missing.associateWith { userId ->
-                val name = runCatching { room.memberDisplayName(userId) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: userId
-                MemberInfo(name, runCatching { room.memberAvatarUrl(userId) }.getOrNull())
+            val raw = missing.associateWith { userId ->
+                runCatching { room.memberDisplayName(userId) }.getOrNull() to runCatching { room.memberAvatarUrl(userId) }.getOrNull()
+            }
+            val found = resolveHandles(raw.filter { chat.bipe.shared.BipeChatRowName.realName(it.value.first, it.key) == null }.keys.toList())
+            val loaded = raw.mapValues { (userId, member) ->
+                MemberInfo(chat.bipe.app.people.Person.name(userId, member.first, found[userId]), member.second)
             }
             facts = facts.copy(members = facts.members + loaded)
             updateTypingNames()
@@ -1335,4 +1358,10 @@ class ChatTimelineModel(
         const val TYPING_INTERVAL_MS = 4000L
         const val DRAFT_SAVE_DELAY_MS = 1000L
     }
+}
+
+/** The heroes of a group without m.room.name, for BipeChatRowName.resolve. null for a DM or a named group. */
+internal fun groupHeroes(info: org.matrix.rustcomponents.sdk.RoomInfo, ownUserId: String): List<Pair<String, String?>>? {
+    if (info.isDm || !info.rawName.isNullOrBlank()) return null
+    return info.heroes.filter { it.userId != ownUserId }.map { it.userId to it.displayName }
 }

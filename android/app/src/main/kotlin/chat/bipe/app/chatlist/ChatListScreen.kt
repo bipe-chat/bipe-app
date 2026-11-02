@@ -396,7 +396,7 @@ fun HomeScreen(
                             scope.launch {
                                 val person = runCatching { people.person(userId) }.getOrNull()
                                 groups.createGroupWith(
-                                    listOf(GroupPerson(userId, person?.displayName ?: Person.localpart(userId), person?.avatarUrl, person?.handle)),
+                                    listOf(GroupPerson(userId, person?.displayName ?: Person.name(userId, null), person?.avatarUrl, person?.handle)),
                                 )
                             }
                         },

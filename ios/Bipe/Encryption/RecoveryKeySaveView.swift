@@ -45,19 +45,19 @@ final class RecoveryKeySaveModel: ObservableObject {
     init(session: AccountSession, api: BipeAPIClient) {
         self.session = session
         self.api = api
-        account = session.userId
+        account = BipeAccountLabels.label(for: session.userId)
         recoveryState = session.client.encryption().recoveryState()
     }
 
-    /// State account: the display name and @handle; the Matrix user ID while the profile has no handle.
+    /// State account: the display name and @handle; never the Matrix user ID (People names).
     func loadAccount() async {
-        let displayName = (try? await session.client.displayName()) ?? ""
+        let displayName = BipeChatRowName.realName((try? await session.client.displayName()) ?? nil, userID: session.userId) ?? ""
         let api = api
         let mine = try? await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle in
             try await api.myHandle(openID: token)
         }
         guard let handle = mine?.handle, !handle.isEmpty else {
-            account = displayName.isEmpty ? session.userId : "\(displayName) (\(session.userId))"
+            account = displayName.isEmpty ? BipeAccountLabels.label(for: session.userId) : displayName
             return
         }
         account = displayName.isEmpty ? "@\(handle)" : "\(displayName) (@\(handle))"

@@ -392,7 +392,7 @@ class ChatListModel(
         return when (content) {
             is TimelineItemContent.RoomMembership -> {
                 val own = content.userId == session.userId
-                val name = content.userDisplayName?.takeIf { it.isNotEmpty() } ?: content.userId
+                val name = chat.bipe.app.people.Person.name(content.userId, content.userDisplayName)
                 when (content.change) {
                     MembershipChange.JOINED, MembershipChange.INVITATION_ACCEPTED, MembershipChange.KNOCK_ACCEPTED ->
                         if (own) line(R.string.bipe_dm_joined_by_you, R.string.bipe_group_state_event_room_join_by_you, null)
@@ -435,7 +435,8 @@ class ChatListModel(
         }
         val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
         val name = BipeChatRowName.resolve(info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText,
-            dmRoomName = if (info.isDm) info.rawName else null)
+            dmRoomName = if (info.isDm) info.rawName else null,
+            groupHeroes = chat.bipe.app.timeline.groupHeroes(info, session.userId), noName = chat.bipe.app.people.Person.noName())
         return ChatSummary(
             roomId = info.id,
             name = name,

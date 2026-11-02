@@ -87,7 +87,7 @@ struct BrandMarksView: View {
             }
             Button(BipeStrings.appCancel, role: .cancel) {}
         }
-        .alert(ending.map { BipeStrings.brandMarksEndConfirm(resellerNames[$0.reseller] ?? $0.reseller) } ?? "",
+        .alert(ending.map { BipeStrings.brandMarksEndConfirm(resellerNames[$0.reseller] ?? BipeChatRowName.person(userID: $0.reseller, displayName: nil, handle: nil)) } ?? "",
                isPresented: Binding(get: { ending != nil }, set: { if !$0 { ending = nil } })) {
             Button(BipeStrings.brandMarksEnd, role: .destructive) {
                 if let mark = ending { run { try await api.endBrandMark(id: mark.id) } }
@@ -206,7 +206,7 @@ struct BrandMarksView: View {
             ForEach(grantedMarks) { mark in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(resellerNames[mark.reseller] ?? mark.reseller)
+                        Text(resellerNames[mark.reseller] ?? BipeChatRowName.person(userID: mark.reseller, displayName: nil, handle: nil))
                             .foregroundStyle(BipeColor.inkPrimary)
                         Text(Self.line(label: mark.label, brandName: brandName ?? ""))
                             .font(.caption)
