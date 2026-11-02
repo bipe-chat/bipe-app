@@ -111,7 +111,7 @@ class PersonProfileModel(
         val openingChat: Boolean = false,
     )
 
-    private val _state = MutableStateFlow(State(person = Person(userId, Person.localpart(userId)), isOfficial = BipeOfficialAccounts.isOfficial(userId)))
+    private val _state = MutableStateFlow(State(person = Person(userId, Person.name(userId, null)), isOfficial = BipeOfficialAccounts.isOfficial(userId)))
     val state: StateFlow<State> = _state.asStateFlow()
 
     /** Action appear: shows what it has and fills in the rest. */

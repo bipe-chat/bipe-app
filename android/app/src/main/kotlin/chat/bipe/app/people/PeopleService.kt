@@ -15,6 +15,7 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import chat.bipe.shared.BipeTrustSources
 import chat.bipe.shared.BipeHandleResolver
+import chat.bipe.shared.BipeChatRowName
 import chat.bipe.shared.api.lookupContacts
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeOpenIdToken
@@ -45,14 +46,18 @@ import org.matrix.rustcomponents.sdk.TaskHandle
 /** Type Person of the people specs: the name to show, the photo and the @. Never the Matrix ID (ADR 0013). */
 data class Person(
     val userId: String,
-    /** The saved contact name, else the profile name, else the @, else the ID's localpart. */
+    /** People names: the saved contact name, else the real profile name, else the @, else bipe_person_no_name. */
     val displayName: String,
     val avatarUrl: String? = null,
     val handle: String? = null,
 ) {
     companion object {
-        /** The localpart of a Matrix ID, the last fallback of a name (blocked-list notes). */
-        fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
+        /** bipe_person_no_name in the app's language. BipeApplication sets it at start. */
+        @Volatile var noName: () -> String = { "" }
+
+        /** People names (BipeChatRowName.person, bipe-shared screens README): never the Matrix ID or its localpart. */
+        fun name(userId: String, displayName: String?, handle: String? = null, contactName: String? = null): String =
+            BipeChatRowName.person(userId, contactName, displayName, handle, noName())
     }
 }
 
@@ -271,7 +276,7 @@ class PeopleService(
         return Person(userId, displayName(contactName, profile?.displayName, handle, userId), profile?.avatarUrl, handle)
     }
 
-    /** Several people. A profile that does not load still gives a row (the @ or the localpart). */
+    /** Several people. A profile that does not load still gives a row (the @ or bipe_person_no_name). */
     suspend fun people(userIds: List<String>): List<Person> {
         return userIds.map { userId ->
             val profile = runCatching { session.client.getProfile(userId) }.getOrNull()
@@ -376,12 +381,8 @@ class PeopleService(
     }
 
     companion object {
-        fun displayName(contactName: String?, profileName: String?, handle: String?, userId: String): String {
-            contactName?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
-            // A profile name that is the raw Matrix ID is no name (ADR 0013).
-            profileName?.trim()?.takeIf { it.isNotEmpty() && it != userId }?.let { return it }
-            if (handle != null) return "@$handle"
-            return Person.localpart(userId)
-        }
+        /** People names (BipeChatRowName.person): never the Matrix ID or its localpart. */
+        fun displayName(contactName: String?, profileName: String?, handle: String?, userId: String): String =
+            Person.name(userId, profileName, handle, contactName)
     }
 }

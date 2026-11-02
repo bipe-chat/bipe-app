@@ -56,6 +56,8 @@ class BipeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // People names: the placeholder for a person without a name or @.
+        chat.bipe.app.people.Person.noName = { getString(chat.bipe.shared.R.string.bipe_person_no_name) }
         // Spec app-colors: the stored palette before the first screen.
         chat.bipe.app.common.AppTheme.load(this)
         // Spec incoming-call: the missed calls of the chat list previews.

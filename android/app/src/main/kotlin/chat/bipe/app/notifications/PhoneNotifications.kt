@@ -319,7 +319,8 @@ class PhoneNotifications(private val context: Context) {
 
     private fun show(item: NotificationItem, target: BipeNotificationTarget, route: String, eventId: String, photos: Photos = Photos(null, null)) {
         val room = item.roomInfo
-        val senderName = item.senderInfo.displayName?.takeIf { it.isNotEmpty() }
+        // People names: the real display name, else the cached @, else bipe_person_no_name.
+        fun senderName(userId: String) = chat.bipe.app.people.Person.name(userId, item.senderInfo.displayName)
         when (val event = item.event) {
             is NotificationEvent.Timeline -> {
                 // Spec location-view notes: a live location update (MSC3672 beacon) never shows a notification.
@@ -328,14 +329,14 @@ class PhoneNotifications(private val context: Context) {
                 // bipe-chat/bipe#511: without this account's preview, no sender and no text.
                 if (!preview(target.accountUserId)) return showFallback(target, route, eventId)
                 val text = messageText(event.event) ?: return showFallback(target, route, eventId)
-                val sender = senderName ?: event.event.senderId()
+                val sender = senderName(event.event.senderId())
                 // ADR 0141: a DM shows the other person, never the room name.
                 val title = if (room.isDm) sender else room.displayName
                 post(target, route, eventId, title, isGroup = !room.isDm, sender, text, event.event.timestamp().toLong(), isNoisy = item.isNoisy ?: true,
                     senderId = event.event.senderId(), photos = photos)
             }
             is NotificationEvent.Invite -> {
-                val sender = senderName ?: event.sender
+                val sender = senderName(event.sender)
                 val text = if (room.isDm) {
                     context.getString(R.string.bipe_app_notification_chat_request, sender)
                 } else {
@@ -519,7 +520,7 @@ class PhoneNotifications(private val context: Context) {
     private fun accountGroup(userId: String): String {
         val id = groupId(userId)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = AccountList(context).name(userId) ?: userId
+            val name = AccountList(context).name(userId) ?: context.getString(R.string.bipe_tab_you)
             context.getSystemService(NotificationManager::class.java)
                 .createNotificationChannelGroup(NotificationChannelGroup(id, context.getString(R.string.bipe_notifications_account_group, name)))
         }

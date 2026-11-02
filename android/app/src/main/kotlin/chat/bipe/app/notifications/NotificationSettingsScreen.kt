@@ -73,7 +73,7 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
     val phoneEnabled by model.phoneEnabled.collectAsState(initial = true)
     val permission by app.push.permission.collectAsState()
     val colors = BipeTheme.colors
-    val accountName = remember(session) { AccountList(context).name(session.userId) ?: session.userId }
+    val accountName = remember(session) { AccountList(context).name(session.userId) ?: context.getString(R.string.bipe_tab_you) }
     var showsWorkHours by rememberSaveable { mutableStateOf(false) }
     var showsCheckup by rememberSaveable { mutableStateOf(false) }
     if (showsCheckup) {

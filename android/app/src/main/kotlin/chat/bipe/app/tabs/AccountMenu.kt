@@ -72,7 +72,7 @@ fun AccountMenu(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: ()
                         if (owner != null) {
                             Text(stringResource(R.string.bipe_account_company_owner, owner), style = MaterialTheme.typography.bodyMedium,
                                 color = BipeTheme.colors.inkSecondary)
-                        } else account.handle?.let {
+                        } else account.handle?.takeIf { "@$it" != name }?.let {
                             Text("@$it", style = MaterialTheme.typography.bodyMedium, color = BipeTheme.colors.inkSecondary)
                         }
                     }
@@ -130,7 +130,7 @@ fun AccountRows(tabs: AppTabsModel, fallbackMedia: MediaLoader) {
                 if (owner != null) {
                     Text(stringResource(R.string.bipe_account_company_owner, owner), color = BipeTheme.colors.inkSecondary,
                         style = MaterialTheme.typography.bodyMedium)
-                } else account.handle?.let { Text("@$it", color = BipeTheme.colors.inkSecondary, style = MaterialTheme.typography.bodyMedium) }
+                } else account.handle?.takeIf { "@$it" != name }?.let { Text("@$it", color = BipeTheme.colors.inkSecondary, style = MaterialTheme.typography.bodyMedium) }
             }
             if (account.hasUnread) Box(Modifier.size(8.dp).background(BipeTheme.colors.accentFill, CircleShape))
             if (account.isCurrent) Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = BipeTheme.colors.accentInk)

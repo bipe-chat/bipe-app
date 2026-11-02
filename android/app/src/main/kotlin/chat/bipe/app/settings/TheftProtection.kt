@@ -225,7 +225,7 @@ class TheftProtectionModel(private val context: Context, private val model: Sett
         }
     }
 
-    /** The display name the app knows, else the @ (POST /v1/handles/resolve), else the localpart. Never the Matrix ID. */
+    /** The display name the app knows, else the @ (POST /v1/handles/resolve), else bipe_person_no_name. Never the Matrix ID. */
     private suspend fun loadNames(userIds: List<String>) {
         val missing = userIds.distinct().filter { it !in names }
         if (missing.isEmpty()) return
@@ -236,7 +236,7 @@ class TheftProtectionModel(private val context: Context, private val model: Sett
         }
     }
 
-    private fun name(userId: String): String = names[userId] ?: Person.localpart(userId)
+    private fun name(userId: String): String = names[userId] ?: Person.name(userId, null)
 
     fun formatDate(instant: Instant): String = DateUtils.formatDateTime(
         context,

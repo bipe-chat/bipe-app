@@ -166,6 +166,7 @@ fun ChatTimelineScreen(
             handleChanges = HandleChangeStores.store(context, session),
             voiceMedia = VoiceMediaStore.store(context, session),
             threadRoot = threadRoot,
+            handles = people?.handles,
         )
     }
     // Spec threads openThread: the thread view over the main timeline.

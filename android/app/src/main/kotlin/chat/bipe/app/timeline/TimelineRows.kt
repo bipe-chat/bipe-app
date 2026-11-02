@@ -5,7 +5,7 @@
 package chat.bipe.app.timeline
 
 import chat.bipe.app.common.MemberNames
-import chat.bipe.app.common.displayName
+import chat.bipe.app.common.realName
 import chat.bipe.app.common.isNameAmbiguous
 import chat.bipe.stickers.StickerPackRef
 import chat.bipe.app.media.MediaContent
@@ -176,7 +176,7 @@ object TimelineRowBuilder {
             if (userId == facts.ownUserId) return strings.you
             facts.members[userId]?.let { return it.name }
             unknown += userId
-            return userId
+            return chat.bipe.app.people.Person.name(userId, null)
         }
 
         fun readers(receipts: Map<String, Receipt>): List<ReceiptReader> {
@@ -302,7 +302,7 @@ object TimelineRowBuilder {
                             }
                             // The SDK types have no field for chat.bipe.assistant; it comes from the event JSON (ADR 0210).
                             val message = if (BipeAssistantSend.sender(eventId(event)) { event.lazyProvider.debugInfo().originalJson } != null) {
-                                built.copy(assistantLabel = strings.format(R.string.bipe_app_assistant_sent_label, event.senderProfile.displayName(event.sender)))
+                                built.copy(assistantLabel = strings.format(R.string.bipe_app_assistant_sent_label, event.senderProfile.realName(event.sender) ?: name(event.sender)))
                             } else {
                                 built
                             }.copy(forwardCount = forwardCount)
@@ -470,7 +470,7 @@ object TimelineRowBuilder {
             kind = TimelineMessage.Kind.UNSUPPORTED,
             body = null,
             senderId = event.sender,
-            senderName = if (event.isOwn) senderName else event.senderProfile.displayName(senderName),
+            senderName = if (event.isOwn) senderName else event.senderProfile.realName(event.sender) ?: senderName,
             isOwn = event.isOwn,
             sentAt = event.timestamp.toLong(),
             sendState = if (event.isOwn) sendState else TimelineMessage.SendState.SENT,
@@ -488,7 +488,7 @@ object TimelineRowBuilder {
                 MessageReply(
                     eventId,
                     MessageReply.State.READY,
-                    senderName = if (isOwn) strings.you else event.senderProfile.displayName(name(event.sender)),
+                    senderName = if (isOwn) strings.you else event.senderProfile.realName(event.sender) ?: name(event.sender),
                     preview = replyPreview(event.content, isOwn, strings),
                 )
             }
