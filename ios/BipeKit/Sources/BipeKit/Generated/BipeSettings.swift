@@ -132,7 +132,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .privacyDiscovery: .switch
         case .privacyContacts: .link
         case .privacyPresence: .switch
-        case .privacyReadReceipts: .info
+        case .privacyReadReceipts: .switch
         case .privacyWhoCanRead: .url
         case .privacyExport: .action
         case .privacyWhatBipeKeeps: .url

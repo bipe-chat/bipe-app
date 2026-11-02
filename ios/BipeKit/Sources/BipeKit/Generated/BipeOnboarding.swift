@@ -214,7 +214,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
         case .photo: true
         case .pinReminder: true
         case .osTheftProtection: true
-        case .bringPeople: false
+        case .bringPeople: true
         case .bringPeopleReminder: true
         }
     }
@@ -321,6 +321,15 @@ public enum BipeOnboardingCard: String, CaseIterable, Sendable {
         switch self {
         case .invite: false
         case .profile: true
+        case .notes: false
+        }
+    }
+
+    /// True when the card shows only while the bring-people sheet never showed on this account.
+    public var needsNoBringPeople: Bool {
+        switch self {
+        case .invite: true
+        case .profile: false
         case .notes: false
         }
     }
