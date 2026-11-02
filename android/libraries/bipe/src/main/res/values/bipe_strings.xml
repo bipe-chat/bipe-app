@@ -947,12 +947,14 @@
     <string name="bipe_settings_account_paths_none">Adicione um jeito de voltar para sua conta</string>
     <string name="bipe_settings_account_paths">Jeitos de voltar: %1$s</string>
     <string name="bipe_account_paths_warning">Adicione mais um jeito de voltar para sua conta se perder o celular.</string>
+    <string name="bipe_account_pin_section">Senha</string>
     <string name="bipe_account_app_lock">Bloquear o app</string>
     <string name="bipe_account_app_lock_off_reason">Confirme que é você para desligar o bloqueio</string>
     <string name="bipe_account_biometric_unlock">Desbloquear com %1$s</string>
     <string name="bipe_account_pin_footer">Sua senha de %1$s números protege a volta para sua conta. Com o bloqueio ligado, o Bipe pede uma senha ao abrir.</string>
     <string name="bipe_account_pin_footer_device">Esta senha protege a volta para esta conta. Com o bloqueio ligado, o Bipe pede a senha do celular ao abrir.</string>
     <string name="bipe_account_add">Nova conta</string>
+    <string name="bipe_account_on_device">Contas neste celular</string>
     <string name="bipe_account_new_title">Nova conta</string>
     <string name="bipe_account_new_personal">Conta pessoal</string>
     <string name="bipe_account_new_personal_body">Outra conta sua, com outro nome e outros contatos.</string>
@@ -975,6 +977,7 @@
     <string name="bipe_account_devices">Aparelhos</string>
     <string name="bipe_account_old_messages">Mensagens antigas</string>
     <string name="bipe_account_old_messages_footer">Aprove este celular para ver suas conversas antigas aqui.</string>
+    <string name="bipe_account_this_device">Este celular</string>
     <string name="bipe_linked_devices_title">Aparelhos conectados</string>
     <string name="bipe_linked_devices_link_computer">Conectar um computador</string>
     <string name="bipe_linked_devices_footer">Abra chat.bipe.net.br no computador e leia o código com este celular.</string>
@@ -1139,6 +1142,7 @@
     <string name="bipe_data_use_saver_system">Seu celular está economizando dados, então o Bipe economiza também.</string>
     <string name="bipe_chats_live_location">Localização em tempo real</string>
     <string name="bipe_chats_live_location_footer">Quanto você precisa andar para a sua localização em tempo real mudar no mapa.</string>
+    <string name="bipe_help_docs">Ajuda</string>
     <string name="bipe_help_terms">Termos de uso</string>
     <string name="bipe_help_privacy">Política de privacidade</string>
     <string name="bipe_help_licenses">Licenças de código aberto</string>
@@ -1258,7 +1262,6 @@
     <string name="bipe_a11y_open_original">Mostrar a mensagem original</string>
     <string name="bipe_a11y_show_controls">Mostrar ou esconder os controles</string>
     <string name="bipe_help_problem_language">Descreva o problema com suas palavras.</string>
-    <string name="bipe_help_center">Central de ajuda</string>
     <string name="bipe_chat_message_no_access">Você não tem acesso a esta mensagem</string>
     <string name="bipe_sticker_label">Sticker</string>
     <string name="bipe_onboarding_invited_by">%1$s te chamou para o Bipe.</string>
@@ -1296,8 +1299,6 @@
     <string name="bipe_handle_suggestions">Sugestões</string>
     <string name="bipe_handle_prompt_action">Escolher @</string>
     <string name="bipe_settings_support">Falar com o suporte</string>
-    <string name="bipe_settings_messaging">Mensagens</string>
-    <string name="bipe_settings_discovery">Busca pelo número</string>
     <string name="bipe_support_open_failed">Não deu para abrir o suporte agora. Tente de novo.</string>
     <string name="bipe_support_room_name">Suporte Bipe</string>
     <string name="bipe_support_room_topic">Conversa com a equipe do Bipe. A equipe lê o que você escreve aqui numa ferramenta de atendimento. Fotos e arquivos ficam no servidor do Bipe.</string>
@@ -1873,7 +1874,6 @@
     <string name="bipe_order_load_failed">Não deu para abrir os pedidos. Tente de novo.</string>
     <string name="bipe_order_refuse_reason_label">Motivo: %1$s</string>
     <string name="bipe_account_delete">Apagar conta</string>
-    <string name="bipe_account_pin_lock_section">Senha e bloqueio</string>
     <string name="bipe_deletion_title">Apagar sua conta</string>
     <string name="bipe_deletion_intro">Sua conta é apagada %1$s horas depois do pedido. Até lá, ela funciona normalmente e qualquer aparelho conectado pode cancelar.</string>
     <string name="bipe_deletion_point_handle">Seu @ fica reservado por %1$s dias. Depois disso, outra pessoa pode usar.</string>
@@ -2020,8 +2020,6 @@
     <string name="bipe_poll_state_ended">Encerrada</string>
     <string name="bipe_chats_media_quality_standard">Padrão, arquivos menores</string>
     <string name="bipe_chats_media_quality_high">Alta, como foram tiradas</string>
-    <string name="bipe_chats_theme">Tema</string>
-    <string name="bipe_chats_photos_videos">Fotos e vídeos</string>
     <string name="bipe_room_upgrade_replaced">Este grupo foi trocado por um grupo novo. As mensagens novas ficam lá.</string>
     <string name="bipe_room_upgrade_go">Ir para o grupo novo</string>
     <string name="bipe_room_upgrade_continues">Continuação de %1$s. Toque para ver as mensagens antigas.</string>
