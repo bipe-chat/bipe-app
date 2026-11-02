@@ -33,44 +33,46 @@ enum class BipeSettingsRow(
     PROFILE_NAME_PHOTO("profile.namePhoto", BipeSettingsRowKind.LINK, R.string.bipe_settings_profile_name_photo, null, null, null, null),
     PROFILE_HANDLE("profile.handle", BipeSettingsRowKind.LINK, R.string.bipe_settings_handle, null, null, null, null),
     PROFILE_PUBLIC_PROFILE("profile.publicProfile", BipeSettingsRowKind.LINK, R.string.bipe_settings_public_profile, null, null, null, null),
-    PRIVACY_MESSAGING("privacy.messaging", BipeSettingsRowKind.CHOICE, R.string.bipe_settings_messaging, null, null, null, null),
+    PRIVACY_MESSAGING("privacy.messaging", BipeSettingsRowKind.CHOICE, R.string.bipe_messaging_title, null, null, null, null),
     PRIVACY_REQUEST_PHOTOS("privacy.requestPhotos", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_requests_hide_photos, R.string.bipe_privacy_requests_hide_photos_footer, null, null, null),
     PRIVACY_BLOCKED("privacy.blocked", BipeSettingsRowKind.LINK, R.string.bipe_privacy_blocked, null, null, null, null),
     PRIVACY_NUMBER("privacy.number", BipeSettingsRowKind.INFO, R.string.bipe_privacy_number, null, null, null, null),
-    PRIVACY_DISCOVERY("privacy.discovery", BipeSettingsRowKind.SWITCH, R.string.bipe_settings_discovery, R.string.bipe_discovery_footer, null, null, null),
+    PRIVACY_DISCOVERY("privacy.discovery", BipeSettingsRowKind.SWITCH, R.string.bipe_discovery_toggle, R.string.bipe_discovery_footer, null, null, null),
     PRIVACY_CONTACTS("privacy.contacts", BipeSettingsRowKind.LINK, R.string.bipe_contacts_title, null, null, null, null),
     PRIVACY_PRESENCE("privacy.presence", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_presence, R.string.bipe_privacy_presence_footer, null, null, null),
     PRIVACY_READ_RECEIPTS("privacy.readReceipts", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_read_receipts, R.string.bipe_privacy_read_receipts_footer, null, null, null),
+    PRIVACY_WHO_CAN_READ("privacy.whoCanRead", BipeSettingsRowKind.URL, R.string.bipe_privacy_who_can_read, null, null, "https://bipe.chat/quem-pode-ler/", "https://bipe.chat/en/who-can-read/"),
     PRIVACY_EXPORT("privacy.export", BipeSettingsRowKind.ACTION, R.string.bipe_privacy_export, R.string.bipe_privacy_export_footer, null, null, null),
     PRIVACY_WHAT_BIPE_KEEPS("privacy.whatBipeKeeps", BipeSettingsRowKind.URL, R.string.bipe_privacy_what_bipe_keeps, null, null, "https://bipe.chat/lgpd/", "https://bipe.chat/en/lgpd/"),
-    PRIVACY_WHO_CAN_READ("privacy.whoCanRead", BipeSettingsRowKind.URL, R.string.bipe_privacy_who_can_read, null, null, "https://bipe.chat/quem-pode-ler/", "https://bipe.chat/en/who-can-read/"),
     PRIVACY_ASSISTANT_SEND("privacy.assistantSend", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_assistant_send, R.string.bipe_privacy_assistant_send_footer, "planned:439", null, null),
     ACCOUNT_WAYS_BACK_STATUS("account.waysBackStatus", BipeSettingsRowKind.INFO, R.string.bipe_account_ways_back, null, null, null, null),
+    ACCOUNT_CHANGE_PIN("account.changePin", BipeSettingsRowKind.LINK, R.string.bipe_pin_change_title, null, null, null, null),
+    ACCOUNT_APP_LOCK("account.appLock", BipeSettingsRowKind.SWITCH, R.string.bipe_account_app_lock, null, null, null, null),
+    ACCOUNT_BIOMETRIC_UNLOCK("account.biometricUnlock", BipeSettingsRowKind.SWITCH, R.string.bipe_account_biometric_unlock, null, null, null, null),
     ACCOUNT_EMAIL("account.email", BipeSettingsRowKind.LINK, R.string.bipe_email_title, null, null, null, null),
     ACCOUNT_LINKED_ACCOUNTS("account.linkedAccounts", BipeSettingsRowKind.LINK, R.string.bipe_linked_accounts_title, null, null, null, null),
     ACCOUNT_RECOVERY_KEY("account.recoveryKey", BipeSettingsRowKind.LINK, R.string.bipe_account_recovery_key, R.string.bipe_account_recovery_key_footer, null, null, null),
     ACCOUNT_THEFT_PROTECTION("account.theftProtection", BipeSettingsRowKind.LINK, R.string.bipe_theft_title, null, null, null, null),
-    ACCOUNT_CHANGE_PIN("account.changePin", BipeSettingsRowKind.LINK, R.string.bipe_pin_change_title, null, null, null, null),
-    ACCOUNT_APP_LOCK("account.appLock", BipeSettingsRowKind.SWITCH, R.string.bipe_account_app_lock, null, null, null, null),
-    ACCOUNT_BIOMETRIC_UNLOCK("account.biometricUnlock", BipeSettingsRowKind.SWITCH, R.string.bipe_account_biometric_unlock, null, null, null, null),
-    ACCOUNT_LINKED_DEVICES("account.linkedDevices", BipeSettingsRowKind.LINK, R.string.bipe_linked_devices_title, null, null, null, null),
     ACCOUNT_OLD_MESSAGES("account.oldMessages", BipeSettingsRowKind.LINK, R.string.bipe_account_old_messages, R.string.bipe_account_old_messages_footer, null, null, null),
+    ACCOUNT_THIS_DEVICE("account.thisDevice", BipeSettingsRowKind.INFO, R.string.bipe_account_this_device, null, null, null, null),
+    ACCOUNT_LINKED_DEVICES("account.linkedDevices", BipeSettingsRowKind.LINK, R.string.bipe_linked_devices_title, null, null, null, null),
+    ACCOUNT_ADD("account.add", BipeSettingsRowKind.ACTION, R.string.bipe_account_add, null, null, null, null),
     ACCOUNT_SIGN_OUT("account.signOut", BipeSettingsRowKind.DESTRUCTIVE, R.string.bipe_account_sign_out, null, null, null, null),
     ACCOUNT_DELETE("account.delete", BipeSettingsRowKind.DESTRUCTIVE, R.string.bipe_account_delete, null, null, null, null),
-    CHATS_APPEARANCE("chats.appearance", BipeSettingsRowKind.CHOICE, R.string.bipe_chats_theme, null, null, null, null),
+    CHATS_APPEARANCE("chats.appearance", BipeSettingsRowKind.CHOICE, R.string.bipe_chats_appearance, null, null, null, null),
     CHATS_COLORS("chats.colors", BipeSettingsRowKind.LINK, R.string.bipe_chats_colors, R.string.bipe_chats_colors_footer, null, null, null),
     CHATS_ACCESSIBILITY("chats.accessibility", BipeSettingsRowKind.LINK, R.string.bipe_chats_accessibility, null, null, null, null),
     CHATS_LANGUAGE("chats.language", BipeSettingsRowKind.ACTION, R.string.bipe_settings_language, R.string.bipe_settings_language_footer, "ios", null, null),
-    CHATS_SHOW_MEDIA("chats.showMedia", BipeSettingsRowKind.CHOICE, R.string.bipe_chats_show_media, null, null, null, null),
     CHATS_MEDIA_QUALITY("chats.mediaQuality", BipeSettingsRowKind.LINK, R.string.bipe_chats_media_quality, null, null, null, null),
+    CHATS_SHOW_MEDIA("chats.showMedia", BipeSettingsRowKind.CHOICE, R.string.bipe_chats_show_media, null, null, null, null),
     CHATS_DATA_USE("chats.dataUse", BipeSettingsRowKind.LINK, R.string.bipe_chats_data_use, null, null, null, null),
     CHATS_STICKER_SUGGESTIONS("chats.stickerSuggestions", BipeSettingsRowKind.SWITCH, R.string.bipe_chats_sticker_suggestions, R.string.bipe_chats_sticker_suggestions_footer, "planned:841", null, null),
     CHATS_LIVE_LOCATION("chats.liveLocation", BipeSettingsRowKind.LINK, R.string.bipe_chats_live_location, R.string.bipe_chats_live_location_footer, null, null, null),
-    HELP_DOCS("help.docs", BipeSettingsRowKind.URL, R.string.bipe_help_center, null, null, "https://bipe.chat/docs/", "https://bipe.chat/en/docs/"),
     HELP_SUPPORT("help.support", BipeSettingsRowKind.ACTION, R.string.bipe_settings_support, null, null, null, null),
-    HELP_REPORT_PROBLEM("help.reportProblem", BipeSettingsRowKind.ACTION, R.string.bipe_help_report_problem, null, null, null, null),
+    HELP_DOCS("help.docs", BipeSettingsRowKind.URL, R.string.bipe_help_docs, null, null, "https://bipe.chat/docs/", "https://bipe.chat/en/docs/"),
     HELP_TERMS("help.terms", BipeSettingsRowKind.URL, R.string.bipe_help_terms, null, null, "https://bipe.chat/termos/", "https://bipe.chat/en/terms/"),
     HELP_PRIVACY("help.privacy", BipeSettingsRowKind.URL, R.string.bipe_help_privacy, null, null, "https://bipe.chat/privacidade/", "https://bipe.chat/en/privacy/"),
+    HELP_REPORT_PROBLEM("help.reportProblem", BipeSettingsRowKind.ACTION, R.string.bipe_help_report_problem, null, null, null, null),
     HELP_LICENSES("help.licenses", BipeSettingsRowKind.LINK, R.string.bipe_help_licenses, null, null, null, null),
     ;
 
@@ -101,27 +103,25 @@ data class BipeSettingsSection(
 
 enum class BipeSettingsGroup(
     @StringRes val title: Int,
-    /** The Phosphor icon id of the root row (bipe-app PhosphorIcon.id). null for [PROFILE]. */
-    val icon: String?,
     /** True when the group keeps its Element screen and lists no rows here. */
     val usesElementScreen: Boolean,
 ) {
-    PROFILE(R.string.bipe_settings_profile, null, false),
-    PRIVACY(R.string.bipe_settings_privacy, "lock-simple", false),
-    ACCOUNT(R.string.bipe_settings_account, "user-circle", false),
-    NOTIFICATIONS(R.string.bipe_settings_notifications, "bell", true),
-    CHATS(R.string.bipe_settings_chats, "chat-circle", false),
-    HELP(R.string.bipe_settings_help, "info", false),
+    PROFILE(R.string.bipe_settings_profile, false),
+    PRIVACY(R.string.bipe_settings_privacy, false),
+    ACCOUNT(R.string.bipe_settings_account, false),
+    NOTIFICATIONS(R.string.bipe_settings_notifications, true),
+    CHATS(R.string.bipe_settings_chats, false),
+    HELP(R.string.bipe_settings_help, false),
     ;
 
     val sections: List<BipeSettingsSection>
         get() = when (this) {
             PROFILE -> listOf(BipeSettingsSection("main", null, null, listOf(BipeSettingsRow.PROFILE_NAME_PHOTO, BipeSettingsRow.PROFILE_HANDLE, BipeSettingsRow.PROFILE_PUBLIC_PROFILE)))
-            PRIVACY -> listOf(BipeSettingsSection("talk", R.string.bipe_privacy_who_can_talk, null, listOf(BipeSettingsRow.PRIVACY_MESSAGING, BipeSettingsRow.PRIVACY_REQUEST_PHOTOS, BipeSettingsRow.PRIVACY_BLOCKED)), BipeSettingsSection("find", R.string.bipe_privacy_who_can_find, null, listOf(BipeSettingsRow.PRIVACY_NUMBER, BipeSettingsRow.PRIVACY_DISCOVERY, BipeSettingsRow.PRIVACY_CONTACTS)), BipeSettingsSection("see", R.string.bipe_privacy_what_others_see, null, listOf(BipeSettingsRow.PRIVACY_PRESENCE, BipeSettingsRow.PRIVACY_READ_RECEIPTS)), BipeSettingsSection("data", R.string.bipe_privacy_your_data, null, listOf(BipeSettingsRow.PRIVACY_EXPORT, BipeSettingsRow.PRIVACY_WHAT_BIPE_KEEPS, BipeSettingsRow.PRIVACY_WHO_CAN_READ)), BipeSettingsSection("assistants", R.string.bipe_privacy_assistants, null, listOf(BipeSettingsRow.PRIVACY_ASSISTANT_SEND)))
-            ACCOUNT -> listOf(BipeSettingsSection("waysBack", R.string.bipe_fallback_title, null, listOf(BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS, BipeSettingsRow.ACCOUNT_EMAIL, BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS, BipeSettingsRow.ACCOUNT_RECOVERY_KEY, BipeSettingsRow.ACCOUNT_THEFT_PROTECTION)), BipeSettingsSection("pin", R.string.bipe_account_pin_lock_section, R.string.bipe_account_pin_footer, listOf(BipeSettingsRow.ACCOUNT_CHANGE_PIN, BipeSettingsRow.ACCOUNT_APP_LOCK, BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK)), BipeSettingsSection("devices", R.string.bipe_account_devices, null, listOf(BipeSettingsRow.ACCOUNT_LINKED_DEVICES, BipeSettingsRow.ACCOUNT_OLD_MESSAGES)), BipeSettingsSection("leave", null, null, listOf(BipeSettingsRow.ACCOUNT_SIGN_OUT, BipeSettingsRow.ACCOUNT_DELETE)))
+            PRIVACY -> listOf(BipeSettingsSection("talk", R.string.bipe_privacy_who_can_talk, null, listOf(BipeSettingsRow.PRIVACY_MESSAGING, BipeSettingsRow.PRIVACY_REQUEST_PHOTOS, BipeSettingsRow.PRIVACY_BLOCKED)), BipeSettingsSection("find", R.string.bipe_privacy_who_can_find, null, listOf(BipeSettingsRow.PRIVACY_NUMBER, BipeSettingsRow.PRIVACY_DISCOVERY, BipeSettingsRow.PRIVACY_CONTACTS)), BipeSettingsSection("see", R.string.bipe_privacy_what_others_see, null, listOf(BipeSettingsRow.PRIVACY_PRESENCE, BipeSettingsRow.PRIVACY_READ_RECEIPTS, BipeSettingsRow.PRIVACY_WHO_CAN_READ)), BipeSettingsSection("data", R.string.bipe_privacy_your_data, null, listOf(BipeSettingsRow.PRIVACY_EXPORT, BipeSettingsRow.PRIVACY_WHAT_BIPE_KEEPS)), BipeSettingsSection("assistants", R.string.bipe_privacy_assistants, null, listOf(BipeSettingsRow.PRIVACY_ASSISTANT_SEND)))
+            ACCOUNT -> listOf(BipeSettingsSection("status", R.string.bipe_fallback_title, null, listOf(BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS)), BipeSettingsSection("pin", R.string.bipe_account_pin_section, R.string.bipe_account_pin_footer, listOf(BipeSettingsRow.ACCOUNT_CHANGE_PIN, BipeSettingsRow.ACCOUNT_APP_LOCK, BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK)), BipeSettingsSection("waysBack", R.string.bipe_account_ways_back, null, listOf(BipeSettingsRow.ACCOUNT_EMAIL, BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS, BipeSettingsRow.ACCOUNT_RECOVERY_KEY)), BipeSettingsSection("theft", R.string.bipe_theft_title, null, listOf(BipeSettingsRow.ACCOUNT_THEFT_PROTECTION)), BipeSettingsSection("devices", R.string.bipe_account_devices, null, listOf(BipeSettingsRow.ACCOUNT_OLD_MESSAGES, BipeSettingsRow.ACCOUNT_THIS_DEVICE, BipeSettingsRow.ACCOUNT_LINKED_DEVICES)), BipeSettingsSection("accounts", R.string.bipe_account_on_device, null, listOf(BipeSettingsRow.ACCOUNT_ADD)), BipeSettingsSection("leave", null, null, listOf(BipeSettingsRow.ACCOUNT_SIGN_OUT, BipeSettingsRow.ACCOUNT_DELETE)))
             NOTIFICATIONS -> listOf()
-            CHATS -> listOf(BipeSettingsSection("look", R.string.bipe_chats_appearance, null, listOf(BipeSettingsRow.CHATS_APPEARANCE, BipeSettingsRow.CHATS_COLORS, BipeSettingsRow.CHATS_ACCESSIBILITY, BipeSettingsRow.CHATS_LANGUAGE)), BipeSettingsSection("media", R.string.bipe_chats_photos_videos, null, listOf(BipeSettingsRow.CHATS_SHOW_MEDIA, BipeSettingsRow.CHATS_MEDIA_QUALITY, BipeSettingsRow.CHATS_DATA_USE)), BipeSettingsSection("more", null, null, listOf(BipeSettingsRow.CHATS_STICKER_SUGGESTIONS, BipeSettingsRow.CHATS_LIVE_LOCATION)))
-            HELP -> listOf(BipeSettingsSection("help", null, null, listOf(BipeSettingsRow.HELP_DOCS, BipeSettingsRow.HELP_SUPPORT, BipeSettingsRow.HELP_REPORT_PROBLEM)), BipeSettingsSection("about", null, R.string.bipe_about_steward, listOf(BipeSettingsRow.HELP_TERMS, BipeSettingsRow.HELP_PRIVACY, BipeSettingsRow.HELP_LICENSES)))
+            CHATS -> listOf(BipeSettingsSection("main", null, null, listOf(BipeSettingsRow.CHATS_APPEARANCE, BipeSettingsRow.CHATS_COLORS, BipeSettingsRow.CHATS_ACCESSIBILITY, BipeSettingsRow.CHATS_LANGUAGE, BipeSettingsRow.CHATS_MEDIA_QUALITY, BipeSettingsRow.CHATS_SHOW_MEDIA, BipeSettingsRow.CHATS_DATA_USE, BipeSettingsRow.CHATS_STICKER_SUGGESTIONS, BipeSettingsRow.CHATS_LIVE_LOCATION)))
+            HELP -> listOf(BipeSettingsSection("main", null, R.string.bipe_about_steward, listOf(BipeSettingsRow.HELP_SUPPORT, BipeSettingsRow.HELP_DOCS, BipeSettingsRow.HELP_TERMS, BipeSettingsRow.HELP_PRIVACY, BipeSettingsRow.HELP_REPORT_PROBLEM, BipeSettingsRow.HELP_LICENSES)))
         }
 
     companion object {
