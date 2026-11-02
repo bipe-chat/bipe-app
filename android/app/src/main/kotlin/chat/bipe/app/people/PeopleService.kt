@@ -11,6 +11,7 @@ import chat.bipe.app.groups.RoomLink
 import chat.bipe.app.chatlist.NativeDmSelection
 import android.Manifest
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import chat.bipe.shared.BipeTrustSources
@@ -18,6 +19,10 @@ import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.BipeChatRowName
 import chat.bipe.shared.api.lookupContacts
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.BipeMyProfile
+import chat.bipe.shared.api.deleteMyProfilePhoto
+import chat.bipe.shared.api.myProfile
+import chat.bipe.shared.api.setMyProfilePhoto
 import chat.bipe.shared.api.BipeOpenIdToken
 import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.stickers.StickerPackRef
@@ -38,6 +43,7 @@ import org.matrix.rustcomponents.sdk.ClientException
 import org.matrix.rustcomponents.sdk.CreateRoomParameters
 import org.matrix.rustcomponents.sdk.ErrorKind
 import org.matrix.rustcomponents.sdk.IgnoredUsersListener
+import org.matrix.rustcomponents.sdk.MediaSource
 import org.matrix.rustcomponents.sdk.PowerLevels
 import org.matrix.rustcomponents.sdk.RoomPreset
 import org.matrix.rustcomponents.sdk.RoomVisibility
@@ -264,6 +270,41 @@ class PeopleService(
 
     /** Calls bipe-api with the account's token, retrying once on 401. */
     suspend fun <T> withToken(request: suspend (String) -> T): T = BipeApiClient.withTokenRetry({ session.accessToken() }, request)
+
+    /**
+     * Spec public-profile-edit syncPhoto (ADR 0041, amended 2 Nov 2026): the public photo is a copy of the Matrix avatar,
+     * because the web page cannot read Matrix media. Only for a published profile. Uploads only when the avatar differs
+     * from photo_source. Returns the new profile, or [profile] when nothing changed or a step failed: the next run tries
+     * again.
+     */
+    suspend fun syncPublicPhoto(profile: BipeMyProfile): BipeMyProfile {
+        if (!profile.enabled) return profile
+        val client = session.client
+        return try {
+            val mxc = client.avatarUrl()
+            when {
+                mxc == null -> if (profile.hasPhoto) withToken { api.deleteMyProfilePhoto(it) } else profile
+                mxc == profile.photoSource -> profile
+                else -> {
+                    val bytes = client.getMediaContent(MediaSource.fromUrl(mxc))
+                    val jpeg = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let { BipeProfilePhoto.jpeg(it) }
+                    if (jpeg == null) profile else withToken { api.setMyProfilePhoto(jpeg, mxc, it) }
+                }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            profile
+        }
+    }
+
+    /** syncPhoto after a photo change in profile-edit: GET /v1/me/profile first. */
+    suspend fun syncPublicPhoto() {
+        val profile = try { withToken { api.myProfile(it) } }
+            catch (error: CancellationException) { throw error }
+            catch (_: Exception) { return }
+        syncPublicPhoto(profile)
+    }
 
     /** Runs [request] with the OpenID token, for the core routes (bipe-chat/bipe#646). */
     suspend fun <T> withOpenId(request: suspend (BipeOpenIdToken) -> T): T = BipeApiClient.withOpenIdRetry(session.openId, request)
