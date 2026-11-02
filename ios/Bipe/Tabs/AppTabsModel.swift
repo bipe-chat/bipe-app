@@ -73,7 +73,6 @@ final class AppTabsModel: ObservableObject {
         var isLoaded = false
     }
     private var profiles: [String: Profile] = [:]
-    private var avatarPhotos: [String: UIImage] = [:]
     private var cancellables: Set<AnyCancellable> = []
     private var listCancellables: [String: AnyCancellable] = [:]
 
@@ -163,7 +162,6 @@ final class AppTabsModel: ObservableObject {
             listCancellables[userId] = nil
             latestChats[userId] = nil
             profiles[userId] = nil
-            avatarPhotos[userId] = nil
             inviteModels.removeValue(forKey: userId)?.close()
         }
         for session in sessions {
@@ -184,22 +182,10 @@ final class AppTabsModel: ObservableObject {
                 BipeAccountLabels.remember(displayName: displayName, for: userId)
             }
         }
-        var avatarKnown = false
         do {
             profile.avatarUrl = try await session.client.avatarUrl()
-            avatarKnown = true
         } catch {}
         guard sessionIds.contains(userId), let media = chatLists[userId]?.media else { return }
-        var photo = avatarPhotos[userId]
-        if avatarKnown {
-            if let avatarUrl = profile.avatarUrl {
-                photo = await media.thumbnail(mxcUrl: avatarUrl, size: 96) ?? photo
-            } else {
-                photo = nil
-            }
-        }
-        guard sessionIds.contains(userId) else { return }
-        avatarPhotos[userId] = photo
         profiles[userId] = profile
         refresh()
 
@@ -235,39 +221,6 @@ final class AppTabsModel: ObservableObject {
 
     private static func localpart(of userId: String) -> String? {
         userId.dropFirst().split(separator: ":").first.map(String.init)
-    }
-
-    /// The account's photo or initial for the native account menu, in the shape of ADR 0132, with the unread dot.
-    func menuAvatar(of account: AccountSummary) -> UIImage {
-        let side: CGFloat = 32
-        let bounds = CGRect(x: 0, y: 0, width: side, height: side)
-        let image = UIGraphicsImageRenderer(size: bounds.size).image { _ in
-            let shape = account.isCompany
-                ? UIBezierPath(roundedRect: bounds, cornerRadius: side * 0.25)
-                : UIBezierPath(ovalIn: bounds)
-            UIGraphicsGetCurrentContext()?.saveGState()
-            shape.addClip()
-            if let photo = avatarPhotos[account.userId] {
-                photo.draw(in: bounds)
-            } else {
-                UIColor(BipeColor.accentWash).setFill()
-                UIRectFill(bounds)
-                let initial = account.displayName.trimmingCharacters(in: CharacterSet(charactersIn: "@#!+ ")).first
-                    .map { String($0).uppercased() } ?? ""
-                let text = NSAttributedString(string: initial, attributes: [
-                    .font: UIFont.systemFont(ofSize: side * 0.42, weight: .semibold),
-                    .foregroundColor: UIColor(BipeColor.accentInk),
-                ])
-                let size = text.size()
-                text.draw(at: CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2))
-            }
-            UIGraphicsGetCurrentContext()?.restoreGState()
-            if account.hasUnread && !account.isCurrent {
-                UIColor(BipeColor.accentFill).setFill()
-                UIBezierPath(ovalIn: CGRect(x: side - 10, y: 0, width: 10, height: 10)).fill()
-            }
-        }
-        return image.withRenderingMode(.alwaysOriginal)
     }
 
     /// Spec account-switcher notes: each owner with its company accounts right after it; a company whose owner is not

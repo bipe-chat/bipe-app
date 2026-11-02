@@ -125,10 +125,11 @@ struct AppTabsView: View {
         .modifier(IncomingCallCover(session: session))
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
-                                   menu: { AccountMenu.make(model: model) { showsNewAccount = true } },
-                                   switcher: { AnyView(AccountSwitcherPopover(model: model, fallbackMedia: chatList.media) {
-                                       showsNewAccount = true
-                                   }) },
+                                   switcher: { bottomInset, close in
+                                       AnyView(AccountSwitcherPanel(model: model, fallbackMedia: chatList.media,
+                                                                    bottomInset: bottomInset,
+                                                                    onNewAccount: { showsNewAccount = true }, close: close))
+                                   },
                                    showsSwitchAction: model.accounts.count > 1))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
