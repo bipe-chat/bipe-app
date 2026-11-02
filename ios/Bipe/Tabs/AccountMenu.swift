@@ -16,7 +16,7 @@ enum AccountMenu {
         var groups: [[UIAction]] = []
         for account in model.accounts {
             let action = UIAction(title: account.displayName,
-                                  subtitle: account.ownerName.map(BipeStrings.accountCompanyOwner) ?? account.handle.map { "@\($0)" },
+                                  subtitle: account.ownerName.map(BipeStrings.accountCompanyOwner) ?? account.handleLine,
                                   image: model.menuAvatar(of: account),
                                   state: account.isCurrent ? .on : .off) { _ in
                 model.switchAccount(to: account.userId)
@@ -50,8 +50,8 @@ struct AccountRows: View {
                         Text(account.displayName).foregroundStyle(BipeColor.inkPrimary)
                         if let owner = account.ownerName {
                             Text(BipeStrings.accountCompanyOwner(owner)).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
-                        } else if let handle = account.handle {
-                            Text(verbatim: "@\(handle)").font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                        } else if let handle = account.handleLine {
+                            Text(verbatim: handle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                         }
                     }
                     Spacer()

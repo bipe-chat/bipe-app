@@ -24,6 +24,11 @@ struct AccountSummary: Identifiable, Equatable {
     var isLoaded = false
 
     var id: String { userId }
+
+    /// The @handle line under the name; none when the name already is the @handle.
+    var handleLine: String? {
+        handle.map { "@\($0)" }.flatMap { $0 == displayName ? nil : $0 }
+    }
 }
 
 /// Spec app-tabs (bipe-shared product/screens/app-tabs.json).
@@ -175,7 +180,9 @@ final class AppTabsModel: ObservableObject {
                                                   maxAccounts: BipeRegistries.maxPersonalAccounts)
         if let displayName = try? await session.client.displayName(), !displayName.isEmpty {
             profile.displayName = displayName
-            BipeAccountLabels.remember(displayName: displayName, for: userId)
+            if displayName != Self.localpart(of: userId) {
+                BipeAccountLabels.remember(displayName: displayName, for: userId)
+            }
         }
         var avatarKnown = false
         do {
@@ -212,6 +219,22 @@ final class AppTabsModel: ObservableObject {
         loaded.isLoaded = true
         profiles[userId] = loaded
         refresh()
+    }
+
+    /// Spec account-switcher: the display name, else the @handle, else the remembered name; never the Matrix ID.
+    /// Only Profile edit sets a display name, and Synapse starts one as the Matrix ID's localpart.
+    private static func title(of profile: Profile?, userId: String) -> String {
+        if let name = profile?.displayName, !name.isEmpty, name != localpart(of: userId) {
+            return name
+        }
+        if let handle = profile?.handle, !handle.isEmpty {
+            return "@\(handle)"
+        }
+        return AccountStartModel.name(of: userId)
+    }
+
+    private static func localpart(of userId: String) -> String? {
+        userId.dropFirst().split(separator: ":").first.map(String.init)
     }
 
     /// The account's photo or initial for the native account menu, in the shape of ADR 0132, with the unread dot.
@@ -272,7 +295,7 @@ final class AppTabsModel: ObservableObject {
         let summaries = sessionIds.map { userId in
             let profile = profiles[userId]
             return AccountSummary(userId: userId,
-                                  displayName: profile?.displayName.isEmpty == false ? profile!.displayName : AccountStartModel.name(of: userId),
+                                  displayName: Self.title(of: profile, userId: userId),
                                   handle: profile?.handle,
                                   avatarUrl: profile?.avatarUrl,
                                   isCurrent: userId == currentId,
