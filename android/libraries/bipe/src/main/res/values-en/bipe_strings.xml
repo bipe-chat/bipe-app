@@ -1101,7 +1101,7 @@
     <string name="bipe_privacy_presence_footer">If you turn this off, nobody sees when you are online or typing. You stop seeing it for others too.</string>
     <string name="bipe_privacy_read_receipts">Read receipts</string>
     <string name="bipe_privacy_read_receipts_value">Always on</string>
-    <string name="bipe_privacy_read_receipts_footer">On Bipe, people see when you read their messages, and you see when they read yours. You can\'t turn this off.</string>
+    <string name="bipe_privacy_read_receipts_footer">If you turn this off, nobody sees when you read their messages in a chat. You stop seeing when others read yours too. Groups always show who read.</string>
     <string name="bipe_privacy_who_can_read">Who can read your messages</string>
     <string name="bipe_privacy_your_data">Your data</string>
     <string name="bipe_privacy_export">Download my data</string>
@@ -1569,6 +1569,7 @@
     <string name="bipe_app_reaction_label">Reaction %1$s: %2$s</string>
     <string name="bipe_app_reaction_failed">Couldn\'t send the reaction. Try again.</string>
     <string name="bipe_app_receipt_sent">Sent</string>
+    <string name="bipe_app_receipt_delivered">Delivered</string>
     <string name="bipe_app_receipt_read">Read</string>
     <string name="bipe_app_receipt_read_by_title">Read by</string>
     <string name="bipe_app_receipt_read_by">Read by: %1$s</string>

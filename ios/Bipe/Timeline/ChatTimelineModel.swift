@@ -157,6 +157,8 @@ final class ChatTimelineModel: ObservableObject {
     static let historyPagesPerLoad = 5
     /// The tries of one page before the load stops: a fresh login can fail the first pages during the first sync.
     static let historyTries = 3
+    /// The pause after a failed load before the top of the list tries again.
+    static let historyRetry: Duration = .seconds(10)
     /// Spec message-reactions notes: the quick reactions, in this order.
     static let quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"]
     /// Spec message-reply openOriginal: at most 5 pages back.
@@ -262,6 +264,8 @@ final class ChatTimelineModel: ObservableObject {
     private var typingSentAt: Date?
     private var typingUserIds: [String] = []
     private var handleChangesTask: Task<Void, Never>?
+    /// Spec read-receipts: a new delivered ack for this room rebuilds the ticks.
+    private var deliveredChanges: AnyCancellable?
     private var lastReadEventId: String?
     private var noticeTask: Task<Void, Never>?
     /// The account's @ resolver (People names), set by the view before start. nil: names fall back to the cached @.
@@ -332,6 +336,11 @@ final class ChatTimelineModel: ObservableObject {
             inviterHint = greeting
         }
         await loadRoomFacts(room)
+        deliveredChanges = NotificationCenter.default.publisher(for: DeliveredLog.changed)
+            .compactMap { $0.userInfo?["roomId"] as? String }
+            .filter { [roomId] in $0 == roomId }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.rebuild() }
         // Action appear of spec composer: a saved newMessage draft fills the field.
         if draft.isEmpty, let saved = await room.newMessageDraft(threadRoot: threadRoot) {
             draft = saved
@@ -441,14 +450,20 @@ final class ChatTimelineModel: ObservableObject {
     // MARK: chat-timeline
 
     /// Action loadHistory: back-paginates 20 events at a time until the rows have historyFill more messages,
-    /// at most maxPages pages. A failed page is tried again. Does nothing at the start or while a load runs.
+    /// at most maxPages pages. A failed page is tried again. After a failed load it waits historyRetry, then
+    /// changes historyLoads so the top of the list tries again. Does nothing at the start or while a load runs.
     func loadHistory(maxPages: Int = ChatTimelineModel.historyPagesPerLoad) async {
         guard let timeline, !reachedStart, !isLoadingHistory else { return }
         isLoadingHistory = true
         defer { isLoadingHistory = false }
         let before = messages.count
         for _ in 0..<maxPages {
-            guard let hitStart = await paginateBackwards(timeline) else { return }
+            guard let hitStart = await paginateBackwards(timeline) else {
+                // Without a new historyLoads the header task keeps its id and history stops loading.
+                try? await Task.sleep(for: Self.historyRetry)
+                if !Task.isCancelled { historyLoads += 1 }
+                return
+            }
             if hitStart {
                 reachedStart = true
                 break
@@ -560,12 +575,13 @@ final class ChatTimelineModel: ObservableObject {
 
     // MARK: timeline-rows
 
-    /// Action markAsRead: a public read receipt (ADR 0050) for the newest event, while the newest rows are on screen.
+    /// Action markAsRead: a read receipt for the newest event, while the newest rows are on screen. Public, except in a
+    /// DM while the read receipts switch is off (ADR 0222).
     func markAsRead() async {
         guard let timeline, UIApplication.shared.applicationState == .active,
               let newest = await timeline.latestEventId(), newest != lastReadEventId else { return }
         lastReadEventId = newest
-        try? await timeline.markAsRead(receiptType: .read)
+        try? await timeline.markAsRead(receiptType: ReadReceiptSetting.receiptType(isDm: facts.isDm))
     }
 
     // MARK: message-actions
@@ -1167,6 +1183,9 @@ final class ChatTimelineModel: ObservableObject {
     }
 
     private func rebuild() {
+        // Spec read-receipts: delivered acks and the read receipts switch count in a DM only.
+        facts.deliveredEventIds = facts.isDm ? Set(DeliveredLog.eventIds(userId: session.userId, roomId: roomId)) : []
+        facts.showsOthersRead = !facts.isDm || ReadReceiptSetting.isOn
         let built = TimelineRowBuilder.rows(items: items, facts: facts)
         rows = built.rows
         if built.hitStart {

@@ -45,6 +45,7 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.BipeButton
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.invites.dateLabel
+import chat.bipe.app.invites.InviteShare
 import chat.bipe.app.invites.shareInvite
 import chat.bipe.app.people.PeopleScaffold
 import chat.bipe.shared.R
@@ -151,7 +152,7 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
     }
 
     /** Actions invite and replaceExpired: POST /v1/me/invites, then PUT the name. Returns the link to share. */
-    suspend fun invite(index: Int, name: String): String? {
+    suspend fun invite(index: Int, name: String): InviteShare? {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return null
         _state.value = _state.value.copy(phase = Phase.Creating(index))
@@ -164,7 +165,7 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
             created = null
             _state.value = _state.value.copy(phase = Phase.Ready, editing = null)
             load()
-            made.url
+            InviteShare(made.url, made.expiresAt)
         } catch (error: CancellationException) { throw error }
         catch (error: Exception) {
             val quota = error is BipeApiException.Server && error.code == BipeApiErrorCode.INVITE_QUOTA_EXHAUSTED
@@ -174,7 +175,12 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
     }
 
     /** Action resend: the link kept on this phone, or null when the invite was made on another phone. */
-    fun link(index: Int): String? = _state.value.slots.getOrNull(index)?.inviteId?.let(savedLinks::get)
+    fun link(index: Int): InviteShare? {
+        val id = _state.value.slots.getOrNull(index)?.inviteId ?: return null
+        val url = savedLinks[id] ?: return null
+        val invite = invites[id] ?: return null
+        return InviteShare(url, invite.expiresAt)
+    }
 
     /** Action openJoined: the DM with the person who joined. */
     fun dmRoomId(index: Int): String? {
@@ -182,8 +188,11 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
         return runCatching { session.client.getDmRoom(userId) }.getOrNull()?.id()
     }
 
-    /** The sheet showed. The first time it counts as the first ask. */
-    fun sheetShown() = memory.asked(sheet = true)
+    /** The sheet showed. The first time it counts as the first ask. It claims the prompt slot, so no chat list card shows for PROMPT_SLOT_HOURS (spec bring-people). */
+    fun sheetShown() {
+        memory.asked(sheet = true)
+        promptSlot.claim(BipeOnboardingPrompt.BRING_PEOPLE)
+    }
 
     /** Action notNow of the sheet: one decline. Shown only while no slot is filled. */
     fun notNow() {
@@ -208,7 +217,7 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
     fun reminderShown() = promptSlot.didShow(BipeOnboardingPrompt.BRING_PEOPLE_REMINDER)
 
     /** Action act: pending gives the kept link (null: the invite is on another phone); expired makes a new invite. */
-    suspend fun act(): String? {
+    suspend fun act(): InviteShare? {
         val reminder = _state.value.reminder ?: return null
         memory.asked()
         _state.value = _state.value.copy(reminder = null)

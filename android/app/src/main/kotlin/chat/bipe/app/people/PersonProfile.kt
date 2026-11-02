@@ -4,6 +4,7 @@
 
 package chat.bipe.app.people
 
+import chat.bipe.app.common.BipeToasts
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -107,7 +108,6 @@ class PersonProfileModel(
         val dmRoomId: String? = null,
         /** Spec savedNumbers (ADR 0191): the numbers the user saved for this person in the own address book. Empty: no row. */
         val savedNumbers: List<String> = emptyList(),
-        val notice: String? = null,
         val openingChat: Boolean = false,
     )
 
@@ -236,8 +236,9 @@ class PersonProfileModel(
         }
     }
 
-    fun showNotice(text: String?) {
-        _state.value = _state.value.copy(notice = text, openingChat = false)
+    fun showNotice(text: String) {
+        _state.value = _state.value.copy(openingChat = false)
+        BipeToasts.show(text)
     }
 }
 
@@ -269,8 +270,6 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
         title = if (fromDm) stringResource(R.string.bipe_dm_details_title) else state.person.displayName,
         testTag = BipeScreen.PERSON_PROFILE.id,
         onBack = onBack,
-        notice = state.notice,
-        onNoticeShown = { model.showNotice(null) },
     ) {
         when (state.phase) {
             PersonProfileModel.Phase.LOADING -> Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {

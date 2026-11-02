@@ -34,7 +34,7 @@ struct ChatListView: View {
     // Specs bring-people and bring-people-reminder (bipe-chat/bipe#752).
     @StateObject private var bringPeople: BringPeopleModel
     @State private var showsBringPeople = false
-    @State private var bringShare: ShareItem?
+    @State private var bringShare: BipeInviteShare?
     @StateObject private var requests: ChatRequestsModel
     @StateObject private var banner: RemoteBannerModel
     @Environment(\.scenePhase) private var scenePhase
@@ -189,7 +189,7 @@ struct ChatListView: View {
                             openInvites: { Task { try? await Task.sleep(for: .milliseconds(500)); showingInvites = true } })
         }
         .sheet(item: $bringShare) { item in
-            ShareSheet(items: [BipeStrings.invitesShareMessage(item.url.absoluteString)]).ignoresSafeArea()
+            ShareSheet(items: [item.message]).ignoresSafeArea()
         }
         .sheet(isPresented: $showsPinChange) {
             NavigationStack { PinChangeView(model: settings) }
@@ -347,7 +347,7 @@ struct ChatListView: View {
         if handle.showsPrompt { eligible.insert(.handle) }
         if bringPeople.reminder != nil { eligible.insert(.bringPeopleReminder) }
         let count = model.chats(in: .conversas, archived: false).count
-        for card in cards.visible(chatCount: count, handle: handle.currentHandle) {
+        for card in cards.visible(chatCount: count, handle: handle.currentHandle, bringPeopleShown: bringPeople.memory.sheetShown) {
             if let entry = BipeChatListPrompt(rawValue: card.rawValue) { eligible.insert(entry) }
         }
         return eligible
@@ -385,7 +385,7 @@ struct ChatListView: View {
         case .bringPeopleReminder:
             if let reminder = bringPeople.reminder {
                 BringPeopleReminderCard(model: bringPeople, reminder: reminder,
-                                        share: { bringShare = ShareItem(url: $0) },
+                                        share: { bringShare = $0 },
                                         openInvites: { showingInvites = true })
             }
         case .profile, .invite, .notes:
@@ -784,10 +784,10 @@ private struct FavouritesGrid<MenuContent: View>: View {
     @ViewBuilder let menu: (String) -> MenuContent
     @State private var gridWidth: CGFloat = 0
 
-    /// The avatar fills its column, so it follows the screen width, not Dynamic Type. Capped at 115 pt on wide screens.
+    /// The avatar is 80% of its column, so it follows the screen width, not Dynamic Type. Capped at 92 pt on wide screens.
     private var avatarSize: CGFloat {
         guard gridWidth > 0 else { return 72 }
-        return min((gridWidth - 2 * 12) / 3, 115)
+        return min((gridWidth - 2 * 12) / 3 * 0.8, 92)
     }
 
     var body: some View {
@@ -799,6 +799,8 @@ private struct FavouritesGrid<MenuContent: View>: View {
                     .menuIndicator(.hidden)
                     .menuStyle(.button)
                     .buttonStyle(.plain)
+                    // A Menu plays no haptic when a long press opens it; the list rows' .contextMenu does.
+                    .simultaneousGesture(LongPressGesture().onEnded { _ in BipeHaptics.play(.hold) })
                     .accessibilityActions { menu(chat.roomId) }
                     .accessibilityLabel(chat.isUnread ? chat.name + ", " + BipeStrings.chatUnreadState : chat.name)
             }

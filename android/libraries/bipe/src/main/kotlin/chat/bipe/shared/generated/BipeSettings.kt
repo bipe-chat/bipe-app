@@ -40,7 +40,7 @@ enum class BipeSettingsRow(
     PRIVACY_DISCOVERY("privacy.discovery", BipeSettingsRowKind.SWITCH, R.string.bipe_discovery_toggle, R.string.bipe_discovery_footer, null, null, null),
     PRIVACY_CONTACTS("privacy.contacts", BipeSettingsRowKind.LINK, R.string.bipe_contacts_title, null, null, null, null),
     PRIVACY_PRESENCE("privacy.presence", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_presence, R.string.bipe_privacy_presence_footer, null, null, null),
-    PRIVACY_READ_RECEIPTS("privacy.readReceipts", BipeSettingsRowKind.INFO, R.string.bipe_privacy_read_receipts, R.string.bipe_privacy_read_receipts_footer, null, null, null),
+    PRIVACY_READ_RECEIPTS("privacy.readReceipts", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_read_receipts, R.string.bipe_privacy_read_receipts_footer, null, null, null),
     PRIVACY_WHO_CAN_READ("privacy.whoCanRead", BipeSettingsRowKind.URL, R.string.bipe_privacy_who_can_read, null, null, "https://bipe.chat/quem-pode-ler/", "https://bipe.chat/en/who-can-read/"),
     PRIVACY_EXPORT("privacy.export", BipeSettingsRowKind.ACTION, R.string.bipe_privacy_export, R.string.bipe_privacy_export_footer, null, null, null),
     PRIVACY_WHAT_BIPE_KEEPS("privacy.whatBipeKeeps", BipeSettingsRowKind.URL, R.string.bipe_privacy_what_bipe_keeps, null, null, "https://bipe.chat/lgpd/", "https://bipe.chat/en/lgpd/"),

@@ -127,6 +127,7 @@ import chat.bipe.shared.generated.BipeChatListPrompt
 import chat.bipe.shared.generated.BipeOnboardingCard
 import chat.bipe.shared.generated.BipeOnboardingTarget
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.onboarding.BipeBringPeopleMemory
 import chat.bipe.shared.onboarding.BipePromptSlot
 import java.text.NumberFormat
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -588,7 +589,7 @@ fun ChatListScreen(
             val remoteShows = remoteBanner?.collectShows() == true
             val checkupShows = notificationCheckupShows(checkupClosed)
             val conversasCount = allChats.count { it.scope == ChatScope.CONVERSAS && !archiveMarkers.containsKey(it.roomId) }
-            val firstCards = cards.visible(doneCards, conversasCount, handleState.currentHandle)
+            val firstCards = cards.visible(doneCards, conversasCount, handleState.currentHandle, BipeBringPeopleMemory(context, model.session.userId).sheetShown)
             val eligible = buildSet {
                 addAll(prompts.keys)
                 if (remoteShows) add(BipeChatListPrompt.REMOTE_BANNER)

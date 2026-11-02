@@ -4,8 +4,8 @@
 
 package chat.bipe.app.people
 
+import chat.bipe.app.common.BipeToasts
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -151,7 +151,7 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
                 route.isDm,
                 route.otherUserId,
                 onSent = { message ->
-                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    BipeToasts.show(message)
                     navigation.pop()
                 },
                 onBack = navigation.pop,

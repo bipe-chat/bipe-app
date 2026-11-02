@@ -4,6 +4,7 @@
 
 package chat.bipe.app.timeline
 
+import chat.bipe.app.common.BipeToasts
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -64,6 +65,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import chat.bipe.app.tabs.HidesTabBar
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -151,6 +156,8 @@ fun ChatTimelineScreen(
     /** Spec chat-search openMessage (bipe-chat/bipe#671): the message to scroll to after the chat opens. */
     focusEventId: String? = null,
 ) {
+    // Spec app-tabs: the tab bar hides while a chat or thread is open.
+    HidesTabBar()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
@@ -489,7 +496,7 @@ fun ChatTimelineScreen(
                     }
                     item(key = "history") {
                         // Composed while the top of the list is on screen, again after each load and each change of the rows
-                        // (action loadHistory). After a failed load, the next change of the rows tries again.
+                        // (action loadHistory). After a failed load, the model changes historyLoads after a pause.
                         LaunchedEffect(rows.size, historyLoads) { model.loadHistory() }
                         if (isLoadingHistory && !reachedStart) {
                             Text(
@@ -576,18 +583,12 @@ fun ChatTimelineScreen(
                     else -> composerBar()
                 }
             }
-            ui.notice?.let { notice ->
-                Text(
-                    noticeText(notice, ui.noticeArg),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkPrimary,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 110.dp)
-                        .background(colors.surfaceRaised, CircleShape)
-                        .border(1.dp, colors.lineSubtle, CircleShape)
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                )
+            val noticeShown = ui.notice?.let { noticeText(it, ui.noticeArg) }
+            LaunchedEffect(ui.notice, ui.noticeArg) {
+                when {
+                    ui.notice == TimelineNotice.COPIED -> BipeToasts.copied(context)
+                    noticeShown != null -> BipeToasts.show(noticeShown)
+                }
             }
         }
     }
@@ -809,7 +810,13 @@ private fun ComposerBar(
         if (ui.replyingToRowId != null || ui.editing != null) runCatching { focus.requestFocus() }
     }
     val recording = composer.recording
-    Column(modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised).testTag(BipeScreen.COMPOSER.id)) {
+    // Spec composer: the input and its buttons float over the chat background; the bars that replace them stay solid.
+    val floats = composer.canPost && !microphoneDenied && !(recording != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (floats) Modifier else Modifier.background(colors.surfaceRaised))
+            .testTag(BipeScreen.COMPOSER.id),
+    ) {
         if (!composer.canPost) {
             Text(
                 stringResource(R.string.bipe_dm_no_permission_to_post),
@@ -828,39 +835,49 @@ private fun ComposerBar(
             VoiceRecordingBar(recording, onClose = onEndRecording)
             return@Column
         }
-        if (composer.suggestions.isNotEmpty()) {
-            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
-                items(composer.suggestions, key = { it.userId ?: "@room" }) { suggestion ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onPickSuggestion(suggestion) }.padding(horizontal = 16.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Avatar(suggestion.name, suggestion.avatarUrl, media, size = 32.dp)
-                        Column {
-                            Text(suggestion.name, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
-                            suggestion.handle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
+        val reply = ui.replyingTo
+        val editing = ui.editing
+        if (composer.suggestions.isNotEmpty() || reply != null || editing != null) {
+            Column(
+                modifier = Modifier
+                    .padding(start = 12.dp, end = 12.dp, top = 8.dp)
+                    .fillMaxWidth()
+                    .floatingSurface(RoundedCornerShape(20.dp), colors.surfaceRaised, colors.lineSubtle)
+                    .clip(RoundedCornerShape(20.dp)),
+            ) {
+                if (composer.suggestions.isNotEmpty()) {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
+                        items(composer.suggestions, key = { it.userId ?: "@room" }) { suggestion ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable { onPickSuggestion(suggestion) }.padding(horizontal = 16.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Avatar(suggestion.name, suggestion.avatarUrl, media, size = 32.dp)
+                                Column {
+                                    Text(suggestion.name, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                                    suggestion.handle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
+                                }
+                            }
                         }
                     }
                 }
+                if (reply != null) {
+                    ComposerContextBar(
+                        icon = PhosphorIcon.ARROW_BEND_UP_LEFT,
+                        title = stringResource(R.string.bipe_app_message_replying_to, reply.senderName.orEmpty()),
+                        preview = reply.preview,
+                        onClose = onCancelReply,
+                    )
+                } else if (editing != null) {
+                    ComposerContextBar(
+                        icon = PhosphorIcon.PENCIL_SIMPLE,
+                        title = stringResource(R.string.bipe_app_message_editing),
+                        preview = editing.originalText,
+                        onClose = onCancelEdit,
+                    )
+                }
             }
-        }
-        val reply = ui.replyingTo
-        val editing = ui.editing
-        if (reply != null) {
-            ComposerContextBar(
-                icon = PhosphorIcon.ARROW_BEND_UP_LEFT,
-                title = stringResource(R.string.bipe_app_message_replying_to, reply.senderName.orEmpty()),
-                preview = reply.preview,
-                onClose = onCancelReply,
-            )
-        } else if (editing != null) {
-            ComposerContextBar(
-                icon = PhosphorIcon.PENCIL_SIMPLE,
-                title = stringResource(R.string.bipe_app_message_editing),
-                preview = editing.originalText,
-                onClose = onCancelEdit,
-            )
         }
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -868,7 +885,7 @@ private fun ComposerBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (editing == null) {
-                IconButton(onClick = onAttach) {
+                IconButton(onClick = onAttach, modifier = Modifier.floatingSurface(CircleShape, colors.surfaceRaised, colors.lineSubtle)) {
                     Icon(
                         painterResource(PhosphorIcon.PAPERCLIP.drawable),
                         contentDescription = stringResource(R.string.bipe_app_composer_attach),
@@ -880,8 +897,8 @@ private fun ComposerBar(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .background(colors.surfaceSunken, RoundedCornerShape(20.dp))
-                    .padding(start = 14.dp, end = 6.dp),
+                    .floatingSurface(RoundedCornerShape(24.dp), colors.surfaceRaised, colors.lineSubtle)
+                    .padding(start = 16.dp, end = 6.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 BasicTextField(
@@ -893,7 +910,8 @@ private fun ComposerBar(
                     modifier = Modifier
                         .weight(1f)
                         .focusRequester(focus)
-                        .padding(vertical = 10.dp),
+                        // 22 dp line + 2 x 13 = 48 dp, the sticker button's height, so one line sits in the middle.
+                        .padding(vertical = 13.dp),
                     decorationBox = { inner ->
                         Box {
                             if (draft.isEmpty()) {
@@ -923,19 +941,19 @@ private fun ComposerBar(
             if (showsRecord) {
                 IconButton(
                     onClick = { microphone.launch(Manifest.permission.RECORD_AUDIO) },
-                    modifier = Modifier.background(colors.accentFill, CircleShape),
+                    modifier = Modifier.floatingSurface(CircleShape, colors.surfaceRaised, colors.lineSubtle),
                 ) {
                     Icon(
                         painterResource(PhosphorIcon.MICROPHONE.drawable),
                         contentDescription = stringResource(R.string.bipe_app_composer_record),
-                        tint = colors.inkOnAccent,
+                        tint = colors.glyphPrimary,
                     )
                 }
             } else {
                 IconButton(
                     onClick = onSend,
                     enabled = canSend,
-                    modifier = Modifier.background(if (canSend) colors.accentFill else colors.surfaceSunken, CircleShape),
+                    modifier = Modifier.floatingSurface(CircleShape, if (canSend) colors.accentFill else colors.surfaceRaised, colors.lineSubtle),
                 ) {
                     Icon(
                         painterResource(if (editing == null) PhosphorIcon.PAPER_PLANE_RIGHT.drawable else PhosphorIcon.CHECK.drawable),
@@ -947,6 +965,10 @@ private fun ComposerBar(
         }
     }
 }
+
+/** A control that floats over the chat: a solid surface with a hairline and a soft shadow (spec composer). */
+private fun Modifier.floatingSurface(shape: Shape, fill: Color, line: Color): Modifier =
+    shadow(6.dp, shape, clip = false).background(fill, shape).border(1.dp, line, shape)
 
 @Composable
 private fun ComposerContextBar(icon: PhosphorIcon, title: String, preview: String?, onClose: () -> Unit) {

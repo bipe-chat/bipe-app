@@ -21,7 +21,7 @@ object BipeDmPowerLevels {
     /** The m.room.power_levels content, sent with Room.sendStateEventRaw right after Client.createRoom. */
     fun content(userIds: List<String>): String {
         val users = userIds.toSortedSet().joinToString(",") { "${jsonString(it)}:$USERS_DEFAULT" }
-        return "{\"ban\":100,\"events\":{\"m.call.member\":0,\"m.reaction\":0,\"m.room.avatar\":100,\"m.room.canonical_alias\":100,\"m.room.encryption\":100,\"m.room.history_visibility\":100,\"m.room.join_rules\":100,\"m.room.message\":0,\"m.room.name\":100,\"m.room.pinned_events\":100,\"m.room.power_levels\":100,\"m.room.redaction\":0,\"m.room.server_acl\":100,\"m.room.tombstone\":100,\"m.room.topic\":100,\"org.matrix.msc3401.call.member\":0},\"events_default\":0,\"invite\":100,\"kick\":100,\"notifications\":{\"room\":100},\"redact\":100,\"state_default\":100,\"users\":{" + users + "},\"users_default\":0}"
+        return "{\"ban\":100,\"events\":{\"chat.bipe.assistant\":0,\"m.call.member\":0,\"m.reaction\":0,\"m.room.avatar\":100,\"m.room.canonical_alias\":100,\"m.room.encryption\":100,\"m.room.history_visibility\":100,\"m.room.join_rules\":100,\"m.room.message\":0,\"m.room.name\":100,\"m.room.pinned_events\":100,\"m.room.power_levels\":100,\"m.room.redaction\":0,\"m.room.server_acl\":100,\"m.room.tombstone\":100,\"m.room.topic\":100,\"org.matrix.msc3401.call.member\":0},\"events_default\":0,\"invite\":100,\"kick\":100,\"notifications\":{\"room\":100},\"redact\":100,\"state_default\":100,\"users\":{" + users + "},\"users_default\":0}"
     }
 
     private fun jsonString(value: String): String = buildString {

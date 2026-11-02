@@ -19,6 +19,7 @@ struct SettingsGroupView: View {
 
     @AppStorage(SettingsKeys.hideRequestPhotos) private var hideRequestPhotos = true
     @AppStorage(SettingsKeys.sharePresence) private var sharePresence = true
+    @AppStorage(SettingsKeys.readReceipts) private var readReceipts = true
     @AppStorage(SettingsKeys.showMedia) private var showMedia = ShowMedia.always.rawValue
     @AppStorage(Appearance.key) private var appearance = Appearance.system.rawValue
     @AppStorage(BipeSettingsRow.chatsMediaQuality.rawValue) private var mediaQuality = MediaQuality.standard.rawValue
@@ -118,15 +119,7 @@ struct SettingsGroupView: View {
             SignOutView(model: model, onSignedOut: onSignedOut)
                 .presentationDetents([.medium, .large])
         }
-        .overlay(alignment: .bottom) {
-            if let notice {
-                NoticeView(text: notice)
-                    .task {
-                        try? await Task.sleep(for: .seconds(2))
-                        self.notice = nil
-                    }
-            }
-        }
+        .toast($notice)
     }
 
     /// Sections in registry order, without hidden rows. A section whose rows are all hidden is left out.
@@ -194,6 +187,9 @@ struct SettingsGroupView: View {
             Toggle(isOn: $hideRequestPhotos) { SettingsRowLabel(title: row.title, footer: row.footer) }
         case .privacyPresence:
             Toggle(isOn: $sharePresence) { SettingsRowLabel(title: row.title, footer: row.footer) }
+        case .privacyReadReceipts:
+            // Spec read-receipts readReceiptsEnabled (ADR 0222): DMs only; groups always send and show receipts.
+            Toggle(isOn: $readReceipts) { SettingsRowLabel(title: row.title, footer: row.footer) }
         case .privacyDiscovery:
             // Spec contacts notes: the switch needs a linked number; without one the row says bipe_phone_not_linked.
             Toggle(isOn: Binding(get: { model.discoverableByPhone ?? false }, set: { isOn in
@@ -377,7 +373,6 @@ struct SettingsGroupView: View {
     /// The current value of a row, formatted (spec settings-group, SettingsRow.value).
     private func value(of row: BipeSettingsRow) -> String? {
         switch row {
-        case .privacyReadReceipts: BipeStrings.privacyReadReceiptsValue
         case .accountWaysBackStatus: model.waysBack?.summary
         case .privacyNumber: model.phone?.summary(number: model.phoneNumber)
         case .accountEmail: model.account.map { $0.email ?? BipeStrings.accountEmailNone }
@@ -491,6 +486,7 @@ private struct OldMessagesRow<Content: View>: View {
 enum SettingsKeys {
     static let hideRequestPhotos = "bipe.settings.hideRequestPhotos"
     static let sharePresence = "bipe.settings.sharePresence"
+    static let readReceipts = ReadReceiptSetting.key
     static let showMedia = "bipe.settings.showMedia"
 }
 
@@ -716,20 +712,4 @@ struct SafariPage: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
-}
-
-/// A short notice at the bottom of the screen.
-struct NoticeView: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.subheadline)
-            .foregroundStyle(BipeColor.inkOnAccent)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Capsule().fill(BipeColor.inkPrimary))
-            .padding(.bottom, 24)
-            .transition(.opacity)
-    }
 }

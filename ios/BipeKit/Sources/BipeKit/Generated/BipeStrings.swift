@@ -3626,6 +3626,8 @@ public enum BipeStrings {
 
     public static var appReceiptSent: String { NSLocalizedString("bipe_app_receipt_sent", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appReceiptDelivered: String { NSLocalizedString("bipe_app_receipt_delivered", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appReceiptRead: String { NSLocalizedString("bipe_app_receipt_read", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appReceiptReadByTitle: String { NSLocalizedString("bipe_app_receipt_read_by_title", tableName: "Bipe", bundle: .module, comment: "") }

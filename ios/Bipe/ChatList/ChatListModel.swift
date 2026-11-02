@@ -79,6 +79,8 @@ final class ChatListModel: ObservableObject {
     private var knownRows: [String: BipeRowActivity.Row] = [:]
     /// Rows take a newer message of the local timeline as their date and text (bipe-chat/bipe#592).
     private var rowActivity: RowActivityScanner?
+    /// Spec read-receipts: the delivered acks of this account, sent and received while the list runs.
+    let delivered: DeliveredAcks
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult?
     private var handles: [TaskHandle] = []
@@ -99,6 +101,7 @@ final class ChatListModel: ObservableObject {
         archive = ChatArchiveModel(session: session)
         media = MediaLoader(client: session.client)
         notes = NotesRoom(session: session)
+        delivered = DeliveredAcks(client: session.client, ownUserId: session.userId)
         clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in
             self?.refreshSummaries()
         }
@@ -107,6 +110,9 @@ final class ChatListModel: ObservableObject {
             self?.refreshSummaries()
         }
         rowActivity = RowActivityScanner(client: session.client, ownUserId: session.userId) { [weak self] in self?.refreshSummaries() }
+        rowActivity?.onDmIncoming = { [delivered] room, eventId, sender in
+            Task { await delivered.send(room: room, eventId: eventId, sender: sender) }
+        }
     }
 
     /// The chats of one scope, in room list order.
@@ -127,6 +133,8 @@ final class ChatListModel: ObservableObject {
 
     deinit {
         handles.forEach { $0.cancel() }
+        let delivered = delivered
+        Task { await delivered.stop() }
         summaryTask?.cancel()
         archiveTask?.cancel()
         favouriteTask?.cancel()
@@ -143,6 +151,7 @@ final class ChatListModel: ObservableObject {
         started = true
         await refreshNotes()
         await AssistantDraftsStore.shared.learnRoomId(session: session)
+        await delivered.start()
         guard let roomList = try? await session.syncService.roomListService().allRooms() else { return }
 
         let loading = RoomListLoadingStream()
@@ -183,6 +192,8 @@ final class ChatListModel: ObservableObject {
             refreshSummaries()
             // Cached rows publish first. The SDK hydrates latest events in the background, even offline.
             await updateSubscriptions()
+            // A first DM can come after start: the ack receiver binds to it (no work while one runs).
+            await delivered.start()
         }
     }
 
@@ -244,7 +255,7 @@ final class ChatListModel: ObservableObject {
                   let room = try? session.client.getRoom(roomId: roomId) else { throw ReadFailure.unavailable }
             let info = try await room.roomInfo()
             guard info.membership == .joined, !info.isSpace else { throw ReadFailure.unavailable }
-            if !unread { try await room.markAsRead(receiptType: .read) }
+            if !unread { try await room.markAsRead(receiptType: ReadReceiptSetting.receiptType(isDm: info.isDm)) }
             try await room.setUnreadFlag(newValue: unread)
             failedReadIntent = nil
             refreshSummaries()

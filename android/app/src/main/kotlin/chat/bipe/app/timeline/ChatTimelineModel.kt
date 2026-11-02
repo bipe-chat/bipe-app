@@ -57,7 +57,6 @@ import org.matrix.rustcomponents.sdk.EditedContent
 import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.TimelineItemContent
-import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.TaskHandle
 import org.matrix.rustcomponents.sdk.TextMessageContent
@@ -334,6 +333,8 @@ class ChatTimelineModel(
             val timeline = runCatching { room.timelineWithConfiguration(configuration) }.getOrNull() ?: return@launch
             this@ChatTimelineModel.timeline = timeline
             loadRoomFacts(room)
+            // Spec read-receipts: a new delivered ack for this room rebuilds the ticks.
+            launch { DeliveredLog.changes.collect { if (it == roomId) rebuild() } }
             // Action appear of spec composer: a saved newMessage draft fills the field.
             if (_draft.value.isEmpty()) room.newMessageDraft(threadRoot)?.let { _draft.value = it }
             if (!facts.isDm) launch { mentionDirectory.load(room, session.userId) }
@@ -447,7 +448,8 @@ class ChatTimelineModel(
 
     /**
      * Action loadHistory: back-paginates 20 events at a time until the rows have HISTORY_FILL more messages,
-     * at most HISTORY_PAGES_PER_LOAD pages. A failed page is tried again. Does nothing at the start or while a load runs.
+     * at most HISTORY_PAGES_PER_LOAD pages. A failed page is tried again. After a failed load it waits HISTORY_RETRY_MS,
+     * then changes historyLoads so the top of the list tries again. Does nothing at the start or while a load runs.
      */
     fun loadHistory() {
         scope.launch { paginate(HISTORY_PAGES_PER_LOAD) }
@@ -460,7 +462,12 @@ class ChatTimelineModel(
         try {
             val before = _messages.value.size
             for (page in 1..maxPages) {
-                val hitStart = paginateBackwards(timeline) ?: return
+                val hitStart = paginateBackwards(timeline) ?: run {
+                    // Without a new historyLoads the header effect keeps its keys and history stops loading.
+                    delay(HISTORY_RETRY_MS)
+                    _historyLoads.update { it + 1 }
+                    return
+                }
                 if (hitStart) {
                     _reachedStart.value = true
                     break
@@ -614,14 +621,17 @@ class ChatTimelineModel(
 
     // timeline-rows
 
-    /** Action markAsRead: a public read receipt (ADR 0050) for the newest event, while the newest rows are on screen. */
+    /**
+     * Action markAsRead: a read receipt for the newest event, while the newest rows are on screen. Public, except in a
+     * DM while the read receipts switch is off (ADR 0222).
+     */
     fun markAsRead() {
         val timeline = timeline ?: return
         scope.launch {
             val newest = timeline.latestEventId() ?: return@launch
             if (newest == lastReadEventId) return@launch
             lastReadEventId = newest
-            runCatching { timeline.markAsRead(ReceiptType.READ) }
+            runCatching { timeline.markAsRead(ReadReceiptSetting.receiptType(facts.isDm)) }
         }
     }
 
@@ -1116,6 +1126,11 @@ class ChatTimelineModel(
     }
 
     private fun rebuild() {
+        // Spec read-receipts: delivered acks and the read receipts switch count in a DM only.
+        facts = facts.copy(
+            deliveredEventIds = if (facts.isDm) DeliveredLog.eventIds(session.userId, roomId).toSet() else emptySet(),
+            showsOthersRead = !facts.isDm || ReadReceiptSetting.isOn,
+        )
         val built = TimelineRowBuilder.rows(items, facts, strings)
         _rows.value = built.rows
         _messages.value = built.rows.mapNotNull { it.message }
@@ -1352,6 +1367,8 @@ class ChatTimelineModel(
         const val HISTORY_PAGES_PER_LOAD = 5
         /** The tries of one page before the load stops: a fresh login can fail the first pages during the first sync. */
         const val HISTORY_TRIES = 3
+        /** The pause after a failed load before the top of the list tries again. */
+        const val HISTORY_RETRY_MS = 10_000L
         /** Spec message-reply openOriginal: at most 5 pages back. */
         const val ORIGINAL_SEARCH_PAGES = 5
         /** Spec typing-indicator: typing on at most once every 4 seconds. */

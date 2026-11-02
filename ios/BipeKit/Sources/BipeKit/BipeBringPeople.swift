@@ -67,6 +67,9 @@ public nonisolated struct BipeBringPeopleMemory {
         defaults.bool(forKey: prefix + "signedUp") && !defaults.bool(forKey: prefix + "sheetShown") && !stopped
     }
 
+    /// The sheet showed on this account (first time or from the first-list card).
+    public var sheetShown: Bool { defaults.bool(forKey: prefix + "sheetShown") }
+
     public var declines: Int { defaults.integer(forKey: prefix + "declines") }
 
     /// After `bringPeopleStopAfterDeclines` declines, no bring-people ask shows again on this account.

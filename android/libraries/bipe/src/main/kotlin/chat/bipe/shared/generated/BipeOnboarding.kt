@@ -92,7 +92,7 @@ enum class BipeOnboardingPrompt(
             PHOTO -> true
             PIN_REMINDER -> true
             OS_THEFT_PROTECTION -> true
-            BRING_PEOPLE -> false
+            BRING_PEOPLE -> true
             BRING_PEOPLE_REMINDER -> true
         }
 }
@@ -124,10 +124,12 @@ enum class BipeOnboardingCard(
     val text: List<BipeOnboardingButton>,
     /** True when the card shows only while the account has an @. */
     val needsHandle: Boolean,
+    /** True when the card shows only while the bring-people sheet never showed on this account. */
+    val needsNoBringPeople: Boolean,
 ) {
-    INVITE(R.string.bipe_first_card_invite_title, R.string.bipe_first_card_invite_body, BipeOnboardingButton(R.string.bipe_first_card_invite_action, BipeOnboardingTarget.SHARE_INVITE), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS)), false),
-    PROFILE(R.string.bipe_first_card_profile_title, R.string.bipe_first_card_profile_body, BipeOnboardingButton(R.string.bipe_app_share, BipeOnboardingTarget.SHARE_PROFILE), listOf(BipeOnboardingButton(R.string.bipe_profile_qr_action, BipeOnboardingTarget.PROFILE_QR), BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS)), true),
-    NOTES(R.string.bipe_self_chat_title, R.string.bipe_first_card_notes_body, BipeOnboardingButton(R.string.bipe_first_card_notes_action, BipeOnboardingTarget.NOTES), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS)), false),
+    INVITE(R.string.bipe_first_card_invite_title, R.string.bipe_first_card_invite_body, BipeOnboardingButton(R.string.bipe_first_card_invite_action, BipeOnboardingTarget.SHARE_INVITE), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS)), false, true),
+    PROFILE(R.string.bipe_first_card_profile_title, R.string.bipe_first_card_profile_body, BipeOnboardingButton(R.string.bipe_app_share, BipeOnboardingTarget.SHARE_PROFILE), listOf(BipeOnboardingButton(R.string.bipe_profile_qr_action, BipeOnboardingTarget.PROFILE_QR), BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS)), true, false),
+    NOTES(R.string.bipe_self_chat_title, R.string.bipe_first_card_notes_body, BipeOnboardingButton(R.string.bipe_first_card_notes_action, BipeOnboardingTarget.NOTES), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS)), false, false),
     ;
 }
 

@@ -13,6 +13,9 @@ final class RowActivityScanner {
     private let client: Client
     private let ownUserId: String
     private let onResults: @MainActor () -> Void
+    /// Spec read-receipts, ack send: a read found the newest event from the other person in a DM (event ID, sender).
+    /// Each read follows a room list change, so a DM gets at most one ack per batch.
+    var onDmIncoming: (@MainActor (Room, String, String) -> Void)?
     private var events: [String: [BipeRowActivity.LocalEvent]] = [:]
     private var scannedAt: [String: ContinuousClock.Instant] = [:]
     /// Rooms whose last read held an undecryptable message: its key can arrive later.
@@ -64,9 +67,11 @@ final class RowActivityScanner {
             var sinceUpdate = 0
             while let self, !Task.isCancelled, !self.queue.isEmpty {
                 let roomId = self.queue.removeFirst()
-                var found: (events: [BipeRowActivity.LocalEvent], undecryptable: Bool) = ([], false)
-                if let room = try? self.client.getRoom(roomId: roomId) { found = await Self.read(room, ownUserId: self.ownUserId) }
+                var found: Read = ([], false, nil)
+                let room = try? self.client.getRoom(roomId: roomId)
+                if let room { found = await Self.read(room, ownUserId: self.ownUserId) }
                 guard !Task.isCancelled else { return }
+                if let room, let incoming = found.dmIncoming { self.onDmIncoming?(room, incoming.eventId, incoming.sender) }
                 self.events[roomId] = found.events
                 let reads = found.undecryptable ? self.undecryptableReads[roomId, default: 0] + 1 : 0
                 self.undecryptableReads[roomId] = reads
@@ -100,10 +105,12 @@ final class RowActivityScanner {
         }
     }
 
+    private typealias Read = (events: [BipeRowActivity.LocalEvent], undecryptable: Bool, dmIncoming: (eventId: String, sender: String)?)
+
     /// The SDK sends the cached timeline items as the first update, before addListener returns (matrix-sdk-ffi
     /// Timeline.add_listener). No pagination, no network.
-    private static func read(_ room: Room, ownUserId: String) async -> (events: [BipeRowActivity.LocalEvent], undecryptable: Bool) {
-        guard let timeline = try? await room.timeline() else { return ([], false) }
+    private static func read(_ room: Room, ownUserId: String) async -> Read {
+        guard let timeline = try? await room.timeline() else { return ([], false, nil) }
         let stream = TimelineDiffStream()
         let handle = await timeline.addListener(listener: stream)
         defer { handle.cancel() }
@@ -122,7 +129,12 @@ final class RowActivityScanner {
             return BipeRowActivity.LocalEvent(timestampMs: event.timestamp, kind: kind(of: event.content, preview: preview),
                                               previewText: preview, isOwn: event.isOwn)
         }
-        return (local, events.contains { isUndecryptable($0.content) })
+        // Spec read-receipts: the newest event this device got from the other person in a DM.
+        var dmIncoming: (eventId: String, sender: String)?
+        if isDm, let newest = events.last(where: { !$0.isOwn }), case .eventId(let eventId) = newest.eventOrTransactionId {
+            dmIncoming = (eventId, newest.sender)
+        }
+        return (local, events.contains { isUndecryptable($0.content) }, dmIncoming)
     }
 
     private static func isUndecryptable(_ content: TimelineItemContent) -> Bool {
