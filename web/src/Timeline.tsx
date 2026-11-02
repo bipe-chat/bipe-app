@@ -20,7 +20,7 @@ import { arrowBendUpLeft, caretLeft, check, paperPlaneRight, pencilSimple, x } f
 import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
 import { ChatInfo } from './ChatInfo';
 import { useRoomFace } from './room-face';
-import { itemRow, TimelineRowView, type MessageRow, type RowHandlers } from './TimelineRows';
+import { itemRow, markRead, TimelineRowView, type MessageRow, type RowHandlers } from './TimelineRows';
 import { Avatar } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
 import { s } from './ui/i18n';
@@ -68,7 +68,25 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   }, [room]);
 
   const ownUserId = room.ownUserId();
-  const rows = items.map((i) => itemRow(i, ownUserId)).filter((r) => r !== undefined);
+  const face = useRoomFace(room);
+  // Group rows show the sender's name; DM rows do not. Until RoomInfo comes, no names.
+  const isDm = face.isDirect ?? true;
+  const itemRows = items.map((i) => itemRow(i, ownUserId)).filter((r) => r !== undefined);
+  // Read ticks only in a DM (spec read-receipts); groups keep the sent tick.
+  const rows = face.isDirect ? markRead(itemRows) : itemRows;
+  const typing = useTyping(room, ownUserId);
+  const lastTyping = useRef(0);
+  const typingNotice = (text: string) => {
+    // Spec typing-indicator: draftChanged; at most one notice every 4 s while typing, off when empty.
+    const now = Date.now();
+    if (text.trim() === '') {
+      lastTyping.current = 0;
+      room.typingNotice(false).catch(() => undefined);
+    } else if (now - lastTyping.current > 4000) {
+      lastTyping.current = now;
+      room.typingNotice(true).catch(() => undefined);
+    }
+  };
   const field = useRef<HTMLTextAreaElement>(null);
   const loadReply = useCallback((eventId: string) => {
     timeline.current?.fetchDetailsForEvent(eventId).catch(() => undefined);
@@ -94,10 +112,7 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
     },
     loadReply,
   };
-  const face = useRoomFace(room);
   const name = face.name;
-  // Group rows show the sender's name; DM rows do not. Until RoomInfo comes, no names.
-  const isDm = face.isDirect ?? true;
   const canSend = draft.trim() !== '';
 
   return (
@@ -170,6 +185,7 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
               {toast}
             </p>
           )}
+          {typing.length > 0 && <TypingLine names={typing} />}
           {mode && (
             <ComposerBar
               icon={mode.kind === 'edit' ? pencilSimple : arrowBendUpLeft}
@@ -194,6 +210,7 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
               if (!text || !t) return;
               setDraft('');
               setMode(undefined);
+              typingNotice('');
               const content = messageEventContentFromMarkdown(text);
               const sent =
                 mode?.kind === 'edit'
@@ -214,7 +231,10 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
                 value={draft}
                 placeholder={s('bipe_app_timeline_composer_placeholder')}
                 aria-label={s('bipe_app_timeline_composer_placeholder')}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  typingNotice(e.target.value);
+                }}
                 onKeyDown={(e) => {
                   // Return sends, Shift+Return makes a new line (desktop keyboards).
                   if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -320,6 +340,57 @@ function DeleteDialog({ onCancel, onDelete }: { onCancel: () => void; onDelete: 
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Spec typing-indicator: who is typing in this chat, by name (Room.subscribeToTypingNotifications).
+function useTyping(room: Room, ownUserId: string): string[] {
+  const [names, setNames] = useState<string[]>([]);
+  useEffect(() => {
+    let stopped = false;
+    const handle = room.subscribeToTypingNotifications({
+      call(ids) {
+        const others = ids.filter((id) => id !== ownUserId);
+        Promise.all(
+          others.map((id) =>
+            room
+              .memberDisplayName(id)
+              .catch(() => undefined)
+              .then((n) => n ?? id),
+          ),
+        ).then((list) => !stopped && setNames(list));
+      },
+    });
+    return () => {
+      stopped = true;
+      handle.cancel();
+    };
+  }, [room, ownUserId]);
+  return names;
+}
+
+// TypingLine (ChatTimelineView.swift): three calm dots and the names in caption ink.secondary, one line.
+// The dots stand still under reduced motion.
+function TypingLine({ names }: { names: string[] }) {
+  const text =
+    names.length === 1
+      ? s('bipe_app_typing_one', names[0])
+      : names.length === 2
+        ? s('bipe_app_typing_two', names[0], names[1])
+        : s('bipe_app_typing_many', names[0]);
+  return (
+    <div role="status" className="flex items-center gap-1.5 px-4 py-1">
+      <span aria-hidden className="flex gap-[3px]">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="size-[5px] rounded-full bg-glyph-secondary motion-safe:animate-pulse"
+            style={{ animationDelay: `${i * 200}ms` }}
+          />
+        ))}
+      </span>
+      <span className="truncate text-caption text-ink-secondary">{text}</span>
     </div>
   );
 }

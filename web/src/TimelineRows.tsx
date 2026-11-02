@@ -21,6 +21,7 @@ import {
 import {
   arrowBendUpLeft,
   check,
+  checks,
   clock,
   copy,
   dotsThree,
@@ -36,7 +37,7 @@ import { dayText, s, timeText } from './ui/i18n';
 import { Icon } from './ui/Icon';
 
 type Body = 'text' | 'media' | 'deleted' | 'undecryptable' | 'other';
-export type Send = 'sending' | 'failed' | 'sent';
+export type Send = 'sending' | 'failed' | 'sent' | 'read';
 export type ReplyQuoteData = {
   eventId: string;
   state: 'loading' | 'ready' | 'unavailable';
@@ -62,6 +63,8 @@ export type MessageRow = {
   canDelete: boolean;
   edited: boolean;
   reply?: ReplyQuoteData;
+  /** People other than the account whose read receipt sits on this event. */
+  readBy: string[];
 };
 export type Row =
   | MessageRow
@@ -154,7 +157,25 @@ export function itemRow(item: TimelineItem, ownUserId: string): Row | undefined 
     canDelete: event.isOwn && body !== 'deleted',
     edited,
     reply,
+    readBy: [...event.readReceipts.keys()].filter((id) => id !== ownUserId),
   };
+}
+
+/**
+ * Spec read-receipts (ADR 0222) in a DM: an own message is read when the other person's read receipt sits
+ * on it or on any newer event. The SDK keeps each person's newest receipt only, so the rows are walked
+ * from the newest back.
+ */
+export function markRead(rows: Row[]): Row[] {
+  let seen = false;
+  const out = [...rows];
+  for (let i = out.length - 1; i >= 0; i--) {
+    const row = out[i];
+    if (row.kind !== 'message') continue;
+    if (row.readBy.length > 0) seen = true;
+    if (seen && row.own && row.send === 'sent') out[i] = { ...row, send: 'read' };
+  }
+  return out;
 }
 
 export type RowHandlers = {
@@ -352,6 +373,9 @@ function Footer({ at, edited, send }: { at: number; edited: boolean; send?: Send
         </>
       )}
       {send === 'sent' && <Icon path={check} size={14} label={s('bipe_app_receipt_sent')} />}
+      {send === 'read' && (
+        <Icon path={checks} size={14} label={s('bipe_app_receipt_read')} className="text-accent-ink" />
+      )}
       {send === 'failed' && (
         <span className="flex items-center gap-1 text-trust-danger-ink">
           <Icon path={warningCircle} size={14} />
