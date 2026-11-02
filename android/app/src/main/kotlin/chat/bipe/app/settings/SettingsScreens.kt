@@ -112,6 +112,8 @@ import chat.bipe.shared.generated.BipeSettingsRowKind
 import chat.bipe.shared.generated.BipeSettingsSection
 import chat.bipe.shared.settings.BipeWhoCanMessage
 import chat.bipe.shared.settings.isShownOnAndroid
+import chat.bipe.app.linkcomputer.LinkComputerModel
+import chat.bipe.app.linkcomputer.LinkComputerScreen
 import kotlinx.coroutines.launch
 
 /** The screens that the settings stack pushes. */
@@ -127,6 +129,8 @@ sealed interface SettingsRoute {
     data object AppLockSetup : SettingsRoute
     data object AppLockOff : SettingsRoute
     data object LinkedDevices : SettingsRoute
+    /** Spec link-phone-show: Sua conta › Aparelhos › Trocar de celular is the only way in (bipe-chat/bipe#988). */
+    data object LinkPhone : SettingsRoute
     data object LinkedAccounts : SettingsRoute
     data object TheftProtection : SettingsRoute
     data object ProblemReport : SettingsRoute
@@ -212,6 +216,7 @@ fun SettingsHost(
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
+        SettingsRoute.LinkPhone -> LinkComputerScreen(model, onClose = pop, mode = LinkComputerModel.Mode.PHONE)
         SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
         SettingsRoute.TheftProtection -> TheftProtectionScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
@@ -407,6 +412,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_DELETE -> showsDelete = true
             BipeSettingsRow.ACCOUNT_CHANGE_PIN -> onOpen(SettingsRoute.PinChange)
             BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
+            BipeSettingsRow.ACCOUNT_LINK_PHONE -> onOpen(SettingsRoute.LinkPhone)
             BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS -> onOpen(SettingsRoute.LinkedAccounts)
             BipeSettingsRow.ACCOUNT_THEFT_PROTECTION -> onOpen(SettingsRoute.TheftProtection)
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)

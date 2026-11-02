@@ -282,7 +282,7 @@
 "bipe_invites_qr_footer" = "The other person points their phone camera at the code. After installing Bipe, they scan it again and the app opens with the invite filled in.";
 "bipe_invites_chat" = "Message";
 "bipe_error_invite_quota" = "You have no invites left.";
-"bipe_trust_title" = "Your profile and account";
+"bipe_trust_title" = "Trust profile";
 "bipe_trust_progress" = "Steps completed: %1$@ of %2$@";
 "bipe_trust_footer" = "Only you can see this profile.";
 "bipe_trust_step_account" = "Account";
@@ -1016,7 +1016,7 @@
 "bipe_app_link_computer_stopped" = "The link stopped. Nothing changed on your account.";
 "bipe_app_link_computer_scan_again" = "Scan again";
 "bipe_app_link_computer_finishing" = "Finishing on the computer…";
-"bipe_app_link_phone_action" = "Link another device";
+"bipe_app_link_phone_action" = "Move to a new phone";
 "bipe_app_link_phone_title" = "Link your new phone";
 "bipe_app_link_phone_body" = "On the new phone, open Bipe, tap I already have an account, then I have my old phone. Point its camera at this code.";
 "bipe_app_link_phone_never_share" = "Show this code only to your own new phone. Never send it to anyone.";
@@ -1698,7 +1698,7 @@
 "bipe_app_account_current_a11y" = "Current account: %1$@";
 "bipe_app_tab_you_switch_hint" = "Double-tap to switch account";
 "bipe_app_account_switcher_title" = "Accounts on this phone";
-"bipe_app_account_new" = "New account";
+"bipe_app_account_new" = "Add account";
 "bipe_app_profile_name_reserved" = "This name is reserved. Choose another.";
 "bipe_app_person_message" = "Send a message";
 "bipe_app_person_new_group" = "New group with this person";
@@ -2182,3 +2182,17 @@
 "bipe_notifications_invite_joined" = "When someone joins with my invite";
 "bipe_notifications_group_link_joined" = "When someone joins with my group link";
 "bipe_notifications_joins_footer" = "Applies to all your devices.";
+"bipe_web_signin_title" = "Use Bipe on your computer";
+"bipe_web_signin_step_open" = "Open Bipe on your phone.";
+"bipe_web_signin_step_path" = "Tap %1$@ › %2$@ › %3$@ › %4$@.";
+"bipe_web_signin_step_scan" = "Point your phone's camera at this code.";
+"bipe_web_signin_check_code_title" = "Type the number your phone shows";
+"bipe_web_signin_check_code_send" = "Confirm";
+"bipe_web_signin_approve" = "Approve on your phone to sign in.";
+"bipe_web_signin_keys" = "Getting your keys from your phone…";
+"bipe_web_signin_expired" = "The code expired. Making a new one…";
+"bipe_web_loading" = "Loading…";
+"bipe_web_timeline_undecryptable" = "This message can't be read on this computer yet.";
+"bipe_app_timeline_unsupported" = "This kind of message doesn't show here yet.";
+"bipe_app_upload_remove" = "Remove";
+"bipe_a11y_scroll_to_newest" = "Go to the newest messages";

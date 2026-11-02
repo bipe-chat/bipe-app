@@ -284,7 +284,7 @@
     <string name="bipe_invites_qr_footer">A pessoa aponta a câmera do celular para o código. Depois de instalar o Bipe, ela escaneia de novo e o app abre com o convite preenchido.</string>
     <string name="bipe_invites_chat">Conversar</string>
     <string name="bipe_error_invite_quota">Você não tem convites disponíveis.</string>
-    <string name="bipe_trust_title">Seu perfil e sua conta</string>
+    <string name="bipe_trust_title">Perfil de confiança</string>
     <string name="bipe_trust_progress">Etapas concluídas: %1$s de %2$s</string>
     <string name="bipe_trust_footer">Só você vê este perfil.</string>
     <string name="bipe_trust_step_account">Conta</string>
@@ -1018,7 +1018,7 @@
     <string name="bipe_app_link_computer_stopped">A conexão parou. Nada mudou na sua conta.</string>
     <string name="bipe_app_link_computer_scan_again">Ler de novo</string>
     <string name="bipe_app_link_computer_finishing">Terminando no computador…</string>
-    <string name="bipe_app_link_phone_action">Conectar outro aparelho</string>
+    <string name="bipe_app_link_phone_action">Trocar de celular</string>
     <string name="bipe_app_link_phone_title">Conecte o celular novo</string>
     <string name="bipe_app_link_phone_body">No celular novo, abra o Bipe, toque em Já tenho conta e depois em Estou com o celular antigo. Aponte a câmera dele para este código.</string>
     <string name="bipe_app_link_phone_never_share">Mostre este código só para o seu celular novo. Nunca mande para ninguém.</string>
@@ -1700,7 +1700,7 @@
     <string name="bipe_app_account_current_a11y">Conta atual: %1$s</string>
     <string name="bipe_app_tab_you_switch_hint">Toque duas vezes para trocar de conta</string>
     <string name="bipe_app_account_switcher_title">Contas neste celular</string>
-    <string name="bipe_app_account_new">Nova conta</string>
+    <string name="bipe_app_account_new">Adicionar conta</string>
     <string name="bipe_app_profile_name_reserved">Este nome é reservado. Escolha outro.</string>
     <string name="bipe_app_person_message">Mandar mensagem</string>
     <string name="bipe_app_person_new_group">Novo grupo com esta pessoa</string>
@@ -2184,4 +2184,18 @@
     <string name="bipe_notifications_invite_joined">Quando alguém entra com meu convite</string>
     <string name="bipe_notifications_group_link_joined">Quando alguém entra com meu link de grupo</string>
     <string name="bipe_notifications_joins_footer">Vale para todos os seus aparelhos.</string>
+    <string name="bipe_web_signin_title">Use o Bipe no computador</string>
+    <string name="bipe_web_signin_step_open">Abra o Bipe no celular.</string>
+    <string name="bipe_web_signin_step_path">Toque em %1$s › %2$s › %3$s › %4$s.</string>
+    <string name="bipe_web_signin_step_scan">Aponte a câmera do celular para este código.</string>
+    <string name="bipe_web_signin_check_code_title">Digite o número que aparece no celular</string>
+    <string name="bipe_web_signin_check_code_send">Confirmar</string>
+    <string name="bipe_web_signin_approve">Aprove no celular para entrar.</string>
+    <string name="bipe_web_signin_keys">Trazendo suas chaves do celular…</string>
+    <string name="bipe_web_signin_expired">O código venceu. Criando outro…</string>
+    <string name="bipe_web_loading">Carregando…</string>
+    <string name="bipe_web_timeline_undecryptable">Ainda não dá para ler esta mensagem neste computador.</string>
+    <string name="bipe_app_timeline_unsupported">Este tipo de mensagem ainda não aparece aqui.</string>
+    <string name="bipe_app_upload_remove">Remover</string>
+    <string name="bipe_a11y_scroll_to_newest">Ir para as mensagens mais novas</string>
 </resources>

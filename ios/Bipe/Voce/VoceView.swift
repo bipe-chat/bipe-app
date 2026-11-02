@@ -20,7 +20,6 @@ struct VoceView: View {
     @State private var path = NavigationPath()
     @State private var openingNotes = false
     @State private var notesFailed = false
-    @State private var showsLinkPhone = false
     @State private var govbrFlow: BipeGovbrFlow?
     private enum Destination: Hashable { case notes(String), invites, trust, myBookings, claim, yearRecap }
 
@@ -37,20 +36,17 @@ struct VoceView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                // Spec voce (bipe-chat/bipe#988): the profile row, then the trust card. No prompt cards here
+                // (bipe-chat/bipe#894): chat-list-prompt shows every ask.
                 if let account = model.accounts.first(where: \.isCurrent) {
-                    VoceHeader(account: account, media: chatList.media,
-                               openProfile: { path.append(SettingsRoute.group(.profile)) },
-                               openQr: { path.append(PeopleRoute.profileQr) })
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets())
-                    // Spec voce (bipe-chat/bipe#894): no prompt cards here; chat-list-prompt shows every ask.
-                }
-                // Spec voce (MZ decision 25 Oct 2026): no account rows; the Você tab switches (hold, double tap,
-                // VoiceOver action). Nova conta stays here (spec account-new).
-                Section {
-                    Button(action: onNewAccount) {
-                        IconLabel(icon: .plus, text: BipeStrings.appAccountNew, tint: BipeColor.accentInk)
+                    Section {
+                        NavigationLink(value: SettingsRoute.group(.profile)) {
+                            VoceProfileRow(account: account, media: chatList.media)
+                        }
+                        .accessibilityHint(BipeStrings.settingsProfile)
                     }
+                    TrustCardSection(profile: trust.profile(for: account), actions: trustActions,
+                                     openLadder: { path.append(Destination.trust) })
                 }
                 Section {
                     Button(action: openNotes) {
@@ -65,19 +61,11 @@ struct VoceView: View {
                         }
                     }
                     .disabled(openingNotes)
-                }
-                // Perfil de confiança after Anotações (ADR 0112, spec trust-card).
-                if let account = model.accounts.first(where: \.isCurrent) {
-                    TrustCardSection(profile: trust.profile(for: account), actions: trustActions,
-                                     openLadder: { path.append(Destination.trust) })
-                }
-                Section {
-                    NavigationLink(value: Destination.invites) {
-                        VoceTileLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
-                    }
-                    // Spec voce openLinkPhone: the only way into link-phone-show (ADR 0059).
-                    Button { showsLinkPhone = true } label: {
-                        VoceTileLabel(icon: .devices, text: BipeStrings.appLinkPhoneAction)
+                    // Spec voce: a personal account has Meus agendamentos after Anotações (agenda-my-bookings).
+                    if !model.currentIsCompany {
+                        NavigationLink(value: Destination.myBookings) {
+                            VoceTileLabel(icon: .clock, text: BipeStrings.agendaMyBookings)
+                        }
                     }
                     // Spec voce openYearRecap (ADR 0223): counted on this phone only.
                     NavigationLink(value: Destination.yearRecap) {
@@ -90,17 +78,32 @@ struct VoceView: View {
                             }
                         }
                     }
-                    // Spec voce: a personal account has Meus agendamentos above Configurações (agenda-my-bookings).
-                    if !model.currentIsCompany {
-                        NavigationLink(value: Destination.myBookings) {
-                            VoceTileLabel(icon: .clock, text: BipeStrings.agendaMyBookings)
-                        }
+                }
+                Section {
+                    NavigationLink(value: Destination.invites) {
+                        VoceTileLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
                     }
                 }
                 SettingsRootSection(model: settings)
+                // Spec voce (MZ, 2 Nov 2026): no account rows; the Você tab switches (hold, double tap, VoiceOver
+                // action). Adicionar conta is the last row, plain accent text (spec account-new).
+                Section {
+                    Button(action: onNewAccount) {
+                        Text(BipeStrings.appAccountNew).foregroundStyle(BipeColor.accentInk)
+                    }
+                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle(BipeStrings.tabYou)
+            .toolbar {
+                // Spec voce openQr: the profile QR code; share and copy live on that screen (profile-link).
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { path.append(PeopleRoute.profileQr) } label: {
+                        PhosphorIcon.qrCode.image.resizable().frame(width: 22, height: 22)
+                    }
+                    .accessibilityLabel(BipeStrings.profileQrAction)
+                }
+            }
             .settingsDestinations(model: settings) {
                 Task { await model.start.signOut(userId: chatList.session.userId, alreadyLoggedOut: true) }
             }
@@ -142,9 +145,6 @@ struct VoceView: View {
             GovbrVerifyView(flow: flow, onVerified: { level in
                 trust.govbrVerified(level: level, userId: chatList.session.userId)
             }, close: { govbrFlow = nil })
-        }
-        .fullScreenCover(isPresented: $showsLinkPhone) {
-            LinkComputerView(settings: settings, mode: .phone)
         }
         .alert(BipeStrings.selfChatError, isPresented: $notesFailed) {
             Button(BipeStrings.appRetry, action: openNotes)
@@ -211,57 +211,23 @@ private struct VoceTileLabel: View {
     }
 }
 
-private struct VoceHeader: View {
+/// Spec voce profile row (bipe-chat/bipe#988): avatar, name and @ in one full-width row, as the iPhone's account row.
+private struct VoceProfileRow: View {
     let account: AccountSummary
     let media: MediaLoader
-    let openProfile: () -> Void
-    let openQr: () -> Void
+    @ScaledMetric(relativeTo: .title3) private var side: CGFloat = 60
 
     var body: some View {
-        VStack(spacing: 12) {
-            Button(action: openProfile) {
-                VStack(spacing: 6) {
-                    AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 96,
-                               userId: account.userId, isCompany: account.isCompany)
-                        .padding(.bottom, 6)
-                    Text(account.displayName).font(.title2.bold()).foregroundStyle(BipeColor.inkPrimary)
-                    if let handle = account.handleLine {
-                        Text(verbatim: handle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
-                    }
-                    // Spec voce: the visible way into Seu perfil, as the iPhone's account row.
-                    HStack(spacing: 4) {
-                        Text(BipeStrings.settingsProfile)
-                        PhosphorIcon.caretRight.image.resizable().frame(width: 12, height: 12)
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.accentInk)
-                    .padding(.top, 2)
+        HStack(spacing: 14) {
+            AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: side,
+                       userId: account.userId, isCompany: account.isCompany)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(account.displayName).font(.title3.weight(.semibold)).foregroundStyle(BipeColor.inkPrimary)
+                if let handle = account.handleLine {
+                    Text(verbatim: handle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                 }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(BipeStrings.settingsProfile)
-            // QR and Compartilhar perfil side by side, as the system's bordered buttons.
-            HStack(spacing: 12) {
-                Button(action: openQr) {
-                    Label { Text(BipeStrings.profileQrAction) } icon: {
-                        PhosphorIcon.qrCode.image.resizable().frame(width: 18, height: 18)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                if let handle = account.handle, let url = URL(string: "https://bipe.chat/@\(handle)") {
-                    ShareLink(item: url) {
-                        Label { Text(BipeStrings.profileShare) } icon: {
-                            PhosphorIcon.shareNetwork.image.resizable().frame(width: 18, height: 18)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-            }
-            .buttonStyle(.bipeBordered)
-            .controlSize(.large)
-            .labelStyle(.titleAndIcon)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
     }
 }
