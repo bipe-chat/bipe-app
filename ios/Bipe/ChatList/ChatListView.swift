@@ -794,6 +794,8 @@ private struct FavouritesGrid<MenuContent: View>: View {
                     .menuIndicator(.hidden)
                     .menuStyle(.button)
                     .buttonStyle(.plain)
+                    // A Menu plays no haptic when a long press opens it; the list rows' .contextMenu does.
+                    .simultaneousGesture(LongPressGesture().onEnded { _ in BipeHaptics.play(.hold) })
                     .accessibilityActions { menu(chat.roomId) }
                     .accessibilityLabel(chat.isUnread ? chat.name + ", " + BipeStrings.chatUnreadState : chat.name)
             }

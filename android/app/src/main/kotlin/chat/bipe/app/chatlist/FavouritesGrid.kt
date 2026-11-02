@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -31,7 +32,9 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.bipeHaptic
 import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeHaptic
 
 /** Spec chat-list favourites: large avatars, three per line, the name under each. */
 @Composable
@@ -59,12 +62,13 @@ fun FavouritesGrid(
 private fun FavouriteCell(chat: ChatSummary, media: MediaLoader, ownerId: String, commands: ChatRowCommands, modifier: Modifier, onOpen: () -> Unit) {
     val colors = BipeTheme.colors
     val menu = rememberChatRowMenu(ownerId, chat.roomId)
+    val view = LocalView.current
     val unread = stringResource(R.string.bipe_chat_unread_state)
     val cellLabel = if (chat.isUnread) "${chat.name}, $unread" else chat.name
     Box(modifier) {
         Column(
             Modifier.fillMaxWidth()
-                .combinedClickable(onClick = onOpen, onLongClick = { menu.value = true }, onLongClickLabel = stringResource(R.string.bipe_chat_actions))
+                .combinedClickable(onClick = onOpen, onLongClick = { view.bipeHaptic(BipeHaptic.Hold); menu.value = true }, onLongClickLabel = stringResource(R.string.bipe_chat_actions))
                 .chatRowSemantics(chat, commands, menu)
                 .semantics(mergeDescendants = true) { contentDescription = cellLabel }
                 .padding(vertical = 4.dp),
