@@ -36,8 +36,11 @@ struct ChatSummary: Identifiable, Equatable {
 
     /// ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test.
     var scope: ChatScope { isDm ? .conversas : .grupos }
-    /// Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only.
-    var isOfficial: Bool { isDm && BipeOfficialAccounts.isOfficial(peerUserId) }
+    /// The account's news room (NewsRoomMark, bipe-chat/bipe#978).
+    var isNewsRoom = false
+
+    /// Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only, or the news room.
+    var isOfficial: Bool { isNewsRoom || (isDm && BipeOfficialAccounts.isOfficial(peerUserId)) }
 }
 
 /// State scope of spec chat-list.
@@ -434,7 +437,9 @@ final class ChatListModel: ObservableObject {
             if info.isPublic == true, case .worldReadable = info.historyVisibility { return nil }
         }
         let peer = info.isDm ? info.heroes.first(where: { $0.userId != ownUserId }) : nil
-        let name = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName,
+        // Spec chat-list news room mark: the app-language name, not the room's Portuguese m.room.name.
+        let isNewsRoom = NewsRoomMark.roomId(for: ownUserId) == info.id
+        let name = isNewsRoom ? BipeStrings.newsRoomName : BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName,
             peerName: peer?.displayName, peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
             dmRoomName: info.isDm ? info.rawName : nil,
             groupHeroes: ChatTimelineModel.groupHeroes(of: info, ownUserId: ownUserId))
@@ -454,6 +459,7 @@ final class ChatListModel: ObservableObject {
                            isMarkedUnread: info.isMarkedUnread,
                            isLowPriority: info.isLowPriority,
                            isFavourite: info.isFavourite,
-                           latestIncomingMs: latestIncomingMs)
+                           latestIncomingMs: latestIncomingMs,
+                           isNewsRoom: isNewsRoom)
     }
 }

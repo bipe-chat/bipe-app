@@ -276,8 +276,20 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         ),
     )
 
-    private suspend fun summaries(rooms: List<Room>): List<ChatRequestSummary> =
-        rooms.mapNotNull { summary(it) }.filter { !it.isDm }.sortedByDescending { it.invitedAt ?: 0 }
+    private suspend fun summaries(rooms: List<Room>): List<ChatRequestSummary> {
+        val visible = mutableListOf<ChatRequestSummary>()
+        for (room in rooms) {
+            val invite = summary(room) ?: continue
+            if (invite.isDm) continue
+            // Group invites have no invite pairs: only an official inviter joins by itself there.
+            if (BipeInviteTrust.acceptsAutomatically(invite.isDm, invite.inviterId, false, emptySet())) {
+                if (invite.roomId in _pending.value) continue
+                if (run(invite.roomId) { it.join() }) continue
+            }
+            visible += invite
+        }
+        return visible.sortedByDescending { it.invitedAt ?: 0 }
+    }
 
     private suspend fun summary(room: Room): ChatRequestSummary? {
         val info = runCatching { room.roomInfo() }.getOrNull() ?: return null
