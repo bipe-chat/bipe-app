@@ -32,6 +32,13 @@ public nonisolated struct BipePromptSlot {
         defaults.set(now, forKey: sinceKey)
     }
 
+    /// Call when `prompt` opens and must hold the slot whatever holds it now (spec bring-people: the sheet).
+    public func claim(_ prompt: BipeOnboardingPrompt, now: Date = Date()) {
+        guard prompt.usesSlot else { return }
+        defaults.set(prompt.rawValue, forKey: holderKey)
+        defaults.set(now, forKey: sinceKey)
+    }
+
     /// Spec chat-list-prompt (bipe-chat/bipe#894): the one card of the chat list, from the entries whose condition holds.
     public func chatListCard(eligible: Set<BipeChatListPrompt>, now: Date = Date()) -> BipeChatListPrompt? {
         Self.chatListCard(eligible: eligible, holder: defaults.string(forKey: holderKey),
