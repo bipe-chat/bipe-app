@@ -78,7 +78,16 @@ struct AppTabsView: View {
             Tab(value: AppTabsModel.Tab.voce) {
                 VoceView(model: model, chatList: chatList, api: api, onNewAccount: { showsNewAccount = true })
             } label: {
-                Label(BipeStrings.tabYou, systemImage: "person.crop.circle")
+                // The current account's photo or initial (MZ, 2 Nov 2026); the generic person until it loads.
+                Label {
+                    Text(BipeStrings.tabYou)
+                } icon: {
+                    if let icon = model.voceIcon {
+                        Image(uiImage: icon).renderingMode(.original)
+                    } else {
+                        Image(systemName: "person.crop.circle")
+                    }
+                }
             }
             // The other-account dot (ADR 0135), as the system tab badge.
             .badge(model.otherAccountUnread ? Text("•") : nil)
