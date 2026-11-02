@@ -5023,4 +5023,34 @@ public enum BipeStrings {
     public static var notificationsGroupLinkJoined: String { NSLocalizedString("bipe_notifications_group_link_joined", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var notificationsJoinsFooter: String { NSLocalizedString("bipe_notifications_joins_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninTitle: String { NSLocalizedString("bipe_web_signin_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninStepOpen: String { NSLocalizedString("bipe_web_signin_step_open", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func webSigninStepPath(_ p1: String, _ p2: String, _ p3: String, _ p4: String) -> String {
+        String(format: NSLocalizedString("bipe_web_signin_step_path", tableName: "Bipe", bundle: .module, comment: ""), p1, p2, p3, p4)
+    }
+
+    public static var webSigninStepScan: String { NSLocalizedString("bipe_web_signin_step_scan", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninCheckCodeTitle: String { NSLocalizedString("bipe_web_signin_check_code_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninCheckCodeSend: String { NSLocalizedString("bipe_web_signin_check_code_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninApprove: String { NSLocalizedString("bipe_web_signin_approve", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninKeys: String { NSLocalizedString("bipe_web_signin_keys", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webSigninExpired: String { NSLocalizedString("bipe_web_signin_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webLoading: String { NSLocalizedString("bipe_web_loading", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webTimelineUndecryptable: String { NSLocalizedString("bipe_web_timeline_undecryptable", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appTimelineUnsupported: String { NSLocalizedString("bipe_app_timeline_unsupported", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUploadRemove: String { NSLocalizedString("bipe_app_upload_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var a11yScrollToNewest: String { NSLocalizedString("bipe_a11y_scroll_to_newest", tableName: "Bipe", bundle: .module, comment: "") }
 }
