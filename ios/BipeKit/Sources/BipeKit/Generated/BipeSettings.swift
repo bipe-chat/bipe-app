@@ -49,7 +49,7 @@ public enum BipeSettingsGroup: String, CaseIterable, Sendable {
         case .account: [BipeSettingsSection(key: "status", titleKey: "bipe_fallback_title", footerKey: nil, rows: [.accountWaysBackStatus]), BipeSettingsSection(key: "pin", titleKey: "bipe_account_pin_section", footerKey: "bipe_account_pin_footer", rows: [.accountChangePin, .accountAppLock, .accountBiometricUnlock]), BipeSettingsSection(key: "waysBack", titleKey: "bipe_account_ways_back", footerKey: nil, rows: [.accountEmail, .accountLinkedAccounts, .accountRecoveryKey]), BipeSettingsSection(key: "theft", titleKey: "bipe_theft_title", footerKey: nil, rows: [.accountTheftProtection]), BipeSettingsSection(key: "devices", titleKey: "bipe_account_devices", footerKey: nil, rows: [.accountOldMessages, .accountThisDevice, .accountLinkedDevices]), BipeSettingsSection(key: "accounts", titleKey: "bipe_account_on_device", footerKey: nil, rows: [.accountAdd]), BipeSettingsSection(key: "leave", titleKey: nil, footerKey: nil, rows: [.accountSignOut, .accountDelete])]
         case .notifications: []
         case .chats: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: nil, rows: [.chatsAppearance, .chatsColors, .chatsAccessibility, .chatsLanguage, .chatsMediaQuality, .chatsShowMedia, .chatsDataUse, .chatsStickerSuggestions, .chatsLiveLocation])]
-        case .help: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: "bipe_about_steward", rows: [.helpSupport, .helpDocs, .helpTerms, .helpPrivacy, .helpReportProblem, .helpLicenses])]
+        case .help: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: "bipe_about_steward", rows: [.helpSupport, .helpDocs, .helpTerms, .helpPrivacy, .helpReportProblem, .helpLicenses, .helpVersions])]
         }
     }
 }
@@ -119,6 +119,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
     case helpPrivacy = "help.privacy"
     case helpReportProblem = "help.reportProblem"
     case helpLicenses = "help.licenses"
+    case helpVersions = "help.versions"
 
     public var kind: BipeSettingsRowKind {
         switch self {
@@ -166,6 +167,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .helpPrivacy: .url
         case .helpReportProblem: .action
         case .helpLicenses: .link
+        case .helpVersions: .url
         }
     }
 
@@ -218,6 +220,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .helpPrivacy: "bipe_help_privacy"
         case .helpReportProblem: "bipe_help_report_problem"
         case .helpLicenses: "bipe_help_licenses"
+        case .helpVersions: "bipe_help_versions"
         }
     }
 
@@ -267,6 +270,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .helpPrivacy: nil
         case .helpReportProblem: nil
         case .helpLicenses: nil
+        case .helpVersions: nil
         }
     }
 
@@ -318,6 +322,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .helpPrivacy: nil
         case .helpReportProblem: nil
         case .helpLicenses: nil
+        case .helpVersions: nil
         }
     }
 
@@ -329,6 +334,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .helpDocs: URL(string: language == "pt" ? "https://bipe.chat/docs/" : "https://bipe.chat/en/docs/")
         case .helpTerms: URL(string: language == "pt" ? "https://bipe.chat/termos/" : "https://bipe.chat/en/terms/")
         case .helpPrivacy: URL(string: language == "pt" ? "https://bipe.chat/privacidade/" : "https://bipe.chat/en/privacy/")
+        case .helpVersions: URL(string: language == "pt" ? "https://bipe.chat/versoes/" : "https://bipe.chat/en/versions/")
         default: nil
         }
     }
@@ -342,6 +348,7 @@ public enum BipeSettingsUrl: String, CaseIterable, Sendable {
     case whoCanRead
     case lgpd
     case accessibility
+    case versions
 
     /// The page in the app language ("pt" or "en").
     public func url(language: String) -> URL? {
@@ -352,6 +359,7 @@ public enum BipeSettingsUrl: String, CaseIterable, Sendable {
         case .whoCanRead: URL(string: language == "pt" ? "https://bipe.chat/quem-pode-ler/" : "https://bipe.chat/en/who-can-read/")
         case .lgpd: URL(string: language == "pt" ? "https://bipe.chat/lgpd/" : "https://bipe.chat/en/lgpd/")
         case .accessibility: URL(string: language == "pt" ? "https://bipe.chat/acessibilidade/" : "https://bipe.chat/en/accessibility/")
+        case .versions: URL(string: language == "pt" ? "https://bipe.chat/versoes/" : "https://bipe.chat/en/versions/")
         }
     }
 }

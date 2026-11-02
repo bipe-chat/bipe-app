@@ -74,6 +74,7 @@ enum class BipeSettingsRow(
     HELP_PRIVACY("help.privacy", BipeSettingsRowKind.URL, R.string.bipe_help_privacy, null, null, "https://bipe.chat/privacidade/", "https://bipe.chat/en/privacy/"),
     HELP_REPORT_PROBLEM("help.reportProblem", BipeSettingsRowKind.ACTION, R.string.bipe_help_report_problem, null, null, null, null),
     HELP_LICENSES("help.licenses", BipeSettingsRowKind.LINK, R.string.bipe_help_licenses, null, null, null, null),
+    HELP_VERSIONS("help.versions", BipeSettingsRowKind.URL, R.string.bipe_help_versions, null, null, "https://bipe.chat/versoes/", "https://bipe.chat/en/versions/"),
     ;
 
     /** The page a url row opens, in the app language ("pt" or "en"). */
@@ -88,6 +89,7 @@ enum class BipeSettingsUrl(val pt: String, val en: String) {
     WHO_CAN_READ("https://bipe.chat/quem-pode-ler/", "https://bipe.chat/en/who-can-read/"),
     LGPD("https://bipe.chat/lgpd/", "https://bipe.chat/en/lgpd/"),
     ACCESSIBILITY("https://bipe.chat/acessibilidade/", "https://bipe.chat/en/accessibility/"),
+    VERSIONS("https://bipe.chat/versoes/", "https://bipe.chat/en/versions/"),
     ;
 
     /** The page in the app language ("pt" or "en"). */
@@ -121,7 +123,7 @@ enum class BipeSettingsGroup(
             ACCOUNT -> listOf(BipeSettingsSection("status", R.string.bipe_fallback_title, null, listOf(BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS)), BipeSettingsSection("pin", R.string.bipe_account_pin_section, R.string.bipe_account_pin_footer, listOf(BipeSettingsRow.ACCOUNT_CHANGE_PIN, BipeSettingsRow.ACCOUNT_APP_LOCK, BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK)), BipeSettingsSection("waysBack", R.string.bipe_account_ways_back, null, listOf(BipeSettingsRow.ACCOUNT_EMAIL, BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS, BipeSettingsRow.ACCOUNT_RECOVERY_KEY)), BipeSettingsSection("theft", R.string.bipe_theft_title, null, listOf(BipeSettingsRow.ACCOUNT_THEFT_PROTECTION)), BipeSettingsSection("devices", R.string.bipe_account_devices, null, listOf(BipeSettingsRow.ACCOUNT_OLD_MESSAGES, BipeSettingsRow.ACCOUNT_THIS_DEVICE, BipeSettingsRow.ACCOUNT_LINKED_DEVICES)), BipeSettingsSection("accounts", R.string.bipe_account_on_device, null, listOf(BipeSettingsRow.ACCOUNT_ADD)), BipeSettingsSection("leave", null, null, listOf(BipeSettingsRow.ACCOUNT_SIGN_OUT, BipeSettingsRow.ACCOUNT_DELETE)))
             NOTIFICATIONS -> listOf()
             CHATS -> listOf(BipeSettingsSection("main", null, null, listOf(BipeSettingsRow.CHATS_APPEARANCE, BipeSettingsRow.CHATS_COLORS, BipeSettingsRow.CHATS_ACCESSIBILITY, BipeSettingsRow.CHATS_LANGUAGE, BipeSettingsRow.CHATS_MEDIA_QUALITY, BipeSettingsRow.CHATS_SHOW_MEDIA, BipeSettingsRow.CHATS_DATA_USE, BipeSettingsRow.CHATS_STICKER_SUGGESTIONS, BipeSettingsRow.CHATS_LIVE_LOCATION)))
-            HELP -> listOf(BipeSettingsSection("main", null, R.string.bipe_about_steward, listOf(BipeSettingsRow.HELP_SUPPORT, BipeSettingsRow.HELP_DOCS, BipeSettingsRow.HELP_TERMS, BipeSettingsRow.HELP_PRIVACY, BipeSettingsRow.HELP_REPORT_PROBLEM, BipeSettingsRow.HELP_LICENSES)))
+            HELP -> listOf(BipeSettingsSection("main", null, R.string.bipe_about_steward, listOf(BipeSettingsRow.HELP_SUPPORT, BipeSettingsRow.HELP_DOCS, BipeSettingsRow.HELP_TERMS, BipeSettingsRow.HELP_PRIVACY, BipeSettingsRow.HELP_REPORT_PROBLEM, BipeSettingsRow.HELP_LICENSES, BipeSettingsRow.HELP_VERSIONS)))
         }
 
     companion object {
