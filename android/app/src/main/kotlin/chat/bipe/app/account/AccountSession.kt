@@ -80,9 +80,14 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
 
     /** Stops the sync and the room subscriptions and keeps everything on this phone (spec soft-logout). */
     suspend fun pause() {
+        if (deliveredAcks.isInitialized()) delivered.stop()
         roomSubscriptions.close()
         syncService.stop()
     }
+
+    /** Spec read-receipts: the delivered acks of this account (ADR 0222), for the chat list and the push handler. */
+    private val deliveredAcks = lazy { chat.bipe.app.timeline.DeliveredAcks(client, userId) }
+    val delivered: chat.bipe.app.timeline.DeliveredAcks by deliveredAcks
 
     /** The access token for bipe-api calls (spec handle-pick notes). Read each time: the SDK may refresh it. */
     fun accessToken(): String? = runCatching { client.session().accessToken }.getOrNull()
@@ -92,6 +97,7 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
 
     /** Signs out on the server and removes this account's session, store and hidden password from this phone. */
     suspend fun signOut(context: Context, sessionStore: SessionStore, vault: BipeAccountVault, alreadyLoggedOut: Boolean = false) {
+        if (deliveredAcks.isInitialized()) delivered.stop()
         roomSubscriptions.close()
         subscriptionCleanup.cancel()
         if (!alreadyLoggedOut) runCatching { client.logout() }

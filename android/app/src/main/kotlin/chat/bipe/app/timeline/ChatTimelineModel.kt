@@ -57,7 +57,6 @@ import org.matrix.rustcomponents.sdk.EditedContent
 import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.TimelineItemContent
-import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.TaskHandle
 import org.matrix.rustcomponents.sdk.TextMessageContent
@@ -334,6 +333,8 @@ class ChatTimelineModel(
             val timeline = runCatching { room.timelineWithConfiguration(configuration) }.getOrNull() ?: return@launch
             this@ChatTimelineModel.timeline = timeline
             loadRoomFacts(room)
+            // Spec read-receipts: a new delivered ack for this room rebuilds the ticks.
+            launch { DeliveredLog.changes.collect { if (it == roomId) rebuild() } }
             // Action appear of spec composer: a saved newMessage draft fills the field.
             if (_draft.value.isEmpty()) room.newMessageDraft(threadRoot)?.let { _draft.value = it }
             if (!facts.isDm) launch { mentionDirectory.load(room, session.userId) }
@@ -614,14 +615,17 @@ class ChatTimelineModel(
 
     // timeline-rows
 
-    /** Action markAsRead: a public read receipt (ADR 0050) for the newest event, while the newest rows are on screen. */
+    /**
+     * Action markAsRead: a read receipt for the newest event, while the newest rows are on screen. Public, except in a
+     * DM while the read receipts switch is off (ADR 0222).
+     */
     fun markAsRead() {
         val timeline = timeline ?: return
         scope.launch {
             val newest = timeline.latestEventId() ?: return@launch
             if (newest == lastReadEventId) return@launch
             lastReadEventId = newest
-            runCatching { timeline.markAsRead(ReceiptType.READ) }
+            runCatching { timeline.markAsRead(ReadReceiptSetting.receiptType(facts.isDm)) }
         }
     }
 
@@ -1116,6 +1120,11 @@ class ChatTimelineModel(
     }
 
     private fun rebuild() {
+        // Spec read-receipts: delivered acks and the read receipts switch count in a DM only.
+        facts = facts.copy(
+            deliveredEventIds = if (facts.isDm) DeliveredLog.eventIds(session.userId, roomId).toSet() else emptySet(),
+            showsOthersRead = !facts.isDm || ReadReceiptSetting.isOn,
+        )
         val built = TimelineRowBuilder.rows(items, facts, strings)
         _rows.value = built.rows
         _messages.value = built.rows.mapNotNull { it.message }

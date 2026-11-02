@@ -467,6 +467,11 @@ private fun MessageFooter(message: TimelineMessage, details: MessageDetails, onF
                 TickIcon(PhosphorIcon.CHECK, colors.inkSecondary, label)
                 if (receipt.showsLabel) Text(label, style = style, color = colors.inkSecondary, modifier = Modifier.clearAndSetSemantics {})
             }
+            MessageReceipt.Tick.DELIVERED -> {
+                val label = stringResource(R.string.bipe_app_receipt_delivered)
+                TickIcon(PhosphorIcon.CHECKS, colors.inkSecondary, label)
+                if (receipt.showsLabel) Text(label, style = style, color = colors.inkSecondary, modifier = Modifier.clearAndSetSemantics {})
+            }
             MessageReceipt.Tick.READ -> {
                 val label = stringResource(R.string.bipe_app_receipt_read)
                 TickIcon(PhosphorIcon.CHECKS, colors.accentInk, label)

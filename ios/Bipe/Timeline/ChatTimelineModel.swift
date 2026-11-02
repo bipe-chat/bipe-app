@@ -262,6 +262,8 @@ final class ChatTimelineModel: ObservableObject {
     private var typingSentAt: Date?
     private var typingUserIds: [String] = []
     private var handleChangesTask: Task<Void, Never>?
+    /// Spec read-receipts: a new delivered ack for this room rebuilds the ticks.
+    private var deliveredChanges: AnyCancellable?
     private var lastReadEventId: String?
     private var noticeTask: Task<Void, Never>?
     /// The account's @ resolver (People names), set by the view before start. nil: names fall back to the cached @.
@@ -332,6 +334,11 @@ final class ChatTimelineModel: ObservableObject {
             inviterHint = greeting
         }
         await loadRoomFacts(room)
+        deliveredChanges = NotificationCenter.default.publisher(for: DeliveredLog.changed)
+            .compactMap { $0.userInfo?["roomId"] as? String }
+            .filter { [roomId] in $0 == roomId }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.rebuild() }
         // Action appear of spec composer: a saved newMessage draft fills the field.
         if draft.isEmpty, let saved = await room.newMessageDraft(threadRoot: threadRoot) {
             draft = saved
@@ -560,12 +567,13 @@ final class ChatTimelineModel: ObservableObject {
 
     // MARK: timeline-rows
 
-    /// Action markAsRead: a public read receipt (ADR 0050) for the newest event, while the newest rows are on screen.
+    /// Action markAsRead: a read receipt for the newest event, while the newest rows are on screen. Public, except in a
+    /// DM while the read receipts switch is off (ADR 0222).
     func markAsRead() async {
         guard let timeline, UIApplication.shared.applicationState == .active,
               let newest = await timeline.latestEventId(), newest != lastReadEventId else { return }
         lastReadEventId = newest
-        try? await timeline.markAsRead(receiptType: .read)
+        try? await timeline.markAsRead(receiptType: ReadReceiptSetting.receiptType(isDm: facts.isDm))
     }
 
     // MARK: message-actions
@@ -1167,6 +1175,9 @@ final class ChatTimelineModel: ObservableObject {
     }
 
     private func rebuild() {
+        // Spec read-receipts: delivered acks and the read receipts switch count in a DM only.
+        facts.deliveredEventIds = facts.isDm ? Set(DeliveredLog.eventIds(userId: session.userId, roomId: roomId)) : []
+        facts.showsOthersRead = !facts.isDm || ReadReceiptSetting.isOn
         let built = TimelineRowBuilder.rows(items: items, facts: facts)
         rows = built.rows
         if built.hitStart {

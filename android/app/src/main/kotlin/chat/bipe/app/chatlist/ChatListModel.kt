@@ -112,7 +112,10 @@ class ChatListModel(
     /** One model belongs to one account session; absent previews must not erase a known time or text. */
     private val knownRows = mutableMapOf<String, BipeRowActivity.Row>()
     /** Rows take a newer message of the local timeline as their date and text (bipe-chat/bipe#592). */
-    private val rowActivity = RowActivityScanner(session.client, scope, ::rowPreview) { refreshSummaries() }
+    private val rowActivity = RowActivityScanner(session.client, scope, ::rowPreview) { refreshSummaries() }.also { scanner ->
+        // Spec read-receipts, ack send: the newest event from the other person of a DM, once per room list change.
+        scanner.onDmIncoming = { room, eventId, sender -> session.delivered.send(room, eventId, sender) }
+    }
     private val extraRoomIds = mutableSetOf<String>()
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult? = null
@@ -144,6 +147,7 @@ class ChatListModel(
         scope.launch {
             refreshNotes()
             AssistantDraftsStore.learnRoomId(null, session)
+            session.delivered.start()
             val roomList = runCatching { session.syncService.roomListService().allRooms() }.getOrNull() ?: return@launch
             val loading = Channel<RoomListLoadingState>(Channel.UNLIMITED)
             runCatching {
@@ -195,6 +199,8 @@ class ChatListModel(
                 refreshSummaries()
                 // Publish cached rows first; subscription enables SDK latest-event calculation and online catchup.
                 updateSubscriptions()
+                // A first DM can come after start: the ack receiver binds to it (no work while one runs).
+                session.delivered.start()
             }
         }
     }
@@ -272,7 +278,7 @@ class ChatListModel(
                 val room = session.client.getRoom(roomId) ?: error("room unavailable")
                 val info = room.roomInfo()
                 check(info.membership == org.matrix.rustcomponents.sdk.Membership.JOINED && !info.isSpace)
-                if (!unread) room.markAsRead(org.matrix.rustcomponents.sdk.ReceiptType.READ)
+                if (!unread) room.markAsRead(chat.bipe.app.timeline.ReadReceiptSetting.receiptType(info.isDm))
                 room.setUnreadFlag(unread)
                 failedReadIntent = null
                 refreshSummaries()

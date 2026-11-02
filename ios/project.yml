@@ -197,6 +197,9 @@ targets:
       - path: Bipe/Account/AccountStep.swift
       - path: Bipe/Account/SessionStore.swift
       - path: Bipe/Notifications/NotificationKeys.swift
+      # Spec read-receipts: the delivered ack on push (ADR 0222), over the call widget transport.
+      - path: Bipe/Calls/CallWidget.swift
+      - path: Bipe/Timeline/DeliveredAcks.swift
     info:
       path: SupportFiles/BipeNotificationService/Info.plist
       properties:

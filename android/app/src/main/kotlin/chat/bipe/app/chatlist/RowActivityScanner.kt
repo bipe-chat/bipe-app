@@ -15,6 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.Client
+import org.matrix.rustcomponents.sdk.EventOrTransactionId
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.TimelineDiff
@@ -45,6 +46,12 @@ class RowActivityScanner(
     private var retryJob: Job? = null
     private val queue = ArrayDeque<String>()
     private var worker: Job? = null
+
+    /**
+     * Spec read-receipts, ack send: a read found the newest event from the other person in a DM (room, event ID,
+     * sender). Each read follows a room list change, so a DM gets at most one ack per batch.
+     */
+    var onDmIncoming: ((Room, String, String) -> Unit)? = null
 
     /** The local events read for the room, or null when they were not read yet. Asks for a read when needed. */
     fun localEvents(roomId: String): List<BipeRowActivity.LocalEvent>? {
@@ -79,6 +86,7 @@ class RowActivityScanner(
                 val roomId = queue.removeFirst()
                 val room = runCatching { client.getRoom(roomId) }.getOrNull()
                 val found = room?.let { read(it) } ?: Read(emptyList(), false)
+                found.dmIncoming?.let { (eventId, sender) -> room?.let { onDmIncoming?.invoke(it, eventId, sender) } }
                 events[roomId] = found.events
                 val reads = if (found.undecryptable) (undecryptableReads[roomId] ?: 0) + 1 else 0
                 undecryptableReads[roomId] = reads
@@ -105,7 +113,12 @@ class RowActivityScanner(
         }
     }
 
-    private class Read(val events: List<BipeRowActivity.LocalEvent>, val undecryptable: Boolean)
+    private class Read(
+        val events: List<BipeRowActivity.LocalEvent>,
+        val undecryptable: Boolean,
+        /** DM only: the newest event from the other person (event ID, sender). */
+        val dmIncoming: Pair<String, String>? = null,
+    )
 
     /**
      * The SDK sends the cached timeline items as the first update, before addListener returns (matrix-sdk-ffi
@@ -137,7 +150,11 @@ class RowActivityScanner(
                     }
                     BipeRowActivity.LocalEvent(event.timestamp.toLong(), kind, text, event.isOwn)
                 }
-                Read(local, events.any { (it.content as? TimelineItemContent.MsgLike)?.content?.kind is MsgLikeKind.UnableToDecrypt })
+                // Spec read-receipts: the newest event this device got from the other person in a DM.
+                val dmIncoming = if (!isDm) null else events.lastOrNull { !it.isOwn }?.let { newest ->
+                    (newest.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId?.let { it to newest.sender }
+                }
+                Read(local, events.any { (it.content as? TimelineItemContent.MsgLike)?.content?.kind is MsgLikeKind.UnableToDecrypt }, dmIncoming)
             }
         }
     } catch (cancelled: CancellationException) {

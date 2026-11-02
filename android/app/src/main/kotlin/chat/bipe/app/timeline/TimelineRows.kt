@@ -121,7 +121,8 @@ data class MessageReceipt(
     /** Only the newest own message shows its tick label as text. */
     val showsLabel: Boolean,
 ) {
-    enum class Tick { SENDING, SENT, READ, FAILED }
+    /** DELIVERED, DM only: a device of the other person acked this event or a newer one (ADR 0222). */
+    enum class Tick { SENDING, SENT, DELIVERED, READ, FAILED }
 }
 
 /** Type ReceiptReader of spec read-receipts. */
@@ -145,6 +146,10 @@ data class RoomFacts(
     val roomMembers: Set<String> = emptySet(),
     /** Cached handle changes of the room members (BipeHandleChangeStore), oldest first. */
     val handleChanges: List<BipeHandleChange> = emptyList(),
+    /** DM only: the event IDs that a device of the other person acked (DeliveredLog, spec read-receipts). */
+    val deliveredEventIds: Set<String> = emptySet(),
+    /** False in a DM while the own read receipts switch is off: the read tick of the other person stays hidden. */
+    val showsOthersRead: Boolean = true,
 )
 
 /** Strings the builder puts into rows. */
@@ -191,11 +196,15 @@ object TimelineRowBuilder {
         val readUpToHere = linkedMapOf<String, Receipt>()
         val receipts = mutableMapOf<Int, MessageReceipt>()
         var newestOwnIndex: Int? = null
+        // A delivered ack covers this event and every older one (spec read-receipts notes).
+        var deliveredUpToHere = false
         for (index in items.indices.reversed()) {
             val event = items[index].asEvent() ?: continue
             for ((userId, receipt) in event.readReceipts) {
                 if (userId != facts.ownUserId && userId !in readUpToHere) readUpToHere[userId] = receipt
             }
+            val eventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
+            if (eventId != null && eventId in facts.deliveredEventIds) deliveredUpToHere = true
             if (!event.isOwn || !isShownMessage(event)) continue
             if (newestOwnIndex == null) newestOwnIndex = index
             val tick = when (event.localSendState) {
@@ -203,8 +212,19 @@ object TimelineRowBuilder {
                 is EventSendState.SendingFailed -> MessageReceipt.Tick.FAILED
                 else -> {
                     val othersInRoom = maxOf(1, facts.joinedMembers - 1)
-                    val isRead = if (facts.isDm) readUpToHere.isNotEmpty() else readUpToHere.size >= othersInRoom
-                    if (isRead) MessageReceipt.Tick.READ else MessageReceipt.Tick.SENT
+                    if (facts.isDm) {
+                        // Read wins over delivered; a hidden read still means the phone got it.
+                        val isRead = readUpToHere.isNotEmpty()
+                        when {
+                            isRead && facts.showsOthersRead -> MessageReceipt.Tick.READ
+                            isRead || deliveredUpToHere -> MessageReceipt.Tick.DELIVERED
+                            else -> MessageReceipt.Tick.SENT
+                        }
+                    } else if (readUpToHere.size >= othersInRoom) {
+                        MessageReceipt.Tick.READ
+                    } else {
+                        MessageReceipt.Tick.SENT
+                    }
                 }
             }
             receipts[index] = MessageReceipt(tick, readers(event.readReceipts), readers(readUpToHere), index == newestOwnIndex)
