@@ -2154,4 +2154,18 @@
     <string name="bipe_group_link_preview_title">Grupo %1$s no Bipe</string>
     <string name="bipe_group_link_preview_count">Pessoas no grupo: %1$s. Toque para entrar.</string>
     <string name="bipe_groups_service_name">Bipe Grupos</string>
+    <string name="bipe_year_recap_title">Seu ano no Bipe</string>
+    <string name="bipe_year_recap_row_subtitle">Seu %1$s em números, contado neste celular</string>
+    <string name="bipe_year_recap_card_title">Meu %1$s no Bipe</string>
+    <string name="bipe_year_recap_reading">Lendo as conversas deste celular: %1$s de %2$s</string>
+    <string name="bipe_year_recap_on_device">O Bipe fez essas contas neste celular. Nada sai daqui até você compartilhar.</string>
+    <string name="bipe_year_recap_messages">Mensagens enviadas</string>
+    <string name="bipe_year_recap_days">Dias em que você conversou</string>
+    <string name="bipe_year_recap_people">Pessoas com quem você conversou</string>
+    <string name="bipe_year_recap_top_chat">Conversa mais ativa</string>
+    <string name="bipe_year_recap_top_reaction">Reação favorita</string>
+    <string name="bipe_year_recap_longest_voice">Áudio mais longo</string>
+    <string name="bipe_year_recap_partial">Este celular não tem o histórico do ano inteiro, então os números contam só o que está nele.</string>
+    <string name="bipe_year_recap_empty">Você ainda não mandou mensagens em %1$s.</string>
+    <string name="bipe_year_recap_share_note">A imagem mostra só os números, sem nomes de pessoas ou conversas.</string>
 </resources>

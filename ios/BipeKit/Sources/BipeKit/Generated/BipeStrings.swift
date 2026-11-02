@@ -4971,4 +4971,40 @@ public enum BipeStrings {
     }
 
     public static var groupsServiceName: String { NSLocalizedString("bipe_groups_service_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapTitle: String { NSLocalizedString("bipe_year_recap_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func yearRecapRowSubtitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_year_recap_row_subtitle", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func yearRecapCardTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_year_recap_card_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func yearRecapReading(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_year_recap_reading", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var yearRecapOnDevice: String { NSLocalizedString("bipe_year_recap_on_device", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapMessages: String { NSLocalizedString("bipe_year_recap_messages", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapDays: String { NSLocalizedString("bipe_year_recap_days", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapPeople: String { NSLocalizedString("bipe_year_recap_people", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapTopChat: String { NSLocalizedString("bipe_year_recap_top_chat", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapTopReaction: String { NSLocalizedString("bipe_year_recap_top_reaction", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapLongestVoice: String { NSLocalizedString("bipe_year_recap_longest_voice", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var yearRecapPartial: String { NSLocalizedString("bipe_year_recap_partial", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func yearRecapEmpty(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_year_recap_empty", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var yearRecapShareNote: String { NSLocalizedString("bipe_year_recap_share_note", tableName: "Bipe", bundle: .module, comment: "") }
 }
