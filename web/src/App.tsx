@@ -111,6 +111,7 @@ function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m
       const handler = client.newLoginWithQrCodeHandler(oauthConfiguration());
       await handler.generate({
         onUpdate(state) {
+          console.info('[trace] qr progress', (state as { tag?: string }).tag ?? state);
           if (GeneratedQrLoginProgress.QrReady.instanceOf(state)) {
             setQr(state.inner.qrCode.toBytes());
             setStep('Scan this code with Bipe on your phone.');
@@ -172,9 +173,14 @@ function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m
             sent.current = true;
             setCheckSender(undefined);
             setStep('Approve on your phone.');
-            checkSender.send(n).catch((err: unknown) => {
-              if (!/\bCheckCodeAlreadySent\b/.test(describe(err))) onError(describe(err));
-            });
+            console.info('[trace] check code send', n);
+            checkSender
+              .send(n)
+              .then(() => console.info('[trace] check code send resolved'))
+              .catch((err: unknown) => {
+                console.warn('[trace] check code send failed', err);
+                if (!/\bCheckCodeAlreadySent\b/.test(describe(err))) onError(describe(err));
+              });
           }}
         >
           <input

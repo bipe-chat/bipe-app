@@ -7,6 +7,24 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import { App } from './App.tsx';
 
+// Spike trace (bipe-chat/bipe#900): the SDK writes no logs on wasm, so log every request it makes
+// with its status and ETag. A stalled QR sign-in then shows its last step in the console.
+const realFetch = window.fetch.bind(window);
+window.fetch = async (input, init) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+  const started = performance.now();
+  try {
+    const res = await realFetch(input, init);
+    const ms = Math.round(performance.now() - started);
+    console.info(`[trace] ${method} ${url} → ${res.status} etag=${res.headers.get('etag')} ${ms}ms`);
+    return res;
+  } catch (e) {
+    console.warn(`[trace] ${method} ${url} failed`, e);
+    throw e;
+  }
+};
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
