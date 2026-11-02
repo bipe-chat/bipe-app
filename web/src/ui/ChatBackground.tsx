@@ -10,6 +10,7 @@
 // TODO(bipe-shared): tools/gen.mjs writes BipeChatBackground for Swift and Kotlin only. Read a generated
 // web module here when it exists, and delete this copy.
 
+import { useSetting } from '../appearance';
 import { BipeMark } from './BipeMark';
 
 const blobOpacity = 0.85;
@@ -42,6 +43,16 @@ const blobLayers = blobs
   .join(', ');
 
 export function ChatBackground() {
+  // The Cores choice (spec app-colors pickBackground): marca, cor (chat.background alone) or liso
+  // (surface.base). Salada de frutas needs the fruit tile data, which the web does not have yet.
+  const option = useSetting('chatBackground');
+  if (option === 'cor' || option === 'liso')
+    return (
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 -z-10 ${option === 'cor' ? 'bg-chat-background' : 'bg-surface-base'}`}
+      />
+    );
   return (
     // The container query units (cqw, cqh) of the children measure this box.
     <div

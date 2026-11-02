@@ -30,7 +30,7 @@ import { NavBar } from './ui/List';
 import { Spinner } from './ui/Spinner';
 import { describe, normalize } from './util';
 
-type Person = { userId: string; name: string; avatarUrl?: string; handle?: string };
+export type Person = { userId: string; name: string; avatarUrl?: string; handle?: string };
 
 /** The DM content of registries dmPowerLevels for these people (BipeDmPowerLevels.content). */
 function dmPowerLevelsContent(userIds: string[]): string {
@@ -109,7 +109,7 @@ export async function openOrCreateDm(client: Client, peer: string): Promise<stri
 const refused = (e: unknown) => /forbidden|M_FORBIDDEN/i.test(describe(e));
 
 /** Known people from the DMs plus the user directory, filtered by the search. */
-function usePeople(chats: ChatSummary[], query: string): { people: Person[]; searching: boolean } {
+export function usePeople(chats: ChatSummary[], query: string): { people: Person[]; searching: boolean } {
   const client = useClient();
   const [found, setFound] = useState<Person[]>([]);
   const [searching, setSearching] = useState(false);
@@ -172,7 +172,7 @@ function usePeople(chats: ChatSummary[], query: string): { people: Person[]; sea
   return { people: [...all.values()], searching };
 }
 
-function SearchBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function SearchBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="mx-4 my-2 flex h-9 shrink-0 items-center gap-1.5 rounded-[10px] bg-surface-sunken px-2 text-ink-secondary">
       <Icon path={magnifyingGlass} size={18} />
@@ -189,7 +189,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (v: string) =
   );
 }
 
-function PersonRow({ person, picked, onClick }: { person: Person; picked?: boolean; onClick: () => void }) {
+export function PersonRow({ person, picked, onClick }: { person: Person; picked?: boolean; onClick: () => void }) {
   return (
     <li>
       <button
