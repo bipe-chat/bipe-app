@@ -11,6 +11,8 @@
 //        node tools/changelog.mjs --json [--ref <rev>] prints the builds as JSON for bipe-web, from the commit <rev>
 //                                                    (default HEAD), newest first
 //        node tools/changelog.mjs --check            checks every update file
+//        node tools/changelog.mjs --require <base>   fails when the commits since <base> change what a tester sees and
+//                                                    add no update file (CI on each pull request; PR_TITLE, PR_BODY)
 //        node tools/changelog.mjs --backfill <range> drafts update files from the commits in a git range
 //                                                    (for example builds/next/140..origin/main); review them
 // Node built-ins only.
@@ -279,6 +281,15 @@ export function draftUpdate({ subject, date, short, paths, build }) {
   return { id, text: `---\n${front.join('\n')}\n---\n\n**${headline}.**\n` };
 }
 
+/** Why a pull request needs an update file, or null. A PR body line `Changelog: none` opts out. */
+export function missingUpdate({ title = '', body = '', paths, added }) {
+  if (added.some((p) => p.startsWith(`${UPDATES}/`) && p.endsWith('.md'))) return null;
+  if (SKIP_SUBJECT.test(title) || /^changelog:\s*none\b/im.test(body)) return null;
+  const platforms = platformsOf(paths);
+  if (platforms.length === 0) return null;
+  return `this pull request changes ${platforms.join(' and ')} app code and adds no file in ${UPDATES}/`;
+}
+
 function backfill(root, range) {
   const { history, byCommit } = loadBuilds(root);
   const order = new Map(history.map((h, i) => [h.commit, i]));
@@ -317,6 +328,22 @@ if (isMain(import.meta.url)) {
   } else if (mode === '--backfill') {
     if (!arg) throw new Error('--backfill takes a git range, for example builds/next/140..origin/main');
     backfill(REPO_ROOT, arg);
+  } else if (mode === '--require') {
+    if (!arg) throw new Error('--require takes the base commit, for example origin/main');
+    const range = `${arg}...HEAD`;
+    const why = missingUpdate({
+      title: process.env.PR_TITLE,
+      body: process.env.PR_BODY,
+      paths: lines(git(REPO_ROOT, 'diff', '--name-only', range)),
+      added: lines(git(REPO_ROOT, 'diff', '--name-only', '--diff-filter=A', range)),
+    });
+    if (why) {
+      console.error(`changelog: ${why}.`);
+      console.error('Add one (changelog/README.md), or put the line "Changelog: none" in the PR description when a tester sees nothing.');
+      process.exitCode = 1;
+    } else {
+      console.log('changelog: ok');
+    }
   } else if (mode === '--json') {
     const ref = process.argv[3] === '--ref' ? process.argv[4] : 'HEAD';
     const loaded = loadBuilds(REPO_ROOT, ref);
@@ -329,7 +356,7 @@ if (isMain(import.meta.url)) {
     const updates = resolveBuilds(REPO_ROOT, readUpdates(REPO_ROOT).filter((u) => !u.error), loaded);
     process.stdout.write(renderChangelog(updates, loaded.list, { since }));
   } else {
-    console.error('usage: changelog.mjs [--since <build>] | --json [--ref <rev>] | --check | --backfill <git range>');
+    console.error('usage: changelog.mjs [--since <build>] | --json [--ref <rev>] | --check | --require <base> | --backfill <git range>');
     process.exitCode = 2;
   }
 }

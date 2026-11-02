@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildFor, builds, changelogJson, checkUpdates, draftUpdate, parseUpdate, updateProblems } from './changelog.mjs';
+import { buildFor, builds, changelogJson, checkUpdates, draftUpdate, missingUpdate, parseUpdate, updateProblems } from './changelog.mjs';
 import { REPO_ROOT } from './lib.mjs';
 
 const good = `---
@@ -70,6 +70,15 @@ test('JSON splits the headline from the detail, newest build first', () => {
   assert.deepEqual(json.map((b) => b.build), [360, 12]);
   assert.equal(json[0].updates[0].headline, 'Send stays on screen.');
   assert.equal(json[0].updates[0].detail, 'The keyboard no longer covers it.');
+});
+
+test('a pull request that changes app code needs an update file', () => {
+  const paths = ['ios/Bipe/Chat.swift', 'android/app/src/main/kotlin/A.kt'];
+  assert.match(missingUpdate({ title: 'Chat: scroll', paths, added: [] }), /ios and android/);
+  assert.equal(missingUpdate({ title: 'Chat: scroll', paths, added: ['changelog/updates/2026-11-02-pr380.md'] }), null);
+  assert.equal(missingUpdate({ title: 'Chat: scroll', body: 'Refactor.\n\nChangelog: none\n', paths, added: [] }), null);
+  assert.equal(missingUpdate({ title: 'Regenerate from bipe-shared#356', paths, added: [] }), null);
+  assert.equal(missingUpdate({ title: 'Docs', paths: ['docs/a.md', 'ios/BipeKit/Sources/BipeKit/Generated/A.swift'], added: [] }), null);
 });
 
 test('every update file in the repo is well formed', () => {
