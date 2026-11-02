@@ -18,7 +18,8 @@ import type { Latest } from './chat-model';
 import { mediaOf } from './TimelineMedia';
 import { locale, s } from './ui/i18n';
 
-function previewText(content: TimelineItemContent): string | undefined {
+/** The plain preview of a message (previewText on iOS); undefined for anything without one. */
+export function previewText(content: TimelineItemContent): string | undefined {
   if (!TimelineItemContent.MsgLike.instanceOf(content)) return undefined;
   const kind = content.inner.content.kind;
   if (MsgLikeKind.Message.instanceOf(kind)) {

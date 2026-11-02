@@ -6,110 +6,29 @@
 // (ChatTimelineView.swift, TimelineRowView.swift; specs chat-timeline, timeline-rows, composer).
 // The column is at most 760 px wide, centred, like the frame of ChatTimelineView.
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  EventSendState,
-  MsgLikeKind,
-  ProfileDetails,
+  EditedContent,
   TimelineDiff,
-  TimelineItemContent,
-  VirtualTimelineItem,
   messageEventContentFromMarkdown,
-  type EventOrTransactionId,
   type RoomLike as Room,
   type TaskHandleLike as TaskHandle,
   type TimelineLike as Timeline,
   type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
-import { caretLeft, check, clock, lockSimple, paperPlaneRight, smiley, trash, warningCircle } from './phosphor/icons';
+import { arrowBendUpLeft, caretLeft, check, paperPlaneRight, pencilSimple, x } from './phosphor/icons';
 import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
 import { ChatInfo } from './ChatInfo';
-import { pillsOf, QuickReactions, ReactionPills, type ReactionPill } from './Reactions';
 import { useRoomFace } from './room-face';
-import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
+import { itemRow, TimelineRowView, type MessageRow, type RowHandlers } from './TimelineRows';
 import { Avatar } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
-import { dayText, s, timeText } from './ui/i18n';
+import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import { applyDiffs, describe, type DiffVariants } from './util';
 
-type Body = 'text' | 'media' | 'deleted' | 'undecryptable' | 'other';
-type Send = 'sending' | 'failed' | 'sent';
-type Row =
-  | {
-      kind: 'message';
-      key: string;
-      who: string;
-      own: boolean;
-      at: number;
-      body: Body;
-      text: string;
-      media?: MediaInfo;
-      send?: Send;
-      itemId: EventOrTransactionId;
-      pills: ReactionPill[];
-      canReact: boolean;
-    }
-  | { kind: 'day'; key: string; at: number }
-  | { kind: 'readMarker'; key: string }
-  | { kind: 'start'; key: string };
-
-function itemRow(item: TimelineItem, ownUserId: string): Row | undefined {
-  const key = item.uniqueId().id;
-  const virtual = item.asVirtual();
-  if (virtual) {
-    if (VirtualTimelineItem.DateDivider.instanceOf(virtual)) return { kind: 'day', key, at: Number(virtual.inner.ts) };
-    if (VirtualTimelineItem.ReadMarker.instanceOf(virtual)) return { kind: 'readMarker', key };
-    if (VirtualTimelineItem.TimelineStart.instanceOf(virtual)) return { kind: 'start', key };
-    return undefined;
-  }
-  const event = item.asEvent();
-  // State and membership events have no row here yet (the apps show some as state lines).
-  if (!event || !TimelineItemContent.MsgLike.instanceOf(event.content)) return undefined;
-  const who = ProfileDetails.Ready.instanceOf(event.senderProfile)
-    ? (event.senderProfile.inner.displayName ?? event.sender)
-    : event.sender;
-  const kind = event.content.inner.content.kind;
-  let body: Body = 'other';
-  // TODO(string): '(event)' is spike text for a message kind this page does not draw (sticker, poll, ...).
-  let text = '(event)';
-  let media: MediaInfo | undefined;
-  if (MsgLikeKind.Message.instanceOf(kind)) {
-    media = mediaOf(kind.inner.content.msgType);
-    body = media ? 'media' : 'text';
-    text = kind.inner.content.body;
-  } else if (MsgLikeKind.UnableToDecrypt.instanceOf(kind)) {
-    body = 'undecryptable';
-    // TODO(string): bipe_app_timeline_undecryptable says "neste celular"; the web needs a computer variant.
-    text = 'Unable to decrypt this message.';
-  } else if (MsgLikeKind.Redacted.instanceOf(kind)) {
-    body = 'deleted';
-    text = event.isOwn ? s('bipe_app_message_deleted_own') : s('bipe_app_message_deleted');
-  }
-  let send: Send | undefined;
-  if (event.isOwn) {
-    const state = event.localSendState;
-    if (state && EventSendState.NotSentYet.instanceOf(state)) send = 'sending';
-    else if (state && EventSendState.SendingFailed.instanceOf(state)) send = 'failed';
-    else send = 'sent';
-  }
-  // Spec message-reactions: undecryptable, deleted and unsent own messages take no reactions.
-  const canReact = (body === 'text' || body === 'media' || body === 'other') && (send === undefined || send === 'sent');
-  return {
-    kind: 'message',
-    key,
-    who,
-    own: event.isOwn,
-    at: Number(event.timestamp),
-    body,
-    text,
-    media,
-    send,
-    itemId: event.eventOrTransactionId,
-    pills: pillsOf(event.content.inner.content.reactions, ownUserId),
-    canReact,
-  };
-}
+// The composer's mode (specs message-reply, message-edit): a reply bar or an edit bar above the field.
+type Mode = { kind: 'reply'; row: MessageRow } | { kind: 'edit'; row: MessageRow } | undefined;
 
 export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void }) {
   const [items, setItems] = useState<TimelineItem[]>([]);
@@ -119,6 +38,14 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   const [pending, setPending] = useState<File[]>();
   const [dropping, setDropping] = useState(false);
   const [showsInfo, setShowsInfo] = useState(false);
+  const [mode, setMode] = useState<Mode>();
+  const [deleting, setDeleting] = useState<MessageRow>();
+  const [toast, setToast] = useState('');
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(''), 2000);
+    return () => clearTimeout(timer);
+  }, [toast]);
   const timeline = useRef<Timeline>(undefined);
   const listener = useRef<TaskHandle>(undefined);
 
@@ -142,11 +69,30 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
 
   const ownUserId = room.ownUserId();
   const rows = items.map((i) => itemRow(i, ownUserId)).filter((r) => r !== undefined);
-  const react = (itemId: EventOrTransactionId, key: string) => {
-    timeline.current?.toggleReaction(itemId, key).catch((e: unknown) => {
-      console.warn('[trace] reaction failed', e);
-      setNote(s('bipe_app_reaction_failed'));
-    });
+  const field = useRef<HTMLTextAreaElement>(null);
+  const loadReply = useCallback((eventId: string) => {
+    timeline.current?.fetchDetailsForEvent(eventId).catch(() => undefined);
+  }, []);
+  const on: RowHandlers = {
+    react: (row, key) =>
+      timeline.current?.toggleReaction(row.itemId, key).catch((e: unknown) => {
+        console.warn('[trace] reaction failed', e);
+        setNote(s('bipe_app_reaction_failed'));
+      }),
+    reply: (row) => {
+      setMode({ kind: 'reply', row });
+      field.current?.focus();
+    },
+    edit: (row) => {
+      setMode({ kind: 'edit', row });
+      setDraft(row.text);
+      field.current?.focus();
+    },
+    remove: (row) => setDeleting(row),
+    copy: (row) => {
+      void navigator.clipboard.writeText(row.media?.caption ?? row.text).then(() => setToast(s('bipe_app_copied')));
+    },
+    loadReply,
   };
   const face = useRoomFace(room);
   const name = face.name;
@@ -210,28 +156,59 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
         <div className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto">
           <ol className="mx-auto flex w-full max-w-[760px] flex-col gap-1.5 px-3 py-2">
             {rows.map((r) => (
-              <TimelineRowView key={r.key} row={r} isDm={isDm} onReact={react} />
+              <TimelineRowView key={r.key} row={r} isDm={isDm} on={on} />
             ))}
           </ol>
         </div>
         <div className="mx-auto w-full max-w-[760px] shrink-0">
           {note && <p className="px-4 pt-2 text-footnote break-words text-trust-danger-ink">{note}</p>}
+          {toast && (
+            <p
+              role="status"
+              className="mx-auto w-max rounded-full bg-surface-raised px-4 py-2 text-subheadline text-ink-primary shadow"
+            >
+              {toast}
+            </p>
+          )}
+          {mode && (
+            <ComposerBar
+              icon={mode.kind === 'edit' ? pencilSimple : arrowBendUpLeft}
+              title={
+                mode.kind === 'edit'
+                  ? s('bipe_app_message_editing')
+                  : s('bipe_app_message_replying_to', mode.row.own ? s('bipe_app_you') : mode.row.who)
+              }
+              preview={mode.row.media?.caption ?? mode.row.text}
+              onClose={() => {
+                if (mode.kind === 'edit') setDraft('');
+                setMode(undefined);
+              }}
+            />
+          )}
           <form
             className="flex items-end gap-2 px-3 py-2"
             onSubmit={(e) => {
               e.preventDefault();
               const text = draft.trim();
-              if (!text || !timeline.current) return;
+              const t = timeline.current;
+              if (!text || !t) return;
               setDraft('');
-              timeline.current
-                .send(messageEventContentFromMarkdown(text))
-                .catch((err: unknown) => setNote(describe(err)));
+              setMode(undefined);
+              const content = messageEventContentFromMarkdown(text);
+              const sent =
+                mode?.kind === 'edit'
+                  ? t.edit(mode.row.itemId, new EditedContent.RoomMessage({ content }))
+                  : mode?.kind === 'reply' && mode.row.eventId
+                    ? t.sendReply(content, mode.row.eventId)
+                    : t.send(content);
+              sent.catch((err: unknown) => setNote(describe(err)));
             }}
           >
-            <AttachButton onFiles={(files) => setPending(files.slice(0, MAX_ITEMS))} />
+            {mode?.kind !== 'edit' && <AttachButton onFiles={(files) => setPending(files.slice(0, MAX_ITEMS))} />}
             {/* The field: glass, 22 pt corners, 16 pt leading inset; one 22 pt line + 2 x 11 pt = 44 pt. */}
             <div className="bipe-glass flex min-w-0 flex-1 rounded-[22px] pr-1 pl-4">
               <textarea
+                ref={field}
                 className="max-h-[132px] min-h-11 w-full resize-none bg-transparent py-[11px] text-body text-ink-primary outline-none [field-sizing:content] placeholder:text-ink-disabled"
                 rows={1}
                 value={draft}
@@ -253,161 +230,96 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
               className={`grid size-11 shrink-0 place-items-center rounded-full ${canSend ? 'bg-accent-fill text-ink-on-accent hover:bg-accent-fill-pressed' : 'bipe-glass text-ink-disabled'}`}
               type="submit"
               disabled={!canSend}
-              aria-label={s('bipe_app_timeline_send')}
+              aria-label={mode?.kind === 'edit' ? s('bipe_app_message_save_edit') : s('bipe_app_timeline_send')}
             >
-              <Icon path={paperPlaneRight} size={22} />
+              <Icon path={mode?.kind === 'edit' ? check : paperPlaneRight} size={22} />
             </button>
           </form>
         </div>
       </section>
       {showsInfo && <ChatInfo room={room} face={face} onClose={() => setShowsInfo(false)} />}
+      {deleting && (
+        <DeleteDialog
+          onCancel={() => setDeleting(undefined)}
+          onDelete={() => {
+            const row = deleting;
+            setDeleting(undefined);
+            timeline.current?.redactEvent(row.itemId, undefined).catch((e: unknown) => setNote(describe(e)));
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function TimelineRowView({
-  row,
-  isDm,
-  onReact,
+// The reply and edit bar above the field (ChatTimelineView.swift bar): an 18 px icon in accent.ink, the
+// title in caption bold accent.ink, one line of the message in caption ink.secondary, and a close button.
+function ComposerBar({
+  icon,
+  title,
+  preview,
+  onClose,
 }: {
-  row: Row;
-  isDm: boolean;
-  onReact: (itemId: EventOrTransactionId, key: string) => void;
+  icon: string;
+  title: string;
+  preview: string;
+  onClose: () => void;
 }) {
-  switch (row.kind) {
-    case 'day':
-      return (
-        <li>
-          <SystemLine text={dayText(row.at)} />
-        </li>
-      );
-    case 'start':
-      return (
-        <li>
-          <SystemLine text={s('bipe_app_timeline_start')} />
-        </li>
-      );
-    case 'readMarker':
-      return (
-        <li className="flex items-center gap-2 py-1.5">
-          <span className="h-px flex-1 bg-accent-fill" />
-          <span className="text-caption font-bold text-accent-ink">{s('bipe_app_timeline_new_messages')}</span>
-          <span className="h-px flex-1 bg-accent-fill" />
-        </li>
-      );
-    case 'message':
-      return (
-        <Bubble own={row.own} pills={row.pills} onReact={row.canReact ? (key) => onReact(row.itemId, key) : undefined}>
-          {!row.own && (!isDm || row.body === 'undecryptable') && (
-            <span
-              className={`text-caption font-bold ${row.body === 'undecryptable' ? 'text-ink-secondary' : 'text-accent-ink'}`}
-            >
-              {row.who}
-            </span>
-          )}
-          {row.media ? (
-            <TimelineMediaRow media={row.media} />
-          ) : row.body === 'text' ? (
-            <p className="text-body break-words whitespace-pre-wrap text-ink-primary">{row.text}</p>
-          ) : (
-            <p className="flex items-start gap-1.5 text-subheadline text-ink-secondary italic">
-              {row.body === 'deleted' && (
-                <Icon path={trash} size={14} className="mt-[3px] shrink-0 text-glyph-secondary" />
-              )}
-              {row.body === 'undecryptable' && (
-                <Icon path={lockSimple} size={14} className="mt-[3px] shrink-0 text-glyph-secondary" />
-              )}
-              {row.text}
-            </p>
-          )}
-          <Footer at={row.at} send={row.body === 'text' || row.body === 'media' ? row.send : undefined} />
-        </Bubble>
-      );
-  }
-}
-
-// A quiet centred line: date separators and the chat start (SystemLine, TimelineRowView.swift).
-function SystemLine({ text }: { text: string }) {
   return (
-    <div className="flex justify-center py-1.5">
-      <span className="rounded-full bg-surface-sunken px-2.5 py-1 text-center text-caption text-ink-secondary">
-        {text}
-      </span>
+    <div className="bipe-glass mx-3 mt-2 flex items-center gap-2.5 rounded-[22px] py-2 pr-2 pl-4">
+      <Icon path={icon} size={18} className="shrink-0 text-accent-ink" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-caption font-bold text-accent-ink">{title}</span>
+        <span className="truncate text-caption text-ink-secondary">{preview}</span>
+      </div>
+      <button
+        type="button"
+        className="grid size-11 place-items-center rounded-full text-glyph-secondary"
+        aria-label={s('bipe_app_cancel')}
+        onClick={onClose}
+      >
+        <Icon path={x} size={16} />
+      </button>
     </div>
   );
 }
 
-// Bubble (TimelineRowView.swift): 16 pt corners, 12 x 8 pt insets, bubble.own or bubble.other, at
-// least 48 pt free on the far side. Its views stack with 4 pt between; the footer sits at the trailing edge.
-// The reaction pills sit under the bubble, on its side.
-function Bubble({
-  own,
-  pills,
-  onReact,
-  children,
-}: {
-  own: boolean;
-  pills: ReactionPill[];
-  onReact?: (key: string) => void;
-  children: ReactNode;
-}) {
-  const [picking, setPicking] = useState(false);
+// The delete alert (spec message-delete): bipe_app_message_delete_title and _body, Cancelar and Apagar.
+function DeleteDialog({ onCancel, onDelete }: { onCancel: () => void; onDelete: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCancel();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
   return (
-    <li className={`flex flex-col gap-1 ${own ? 'items-end pl-12' : 'items-start pr-12'}`}>
-      <div className={`group relative flex max-w-full items-center gap-1 ${own ? 'flex-row-reverse' : ''}`}>
-        <div
-          className={`flex max-w-full min-w-0 flex-col gap-1 rounded-2xl px-3 py-2 ${own ? 'bg-bubble-own' : 'bg-bubble-other'}`}
-          onContextMenu={
-            onReact
-              ? (e) => {
-                  e.preventDefault();
-                  setPicking(true);
-                }
-              : undefined
-          }
-        >
-          {children}
+    // The dim behind an alert is black at 40% in both schemes, as the system draws it; no token covers it.
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-6" onClick={onCancel}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-title"
+        className="flex w-full max-w-[300px] flex-col overflow-hidden rounded-[14px] bg-surface-raised text-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-col gap-1 p-4">
+          <h3 id="delete-title" className="text-headline text-ink-primary">
+            {s('bipe_app_message_delete_title')}
+          </h3>
+          <p className="text-footnote text-ink-primary">{s('bipe_app_message_delete_body')}</p>
         </div>
-        {onReact && (
+        <div className="grid grid-cols-2 border-t-[0.5px] border-line-subtle">
+          <button type="button" autoFocus className="min-h-11 text-body text-accent-ink" onClick={onCancel}>
+            {s('bipe_app_cancel')}
+          </button>
           <button
             type="button"
-            className="bipe-glass grid size-8 shrink-0 place-items-center rounded-full text-glyph-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-            aria-label={s('bipe_a11y_react')}
-            aria-haspopup="menu"
-            onClick={() => setPicking(true)}
+            className="min-h-11 border-l-[0.5px] border-line-subtle text-headline text-trust-danger-ink"
+            onClick={onDelete}
           >
-            <Icon path={smiley} size={18} />
+            {s('bipe_app_message_action_delete')}
           </button>
-        )}
-        {picking && onReact && <QuickReactions own={own} onPick={onReact} onClose={() => setPicking(false)} />}
+        </div>
       </div>
-      {pills.length > 0 && <ReactionPills pills={pills} onToggle={onReact ?? (() => undefined)} />}
-    </li>
-  );
-}
-
-// The time and, on an own message, the send state (spec read-receipts): a clock while it sends, a tick
-// once the server has it, a warning when it failed.
-// TODO: delivered and read ticks need the receipt logic of DeliveredAcks; the web does not have it yet.
-function Footer({ at, send }: { at: number; send?: Send }) {
-  return (
-    <span className="flex items-center gap-1 self-end text-caption2 whitespace-nowrap text-ink-secondary">
-      <time className="tabular-nums" dateTime={new Date(at).toISOString()}>
-        {timeText(at)}
-      </time>
-      {send === 'sending' && (
-        <>
-          <Icon path={clock} size={14} />
-          {s('bipe_app_timeline_sending')}
-        </>
-      )}
-      {send === 'sent' && <Icon path={check} size={14} label={s('bipe_app_receipt_sent')} />}
-      {send === 'failed' && (
-        <span className="flex items-center gap-1 text-trust-danger-ink">
-          <Icon path={warningCircle} size={14} />
-          {s('bipe_app_timeline_failed')}
-        </span>
-      )}
-    </span>
+    </div>
   );
 }
