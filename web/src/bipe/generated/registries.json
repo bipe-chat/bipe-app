@@ -1665,6 +1665,10 @@
    "accessibility": {
     "pt": "https://bipe.chat/acessibilidade/",
     "en": "https://bipe.chat/en/accessibility/"
+   },
+   "versions": {
+    "pt": "https://bipe.chat/versoes/",
+    "en": "https://bipe.chat/en/versions/"
    }
   },
   "groups": [
@@ -2045,6 +2049,12 @@
         "key": "licenses",
         "title": "bipe_help_licenses",
         "kind": "link"
+       },
+       {
+        "key": "versions",
+        "title": "bipe_help_versions",
+        "kind": "url",
+        "url": "versions"
        }
       ]
      }
@@ -4816,6 +4826,7 @@
    "bipe_help_terms": "Termos de uso",
    "bipe_help_privacy": "Política de privacidade",
    "bipe_help_licenses": "Licenças de código aberto",
+   "bipe_help_versions": "Histórico de versões",
    "bipe_help_version": "Versão %1$s",
    "bipe_help_device_id_copied": "ID do aparelho copiado",
    "bipe_profile_display_name": "Seu nome",
@@ -6995,6 +7006,7 @@
    "bipe_help_terms": "Terms of use",
    "bipe_help_privacy": "Privacy policy",
    "bipe_help_licenses": "Open source licences",
+   "bipe_help_versions": "Version history",
    "bipe_help_version": "Version %1$s",
    "bipe_help_device_id_copied": "Device ID copied",
    "bipe_profile_display_name": "Your name",

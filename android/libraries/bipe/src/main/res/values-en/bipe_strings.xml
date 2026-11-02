@@ -1142,6 +1142,7 @@
     <string name="bipe_help_terms">Terms of use</string>
     <string name="bipe_help_privacy">Privacy policy</string>
     <string name="bipe_help_licenses">Open source licences</string>
+    <string name="bipe_help_versions">Version history</string>
     <string name="bipe_help_version">Version %1$s</string>
     <string name="bipe_help_device_id_copied">Device ID copied</string>
     <string name="bipe_profile_display_name">Your name</string>
