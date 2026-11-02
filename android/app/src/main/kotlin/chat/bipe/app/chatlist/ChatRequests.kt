@@ -353,27 +353,35 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
 /** The requests row at the top of Conversas (spec chat-requests, rowCount). Hidden at 0. */
 @Composable
 fun ChatRequestsRow(count: Int, onClick: () -> Unit) {
+    ListEntryRow(PhosphorIcon.USER_CIRCLE, stringResource(R.string.bipe_requests_title), stringResource(R.string.bipe_requests_row_body), count, onClick)
+}
+
+/** A chat-list entry that is not a chat (requests, Archived): an icon in the avatar footprint, then the title. */
+@Composable
+fun ListEntryRow(icon: PhosphorIcon, title: String, detail: String? = null, count: Int? = null, onClick: () -> Unit) {
     val colors = BipeTheme.colors
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Same footprint as the ChatRow avatar (Avatar, 48dp), so the title lines up with the chats below.
+        // Same footprint as the ChatRow avatar (Avatar, 48dp), so the title lines up with the chats.
         Box(Modifier.size(48.dp).background(colors.accentWash, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(painterResource(PhosphorIcon.USER_CIRCLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(24.dp))
+            Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(R.string.bipe_requests_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-            Text(stringResource(R.string.bipe_requests_row_body), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
+            Text(title, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
+            detail?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
         }
-        Text(
-            count.toString(),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = colors.inkOnAccent,
-            modifier = Modifier.background(colors.accentFill, CircleShape).padding(horizontal = 7.dp, vertical = 2.dp),
-        )
+        count?.let {
+            Text(
+                it.toString(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = colors.inkOnAccent,
+                modifier = Modifier.background(colors.accentFill, CircleShape).padding(horizontal = 7.dp, vertical = 2.dp),
+            )
+        }
     }
 }
 

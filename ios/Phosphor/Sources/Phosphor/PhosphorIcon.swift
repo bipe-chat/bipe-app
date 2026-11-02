@@ -9,6 +9,7 @@ import SwiftUI
 /// Phosphor icons (MIT) that the app uses. Add an icon in tools/phosphor.json, then run tools/phosphor.mjs.
 public enum PhosphorIcon: String, CaseIterable, Sendable {
     case addressBook = "address-book"
+    case archive = "archive"
     case arrowBendUpLeft = "arrow-bend-up-left"
     case arrowClockwise = "arrow-clockwise"
     case backspace = "backspace"

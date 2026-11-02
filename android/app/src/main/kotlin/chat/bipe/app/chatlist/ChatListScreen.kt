@@ -636,10 +636,11 @@ fun ChatListScreen(
                                 }
                             }
                         }
-                        // The Archived button and the action errors scroll with the list, after the cards (same order as iOS).
-                        item(key = "archived-toggle") {
-                            TextButton(onClick = { showingArchived = !showingArchived }) {
-                                Text(stringResource(if (!showingArchived) R.string.bipe_archived_title else if (scope == ChatScope.GRUPOS) R.string.bipe_tab_groups else R.string.bipe_app_chat_list_title))
+                        // Spec chat-archive openArchived: Archived opens from the last row of the list; this row goes back.
+                        // The action errors scroll with the list, after the cards (same order as iOS).
+                        if (showingArchived) item(key = "archived-back") {
+                            ListEntryRow(PhosphorIcon.CARET_LEFT, stringResource(if (scope == ChatScope.GRUPOS) R.string.bipe_tab_groups else R.string.bipe_app_chat_list_title)) {
+                                showingArchived = false
                             }
                         }
                         if (readFailed) item(key = "read-error") {
@@ -679,6 +680,9 @@ fun ChatListScreen(
                         }
                         if (!showingArchived) item(key = "load-more") {
                             TextButton(onClick = { model.loadMore(scope) }) { Text(stringResource(R.string.bipe_chat_list_more)) }
+                        }
+                        if (!showingArchived) item(key = "archived") {
+                            ListEntryRow(PhosphorIcon.ARCHIVE, stringResource(R.string.bipe_archived_title)) { showingArchived = true }
                         }
                     }
                 }

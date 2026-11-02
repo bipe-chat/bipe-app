@@ -433,8 +433,12 @@ struct ChatListView: View {
         // Spec chat-list-prompt: the one prompt card is the first row, so it scrolls with the chats (MZ decision
         // 25 Oct 2026), in every chat list (bipe-chat/bipe#853, #894).
         promptRow
-        Button(showingArchived ? (scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle) : BipeStrings.archivedTitle) {
-            showingArchived.toggle()
+        // Spec chat-archive openArchived: Archived opens from the last row of the list; this row goes back.
+        if showingArchived {
+            Button { showingArchived = false } label: {
+                ListEntryRow(icon: .caretLeft, title: scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle)
+            }
+            .buttonStyle(.plain)
         }
         if model.readActionFailed {
             VStack(alignment: .leading) {
@@ -490,7 +494,7 @@ struct ChatListView: View {
             let favourites = showingArchived ? [] : model.favourites(in: scope)
                 .filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }
             List {
-                // The first item of the list, above banners, cards, Archived, requests and invites.
+                // The first item of the list, above banners, cards, requests and invites.
                 if !favourites.isEmpty {
                     FavouritesGrid(chats: favourites, media: model.media, open: openChat) { rowMenu($0) }
                         .listRowBackground(BipeColor.surfaceBase)
@@ -569,6 +573,10 @@ struct ChatListView: View {
     @ViewBuilder private var moreRows: some View {
         if !showingArchived {
             Button(BipeStrings.chatListMore) { model.loadMore(in: scope) }
+            Button { showingArchived = true } label: {
+                ListEntryRow(icon: .archive, title: BipeStrings.archivedTitle)
+            }
+            .buttonStyle(.plain)
         }
     }
 
