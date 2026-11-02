@@ -23,6 +23,7 @@ import {
 } from './generated/matrix_sdk_ffi';
 import { caretLeft, check, clock, lockSimple, paperPlaneRight, smiley, trash, warningCircle } from './phosphor/icons';
 import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
+import { ChatInfo } from './ChatInfo';
 import { pillsOf, QuickReactions, ReactionPills, type ReactionPill } from './Reactions';
 import { useRoomFace } from './room-face';
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
@@ -117,6 +118,7 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   // Files picked, pasted or dropped, waiting in the upload preview.
   const [pending, setPending] = useState<File[]>();
   const [dropping, setDropping] = useState(false);
+  const [showsInfo, setShowsInfo] = useState(false);
   const timeline = useRef<Timeline>(undefined);
   const listener = useRef<TaskHandle>(undefined);
 
@@ -153,104 +155,113 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   const canSend = draft.trim() !== '';
 
   return (
-    <section
-      className="relative isolate flex h-full min-h-0 flex-col"
-      // Paste an image, or drop files onto the chat: both open the upload preview.
-      onPaste={(e) => {
-        const files = Array.from(e.clipboardData.files);
-        if (files.length === 0) return;
-        e.preventDefault();
-        setPending(files.slice(0, MAX_ITEMS));
-      }}
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes('Files')) return;
-        e.preventDefault();
-        setDropping(true);
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false);
-      }}
-      onDrop={(e) => {
-        const files = Array.from(e.dataTransfer.files);
-        setDropping(false);
-        if (files.length === 0) return;
-        e.preventDefault();
-        setPending(files.slice(0, MAX_ITEMS));
-      }}
-    >
-      <ChatBackground />
-      {dropping && (
-        <div className="pointer-events-none absolute inset-2 z-30 rounded-2xl border-2 border-dashed border-accent-fill bg-accent-wash/60" />
-      )}
-      {pending && <UploadPreview files={pending} timeline={timeline.current} onClose={() => setPending(undefined)} />}
-      {/* The inline navigation bar: back on a narrow window, the chat title in the middle. */}
-      <header className="bipe-bar relative grid h-[52px] shrink-0 grid-cols-[44px_1fr_44px] items-center px-2">
-        <button
-          className="grid size-11 place-items-center rounded-full text-glyph-primary md:invisible"
-          aria-label={s('bipe_a11y_back')}
-          onClick={onBack}
-        >
-          <Icon path={caretLeft} size={22} />
-        </button>
-        <div className="flex min-w-0 items-center justify-center gap-2">
-          <Avatar name={name} size={32} mxcUrl={face.avatarUrl} />
-          <h2 className="truncate text-headline text-ink-primary">{name}</h2>
-        </div>
-      </header>
-      {/* column-reverse keeps the newest message in view as rows come in. */}
-      <div className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto">
-        <ol className="mx-auto flex w-full max-w-[760px] flex-col gap-1.5 px-3 py-2">
-          {rows.map((r) => (
-            <TimelineRowView key={r.key} row={r} isDm={isDm} onReact={react} />
-          ))}
-        </ol>
-      </div>
-      <div className="mx-auto w-full max-w-[760px] shrink-0">
-        {note && <p className="px-4 pt-2 text-footnote break-words text-trust-danger-ink">{note}</p>}
-        <form
-          className="flex items-end gap-2 px-3 py-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const text = draft.trim();
-            if (!text || !timeline.current) return;
-            setDraft('');
-            timeline.current
-              .send(messageEventContentFromMarkdown(text))
-              .catch((err: unknown) => setNote(describe(err)));
-          }}
-        >
-          <AttachButton onFiles={(files) => setPending(files.slice(0, MAX_ITEMS))} />
-          {/* The field: glass, 22 pt corners, 16 pt leading inset; one 22 pt line + 2 x 11 pt = 44 pt. */}
-          <div className="bipe-glass flex min-w-0 flex-1 rounded-[22px] pr-1 pl-4">
-            <textarea
-              className="max-h-[132px] min-h-11 w-full resize-none bg-transparent py-[11px] text-body text-ink-primary outline-none [field-sizing:content] placeholder:text-ink-disabled"
-              rows={1}
-              value={draft}
-              placeholder={s('bipe_app_timeline_composer_placeholder')}
-              aria-label={s('bipe_app_timeline_composer_placeholder')}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                // Return sends, Shift+Return makes a new line (desktop keyboards).
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  e.currentTarget.form?.requestSubmit();
-                }
-              }}
-            />
-          </div>
-          {/* The send button: a 44 pt circle in accent.fill when there is text. The apps show the record
-              button in this place when the field is empty; the web has no voice messages yet. */}
+    <div className="flex h-full min-h-0">
+      <section
+        className="relative isolate flex h-full min-h-0 min-w-0 flex-1 flex-col"
+        // Paste an image, or drop files onto the chat: both open the upload preview.
+        onPaste={(e) => {
+          const files = Array.from(e.clipboardData.files);
+          if (files.length === 0) return;
+          e.preventDefault();
+          setPending(files.slice(0, MAX_ITEMS));
+        }}
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes('Files')) return;
+          e.preventDefault();
+          setDropping(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false);
+        }}
+        onDrop={(e) => {
+          const files = Array.from(e.dataTransfer.files);
+          setDropping(false);
+          if (files.length === 0) return;
+          e.preventDefault();
+          setPending(files.slice(0, MAX_ITEMS));
+        }}
+      >
+        <ChatBackground />
+        {dropping && (
+          <div className="pointer-events-none absolute inset-2 z-30 rounded-2xl border-2 border-dashed border-accent-fill bg-accent-wash/60" />
+        )}
+        {pending && <UploadPreview files={pending} timeline={timeline.current} onClose={() => setPending(undefined)} />}
+        {/* The inline navigation bar: back on a narrow window, the chat title in the middle. */}
+        <header className="bipe-bar relative grid h-[52px] shrink-0 grid-cols-[44px_1fr_44px] items-center px-2">
           <button
-            className={`grid size-11 shrink-0 place-items-center rounded-full ${canSend ? 'bg-accent-fill text-ink-on-accent hover:bg-accent-fill-pressed' : 'bipe-glass text-ink-disabled'}`}
-            type="submit"
-            disabled={!canSend}
-            aria-label={s('bipe_app_timeline_send')}
+            className="grid size-11 place-items-center rounded-full text-glyph-primary md:invisible"
+            aria-label={s('bipe_a11y_back')}
+            onClick={onBack}
           >
-            <Icon path={paperPlaneRight} size={22} />
+            <Icon path={caretLeft} size={22} />
           </button>
-        </form>
-      </div>
-    </section>
+          {/* The title opens the info screen: the person in a DM, the group details in a group. */}
+          <button
+            type="button"
+            className="flex min-w-0 items-center justify-center gap-2 justify-self-center rounded-full px-2"
+            aria-expanded={showsInfo}
+            onClick={() => setShowsInfo((v) => !v)}
+          >
+            <Avatar name={name} size={32} mxcUrl={face.avatarUrl} />
+            <h2 className="truncate text-headline text-ink-primary">{name}</h2>
+          </button>
+        </header>
+        {/* column-reverse keeps the newest message in view as rows come in. */}
+        <div className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto">
+          <ol className="mx-auto flex w-full max-w-[760px] flex-col gap-1.5 px-3 py-2">
+            {rows.map((r) => (
+              <TimelineRowView key={r.key} row={r} isDm={isDm} onReact={react} />
+            ))}
+          </ol>
+        </div>
+        <div className="mx-auto w-full max-w-[760px] shrink-0">
+          {note && <p className="px-4 pt-2 text-footnote break-words text-trust-danger-ink">{note}</p>}
+          <form
+            className="flex items-end gap-2 px-3 py-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const text = draft.trim();
+              if (!text || !timeline.current) return;
+              setDraft('');
+              timeline.current
+                .send(messageEventContentFromMarkdown(text))
+                .catch((err: unknown) => setNote(describe(err)));
+            }}
+          >
+            <AttachButton onFiles={(files) => setPending(files.slice(0, MAX_ITEMS))} />
+            {/* The field: glass, 22 pt corners, 16 pt leading inset; one 22 pt line + 2 x 11 pt = 44 pt. */}
+            <div className="bipe-glass flex min-w-0 flex-1 rounded-[22px] pr-1 pl-4">
+              <textarea
+                className="max-h-[132px] min-h-11 w-full resize-none bg-transparent py-[11px] text-body text-ink-primary outline-none [field-sizing:content] placeholder:text-ink-disabled"
+                rows={1}
+                value={draft}
+                placeholder={s('bipe_app_timeline_composer_placeholder')}
+                aria-label={s('bipe_app_timeline_composer_placeholder')}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  // Return sends, Shift+Return makes a new line (desktop keyboards).
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    e.currentTarget.form?.requestSubmit();
+                  }
+                }}
+              />
+            </div>
+            {/* The send button: a 44 pt circle in accent.fill when there is text. The apps show the record
+              button in this place when the field is empty; the web has no voice messages yet. */}
+            <button
+              className={`grid size-11 shrink-0 place-items-center rounded-full ${canSend ? 'bg-accent-fill text-ink-on-accent hover:bg-accent-fill-pressed' : 'bipe-glass text-ink-disabled'}`}
+              type="submit"
+              disabled={!canSend}
+              aria-label={s('bipe_app_timeline_send')}
+            >
+              <Icon path={paperPlaneRight} size={22} />
+            </button>
+          </form>
+        </div>
+      </section>
+      {showsInfo && <ChatInfo room={room} face={face} onClose={() => setShowsInfo(false)} />}
+    </div>
   );
 }
 
