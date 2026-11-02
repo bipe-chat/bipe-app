@@ -2204,8 +2204,6 @@ public enum BipeStrings {
 
     public static var accountPathsWarning: String { NSLocalizedString("bipe_account_paths_warning", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var accountPinSection: String { NSLocalizedString("bipe_account_pin_section", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static var accountAppLock: String { NSLocalizedString("bipe_account_app_lock", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var accountAppLockOffReason: String { NSLocalizedString("bipe_account_app_lock_off_reason", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2221,8 +2219,6 @@ public enum BipeStrings {
     public static var accountPinFooterDevice: String { NSLocalizedString("bipe_account_pin_footer_device", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var accountAdd: String { NSLocalizedString("bipe_account_add", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var accountOnDevice: String { NSLocalizedString("bipe_account_on_device", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var accountNewTitle: String { NSLocalizedString("bipe_account_new_title", tableName: "Bipe", bundle: .module, comment: "") }
 
@@ -2277,8 +2273,6 @@ public enum BipeStrings {
     public static var accountOldMessages: String { NSLocalizedString("bipe_account_old_messages", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var accountOldMessagesFooter: String { NSLocalizedString("bipe_account_old_messages_footer", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var accountThisDevice: String { NSLocalizedString("bipe_account_this_device", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var linkedDevicesTitle: String { NSLocalizedString("bipe_linked_devices_title", tableName: "Bipe", bundle: .module, comment: "") }
 
@@ -2630,8 +2624,6 @@ public enum BipeStrings {
 
     public static var chatsLiveLocationFooter: String { NSLocalizedString("bipe_chats_live_location_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var helpDocs: String { NSLocalizedString("bipe_help_docs", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static var helpTerms: String { NSLocalizedString("bipe_help_terms", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var helpPrivacy: String { NSLocalizedString("bipe_help_privacy", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2888,6 +2880,8 @@ public enum BipeStrings {
 
     public static var helpProblemLanguage: String { NSLocalizedString("bipe_help_problem_language", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var helpCenter: String { NSLocalizedString("bipe_help_center", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var chatMessageNoAccess: String { NSLocalizedString("bipe_chat_message_no_access", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var stickerLabel: String { NSLocalizedString("bipe_sticker_label", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2938,10 +2932,6 @@ public enum BipeStrings {
 
     public static var recoveryBetaPassword: String { NSLocalizedString("bipe_recovery_beta_password", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static func notificationsPromptTitle(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_notifications_prompt_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
     public static var notificationsPromptTitleGeneric: String { NSLocalizedString("bipe_notifications_prompt_title_generic", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var notificationsPromptBody: String { NSLocalizedString("bipe_notifications_prompt_body", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2967,6 +2957,10 @@ public enum BipeStrings {
     public static var handlePromptAction: String { NSLocalizedString("bipe_handle_prompt_action", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var settingsSupport: String { NSLocalizedString("bipe_settings_support", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var settingsMessaging: String { NSLocalizedString("bipe_settings_messaging", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var settingsDiscovery: String { NSLocalizedString("bipe_settings_discovery", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var supportOpenFailed: String { NSLocalizedString("bipe_support_open_failed", tableName: "Bipe", bundle: .module, comment: "") }
 
@@ -4308,6 +4302,8 @@ public enum BipeStrings {
 
     public static var accountDelete: String { NSLocalizedString("bipe_account_delete", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var accountPinLockSection: String { NSLocalizedString("bipe_account_pin_lock_section", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var deletionTitle: String { NSLocalizedString("bipe_deletion_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func deletionIntro(_ p1: String) -> String {
@@ -4643,6 +4639,10 @@ public enum BipeStrings {
     public static var chatsMediaQualityStandard: String { NSLocalizedString("bipe_chats_media_quality_standard", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatsMediaQualityHigh: String { NSLocalizedString("bipe_chats_media_quality_high", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsTheme: String { NSLocalizedString("bipe_chats_theme", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsPhotosVideos: String { NSLocalizedString("bipe_chats_photos_videos", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var roomUpgradeReplaced: String { NSLocalizedString("bipe_room_upgrade_replaced", tableName: "Bipe", bundle: .module, comment: "") }
 

@@ -73,7 +73,7 @@ enum class BipeOnboardingPrompt(
     /** Text buttons, in order under the filled button. */
     val text: List<BipeOnboardingButton>,
 ) {
-    NOTIFICATIONS(R.string.bipe_notifications_prompt_title, R.string.bipe_notifications_prompt_body, BipeOnboardingButton(R.string.bipe_notifications_prompt_allow, BipeOnboardingTarget.SYSTEM_PERMISSION), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
+    NOTIFICATIONS(R.string.bipe_notifications_prompt_title_generic, R.string.bipe_notifications_prompt_body, BipeOnboardingButton(R.string.bipe_notifications_prompt_allow, BipeOnboardingTarget.SYSTEM_PERMISSION), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     HANDLE(R.string.bipe_handle_prompt_title, R.string.bipe_handle_prompt_body, BipeOnboardingButton(R.string.bipe_handle_prompt_action, BipeOnboardingTarget.HANDLE_SCREEN), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     RECOVERY(R.string.bipe_fallback_title, R.string.bipe_fallback_reminder, BipeOnboardingButton(R.string.bipe_fallback_email, BipeOnboardingTarget.RECOVERY_EMAIL_ADD), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
     PHOTO(R.string.bipe_photo_prompt_title, R.string.bipe_photo_prompt_body, BipeOnboardingButton(R.string.bipe_photo_prompt_action, BipeOnboardingTarget.PHOTO_PICKER), listOf(BipeOnboardingButton(R.string.bipe_fallback_skip, BipeOnboardingTarget.DISMISS))),
@@ -86,9 +86,9 @@ enum class BipeOnboardingPrompt(
     /** True when the prompt shares the one prompt slot ([BipeOnboarding.PROMPT_SLOT_HOURS], bipe-chat/bipe#200). */
     val usesSlot: Boolean
         get() = when (this) {
-            NOTIFICATIONS -> false
+            NOTIFICATIONS -> true
             HANDLE -> true
-            RECOVERY -> false
+            RECOVERY -> true
             PHOTO -> true
             PIN_REMINDER -> true
             OS_THEFT_PROTECTION -> true
@@ -140,10 +140,13 @@ enum class BipeChatListPrompt(
 ) {
     REMOTE_BANNER(true),
     APPROVE_PHONE(true),
+    NOTIFICATIONS(false),
     NOTIFICATION_CHECKUP(false),
     RECOVERY(false),
     PIN_REMINDER(false),
+    OS_THEFT_PROTECTION(false),
     HANDLE(false),
+    PHOTO(false),
     PROFILE(false),
     BRING_PEOPLE_REMINDER(false),
     INVITE(false),
@@ -155,10 +158,13 @@ enum class BipeChatListPrompt(
         get() = when (this) {
             REMOTE_BANNER -> "remoteBanner"
             APPROVE_PHONE -> "approvePhone"
+            NOTIFICATIONS -> "notifications"
             NOTIFICATION_CHECKUP -> "notificationCheckup"
             RECOVERY -> "recovery"
             PIN_REMINDER -> "pinReminder"
+            OS_THEFT_PROTECTION -> "osTheftProtection"
             HANDLE -> "handle"
+            PHOTO -> "photo"
             PROFILE -> "profile"
             BRING_PEOPLE_REMINDER -> "bringPeopleReminder"
             INVITE -> "invite"
@@ -173,7 +179,7 @@ object BipeOnboarding {
     /** Trigger pinReminderDue (bipe-chat/bipe#202): the gap in days after each step, then [PIN_REMINDER_THEN_EVERY_DAYS]. */
     val PIN_REMINDER_DAYS: List<Int> = listOf(1, 3, 7, 14, 30)
     const val PIN_REMINDER_THEN_EVERY_DAYS: Int = 60
-    /** Trigger voceAfterDays (bipe-chat/bipe#125): days after this phone first saw the account. */
+    /** Trigger afterDaysOnPhone (bipe-chat/bipe#125): days after this phone first saw the account. */
     const val OS_THEFT_PROTECTION_AFTER_DAYS: Int = 1
     /** Specs bring-people and bring-people-reminder (bipe-chat/bipe#752). */
     const val BRING_PEOPLE_SLOTS: Int = 4
