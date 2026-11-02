@@ -267,7 +267,7 @@ export function draftUpdate({ subject, date, short, paths, build }) {
   const pr = /\(#(\d+)\)\s*$/.exec(subject)?.[1];
   // Issue and ADR numbers move from the headline to refs: (bipe-chat/bipe#9), (bipe#9, bipe#10), (ADR 0222).
   const notes = [...subject.matchAll(/\s*\(((?:bipe-chat\/)?bipe#\d+|ADR \d+)[^)]*\)/g)];
-  const issues = notes.flatMap((m) => [...m[0].matchAll(/(?:bipe#|#|ADR )(\d+)/g)].map((n) => (m[0].includes('ADR') ? `adr-${n[1]}` : `bipe#${n[1]}`)));
+  const issues = notes.flatMap((m) => [...m[0].matchAll(/(ADR )?(\d+)/g)].map((n) => (n[1] ? `adr-${n[2]}` : `bipe#${n[2]}`)));
   let headline = subject.replace(/\s*\(#\d+\)\s*$/, '');
   for (const m of notes) headline = headline.replace(m[0], '');
   headline = headline.replace(/\.$/, '');

@@ -59,6 +59,8 @@ test('backfill skips tooling commits and moves issue numbers to refs', () => {
   assert.match(d.text, /refs: \[bipe-app#356, bipe#965\]/);
   assert.match(d.text, /platforms: \[ios\]/);
   assert.match(d.text, /\*\*Chat: open at the newest message\.\*\*/);
+  const mixed = draftUpdate({ subject: 'Link approval (bipe-chat/bipe#963, ADR 0223) (#363)', date: '2026-11-02', short: 'd319ec9', paths: ['ios/a.swift'] });
+  assert.match(mixed.text, /refs: \[bipe-app#363, bipe#963, adr-0223\]/);
 });
 
 test('JSON splits the headline from the detail, newest build first', () => {
