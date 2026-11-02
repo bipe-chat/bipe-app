@@ -15,6 +15,7 @@ public enum PhosphorIcon: String, CaseIterable, Sendable {
     case backspace = "backspace"
     case bell = "bell"
     case bellSlash = "bell-slash"
+    case briefcase = "briefcase"
     case camera = "camera"
     case cameraRotate = "camera-rotate"
     case caretLeft = "caret-left"
