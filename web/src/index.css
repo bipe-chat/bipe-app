@@ -105,3 +105,15 @@
     backdrop-filter: none;
   }
 }
+
+/* mediaScrim (TimelineMediaRow.swift): a dark blur over a photo with light glyphs. iOS forces the dark
+   scheme there, and no token keeps one value in both schemes, so the two colours are fixed. */
+@utility bipe-scrim {
+  background-color: rgb(0 0 0 / 0.45);
+  color: #fff;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: rgb(0 0 0 / 0.75);
+  }
+}

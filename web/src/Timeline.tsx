@@ -22,16 +22,27 @@ import {
 } from './generated/matrix_sdk_ffi';
 import { caretLeft, check, clock, lockSimple, paperPlaneRight, trash, warningCircle } from './phosphor/icons';
 import { useRoomFace } from './room-face';
+import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
 import { Avatar } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
 import { dayText, s, timeText } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import { applyDiffs, describe, type DiffVariants } from './util';
 
-type Body = 'text' | 'deleted' | 'undecryptable' | 'other';
+type Body = 'text' | 'media' | 'deleted' | 'undecryptable' | 'other';
 type Send = 'sending' | 'failed' | 'sent';
 type Row =
-  | { kind: 'message'; key: string; who: string; own: boolean; at: number; body: Body; text: string; send?: Send }
+  | {
+      kind: 'message';
+      key: string;
+      who: string;
+      own: boolean;
+      at: number;
+      body: Body;
+      text: string;
+      media?: MediaInfo;
+      send?: Send;
+    }
   | { kind: 'day'; key: string; at: number }
   | { kind: 'readMarker'; key: string }
   | { kind: 'start'; key: string };
@@ -55,8 +66,10 @@ function itemRow(item: TimelineItem): Row | undefined {
   let body: Body = 'other';
   // TODO(string): '(event)' is spike text for a message kind this page does not draw (sticker, poll, ...).
   let text = '(event)';
+  let media: MediaInfo | undefined;
   if (MsgLikeKind.Message.instanceOf(kind)) {
-    body = 'text';
+    media = mediaOf(kind.inner.content.msgType);
+    body = media ? 'media' : 'text';
     text = kind.inner.content.body;
   } else if (MsgLikeKind.UnableToDecrypt.instanceOf(kind)) {
     body = 'undecryptable';
@@ -73,7 +86,7 @@ function itemRow(item: TimelineItem): Row | undefined {
     else if (state && EventSendState.SendingFailed.instanceOf(state)) send = 'failed';
     else send = 'sent';
   }
-  return { kind: 'message', key, who, own: event.isOwn, at: Number(event.timestamp), body, text, send };
+  return { kind: 'message', key, who, own: event.isOwn, at: Number(event.timestamp), body, text, media, send };
 }
 
 export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void }) {
@@ -213,7 +226,9 @@ function TimelineRowView({ row, isDm }: { row: Row; isDm: boolean }) {
               {row.who}
             </span>
           )}
-          {row.body === 'text' ? (
+          {row.media ? (
+            <TimelineMediaRow media={row.media} />
+          ) : row.body === 'text' ? (
             <p className="text-body break-words whitespace-pre-wrap text-ink-primary">{row.text}</p>
           ) : (
             <p className="flex items-start gap-1.5 text-subheadline text-ink-secondary italic">
@@ -226,7 +241,7 @@ function TimelineRowView({ row, isDm }: { row: Row; isDm: boolean }) {
               {row.text}
             </p>
           )}
-          <Footer at={row.at} send={row.body === 'text' ? row.send : undefined} />
+          <Footer at={row.at} send={row.body === 'text' || row.body === 'media' ? row.send : undefined} />
         </Bubble>
       );
   }
