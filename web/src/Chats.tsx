@@ -24,9 +24,23 @@ import {
   type RoomListEntriesWithDynamicAdaptersResultLike as RoomListEntriesWithDynamicAdaptersResult,
   type SyncServiceLike as SyncService,
 } from './generated/matrix_sdk_ffi';
-import { archive as archiveIcon, bellSlash, caretLeft, gear, magnifyingGlass, userCircle, x } from './phosphor/icons';
+import { useAccounts } from './accounts-context';
+import { AccountSwitcher } from './AccountSwitcher';
+import { NewChat, NewGroup } from './NewChat';
+import {
+  archive as archiveIcon,
+  pencilSimple,
+  bellSlash,
+  caretLeft,
+  gear,
+  magnifyingGlass,
+  userCircle,
+  x,
+} from './phosphor/icons';
 import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
+import { bannerDismissed, EncryptionBanner, EncryptionSheet, needsApproval, useEncryptionState } from './Encryption';
 import { isOfficial } from './registries';
+import { navigate, useRoute } from './router';
 import { useEscape } from './ui/keys';
 import { rowPreview, rowTime } from './row-preview';
 import { OfficialBadge } from './ui/List';
@@ -34,23 +48,38 @@ import { RequestScreen, RequestsList, requesterOf } from './Requests';
 import { ClientContext } from './media';
 import { Settings } from './Settings';
 import { RoomTimeline } from './Timeline';
-import { Avatar } from './ui/Avatar';
+import { Avatar, useIsCompany } from './ui/Avatar';
 import { BipeMark } from './ui/BipeMark';
 import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import { Spinner } from './ui/Spinner';
-import { applyDiffs, describe, type DiffVariants } from './util';
+import { applyDiffs, describe, normalize, type DiffVariants } from './util';
 
 type SyncState = { kind: 'starting' } | { kind: 'ready' } | { kind: 'failed'; message: string };
 type Scope = 'conversas' | 'grupos';
 type Detail =
-  { kind: 'room'; room: Room } | { kind: 'settings' } | { kind: 'requests' } | { kind: 'request'; roomId: string };
+  | { kind: 'room'; room: Room }
+  | { kind: 'settings' }
+  | { kind: 'requests' }
+  | { kind: 'request'; roomId: string }
+  | { kind: 'encryption' }
+  | { kind: 'newChat' }
+  | { kind: 'newGroup' };
 
 export function Chats({ client }: { client: Client }) {
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [detail, setDetail] = useState<Detail>();
-  const [scope, setScope] = useState<Scope>('conversas');
-  const [showingArchived, setShowingArchived] = useState(false);
+  // The page comes from the URL (router.ts); the encryption sheet is an overlay without one.
+  const route = useRoute();
+  // Screens without a URL: the encryption sheet, Nova conversa and Novo grupo.
+  const [overlay, setOverlay] = useState<'encryption' | 'newChat' | 'newGroup'>();
+  // A new page (a link, back or forward) closes them.
+  useEffect(() => setOverlay(undefined), [route]);
+  const lastScope = useRef<Scope>('conversas');
+  if (route.kind === 'list') lastScope.current = route.scope;
+  const scope: Scope = route.kind === 'list' ? route.scope : lastScope.current;
+  const showingArchived = route.kind === 'archived';
+  const setScope = (next: Scope) => navigate({ kind: 'list', scope: next });
+  const setShowingArchived = (on: boolean) => navigate(on ? { kind: 'archived' } : { kind: 'list', scope });
   const [menu, setMenu] = useState<{ chat: ChatSummary; x: number; y: number }>();
   const [query, setQuery] = useState('');
   const [sync, setSync] = useState<SyncState>({ kind: 'starting' });
@@ -99,6 +128,50 @@ export function Chats({ client }: { client: Client }) {
     );
   }, [summaries, archive]);
 
+  // A chat link opens any room this account has: a loaded row, or the SDK's room beyond the loaded page.
+  const routeSummary = route.kind === 'chat' ? summaries.find((c) => c.roomId === route.roomId) : undefined;
+  let routeRoom: Room | undefined = routeSummary?.room;
+  if (route.kind === 'chat' && !routeRoom) {
+    try {
+      routeRoom = client.getRoom(route.roomId);
+    } catch {
+      routeRoom = undefined;
+    }
+  }
+  const detail: Detail | undefined = overlay
+    ? { kind: overlay }
+    : route.kind === 'chat' && routeRoom
+      ? { kind: 'room', room: routeRoom }
+      : route.kind === 'settings'
+        ? { kind: 'settings' }
+        : route.kind === 'requests'
+          ? { kind: 'requests' }
+          : route.kind === 'request'
+            ? { kind: 'request', roomId: route.roomId }
+            : undefined;
+  const setDetail = (next: Detail | undefined) => {
+    const kind = next?.kind;
+    setOverlay(kind === 'encryption' || kind === 'newChat' || kind === 'newGroup' ? kind : undefined);
+    if (kind === 'encryption' || kind === 'newChat' || kind === 'newGroup') return;
+    if (!next) return navigate(showingArchived ? { kind: 'archived' } : { kind: 'list', scope });
+    if (next.kind === 'room') return navigate({ kind: 'chat', roomId: next.room.id() });
+    if (next.kind === 'request') return navigate({ kind: 'request', roomId: next.roomId });
+    navigate({ kind: next.kind });
+  };
+  // A dead or wrong link goes to the right page without an error: an invite to its request, a room this
+  // account does not have to the list.
+  useEffect(() => {
+    if (sync.kind !== 'ready') return;
+    if (route.kind === 'chat') {
+      if (routeSummary?.info && routeSummary.kind === 'request')
+        navigate({ kind: 'request', roomId: route.roomId }, true);
+      else if ((routeSummary?.info && routeSummary.kind === 'hidden') || !routeRoom)
+        navigate({ kind: 'list', scope: 'conversas' }, true);
+    } else if (route.kind === 'request') {
+      const r = summaries.find((c) => c.roomId === route.roomId);
+      if (r?.info && r.kind !== 'request') navigate({ kind: 'chat', roomId: route.roomId }, true);
+    }
+  }, [route, routeSummary, routeRoom, sync.kind, summaries]);
   const open = detail?.kind === 'room' ? detail.room : undefined;
   const openId = useRef<string>(undefined);
   openId.current = open?.id();
@@ -117,14 +190,49 @@ export function Chats({ client }: { client: Client }) {
   const request = detail?.kind === 'request' ? summaries.find((c) => c.roomId === detail.roomId) : undefined;
   const showsDetail = detail !== undefined;
 
-  const openChat = useCallback((room: Room) => setDetail({ kind: 'room', room }), []);
+  const openChat = useCallback((room: Room) => {
+    setOverlay(undefined);
+    navigate({ kind: 'chat', roomId: room.id() });
+  }, []);
   useDesktopNotifications(summaries, open?.id(), ownUserId, openChat);
-  useTabTitle(chatsBadge + groupsBadge);
+  const page =
+    detail?.kind === 'room'
+      ? (routeSummary?.face.name ?? detail.room.displayName())
+      : route.kind === 'requests' || route.kind === 'request'
+        ? s('bipe_requests_title')
+        : route.kind === 'archived'
+          ? s('bipe_archived_title')
+          : route.kind === 'settings'
+            ? s('bipe_settings_section')
+            : undefined;
+  useTabTitle(chatsBadge + groupsBadge, page);
+  // The switcher shows each account's last known name, photo and unread badge (ADR 0225 point 4).
+  const { remember, current: account } = useAccounts();
+  // Company mode (ADR 0121 point kept by ADR 0225, ADR 0087): the account type from bipe-api.
+  const isCompany = useIsCompany(client.userId());
+  useEffect(() => remember({ isCompany }), [isCompany, remember]);
+  useEffect(() => {
+    if (sync.kind === 'ready') remember({ unread: chatsBadge + groupsBadge });
+  }, [chatsBadge, groupsBadge, sync.kind, remember]);
+  useEffect(() => {
+    let stopped = false;
+    Promise.all([client.displayName().catch(() => undefined), client.avatarUrl().catch(() => undefined)]).then(
+      ([name, avatarUrl]) => !stopped && remember({ name: name ?? undefined, avatarUrl: avatarUrl ?? undefined }),
+    );
+    return () => {
+      stopped = true;
+    };
+  }, [client, remember]);
   const [permission, askPermission] = useNotificationPermission();
   // Escape closes the settings and request screens (the chat info and viewers handle their own).
   useEscape(
     () => setDetail(undefined),
-    detail?.kind === 'settings' || detail?.kind === 'requests' || detail?.kind === 'request',
+    detail?.kind === 'settings' ||
+      detail?.kind === 'requests' ||
+      detail?.kind === 'request' ||
+      detail?.kind === 'encryption' ||
+      detail?.kind === 'newChat' ||
+      detail?.kind === 'newGroup',
   );
   // Keyboard: Cmd or Ctrl+K finds a chat; Alt+Up and Alt+Down open the chat above or below the open one.
   const listed = useRef<ChatSummary[]>([]);
@@ -148,6 +256,8 @@ export function Chats({ client }: { client: Client }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [openChat]);
   const [bannerClosed, setBannerClosed] = useState(false);
+  const encryption = useEncryptionState(client);
+  const [encryptionDismissed, setEncryptionDismissed] = useState(bannerDismissed);
   const searching = query.trim() !== '';
   const needle = normalize(query.trim());
   // Search covers both scopes and archived chats; it opens any of them.
@@ -164,7 +274,22 @@ export function Chats({ client }: { client: Client }) {
           className={`${showsDetail ? 'hidden md:flex' : 'flex'} min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface-base md:w-[360px] md:shrink-0 md:border-r md:border-line-subtle`}
         >
           {/* The navigation bar: the toolbar row with its glass button, then the large title. */}
-          <div className="flex h-11 shrink-0 items-center justify-end px-2">
+          <div className="flex h-11 shrink-0 items-center gap-2 px-2">
+            <AccountSwitcher />
+            {isCompany && (
+              // The company's name in the top bar: the person sees which identity writes (ADR 0121).
+              <span className="min-w-0 truncate text-headline text-ink-primary">{account.name}</span>
+            )}
+            <span className="flex-1" />
+            {/* Nova conversa (the apps' create button): the person search, with Novo grupo at its top. */}
+            <button
+              className={`grid size-11 place-items-center rounded-full ${overlay === 'newChat' || overlay === 'newGroup' ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}
+              aria-label={s('bipe_action_start_chat')}
+              title={s('bipe_action_start_chat')}
+              onClick={() => setDetail({ kind: 'newChat' })}
+            >
+              <Icon path={pencilSimple} size={22} />
+            </button>
             {/* Settings for this browser; sign out lives there, in Sua conta. */}
             <button
               className={`grid size-11 place-items-center rounded-full ${detail?.kind === 'settings' ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}
@@ -236,6 +361,12 @@ export function Chats({ client }: { client: Client }) {
                 keep.current.entries?.controller().addOnePage();
             }}
           >
+            {!searching && !showingArchived && needsApproval(encryption) && !encryptionDismissed && (
+              <EncryptionBanner
+                onOpen={() => setDetail({ kind: 'encryption' })}
+                onDismiss={() => setEncryptionDismissed(true)}
+              />
+            )}
             {searching ? null : showingArchived ? (
               <EntryRow icon={caretLeft} title={scopeTitle} onOpen={() => setShowingArchived(false)} />
             ) : scope === 'conversas' ? (
@@ -287,8 +418,33 @@ export function Chats({ client }: { client: Client }) {
           </ul>
         </aside>
         <main className={`${showsDetail ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col overflow-hidden`}>
-          {detail?.kind === 'settings' ? (
-            <Settings onClose={() => setDetail(undefined)} />
+          {detail?.kind === 'newChat' ? (
+            <NewChat
+              chats={summaries}
+              onOpen={(roomId) => {
+                setOverlay(undefined);
+                navigate({ kind: 'chat', roomId });
+              }}
+              onNewGroup={() => setDetail({ kind: 'newGroup' })}
+              onClose={() => setDetail(undefined)}
+            />
+          ) : detail?.kind === 'newGroup' ? (
+            <NewGroup
+              chats={summaries}
+              onOpen={(roomId) => {
+                setOverlay(undefined);
+                navigate({ kind: 'chat', roomId });
+              }}
+              onClose={() => setDetail({ kind: 'newChat' })}
+            />
+          ) : detail?.kind === 'encryption' ? (
+            <EncryptionSheet state={encryption} onClose={() => setDetail(undefined)} />
+          ) : detail?.kind === 'settings' ? (
+            <Settings
+              group={route.kind === 'settings' ? route.group : undefined}
+              onGroup={(group) => navigate({ kind: 'settings', group })}
+              onClose={() => setDetail(undefined)}
+            />
           ) : detail?.kind === 'requests' ? (
             <RequestsList
               requests={requests}
@@ -299,12 +455,21 @@ export function Chats({ client }: { client: Client }) {
             <RequestScreen
               key={request.roomId}
               request={request}
+              contactNames={summaries.filter((c) => c.kind === 'dm').map((c) => c.face.name)}
               onAccepted={() => openChat(request.room)}
               onDone={() => setDetail({ kind: 'requests' })}
               onBack={() => setDetail({ kind: 'requests' })}
             />
           ) : open ? (
-            <RoomTimeline key={open.id()} room={open} onBack={() => setDetail(undefined)} />
+            <RoomTimeline
+              key={open.id()}
+              room={open}
+              chats={summaries}
+              showsInfo={route.kind === 'chat' && route.info === true}
+              onInfo={(show) => navigate({ kind: 'chat', roomId: open.id(), info: show })}
+              focusEventId={route.kind === 'chat' ? route.eventId : undefined}
+              onBack={() => setDetail(undefined)}
+            />
           ) : (
             // A wide window with no chat open. The list beside it is the call to action, so no text here.
             <div className="grid flex-1 place-items-center bg-surface-base">
@@ -422,7 +587,7 @@ function GroupInviteRow({ invite, onJoined }: { invite: ChatSummary; onJoined: (
   };
   return (
     <li className="flex items-start gap-3 border-b-[0.5px] border-line-subtle px-4 py-3">
-      <Avatar name={invite.face.name} size={48} mxcUrl={invite.face.avatarUrl} />
+      <Avatar name={invite.face.name} size={48} mxcUrl={invite.face.avatarUrl} userId={invite.info?.inviter?.userId} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="truncate text-headline text-ink-primary">{invite.face.name}</span>
         <span className="text-subheadline text-ink-secondary">
@@ -534,7 +699,7 @@ function ChatRow({
         onClick={onOpen}
         onContextMenu={onMenu}
       >
-        <Avatar name={name} size={48} mxcUrl={avatarUrl} />
+        <Avatar name={name} size={48} mxcUrl={avatarUrl} userId={chat.face.peer?.userId} />
         <span className="flex min-h-[72px] min-w-0 flex-1 flex-col justify-center gap-1 border-b-[0.5px] border-line-subtle py-2 pr-4">
           <span className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1 truncate text-headline text-ink-primary">{name}</span>
@@ -624,12 +789,4 @@ function SearchField({ value, onChange }: { value: string; onChange: (value: str
       )}
     </div>
   );
-}
-
-/** Lower case without accents, so "joao" finds "João". */
-export function normalize(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
 }

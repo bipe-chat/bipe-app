@@ -22,25 +22,61 @@ import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
 import { ChatInfo } from './ChatInfo';
 import { useRoomFace } from './room-face';
 import { itemRow, markRead, TimelineRowView, type MessageRow, type RowHandlers } from './TimelineRows';
-import { Avatar } from './ui/Avatar';
+import { Alert } from './ui/Alert';
+import { useAccounts } from './accounts-context';
+import { Avatar, useIsCompany } from './ui/Avatar';
 import { ChatBackground } from './ui/ChatBackground';
-import { s } from './ui/i18n';
+import { pending as pendingString, s } from './ui/i18n';
 import { Icon } from './ui/Icon';
+import {
+  contentWithMentions,
+  insertMention,
+  mentionQuery,
+  mentionsIn,
+  useMentionDirectory,
+  type ComposerMention,
+  type MentionSuggestion,
+} from './mentions';
+import type { ChatSummary } from './chat-model';
+import { EmojiPicker, ForwardSheet, forwardContentOf, ReactionSenders } from './MessageSheets';
+import type { ReactionPill } from './Reactions';
+import { messageLink } from './router';
 import { readReceiptsOn } from './Settings';
 import { applyDiffs, describe, type DiffVariants } from './util';
 
 // The composer's mode (specs message-reply, message-edit): a reply bar or an edit bar above the field.
 type Mode = { kind: 'reply'; row: MessageRow } | { kind: 'edit'; row: MessageRow } | undefined;
 
-export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void }) {
+export function RoomTimeline({
+  room,
+  chats,
+  showsInfo,
+  onInfo,
+  focusEventId,
+  onBack,
+}: {
+  room: Room;
+  chats: ChatSummary[];
+  showsInfo: boolean;
+  onInfo: (show: boolean) => void;
+  focusEventId?: string;
+  onBack: () => void;
+}) {
+  // The sheets of the message menu: forward, the emoji picker, who reacted.
+  const [sheet, setSheet] = useState<
+    | { kind: 'forward'; content: Record<string, unknown> }
+    | { kind: 'emoji'; row: MessageRow }
+    | { kind: 'senders'; pill: ReactionPill }
+  >();
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [draft, setDraft] = useState('');
   const [note, setNote] = useState('');
   // Files picked, pasted or dropped, waiting in the upload preview.
   const [pending, setPending] = useState<File[]>();
   const [dropping, setDropping] = useState(false);
-  const [showsInfo, setShowsInfo] = useState(false);
   const [mode, setMode] = useState<Mode>();
+  const [mentions, setMentions] = useState<ComposerMention[]>([]);
+  const [suggestionsHidden, setSuggestionsHidden] = useState(false);
   const [deleting, setDeleting] = useState<MessageRow>();
   const [toast, setToast] = useState('');
   useEffect(() => {
@@ -97,6 +133,35 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   // With the read receipts switch off, DMs show no read ticks either (bipe_privacy_read_receipts_footer).
   const rows = face.isDirect && readReceiptsOn() ? markRead(itemRows) : itemRows;
   const typing = useTyping(room, ownUserId);
+  const account = useAccounts().current;
+  const companyName = useIsCompany(ownUserId) ? (account.name ?? undefined) : undefined;
+  // A message link (/c/<room>/e/<event>): load older pages until the message is there, then bring it into
+  // view and mark it for a moment, as the reply quote jump does.
+  const focused = useRef<string>(undefined);
+  useEffect(() => {
+    if (!focusEventId || focused.current === focusEventId) return;
+    const el = document.getElementById(`ev-${focusEventId}`);
+    if (el) {
+      focused.current = focusEventId;
+      el.scrollIntoView({ block: 'center' });
+      el.dataset.highlight = 'true';
+      setTimeout(() => delete el.dataset.highlight, 2000);
+    } else if (!history.current.reachedStart && timeline.current) {
+      void loadHistory().catch(() => undefined);
+    }
+  }, [focusEventId, items, loadHistory]);
+  // Spec composer mentions: groups only (ADR 0141).
+  const suggest = useMentionDirectory(room, face.isDirect === false);
+  const query =
+    face.isDirect === false && mode?.kind !== 'edit' && !suggestionsHidden ? mentionQuery(draft) : undefined;
+  const everyoneLabel = s('bipe_app_composer_mention_everyone');
+  const suggestions = query === undefined ? [] : suggest(query, everyoneLabel);
+  const pickSuggestion = (suggestion: MentionSuggestion) => {
+    const inserted = insertMention(draft, suggestion, everyoneLabel);
+    setDraft(inserted.text);
+    setMentions((m) => [...m, inserted.mention]);
+    field.current?.focus();
+  };
   // Messages from others that arrive while the person reads older ones count on the jump button.
   const lastKey = useRef<string>(undefined);
   const newest = itemRows.length > 0 ? itemRows[itemRows.length - 1] : undefined;
@@ -159,10 +224,34 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
       void navigator.clipboard.writeText(row.media?.caption ?? row.text).then(() => setToast(s('bipe_app_copied')));
     },
     loadReply,
+    forward: (row) => {
+      const info = row.provider.debugInfo();
+      const content = forwardContentOf(info.originalJson, info.latestEditJson);
+      if (content) setSheet({ kind: 'forward', content });
+    },
+    moreReactions: (row) => setSheet({ kind: 'emoji', row }),
+    copyLink: (row) => {
+      if (!row.eventId) return;
+      void navigator.clipboard
+        .writeText(messageLink(room.id(), row.eventId))
+        .then(() => setToast(s('bipe_app_copied')));
+    },
+    senders: (_row, pill) => setSheet({ kind: 'senders', pill }),
+    retry: (row) => {
+      row.provider
+        .getSendHandle()
+        ?.tryResend()
+        .catch((e: unknown) => setNote(describe(e)));
+    },
+    cancelUpload: (row) => {
+      row.provider
+        .getSendHandle()
+        ?.abort()
+        .catch((e: unknown) => setNote(describe(e)));
+    },
   };
   const name = face.name;
-  // TODO(string): the label of the button that scrolls back to the newest message.
-  const newestLabel = 'Newest messages';
+  const newestLabel = pendingString('bipe_a11y_scroll_to_newest');
   const canSend = draft.trim() !== '';
 
   return (
@@ -211,9 +300,9 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
             type="button"
             className="flex min-w-0 items-center justify-center gap-2 justify-self-center rounded-full px-2"
             aria-expanded={showsInfo}
-            onClick={() => setShowsInfo((v) => !v)}
+            onClick={() => onInfo(!showsInfo)}
           >
-            <Avatar name={name} size={32} mxcUrl={face.avatarUrl} />
+            <Avatar name={name} size={32} mxcUrl={face.avatarUrl} userId={face.peer?.userId} />
             <h2 className="truncate text-headline text-ink-primary">{name}</h2>
           </button>
         </header>
@@ -269,6 +358,11 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
             </p>
           )}
           {typing.length > 0 && <TypingLine names={typing} />}
+          {companyName && (
+            // ADR 0121: a company account writes as the company; the composer says so.
+            <p className="px-4 pt-1 text-caption text-ink-secondary">{s('bipe_company_replying_as', companyName)}</p>
+          )}
+          {suggestions.length > 0 && <SuggestionList suggestions={suggestions} onPick={pickSuggestion} />}
           {mode && (
             <ComposerBar
               icon={mode.kind === 'edit' ? pencilSimple : arrowBendUpLeft}
@@ -294,7 +388,9 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
               setDraft('');
               setMode(undefined);
               typingNotice('');
-              const content = messageEventContentFromMarkdown(text);
+              const content =
+                mode?.kind === 'edit' ? messageEventContentFromMarkdown(text) : contentWithMentions(text, mentions);
+              setMentions([]);
               const sent =
                 mode?.kind === 'edit'
                   ? t.edit(mode.row.itemId, new EditedContent.RoomMessage({ content }))
@@ -317,10 +413,20 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
                 onChange={(e) => {
                   setDraft(e.target.value);
                   typingNotice(e.target.value);
+                  setMentions((m) => mentionsIn(m, e.target.value));
+                  setSuggestionsHidden(false);
                 }}
                 onKeyDown={(e) => {
+                  // Tab or Return picks the first @ suggestion; Escape hides the list.
+                  if (suggestions.length > 0 && (e.key === 'Tab' || e.key === 'Enter') && !e.shiftKey) {
+                    e.preventDefault();
+                    pickSuggestion(suggestions[0]);
+                  } else if (suggestions.length > 0 && e.key === 'Escape') {
+                    e.preventDefault();
+                    setSuggestionsHidden(true);
+                  }
                   // Return sends, Shift+Return makes a new line (desktop keyboards).
-                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
                     e.currentTarget.form?.requestSubmit();
                   } else if (e.key === 'Escape' && mode) {
@@ -354,7 +460,21 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
           </form>
         </div>
       </section>
-      {showsInfo && <ChatInfo room={room} face={face} onClose={() => setShowsInfo(false)} />}
+      {sheet?.kind === 'forward' && (
+        <ForwardSheet content={sheet.content} chats={chats} onClose={() => setSheet(undefined)} onDone={setToast} />
+      )}
+      {sheet?.kind === 'emoji' && (
+        <EmojiPicker onPick={(key) => on.react(sheet.row, key)} onClose={() => setSheet(undefined)} />
+      )}
+      {sheet?.kind === 'senders' && (
+        <ReactionSenders
+          room={room}
+          reactionKey={sheet.pill.key}
+          senders={sheet.pill.senders}
+          onClose={() => setSheet(undefined)}
+        />
+      )}
+      {showsInfo && <ChatInfo room={room} face={face} onClose={() => onInfo(false)} />}
       {deleting && (
         <DeleteDialog
           onCancel={() => setDeleting(undefined)}
@@ -403,41 +523,15 @@ function ComposerBar({
 
 // The delete alert (spec message-delete): bipe_app_message_delete_title and _body, Cancelar and Apagar.
 function DeleteDialog({ onCancel, onDelete }: { onCancel: () => void; onDelete: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onCancel();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
   return (
-    // The dim behind an alert is black at 40% in both schemes, as the system draws it; no token covers it.
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-6" onClick={onCancel}>
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="delete-title"
-        className="flex w-full max-w-[300px] flex-col overflow-hidden rounded-[14px] bg-surface-raised text-center"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex flex-col gap-1 p-4">
-          <h3 id="delete-title" className="text-headline text-ink-primary">
-            {s('bipe_app_message_delete_title')}
-          </h3>
-          <p className="text-footnote text-ink-primary">{s('bipe_app_message_delete_body')}</p>
-        </div>
-        <div className="grid grid-cols-2 border-t-[0.5px] border-line-subtle">
-          <button type="button" autoFocus className="min-h-11 text-body text-accent-ink" onClick={onCancel}>
-            {s('bipe_app_cancel')}
-          </button>
-          <button
-            type="button"
-            className="min-h-11 border-l-[0.5px] border-line-subtle text-headline text-trust-danger-ink"
-            onClick={onDelete}
-          >
-            {s('bipe_app_message_action_delete')}
-          </button>
-        </div>
-      </div>
-    </div>
+    <Alert
+      title={s('bipe_app_message_delete_title')}
+      action={s('bipe_app_message_action_delete')}
+      onCancel={onCancel}
+      onAction={onDelete}
+    >
+      {s('bipe_app_message_delete_body')}
+    </Alert>
   );
 }
 
@@ -489,5 +583,35 @@ function TypingLine({ names }: { names: string[] }) {
       </span>
       <span className="truncate text-caption text-ink-secondary">{text}</span>
     </div>
+  );
+}
+
+// The @ suggestions of a group (ChatTimelineView suggestionList): a 32 px avatar and the name, 16 x 6 px
+// insets, at most 200 px high.
+function SuggestionList({
+  suggestions,
+  onPick,
+}: {
+  suggestions: MentionSuggestion[];
+  onPick: (s: MentionSuggestion) => void;
+}) {
+  return (
+    <ul role="listbox" className="bipe-glass mx-3 mt-2 max-h-[200px] overflow-y-auto rounded-[22px] py-1">
+      {suggestions.map((m) => (
+        <li key={m.userId ?? '@room'}>
+          <button
+            type="button"
+            role="option"
+            aria-selected={false}
+            className="flex w-full items-center gap-2.5 px-4 py-1.5 text-left hover:bg-surface-sunken"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onPick(m)}
+          >
+            <Avatar name={m.name} size={32} mxcUrl={m.avatarUrl} userId={m.userId} />
+            <span className="min-w-0 flex-1 truncate text-body text-ink-primary">{m.name}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }

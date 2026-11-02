@@ -63,9 +63,44 @@ export function useDesktopNotifications(
   }, [summaries, openRoomId, ownUserId, onOpen]);
 }
 
-/** "(3) Bipe" while chats are unread, "Bipe" otherwise. */
-export function useTabTitle(unread: number) {
+/**
+ * The tab title: "(n) <page> · Bipe", n the unread badge, page the open chat or screen; "(n) Bipe" on the list.
+ * The favicon is the Bipe mark in accent.fill, with a dot while n > 0.
+ */
+export function useTabTitle(unread: number, page?: string) {
   useEffect(() => {
-    document.title = unread > 0 ? `(${unread.toLocaleString()}) Bipe` : 'Bipe';
-  }, [unread]);
+    const count = unread > 0 ? `(${unread.toLocaleString()}) ` : '';
+    document.title = `${count}${page ? `${page} · ` : ''}Bipe`;
+  }, [unread, page]);
+  useEffect(() => drawFavicon(unread > 0), [unread]);
+}
+
+// The 64-unit mark of bipe-shared design/tokens.json appThemes.icon.path, on a 64 px canvas.
+const MARK = new Path2D('M8 10c0-1.1.9-2 2-2h28c9.9 0 18 8.1 18 18v12c0 9.9-8.1 18-18 18H26C16.1 56 8 47.9 8 38V10Z');
+
+function drawFavicon(dot: boolean) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const css = getComputedStyle(document.documentElement);
+  ctx.fillStyle = css.getPropertyValue('--bipe-accent-fill').trim();
+  ctx.fill(MARK);
+  if (dot) {
+    ctx.beginPath();
+    ctx.arc(50, 14, 12, 0, Math.PI * 2);
+    ctx.fillStyle = css.getPropertyValue('--bipe-surface-base').trim();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(50, 14, 9, 0, Math.PI * 2);
+    ctx.fillStyle = css.getPropertyValue('--bipe-trust-danger-line').trim();
+    ctx.fill();
+  }
+  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.href = canvas.toDataURL('image/png');
 }

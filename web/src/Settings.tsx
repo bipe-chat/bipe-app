@@ -8,11 +8,14 @@
 // such row is left out. The root rows are the iPhone Settings layout: a 29 px accent.fill tile with an
 // 18 px ink.onAccent glyph, the title and a chevron.
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useClient } from './media';
 import { caretRight, chatCircle, bell, info, lockSimple, userCircle } from './phosphor/icons';
 import { settings } from './registries';
-import { forgetSession } from './sdk';
+import { useAccounts } from './accounts-context';
+import { Alert } from './ui/Alert';
+import { RecoveryState, VerificationState } from './generated/matrix_sdk_ffi';
+import { EncryptionSheet, useEncryptionState } from './Encryption';
 import type { StringKey } from './bipe/generated/strings';
 import { Avatar } from './ui/Avatar';
 import { locale, s } from './ui/i18n';
@@ -37,7 +40,9 @@ const key = (k: string) => k as StringKey;
 const LOCAL_SWITCHES: Record<string, string> = { readReceipts: 'bipe.settings.readReceipts' };
 
 function webRow(row: SettingsRow): boolean {
-  return row.kind === 'url' || row.key === 'signOut' || LOCAL_SWITCHES[row.key] !== undefined;
+  return (
+    row.kind === 'url' || row.key === 'signOut' || row.key === 'oldMessages' || LOCAL_SWITCHES[row.key] !== undefined
+  );
 }
 
 function readSwitch(storageKey: string): boolean {
@@ -97,9 +102,19 @@ function urlOf(name: string): string | undefined {
   return urls[name]?.[locale === 'en' ? 'en' : 'pt'];
 }
 
-export function Settings({ onClose }: { onClose: () => void }) {
+export function Settings({
+  group,
+  onGroup,
+  onClose,
+}: {
+  group?: string;
+  onGroup: (group: string | undefined) => void;
+  onClose: () => void;
+}) {
   const client = useClient();
-  const [open, setOpen] = useState<Group>();
+  // The open group comes from the URL (/ajustes/<group>).
+  const open = settings.groups.find((g) => g.key === group);
+  const setOpen = (g: Group | undefined) => onGroup(g?.key);
   const [me, setMe] = useState<{ name: string; avatarUrl?: string }>({ name: client.userId() });
   useEffect(() => {
     let stopped = false;
@@ -121,7 +136,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
       <NavBar title={s('bipe_tab_you')} onBack={onClose} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-6">
         <div className="flex flex-col items-center gap-1 py-2 text-center">
-          <Avatar name={me.name} size={96} mxcUrl={me.avatarUrl} />
+          <Avatar name={me.name} size={96} mxcUrl={me.avatarUrl} userId={client.userId()} />
           <h3 className="mt-2 text-title2 text-ink-primary">{me.name}</h3>
         </div>
         <Section header={s('bipe_settings_section')}>
@@ -152,9 +167,14 @@ export function Settings({ onClose }: { onClose: () => void }) {
 }
 
 function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
-  const client = useClient();
+  const [signingOut, setSigningOut] = useState<'one' | 'all'>();
+  const accountCount = useAccounts().accounts.list.length;
+  const [showsEncryption, setShowsEncryption] = useState(false);
+  const encryption = useEncryptionState(useClient());
+  if (showsEncryption) return <EncryptionSheet state={encryption} onClose={() => setShowsEncryption(false)} />;
   return (
     <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
+      {signingOut && <SignOutAlert all={signingOut === 'all'} onClose={() => setSigningOut(undefined)} />}
       <NavBar title={s(key(group.title))} onBack={onBack} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
         {webSections(group).map((section) => (
@@ -164,7 +184,28 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
             footer={footerOf(section)}
           >
             {section.rows.map((row) =>
-              LOCAL_SWITCHES[row.key] ? (
+              row.key === 'oldMessages' ? (
+                // Settings row account.oldMessages (Sua conta › Aparelhos) opens the encryption-status sheet,
+                // with this browser's verification state as its value.
+                <li key={row.key}>
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full items-center gap-2 px-4 text-left hover:bg-surface-sunken"
+                    onClick={() => setShowsEncryption(true)}
+                  >
+                    <span className="min-w-0 flex-1 text-body text-ink-primary">{s(key(row.title))}</span>
+                    <span className="text-body text-ink-secondary">
+                      {/* TODO(string): bipe_web_verification_verified and _unverified, this browser's state. */}
+                      {encryption.verification === VerificationState.Verified
+                        ? 'Approved'
+                        : encryption.verification === VerificationState.Unverified
+                          ? 'Needs approval'
+                          : ''}
+                    </span>
+                    <Icon path={caretRight} size={16} className="text-glyph-secondary" />
+                  </button>
+                </li>
+              ) : LOCAL_SWITCHES[row.key] ? (
                 <SwitchRow key={row.key} title={s(key(row.title))} storageKey={LOCAL_SWITCHES[row.key]} />
               ) : row.kind === 'url' ? (
                 <Row key={row.key}>
@@ -178,19 +219,30 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
                   </a>
                 </Row>
               ) : (
-                <Row key={row.key}>
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 py-1 text-left text-body text-trust-danger-ink"
-                    onClick={async () => {
-                      await client.logout().catch(() => undefined);
-                      await forgetSession();
-                      window.location.reload();
-                    }}
-                  >
-                    {s(key(row.title))}
-                  </button>
-                </Row>
+                <Fragment key={row.key}>
+                  <Row>
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 py-1 text-left text-body text-trust-danger-ink"
+                      onClick={() => setSigningOut('one')}
+                    >
+                      {s(key(row.title))}
+                    </button>
+                  </Row>
+                  {/* ADR 0225: a browser that holds several accounts offers to sign out of all of them. */}
+                  {accountCount > 1 && (
+                    <Row>
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 py-1 text-left text-body text-trust-danger-ink"
+                        onClick={() => setSigningOut('all')}
+                      >
+                        {/* TODO(string): bipe_web_sign_out_all, "Sair de todas as contas deste navegador". */}
+                        {SIGN_OUT_ALL}
+                      </button>
+                    </Row>
+                  )}
+                </Fragment>
               ),
             )}
           </Section>
@@ -205,4 +257,48 @@ function footerOf(section: ReturnType<typeof webSections>[number]): string | und
   if ('footer' in section && section.footer) return s(key(section.footer));
   const row = section.rows.length === 1 ? section.rows[0] : undefined;
   return row && 'footer' in row && row.footer ? s(key(row.footer)) : undefined;
+}
+
+/**
+ * Spec sign-out, for a browser: a confirmation, with the history warning when no other device holds the
+ * message keys (Encryption.isLastDevice) and the account has no recovery key. The phone's ways-back list is
+ * about getting the account back on a phone; a browser comes back by scanning a new code, so it is left out.
+ */
+const SIGN_OUT_ALL = 'Sair de todas as contas deste navegador';
+
+function SignOutAlert({ all, onClose }: { all: boolean; onClose: () => void }) {
+  const client = useClient();
+  const accounts = useAccounts();
+  const [onlyCopy, setOnlyCopy] = useState(false);
+  const [phase, setPhase] = useState<'confirm' | 'signingOut' | 'failed'>('confirm');
+  useEffect(() => {
+    let stopped = false;
+    const encryption = client.encryption();
+    encryption
+      .isLastDevice()
+      .then((last) => !stopped && setOnlyCopy(last && encryption.recoveryState() !== RecoveryState.Enabled))
+      .catch(() => undefined);
+    return () => {
+      stopped = true;
+    };
+  }, [client]);
+  return (
+    <Alert
+      title={all ? SIGN_OUT_ALL : s('bipe_account_sign_out')}
+      action={phase === 'signingOut' ? s('bipe_app_signing_out') : all ? SIGN_OUT_ALL : s('bipe_account_sign_out')}
+      busy={phase === 'signingOut'}
+      onCancel={onClose}
+      onAction={() => {
+        setPhase('signingOut');
+        (all ? accounts.signOutAll() : accounts.signOut()).catch((e: unknown) => {
+          console.warn('[trace] sign-out failed', e);
+          setPhase('failed');
+        });
+      }}
+    >
+      {/* TODO(string): bipe_web_sign_out_history, the web variant of bipe_app_sign_out_history ("neste celular"). */}
+      {onlyCopy && <p>Your old messages are only in this browser. Without the recovery key they do not come back.</p>}
+      {phase === 'failed' && <p className="text-trust-danger-ink">{s('bipe_error_generic')}</p>}
+    </Alert>
+  );
 }

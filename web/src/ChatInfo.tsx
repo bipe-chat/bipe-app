@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { MembershipState, type RoomLike as Room, type RoomMember } from './generated/matrix_sdk_ffi';
 import type { RoomFace } from './room-face';
 import { isOfficial } from './registries';
+import { ProfileFactsLines, useHandle } from './Trust';
 import { Avatar } from './ui/Avatar';
 import { s } from './ui/i18n';
 import { NavBar, OfficialBadge, Row, Section } from './ui/List';
@@ -39,15 +40,17 @@ function Header({
   avatarUrl,
   badge,
   subtitle,
+  userId,
 }: {
   name: string;
   avatarUrl?: string;
   badge?: boolean;
   subtitle?: string;
+  userId?: string;
 }) {
   return (
     <div className="flex flex-col items-center gap-1 py-2 text-center">
-      <Avatar name={name} size={96} mxcUrl={avatarUrl} />
+      <Avatar name={name} size={96} mxcUrl={avatarUrl} userId={userId} />
       <div className="mt-2 flex items-center gap-1.5">
         <h3 className="text-title2 text-ink-primary">{name}</h3>
         {badge && <OfficialBadge />}
@@ -57,10 +60,22 @@ function Header({
   );
 }
 
-// TODO: the @handle (BipeHandleResolver, POST /v1/handles/resolve), the trust facts and marks, the bio
-// and the company square need the Bipe API with an OpenID token, which the web client does not use yet.
+// The @handle and the profile facts come from bipe-api (Trust.tsx). TODO: trust marks and the bio
+// (public profile) are not read yet.
 function PersonInfo({ face }: { face: RoomFace }) {
-  return <Header name={face.name} avatarUrl={face.avatarUrl} badge={isOfficial(face.peer?.userId)} />;
+  const handle = useHandle(face.peer?.userId);
+  return (
+    <>
+      <Header
+        name={face.name}
+        avatarUrl={face.avatarUrl}
+        badge={isOfficial(face.peer?.userId)}
+        userId={face.peer?.userId}
+        subtitle={handle ? `@${handle}` : undefined}
+      />
+      <ProfileFactsLines userId={face.peer?.userId} />
+    </>
+  );
 }
 
 function GroupInfo({ room, face }: { room: Room; face: RoomFace }) {
@@ -109,7 +124,7 @@ function GroupInfo({ room, face }: { room: Room; face: RoomFace }) {
           {members.map((m) => {
             const name = m.displayName ?? m.userId;
             return (
-              <Row key={m.userId} leading={<Avatar name={name} size={32} mxcUrl={m.avatarUrl} />}>
+              <Row key={m.userId} leading={<Avatar name={name} size={32} mxcUrl={m.avatarUrl} userId={m.userId} />}>
                 <span className="min-w-0 flex-1 truncate text-body text-ink-primary">{name}</span>
                 {isOfficial(m.userId) && <OfficialBadge />}
                 {m.userId === own && <span className="text-subheadline text-ink-secondary">{s('bipe_app_you')}</span>}

@@ -8,21 +8,42 @@
 // centred column, title2 title, the code on a white field with a quiet zone, the check code in large
 // monospaced digits on surface.raised.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import QRCode from 'qrcode';
 import {
   GeneratedQrLoginProgress,
   type CheckCodeSenderLike as CheckCodeSender,
   type ClientLike as Client,
 } from './generated/matrix_sdk_ffi';
-import { newClient, oauthConfiguration, rememberSession } from './sdk';
+import { newClient, oauthConfiguration, type Slot } from './sdk';
+import { pending, s } from './ui/i18n';
 import { Spinner } from './ui/Spinner';
 import { describe } from './util';
 
-// TODO(string): every step text below is spike English. The web sign-in has no strings in bipe-shared yet.
-export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m: string) => void }) {
+// The steps (bipe_web_signin_*): ready shows the three instructions beside the code; scanned asks for the
+// check code; then approve on the phone, keys, done.
+type Step = 'starting' | 'ready' | 'checkCode' | 'approve' | 'keys' | 'expired' | 'done';
+// slot: the new account's empty slot. onCancel: Adicionar conta from an account goes back to it.
+export function QrLogin({
+  slot,
+  onDone,
+  onError,
+  onCancel,
+}: {
+  slot: Slot;
+  onDone: (c: Client) => void;
+  onError: (m: string) => void;
+  onCancel?: () => void;
+}) {
+  const cancelled = useRef(false);
+  useEffect(
+    () => () => {
+      cancelled.current = true;
+    },
+    [],
+  );
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [step, setStep] = useState('Starting…');
+  const [step, setStep] = useState<Step>('starting');
   const [qr, setQr] = useState<ArrayBuffer>();
   const [checkSender, setCheckSender] = useState<CheckCodeSender>();
   const [code, setCode] = useState('');
@@ -38,26 +59,26 @@ export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onEr
     // Expired). Before the phone scans it, make a new code instead of failing.
     let scanned = false;
     const attempt = async (): Promise<Client> => {
-      const client = await newClient();
+      const client = await newClient(slot);
       const handler = client.newLoginWithQrCodeHandler(oauthConfiguration());
       await handler.generate({
         onUpdate(state) {
           console.info('[trace] qr progress', (state as { tag?: string }).tag ?? state);
           if (GeneratedQrLoginProgress.QrReady.instanceOf(state)) {
             setQr(state.inner.qrCode.toBytes());
-            setStep('Scan this code with Bipe on your phone.');
+            setStep('ready');
           } else if (GeneratedQrLoginProgress.QrScanned.instanceOf(state)) {
             scanned = true;
             setWasScanned(true);
             setCheckSender(state.inner.checkCodeSender);
-            setStep('Type the two-digit code that your phone shows.');
+            setStep('checkCode');
           } else if (GeneratedQrLoginProgress.WaitingForToken.instanceOf(state)) {
             setCheckSender(undefined);
-            setStep(`Approve on your phone. Code: ${state.inner.userCode}`);
+            setStep('approve');
           } else if (GeneratedQrLoginProgress.SyncingSecrets.instanceOf(state)) {
-            setStep('Getting your keys from the phone…');
+            setStep('keys');
           } else if (GeneratedQrLoginProgress.Done.instanceOf(state)) {
-            setStep('Signed in.');
+            setStep('done');
           }
         },
       });
@@ -67,33 +88,63 @@ export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onEr
       for (;;) {
         try {
           const client = await attempt();
-          await rememberSession(client);
-          onDone(client);
+          if (!cancelled.current) onDone(client);
           return;
         } catch (e) {
           if (scanned || !/\b(NotFound|Expired)\b/.test(describe(e))) throw e;
           setQr(undefined);
-          setStep('The code expired. Making a new one…');
+          setStep('expired');
         }
       }
     })().catch((e) => onError(describe(e)));
-  }, [onDone, onError]);
+  }, [onDone, onError, slot]);
 
   useEffect(() => {
-    if (!qr || !canvas.current) return;
-    void QRCode.toCanvas(canvas.current, [{ data: new Uint8ClampedArray(qr), mode: 'byte' }], {
+    const target = canvas.current;
+    if (!qr || !target) return;
+    void QRCode.toCanvas(target, [{ data: new Uint8ClampedArray(qr), mode: 'byte' }], {
       errorCorrectionLevel: 'L',
       margin: 2,
       scale: 6,
+    }).then(() => {
+      // toCanvas writes a fixed pixel width and height into the inline style. That beats w-full, so the code sat at
+      // the left of the white field. Without them the canvas fills the field and stays square.
+      target.style.removeProperty('width');
+      target.style.removeProperty('height');
     });
   }, [qr]);
 
   const showsQr = qr !== undefined && !wasScanned;
 
   return (
-    <section className="flex h-full flex-col items-center overflow-y-auto p-4">
-      <div className="my-auto flex w-full max-w-[420px] flex-col items-center gap-4 text-center">
-        <h1 className="text-title2 text-ink-primary">{step}</h1>
+    <section className="relative flex h-full flex-col items-center overflow-y-auto p-4">
+      {onCancel && (
+        <button
+          type="button"
+          className="absolute top-2 left-2 min-h-11 px-3 text-body text-accent-ink"
+          onClick={() => {
+            cancelled.current = true;
+            onCancel();
+          }}
+        >
+          {s('bipe_app_cancel')}
+        </button>
+      )}
+      <div className="my-auto flex w-full max-w-[860px] flex-col items-center gap-8 md:flex-row md:items-center md:justify-center">
+        {step === 'ready' ? (
+          <div className="flex max-w-[400px] flex-col gap-5">
+            <h1 className="text-title2 text-ink-primary">{pending('bipe_web_signin_title')}</h1>
+            <ol className="flex flex-col gap-4 text-body text-ink-primary">
+              <Instruction n={1}>{pending('bipe_web_signin_step_open')}</Instruction>
+              <Instruction n={2}>
+                <MenuPath />
+              </Instruction>
+              <Instruction n={3}>{pending('bipe_web_signin_step_scan')}</Instruction>
+            </ol>
+          </div>
+        ) : (
+          <h1 className="text-center text-title2 text-ink-primary">{stepTitle(step)}</h1>
+        )}
         {/* A white field with a quiet zone, in light and dark mode (LinkPhoneShowView.swift). */}
         <div className={showsQr ? 'w-full max-w-[320px] rounded-2xl bg-white p-4' : 'hidden'}>
           <canvas ref={canvas} className="block h-auto w-full [image-rendering:pixelated]" />
@@ -111,7 +162,7 @@ export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onEr
               if (sent.current) return;
               sent.current = true;
               setCheckSender(undefined);
-              setStep('Approve on your phone.');
+              setStep('approve');
               console.info('[trace] check code send', n);
               checkSender
                 .send(n)
@@ -130,19 +181,68 @@ export function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onEr
               maxLength={2}
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              // TODO(string): the label of the check code field.
-              aria-label="Check code"
+              aria-label={pending('bipe_web_signin_check_code_title')}
             />
             <button
               className="min-h-[50px] rounded-full bg-accent-fill px-6 text-headline text-ink-on-accent hover:bg-accent-fill-pressed active:bg-accent-fill-pressed"
               type="submit"
             >
-              {/* TODO(string): the button that sends the check code. */}
-              Send
+              {pending('bipe_web_signin_check_code_send')}
             </button>
           </form>
         )}
       </div>
     </section>
+  );
+}
+
+function stepTitle(step: Step): string {
+  switch (step) {
+    case 'checkCode':
+      return pending('bipe_web_signin_check_code_title');
+    case 'approve':
+      return pending('bipe_web_signin_approve');
+    case 'keys':
+    case 'done':
+      return pending('bipe_web_signin_keys');
+    case 'expired':
+      return pending('bipe_web_signin_expired');
+    default:
+      return pending('bipe_web_loading');
+  }
+}
+
+// A numbered step: the number in an accent.fill circle, then the text.
+function Instruction({ n, children }: { n: number; children: ReactNode }) {
+  return (
+    <li className="flex items-start gap-3">
+      <span
+        aria-hidden
+        className="grid size-7 shrink-0 place-items-center rounded-full bg-accent-fill text-subheadline font-semibold text-ink-on-accent"
+      >
+        {n}
+      </span>
+      <span className="pt-0.5">{children}</span>
+    </li>
+  );
+}
+
+// Step 2: the path to the phone's Conectar um computador, each step in bold, separated by ›, with the
+// app's own names for the tab, the settings group, the screen and the action.
+function MenuPath() {
+  const names = [
+    s('bipe_tab_you'),
+    s('bipe_settings_account'),
+    s('bipe_linked_devices_title'),
+    s('bipe_linked_devices_link_computer'),
+  ];
+  const template = pending('bipe_web_signin_step_path', '\u0000', '\u0001', '\u0002', '\u0003');
+  return (
+    <>
+      {template.split(/([\u0000-\u0003])/).map((part, i) => {
+        const at = part.length === 1 ? part.charCodeAt(0) : -1;
+        return at >= 0 && at <= 3 ? <strong key={i}>{names[at]}</strong> : part;
+      })}
+    </>
   );
 }
