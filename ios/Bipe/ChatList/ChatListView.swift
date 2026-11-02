@@ -756,6 +756,8 @@ struct ChatRow: View {
                     }
                 }
             }
+            // The separator starts at the text, not at the initials inside the avatar.
+            .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
@@ -775,7 +777,13 @@ private struct FavouritesGrid<MenuContent: View>: View {
     let media: MediaLoader
     let open: (String) -> Void
     @ViewBuilder let menu: (String) -> MenuContent
-    @ScaledMetric(relativeTo: .caption) private var avatarSize: CGFloat = 72
+    @State private var gridWidth: CGFloat = 0
+
+    /// The avatar fills its column, so it follows the screen width, not Dynamic Type. Capped at 115 pt on wide screens.
+    private var avatarSize: CGFloat {
+        guard gridWidth > 0 else { return 72 }
+        return min((gridWidth - 2 * 12) / 3, 115)
+    }
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
@@ -791,6 +799,7 @@ private struct FavouritesGrid<MenuContent: View>: View {
             }
         }
         .padding(.vertical, 8)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(BipeStrings.chatFavourites)
     }
