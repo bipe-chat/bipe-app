@@ -112,7 +112,7 @@ import chat.bipe.app.media.MediaViewer
 import chat.bipe.app.media.VoicePlayer
 import chat.bipe.app.media.stickers.StickerPicker
 import chat.bipe.app.media.stickers.StickerPackScreen
-import chat.bipe.app.media.upload.AttachmentPicker
+import chat.bipe.app.media.upload.AttachmentMenu
 import chat.bipe.app.media.upload.UploadPreviewScreen
 import chat.bipe.app.media.voice.MicrophoneDeniedBar
 import chat.bipe.app.media.voice.VoiceRecordingBar
@@ -238,7 +238,6 @@ fun ChatTimelineScreen(
     var viewerRowId by rememberSaveable(session.userId, roomId) { mutableStateOf<String?>(null) }
     // composer
     val composer by model.composer.collectAsState()
-    var attaching by remember { mutableStateOf(false) }
     var upload by remember { mutableStateOf<PickedUpload?>(null) }
     var showsStickers by remember { mutableStateOf(false) }
     NotificationsPrompt(session, roomId, messages)
@@ -520,7 +519,16 @@ fun ChatTimelineScreen(
                         onCancelReply = model::cancelReply,
                         onCancelEdit = model::cancelEdit,
                         onPickSuggestion = model::pickSuggestion,
-                        onAttach = { attaching = true },
+                        attachMenu = { expanded, onDismiss ->
+                            AttachmentMenu(
+                                expanded = expanded,
+                                onDismiss = onDismiss,
+                                onPicked = { files -> upload = PickedUpload(files, model.takeReplyEventId()) },
+                                onStickers = { showsStickers = true },
+                                onLocation = { locationSend = LocationSendRequest(model.takeReplyEventId()) },
+                                onPoll = if (composer.canPoll) ({ creatingPoll = true }) else null,
+                            )
+                        },
                         onStickers = { showsStickers = true },
                         onRecord = { model.startRecording(context.applicationContext) },
                         onEndRecording = model::endRecording,
@@ -623,18 +631,6 @@ fun ChatTimelineScreen(
             containerColor = colors.surfaceRaised,
             titleContentColor = colors.inkPrimary,
             textContentColor = colors.inkSecondary,
-        )
-    }
-    if (attaching) {
-        AttachmentPicker(
-            onPicked = { files ->
-                attaching = false
-                upload = PickedUpload(files, model.takeReplyEventId())
-            },
-            onStickers = { showsStickers = true },
-            onLocation = { locationSend = LocationSendRequest(model.takeReplyEventId()) },
-            onPoll = if (composer.canPoll) ({ creatingPoll = true }) else null,
-            onDismiss = { attaching = false },
         )
     }
     upload?.let { picked ->
@@ -756,7 +752,8 @@ private fun ComposerBar(
     onCancelReply: () -> Unit,
     onCancelEdit: () -> Unit,
     onPickSuggestion: (MentionSuggestion) -> Unit,
-    onAttach: () -> Unit,
+    /** Spec attachment-picker: the menu of the + button, anchored to it. */
+    attachMenu: @Composable (expanded: Boolean, onDismiss: () -> Unit) -> Unit,
     onStickers: () -> Unit,
     onRecord: () -> Unit,
     onEndRecording: () -> Unit,
@@ -846,12 +843,16 @@ private fun ComposerBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (editing == null) {
-                IconButton(onClick = onAttach, modifier = Modifier.floatingSurface(CircleShape, colors.surfaceRaised, colors.lineSubtle)) {
-                    Icon(
-                        painterResource(PhosphorIcon.PAPERCLIP.drawable),
-                        contentDescription = stringResource(R.string.bipe_app_composer_attach),
-                        tint = colors.glyphPrimary,
-                    )
+                var attaching by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { attaching = true }, modifier = Modifier.floatingSurface(CircleShape, colors.surfaceRaised, colors.lineSubtle)) {
+                        Icon(
+                            painterResource(PhosphorIcon.PLUS.drawable),
+                            contentDescription = stringResource(R.string.bipe_app_composer_attach),
+                            tint = colors.glyphPrimary,
+                        )
+                    }
+                    attachMenu(attaching) { attaching = false }
                 }
             }
             val placeholder = stringResource(R.string.bipe_app_timeline_composer_placeholder)

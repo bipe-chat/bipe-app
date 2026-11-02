@@ -34,7 +34,7 @@ struct ChatTimelineView: View {
     @StateObject private var identity: IdentityChangeModel
     @State private var viewerRowId: String?
     // composer
-    @State private var attaching = false
+    @State private var attaching: AttachmentChoice?
     @State private var upload: PickedUpload?
     @State private var showsStickers = false
     /// Spec location-send, with the reply target taken when it opened.
@@ -117,11 +117,11 @@ struct ChatTimelineView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { VStack(spacing: 0) { bottomBar } }
         .frame(maxWidth: 760)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .attachmentPicker(isPresented: $attaching,
+        .attachmentPicker(choice: $attaching,
                           onPicked: { urls in upload = PickedUpload(urls: urls, replyToEventId: model.takeReplyEventId()) },
                           onStickers: { showsStickers = true },
                           onLocation: { locationSend = LocationSendRequest(replyToEventId: model.takeReplyEventId()) },
-                          onPoll: model.canPoll ? { creatingPoll = true } : nil)
+                          onPoll: { creatingPoll = true })
         .fullScreenCover(item: $locationSend) { request in
             LocationSendView(timeline: model, session: session, replyToEventId: request.replyToEventId, close: { locationSend = nil })
         }
@@ -413,7 +413,7 @@ struct ChatTimelineView: View {
     }
 
     private var composerBar: some View {
-        ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
+        ComposerBar(model: model, media: media, openAttachments: { attaching = $0 }, openStickers: { showsStickers = true })
             // Spec identity-change blocksSending: until the person taps Entendi.
             .disabled(identity.blocksSending)
     }
@@ -535,7 +535,7 @@ private struct LocationSendRequest: Identifiable {
 private struct ComposerBar: View {
     @ObservedObject var model: ChatTimelineModel
     let media: MediaLoader
-    let openAttachments: () -> Void
+    let openAttachments: (AttachmentChoice) -> Void
     let openStickers: () -> Void
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @FocusState private var focused: Bool
@@ -593,7 +593,10 @@ private struct ComposerBar: View {
         }
         HStack(alignment: .bottom, spacing: 8) {
             if model.editing == nil {
-                iconButton(.paperclip, label: BipeStrings.appComposerAttach, action: openAttachments)
+                AttachmentMenu(canPoll: model.canPoll, choose: openAttachments) {
+                    iconImage(.plus)
+                }
+                .accessibilityLabel(BipeStrings.appComposerAttach)
             }
             HStack(alignment: .bottom, spacing: 4) {
                 TextField(BipeStrings.appTimelineComposerPlaceholder,
@@ -687,17 +690,14 @@ private struct ComposerBar: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func iconButton(_ icon: PhosphorIcon, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            icon.image
-                .resizable()
-                .frame(width: 22, height: 22)
-                .padding(11)
-                .foregroundStyle(BipeColor.glyphPrimary)
-                .bipeTapTarget()
-                .bipeGlass(in: Circle())
-        }
-        .accessibilityLabel(label)
+    private func iconImage(_ icon: PhosphorIcon) -> some View {
+        icon.image
+            .resizable()
+            .frame(width: 22, height: 22)
+            .padding(11)
+            .foregroundStyle(BipeColor.glyphPrimary)
+            .bipeTapTarget()
+            .bipeGlass(in: Circle())
     }
 
     private func bar(icon: PhosphorIcon, title: String, preview: String?, onClose: @escaping () -> Void) -> some View {
