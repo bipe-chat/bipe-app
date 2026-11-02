@@ -9,6 +9,7 @@ import Phosphor
 import SwiftUI
 
 /// Spec upload-preview: the picked photos, videos or file full size, a caption field and Send.
+/// Every control keeps at least 16 pt from the screen edge and sits in from the rounded corners.
 struct UploadPreviewView: View {
     @StateObject var model: UploadPreviewModel
     let close: () -> Void
@@ -17,27 +18,7 @@ struct UploadPreviewView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button(BipeStrings.appCancel) { model.cancel() }
-                    .foregroundStyle(BipeColor.accentInk)
-                Spacer()
-                if model.items.indices.contains(page) {
-                    Button {
-                        model.remove(index: page)
-                        page = min(page, max(0, model.items.count - 1))
-                    } label: {
-                        PhosphorIcon.trash.image
-                            .resizable()
-                            .frame(width: 20, height: 20)
-                            .foregroundStyle(BipeColor.glyphPrimary)
-                            .padding(8)
-                            .bipeTapTarget()
-                    }
-                    .accessibilityLabel(BipeStrings.catalogRemove)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            topBar
 
             TabView(selection: $page) {
                 ForEach(Array(model.items.enumerated()), id: \.element.id) { index, item in
@@ -45,11 +26,45 @@ struct UploadPreviewView: View {
                         .tag(index)
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: model.items.count > 1 ? .always : .never))
+            .tabViewStyle(.page(indexDisplayMode: .never))
 
+            if model.items.count > 1 {
+                ThumbnailStrip(items: model.items, page: $page)
+                    .padding(.top, 8)
+            }
+
+            bottomPanel
+        }
+        .background(BipeColor.surfaceBase.ignoresSafeArea())
+        .accessibilityIdentifier(BipeScreen.uploadPreview.rawValue)
+        .task { await model.appear() }
+        .onChange(of: model.isClosed) { _, closed in
+            if closed { close() }
+        }
+    }
+
+    private var topBar: some View {
+        HStack {
+            RoundIconButton(icon: .x, label: BipeStrings.appCancel) { model.cancel() }
+            Spacer()
+            if model.items.indices.contains(page) {
+                RoundIconButton(icon: .trash, label: BipeStrings.catalogRemove) {
+                    model.remove(index: page)
+                    page = min(page, max(0, model.items.count - 1))
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    private var bottomPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
             if model.items.indices.contains(page), model.items[page].kind == .image {
                 ImageDescriptionField(text: Binding(get: { model.items.indices.contains(page) ? model.items[page].description : "" },
                                                     set: { model.editDescription(index: page, text: $0) }))
+                    .id(model.items[page].id)
             }
 
             HStack(alignment: .bottom, spacing: 8) {
@@ -57,10 +72,11 @@ struct UploadPreviewView: View {
                           text: Binding(get: { model.caption }, set: { model.editCaption($0) }),
                           axis: .vertical)
                     .lineLimit(1...4)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 20).fill(BipeColor.surfaceSunken))
+                    // 22 pt line + 2 x 11 = 44 pt, the send button's height, so one line sits in the middle.
+                    .padding(.vertical, 11)
+                    .padding(.horizontal, 16)
                     .foregroundStyle(BipeColor.inkPrimary)
+                    .bipeGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 Button {
                     Task { await model.send() }
                 } label: {
@@ -74,56 +90,158 @@ struct UploadPreviewView: View {
                         }
                     }
                     .frame(width: 22, height: 22)
-                    .padding(9)
+                    .padding(11)
                     .foregroundStyle(model.canSend ? BipeColor.inkOnAccent : BipeColor.inkDisabled)
-                    .background(Circle().fill(model.canSend ? BipeColor.accentFill : BipeColor.surfaceSunken))
                     .bipeTapTarget()
+                    .bipeGlass(in: Circle(), tint: model.canSend ? BipeColor.accentFill : nil)
                 }
                 .disabled(!model.canSend)
                 .accessibilityLabel(BipeStrings.appUploadSend)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+
             if model.isPreparing {
                 Text(BipeStrings.appUploadPreparing)
                     .font(.caption)
                     .foregroundStyle(BipeColor.inkSecondary)
-                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity)
             }
         }
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
-        .accessibilityIdentifier(BipeScreen.uploadPreview.rawValue)
-        .task { await model.appear() }
-        .onChange(of: model.isClosed) { _, closed in
-            if closed { close() }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+    }
+}
+
+/// A 44 pt round glass button with one icon, for the top bar.
+private struct RoundIconButton: View {
+    let icon: PhosphorIcon
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            icon.image
+                .resizable()
+                .frame(width: 20, height: 20)
+                .padding(12)
+                .foregroundStyle(BipeColor.glyphPrimary)
+                .bipeTapTarget()
+                .bipeGlass(in: Circle())
+        }
+        .accessibilityLabel(label)
+    }
+}
+
+/// One thumbnail per picked item when there is more than one; a tap shows that item.
+private struct ThumbnailStrip: View {
+    let items: [PickedMedia]
+    @Binding var page: Int
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                        Button {
+                            withBipeAnimation { page = index }
+                        } label: {
+                            PickedMediaThumbnail(item: item, isCurrent: index == page)
+                        }
+                        .accessibilityLabel(item.filename)
+                        .accessibilityAddTraits(index == page ? .isSelected : [])
+                        .id(index)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 2)
+            }
+            .onChange(of: page) { _, page in
+                withBipeAnimation { proxy.scrollTo(page, anchor: .center) }
+            }
         }
     }
 }
 
+private struct PickedMediaThumbnail: View {
+    let item: PickedMedia
+    let isCurrent: Bool
+
+    @State private var image: UIImage?
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        ZStack {
+            BipeColor.surfaceSunken
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else if item.kind == .file {
+                PhosphorIcon.file.image
+                    .resizable()
+                    .frame(width: 22, height: 22)
+                    .foregroundStyle(BipeColor.accentInk)
+            }
+            if item.isTooLarge {
+                PhosphorIcon.warningCircle.image
+                    .resizable()
+                    .frame(width: 18, height: 18)
+                    .foregroundStyle(BipeColor.trustDangerInk)
+            }
+        }
+        .frame(width: 56, height: 56)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(isCurrent ? BipeColor.accentFill : BipeColor.lineSubtle, lineWidth: isCurrent ? 3 : 1))
+        .opacity(isCurrent ? 1 : 0.7)
+        .task(id: item.id) { image = await pickedMediaPreview(item, maxPixelSize: 168) }
+    }
+}
+
 /// The description of the image on screen (spec upload-preview, bipe-chat/bipe#501).
+/// Folded to one chip until the person taps it or the image has a description.
 private struct ImageDescriptionField: View {
     @Binding var text: String
 
+    @State private var isOpen = false
+    @FocusState private var focused: Bool
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(BipeStrings.appUploadDescription)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(BipeColor.inkSecondary)
-            TextField(BipeStrings.appUploadDescriptionPlaceholder, text: $text, axis: .vertical)
-                .lineLimit(1...3)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceSunken))
+        if isOpen || !text.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                TextField(BipeStrings.appUploadDescriptionPlaceholder, text: $text, axis: .vertical)
+                    .focused($focused)
+                    .lineLimit(1...3)
+                    .padding(.vertical, 11)
+                    .padding(.horizontal, 16)
+                    .foregroundStyle(BipeColor.inkPrimary)
+                    .bipeGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .accessibilityLabel(BipeStrings.appUploadDescription)
+                    .accessibilityHint(BipeStrings.appUploadDescriptionFooter)
+                Text(BipeStrings.appUploadDescriptionFooter)
+                    .font(.caption)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                    .padding(.horizontal, 16)
+                    .accessibilityHidden(true)
+            }
+        } else {
+            Button {
+                isOpen = true
+                focused = true
+            } label: {
+                HStack(spacing: 6) {
+                    PhosphorIcon.plus.image
+                        .resizable()
+                        .frame(width: 16, height: 16)
+                    Text(BipeStrings.appUploadDescription)
+                        .font(.subheadline.weight(.semibold))
+                }
                 .foregroundStyle(BipeColor.inkPrimary)
-                .accessibilityLabel(BipeStrings.appUploadDescription)
-                .accessibilityHint(BipeStrings.appUploadDescriptionFooter)
-            Text(BipeStrings.appUploadDescriptionFooter)
-                .font(.caption)
-                .foregroundStyle(BipeColor.inkSecondary)
-                .accessibilityHidden(true)
+                .padding(.horizontal, 16)
+                .frame(minHeight: BipeTapTarget.minimum)
+                .bipeGlass(in: Capsule())
+            }
+            .accessibilityHint(BipeStrings.appUploadDescriptionFooter)
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 8)
     }
 }
 
@@ -143,6 +261,7 @@ private struct PickedMediaPage: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     } else {
                         ProgressView()
                     }
@@ -180,26 +299,28 @@ private struct PickedMediaPage: View {
             }
             Spacer(minLength: 0)
         }
-        .task(id: item.id) { image = await preview() }
+        .padding(.horizontal, 16)
+        .task(id: item.id) { image = await pickedMediaPreview(item, maxPixelSize: 1600) }
     }
+}
 
-    private func preview() async -> UIImage? {
-        switch item.kind {
-        case .image:
-            guard let source = CGImageSourceCreateWithURL(item.localURL as CFURL, nil) else { return nil }
-            let options: [CFString: Any] = [
-                kCGImageSourceCreateThumbnailFromImageAlways: true,
-                kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: 1600,
-            ]
-            return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary).map(UIImage.init(cgImage:))
-        case .video:
-            let generator = AVAssetImageGenerator(asset: AVURLAsset(url: item.localURL))
-            generator.appliesPreferredTrackTransform = true
-            generator.maximumSize = CGSize(width: 1600, height: 1600)
-            return (try? await generator.image(at: .zero).image).map(UIImage.init(cgImage:))
-        case .file:
-            return nil
-        }
+/// A preview image of a picked photo or video, at most `maxPixelSize` on its long side; nil for a file.
+private func pickedMediaPreview(_ item: PickedMedia, maxPixelSize: CGFloat) async -> UIImage? {
+    switch item.kind {
+    case .image:
+        guard let source = CGImageSourceCreateWithURL(item.localURL as CFURL, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary).map(UIImage.init(cgImage:))
+    case .video:
+        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: item.localURL))
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: maxPixelSize, height: maxPixelSize)
+        return (try? await generator.image(at: .zero).image).map(UIImage.init(cgImage:))
+    case .file:
+        return nil
     }
 }

@@ -9,18 +9,26 @@ import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,11 +38,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -42,6 +50,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -52,6 +64,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
@@ -59,18 +72,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.BipeMinTapTarget
+import chat.bipe.app.common.LocalReduceMotion
+import chat.bipe.app.common.floatingSurface
 import chat.bipe.app.media.mediaScrim
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeDarkColors
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.Timeline
 import java.io.File
 
-/** Spec upload-preview: the picked photos, videos or file full size, a caption field and Send. */
+/**
+ * Spec upload-preview: the picked photos, videos or file full size, a caption field and Send.
+ * Every control keeps at least 16 dp from the screen edge and sits in from the rounded corners.
+ */
 @Composable
 fun UploadPreviewScreen(
     files: List<Pair<File, String?>>,
@@ -110,88 +130,146 @@ fun UploadPreviewScreen(
                 .imePadding()
                 .testTag(BipeScreen.UPLOAD_PREVIEW.id),
         ) {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = model::cancel) {
-                    Text(stringResource(R.string.bipe_app_cancel), color = colors.accentInk)
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RoundIconButton(PhosphorIcon.X, stringResource(R.string.bipe_app_cancel), model::cancel)
                 Spacer(Modifier.weight(1f))
                 if (items.isNotEmpty()) {
-                    IconButton(onClick = { model.remove(pager.currentPage.coerceAtMost(items.size - 1)) }) {
-                        Icon(
-                            painterResource(PhosphorIcon.TRASH.drawable),
-                            contentDescription = stringResource(R.string.bipe_catalog_remove),
-                            tint = colors.glyphPrimary,
-                        )
+                    RoundIconButton(PhosphorIcon.TRASH, stringResource(R.string.bipe_catalog_remove)) {
+                        model.remove(pager.currentPage.coerceAtMost(items.size - 1))
                     }
                 }
             }
             HorizontalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth(), key = { items.getOrNull(it)?.id ?: it }) { page ->
                 items.getOrNull(page)?.let { PickedMediaPage(it, maxUploadLabel) }
             }
-            val current = items.getOrNull(pager.currentPage)
-            if (current?.kind == PickedMedia.Kind.IMAGE) {
-                ImageDescriptionField(current.description) { model.editDescription(pager.currentPage, it) }
-            }
             if (items.size > 1) {
-                val position = listOf(pager.currentPage + 1, items.size).joinToString(" / ")
-                Text(
-                    position,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.inkSecondary,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
-                )
+                ThumbnailStrip(items, pager)
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                val placeholder = stringResource(R.string.bipe_app_upload_caption_placeholder)
-                BasicTextField(
-                    value = caption,
-                    onValueChange = model::editCaption,
-                    maxLines = 4,
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.inkPrimary),
-                    cursorBrush = SolidColor(colors.accentFill),
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(colors.surfaceSunken, RoundedCornerShape(20.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    decorationBox = { inner ->
-                        Box {
-                            if (caption.isEmpty()) {
-                                Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
-                            }
-                            inner()
-                        }
-                    },
-                )
-                IconButton(
-                    onClick = model::send,
-                    enabled = canSend,
-                    modifier = Modifier.background(if (canSend) colors.accentFill else colors.surfaceSunken, CircleShape),
-                ) {
-                    if (isPreparing) {
-                        CircularProgressIndicator(color = colors.inkOnAccent, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                    } else {
-                        Icon(
-                            painterResource(PhosphorIcon.PAPER_PLANE_RIGHT.drawable),
-                            contentDescription = stringResource(R.string.bipe_app_upload_send),
-                            tint = if (canSend) colors.inkOnAccent else colors.inkDisabled,
-                        )
+                val current = items.getOrNull(pager.currentPage)
+                if (current?.kind == PickedMedia.Kind.IMAGE) {
+                    key(current.id) {
+                        ImageDescriptionField(current.description) { model.editDescription(pager.currentPage, it) }
                     }
                 }
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val placeholder = stringResource(R.string.bipe_app_upload_caption_placeholder)
+                    BasicTextField(
+                        value = caption,
+                        onValueChange = model::editCaption,
+                        maxLines = 4,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.inkPrimary),
+                        cursorBrush = SolidColor(colors.accentFill),
+                        modifier = Modifier
+                            .weight(1f)
+                            .floatingSurface(RoundedCornerShape(24.dp), colors.surfaceRaised, colors.lineSubtle)
+                            // 22 dp line + 2 x 13 = 48 dp, the send button's height, so one line sits in the middle.
+                            .padding(horizontal = 16.dp, vertical = 13.dp),
+                        decorationBox = { inner ->
+                            Box {
+                                if (caption.isEmpty()) {
+                                    Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
+                                }
+                                inner()
+                            }
+                        },
+                    )
+                    IconButton(
+                        onClick = model::send,
+                        enabled = canSend,
+                        modifier = Modifier.floatingSurface(CircleShape, if (canSend) colors.accentFill else colors.surfaceRaised, colors.lineSubtle),
+                    ) {
+                        if (isPreparing) {
+                            CircularProgressIndicator(color = colors.inkOnAccent, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                        } else {
+                            Icon(
+                                painterResource(PhosphorIcon.PAPER_PLANE_RIGHT.drawable),
+                                contentDescription = stringResource(R.string.bipe_app_upload_send),
+                                tint = if (canSend) colors.inkOnAccent else colors.inkDisabled,
+                            )
+                        }
+                    }
+                }
+                if (isPreparing) {
+                    Text(
+                        stringResource(R.string.bipe_app_upload_preparing),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.inkSecondary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
-            if (isPreparing) {
-                Text(
-                    stringResource(R.string.bipe_app_upload_preparing),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colors.inkSecondary,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    textAlign = TextAlign.Center,
-                )
+        }
+    }
+}
+
+/** A 48 dp round floating button with one icon, for the top bar. */
+@Composable
+private fun RoundIconButton(icon: PhosphorIcon, label: String, onClick: () -> Unit) {
+    val colors = BipeTheme.colors
+    IconButton(onClick = onClick, modifier = Modifier.floatingSurface(CircleShape, colors.surfaceRaised, colors.lineSubtle)) {
+        Icon(painterResource(icon.drawable), contentDescription = label, tint = colors.glyphPrimary)
+    }
+}
+
+/** One thumbnail per picked item when there is more than one; a tap shows that item. */
+@Composable
+private fun ThumbnailStrip(items: List<PickedMedia>, pager: PagerState) {
+    val scope = rememberCoroutineScope()
+    val reduceMotion = LocalReduceMotion.current
+    val list = rememberLazyListState()
+    LaunchedEffect(pager.currentPage) {
+        val target = (pager.currentPage - 2).coerceAtLeast(0)
+        if (reduceMotion) list.scrollToItem(target) else list.animateScrollToItem(target)
+    }
+    LazyRow(
+        state = list,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+            PickedMediaThumbnail(item, isCurrent = index == pager.currentPage) {
+                scope.launch { if (reduceMotion) pager.scrollToPage(index) else pager.animateScrollToPage(index) }
             }
+        }
+    }
+}
+
+@Composable
+private fun PickedMediaThumbnail(item: PickedMedia, isCurrent: Boolean, onClick: () -> Unit) {
+    val colors = BipeTheme.colors
+    val shape = RoundedCornerShape(12.dp)
+    val preview by produceState<ImageBitmap?>(null, item.id) { value = preview(item, maxPixelSize = 168) }
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .alpha(if (isCurrent) 1f else 0.7f)
+            .clip(shape)
+            .background(colors.surfaceSunken)
+            .border(if (isCurrent) 3.dp else 1.dp, if (isCurrent) colors.accentFill else colors.lineSubtle, shape)
+            .clickable(onClick = onClick)
+            .semantics {
+                contentDescription = item.filename
+                selected = isCurrent
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        val bitmap = preview
+        if (bitmap != null) {
+            Image(bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        } else if (item.kind == PickedMedia.Kind.FILE) {
+            Icon(painterResource(PhosphorIcon.FILE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(22.dp))
+        }
+        if (item.isTooLarge) {
+            Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustDangerInk, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -199,7 +277,7 @@ fun UploadPreviewScreen(
 @Composable
 private fun PickedMediaPage(item: PickedMedia, maxUploadLabel: String?) {
     val colors = BipeTheme.colors
-    val preview by produceState<ImageBitmap?>(null, item.id) { value = preview(item) }
+    val preview by produceState<ImageBitmap?>(null, item.id) { value = preview(item, maxPixelSize = 1600) }
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
@@ -209,7 +287,7 @@ private fun PickedMediaPage(item: PickedMedia, maxUploadLabel: String?) {
             PickedMedia.Kind.IMAGE, PickedMedia.Kind.VIDEO -> Box(modifier = Modifier.weight(1f, fill = false), contentAlignment = Alignment.Center) {
                 val bitmap = preview
                 if (bitmap != null) {
-                    Image(bitmap, contentDescription = null, contentScale = ContentScale.Fit)
+                    Image(bitmap, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.clip(RoundedCornerShape(16.dp)))
                     if (item.kind == PickedMedia.Kind.VIDEO) {
                         Icon(
                             painterResource(PhosphorIcon.PLAY.drawable),
@@ -239,14 +317,15 @@ private fun PickedMediaPage(item: PickedMedia, maxUploadLabel: String?) {
     }
 }
 
-private suspend fun preview(item: PickedMedia): ImageBitmap? = withContext(Dispatchers.IO) {
+/** A preview image of a picked photo or video, at most [maxPixelSize] on its long side; null for a file. */
+private suspend fun preview(item: PickedMedia, maxPixelSize: Int): ImageBitmap? = withContext(Dispatchers.IO) {
     runCatching {
         val bitmap: Bitmap? = when (item.kind) {
             PickedMedia.Kind.IMAGE -> {
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeFile(item.localFile.path, bounds)
                 var sample = 1
-                while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1600) sample *= 2
+                while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxPixelSize) sample *= 2
                 BitmapFactory.decodeFile(item.localFile.path, BitmapFactory.Options().apply { inSampleSize = sample })
             }
             PickedMedia.Kind.VIDEO -> MediaMetadataRetriever().let { retriever ->
@@ -263,15 +342,39 @@ private suspend fun preview(item: PickedMedia): ImageBitmap? = withContext(Dispa
     }.getOrNull()
 }
 
-/** The description of the image on screen (spec upload-preview, bipe-chat/bipe#501). */
+/**
+ * The description of the image on screen (spec upload-preview, bipe-chat/bipe#501).
+ * Folded to one chip until the person taps it or the image has a description.
+ */
 @Composable
 private fun ImageDescriptionField(text: String, onChange: (String) -> Unit) {
     val colors = BipeTheme.colors
     val label = stringResource(R.string.bipe_app_upload_description)
     val footer = stringResource(R.string.bipe_app_upload_description_footer)
     val placeholder = stringResource(R.string.bipe_app_upload_description_placeholder)
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 8.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = colors.inkSecondary)
+    var isOpen by remember { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+
+    if (!isOpen && text.isEmpty()) {
+        Row(
+            modifier = Modifier
+                .heightIn(min = BipeMinTapTarget)
+                .floatingSurface(CircleShape, colors.surfaceRaised, colors.lineSubtle)
+                .clip(CircleShape)
+                .clickable { isOpen = true }
+                .semantics { stateDescription = footer }
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(painterResource(PhosphorIcon.PLUS.drawable), contentDescription = null, tint = colors.inkPrimary, modifier = Modifier.size(16.dp))
+            Text(label, style = MaterialTheme.typography.titleSmall, color = colors.inkPrimary)
+        }
+        return
+    }
+
+    LaunchedEffect(isOpen) { if (isOpen) focus.requestFocus() }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         BasicTextField(
             value = text,
             onValueChange = onChange,
@@ -280,9 +383,9 @@ private fun ImageDescriptionField(text: String, onChange: (String) -> Unit) {
             cursorBrush = SolidColor(colors.accentFill),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 4.dp)
-                .background(colors.surfaceSunken, RoundedCornerShape(12.dp))
-                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .focusRequester(focus)
+                .floatingSurface(RoundedCornerShape(24.dp), colors.surfaceRaised, colors.lineSubtle)
+                .padding(horizontal = 16.dp, vertical = 13.dp)
                 .semantics {
                     contentDescription = label
                     stateDescription = footer
@@ -300,7 +403,7 @@ private fun ImageDescriptionField(text: String, onChange: (String) -> Unit) {
             footer,
             style = MaterialTheme.typography.labelSmall,
             color = colors.inkSecondary,
-            modifier = Modifier.padding(top = 4.dp).clearAndSetSemantics {},
+            modifier = Modifier.padding(horizontal = 16.dp).clearAndSetSemantics {},
         )
     }
 }
