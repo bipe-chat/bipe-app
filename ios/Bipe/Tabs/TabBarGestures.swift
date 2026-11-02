@@ -176,14 +176,30 @@ struct TabBarGestures: UIViewRepresentable {
             return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in self?.menu() }
         }
 
-        /// The menu lifts the Você item, not the whole tab bar.
+        /// The menu opens from the Você item and lifts nothing: a snapshot of the item floated above the iOS 26 glass
+        /// tab bar, away from the item. A clear view on the item's frame anchors the menu; the tab bar shows the press.
         func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
                                     configuration: UIContextMenuConfiguration,
                                     highlightPreviewForItemWithIdentifier identifier: any NSCopying) -> UITargetedPreview? {
-            guard let tabBar, let item = voceItem(in: tabBar), item.window != nil else { return nil }
+            anchorPreview()
+        }
+
+        func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
+                                    configuration: UIContextMenuConfiguration,
+                                    dismissalPreviewForItemWithIdentifier identifier: any NSCopying) -> UITargetedPreview? {
+            anchorPreview()
+        }
+
+        private func anchorPreview() -> UITargetedPreview? {
+            guard let tabBar, tabBar.window != nil, let item = voceItem(in: tabBar) else { return nil }
+            let frame = item.convert(item.bounds, to: tabBar)
+            let anchor = UIView(frame: CGRect(origin: .zero, size: frame.size))
+            anchor.backgroundColor = .clear
             let parameters = UIPreviewParameters()
             parameters.backgroundColor = .clear
-            return UITargetedPreview(view: item, parameters: parameters)
+            parameters.shadowPath = UIBezierPath()
+            return UITargetedPreview(view: anchor, parameters: parameters,
+                                     target: UIPreviewTarget(container: tabBar, center: CGPoint(x: frame.midX, y: frame.midY)))
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,

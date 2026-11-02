@@ -285,8 +285,8 @@ private struct VoceHeader: View {
                                userId: account.userId, isCompany: account.isCompany)
                         .padding(.bottom, 6)
                     Text(account.displayName).font(.title2.bold()).foregroundStyle(BipeColor.inkPrimary)
-                    if let handle = account.handle {
-                        Text(verbatim: "@\(handle)").font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                    if let handle = account.handleLine {
+                        Text(verbatim: handle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                     }
                 }
             }

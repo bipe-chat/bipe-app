@@ -24,6 +24,11 @@ struct AccountSummary: Identifiable, Equatable {
     var isLoaded = false
 
     var id: String { userId }
+
+    /// The @handle line under the name; none when the name already is the @handle.
+    var handleLine: String? {
+        handle.map { "@\($0)" }.flatMap { $0 == displayName ? nil : $0 }
+    }
 }
 
 /// Spec app-tabs (bipe-shared product/screens/app-tabs.json).
@@ -64,6 +69,8 @@ final class AppTabsModel: ObservableObject {
         var handle: String?
         var isCompany: Bool
         var maxAccounts: Int
+        /// The bipe-api part (@handle, company, account limit) has loaded too.
+        var isLoaded = false
     }
     private var profiles: [String: Profile] = [:]
     private var avatarPhotos: [String: UIImage] = [:]
@@ -165,10 +172,38 @@ final class AppTabsModel: ObservableObject {
         refresh()
     }
 
+    /// Name and photo come first, from the homeserver, so the account menu names each account while the bipe-api calls
+    /// run. A call that fails keeps the value the account had.
     private func loadProfile(of session: AccountSession) async {
-        await chatLists[session.userId]?.refreshNotes()
-        let displayName = (try? await session.client.displayName()) ?? ""
-        let avatarUrl = try? await session.client.avatarUrl()
+        let userId = session.userId
+        var profile = profiles[userId] ?? Profile(displayName: "", isCompany: BipeAccountLabels.isCompany(userId),
+                                                  maxAccounts: BipeRegistries.maxPersonalAccounts)
+        if let displayName = try? await session.client.displayName(), !displayName.isEmpty {
+            profile.displayName = displayName
+            if displayName != Self.localpart(of: userId) {
+                BipeAccountLabels.remember(displayName: displayName, for: userId)
+            }
+        }
+        var avatarKnown = false
+        do {
+            profile.avatarUrl = try await session.client.avatarUrl()
+            avatarKnown = true
+        } catch {}
+        guard sessionIds.contains(userId), let media = chatLists[userId]?.media else { return }
+        var photo = avatarPhotos[userId]
+        if avatarKnown {
+            if let avatarUrl = profile.avatarUrl {
+                photo = await media.thumbnail(mxcUrl: avatarUrl, size: 96) ?? photo
+            } else {
+                photo = nil
+            }
+        }
+        guard sessionIds.contains(userId) else { return }
+        avatarPhotos[userId] = photo
+        profiles[userId] = profile
+        refresh()
+
+        await chatLists[userId]?.refreshNotes()
         let api = start.api
         let mine = try? await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle in
             try await api.myHandle(openID: token)
@@ -176,16 +211,30 @@ final class AppTabsModel: ObservableObject {
         let status = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeAccountStatus in
             try await api.account(accessToken: token)
         }
-        guard sessionIds.contains(session.userId), let media = chatLists[session.userId]?.media else { return }
-        let company = await media.isCompany(userId: session.userId)
-        var photo: UIImage?
-        if let avatarUrl { photo = await media.thumbnail(mxcUrl: avatarUrl, size: 96) }
-        guard sessionIds.contains(session.userId) else { return }
-        BipeAccountLabels.remember(displayName: displayName, for: session.userId)
-        avatarPhotos[session.userId] = photo
-        profiles[session.userId] = Profile(displayName: displayName, avatarUrl: avatarUrl, handle: mine?.handle,
-                                          isCompany: company, maxAccounts: max(1, status?.maxAccounts ?? BipeRegistries.maxPersonalAccounts))
+        let company = await media.isCompany(userId: userId)
+        guard sessionIds.contains(userId), var loaded = profiles[userId] else { return }
+        if let mine { loaded.handle = mine.handle }
+        if let status { loaded.maxAccounts = max(1, status.maxAccounts ?? loaded.maxAccounts) }
+        loaded.isCompany = company
+        loaded.isLoaded = true
+        profiles[userId] = loaded
         refresh()
+    }
+
+    /// Spec account-switcher: the display name, else the @handle, else the remembered name; never the Matrix ID.
+    /// Only Profile edit sets a display name, and Synapse starts one as the Matrix ID's localpart.
+    private static func title(of profile: Profile?, userId: String) -> String {
+        if let name = profile?.displayName, !name.isEmpty, name != localpart(of: userId) {
+            return name
+        }
+        if let handle = profile?.handle, !handle.isEmpty {
+            return "@\(handle)"
+        }
+        return AccountStartModel.name(of: userId)
+    }
+
+    private static func localpart(of userId: String) -> String? {
+        userId.dropFirst().split(separator: ":").first.map(String.init)
     }
 
     /// The account's photo or initial for the native account menu, in the shape of ADR 0132, with the unread dot.
@@ -246,13 +295,13 @@ final class AppTabsModel: ObservableObject {
         let summaries = sessionIds.map { userId in
             let profile = profiles[userId]
             return AccountSummary(userId: userId,
-                                  displayName: profile?.displayName.isEmpty == false ? profile!.displayName : BipeStrings.tabYou,
+                                  displayName: Self.title(of: profile, userId: userId),
                                   handle: profile?.handle,
                                   avatarUrl: profile?.avatarUrl,
                                   isCurrent: userId == currentId,
                                   hasUnread: latestChats[userId]?.contains { $0.isUnread } ?? false,
                                   isCompany: profile?.isCompany ?? false,
-                                  isLoaded: profile != nil)
+                                  isLoaded: profile?.isLoaded ?? false)
         }
         accounts = Self.grouped(summaries)
         let chats = currentId.flatMap { latestChats[$0] } ?? []
