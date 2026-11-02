@@ -16,12 +16,14 @@ import {
   type OAuthConfiguration,
   type Session,
 } from './generated/matrix_sdk_ffi';
-import { clearSession, loadSession, saveSession } from './session-store';
+import { clearSecrets, loadSession, saveSession, storePassphrase } from './session-store';
 
 // Server name of the Bipe homeserver (ADR 0062).
 export const SERVER_NAME = 'bipe.net.br';
-// IndexedDB prefix of the SDK stores. One account per browser (ADR 0121).
+// IndexedDB prefix of the SDK stores. One account per browser (ADR 0121). The stores are encrypted with the
+// passphrase of session-store.ts. The SDK names its databases "<prefix>::matrix-sdk-<store>".
 const STORE_NAME = 'bipe-web';
+const SDK_STORES = ['crypto', 'state', 'media', 'event-cache'].map((s) => `${STORE_NAME}::matrix-sdk-${s}`);
 
 let ready: Promise<void> | undefined;
 
@@ -46,9 +48,10 @@ const sessionDelegate: ClientSessionDelegate = {
 
 async function buildClient(): Promise<Client> {
   await initSdk();
+  const passphrase = await storePassphrase();
   return new ClientBuilder()
     .serverNameOrHomeserverUrl(SERVER_NAME)
-    .indexeddbStore(new IndexedDbStoreBuilder(STORE_NAME))
+    .indexeddbStore(new IndexedDbStoreBuilder(STORE_NAME).passphrase(passphrase))
     .slidingSyncVersionBuilder(SlidingSyncVersionBuilder.DiscoverNative)
     .setSessionDelegate(sessionDelegate)
     .build();
@@ -75,12 +78,54 @@ export const newClient = buildClient;
 
 // The client of the saved session, or undefined when this browser has none.
 export async function restoreClient(): Promise<Client | undefined> {
+  await wipeIfPending();
   const saved = await loadSession<Session>();
-  if (!saved) return undefined;
-  current = saved;
+  if (saved.kind === 'none') {
+    // Stores without a session (an interrupted sign-in or sign-out) cannot be used: start clean.
+    await deleteSdkStores();
+    return undefined;
+  }
+  if (saved.kind === 'legacy') {
+    // A store from before the passphrase: this browser signs in again (see session-store.ts).
+    console.info('[trace] unencrypted store from an older version: signing in again');
+    await deleteSdkStores();
+    await clearSecrets();
+    return undefined;
+  }
+  current = saved.session;
   const client = await buildClient();
-  await client.restoreSession(saved);
+  await client.restoreSession(saved.session);
   return client;
+}
+
+// Deleting a database waits for its open connections, and the SDK keeps them open while the page runs.
+// So sign-out marks the wipe, reloads, and the wipe runs here before any client opens the stores.
+const WIPE = 'bipe.web.wipe';
+
+async function deleteSdkStores(): Promise<void> {
+  let names = SDK_STORES;
+  try {
+    const all = await indexedDB.databases();
+    names = [...new Set([...names, ...all.map((d) => d.name ?? '').filter((n) => n.startsWith(`${STORE_NAME}::`))])];
+  } catch {
+    // Older browsers have no databases(); the known names remain.
+  }
+  await Promise.all(
+    names.map(
+      (name) =>
+        new Promise<void>((resolve) => {
+          const req = indexedDB.deleteDatabase(name);
+          req.onsuccess = req.onerror = req.onblocked = () => resolve();
+        }),
+    ),
+  );
+}
+
+async function wipeIfPending(): Promise<void> {
+  if (localStorage.getItem(WIPE) !== '1') return;
+  await deleteSdkStores();
+  await clearSecrets();
+  localStorage.removeItem(WIPE);
 }
 
 export async function rememberSession(client: Client): Promise<void> {
@@ -89,7 +134,9 @@ export async function rememberSession(client: Client): Promise<void> {
   await saveSession(session);
 }
 
+/** Forgets this browser's session: the stores go on the next load, before any client opens them. */
 export async function forgetSession(): Promise<void> {
   current = undefined;
-  await clearSession();
+  localStorage.setItem(WIPE, '1');
+  await clearSecrets();
 }
