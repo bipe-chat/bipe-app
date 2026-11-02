@@ -194,7 +194,7 @@ jobs:
         with:
           name: bipe-next-ipa
           path: ${{ runner.temp }}/adhoc/*.ipa
-          retention-days: 30
+          retention-days: 7
       - name: Add the build to the internal testing group
         if: steps.asc.outputs.app == 'true'
         run: node tools/asc.mjs distribute "$BUILD_NUMBER"
@@ -279,4 +279,4 @@ jobs:
             android/app/build/outputs/apk/play/release/*.apk
             android/app/build/outputs/apk/play/release/*.apk.sha256
             android/app/build/outputs/apk/play/release/version
-          retention-days: 30
+          retention-days: 3
