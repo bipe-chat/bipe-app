@@ -21,6 +21,7 @@ import {
   type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
 import { caretLeft, check, clock, lockSimple, paperPlaneRight, trash, warningCircle } from './phosphor/icons';
+import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
 import { useRoomFace } from './room-face';
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
 import { Avatar } from './ui/Avatar';
@@ -93,6 +94,9 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [draft, setDraft] = useState('');
   const [note, setNote] = useState('');
+  // Files picked, pasted or dropped, waiting in the upload preview.
+  const [pending, setPending] = useState<File[]>();
+  const [dropping, setDropping] = useState(false);
   const timeline = useRef<Timeline>(undefined);
   const listener = useRef<TaskHandle>(undefined);
 
@@ -122,8 +126,36 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   const canSend = draft.trim() !== '';
 
   return (
-    <section className="relative isolate flex h-full min-h-0 flex-col">
+    <section
+      className="relative isolate flex h-full min-h-0 flex-col"
+      // Paste an image, or drop files onto the chat: both open the upload preview.
+      onPaste={(e) => {
+        const files = Array.from(e.clipboardData.files);
+        if (files.length === 0) return;
+        e.preventDefault();
+        setPending(files.slice(0, MAX_ITEMS));
+      }}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return;
+        e.preventDefault();
+        setDropping(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false);
+      }}
+      onDrop={(e) => {
+        const files = Array.from(e.dataTransfer.files);
+        setDropping(false);
+        if (files.length === 0) return;
+        e.preventDefault();
+        setPending(files.slice(0, MAX_ITEMS));
+      }}
+    >
       <ChatBackground />
+      {dropping && (
+        <div className="pointer-events-none absolute inset-2 z-30 rounded-2xl border-2 border-dashed border-accent-fill bg-accent-wash/60" />
+      )}
+      {pending && <UploadPreview files={pending} timeline={timeline.current} onClose={() => setPending(undefined)} />}
       {/* The inline navigation bar: back on a narrow window, the chat title in the middle. */}
       <header className="bipe-bar relative grid h-[52px] shrink-0 grid-cols-[44px_1fr_44px] items-center px-2">
         <button
@@ -160,6 +192,7 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
               .catch((err: unknown) => setNote(describe(err)));
           }}
         >
+          <AttachButton onFiles={(files) => setPending(files.slice(0, MAX_ITEMS))} />
           {/* The field: glass, 22 pt corners, 16 pt leading inset; one 22 pt line + 2 x 11 pt = 44 pt. */}
           <div className="bipe-glass flex min-w-0 flex-1 rounded-[22px] pr-1 pl-4">
             <textarea
