@@ -332,7 +332,7 @@ private fun InviteCardScreen(model: InvitesModel, card: InviteCard, onBack: () -
 }
 
 /** An invite link to share and the moment it stops working (Invite.expires_at). */
-internal data class InviteShare(val url: String, val expiresAt: String)
+data class InviteShare(val url: String, val expiresAt: String)
 
 /** The system share sheet with bipe_invites_share_message: the link and its expiry date. Specs invite-qr and bring-people. */
 internal fun shareInvite(context: Context, share: InviteShare) {
