@@ -24,6 +24,7 @@ struct InvitesView: View {
     @State private var renaming: BipeInvite?
     @State private var name = ""
     @State private var revoking: BipeInvite?
+    @State private var toast: String?
 
     var body: some View {
         List {
@@ -68,6 +69,7 @@ struct InvitesView: View {
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.invitesTitle)
         .accessibilityIdentifier(BipeScreen.invites.rawValue)
+        .toast($toast)
         .task { await model.refresh() }
         .refreshable { await model.refresh() }
         .sheet(isPresented: $creating) { InviteCreateView(model: model) }
@@ -96,7 +98,7 @@ struct InvitesView: View {
             ShareLink(item: BipeStrings.invitesShareMessage(url.absoluteString)) {
                 Label(BipeStrings.appShare, systemImage: "square.and.arrow.up")
             }
-            Button { UIPasteboard.general.url = url } label: {
+            Button { UIPasteboard.general.url = url; toast = BipeStrings.appCopied } label: {
                 Label(BipeStrings.appCopy, systemImage: "doc.on.doc")
             }
         }

@@ -4,8 +4,8 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.app.common.BipeToasts
 import android.graphics.BitmapFactory
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -87,7 +87,7 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
         }
         GroupSubScreen.INVITE -> {
             GroupInviteMembersScreen(session, media, GroupInviteMembersModel.Mode.Invite(roomId), onBack = back) {
-                Toast.makeText(context, sentText, Toast.LENGTH_SHORT).show()
+                BipeToasts.show(sentText)
                 back()
             }
             return
@@ -105,7 +105,7 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
             chat.bipe.app.people.ReportChatScreen(
                 session, null, roomId, isDm = false, otherUserId = null,
                 onSent = { message ->
-                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    BipeToasts.show(message)
                     back()
                 },
                 onBack = back,
@@ -158,7 +158,7 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val saveErrorText = stringResource(R.string.bipe_app_save_error)
     LaunchedEffect(saveError) {
         if (saveError) {
-            Toast.makeText(context, saveErrorText, Toast.LENGTH_LONG).show()
+            BipeToasts.show(saveErrorText)
             model.dismissSaveError()
         }
     }

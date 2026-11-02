@@ -4,7 +4,7 @@
 
 package chat.bipe.app.groups
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -67,7 +67,7 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     LaunchedEffect(model, inviting) { if (!inviting) model.appear() }
     if (inviting) {
         GroupInviteMembersScreen(session, media, GroupInviteMembersModel.Mode.Invite(roomId), onBack = { inviting = false }) {
-            Toast.makeText(context, sentText, Toast.LENGTH_SHORT).show()
+            BipeToasts.show(sentText)
             inviting = false
         }
         return
@@ -85,7 +85,7 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val errorText = stringResource(R.string.bipe_app_group_member_error)
     LaunchedEffect(error) {
         if (error) {
-            Toast.makeText(context, errorText, Toast.LENGTH_LONG).show()
+            BipeToasts.show(errorText)
             model.dismissError()
         }
     }

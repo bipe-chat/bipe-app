@@ -4,6 +4,7 @@
 
 package chat.bipe.app.invites
 
+import chat.bipe.app.common.BipeToasts
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -122,7 +123,10 @@ fun InvitesScreen(model: InvitesModel, people: PeopleService, onBack: () -> Unit
             val link = state.links[invite.id]
             PendingInviteRow(invite, link,
                 onShare = { url -> shareInvite(context, url) },
-                onCopy = { url -> context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(null, url)) },
+                onCopy = { url ->
+                    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(null, url))
+                    BipeToasts.copied(context)
+                },
                 onRename = { name = invite.name.orEmpty(); renaming = invite },
                 onRevoke = { revoking = invite },
             ) { card = InviteCard(invite.id, link, invite.expiresAt) }

@@ -150,9 +150,10 @@ struct AppTabsView: View {
             guard let code = BipeInviteLink.code(from: url) else { return }
             invitedCode = InviteCode(code: code)
         }
-        .alert(BipeStrings.govbrNoOpenVerification, isPresented: $govbr.showsNoOpenVerification) {
-            Button(BipeStrings.appClose, role: .cancel) {}
-        }
+        // A result with no choice to make: a toast, as on Android (bipe/docs/design/toasts.md). Above the tab bar.
+        .toast(Binding(get: { govbr.showsNoOpenVerification ? BipeStrings.govbrNoOpenVerification : nil },
+                       set: { if $0 == nil { govbr.showsNoOpenVerification = false } }),
+               bottom: 72)
         .sheet(item: $invitedCode) { invite in
             InviteSignedInView(code: invite.code, session: session, api: api, accountsOnPhone: model.accounts.map(\.userId),
                                close: { invitedCode = nil },

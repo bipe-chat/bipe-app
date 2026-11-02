@@ -4,6 +4,7 @@
 
 package chat.bipe.app.people
 
+import chat.bipe.app.common.BipeToasts
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -383,7 +384,6 @@ fun ProfileLinkScreen(people: PeopleService, pickHandle: () -> Unit, onBack: () 
     var loaded by remember { mutableStateOf(false) }
     var handle by remember { mutableStateOf<String?>(null) }
     var showingQr by remember { mutableStateOf(showQr) }
-    var notice by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         handle = runCatching { people.withOpenId { people.api.myHandle(it) } }.getOrNull()?.handle
         loaded = true
@@ -392,8 +392,6 @@ fun ProfileLinkScreen(people: PeopleService, pickHandle: () -> Unit, onBack: () 
         stringResource(R.string.bipe_app_profile_link),
         BipeScreen.PROFILE_LINK.id,
         onBack,
-        notice = notice,
-        onNoticeShown = { notice = null },
     ) {
         val link = handle?.let(BipeProfileLink::url)
         when {
@@ -406,7 +404,7 @@ fun ProfileLinkScreen(people: PeopleService, pickHandle: () -> Unit, onBack: () 
                 onCopy = {
                     val clipboard = context.getSystemService(ClipboardManager::class.java)
                     clipboard?.setPrimaryClip(ClipData.newPlainText(link, link))
-                    notice = context.getString(R.string.bipe_app_copied)
+                    BipeToasts.copied(context)
                 },
                 onToggleQr = { showingQr = !showingQr },
             )
