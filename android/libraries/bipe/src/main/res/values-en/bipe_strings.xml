@@ -257,7 +257,7 @@
     <string name="bipe_invite_already_signed_in">You already have an account. Invites are for people not on Bipe yet.</string>
     <string name="bipe_invites_title">Invite people</string>
     <string name="bipe_invites_available">Invites available: %1$s</string>
-    <string name="bipe_invites_explainer">Invite your family first. Each invite works for one person and expires in 30 days.</string>
+    <string name="bipe_invites_explainer">Invite your family first. Each invite works for one person and expires in 7 days.</string>
     <string name="bipe_invites_create">Create invite</string>
     <string name="bipe_invites_invite_someone">Invite someone</string>
     <string name="bipe_invites_show_qr">Show QR code</string>
@@ -268,10 +268,11 @@
     <string name="bipe_invites_name_action">Who is it for?</string>
     <string name="bipe_invites_name_placeholder">Name</string>
     <string name="bipe_invites_name_footer">Only you see this name.</string>
-    <string name="bipe_invites_share_message">Join me on Bipe: %1$s</string>
+    <string name="bipe_invites_share_message">Join me on Bipe. The invite only works until %2$s: %1$s</string>
     <string name="bipe_invites_none_left">No invites available right now.</string>
     <string name="bipe_invites_empty">Invite someone to chat with you on Bipe.</string>
     <string name="bipe_invites_expires">Valid until %1$s</string>
+    <string name="bipe_invite_link_expires">This invite only works until %1$s.</string>
     <string name="bipe_invites_status_pending">Not used yet</string>
     <string name="bipe_invites_status_used">Used</string>
     <string name="bipe_invites_status_expired">Expired</string>

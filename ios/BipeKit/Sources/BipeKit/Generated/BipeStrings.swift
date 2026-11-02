@@ -648,8 +648,8 @@ public enum BipeStrings {
 
     public static var invitesNameFooter: String { NSLocalizedString("bipe_invites_name_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static func invitesShareMessage(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_invites_share_message", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    public static func invitesShareMessage(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_invites_share_message", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
     }
 
     public static var invitesNoneLeft: String { NSLocalizedString("bipe_invites_none_left", tableName: "Bipe", bundle: .module, comment: "") }
@@ -658,6 +658,10 @@ public enum BipeStrings {
 
     public static func invitesExpires(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_invites_expires", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func inviteLinkExpires(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_invite_link_expires", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
     public static var invitesStatusPending: String { NSLocalizedString("bipe_invites_status_pending", tableName: "Bipe", bundle: .module, comment: "") }
