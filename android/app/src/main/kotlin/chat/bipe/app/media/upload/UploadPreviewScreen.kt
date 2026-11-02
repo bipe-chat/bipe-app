@@ -236,6 +236,14 @@ private fun PickedMediaPage(item: PickedMedia, maxUploadLabel: String?) {
                 textAlign = TextAlign.Center,
             )
         }
+        if (item.sendFailed) {
+            Text(
+                stringResource(R.string.bipe_app_upload_failed),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.trustDangerInk,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 

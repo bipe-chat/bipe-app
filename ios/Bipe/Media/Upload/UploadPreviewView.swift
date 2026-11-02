@@ -178,6 +178,13 @@ private struct PickedMediaPage: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
             }
+            if item.sendFailed {
+                Text(BipeStrings.appUploadFailed)
+                    .font(.subheadline)
+                    .foregroundStyle(BipeColor.trustDangerInk)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
             Spacer(minLength: 0)
         }
         .task(id: item.id) { image = await preview() }
