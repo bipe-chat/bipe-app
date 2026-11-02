@@ -10,15 +10,15 @@ import { locale } from '../ui/i18n';
 
 const PENDING = {
   bipe_web_work_phone_only: [
-    'Criar a empresa, o CNPJ, o selo, os domínios, as pessoas da equipe e as cobranças Pix ficam no app do celular.',
-    'Creating the company, the CNPJ, the seal, domains, team members and Pix charges stay in the phone app.',
+    'CNPJ, selo, domínios, equipe e cobranças Pix ficam no app do celular.',
+    'CNPJ, seal, domains, team and Pix charges stay in the phone app.',
   ],
   bipe_web_work_in_app: ['Disponível no app do celular.', 'Available in the phone app.'],
   bipe_web_queue_now_calling: ["Chamando agora", "Now calling"],
   bipe_web_queue_number: ["Nº %1$s", "No. %1$s"],
   bipe_web_queue_none_called: ["Ninguém chamado agora.", "No one called right now."],
   bipe_web_queue_called_at: ["Chamada às %1$s", "Called at %1$s"],
-  bipe_web_queue_key_hint: ["Espaço ou Enter chamam o próximo.", "Space or Enter calls the next one."],
+  bipe_web_queue_key_hint: ["Aperte Espaço ou Enter para chamar o próximo.", "Press Space or Enter to call the next one."],
   bipe_web_queue_waiting_since: ["Desde %1$s", "Since %1$s"],
   bipe_web_queue_earlier: ["Mais cedo hoje", "Earlier today"],
   bipe_web_queue_no_service: ["Sem serviço", "No service"],
