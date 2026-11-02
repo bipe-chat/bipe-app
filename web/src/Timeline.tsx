@@ -15,13 +15,15 @@ import {
   TimelineItemContent,
   VirtualTimelineItem,
   messageEventContentFromMarkdown,
+  type EventOrTransactionId,
   type RoomLike as Room,
   type TaskHandleLike as TaskHandle,
   type TimelineLike as Timeline,
   type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
-import { caretLeft, check, clock, lockSimple, paperPlaneRight, trash, warningCircle } from './phosphor/icons';
+import { caretLeft, check, clock, lockSimple, paperPlaneRight, smiley, trash, warningCircle } from './phosphor/icons';
 import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
+import { pillsOf, QuickReactions, ReactionPills, type ReactionPill } from './Reactions';
 import { useRoomFace } from './room-face';
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
 import { Avatar } from './ui/Avatar';
@@ -43,12 +45,15 @@ type Row =
       text: string;
       media?: MediaInfo;
       send?: Send;
+      itemId: EventOrTransactionId;
+      pills: ReactionPill[];
+      canReact: boolean;
     }
   | { kind: 'day'; key: string; at: number }
   | { kind: 'readMarker'; key: string }
   | { kind: 'start'; key: string };
 
-function itemRow(item: TimelineItem): Row | undefined {
+function itemRow(item: TimelineItem, ownUserId: string): Row | undefined {
   const key = item.uniqueId().id;
   const virtual = item.asVirtual();
   if (virtual) {
@@ -87,7 +92,22 @@ function itemRow(item: TimelineItem): Row | undefined {
     else if (state && EventSendState.SendingFailed.instanceOf(state)) send = 'failed';
     else send = 'sent';
   }
-  return { kind: 'message', key, who, own: event.isOwn, at: Number(event.timestamp), body, text, media, send };
+  // Spec message-reactions: undecryptable, deleted and unsent own messages take no reactions.
+  const canReact = (body === 'text' || body === 'media' || body === 'other') && (send === undefined || send === 'sent');
+  return {
+    kind: 'message',
+    key,
+    who,
+    own: event.isOwn,
+    at: Number(event.timestamp),
+    body,
+    text,
+    media,
+    send,
+    itemId: event.eventOrTransactionId,
+    pills: pillsOf(event.content.inner.content.reactions, ownUserId),
+    canReact,
+  };
 }
 
 export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void }) {
@@ -118,7 +138,14 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
     };
   }, [room]);
 
-  const rows = items.map(itemRow).filter((r) => r !== undefined);
+  const ownUserId = room.ownUserId();
+  const rows = items.map((i) => itemRow(i, ownUserId)).filter((r) => r !== undefined);
+  const react = (itemId: EventOrTransactionId, key: string) => {
+    timeline.current?.toggleReaction(itemId, key).catch((e: unknown) => {
+      console.warn('[trace] reaction failed', e);
+      setNote(s('bipe_app_reaction_failed'));
+    });
+  };
   const face = useRoomFace(room);
   const name = face.name;
   // Group rows show the sender's name; DM rows do not. Until RoomInfo comes, no names.
@@ -174,7 +201,7 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
       <div className="flex min-h-0 flex-1 flex-col-reverse overflow-y-auto">
         <ol className="mx-auto flex w-full max-w-[760px] flex-col gap-1.5 px-3 py-2">
           {rows.map((r) => (
-            <TimelineRowView key={r.key} row={r} isDm={isDm} />
+            <TimelineRowView key={r.key} row={r} isDm={isDm} onReact={react} />
           ))}
         </ol>
       </div>
@@ -227,7 +254,15 @@ export function RoomTimeline({ room, onBack }: { room: Room; onBack: () => void 
   );
 }
 
-function TimelineRowView({ row, isDm }: { row: Row; isDm: boolean }) {
+function TimelineRowView({
+  row,
+  isDm,
+  onReact,
+}: {
+  row: Row;
+  isDm: boolean;
+  onReact: (itemId: EventOrTransactionId, key: string) => void;
+}) {
   switch (row.kind) {
     case 'day':
       return (
@@ -251,7 +286,7 @@ function TimelineRowView({ row, isDm }: { row: Row; isDm: boolean }) {
       );
     case 'message':
       return (
-        <Bubble own={row.own}>
+        <Bubble own={row.own} pills={row.pills} onReact={row.canReact ? (key) => onReact(row.itemId, key) : undefined}>
           {!row.own && (!isDm || row.body === 'undecryptable') && (
             <span
               className={`text-caption font-bold ${row.body === 'undecryptable' ? 'text-ink-secondary' : 'text-accent-ink'}`}
@@ -293,14 +328,49 @@ function SystemLine({ text }: { text: string }) {
 
 // Bubble (TimelineRowView.swift): 16 pt corners, 12 x 8 pt insets, bubble.own or bubble.other, at
 // least 48 pt free on the far side. Its views stack with 4 pt between; the footer sits at the trailing edge.
-function Bubble({ own, children }: { own: boolean; children: ReactNode }) {
+// The reaction pills sit under the bubble, on its side.
+function Bubble({
+  own,
+  pills,
+  onReact,
+  children,
+}: {
+  own: boolean;
+  pills: ReactionPill[];
+  onReact?: (key: string) => void;
+  children: ReactNode;
+}) {
+  const [picking, setPicking] = useState(false);
   return (
-    <li className={`flex ${own ? 'justify-end pl-12' : 'justify-start pr-12'}`}>
-      <div
-        className={`flex max-w-full min-w-0 flex-col gap-1 rounded-2xl px-3 py-2 ${own ? 'bg-bubble-own' : 'bg-bubble-other'}`}
-      >
-        {children}
+    <li className={`flex flex-col gap-1 ${own ? 'items-end pl-12' : 'items-start pr-12'}`}>
+      <div className={`group relative flex max-w-full items-center gap-1 ${own ? 'flex-row-reverse' : ''}`}>
+        <div
+          className={`flex max-w-full min-w-0 flex-col gap-1 rounded-2xl px-3 py-2 ${own ? 'bg-bubble-own' : 'bg-bubble-other'}`}
+          onContextMenu={
+            onReact
+              ? (e) => {
+                  e.preventDefault();
+                  setPicking(true);
+                }
+              : undefined
+          }
+        >
+          {children}
+        </div>
+        {onReact && (
+          <button
+            type="button"
+            className="bipe-glass grid size-8 shrink-0 place-items-center rounded-full text-glyph-secondary opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            aria-label={s('bipe_a11y_react')}
+            aria-haspopup="menu"
+            onClick={() => setPicking(true)}
+          >
+            <Icon path={smiley} size={18} />
+          </button>
+        )}
+        {picking && onReact && <QuickReactions own={own} onPick={onReact} onClose={() => setPicking(false)} />}
       </div>
+      {pills.length > 0 && <ReactionPills pills={pills} onToggle={onReact ?? (() => undefined)} />}
     </li>
   );
 }
