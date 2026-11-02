@@ -14,12 +14,17 @@ struct MessageContextActions: View {
     var body: some View {
         if let row = model.row(rowId) {
             if model.showsReactions(row) {
-                Menu {
+                // The quick reactions are one row of emoji at the top of the menu, not a submenu of rows.
+                Picker(BipeStrings.a11yReact, selection: Binding<String?>(get: { nil }, set: { key in
+                    if let key { model.react(rowId: rowId, key: key) }
+                })) {
                     ForEach(ChatTimelineModel.quickReactions, id: \.self) { key in
-                        Button(key) { model.react(rowId: rowId, key: key) }
+                        Text(verbatim: key).tag(String?.some(key))
                     }
-                    Button(BipeStrings.appMessageActionMoreReactions) { model.moreReactions(rowId: rowId) }
-                } label: {
+                }
+                .pickerStyle(.palette)
+                .paletteSelectionEffect(.custom)
+                Button { model.moreReactions(rowId: rowId) } label: {
                     Label(BipeStrings.appMessageActionMoreReactions, systemImage: "face.smiling")
                 }
             }
