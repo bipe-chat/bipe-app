@@ -32,6 +32,8 @@ data class PickedMedia(
     val size: Long,
     /** image only: the sender's description for screen readers (bipe-chat/bipe#501). */
     val description: String = "",
+    /** true when send could not prepare the file or hand it to the send queue. */
+    val sendFailed: Boolean = false,
     val id: String = UUID.randomUUID().toString(),
 ) {
     enum class Kind { IMAGE, VIDEO, FILE }
@@ -53,7 +55,7 @@ class UploadPreviewModel(
     files: List<Pair<File, String?>>,
     private val client: Client,
     private val timeline: Timeline,
-    val replyToEventId: String?,
+    replyToEventId: String?,
     private val scope: CoroutineScope,
     /** The composer has none; share-to-chat passes its optional message. */
     caption: String = "",
@@ -79,6 +81,9 @@ class UploadPreviewModel(
     val maxUploadLabel: StateFlow<String?> = _maxUploadLabel.asStateFlow()
     private val _isClosed = MutableStateFlow(false)
     val isClosed: StateFlow<Boolean> = _isClosed.asStateFlow()
+
+    var replyToEventId = replyToEventId
+        private set
 
     /** true once send handed the items to the send queue (spec share-to-chat opens the chat then). */
     var didSend = false
@@ -129,40 +134,52 @@ class UploadPreviewModel(
     /**
      * Action send: each item as an attachment with its thumbnail and info, the caption on the first
      * item, an image's description in its content (bipe-chat/bipe#501), as a reply when replyToEventId is set,
-     * then closes. The send queue keeps the uploads.
+     * then closes. The send queue keeps the uploads. An item that cannot be prepared or handed to the send
+     * queue stays with sendFailed and the screen stays open; Send again sends the rest.
      */
     fun send() {
         if (!canSend(_items.value, _isPreparing.value)) return
         _isPreparing.value = true
-        val caption = _caption.value.takeIf { it.isNotBlank() }
         scope.launch {
+            val failed = mutableSetOf<String>()
             val prepared = _items.value.mapNotNull { item ->
-                runCatching { MediaPreparation.prepare(context, item.localFile, item.kind, quality) }.getOrNull()
-                    ?.let { it to item.description.takeIf { item.kind == PickedMedia.Kind.IMAGE } }
+                runCatching { MediaPreparation.prepare(context, item.localFile, item.kind, quality) }
+                    .onFailure { failed += item.id }
+                    .getOrNull()?.let { item to it }
             }
             _isPreparing.value = false
-            prepared.forEachIndexed { index, (media, description) ->
+            prepared.forEach { (item, media) ->
+                // The caption and the reply go with the first item that gets through.
                 val params = UploadParameters(
                     source = UploadSource.File(media.file.path),
-                    caption = if (index == 0) caption else null,
+                    caption = _caption.value.takeIf { it.isNotBlank() },
                     formattedCaption = null,
                     mentions = null,
-                    inReplyTo = if (index == 0) replyToEventId else null,
-                    extraContentJson = BipeImageDescription.extraContentJson(description),
+                    inReplyTo = replyToEventId,
+                    extraContentJson = BipeImageDescription.extraContentJson(
+                        item.description.takeIf { item.kind == PickedMedia.Kind.IMAGE },
+                    ),
                 )
                 val thumbnail = media.thumbnail?.let { UploadSource.File(it.path) }
-                // Spec data-use: the upload counts on the network in use now.
-                DataUseMeter.recordSent(media.file.length() + (media.thumbnail?.length() ?: 0L))
-                runCatching {
+                val sent = runCatching {
                     when (val info = media.info) {
                         is PreparedMedia.Info.Image -> timeline.sendImage(params, thumbnail, info.info)
                         is PreparedMedia.Info.Video -> timeline.sendVideo(params, thumbnail, info.info)
                         is PreparedMedia.Info.File -> timeline.sendFile(params, info.info)
                     }
                 }
+                if (sent.isFailure) {
+                    failed += item.id
+                    return@forEach
+                }
+                // Spec data-use: the upload counts on the network in use now.
+                DataUseMeter.recordSent(media.file.length() + (media.thumbnail?.length() ?: 0L))
+                _caption.value = ""
+                replyToEventId = null
+                didSend = true
             }
-            didSend = true
-            _isClosed.value = true
+            _items.value = _items.value.filter { it.id in failed }.map { it.copy(sendFailed = true) }
+            if (_items.value.isEmpty()) _isClosed.value = true
         }
     }
 

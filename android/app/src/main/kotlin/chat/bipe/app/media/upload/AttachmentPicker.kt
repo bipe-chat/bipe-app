@@ -13,23 +13,13 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,20 +45,21 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Spec attachment-picker: the sheet behind the composer's attach button. Each choice hands over to
- * the system picker; the picked items (file and media type) open upload-preview through onPicked.
+ * Spec attachment-picker: the menu behind the composer's + button. Each choice hands over to the system
+ * picker; the picked items (file and media type) open upload-preview through onPicked.
  * The Android photo picker and the system camera app need no permission, so permissionProblem stays none.
+ * The launchers stay registered while the menu is closed: the system pickers return to them.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AttachmentPicker(
+fun AttachmentMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
     onPicked: (List<Pair<File, String?>>) -> Unit,
     onStickers: () -> Unit,
     /** Action location: opens location-send. */
     onLocation: () -> Unit,
     /** Action poll: opens poll-create. null hides the row (canPoll false). */
     onPoll: (() -> Unit)?,
-    onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -78,98 +69,81 @@ fun AttachmentPicker(
     fun deliver(uris: List<Uri>) {
         scope.launch {
             val files = uris.mapNotNull { copyToCache(context, it) }
-            onDismiss()
             if (files.isNotEmpty()) onPicked(files)
         }
     }
 
     val photos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(UploadPreviewModel.MAX_ITEMS)) { uris ->
-        if (uris.isEmpty()) onDismiss() else deliver(uris)
+        if (uris.isNotEmpty()) deliver(uris)
     }
     val file = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) onDismiss() else deliver(listOf(uri))
+        if (uri != null) deliver(listOf(uri))
     }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val targets = cameraTargets
         cameraTargets = null
         val taken = targets?.toList()?.firstOrNull { it.length() > 0 }
-        onDismiss()
         if (result.resultCode == Activity.RESULT_OK && taken != null) {
             onPicked(listOf(taken to MediaPreparation.mimeType(taken)))
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(), containerColor = colors.surfaceRaised) {
-        Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp).testTag(BipeScreen.ATTACHMENT_PICKER.id)) {
-            Text(
-                stringResource(R.string.bipe_app_composer_attach),
-                style = MaterialTheme.typography.titleMedium,
-                color = colors.inkPrimary,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-            )
-            // Order of rows: photos and videos, camera, file, location, sticker, poll (spec attachment-picker notes).
-            PickerRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_app_attach_photos)) {
-                photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
-            }
-            PickerRow(PhosphorIcon.CAMERA, stringResource(R.string.bipe_app_attach_camera)) {
-                // The system camera app for a photo or a video.
-                val folder = MediaPreparation.workFolder(context)
-                val photo = File(folder, "IMG-${System.currentTimeMillis()}.jpg")
-                val video = File(folder, "VID-${System.currentTimeMillis()}.mp4")
-                cameraTargets = photo to video
-                val authority = "${context.packageName}.media"
-                val photoIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-                    .putExtra(MediaStore.EXTRA_OUTPUT, FileProvider.getUriForFile(context, authority, photo))
-                    .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                val videoIntent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
-                    .putExtra(MediaStore.EXTRA_OUTPUT, FileProvider.getUriForFile(context, authority, video))
-                    .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                val chooser = Intent.createChooser(photoIntent, null).putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(videoIntent))
-                runCatching { camera.launch(chooser) }.onFailure { onDismiss() }
-            }
-            PickerRow(PhosphorIcon.FILE, stringResource(R.string.bipe_app_attach_file)) {
-                file.launch(arrayOf("*/*"))
-            }
-            // Phosphor has no pin in tools/phosphor.json: the row draws the map pin.
-            PickerRow(stringResource(R.string.bipe_app_attach_location), icon = { MapPin() }) {
-                onDismiss()
-                onLocation()
-            }
-            PickerRow(PhosphorIcon.STICKER, stringResource(R.string.bipe_action_stickers)) {
-                onDismiss()
-                onStickers()
-            }
-            if (onPoll != null) {
-                PickerRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_app_attach_poll)) {
-                    onDismiss()
-                    onPoll()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PickerRow(icon: PhosphorIcon, title: String, onClick: () -> Unit) {
-    val colors = BipeTheme.colors
-    PickerRow(title, icon = {
-        Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(22.dp))
-    }, onClick = onClick)
-}
-
-@Composable
-private fun PickerRow(title: String, icon: @Composable () -> Unit, onClick: () -> Unit) {
-    val colors = BipeTheme.colors
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag(BipeScreen.ATTACHMENT_PICKER.id),
     ) {
-        Box(modifier = Modifier.size(40.dp).background(colors.accentWash, CircleShape), contentAlignment = Alignment.Center) {
-            icon()
+        // Order of rows: photos and videos, camera, file, location, sticker, poll (spec attachment-picker notes).
+        MenuRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_app_attach_photos), onDismiss) {
+            photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
         }
-        Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+        MenuRow(PhosphorIcon.CAMERA, stringResource(R.string.bipe_app_attach_camera), onDismiss) {
+            // The system camera app for a photo or a video.
+            val folder = MediaPreparation.workFolder(context)
+            val photo = File(folder, "IMG-${System.currentTimeMillis()}.jpg")
+            val video = File(folder, "VID-${System.currentTimeMillis()}.mp4")
+            cameraTargets = photo to video
+            val authority = "${context.packageName}.media"
+            val photoIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                .putExtra(MediaStore.EXTRA_OUTPUT, FileProvider.getUriForFile(context, authority, photo))
+                .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            val videoIntent = Intent(MediaStore.ACTION_VIDEO_CAPTURE)
+                .putExtra(MediaStore.EXTRA_OUTPUT, FileProvider.getUriForFile(context, authority, video))
+                .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            val chooser = Intent.createChooser(photoIntent, null).putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(videoIntent))
+            runCatching { camera.launch(chooser) }
+        }
+        MenuRow(PhosphorIcon.FILE, stringResource(R.string.bipe_app_attach_file), onDismiss) {
+            file.launch(arrayOf("*/*"))
+        }
+        // Phosphor has no pin in tools/phosphor.json: the row draws the map pin.
+        MenuRow(stringResource(R.string.bipe_app_attach_location), icon = { MapPin() }, onDismiss, onLocation)
+        MenuRow(PhosphorIcon.STICKER, stringResource(R.string.bipe_action_stickers), onDismiss, onStickers)
+        if (onPoll != null) {
+            MenuRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_app_attach_poll), onDismiss, onPoll)
+        }
     }
+}
+
+@Composable
+private fun MenuRow(icon: PhosphorIcon, title: String, onDismiss: () -> Unit, onClick: () -> Unit) {
+    val colors = BipeTheme.colors
+    MenuRow(title, icon = {
+        Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(22.dp))
+    }, onDismiss, onClick)
+}
+
+@Composable
+private fun MenuRow(title: String, icon: @Composable () -> Unit, onDismiss: () -> Unit, onClick: () -> Unit) {
+    val colors = BipeTheme.colors
+    DropdownMenuItem(
+        text = { Text(title, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary) },
+        leadingIcon = { Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { icon() } },
+        onClick = {
+            onDismiss()
+            onClick()
+        },
+    )
 }
 
 /** Copies a picked item into the app cache with its display name; the picker's grant ends with the activity. */

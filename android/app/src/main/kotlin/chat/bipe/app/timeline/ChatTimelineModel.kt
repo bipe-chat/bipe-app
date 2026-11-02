@@ -299,6 +299,8 @@ class ChatTimelineModel(
     private val items = mutableListOf<TimelineItem>()
     private var handle: TaskHandle? = null
     private var typingHandle: TaskHandle? = null
+    private var factsJob: Job? = null
+    private var factsStale = false
     private var started = false
     private var acceptsMenuActions = true
     private var facts = RoomFacts(ownUserId = session.userId)
@@ -362,8 +364,10 @@ class ChatTimelineModel(
             loadHistory()
             for (batch in diffs) {
                 batch.forEach { items.applyDiff(it.toVectorDiff()) }
-                loadRoomFacts(room)
+                // The rows follow the SDK at once. The room facts can wait on the network (a DM peer's @handle,
+                // the peer's membership), so they load after and build the rows again.
                 rebuild()
+                refreshRoomFacts(room)
             }
         }
     }
@@ -376,6 +380,22 @@ class ChatTimelineModel(
         leave()
         handle?.cancel()
         typingHandle?.cancel()
+    }
+
+    /**
+     * Loads the room facts off the timeline update path, then builds the rows again. One load at a time;
+     * a change during a load runs one more.
+     */
+    private fun refreshRoomFacts(room: Room) {
+        factsStale = true
+        if (factsJob?.isActive == true) return
+        factsJob = scope.launch {
+            while (factsStale) {
+                factsStale = false
+                loadRoomFacts(room)
+                rebuild()
+            }
+        }
     }
 
     private suspend fun loadRoomFacts(room: Room) {
