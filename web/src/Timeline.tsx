@@ -578,6 +578,7 @@ export function RoomTimeline({
         <ChatInfo
           room={room}
           face={face}
+          chats={chats}
           latestTs={newest?.kind === 'message' ? newest.at : undefined}
           onClose={() => onInfo(false)}
           onGone={onBack}
