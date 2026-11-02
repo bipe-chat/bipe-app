@@ -110,14 +110,16 @@ public final class MASDeviceApproval: NSObject, URLSessionTaskDelegate, @uncheck
         return MASPage(url: final, html: String(decoding: data, as: UTF8.self))
     }
 
-    /// A redirect off the MAS host stops the flow.
+    /// A redirect off the MAS host stops the flow. The completion-handler form: Swift 6.4 crashes on the Objective-C
+    /// thunk of the async form (SILGen emitNativeToForeignThunk, bipe-app#363).
     public func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
-                           newRequest request: URLRequest) async -> URLRequest? {
+                           newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
         guard let url = request.url, BipeWebLink.isAllowed(url, host: host) else {
             leftHost = true
-            return nil
+            completionHandler(nil)
+            return
         }
-        return request
+        completionHandler(request)
     }
 
     private static func post(_ url: URL, fields: [String: String]) -> URLRequest {
