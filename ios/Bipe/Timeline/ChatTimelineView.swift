@@ -112,21 +112,9 @@ struct ChatTimelineView: View {
                     }
                 }
             }
-            if model.selection != nil {
-                // Spec message-forward selection: the bar takes the place of the composer.
-                MessageSelectionBar(model: model)
-            } else if model.successorRoomId != nil {
-                RoomUpgradeBar(model: model) { openOtherChat($0) }
-            } else if model.isDm, let people, let peer = model.peerUserId {
-                DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
-                    leftBar
-                    composerBar
-                }
-            } else {
-                leftBar
-                composerBar
-            }
         }
+        // Spec composer: the composer floats at the bottom of the screen, over the scrolling messages.
+        .safeAreaInset(edge: .bottom, spacing: 0) { VStack(spacing: 0) { bottomBar } }
         .frame(maxWidth: 760)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .attachmentPicker(isPresented: $attaching,
@@ -163,6 +151,8 @@ struct ChatTimelineView: View {
         }
         .navigationTitle(model.threadRoot == nil ? model.roomName : BipeStrings.threadTitle)
         .navigationBarTitleDisplayMode(.inline)
+        // Spec app-tabs: the tab bar hides while a chat or thread is open.
+        .toolbar(.hidden, for: .tabBar)
         // Spec threads openThread: the thread view as a sheet over the main timeline.
         .sheet(item: Binding(get: { model.openThreadRoot.map(ThreadSheetId.init) }, set: { model.openThreadRoot = $0?.id })) { thread in
             NavigationStack {
@@ -404,6 +394,24 @@ struct ChatTimelineView: View {
         }
     }
 
+    @ViewBuilder
+    private var bottomBar: some View {
+        if model.selection != nil {
+            // Spec message-forward selection: the bar takes the place of the composer.
+            MessageSelectionBar(model: model)
+        } else if model.successorRoomId != nil {
+            RoomUpgradeBar(model: model) { openOtherChat($0) }
+        } else if model.isDm, let people, let peer = model.peerUserId {
+            DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
+                leftBar
+                composerBar
+            }
+        } else {
+            leftBar
+            composerBar
+        }
+    }
+
     private var composerBar: some View {
         ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
             // Spec identity-change blocksSending: until the person taps Entendi.
@@ -541,13 +549,15 @@ private struct ComposerBar: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .padding(16)
+                    .background(BipeColor.surfaceRaised.ignoresSafeArea(edges: .bottom))
             } else if let recording = model.recording {
                 VoiceRecordingView(model: recording) { model.recording = nil }
+                    .background(BipeColor.surfaceRaised.ignoresSafeArea(edges: .bottom))
             } else {
+                // Spec composer: Liquid Glass controls over the scrolling messages; the bars that replace them stay solid.
                 composer
             }
         }
-        .background(BipeColor.surfaceRaised.ignoresSafeArea(edges: .bottom))
         .accessibilityIdentifier(BipeScreen.composer.rawValue)
         .onChange(of: model.replyingToRowId) { _, rowId in
             if rowId != nil { focused = true }
@@ -559,19 +569,27 @@ private struct ComposerBar: View {
 
     @ViewBuilder
     private var composer: some View {
-        if !model.suggestions.isEmpty {
-            suggestionList
-        }
-        if let reply = model.replyingTo {
-            bar(icon: .arrowBendUpLeft,
-                title: BipeStrings.appMessageReplyingTo(reply.senderName ?? ""),
-                preview: reply.preview,
-                onClose: model.cancelReply)
-        } else if let editing = model.editing {
-            bar(icon: .pencilSimple,
-                title: BipeStrings.appMessageEditing,
-                preview: editing.originalText,
-                onClose: model.cancelEdit)
+        if !model.suggestions.isEmpty || model.replyingTo != nil || model.editing != nil {
+            VStack(spacing: 0) {
+                if !model.suggestions.isEmpty {
+                    suggestionList
+                }
+                if let reply = model.replyingTo {
+                    bar(icon: .arrowBendUpLeft,
+                        title: BipeStrings.appMessageReplyingTo(reply.senderName ?? ""),
+                        preview: reply.preview,
+                        onClose: model.cancelReply)
+                } else if let editing = model.editing {
+                    bar(icon: .pencilSimple,
+                        title: BipeStrings.appMessageEditing,
+                        preview: editing.originalText,
+                        onClose: model.cancelEdit)
+                }
+            }
+            .padding(.bottom, 8)
+            .bipeGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
         }
         HStack(alignment: .bottom, spacing: 8) {
             if model.editing == nil {
@@ -583,7 +601,8 @@ private struct ComposerBar: View {
                           axis: .vertical)
                     .focused($focused)
                     .lineLimit(1...(verticalSizeClass == .compact ? 3 : 5))
-                    .padding(.vertical, 8)
+                    // 22 pt line + 2 x 11 = 44 pt, the sticker button's height, so one line sits in the middle.
+                    .padding(.vertical, 11)
                     .foregroundStyle(BipeColor.inkPrimary)
                 if model.editing == nil {
                     Button(action: openStickers) {
@@ -597,8 +616,9 @@ private struct ComposerBar: View {
                     .accessibilityLabel(BipeStrings.actionStickers)
                 }
             }
-            .padding(.horizontal, 12)
-            .background(RoundedRectangle(cornerRadius: 20).fill(BipeColor.surfaceSunken))
+            .padding(.leading, 16)
+            .padding(.trailing, 4)
+            .bipeGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             // The send button and the record button share one place (spec composer notes).
             if model.canSend || model.editing != nil {
                 Button {
@@ -607,10 +627,10 @@ private struct ComposerBar: View {
                     (model.editing == nil ? PhosphorIcon.paperPlaneRight : PhosphorIcon.check).image
                         .resizable()
                         .frame(width: 22, height: 22)
-                        .padding(9)
+                        .padding(11)
                         .foregroundStyle(model.canSend ? BipeColor.inkOnAccent : BipeColor.inkDisabled)
-                        .background(Circle().fill(model.canSend ? BipeColor.accentFill : BipeColor.surfaceSunken))
                         .bipeTapTarget()
+                        .bipeGlass(in: Circle(), tint: model.canSend ? BipeColor.accentFill : nil)
                 }
                 .disabled(!model.canSend)
                 .accessibilityLabel(model.editing == nil ? BipeStrings.appTimelineSend : BipeStrings.appMessageSaveEdit)
@@ -622,10 +642,10 @@ private struct ComposerBar: View {
                     PhosphorIcon.microphone.image
                         .resizable()
                         .frame(width: 22, height: 22)
-                        .padding(9)
-                        .foregroundStyle(BipeColor.inkOnAccent)
-                        .background(Circle().fill(BipeColor.accentFill))
+                        .padding(11)
+                        .foregroundStyle(BipeColor.glyphPrimary)
                         .bipeTapTarget()
+                        .bipeGlass(in: Circle())
                 }
                 .accessibilityLabel(BipeStrings.appComposerRecord)
             }
@@ -672,9 +692,10 @@ private struct ComposerBar: View {
             icon.image
                 .resizable()
                 .frame(width: 22, height: 22)
-                .padding(9)
+                .padding(11)
                 .foregroundStyle(BipeColor.glyphPrimary)
                 .bipeTapTarget()
+                .bipeGlass(in: Circle())
         }
         .accessibilityLabel(label)
     }
