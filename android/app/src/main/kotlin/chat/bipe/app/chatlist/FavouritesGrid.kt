@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,11 +70,12 @@ private fun FavouriteCell(chat: ChatSummary, media: MediaLoader, ownerId: String
                 .padding(vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box {
-                Avatar(chat.name, chat.avatarUrl, media, size = AVATAR.dp, userId = chat.peerUserId)
+            // The avatar fills its column, so it follows the screen width, not the font scale.
+            BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Avatar(chat.name, chat.avatarUrl, media, size = minOf(maxWidth, AVATAR_MAX.dp), userId = chat.peerUserId)
                 if (chat.isUnread) {
                     Box(
-                        Modifier.align(Alignment.TopEnd).size(14.dp)
+                        Modifier.align(Alignment.TopEnd).padding(end = (maxWidth - minOf(maxWidth, AVATAR_MAX.dp)) / 2).size(20.dp)
                             .border(2.dp, colors.surfaceBase, CircleShape)
                             .padding(2.dp)
                             .background(colors.accentFill, CircleShape),
@@ -95,4 +97,4 @@ private fun FavouriteCell(chat: ChatSummary, media: MediaLoader, ownerId: String
 }
 
 private const val COLUMNS = 3
-private const val AVATAR = 72
+private const val AVATAR_MAX = 115
