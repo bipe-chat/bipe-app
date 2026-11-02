@@ -72,6 +72,7 @@ import chat.bipe.app.settings.SettingsHost
 import chat.bipe.app.linkcomputer.LinkComputerModel
 import chat.bipe.app.linkcomputer.LinkComputerScreen
 import chat.bipe.app.settings.SettingsRoute
+import chat.bipe.app.settings.SettingsIconTile
 import chat.bipe.app.settings.SettingsRootSection
 import chat.bipe.app.people.PeopleRoute
 import chat.bipe.shared.generated.BipeSettingsGroup
@@ -121,7 +122,7 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     LaunchedEffect(trust, current) { trust.update(current) }
     val trustProfile by trust.profile.collectAsState()
     SettingsHost(session, api, invites = tabs.invites(session), onClose = { tabs.selectTab(AppTabsModel.Tab.CONVERSAS) }, onSignedOut = { tabs.start.completeSignOut(session.userId) },
-        onNewAccount = onNewAccount, onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles, trust = trust,
+        onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles, trust = trust,
         rootContent = { settings, openGroup, openPeople, openInvites, openRoute ->
             // Spec voce openLinkPhone: the only way into link-phone-show (ADR 0059).
             if (showsLinkPhone) {
@@ -162,12 +163,12 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     // TalkBack action). Nova conta stays here (spec account-new).
                     item {
                         VoceRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_app_account_new), tint = BipeTheme.colors.accentInk,
-                            titleColor = BipeTheme.colors.accentInk, onClick = onNewAccount)
+                            titleColor = BipeTheme.colors.accentInk, tile = false, onClick = onNewAccount)
                     }
                     item { VoceSectionHeader(null) }
                     item {
                         VoceRow(PhosphorIcon.NOTEPAD, notesTitle, stringResource(R.string.bipe_self_chat_subtitle),
-                            tint = BipeTheme.colors.accentInk, enabled = !openingNotes, onClick = openNotes,
+                            enabled = !openingNotes, onClick = openNotes,
                             trailing = if (openingNotes) { { CircularProgressIndicator(Modifier.size(24.dp), color = BipeTheme.colors.accentFill) } } else null)
                     }
                     // Perfil de confiança after Anotações (ADR 0112, spec trust-card).
@@ -182,13 +183,13 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     }
                     item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
                     item { VoceRow(PhosphorIcon.DEVICES, stringResource(R.string.bipe_app_link_phone_action), onClick = { showsLinkPhone = true }) }
-                    SettingsRootSection(settings, openGroup)
-                    // Spec settings-root: Meus agendamentos after the groups, for a personal account.
+                    // Spec voce: Meus agendamentos above Configurações, for a personal account.
                     if (current != null && !current.isCompany) {
                         item(key = "my-bookings") {
                             VoceRow(PhosphorIcon.CLOCK, stringResource(R.string.bipe_agenda_my_bookings), onClick = { showsMyBookings = true })
                         }
                     }
+                    SettingsRootSection(settings, openGroup)
                 }
             }
         })
@@ -230,6 +231,12 @@ private fun VoceHeader(account: AccountSummary, media: MediaLoader, openProfile:
             Avatar(account.displayName, account.avatarUrl, media, size = 96.dp, userId = account.userId, isCompany = account.isCompany)
             Text(account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary)
             account.handle?.let { Text("@$it", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
+            // Spec voce: the visible way into Seu perfil, as the iPhone's account row.
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.bipe_settings_profile), style = MaterialTheme.typography.bodyMedium, color = colors.accentInk)
+                Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = colors.accentInk,
+                    modifier = Modifier.size(12.dp))
+            }
         }
         // QR and Compartilhar perfil side by side, as Material 3 tonal buttons.
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -262,7 +269,10 @@ private fun VoceSectionHeader(title: String?) {
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp))
 }
 
-/** A Material 3 list item with a Phosphor icon, for the rows of Você above Configurações. */
+/**
+ * A Material 3 list item for the rows of Você above Configurações: the settings icon tile (spec voce), or a plain
+ * glyph in [tint] when [tile] is false (Nova conta).
+ */
 @Composable
 private fun VoceRow(
     icon: PhosphorIcon,
@@ -270,6 +280,7 @@ private fun VoceRow(
     subtitle: String? = null,
     tint: Color = BipeTheme.colors.glyphPrimary,
     titleColor: Color = BipeTheme.colors.inkPrimary,
+    tile: Boolean = true,
     enabled: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
@@ -278,7 +289,9 @@ private fun VoceRow(
     ListItem(
         headlineContent = { Text(title, color = titleColor) },
         supportingContent = subtitle?.let { text -> @Composable { Text(text, color = colors.inkSecondary) } },
-        leadingContent = { Icon(painterResource(icon.drawable), contentDescription = null, tint = tint) },
+        leadingContent = {
+            if (tile) SettingsIconTile(icon) else Icon(painterResource(icon.drawable), contentDescription = null, tint = tint)
+        },
         trailingContent = trailing,
         colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
         modifier = Modifier.clickable(enabled = enabled, onClick = onClick),

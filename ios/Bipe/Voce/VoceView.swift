@@ -76,8 +76,7 @@ struct VoceView: View {
                 Section {
                     Button(action: openNotes) {
                         HStack(spacing: 12) {
-                            PhosphorIcon.notepad.image.resizable().frame(width: 24, height: 24)
-                                .foregroundStyle(BipeColor.accentInk)
+                            SettingsIconTile(icon: .notepad)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(BipeStrings.selfChatTitle).foregroundStyle(BipeColor.inkPrimary)
                                 Text(BipeStrings.selfChatSubtitle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
@@ -95,26 +94,24 @@ struct VoceView: View {
                 }
                 Section {
                     NavigationLink(value: Destination.invites) {
-                        IconLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
+                        VoceTileLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
                     }
                     // Spec voce openLinkPhone: the only way into link-phone-show (ADR 0059).
                     Button { showsLinkPhone = true } label: {
-                        IconLabel(icon: .devices, text: BipeStrings.appLinkPhoneAction)
+                        VoceTileLabel(icon: .devices, text: BipeStrings.appLinkPhoneAction)
                     }
-                }
-                SettingsRootSection(model: settings)
-                // Spec settings-root: a personal account has Meus agendamentos after the groups (agenda-my-bookings).
-                if !model.currentIsCompany {
-                    Section {
+                    // Spec voce: a personal account has Meus agendamentos above Configurações (agenda-my-bookings).
+                    if !model.currentIsCompany {
                         NavigationLink(value: Destination.myBookings) {
-                            IconLabel(icon: .clock, text: BipeStrings.agendaMyBookings)
+                            VoceTileLabel(icon: .clock, text: BipeStrings.agendaMyBookings)
                         }
                     }
                 }
+                SettingsRootSection(model: settings)
             }
             .listStyle(.insetGrouped)
             .navigationTitle(BipeStrings.tabYou)
-            .settingsDestinations(model: settings, onNewAccount: onNewAccount) {
+            .settingsDestinations(model: settings) {
                 Task { await model.start.signOut(userId: chatList.session.userId, alreadyLoggedOut: true) }
             }
             .navigationDestination(for: Destination.self) { destination in
@@ -271,6 +268,19 @@ private struct VocePromptCard: View {
     }
 }
 
+/// A Você row above Configurações: the settings icon tile and the title (spec voce).
+private struct VoceTileLabel: View {
+    let icon: PhosphorIcon
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            SettingsIconTile(icon: icon)
+            Text(text).foregroundStyle(BipeColor.inkPrimary)
+        }
+    }
+}
+
 private struct VoceHeader: View {
     let account: AccountSummary
     let media: MediaLoader
@@ -288,6 +298,14 @@ private struct VoceHeader: View {
                     if let handle = account.handleLine {
                         Text(verbatim: handle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                     }
+                    // Spec voce: the visible way into Seu perfil, as the iPhone's account row.
+                    HStack(spacing: 4) {
+                        Text(BipeStrings.settingsProfile)
+                        PhosphorIcon.caretRight.image.resizable().frame(width: 12, height: 12)
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(BipeColor.accentInk)
+                    .padding(.top, 2)
                 }
             }
             .buttonStyle(.plain)
