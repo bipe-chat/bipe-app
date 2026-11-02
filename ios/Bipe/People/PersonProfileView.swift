@@ -14,8 +14,6 @@ struct PersonProfileRoutes {
     var newGroup: ((String) -> Void)?
     /// fromDm: opens chat-notifications for the DM.
     var notifications: ((String) -> Void)?
-    /// fromDm: opens dm-delete for the DM.
-    var deleteChat: ((String) -> Void)?
 }
 
 /// Spec person-profile. From a DM header it is also the DM's info screen (ADR 0141).
@@ -295,21 +293,13 @@ struct PersonProfileView: View {
                 ChatMediaGalleryView(session: people.session, media: people.media, roomId: roomId)
             }
         }
-        if routes.notifications != nil || routes.deleteChat != nil {
+        // Spec person-profile notes: a DM is archived from the chat menu, never deleted here.
+        if let notifications = routes.notifications {
             Section {
-                if let notifications = routes.notifications {
-                    Button {
-                        notifications(roomId)
-                    } label: {
-                        IconLabel(icon: .bell, text: BipeStrings.settingsNotifications)
-                    }
-                }
-                if let deleteChat = routes.deleteChat {
-                    Button {
-                        deleteChat(roomId)
-                    } label: {
-                        IconLabel(icon: .trash, text: BipeStrings.dmDeleteAction, tint: BipeColor.trustDangerInk)
-                    }
+                Button {
+                    notifications(roomId)
+                } label: {
+                    IconLabel(icon: .bell, text: BipeStrings.settingsNotifications)
                 }
             }
         }
