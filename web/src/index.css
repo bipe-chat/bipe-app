@@ -29,6 +29,9 @@
   --color-chat-background: var(--bipe-chat-background);
   --color-trust-danger-ink: var(--bipe-trust-danger-ink);
   --color-trust-verified-ink: var(--bipe-trust-verified-ink);
+  --color-trust-caution-ink: var(--bipe-trust-caution-ink);
+  --color-trust-caution-wash: var(--bipe-trust-caution-wash);
+  --color-trust-caution-line: var(--bipe-trust-caution-line);
   --color-trust-verified-wash: var(--bipe-trust-verified-wash);
   --color-trust-verified-line: var(--bipe-trust-verified-line);
   --color-grouped-screen: var(--grouped-screen);
@@ -136,4 +139,10 @@
   @media (prefers-reduced-transparency: reduce) {
     background-color: rgb(0 0 0 / 0.75);
   }
+}
+
+/* A message reached by a link or a reply quote: the 2 px accent.fill edge of the highlighted bubble
+   (Bubble isHighlighted, TimelineRowView.swift), for a moment. */
+li[data-highlight='true'] > div > div:first-child {
+  outline: 2px solid var(--bipe-accent-fill);
 }

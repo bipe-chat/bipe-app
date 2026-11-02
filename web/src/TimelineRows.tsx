@@ -16,6 +16,7 @@ import {
   TimelineItemContent,
   VirtualTimelineItem,
   type EventOrTransactionId,
+  type LazyTimelineItemProviderLike,
   type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
 import {
@@ -25,15 +26,23 @@ import {
   clock,
   copy,
   dotsThree,
+  link,
   lockSimple,
   pencilSimple,
+  smiley,
   trash,
   warningCircle,
 } from './phosphor/icons';
 import { MessageMenu, pillsOf, ReactionPills, type MessageAction, type ReactionPill } from './Reactions';
+import { voiceMedia } from './bipe/generated/registries.json';
+import { linkify } from './linkify';
+import { mentionLinksOf, type MentionLink } from './mentions';
+import { internalRoute, navigate } from './router';
+import { pauseLeft, ScamWarningCard, scamKindOf, type ScamKind } from './ScamWarning';
+import { forwardCountOf } from './MessageSheets';
 import { previewText } from './row-preview';
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
-import { dayText, s, timeText } from './ui/i18n';
+import { dayText, pending, s, timeText } from './ui/i18n';
 import { Icon } from './ui/Icon';
 
 type Body = 'text' | 'media' | 'deleted' | 'undecryptable' | 'other';
@@ -63,8 +72,21 @@ export type MessageRow = {
   canDelete: boolean;
   edited: boolean;
   reply?: ReplyQuoteData;
+  /** Upload progress of an own media message in the send queue, 0 to 100. */
+  uploadPercent?: number;
+  /** The SDK's handle to the item: its send handle retries or aborts a local echo. */
+  provider: LazyTimelineItemProviderLike;
   /** People other than the account whose read receipt sits on this event. */
   readBy: string[];
+  /** Spec scam-warning: the kind of a received message that looks like a scam pattern. */
+  scamKind?: ScamKind;
+  /** The chat.bipe.forward count of the content, for the forward line. */
+  forwardCount: number;
+  /** Spec message-forward: a sent message (with an event ID) of kind message. */
+  canForward: boolean;
+  /** Mention links in the HTML body, drawn as pills. */
+  mentions: MentionLink[];
+  ownUserId: string;
 };
 export type Row =
   | MessageRow
@@ -76,7 +98,18 @@ function nameOf(profile: ProfileDetails, userId: string): string {
   return ProfileDetails.Ready.instanceOf(profile) ? (profile.inner.displayName ?? userId) : userId;
 }
 
+// Rows are made once per SDK item: the timeline hands over a new item when it changes.
+const made = new WeakMap<TimelineItem, Row | null>();
+
 export function itemRow(item: TimelineItem, ownUserId: string): Row | undefined {
+  const hit = made.get(item);
+  if (hit !== undefined) return hit ?? undefined;
+  const row = makeRow(item, ownUserId);
+  made.set(item, row ?? null);
+  return row;
+}
+
+function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
   const key = item.uniqueId().id;
   const virtual = item.asVirtual();
   if (virtual) {
@@ -92,28 +125,33 @@ export function itemRow(item: TimelineItem, ownUserId: string): Row | undefined 
   const msgLike = event.content.inner.content;
   const kind = msgLike.kind;
   let body: Body = 'other';
-  // TODO(string): '(event)' is spike text for a message kind this page does not draw (sticker, poll, ...).
-  let text = '(event)';
+  // A message kind this page does not draw (sticker, poll, ...).
+  let text = pending('bipe_app_timeline_unsupported');
   let media: MediaInfo | undefined;
+  let mentions: MentionLink[] = [];
   let edited = false;
   if (MsgLikeKind.Message.instanceOf(kind)) {
     media = mediaOf(kind.inner.content.msgType);
+    mentions = mentionLinksOf(kind.inner.content.msgType);
     body = media ? 'media' : 'text';
     text = kind.inner.content.body;
     edited = kind.inner.content.isEdited;
   } else if (MsgLikeKind.UnableToDecrypt.instanceOf(kind)) {
     body = 'undecryptable';
-    // TODO(string): bipe_app_timeline_undecryptable says "neste celular"; the web needs a computer variant.
-    text = 'Unable to decrypt this message.';
+    text = pending('bipe_web_timeline_undecryptable');
   } else if (MsgLikeKind.Redacted.instanceOf(kind)) {
     body = 'deleted';
     text = event.isOwn ? s('bipe_app_message_deleted_own') : s('bipe_app_message_deleted');
   }
   let send: Send | undefined;
+  let uploadPercent: number | undefined;
   if (event.isOwn) {
     const state = event.localSendState;
-    if (state && EventSendState.NotSentYet.instanceOf(state)) send = 'sending';
-    else if (state && EventSendState.SendingFailed.instanceOf(state)) send = 'failed';
+    if (state && EventSendState.NotSentYet.instanceOf(state)) {
+      send = 'sending';
+      const p = state.inner.progress?.progress;
+      if (p && p.total > 0n) uploadPercent = Math.min(100, Math.round((Number(p.current) / Number(p.total)) * 100));
+    } else if (state && EventSendState.SendingFailed.instanceOf(state)) send = 'failed';
     else send = 'sent';
   }
   const eventId = EventOrTransactionIdValue.EventId.instanceOf(event.eventOrTransactionId)
@@ -155,9 +193,17 @@ export function itemRow(item: TimelineItem, ownUserId: string): Row | undefined 
     canReply: live && event.canBeRepliedTo && eventId !== undefined,
     canEdit: event.isOwn && event.isEditable && body === 'text',
     canDelete: event.isOwn && body !== 'deleted',
+    uploadPercent,
+    provider: event.lazyProvider,
     edited,
     reply,
     readBy: [...event.readReceipts.keys()].filter((id) => id !== ownUserId),
+    mentions,
+    ownUserId,
+    // The check reads the text and its links (safetyText), on received messages only.
+    scamKind: !event.isOwn && body === 'text' ? scamKindOf(text) : undefined,
+    forwardCount: live && eventId ? forwardCountOf(event.lazyProvider.debugInfo().originalJson) : 0,
+    canForward: (body === 'text' || body === 'media') && eventId !== undefined,
   };
 }
 
@@ -185,6 +231,14 @@ export type RowHandlers = {
   remove: (row: MessageRow) => void;
   copy: (row: MessageRow) => void;
   loadReply: (eventId: string) => void;
+  forward: (row: MessageRow) => void;
+  copyLink: (row: MessageRow) => void;
+  moreReactions: (row: MessageRow) => void;
+  senders: (row: MessageRow, pill: ReactionPill) => void;
+  /** Spec read-receipts failed tick: send again (SendHandle.tryResend). */
+  retry: (row: MessageRow) => void;
+  /** Spec timeline-media upload overlay: stop the upload (SendHandle.abort). */
+  cancelUpload: (row: MessageRow) => void;
 };
 
 export function TimelineRowView({ row, isDm, on }: { row: Row; isDm: boolean; on: RowHandlers }) {
@@ -220,8 +274,24 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
     actions.push({ label: s('bipe_app_message_action_reply'), icon: arrowBendUpLeft, run: () => on.reply(row) });
   if (row.canEdit)
     actions.push({ label: s('bipe_app_message_action_edit'), icon: pencilSimple, run: () => on.edit(row) });
-  if (row.body === 'text' || row.media?.caption)
+  if (row.canForward)
+    actions.push({
+      label: s('bipe_forward_action'),
+      icon: arrowBendUpLeft,
+      iconClass: '-scale-x-100',
+      run: () => on.forward(row),
+    });
+  if (row.canReact)
+    actions.push({
+      label: s('bipe_app_message_action_more_reactions'),
+      icon: smiley,
+      run: () => on.moreReactions(row),
+    });
+  // Copy stays off while a money pause runs (MessageContextActions on iOS).
+  if ((row.body === 'text' || row.media?.caption) && pauseLeft(row.key) === 0)
     actions.push({ label: s('bipe_app_copy'), icon: copy, run: () => on.copy(row) });
+  if (row.eventId)
+    actions.push({ label: s('bipe_app_message_action_copy_link'), icon: link, run: () => on.copyLink(row) });
   if (row.canDelete)
     actions.push({ label: s('bipe_app_message_action_delete'), icon: trash, danger: true, run: () => on.remove(row) });
   return (
@@ -229,6 +299,7 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
       id={row.eventId ? `ev-${row.eventId}` : undefined}
       own={row.own}
       pills={row.pills}
+      onSenders={(pill) => on.senders(row, pill)}
       onReact={row.canReact ? (key) => on.react(row, key) : undefined}
       actions={actions}
     >
@@ -239,11 +310,21 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
           {row.who}
         </span>
       )}
+      {row.forwardCount > 0 && <ForwardLine count={row.forwardCount} />}
       {row.reply && <ReplyQuote reply={row.reply} onLoad={on.loadReply} />}
       {row.media ? (
-        <TimelineMediaRow media={row.media} />
+        <TimelineMediaRow
+          media={row.media}
+          upload={
+            row.send === 'sending' && row.uploadPercent !== undefined
+              ? { percent: row.uploadPercent, cancel: () => on.cancelUpload(row) }
+              : undefined
+          }
+        />
       ) : row.body === 'text' ? (
-        <p className="text-body break-words whitespace-pre-wrap text-ink-primary">{row.text}</p>
+        <p className="text-body break-words whitespace-pre-wrap text-ink-primary">
+          <RichText text={row.text} mentions={row.mentions} canOpen={() => pauseLeft(row.key) === 0} />
+        </p>
       ) : (
         <p className="flex items-start gap-1.5 text-subheadline text-ink-secondary italic">
           {row.body === 'deleted' && <Icon path={trash} size={14} className="mt-[3px] shrink-0 text-glyph-secondary" />}
@@ -253,10 +334,12 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
           {row.text}
         </p>
       )}
+      {row.scamKind && <ScamWarningCard rowKey={row.key} kind={row.scamKind} />}
       <Footer
         at={row.at}
         edited={row.edited}
         send={row.body === 'text' || row.body === 'media' ? row.send : undefined}
+        onRetry={() => on.retry(row)}
       />
     </Bubble>
   );
@@ -274,7 +357,13 @@ function ReplyQuote({ reply, onLoad }: { reply: ReplyQuoteData; onLoad: (eventId
       type="button"
       className="flex min-w-0 gap-2 rounded-lg bg-surface-sunken/60 p-1.5 text-left text-caption"
       aria-label={s('bipe_a11y_open_original')}
-      onClick={() => document.getElementById(`ev-${reply.eventId}`)?.scrollIntoView({ block: 'center' })}
+      onClick={() => {
+        const el = document.getElementById(`ev-${reply.eventId}`);
+        if (!el) return;
+        el.scrollIntoView({ block: 'center' });
+        el.dataset.highlight = 'true';
+        setTimeout(() => delete el.dataset.highlight, 2000);
+      }}
     >
       <span className="w-[3px] shrink-0 rounded-[1.5px] bg-accent-fill" />
       <span className="flex min-w-0 flex-col gap-0.5">
@@ -310,6 +399,7 @@ function Bubble({
   id,
   own,
   pills,
+  onSenders,
   onReact,
   actions,
   children,
@@ -317,6 +407,7 @@ function Bubble({
   id?: string;
   own: boolean;
   pills: ReactionPill[];
+  onSenders: (pill: ReactionPill) => void;
   onReact?: (key: string) => void;
   actions: MessageAction[];
   children: ReactNode;
@@ -352,14 +443,16 @@ function Bubble({
         )}
         {menu && <MessageMenu own={own} onPick={onReact} actions={actions} onClose={() => setMenu(false)} />}
       </div>
-      {pills.length > 0 && <ReactionPills pills={pills} onToggle={onReact ?? (() => undefined)} />}
+      {pills.length > 0 && (
+        <ReactionPills pills={pills} onToggle={onReact ?? (() => undefined)} onSenders={onSenders} />
+      )}
     </li>
   );
 }
 
 // The time, the edited label (message-edit) and, on an own message, the send state (spec read-receipts):
 // a clock while it sends, a tick once the server has it, a warning when it failed.
-function Footer({ at, edited, send }: { at: number; edited: boolean; send?: Send }) {
+function Footer({ at, edited, send, onRetry }: { at: number; edited: boolean; send?: Send; onRetry: () => void }) {
   return (
     <span className="flex items-center gap-1 self-end text-caption2 whitespace-nowrap text-ink-secondary">
       <time className="tabular-nums" dateTime={new Date(at).toISOString()}>
@@ -377,11 +470,75 @@ function Footer({ at, edited, send }: { at: number; edited: boolean; send?: Send
         <Icon path={checks} size={14} label={s('bipe_app_receipt_read')} className="text-accent-ink" />
       )}
       {send === 'failed' && (
-        <span className="flex items-center gap-1 text-trust-danger-ink">
+        // A tap sends again, as bipe_app_timeline_failed says (ReceiptTick .failed on iOS).
+        <button type="button" className="flex items-center gap-1 text-trust-danger-ink" onClick={onRetry}>
           <Icon path={warningCircle} size={14} />
           {s('bipe_app_timeline_failed')}
-        </span>
+        </button>
       )}
+    </span>
+  );
+}
+
+// The text with each mention as a pill: accent.wash with accent.ink, or accent.fill when it names the account.
+// The text of a message (MessageRichText.swift): links in accent.ink that open in a new tab (Bipe web
+// links open in place), matrix.to mentions as pills on surface.sunken in accent.ink. Links stay shut while
+// a money pause runs (canOpen).
+function RichText({ text, mentions, canOpen }: { text: string; mentions: MentionLink[]; canOpen: () => boolean }) {
+  const parts: ReactNode[] = [];
+  let key = 0;
+  const pushLinked = (chunk: string) => {
+    for (const run of linkify(chunk)) {
+      if (!run.link) {
+        parts.push(run.text);
+        continue;
+      }
+      const href = run.link;
+      parts.push(
+        <a
+          key={key++}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent-ink hover:underline"
+          onClick={(e) => {
+            if (!canOpen()) return e.preventDefault();
+            const route = internalRoute(href);
+            if (route && /^https?:/i.test(href)) {
+              e.preventDefault();
+              navigate(route);
+            }
+          }}
+        >
+          {run.text}
+        </a>,
+      );
+    }
+  };
+  let rest = text;
+  for (const m of mentions) {
+    const at = rest.indexOf(m.text);
+    if (at === -1) continue;
+    pushLinked(rest.slice(0, at));
+    parts.push(
+      <span key={key++} className="rounded-md bg-surface-sunken px-1 text-accent-ink">
+        {m.text}
+      </span>,
+    );
+    rest = rest.slice(at + m.text.length);
+  }
+  pushLinked(rest);
+  return <>{parts}</>;
+}
+
+// The forward line (ForwardLine, TimelineRowView.swift; spec chat-timeline, bipe-chat/bipe#933): a forward
+// arrow and Encaminhada, or Encaminhada muitas vezes, in caption italic ink.secondary.
+function ForwardLine({ count }: { count: number }) {
+  const many = count >= voiceMedia.forwardedManyTimes;
+  return (
+    <span className="flex items-center gap-1 text-caption text-ink-secondary italic">
+      <Icon path={arrowBendUpLeft} size={12} className="-scale-x-100" />
+      {many ? s('bipe_forward_line_many') : s('bipe_forward_line')}
     </span>
   );
 }

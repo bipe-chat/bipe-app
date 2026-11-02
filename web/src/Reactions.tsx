@@ -16,12 +16,17 @@ import { Icon } from './ui/Icon';
 /** Spec message-reactions notes: the 6 keys in this order. */
 export const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
-export type ReactionPill = { key: string; count: number; own: boolean };
+export type ReactionPill = { key: string; count: number; own: boolean; senders: { userId: string; at: number }[] };
 
 export function pillsOf(reactions: Reaction[], ownUserId: string): ReactionPill[] {
   return reactions
     .filter((r) => r.senders.length > 0)
-    .map((r) => ({ key: r.key, count: r.senders.length, own: r.senders.some((x) => x.senderId === ownUserId) }));
+    .map((r) => ({
+      key: r.key,
+      count: r.senders.length,
+      own: r.senders.some((x) => x.senderId === ownUserId),
+      senders: r.senders.map((x) => ({ userId: x.senderId, at: Number(x.timestamp) })),
+    }));
 }
 
 /** Keys longer than 16 characters are cut (reactionKeyText). */
@@ -30,7 +35,16 @@ function keyText(key: string): string {
   return chars.length > 16 ? chars.slice(0, 16).join('') + '…' : key;
 }
 
-export function ReactionPills({ pills, onToggle }: { pills: ReactionPill[]; onToggle: (key: string) => void }) {
+// A right-click on a pill opens who reacted (the long press of the apps).
+export function ReactionPills({
+  pills,
+  onToggle,
+  onSenders,
+}: {
+  pills: ReactionPill[];
+  onToggle: (key: string) => void;
+  onSenders: (pill: ReactionPill) => void;
+}) {
   return (
     <div className="flex flex-wrap gap-1">
       {pills.map((p) => {
@@ -43,6 +57,10 @@ export function ReactionPills({ pills, onToggle }: { pills: ReactionPill[]; onTo
             aria-label={s('bipe_app_reaction_label', p.key, count)}
             aria-pressed={p.own}
             onClick={() => onToggle(p.key)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onSenders(p);
+            }}
           >
             <span className="text-body">{keyText(p.key)}</span>
             <span className={`text-caption ${p.own ? 'text-accent-ink' : 'text-ink-secondary'}`}>{count}</span>
@@ -53,7 +71,7 @@ export function ReactionPills({ pills, onToggle }: { pills: ReactionPill[]; onTo
   );
 }
 
-export type MessageAction = { label: string; icon: string; danger?: boolean; run: () => void };
+export type MessageAction = { label: string; icon: string; iconClass?: string; danger?: boolean; run: () => void };
 
 /**
  * The message menu (MessageContextMenu.swift): the quick reactions as one row of emoji at the top, then
@@ -114,7 +132,7 @@ export function MessageMenu({
             }}
           >
             {a.label}
-            <Icon path={a.icon} size={20} className={a.danger ? '' : 'text-glyph-primary'} />
+            <Icon path={a.icon} size={20} className={`${a.iconClass ?? ''} ${a.danger ? '' : 'text-glyph-primary'}`} />
           </button>
         ))}
       </div>

@@ -12,7 +12,7 @@ import { UploadSource, type TimelineLike as Timeline } from './generated/matrix_
 import { useClient } from './media';
 import { file as fileIcon, image, plus, x } from './phosphor/icons';
 import { sizeText } from './TimelineMedia';
-import { s } from './ui/i18n';
+import { pending, s } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import { Spinner } from './ui/Spinner';
 import { describe } from './util';
@@ -411,8 +411,7 @@ function PreviewItem({
         <button
           type="button"
           className="bipe-scrim absolute top-2 right-2 grid size-8 place-items-center rounded-full"
-          // TODO(string): the label of the button that drops one item from the upload preview.
-          aria-label="Remove"
+          aria-label={pending('bipe_app_upload_remove')}
           onClick={onRemove}
         >
           <Icon path={x} size={16} />
