@@ -151,17 +151,32 @@ private struct JoinedInviteRow: View {
                 AvatarView(name: person?.displayName ?? "", mxcUrl: person?.avatarUrl, loader: people.media,
                            size: 40, userId: invite.joinedUserId)
                 VStack(alignment: .leading) {
-                    Text(person?.displayName ?? BipeStrings.invitesStatusUsed).foregroundStyle(BipeColor.inkPrimary)
-                    Text(failed ? BipeStrings.errorNetwork : BipeStrings.invitesChat)
-                        .font(.caption).foregroundStyle(BipeColor.inkSecondary)
+                    Text(title).foregroundStyle(BipeColor.inkPrimary)
+                    if let caption {
+                        Text(caption).font(.caption).foregroundStyle(BipeColor.inkSecondary)
+                    }
                 }
                 Spacer()
                 if opening { ProgressView() }
             }
         }
+        .disabled(invite.joinedUserId == nil)
         .task(id: invite.joinedUserId) {
             if let userId = invite.joinedUserId { person = try? await people.person(userId) }
         }
+    }
+
+    private var savedName: String? { invite.name?.isEmpty == false ? invite.name : nil }
+
+    /// The name the user gave the invite first, then the name the person chose.
+    private var title: String { savedName ?? person?.displayName ?? BipeStrings.invitesStatusUsed }
+
+    /// The person's own name under the saved one. No joined account (a company sign-up, a deleted account): only "used".
+    private var caption: String? {
+        if failed { return BipeStrings.errorNetwork }
+        guard invite.joinedUserId != nil else { return savedName == nil ? nil : BipeStrings.invitesStatusUsed }
+        if let savedName, let displayName = person?.displayName, displayName != savedName { return displayName }
+        return BipeStrings.invitesChat
     }
 }
 
