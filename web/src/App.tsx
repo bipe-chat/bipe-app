@@ -97,6 +97,7 @@ function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m
   const [qr, setQr] = useState<ArrayBuffer>();
   const [checkSender, setCheckSender] = useState<CheckCodeSender>();
   const [code, setCode] = useState('');
+  const sent = useRef(false);
   const started = useRef(false);
 
   useEffect(() => {
@@ -110,6 +111,7 @@ function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m
       const handler = client.newLoginWithQrCodeHandler(oauthConfiguration());
       await handler.generate({
         onUpdate(state) {
+          console.info('[trace] qr progress', (state as { tag?: string }).tag ?? state);
           if (GeneratedQrLoginProgress.QrReady.instanceOf(state)) {
             setQr(state.inner.qrCode.toBytes());
             setStep('Scan this code with Bipe on your phone.');
@@ -164,8 +166,21 @@ function QrLogin({ onDone, onError }: { onDone: (c: Client) => void; onError: (m
           onSubmit={(e) => {
             e.preventDefault();
             const n = Number(code);
-            if (!Number.isInteger(n) || n < 0 || n > 99) return;
-            checkSender.send(n).catch((err: unknown) => onError(describe(err)));
+            if (!Number.isInteger(n) || n < 0 || n > 99 || code === '') return;
+            // The SDK takes the check code once; a second send fails with CheckCodeAlreadySent
+            // and must not end a sign-in that is still waiting for the phone.
+            if (sent.current) return;
+            sent.current = true;
+            setCheckSender(undefined);
+            setStep('Approve on your phone.');
+            console.info('[trace] check code send', n);
+            checkSender
+              .send(n)
+              .then(() => console.info('[trace] check code send resolved'))
+              .catch((err: unknown) => {
+                console.warn('[trace] check code send failed', err);
+                if (!/\bCheckCodeAlreadySent\b/.test(describe(err))) onError(describe(err));
+              });
           }}
         >
           <input

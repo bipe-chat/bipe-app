@@ -25,11 +25,18 @@ import org.matrix.rustcomponents.sdk.NotificationSettingsDelegate
 import org.matrix.rustcomponents.sdk.RoomNotificationMode
 
 /** Type NotificationMode of spec notification-settings. */
-enum class NotificationMode(val label: Int) {
-    ALL(R.string.bipe_app_notification_mode_all),
-    MENTIONS(R.string.bipe_app_notification_mode_mentions),
-    OFF(R.string.bipe_app_notification_mode_off),
+enum class NotificationMode {
+    ALL,
+    MENTIONS,
+    OFF,
     ;
+
+    /** One name per mode on every screen: in a group, mentions is the quiet mode of chat-notifications. */
+    fun label(isDm: Boolean): Int = when (this) {
+        ALL -> R.string.bipe_app_notification_mode_all
+        MENTIONS -> if (isDm) R.string.bipe_app_notify_mentions_legacy else R.string.bipe_app_notify_quiet
+        OFF -> R.string.bipe_app_notification_mode_off
+    }
 
     val sdkMode: RoomNotificationMode
         get() = when (this) {
