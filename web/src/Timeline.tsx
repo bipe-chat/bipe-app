@@ -244,6 +244,12 @@ export function RoomTimeline({
       if (content) setSheet({ kind: 'forward', content });
     },
     moreReactions: (row) => setSheet({ kind: 'emoji', row }),
+    vote: async (row, answerIds) => {
+      if (row.eventId) await timeline.current?.sendPollResponse(row.eventId, answerIds);
+    },
+    endPoll: async (row) => {
+      if (row.eventId) await timeline.current?.endPoll(row.eventId, s('bipe_app_poll_ended_text'));
+    },
     copyLink: (row) => {
       if (!row.eventId) return;
       void navigator.clipboard
