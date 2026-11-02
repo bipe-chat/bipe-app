@@ -3,129 +3,46 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
-import Phosphor
 import SwiftUI
 
-/// Spec notifications-prompt: after the first message shows as sent, a sheet asks whether the person wants
-/// to know when the reply comes. The registry prompt (BipeOnboardingPrompt.notifications) gives the buttons.
-struct NotificationsPromptView: View {
-    /// DM: the other person's name for the title. nil in a group.
-    let recipientName: String?
-    let close: () -> Void
-    @State private var isAsking = false
-
-    private let prompt = BipeOnboardingPrompt.notifications
-
-    var body: some View {
-        VStack(spacing: 16) {
-            PhosphorIcon.bell.image
-                .resizable()
-                .frame(width: 48, height: 48)
-                .foregroundStyle(BipeColor.accentInk)
-                .accessibilityHidden(true)
-            Text(recipientName.map(BipeStrings.notificationsPromptTitle) ?? BipeStrings.notificationsPromptTitleGeneric)
-                .font(.title2.bold())
-                .foregroundStyle(BipeColor.inkPrimary)
-                .multilineTextAlignment(.center)
-            if prompt.bodyKey != nil {
-                Text(BipeStrings.notificationsPromptBody)
-                    .font(.body)
-                    .foregroundStyle(BipeColor.inkSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            Button {
-                Task { await allow() }
-            } label: {
-                Text(prompt.primary.title)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bipeProminent)
-            .disabled(isAsking)
-            ForEach(prompt.text, id: \.titleKey) { button in
-                Button {
-                    notNow()
-                } label: {
-                    Text(button.title)
-                }
-                .disabled(isAsking)
-            }
-        }
-        .padding(24)
-        .tint(BipeColor.accentFill)
-        .presentationDetents([.medium])
-        .accessibilityIdentifier(BipeScreen.notificationsPrompt.rawValue)
-    }
-
-    /// Action allow: the system dialog; allowed registers this phone. Either way the sheet closes for good.
-    private func allow() async {
-        isAsking = true
-        await PushRegistration.shared.requestPermission()
-        isAsking = false
-        NotificationsPromptView.markShown()
-        close()
-    }
-
-    /// Action notNow: closes the sheet. It does not come back on this phone.
-    private func notNow() {
-        NotificationsPromptView.markShown()
-        close()
-    }
-
+/// Spec notifications-prompt: the entry notifications of chat-list-prompt (bipe-chat/bipe#894). This file keeps its
+/// memory on this phone; the chat list shows the card (AccountAsksModel).
+enum NotificationsPromptMemory {
     private static let shownKey = "notificationsPromptShown"
+    private static func sentKey(_ userID: String) -> String { "bipe.notificationsPrompt.messageSent.\(userID)" }
 
-    static func markShown() {
-        UserDefaults.standard.set(true, forKey: shownKey)
-    }
+    /// True after Ligar notificações or Agora não. The card never comes back on this phone.
+    static var isDone: Bool { UserDefaults.standard.bool(forKey: shownKey) }
 
-    /// Only when the system permission was never asked and the sheet never showed on this phone.
-    @MainActor
-    static func shouldShow() async -> Bool {
-        guard !UserDefaults.standard.bool(forKey: shownKey) else { return false }
-        await PushRegistration.shared.appBecameActive()
-        return PushRegistration.shared.permission == .notAsked
-    }
+    static func markDone() { UserDefaults.standard.set(true, forKey: shownKey) }
+
+    /// Trigger messageSent: this account sent a message on this phone.
+    static func messageSent(userID: String) -> Bool { UserDefaults.standard.bool(forKey: sentKey(userID)) }
+
+    static func markMessageSent(userID: String) { UserDefaults.standard.set(true, forKey: sentKey(userID)) }
 }
 
 extension View {
-    /// Trigger firstMessageSent (registries/onboarding.json): opens the prompt once an own message shows as sent.
-    func notificationsPrompt(session: AccountSession, roomId: String, messages: [TimelineMessage]) -> some View {
-        modifier(NotificationsPromptTrigger(session: session, roomId: roomId, messages: messages))
+    /// Trigger messageSent (registries/onboarding.json): an own message shows as sent in this chat.
+    func notificationsPromptTrigger(userID: String, messages: [TimelineMessage]) -> some View {
+        modifier(NotificationsPromptTrigger(userID: userID, messages: messages))
     }
 }
 
 private struct NotificationsPromptTrigger: ViewModifier {
-    let session: AccountSession
-    let roomId: String
+    let userID: String
     let messages: [TimelineMessage]
-    @State private var isShown = false
-    @State private var recipientName: String?
     @State private var openedAt = Date.now
 
     /// Own messages sent since the chat opened: history does not count.
-    private var newSentCount: Int {
-        messages.filter { $0.isOwn && $0.sendState == .sent && $0.sentAt >= openedAt }.count
+    private var sentSinceOpen: Bool {
+        messages.contains { $0.isOwn && $0.sendState == .sent && $0.sentAt >= openedAt }
     }
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: newSentCount) { _, count in
-                if count > 0 {
-                    Task { await check() }
-                }
+            .onChange(of: sentSinceOpen) { _, sent in
+                if sent { NotificationsPromptMemory.markMessageSent(userID: userID) }
             }
-            .sheet(isPresented: $isShown) {
-                NotificationsPromptView(recipientName: recipientName) { isShown = false }
-            }
-    }
-
-    @MainActor
-    private func check() async {
-        guard !isShown, await NotificationsPromptView.shouldShow() else { return }
-        if let room = try? session.client.getRoom(roomId: roomId), let info = try? await room.roomInfo(), info.isDm {
-            // ADR 0141: the person, never the DM's m.room.name.
-            let peer = info.heroes.first { $0.userId != session.userId }
-            recipientName = peer.map { BipeChatRowName.person(userID: $0.userId, displayName: $0.displayName, handle: nil) }
-        }
-        isShown = true
     }
 }

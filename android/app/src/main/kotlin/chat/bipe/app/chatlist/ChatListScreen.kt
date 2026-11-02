@@ -428,6 +428,7 @@ fun HomeScreen(
                     // Spec chat-list-prompt (bipe-chat/bipe#894): the entries this screen owns, with their cards, while
                     // their condition holds. ChatListScreen adds its own and shows one card at a time.
                     val showsApprovePhone = encryption.collectShowsCard()
+                    val asks = accountAsks(session) { navigation.push(PeopleRoute.ProfileEdit) }
                     val prompts = buildMap<BipeChatListPrompt, @Composable () -> Unit> {
                         if (showsApprovePhone) put(BipeChatListPrompt.APPROVE_PHONE) { ApprovePhoneCard(encryption) }
                         if (recovery.showsCard(recoveryState)) {
@@ -437,6 +438,7 @@ fun HomeScreen(
                         bringState.reminder?.let { reminder ->
                             put(BipeChatListPrompt.BRING_PEOPLE_REMINDER) { BringPeopleReminderCard(bringPeople, reminder, openInvites = groups.openInvites) }
                         }
+                        putAll(asks)
                     }
                     AppTabsScreen(
                         tabs = tabs, chatList = model, media = media, handle = handle,

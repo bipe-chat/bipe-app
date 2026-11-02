@@ -94,7 +94,7 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.common.chatBackground
 import chat.bipe.app.composer.MentionSuggestion
-import chat.bipe.app.notifications.NotificationsPrompt
+import chat.bipe.app.notifications.NotificationsPromptTrigger
 import chat.bipe.app.people.BrandMarkHeaderLine
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.ProfileNoticeBar
@@ -241,7 +241,7 @@ fun ChatTimelineScreen(
     var attaching by remember { mutableStateOf(false) }
     var upload by remember { mutableStateOf<PickedUpload?>(null) }
     var showsStickers by remember { mutableStateOf(false) }
-    NotificationsPrompt(session, roomId, messages)
+    NotificationsPromptTrigger(session, roomId, messages)
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     var dmMenu by remember { mutableStateOf(false) }

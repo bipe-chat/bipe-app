@@ -72,6 +72,8 @@ struct ChatListView: View {
     @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
     @State private var showsDrafts = false
     @StateObject private var cards: FirstListCardsModel
+    @StateObject private var asks: AccountAsksModel
+    @State private var showsProfileEdit = false
     @State private var shareItem: ShareItem?
     private struct ShareItem: Identifiable {
         let url: URL
@@ -97,6 +99,7 @@ struct ChatListView: View {
         _detail = State(initialValue: initialRoomId.map(ChatDetail.room))
         _compactColumn = State(initialValue: initialRoomId == nil ? .sidebar : .detail)
         _cards = StateObject(wrappedValue: FirstListCardsModel(userId: model.session.userId))
+        _asks = StateObject(wrappedValue: AccountAsksModel(session: model.session))
         self.scope = scope
     }
 
@@ -144,6 +147,7 @@ struct ChatListView: View {
                 await handle.load()
                 await recovery.load()
                 await bringPeople.load()
+                await asks.load()
                 openBringPeopleIfDue()
             }
         }
@@ -162,6 +166,7 @@ struct ChatListView: View {
                     if scope != .grupos {
                         await recovery.load()
                         await bringPeople.load()
+                        await asks.load()
                     }
                     pinReminder.refresh()
                 }
@@ -175,6 +180,9 @@ struct ChatListView: View {
         }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
+        }
+        .sheet(isPresented: $showsProfileEdit, onDismiss: { Task { await asks.load() } }) {
+            NavigationStack { ProfileEditView(people: people) }
         }
         .sheet(item: $shareItem) { item in
             ShareSheet(items: [item.url]).ignoresSafeArea()
@@ -347,6 +355,9 @@ struct ChatListView: View {
         var eligible: Set<BipeChatListPrompt> = []
         if banner.state != .hidden && banner.banner != nil { eligible.insert(.remoteBanner) }
         if encryption.showsBanner { eligible.insert(.approvePhone) }
+        if asks.showsNotifications { eligible.insert(.notifications) }
+        if asks.showsOsTheft { eligible.insert(.osTheftProtection) }
+        if asks.showsPhoto { eligible.insert(.photo) }
         if recovery.showsCard { eligible.insert(.recovery) }
         if pinReminder.showsCard { eligible.insert(.pinReminder) }
         if handle.showsPrompt { eligible.insert(.handle) }
@@ -378,6 +389,9 @@ struct ChatListView: View {
             RemoteBannerView(model: banner)
         case .approvePhone:
             ApprovePhoneCard(model: encryption)
+        case .notifications:
+            AccountAskCard(prompt: .notifications, open: { Task { await asks.allowNotifications() } },
+                           dismiss: asks.dismissNotifications)
         case .notificationCheckup:
             // Android only (spec notification-checkup): iOS never makes this entry eligible.
             EmptyView()
@@ -385,8 +399,14 @@ struct ChatListView: View {
             RecoveryReminderCard(model: recovery) { showsRecoveryEmail = true }
         case .pinReminder:
             PinReminderCard(model: pinReminder) { showsPinReminder = true }
+        case .osTheftProtection:
+            AccountAskCard(prompt: .osTheftProtection, note: OsTheftProtection.pathText,
+                           open: { asks.finishOsTheft(); OsTheftProtection.openSettings() },
+                           dismiss: asks.finishOsTheft)
         case .handle:
             HandlePromptCard(model: handle) { showsHandlePick = true }
+        case .photo:
+            AccountAskCard(prompt: .photo, open: { showsProfileEdit = true }, dismiss: asks.dismissPhoto)
         case .bringPeopleReminder:
             if let reminder = bringPeople.reminder {
                 BringPeopleReminderCard(model: bringPeople, reminder: reminder,
