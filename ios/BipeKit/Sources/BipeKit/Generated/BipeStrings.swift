@@ -5007,6 +5007,7 @@ public enum BipeStrings {
     }
 
     public static var yearRecapShareNote: String { NSLocalizedString("bipe_year_recap_share_note", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var inviteJoinedPushTitle: String { NSLocalizedString("bipe_invite_joined_push_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var inviteJoinedPushBody: String { NSLocalizedString("bipe_invite_joined_push_body", tableName: "Bipe", bundle: .module, comment: "") }
