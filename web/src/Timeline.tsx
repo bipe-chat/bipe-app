@@ -42,6 +42,10 @@ import { EmojiPicker, ForwardSheet, forwardContentOf, ReactionSenders } from './
 import type { ReactionPill } from './Reactions';
 import { messageLink } from './router';
 import { readReceiptsOn } from './Settings';
+import { BlockAlert } from './ChatActions';
+import { useClearedChats, useIgnoredUsers } from './chat-actions';
+import { clearedChatKeepsEvent } from './bipe/generated/lib/registries.mjs';
+import { useClient } from './media';
 import { applyDiffs, describe, type DiffVariants } from './util';
 
 // The composer's mode (specs message-reply, message-edit): a reply bar or an edit bar above the field.
@@ -128,11 +132,21 @@ export function RoomTimeline({
   const face = useRoomFace(room);
   // Group rows show the sender's name; DM rows do not. Until RoomInfo comes, no names.
   const isDm = face.isDirect ?? true;
-  const itemRows = items.map((i) => itemRow(i, ownUserId)).filter((r) => r !== undefined);
+  const client = useClient();
+  const clearedMarker = useClearedChats(client);
+  // Spec dm-delete: the timeline drops every event at or below the cleared marker of the DM.
+  const marker = clearedMarker(room.id());
+  const itemRows = items
+    .map((i) => itemRow(i, ownUserId))
+    .filter((r) => r !== undefined)
+    .filter((r) => r.kind !== 'message' || clearedChatKeepsEvent(marker, r.at));
   // Read ticks only in a DM (spec read-receipts); groups keep the sent tick.
   // With the read receipts switch off, DMs show no read ticks either (bipe_privacy_read_receipts_footer).
   const rows = face.isDirect && readReceiptsOn() ? markRead(itemRows) : itemRows;
   const typing = useTyping(room, ownUserId);
+  const ignored = useIgnoredUsers(client);
+  const blocked = face.isDirect === true && face.peer !== undefined && ignored.has(face.peer.userId);
+  const [unblocking, setUnblocking] = useState(false);
   const account = useAccounts().current;
   const companyName = useIsCompany(ownUserId) ? (account.name ?? undefined) : undefined;
   // A message link (/c/<room>/e/<event>): load older pages until the message is there, then bring it into
@@ -378,86 +392,100 @@ export function RoomTimeline({
               }}
             />
           )}
-          <form
-            className="flex items-end gap-2 px-3 py-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const text = draft.trim();
-              const t = timeline.current;
-              if (!text || !t) return;
-              setDraft('');
-              setMode(undefined);
-              typingNotice('');
-              const content =
-                mode?.kind === 'edit' ? messageEventContentFromMarkdown(text) : contentWithMentions(text, mentions);
-              setMentions([]);
-              const sent =
-                mode?.kind === 'edit'
-                  ? t.edit(mode.row.itemId, new EditedContent.RoomMessage({ content }))
-                  : mode?.kind === 'reply' && mode.row.eventId
-                    ? t.sendReply(content, mode.row.eventId)
-                    : t.send(content);
-              sent.catch((err: unknown) => setNote(describe(err)));
-            }}
-          >
-            {mode?.kind !== 'edit' && <AttachButton onFiles={(files) => setPending(files.slice(0, MAX_ITEMS))} />}
-            {/* The field: glass, 22 pt corners, 16 pt leading inset; one 22 pt line + 2 x 11 pt = 44 pt. */}
-            <div className="bipe-glass flex min-w-0 flex-1 rounded-[22px] pr-1 pl-4">
-              <textarea
-                ref={field}
-                className="max-h-[132px] min-h-11 w-full resize-none bg-transparent py-[11px] text-body text-ink-primary outline-none [field-sizing:content] placeholder:text-ink-disabled"
-                rows={1}
-                value={draft}
-                placeholder={s('bipe_app_timeline_composer_placeholder')}
-                aria-label={s('bipe_app_timeline_composer_placeholder')}
-                onChange={(e) => {
-                  setDraft(e.target.value);
-                  typingNotice(e.target.value);
-                  setMentions((m) => mentionsIn(m, e.target.value));
-                  setSuggestionsHidden(false);
-                }}
-                onKeyDown={(e) => {
-                  // Tab or Return picks the first @ suggestion; Escape hides the list.
-                  if (suggestions.length > 0 && (e.key === 'Tab' || e.key === 'Enter') && !e.shiftKey) {
-                    e.preventDefault();
-                    pickSuggestion(suggestions[0]);
-                  } else if (suggestions.length > 0 && e.key === 'Escape') {
-                    e.preventDefault();
-                    setSuggestionsHidden(true);
-                  }
-                  // Return sends, Shift+Return makes a new line (desktop keyboards).
-                  else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    e.currentTarget.form?.requestSubmit();
-                  } else if (e.key === 'Escape' && mode) {
-                    // Escape ends a reply or an edit before it closes anything else.
-                    e.preventDefault();
-                    if (mode.kind === 'edit') setDraft('');
-                    setMode(undefined);
-                  } else if (e.key === 'ArrowUp' && draft === '' && !mode) {
-                    // Up in an empty field edits the newest own text message, as on desktop chat apps.
-                    const last = [...rows]
-                      .reverse()
-                      .find((r): r is MessageRow => r.kind === 'message' && r.own && r.canEdit);
-                    if (last) {
-                      e.preventDefault();
-                      on.edit(last);
-                    }
-                  }
-                }}
-              />
+          {blocked ? (
+            // Spec block-person: a blocked person's DM stays, with the composer off and a bar to unblock.
+            <div className="flex items-center gap-3 px-4 py-3">
+              <p className="min-w-0 flex-1 text-footnote text-ink-secondary">{s('bipe_app_blocked_bar', face.name)}</p>
+              <button
+                type="button"
+                className="min-h-11 shrink-0 rounded-full bg-surface-sunken px-4 text-subheadline font-semibold text-accent-ink"
+                onClick={() => setUnblocking(true)}
+              >
+                {s('bipe_action_unblock_person')}
+              </button>
             </div>
-            {/* The send button: a 44 pt circle in accent.fill when there is text. The apps show the record
-              button in this place when the field is empty; the web has no voice messages yet. */}
-            <button
-              className={`grid size-11 shrink-0 place-items-center rounded-full ${canSend ? 'bg-accent-fill text-ink-on-accent hover:bg-accent-fill-pressed' : 'bipe-glass text-ink-disabled'}`}
-              type="submit"
-              disabled={!canSend}
-              aria-label={mode?.kind === 'edit' ? s('bipe_app_message_save_edit') : s('bipe_app_timeline_send')}
+          ) : (
+            <form
+              className="flex items-end gap-2 px-3 py-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const text = draft.trim();
+                const t = timeline.current;
+                if (!text || !t) return;
+                setDraft('');
+                setMode(undefined);
+                typingNotice('');
+                const content =
+                  mode?.kind === 'edit' ? messageEventContentFromMarkdown(text) : contentWithMentions(text, mentions);
+                setMentions([]);
+                const sent =
+                  mode?.kind === 'edit'
+                    ? t.edit(mode.row.itemId, new EditedContent.RoomMessage({ content }))
+                    : mode?.kind === 'reply' && mode.row.eventId
+                      ? t.sendReply(content, mode.row.eventId)
+                      : t.send(content);
+                sent.catch((err: unknown) => setNote(describe(err)));
+              }}
             >
-              <Icon path={mode?.kind === 'edit' ? check : paperPlaneRight} size={22} />
-            </button>
-          </form>
+              {mode?.kind !== 'edit' && <AttachButton onFiles={(files) => setPending(files.slice(0, MAX_ITEMS))} />}
+              {/* The field: glass, 22 pt corners, 16 pt leading inset; one 22 pt line + 2 x 11 pt = 44 pt. */}
+              <div className="bipe-glass flex min-w-0 flex-1 rounded-[22px] pr-1 pl-4">
+                <textarea
+                  ref={field}
+                  className="max-h-[132px] min-h-11 w-full resize-none bg-transparent py-[11px] text-body text-ink-primary outline-none [field-sizing:content] placeholder:text-ink-disabled"
+                  rows={1}
+                  value={draft}
+                  placeholder={s('bipe_app_timeline_composer_placeholder')}
+                  aria-label={s('bipe_app_timeline_composer_placeholder')}
+                  onChange={(e) => {
+                    setDraft(e.target.value);
+                    typingNotice(e.target.value);
+                    setMentions((m) => mentionsIn(m, e.target.value));
+                    setSuggestionsHidden(false);
+                  }}
+                  onKeyDown={(e) => {
+                    // Tab or Return picks the first @ suggestion; Escape hides the list.
+                    if (suggestions.length > 0 && (e.key === 'Tab' || e.key === 'Enter') && !e.shiftKey) {
+                      e.preventDefault();
+                      pickSuggestion(suggestions[0]);
+                    } else if (suggestions.length > 0 && e.key === 'Escape') {
+                      e.preventDefault();
+                      setSuggestionsHidden(true);
+                    }
+                    // Return sends, Shift+Return makes a new line (desktop keyboards).
+                    else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      e.currentTarget.form?.requestSubmit();
+                    } else if (e.key === 'Escape' && mode) {
+                      // Escape ends a reply or an edit before it closes anything else.
+                      e.preventDefault();
+                      if (mode.kind === 'edit') setDraft('');
+                      setMode(undefined);
+                    } else if (e.key === 'ArrowUp' && draft === '' && !mode) {
+                      // Up in an empty field edits the newest own text message, as on desktop chat apps.
+                      const last = [...rows]
+                        .reverse()
+                        .find((r): r is MessageRow => r.kind === 'message' && r.own && r.canEdit);
+                      if (last) {
+                        e.preventDefault();
+                        on.edit(last);
+                      }
+                    }
+                  }}
+                />
+              </div>
+              {/* The send button: a 44 pt circle in accent.fill when there is text. The apps show the record
+              button in this place when the field is empty; the web has no voice messages yet. */}
+              <button
+                className={`grid size-11 shrink-0 place-items-center rounded-full ${canSend ? 'bg-accent-fill text-ink-on-accent hover:bg-accent-fill-pressed' : 'bipe-glass text-ink-disabled'}`}
+                type="submit"
+                disabled={!canSend}
+                aria-label={mode?.kind === 'edit' ? s('bipe_app_message_save_edit') : s('bipe_app_timeline_send')}
+              >
+                <Icon path={mode?.kind === 'edit' ? check : paperPlaneRight} size={22} />
+              </button>
+            </form>
+          )}
         </div>
       </section>
       {sheet?.kind === 'forward' && (
@@ -474,7 +502,18 @@ export function RoomTimeline({
           onClose={() => setSheet(undefined)}
         />
       )}
-      {showsInfo && <ChatInfo room={room} face={face} onClose={() => onInfo(false)} />}
+      {showsInfo && (
+        <ChatInfo
+          room={room}
+          face={face}
+          latestTs={newest?.kind === 'message' ? newest.at : undefined}
+          onClose={() => onInfo(false)}
+          onGone={onBack}
+        />
+      )}
+      {unblocking && face.peer && (
+        <BlockAlert userId={face.peer.userId} name={face.name} blocked onClose={() => setUnblocking(false)} />
+      )}
       {deleting && (
         <DeleteDialog
           onCancel={() => setDeleting(undefined)}
