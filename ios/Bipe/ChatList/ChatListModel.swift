@@ -101,6 +101,7 @@ final class ChatListModel: ObservableObject {
         archive = ChatArchiveModel(session: session)
         media = MediaLoader(client: session.client)
         notes = NotesRoom(session: session)
+        delivered = DeliveredAcks(client: session.client, ownUserId: session.userId)
         clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in
             self?.refreshSummaries()
         }
@@ -108,7 +109,6 @@ final class ChatListModel: ObservableObject {
         draftsChanges = AssistantDraftsStore.shared.$revision.dropFirst().sink { [weak self] _ in
             self?.refreshSummaries()
         }
-        delivered = DeliveredAcks(client: session.client, ownUserId: session.userId)
         rowActivity = RowActivityScanner(client: session.client, ownUserId: session.userId) { [weak self] in self?.refreshSummaries() }
         rowActivity?.onDmIncoming = { [delivered] room, eventId, sender in
             Task { await delivered.send(room: room, eventId: eventId, sender: sender) }
