@@ -238,9 +238,8 @@ export function EmojiPicker({ onPick, onClose }: { onPick: (emoji: string) => vo
           type="search"
           autoFocus
           className="min-w-0 flex-1 bg-transparent text-body text-ink-primary outline-none placeholder:text-ink-secondary"
-          // TODO(string): bipe_web_emoji_search, the placeholder of the emoji search.
-          placeholder={s('bipe_app_tab_search')}
-          aria-label={s('bipe_app_tab_search')}
+          placeholder={s('bipe_web_emoji_search')}
+          aria-label={s('bipe_web_emoji_search')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

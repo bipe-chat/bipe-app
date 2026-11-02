@@ -244,11 +244,10 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
                   >
                     <span className="min-w-0 flex-1 text-body text-ink-primary">{s(key(row.title))}</span>
                     <span className="text-body text-ink-secondary">
-                      {/* TODO(string): bipe_web_verification_verified and _unverified, this browser's state. */}
                       {encryption.verification === VerificationState.Verified
-                        ? 'Approved'
+                        ? s('bipe_web_verification_verified')
                         : encryption.verification === VerificationState.Unverified
-                          ? 'Needs approval'
+                          ? s('bipe_web_verification_unverified')
                           : ''}
                     </span>
                     <Icon path={caretRight} size={16} className="text-glyph-secondary" />
@@ -286,8 +285,7 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
                         className="min-w-0 flex-1 py-1 text-left text-body text-trust-danger-ink"
                         onClick={() => setSigningOut('all')}
                       >
-                        {/* TODO(string): bipe_web_sign_out_all, "Sair de todas as contas deste navegador". */}
-                        {SIGN_OUT_ALL}
+                        {s('bipe_web_sign_out_all')}
                       </button>
                     </Row>
                   )}
@@ -313,7 +311,6 @@ function footerOf(section: ReturnType<typeof webSections>[number]): string | und
  * message keys (Encryption.isLastDevice) and the account has no recovery key. The phone's ways-back list is
  * about getting the account back on a phone; a browser comes back by scanning a new code, so it is left out.
  */
-const SIGN_OUT_ALL = 'Sair de todas as contas deste navegador';
 
 function SignOutAlert({ all, onClose }: { all: boolean; onClose: () => void }) {
   const client = useClient();
@@ -333,8 +330,14 @@ function SignOutAlert({ all, onClose }: { all: boolean; onClose: () => void }) {
   }, [client]);
   return (
     <Alert
-      title={all ? SIGN_OUT_ALL : s('bipe_account_sign_out')}
-      action={phase === 'signingOut' ? s('bipe_app_signing_out') : all ? SIGN_OUT_ALL : s('bipe_account_sign_out')}
+      title={all ? s('bipe_web_sign_out_all') : s('bipe_account_sign_out')}
+      action={
+        phase === 'signingOut'
+          ? s('bipe_app_signing_out')
+          : all
+            ? s('bipe_web_sign_out_all')
+            : s('bipe_account_sign_out')
+      }
       busy={phase === 'signingOut'}
       onCancel={onClose}
       onAction={() => {
@@ -345,8 +348,7 @@ function SignOutAlert({ all, onClose }: { all: boolean; onClose: () => void }) {
         });
       }}
     >
-      {/* TODO(string): bipe_web_sign_out_history, the web variant of bipe_app_sign_out_history ("neste celular"). */}
-      {onlyCopy && <p>Your old messages are only in this browser. Without the recovery key they do not come back.</p>}
+      {onlyCopy && <p>{s('bipe_web_sign_out_history')}</p>}
       {phase === 'failed' && <p className="text-trust-danger-ink">{s('bipe_error_generic')}</p>}
     </Alert>
   );

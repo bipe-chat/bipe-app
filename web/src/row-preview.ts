@@ -16,7 +16,7 @@ import {
 } from './generated/matrix_sdk_ffi';
 import type { Latest } from './chat-model';
 import { mediaOf } from './TimelineMedia';
-import { locale, pending, s } from './ui/i18n';
+import { locale, s } from './ui/i18n';
 
 /** The plain preview of a message (previewText on iOS); undefined for anything without one. */
 export function previewText(content: TimelineItemContent): string | undefined {
@@ -37,7 +37,7 @@ export function previewText(content: TimelineItemContent): string | undefined {
     return kind.inner.content.body;
   }
   if (MsgLikeKind.Sticker.instanceOf(kind)) return s('bipe_app_media_sticker');
-  if (MsgLikeKind.UnableToDecrypt.instanceOf(kind)) return pending('bipe_web_timeline_undecryptable');
+  if (MsgLikeKind.UnableToDecrypt.instanceOf(kind)) return s('bipe_web_timeline_undecryptable');
   return undefined;
 }
 

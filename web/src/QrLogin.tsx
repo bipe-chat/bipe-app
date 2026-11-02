@@ -16,7 +16,7 @@ import {
   type ClientLike as Client,
 } from './generated/matrix_sdk_ffi';
 import { newClient, oauthConfiguration, type Slot } from './sdk';
-import { pending, s } from './ui/i18n';
+import { s } from './ui/i18n';
 import { Spinner } from './ui/Spinner';
 import { describe } from './util';
 
@@ -133,13 +133,13 @@ export function QrLogin({
       <div className="my-auto flex w-full max-w-[860px] flex-col items-center gap-8 md:flex-row md:items-center md:justify-center">
         {step === 'ready' ? (
           <div className="flex max-w-[400px] flex-col gap-5">
-            <h1 className="text-title2 text-ink-primary">{pending('bipe_web_signin_title')}</h1>
+            <h1 className="text-title2 text-ink-primary">{s('bipe_web_signin_title')}</h1>
             <ol className="flex flex-col gap-4 text-body text-ink-primary">
-              <Instruction n={1}>{pending('bipe_web_signin_step_open')}</Instruction>
+              <Instruction n={1}>{s('bipe_web_signin_step_open')}</Instruction>
               <Instruction n={2}>
                 <MenuPath />
               </Instruction>
-              <Instruction n={3}>{pending('bipe_web_signin_step_scan')}</Instruction>
+              <Instruction n={3}>{s('bipe_web_signin_step_scan')}</Instruction>
             </ol>
           </div>
         ) : (
@@ -181,13 +181,13 @@ export function QrLogin({
               maxLength={2}
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-              aria-label={pending('bipe_web_signin_check_code_title')}
+              aria-label={s('bipe_web_signin_check_code_title')}
             />
             <button
               className="min-h-[50px] rounded-full bg-accent-fill px-6 text-headline text-ink-on-accent hover:bg-accent-fill-pressed active:bg-accent-fill-pressed"
               type="submit"
             >
-              {pending('bipe_web_signin_check_code_send')}
+              {s('bipe_web_signin_check_code_send')}
             </button>
           </form>
         )}
@@ -199,16 +199,16 @@ export function QrLogin({
 function stepTitle(step: Step): string {
   switch (step) {
     case 'checkCode':
-      return pending('bipe_web_signin_check_code_title');
+      return s('bipe_web_signin_check_code_title');
     case 'approve':
-      return pending('bipe_web_signin_approve');
+      return s('bipe_web_signin_approve');
     case 'keys':
     case 'done':
-      return pending('bipe_web_signin_keys');
+      return s('bipe_web_signin_keys');
     case 'expired':
-      return pending('bipe_web_signin_expired');
+      return s('bipe_web_signin_expired');
     default:
-      return pending('bipe_web_loading');
+      return s('bipe_web_loading');
   }
 }
 
@@ -236,7 +236,7 @@ function MenuPath() {
     s('bipe_linked_devices_title'),
     s('bipe_linked_devices_link_computer'),
   ];
-  const template = pending('bipe_web_signin_step_path', '\u0000', '\u0001', '\u0002', '\u0003');
+  const template = s('bipe_web_signin_step_path', '\u0000', '\u0001', '\u0002', '\u0003');
   return (
     <>
       {template.split(/([\u0000-\u0003])/).map((part, i) => {

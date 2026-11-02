@@ -53,7 +53,7 @@ import {
   type StickerInfo,
 } from './Received';
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
-import { dayText, pending, s, timeText } from './ui/i18n';
+import { dayText, s, timeText } from './ui/i18n';
 import { Icon } from './ui/Icon';
 
 type Body = 'text' | 'media' | 'sticker' | 'poll' | 'location' | 'deleted' | 'undecryptable' | 'other';
@@ -140,7 +140,7 @@ function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
   const kind = msgLike.kind;
   let body: Body = 'other';
   // A message kind this page does not draw (sticker, poll, ...).
-  let text = pending('bipe_app_timeline_unsupported');
+  let text = s('bipe_app_timeline_unsupported');
   let media: MediaInfo | undefined;
   let sticker: StickerInfo | undefined;
   let poll: PollInfo | undefined;
@@ -187,7 +187,7 @@ function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
     };
   } else if (MsgLikeKind.UnableToDecrypt.instanceOf(kind)) {
     body = 'undecryptable';
-    text = pending('bipe_web_timeline_undecryptable');
+    text = s('bipe_web_timeline_undecryptable');
   } else if (MsgLikeKind.Redacted.instanceOf(kind)) {
     body = 'deleted';
     text = event.isOwn ? s('bipe_app_message_deleted_own') : s('bipe_app_message_deleted');

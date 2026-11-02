@@ -79,8 +79,7 @@ export function EncryptionBanner({ onOpen, onDismiss }: { onOpen: () => void; on
     <li className="mx-4 mb-2 flex items-start gap-3 rounded-xl bg-accent-wash p-3">
       <Icon path={infoIcon} size={22} className="mt-0.5 shrink-0 text-accent-ink" />
       <button type="button" className="min-w-0 flex-1 text-left text-subheadline text-ink-primary" onClick={onOpen}>
-        {/* TODO(string): bipe_web_history_banner, the web variant of bipe_app_history_banner ("celular"). */}
-        Approve this browser to read your messages.
+        {s('bipe_web_history_banner')}
       </button>
       <button
         type="button"
@@ -112,15 +111,10 @@ export function EncryptionSheet({ state, onClose }: { state: EncryptionState; on
       <NavBar title={s('bipe_app_history_title')} onBack={onClose} backLabel={s('bipe_app_close')} />
       <div className="mx-auto flex w-full max-w-[480px] flex-col gap-4 overflow-y-auto p-4">
         {state.verification === VerificationState.Verified ? (
-          // TODO(string): bipe_web_encryption_verified, the line that says this browser reads all messages.
-          <p className="text-body text-ink-primary">This browser is approved and reads your messages.</p>
+          <p className="text-body text-ink-primary">{s('bipe_web_encryption_verified')}</p>
         ) : (
           <>
-            {/* TODO(string): bipe_web_recovery_history_note, the web variant of bipe_recovery_history_note. */}
-            <p className="text-body text-ink-primary">
-              To read messages in this browser, approve it on a device that is already connected or use your recovery
-              key.
-            </p>
+            <p className="text-body text-ink-primary">{s('bipe_web_recovery_history_note')}</p>
             {canUseKey && (
               <button
                 type="button"
@@ -131,10 +125,7 @@ export function EncryptionSheet({ state, onClose }: { state: EncryptionState; on
               </button>
             )}
             {!canUseKey && !state.hasOtherDevices && (
-              // TODO(string): bipe_web_history_none, the web variant of bipe_app_history_none ("celular").
-              <p className="text-subheadline text-ink-secondary">
-                This browser still needs approval. You need a device that is already connected or your recovery key.
-              </p>
+              <p className="text-subheadline text-ink-secondary">{s('bipe_web_history_none')}</p>
             )}
           </>
         )}
@@ -175,8 +166,7 @@ function RecoveryKeyEnter({ onBack, onDone }: { onBack: () => void; onDone: () =
             });
         }}
       >
-        {/* TODO(string): bipe_web_recovery_key_enter_body, the web variant of bipe_app_recovery_key_enter_body. */}
-        <p className="text-body text-ink-secondary">The key brings your old messages to this browser.</p>
+        <p className="text-body text-ink-secondary">{s('bipe_web_recovery_key_enter_body')}</p>
         <textarea
           className="min-h-24 resize-none rounded-xl bg-surface-raised p-3 font-mono text-body text-ink-primary outline-none focus-visible:outline-2 focus-visible:outline-accent-fill"
           value={key}
