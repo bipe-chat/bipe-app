@@ -4,8 +4,8 @@
 
 package chat.bipe.app.invites
 
+import chat.bipe.app.common.BipeToasts
 import android.content.Context
-import android.widget.Toast
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.people.Person
 import chat.bipe.shared.R
@@ -96,7 +96,7 @@ class InvitesModel(private val context: Context, val session: AccountSession, pr
             if (seen != null) for (invite in joined.filter { it.id !in seen }) {
                 val userId = invite.joinedUserId ?: continue
                 val name = Person.name(userId, runCatching { session.client.getProfile(userId).displayName }.getOrNull())
-                Toast.makeText(context, context.getString(R.string.bipe_invites_joined, name), Toast.LENGTH_LONG).show()
+                BipeToasts.show(context.getString(R.string.bipe_invites_joined, name))
             }
             runCatching { withToken { api.inviteConnections(it) } }.getOrNull()?.let {
                 prefs.edit().putStringSet("pairs_${session.userId}", it.toSet()).apply()

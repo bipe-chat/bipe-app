@@ -51,6 +51,8 @@ final class AppTabsModel: ObservableObject {
     @Published private(set) var conversasUnread = 0
     @Published private(set) var gruposAttention = 0
     @Published private(set) var otherAccountUnread = false
+    /// The current account's photo or initial for the Você tab (ADR 0132 shape); nil before the accounts load.
+    @Published private(set) var voceIcon: UIImage?
     /// The current account is a company account: Trabalho replaces Grupos and Conversas holds the groups.
     @Published private(set) var currentIsCompany = false
     @Published private(set) var canAddAccount = true
@@ -184,22 +186,16 @@ final class AppTabsModel: ObservableObject {
                 BipeAccountLabels.remember(displayName: displayName, for: userId)
             }
         }
-        var avatarKnown = false
         do {
             profile.avatarUrl = try await session.client.avatarUrl()
-            avatarKnown = true
         } catch {}
         guard sessionIds.contains(userId), let media = chatLists[userId]?.media else { return }
-        var photo = avatarPhotos[userId]
-        if avatarKnown {
-            if let avatarUrl = profile.avatarUrl {
-                photo = await media.thumbnail(mxcUrl: avatarUrl, size: 96) ?? photo
-            } else {
-                photo = nil
-            }
+        if let avatarUrl = profile.avatarUrl, let photo = await media.thumbnail(mxcUrl: avatarUrl, size: 84) {
+            avatarPhotos[userId] = photo
+        } else if profile.avatarUrl == nil {
+            avatarPhotos[userId] = nil
         }
         guard sessionIds.contains(userId) else { return }
-        avatarPhotos[userId] = photo
         profiles[userId] = profile
         refresh()
 
@@ -237,15 +233,15 @@ final class AppTabsModel: ObservableObject {
         userId.dropFirst().split(separator: ":").first.map(String.init)
     }
 
-    /// The account's photo or initial for the native account menu, in the shape of ADR 0132, with the unread dot.
-    func menuAvatar(of account: AccountSummary) -> UIImage {
-        let side: CGFloat = 32
+    /// The account's photo, else its initial on the accent wash: a circle for a person, a rounded square for a company
+    /// (ADR 0132). Drawn as is, so the tab bar does not tint it.
+    private func tabIcon(of account: AccountSummary) -> UIImage {
+        let side: CGFloat = 28
         let bounds = CGRect(x: 0, y: 0, width: side, height: side)
         let image = UIGraphicsImageRenderer(size: bounds.size).image { _ in
             let shape = account.isCompany
                 ? UIBezierPath(roundedRect: bounds, cornerRadius: side * 0.25)
                 : UIBezierPath(ovalIn: bounds)
-            UIGraphicsGetCurrentContext()?.saveGState()
             shape.addClip()
             if let photo = avatarPhotos[account.userId] {
                 photo.draw(in: bounds)
@@ -255,16 +251,11 @@ final class AppTabsModel: ObservableObject {
                 let initial = account.displayName.trimmingCharacters(in: CharacterSet(charactersIn: "@#!+ ")).first
                     .map { String($0).uppercased() } ?? ""
                 let text = NSAttributedString(string: initial, attributes: [
-                    .font: UIFont.systemFont(ofSize: side * 0.42, weight: .semibold),
+                    .font: UIFont.systemFont(ofSize: side * 0.46, weight: .semibold),
                     .foregroundColor: UIColor(BipeColor.accentInk),
                 ])
                 let size = text.size()
                 text.draw(at: CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2))
-            }
-            UIGraphicsGetCurrentContext()?.restoreGState()
-            if account.hasUnread && !account.isCurrent {
-                UIColor(BipeColor.accentFill).setFill()
-                UIBezierPath(ovalIn: CGRect(x: side - 10, y: 0, width: 10, height: 10)).fill()
             }
         }
         return image.withRenderingMode(.alwaysOriginal)
@@ -308,6 +299,7 @@ final class AppTabsModel: ObservableObject {
         conversasUnread = chats.filter { $0.scope == .conversas && $0.isUnread }.count
         gruposAttention = chats.filter { $0.scope == .grupos }.reduce(0) { $0 + $1.mentionCount }
         otherAccountUnread = accounts.contains { !$0.isCurrent && $0.hasUnread }
+        voceIcon = accounts.first(where: \.isCurrent).map(tabIcon(of:))
         currentIsCompany = currentId.flatMap { profiles[$0]?.isCompany } ?? false
         let tab = Self.available(selectedTab, isCompany: currentIsCompany)
         if tab != selectedTab { selectedTab = tab }

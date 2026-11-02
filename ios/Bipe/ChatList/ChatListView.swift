@@ -433,8 +433,12 @@ struct ChatListView: View {
         // Spec chat-list-prompt: the one prompt card is the first row, so it scrolls with the chats (MZ decision
         // 25 Oct 2026), in every chat list (bipe-chat/bipe#853, #894).
         promptRow
-        Button(showingArchived ? (scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle) : BipeStrings.archivedTitle) {
-            showingArchived.toggle()
+        // Spec chat-archive openArchived: Archived opens from the last row of the list; this row goes back.
+        if showingArchived {
+            Button { showingArchived = false } label: {
+                ListEntryRow(icon: .caretLeft, title: scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle)
+            }
+            .buttonStyle(.plain)
         }
         if model.readActionFailed {
             VStack(alignment: .leading) {
@@ -490,7 +494,7 @@ struct ChatListView: View {
             let favourites = showingArchived ? [] : model.favourites(in: scope)
                 .filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }
             List {
-                // The first item of the list, above banners, cards, Archived, requests and invites.
+                // The first item of the list, above banners, cards, requests and invites.
                 if !favourites.isEmpty {
                     FavouritesGrid(chats: favourites, media: model.media, open: openChat) { rowMenu($0) }
                         .listRowBackground(BipeColor.surfaceBase)
@@ -569,6 +573,10 @@ struct ChatListView: View {
     @ViewBuilder private var moreRows: some View {
         if !showingArchived {
             Button(BipeStrings.chatListMore) { model.loadMore(in: scope) }
+            Button { showingArchived = true } label: {
+                ListEntryRow(icon: .archive, title: BipeStrings.archivedTitle)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -748,6 +756,8 @@ struct ChatRow: View {
                     }
                 }
             }
+            // The separator starts at the text, not at the initials inside the avatar.
+            .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
@@ -767,7 +777,13 @@ private struct FavouritesGrid<MenuContent: View>: View {
     let media: MediaLoader
     let open: (String) -> Void
     @ViewBuilder let menu: (String) -> MenuContent
-    @ScaledMetric(relativeTo: .caption) private var avatarSize: CGFloat = 72
+    @State private var gridWidth: CGFloat = 0
+
+    /// The avatar fills its column, so it follows the screen width, not Dynamic Type. Capped at 115 pt on wide screens.
+    private var avatarSize: CGFloat {
+        guard gridWidth > 0 else { return 72 }
+        return min((gridWidth - 2 * 12) / 3, 115)
+    }
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
@@ -783,6 +799,7 @@ private struct FavouritesGrid<MenuContent: View>: View {
             }
         }
         .padding(.vertical, 8)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(BipeStrings.chatFavourites)
     }

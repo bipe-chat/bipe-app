@@ -4,6 +4,7 @@
 
 package chat.bipe.app.business
 
+import chat.bipe.app.common.BipeToastHost
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.ContextWrapper
@@ -339,7 +340,9 @@ fun CatalogPhoto(url: String?, name: String, size: Dp) {
 fun BusinessFullScreen(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(modifier = Modifier.fillMaxSize(), color = BipeTheme.colors.surfaceBase) {
-            Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) { content() }
+            BipeToastHost(Modifier.fillMaxSize(), bottom = 24.dp) {
+                Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) { content() }
+            }
         }
     }
 }

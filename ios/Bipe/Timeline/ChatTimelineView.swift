@@ -13,6 +13,7 @@ struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var deletingDm = false
+    @State private var toast: String?
     /// Spec chat-timeline searchInChat (bipe-chat/bipe#861).
     @State private var searchingChat = false
     /// The group menu's group-details row.
@@ -155,7 +156,11 @@ struct ChatTimelineView: View {
         }
         // Spec app-colors, ADR 0213: the chat background, still behind the scrolling messages.
         .background(ChatBackgroundView().ignoresSafeArea())
-        .overlay(alignment: .bottom) { noticeView }
+        // The composer sits at the bottom: the toast goes above it.
+        .toast($toast, bottom: 96)
+        .onChange(of: model.notice) { _, notice in
+            if let notice { toast = notice.text }
+        }
         .navigationTitle(model.threadRoot == nil ? model.roomName : BipeStrings.threadTitle)
         .navigationBarTitleDisplayMode(.inline)
         // Spec threads openThread: the thread view as a sheet over the main timeline.
@@ -442,21 +447,6 @@ struct ChatTimelineView: View {
         }
     }
 
-    @ViewBuilder
-    private var noticeView: some View {
-        if let notice = model.notice {
-            Text(notice.text)
-                .font(.subheadline)
-                .foregroundStyle(BipeColor.inkPrimary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Capsule().fill(BipeColor.surfaceRaised))
-                .overlay(Capsule().stroke(BipeColor.lineSubtle))
-                .padding(.bottom, 96)
-                .transition(.opacity)
-                .accessibilityAddTraits(.updatesFrequently)
-        }
-    }
 }
 
 /// Spec typing-indicator: who is typing, above the composer.

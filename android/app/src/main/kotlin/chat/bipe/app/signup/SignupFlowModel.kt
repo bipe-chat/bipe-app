@@ -4,7 +4,7 @@
 
 package chat.bipe.app.signup
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import chat.bipe.app.settings.LinkedAccountsModel
 import chat.bipe.shared.account.BipeLinkProvider
 import chat.bipe.shared.account.linkProviders
@@ -596,7 +596,7 @@ class SignupFlowModel(
             if (linkChosen && provider != null) {
                 linkChosen = false
                 LinkedAccountsModel.runLink(context, api, provider) { session.accessToken() }?.let { error ->
-                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                    BipeToasts.show(context, error)
                 }
             }
             createPhase.value = CreatePhase.DONE

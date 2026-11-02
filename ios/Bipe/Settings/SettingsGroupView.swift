@@ -118,15 +118,7 @@ struct SettingsGroupView: View {
             SignOutView(model: model, onSignedOut: onSignedOut)
                 .presentationDetents([.medium, .large])
         }
-        .overlay(alignment: .bottom) {
-            if let notice {
-                NoticeView(text: notice)
-                    .task {
-                        try? await Task.sleep(for: .seconds(2))
-                        self.notice = nil
-                    }
-            }
-        }
+        .toast($notice)
     }
 
     /// Sections in registry order, without hidden rows. A section whose rows are all hidden is left out.
@@ -716,20 +708,4 @@ struct SafariPage: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}
-}
-
-/// A short notice at the bottom of the screen.
-struct NoticeView: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.subheadline)
-            .foregroundStyle(BipeColor.inkOnAccent)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(Capsule().fill(BipeColor.inkPrimary))
-            .padding(.bottom, 24)
-            .transition(.opacity)
-    }
 }

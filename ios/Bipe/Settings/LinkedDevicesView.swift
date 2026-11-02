@@ -199,15 +199,7 @@ struct LinkedDevicesView: View {
         } message: {
             Text(BipeStrings.appLinkedDevicesSignOutError)
         }
-        .overlay(alignment: .bottom) {
-            if let notice = devices.notice {
-                NoticeView(text: notice)
-                    .task {
-                        try? await Task.sleep(for: .seconds(2))
-                        devices.notice = nil
-                    }
-            }
-        }
+        .toast($devices.notice)
     }
 
     private var isOnPage: Bool {
