@@ -321,7 +321,6 @@ class SharedVectorTest {
             val result = verifier.verify(
                 envelopeJson = vector.getValue("envelope").toString(),
                 sender = vector.string("sender")!!,
-                senderDevice = vector.string("senderDevice")!!,
                 senderMasterKey = vector.string("senderMasterKey"),
                 nowMillis = nowMillis,
             )

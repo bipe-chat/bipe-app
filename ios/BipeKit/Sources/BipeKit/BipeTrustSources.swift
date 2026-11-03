@@ -55,7 +55,7 @@ public enum BipeTrustSources {
             input.badgeName = name
             input.badgeIssuedAt = proofTime
         case .suspended:
-            input.badgeStatus = "device_mismatch"
+            input.badgeStatus = "master_key_mismatch"
         case .none:
             break
         }

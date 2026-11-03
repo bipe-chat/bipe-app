@@ -1385,7 +1385,7 @@
          {
           "field": "badgeStatus"
          },
-         "device_mismatch"
+         "master_key_mismatch"
         ]
        },
        {
