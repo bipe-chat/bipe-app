@@ -1624,6 +1624,8 @@
 "bipe_app_group_name" = "Nome do grupo";
 "bipe_app_group_photo_choose" = "Escolher foto";
 "bipe_app_group_photo_remove" = "Remover foto";
+"bipe_app_group_photo_emoji" = "Usar emoji";
+"bipe_app_group_photo_emoji_hint" = "Digite um emoji";
 "bipe_app_group_add_people" = "Adicionar pessoas";
 "bipe_app_group_create_people" = "Pessoas no grupo: %1$@";
 "bipe_app_group_create_quiet_footer" = "O grupo só avisa quando alguém te marca, te responde ou abre uma enquete. Dá para mudar depois.";
@@ -1838,6 +1840,11 @@
 "bipe_chat_favourite_action" = "Favoritar";
 "bipe_chat_unfavourite_action" = "Remover dos favoritos";
 "bipe_chat_favourites" = "Favoritos";
+"bipe_chat_favourites_reorder_action" = "Mudar a ordem dos favoritos";
+"bipe_chat_favourites_reorder_hint" = "Arraste para mudar a ordem.";
+"bipe_chat_favourites_reorder_done" = "Pronto";
+"bipe_chat_favourite_move_earlier" = "Mover para antes";
+"bipe_chat_favourite_move_later" = "Mover para depois";
 "bipe_chat_unread_state" = "Não lida";
 "bipe_chat_details" = "Ver informações";
 "bipe_chat_read_error" = "Não deu para marcar a conversa. Tente de novo.";

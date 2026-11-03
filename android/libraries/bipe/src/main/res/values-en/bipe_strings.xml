@@ -1626,6 +1626,8 @@
     <string name="bipe_app_group_name">Group name</string>
     <string name="bipe_app_group_photo_choose">Choose a photo</string>
     <string name="bipe_app_group_photo_remove">Remove photo</string>
+    <string name="bipe_app_group_photo_emoji">Use an emoji</string>
+    <string name="bipe_app_group_photo_emoji_hint">Type an emoji</string>
     <string name="bipe_app_group_add_people">Add people</string>
     <string name="bipe_app_group_create_people">People in the group: %1$s</string>
     <string name="bipe_app_group_create_quiet_footer">The group notifies you only when someone mentions you, replies to you or starts a poll. You can change this later.</string>
@@ -1840,6 +1842,11 @@
     <string name="bipe_chat_favourite_action">Favourite</string>
     <string name="bipe_chat_unfavourite_action">Remove from favourites</string>
     <string name="bipe_chat_favourites">Favourites</string>
+    <string name="bipe_chat_favourites_reorder_action">Reorder favourites</string>
+    <string name="bipe_chat_favourites_reorder_hint">Drag to change the order.</string>
+    <string name="bipe_chat_favourites_reorder_done">Done</string>
+    <string name="bipe_chat_favourite_move_earlier">Move earlier</string>
+    <string name="bipe_chat_favourite_move_later">Move later</string>
     <string name="bipe_chat_unread_state">Unread</string>
     <string name="bipe_chat_details">View details</string>
     <string name="bipe_chat_read_error">Could not mark the chat. Try again.</string>

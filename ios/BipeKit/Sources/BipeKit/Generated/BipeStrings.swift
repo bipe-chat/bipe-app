@@ -3758,6 +3758,10 @@ public enum BipeStrings {
 
     public static var appGroupPhotoRemove: String { NSLocalizedString("bipe_app_group_photo_remove", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appGroupPhotoEmoji: String { NSLocalizedString("bipe_app_group_photo_emoji", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupPhotoEmojiHint: String { NSLocalizedString("bipe_app_group_photo_emoji_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appGroupAddPeople: String { NSLocalizedString("bipe_app_group_add_people", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func appGroupCreatePeople(_ p1: String) -> String {
@@ -4239,6 +4243,16 @@ public enum BipeStrings {
     public static var chatUnfavouriteAction: String { NSLocalizedString("bipe_chat_unfavourite_action", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatFavourites: String { NSLocalizedString("bipe_chat_favourites", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouritesReorderAction: String { NSLocalizedString("bipe_chat_favourites_reorder_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouritesReorderHint: String { NSLocalizedString("bipe_chat_favourites_reorder_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouritesReorderDone: String { NSLocalizedString("bipe_chat_favourites_reorder_done", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouriteMoveEarlier: String { NSLocalizedString("bipe_chat_favourite_move_earlier", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouriteMoveLater: String { NSLocalizedString("bipe_chat_favourite_move_later", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatUnreadState: String { NSLocalizedString("bipe_chat_unread_state", tableName: "Bipe", bundle: .module, comment: "") }
 
