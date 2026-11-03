@@ -1674,6 +1674,10 @@
     <string name="bipe_app_group_member_profile">Ver perfil</string>
     <string name="bipe_app_group_member_make_admin">Tornar admin do grupo</string>
     <string name="bipe_app_group_member_remove_admin">Remover como admin</string>
+    <string name="bipe_app_group_moderator">Moderador do grupo</string>
+    <string name="bipe_app_group_member_make_moderator">Tornar moderador do grupo</string>
+    <string name="bipe_app_group_member_remove_moderator">Remover como moderador</string>
+    <string name="bipe_app_group_roles_custom">Outro app mudou as permissões deste grupo. O Bipe mostra a função mais próxima de cada pessoa.</string>
     <string name="bipe_app_group_member_remove">Remover do grupo</string>
     <string name="bipe_app_group_member_remove_body">%1$s sai do grupo e pode voltar com um convite novo.</string>
     <string name="bipe_app_group_member_ban">Banir do grupo</string>
