@@ -142,6 +142,19 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                         MemberRow(member, media) { if (model.actions(member).isNotEmpty()) sheetMember = member }
                     }
                 }
+                // Spec group-members notes: what each role does (bipe-chat/bipe#733).
+                item(key = "roles") {
+                    GroupSectionHeader(stringResource(R.string.bipe_app_group_roles_title))
+                    listOf(R.string.bipe_app_group_role_admin_body, R.string.bipe_app_group_role_moderator_body, R.string.bipe_app_group_role_member_body)
+                        .forEach { text ->
+                            Text(
+                                stringResource(text),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.inkSecondary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            )
+                        }
+                }
             }
         }
     }

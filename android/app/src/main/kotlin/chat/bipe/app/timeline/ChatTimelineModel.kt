@@ -106,6 +106,8 @@ data class TimelineMessage(
     val forwardCount: Int = 0,
     /** Spec timeline-rows nameAmbiguous: another member of the room shows the same name (bipe-chat/bipe#825). */
     val senderNameAmbiguous: Boolean = false,
+    /** Spec chat-timeline senderRole: admin or moderator, groups only (bipe-chat/bipe#733). */
+    val senderRole: chat.bipe.app.groups.GroupRole? = null,
 ) {
     enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, POLL, LOCATION, LIVE_LOCATION, UNSUPPORTED }
 
@@ -404,7 +406,9 @@ class ChatTimelineModel(
     }
 
     private suspend fun loadRoomFacts(room: Room) {
+        var creators = emptyList<String>()
         runCatching { room.roomInfo() }.getOrNull()?.let { info ->
+            creators = info.creators.orEmpty()
             facts = facts.copy(isDm = info.isDm, joinedMembers = info.joinedMembersCount.toInt())
             _isGroup.value = !info.isDm && !info.isSpace
             val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
@@ -433,6 +437,7 @@ class ChatTimelineModel(
         runCatching { room.getPowerLevels() }.getOrNull()?.let { powerLevels ->
             facts = facts.copy(canRedactOwn = powerLevels.canOwnUserRedactOwn(), canRedactOther = powerLevels.canOwnUserRedactOther())
             canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
+            facts = facts.copy(roles = if (facts.isDm) emptyMap() else GroupPeople.staffRoles(powerLevels.userPowerLevels(), creators))
             _composer.update {
                 it.copy(
                     canPost = powerLevels.canOwnUserSendMessage(MessageLikeEventType.RoomMessage),

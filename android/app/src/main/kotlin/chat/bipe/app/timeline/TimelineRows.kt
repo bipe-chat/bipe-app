@@ -5,6 +5,7 @@
 package chat.bipe.app.timeline
 
 import chat.bipe.app.common.MemberNames
+import chat.bipe.app.groups.GroupRole
 import chat.bipe.app.common.realName
 import chat.bipe.app.common.isNameAmbiguous
 import chat.bipe.stickers.StickerPackRef
@@ -150,6 +151,8 @@ data class RoomFacts(
     val deliveredEventIds: Set<String> = emptySet(),
     /** False in a DM while the own read receipts switch is off: the read tick of the other person stays hidden. */
     val showsOthersRead: Boolean = true,
+    /** Groups only: the admins and moderators by user ID (spec chat-timeline senderRole, bipe-chat/bipe#733). */
+    val roles: Map<String, GroupRole> = emptyMap(),
 )
 
 /** Strings the builder puts into rows. */
@@ -263,6 +266,7 @@ object TimelineRowBuilder {
                     val base = message(id, event, name(event.sender)).copy(
                         senderNameAmbiguous = !event.isOwn && !facts.isDm &&
                             (event.senderProfile.isNameAmbiguous || event.sender in ambiguousSenders),
+                        senderRole = if (event.isOwn || facts.isDm) null else facts.roles[event.sender],
                     )
                     // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
                     // Specs chat-timeline and voice-message forwardCount: the SDK types have no field for the forward mark

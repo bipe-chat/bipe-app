@@ -679,6 +679,11 @@ struct SenderNameText: View {
         let label = message.senderNameAmbiguous
             ? MemberNames.label(name: message.senderName, userId: message.senderId, handles: handles)
             : message.senderName
-        Text(label)
+        // Spec chat-timeline senderRole (bipe-chat/bipe#733).
+        switch message.senderRole {
+        case .admin?: Text(label) + Text(" · " + BipeStrings.appRoleBadgeAdmin).foregroundColor(BipeColor.accentInk)
+        case .moderator?: Text(label) + Text(" · " + BipeStrings.appRoleBadgeModerator).foregroundColor(BipeColor.accentInk)
+        default: Text(label)
+        }
     }
 }
