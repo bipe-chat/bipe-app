@@ -2733,6 +2733,12 @@
   "version": 1,
   "eventType": "chat.bipe.cleared_chats"
  },
+ "chatFavourites": {
+  "$comment": "Favourites order (spec chat-list, MZ 3 Nov 2026). The favourites row shows in the order the user sets. The global account data event below holds it: { \"rooms\": [\"<room_id>\", ...] }, first room first. The m.favourite tag stays the source of which chats are favourites; this list only orders them. The SDK can write the m.favourite tag order but cannot read it back (matrix-sdk-ffi 26.08.11 has Room.setIsFavourite(tagOrder) and no getter), so the order lives here. Display: favourites in the list come first, in list order; favourites not in the list follow, by name (case-insensitive), then room ID. A room ID that is no longer a favourite stays in the list and has no effect. A new favourite goes last. Removing a favourite removes its room ID. A reorder in one scope keeps the positions of the other scope's rooms. A write keeps at most orderMax room IDs; the oldest entries go first. A malformed event counts as an empty list. A failed write keeps the order on this phone and writes again at the next change.",
+  "version": 1,
+  "orderEventType": "chat.bipe.favourites_order",
+  "orderMax": 200
+ },
  "imageDescriptions": {
   "$comment": "Image descriptions (alt text, bipe-chat/bipe#501). The sender writes an optional description of a photo in upload-preview. It travels in the content of the m.image event as the top-level string field below, next to body and filename, inside the encrypted event. Readers take it only from an m.image event: a non-string or blank value counts as none, and text after maxLength characters is dropped. VoiceOver and TalkBack read it before the caption (timeline-media, media-viewer). Matrix has no stable alt-text field yet; when one lands, apps send both and read the stable one first.",
   "version": 1,
@@ -5617,6 +5623,11 @@
    "bipe_chat_favourite_action": "Favoritar",
    "bipe_chat_unfavourite_action": "Remover dos favoritos",
    "bipe_chat_favourites": "Favoritos",
+   "bipe_chat_favourites_reorder_action": "Mudar a ordem dos favoritos",
+   "bipe_chat_favourites_reorder_hint": "Arraste para mudar a ordem.",
+   "bipe_chat_favourites_reorder_done": "Pronto",
+   "bipe_chat_favourite_move_earlier": "Mover para antes",
+   "bipe_chat_favourite_move_later": "Mover para depois",
    "bipe_chat_unread_state": "Não lida",
    "bipe_chat_details": "Ver informações",
    "bipe_chat_read_error": "Não deu para marcar a conversa. Tente de novo.",
@@ -7875,6 +7886,11 @@
    "bipe_chat_favourite_action": "Favourite",
    "bipe_chat_unfavourite_action": "Remove from favourites",
    "bipe_chat_favourites": "Favourites",
+   "bipe_chat_favourites_reorder_action": "Reorder favourites",
+   "bipe_chat_favourites_reorder_hint": "Drag to change the order.",
+   "bipe_chat_favourites_reorder_done": "Done",
+   "bipe_chat_favourite_move_earlier": "Move earlier",
+   "bipe_chat_favourite_move_later": "Move later",
    "bipe_chat_unread_state": "Unread",
    "bipe_chat_details": "View details",
    "bipe_chat_read_error": "Could not mark the chat. Try again.",
