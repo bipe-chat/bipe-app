@@ -220,6 +220,7 @@ fun ChatTimelineScreen(
     val roomName by model.roomName.collectAsState()
     val roomAvatarUrl by model.roomAvatarUrl.collectAsState()
     val peerUserId by model.peerUserId.collectAsState()
+    val avatarMembers by model.avatarMembers.collectAsState()
     val isGroup by model.isGroup.collectAsState()
     val successorRoomId by model.successorRoomId.collectAsState()
     val predecessor by model.predecessor.collectAsState()
@@ -333,7 +334,7 @@ fun ChatTimelineScreen(
                         modifier = Modifier.weight(1f).then(if (isDm && onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId)
+                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId, members = avatarMembers)
                         Spacer(Modifier.size(8.dp))
                         Column(modifier = Modifier.weight(1f, fill = false)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {

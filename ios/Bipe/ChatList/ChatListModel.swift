@@ -22,6 +22,8 @@ struct ChatSummary: Identifiable, Equatable {
     var mentionCount: Int
     /// The other member of a DM, for the avatar account-type lookup. Groups keep their room avatar.
     var peerUserId: String? = nil
+    /// Spec chat-list notes, Group avatar: members shown when a group has no photo.
+    var avatarMembers: [Person] = []
     /// RoomInfo.isDm, the one DM test (ADR 0141).
     var isDm = false
     var isMuted = false
@@ -454,6 +456,7 @@ final class ChatListModel: ObservableObject {
                            memberCount: Int(info.activeMembersCount),
                            mentionCount: Int(info.numUnreadMentions),
                            peerUserId: peer?.userId,
+                           avatarMembers: Person.groupAvatarMembers(of: info, ownUserId: ownUserId),
                            isDm: info.isDm,
                            isMuted: info.cachedUserDefinedNotificationMode == .mute,
                            isMarkedUnread: info.isMarkedUnread,

@@ -174,6 +174,8 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var isNewsRoom = false
     @Published private(set) var roomAvatarUrl: String?
     @Published private(set) var peerUserId: String?
+    /// Spec chat-list notes, Group avatar: members shown when a group has no photo.
+    @Published private(set) var avatarMembers: [Person] = []
     /// Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone.
     @Published private(set) var peerAway: PeerAway = .none
     @Published private(set) var invitingAgain = false
@@ -446,6 +448,7 @@ final class ChatTimelineModel: ObservableObject {
                                           groupHeroes: Self.groupHeroes(of: info, ownUserId: session.userId))
             roomAvatarUrl = info.isDm ? peer?.avatarUrl : info.avatarUrl
             peerUserId = peer?.userId
+            avatarMembers = Person.groupAvatarMembers(of: info, ownUserId: session.userId)
             hasCall = info.hasRoomCall
             successorRoomId = info.successorRoom?.roomId
             if let old = room.predecessorRoom()?.roomId, predecessor?.roomId != old {

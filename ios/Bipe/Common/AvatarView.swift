@@ -53,11 +53,21 @@ struct AvatarView: View {
     var userId: String? = nil
     var isCompany = false
     var showsPhoto = true
+    /// Spec chat-list notes, Group avatar (bipe-chat/bipe#1004): a group with no photo shows these members.
+    var members: [Person] = []
 
     @State private var image: UIImage?
     @State private var resolvedCompany = false
 
     var body: some View {
+        if mxcUrl == nil, !members.isEmpty {
+            MemberCluster(members: members, loader: loader, size: size, showsPhotos: showsPhoto)
+        } else {
+            single
+        }
+    }
+
+    private var single: some View {
         ZStack {
             BipeColor.accentWash
             if showsPhoto, let image {
@@ -103,5 +113,52 @@ struct AvatarView: View {
     private var initial: String {
         let letter = name.trimmingCharacters(in: CharacterSet(charactersIn: "@#!+ ")).first
         return letter.map { String($0).uppercased() } ?? ""
+    }
+}
+
+/// Spec chat-list notes, Group avatar: up to 3 members as overlapping circles inside the group circle.
+private struct MemberCluster: View {
+    let members: [Person]
+    let loader: MediaLoader
+    let size: CGFloat
+    let showsPhotos: Bool
+
+    /// Diameter and centre of each circle as fractions of the group circle, for 2 and 3 members.
+    private static let layouts: [[(diameter: CGFloat, x: CGFloat, y: CGFloat)]] = [
+        [(0.56, 0.36, 0.38), (0.48, 0.66, 0.64)],
+        [(0.5, 0.36, 0.38), (0.36, 0.72, 0.36), (0.4, 0.6, 0.73)],
+    ]
+
+    var body: some View {
+        if members.count == 1, let person = members.first {
+            AvatarView(name: person.displayName, mxcUrl: person.avatarUrl, loader: loader, size: size, userId: person.userId,
+                       showsPhoto: showsPhotos)
+        } else {
+            let slots = Self.layouts[min(members.count, 3) - 2]
+            ZStack {
+                BipeColor.surfaceSunken
+                ForEach(Array(slots.enumerated()), id: \.offset) { index, slot in
+                    let person = members[index]
+                    // No userId: the hero already carries the photo, and the circles stay round.
+                    AvatarView(name: person.displayName, mxcUrl: person.avatarUrl, loader: loader, size: size * slot.diameter,
+                               showsPhoto: showsPhotos)
+                        .overlay(Circle().stroke(BipeColor.surfaceSunken, lineWidth: max(1, size * 0.025)))
+                        .position(x: size * slot.x, y: size * slot.y)
+                }
+            }
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+extension Person {
+    /// Spec chat-list notes, Group avatar (bipe-chat/bipe#1004): the heroes of a group with no m.room.avatar,
+    /// without the own user, at most 3. Empty for a DM or a group with a photo.
+    static func groupAvatarMembers(of info: RoomInfo, ownUserId: String) -> [Person] {
+        guard !info.isDm, (info.avatarUrl ?? "").isEmpty else { return [] }
+        return info.heroes.filter { $0.userId != ownUserId }.prefix(3)
+            .map { Person(userId: $0.userId, displayName: $0.displayName, avatarUrl: $0.avatarUrl) }
     }
 }

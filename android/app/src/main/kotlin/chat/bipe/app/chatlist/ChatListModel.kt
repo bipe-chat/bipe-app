@@ -56,6 +56,8 @@ data class ChatSummary(
     val mentionCount: Int,
     /** The other member of a DM, for the avatar account-type lookup. */
     val peerUserId: String? = null,
+    /** Spec chat-list notes, Group avatar: members shown when a group has no photo. */
+    val avatarMembers: List<chat.bipe.app.people.Person> = emptyList(),
     /** RoomInfo.isDm, the one DM test (ADR 0141). */
     val isDm: Boolean = false,
     val isMuted: Boolean = false,
@@ -461,6 +463,7 @@ class ChatListModel(
             memberCount = info.activeMembersCount.toInt(),
             mentionCount = info.numUnreadMentions.toInt(),
             peerUserId = peer?.userId,
+            avatarMembers = chat.bipe.app.common.groupAvatarMembers(info, session.userId),
             isDm = info.isDm,
             isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
             isMarkedUnread = info.isMarkedUnread,
