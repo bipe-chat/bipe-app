@@ -331,7 +331,7 @@ enum class BipeScreen(val id: String) {
     /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
     PROBLEM_REPORT("problem-report"),
 
-    /** Your name and photo (flow profile). Spec: bipe-shared/product/screens/profile-edit.json */
+    /** Seu perfil (flow profile). Spec: bipe-shared/product/screens/profile-edit.json */
     PROFILE_EDIT("profile-edit"),
 
     /** Open a profile link (flow people). Spec: bipe-shared/product/screens/profile-link-open.json */
@@ -339,9 +339,6 @@ enum class BipeScreen(val id: String) {
 
     /** Your link and QR code (flow profile). Spec: bipe-shared/product/screens/profile-link.json */
     PROFILE_LINK("profile-link"),
-
-    /** Public profile (flow profile). Spec: bipe-shared/product/screens/public-profile-edit.json */
-    PUBLIC_PROFILE_EDIT("public-profile-edit"),
 
     /** Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json */
     PUSH_REGISTRATION("push-registration"),

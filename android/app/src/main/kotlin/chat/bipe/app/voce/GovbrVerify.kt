@@ -164,15 +164,23 @@ fun GovbrVerifyScreen(session: AccountSession, api: BipeApiClient, onVerified: (
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) app.scope.launch { flow.receive(GovbrInbox.read(context, uri)) }
     }
+    val save: (BipeGovbrFlow.Phase.WaitingForSignature) -> Unit = { current ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            app.scope.launch { if (saveToDownloads(context, current.pdf, current.fileName)) needsApp = !openGovbrApp(context) }
+        } else {
+            createDocument.launch(current.fileName)
+        }
+    }
+    // Button 1 (spec action download): the open challenge again when there is one, else a new challenge.
+    val download: () -> Unit = {
+        val waiting = flow.phase.value as? BipeGovbrFlow.Phase.WaitingForSignature
+        if (waiting != null) save(waiting) else start()
+    }
     LaunchedEffect(phase) {
         val current = phase
         if (current is BipeGovbrFlow.Phase.WaitingForSignature && inbox.savedChallenge !== current) {
             inbox.savedChallenge = current
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                if (saveToDownloads(context, current.pdf, current.fileName)) needsApp = !openGovbrApp(context)
-            } else {
-                createDocument.launch(current.fileName)
-            }
+            save(current)
         }
         if (current is BipeGovbrFlow.Phase.Verified) onVerified(flow.verifiedLevel)
     }
@@ -190,20 +198,6 @@ fun GovbrVerifyScreen(session: AccountSession, api: BipeApiClient, onVerified: (
         item(key = "govbr-phase") {
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (val current = phase) {
-                    BipeGovbrFlow.Phase.Ready, BipeGovbrFlow.Phase.Preparing -> {
-                        val preparing = current == BipeGovbrFlow.Phase.Preparing
-                        BipeButton(onClick = start, enabled = !preparing, modifier = Modifier.fillMaxWidth()) {
-                            if (preparing) CircularProgressIndicator(Modifier.size(18.dp), color = colors.inkOnAccent, strokeWidth = 2.dp)
-                            else Text(stringResource(R.string.bipe_govbr_start))
-                        }
-                    }
-                    is BipeGovbrFlow.Phase.WaitingForSignature -> {
-                        if (needsApp) Text(stringResource(R.string.bipe_govbr_get_app), style = MaterialTheme.typography.bodyMedium, color = colors.inkPrimary)
-                        BipeButton(onClick = { picker.launch(arrayOf("application/pdf")) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(stringResource(R.string.bipe_govbr_already_signed))
-                        }
-                        BipeOutlinedButton(onClick = start, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.bipe_govbr_retry)) }
-                    }
                     BipeGovbrFlow.Phase.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(20.dp), color = colors.accentFill, strokeWidth = 2.dp)
                         Text(stringResource(R.string.bipe_govbr_checking), color = colors.inkPrimary, modifier = Modifier.padding(start = 12.dp))
@@ -219,13 +213,21 @@ fun GovbrVerifyScreen(session: AccountSession, api: BipeApiClient, onVerified: (
                         }
                         BipeButton(onClick = close, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.bipe_app_close)) }
                     }
-                    is BipeGovbrFlow.Phase.Rejected -> {
-                        Text(stringResource(reasonText(current.reason)), color = colors.inkPrimary)
-                        BipeButton(onClick = start, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.bipe_govbr_retry)) }
-                    }
-                    BipeGovbrFlow.Phase.Failed -> {
-                        Text(stringResource(R.string.bipe_error_generic), color = colors.inkPrimary)
-                        BipeButton(onClick = start, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.bipe_govbr_retry)) }
+                    else -> {
+                        when (current) {
+                            is BipeGovbrFlow.Phase.Rejected -> Text(stringResource(reasonText(current.reason)), color = colors.inkPrimary)
+                            BipeGovbrFlow.Phase.Failed -> Text(stringResource(R.string.bipe_error_generic), color = colors.inkPrimary)
+                            else -> {}
+                        }
+                        val waiting = current is BipeGovbrFlow.Phase.WaitingForSignature
+                        val preparing = current == BipeGovbrFlow.Phase.Preparing
+                        if (waiting && needsApp) Text(stringResource(R.string.bipe_govbr_get_app), style = MaterialTheme.typography.bodyMedium, color = colors.inkPrimary)
+                        // Spec govbr-verify (bipe-chat/bipe#1007): two numbered buttons in sequence. Neither replaces the
+                        // other; the next step is the filled one.
+                        GovbrStepButton(1, stringResource(R.string.bipe_govbr_download), next = !waiting, enabled = !preparing, busy = preparing, onClick = download)
+                        GovbrStepButton(2, stringResource(R.string.bipe_govbr_upload), next = waiting, enabled = waiting, busy = false) {
+                            picker.launch(arrayOf("application/pdf"))
+                        }
                     }
                 }
                 if (showsNoOpen) {
@@ -284,4 +286,16 @@ private fun openGovbrApp(context: Context): Boolean {
     val intent = launch ?: Intent(Intent.ACTION_VIEW, Uri.parse(BipeRegistries.GOVBR_ANDROID_STORE_URL))
     runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     return launch != null
+}
+
+@Composable
+private fun GovbrStepButton(number: Int, title: String, next: Boolean, enabled: Boolean, busy: Boolean, onClick: () -> Unit) {
+    val colors = BipeTheme.colors
+    val label: @Composable () -> Unit = {
+        if (busy) CircularProgressIndicator(Modifier.size(18.dp), color = colors.inkOnAccent, strokeWidth = 2.dp)
+        else Text("$number", style = MaterialTheme.typography.titleSmall)
+        Text(title, modifier = Modifier.padding(start = 10.dp))
+    }
+    if (next) BipeButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth()) { label() }
+    else BipeOutlinedButton(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth()) { label() }
 }

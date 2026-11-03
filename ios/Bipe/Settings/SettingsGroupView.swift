@@ -166,12 +166,6 @@ struct SettingsGroupView: View {
     @ViewBuilder
     private func rowView(_ row: BipeSettingsRow) -> some View {
         switch row {
-        case .profileNamePhoto:
-            NavigationLink(value: PeopleRoute.profileEdit) { SettingsRowLabel(title: row.title) }
-        case .profileHandle:
-            NavigationLink(value: PeopleRoute.profileLink) { SettingsRowLabel(title: row.title) }
-        case .profilePublicProfile:
-            NavigationLink(value: PeopleRoute.publicProfile) { SettingsRowLabel(title: row.title) }
         case .privacyBlocked:
             NavigationLink(value: PeopleRoute.blockedList) { SettingsRowLabel(title: row.title) }
         case .privacyContacts:

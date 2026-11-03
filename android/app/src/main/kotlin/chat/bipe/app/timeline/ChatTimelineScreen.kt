@@ -162,6 +162,9 @@ fun ChatTimelineScreen(
     threadRoot: String? = null,
     /** Spec chat-search openMessage (bipe-chat/bipe#671): the message to scroll to after the chat opens. */
     focusEventId: String? = null,
+    /** Spec chat-row-actions sendMedia: open the photo picker once the chat shows. */
+    startPhotos: Boolean = false,
+    onStartPhotosUsed: () -> Unit = {},
 ) {
     // Spec app-tabs: the tab bar hides while a chat or thread is open.
     HidesTabBar()
@@ -220,6 +223,7 @@ fun ChatTimelineScreen(
     val roomName by model.roomName.collectAsState()
     val roomAvatarUrl by model.roomAvatarUrl.collectAsState()
     val peerUserId by model.peerUserId.collectAsState()
+    val avatarMembers by model.avatarMembers.collectAsState()
     val isGroup by model.isGroup.collectAsState()
     val successorRoomId by model.successorRoomId.collectAsState()
     val predecessor by model.predecessor.collectAsState()
@@ -333,7 +337,7 @@ fun ChatTimelineScreen(
                         modifier = Modifier.weight(1f).then(if (isDm && onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId)
+                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId, members = avatarMembers)
                         Spacer(Modifier.size(8.dp))
                         Column(modifier = Modifier.weight(1f, fill = false)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -572,6 +576,8 @@ fun ChatTimelineScreen(
                         attachMenu = { expanded, onDismiss ->
                             AttachmentMenu(
                                 expanded = expanded,
+                                openPhotos = startPhotos,
+                                onPhotosOpened = onStartPhotosUsed,
                                 onDismiss = onDismiss,
                                 onPicked = { files -> upload = PickedUpload(files, model.takeReplyEventId()) },
                                 onStickers = { showsStickers = true },

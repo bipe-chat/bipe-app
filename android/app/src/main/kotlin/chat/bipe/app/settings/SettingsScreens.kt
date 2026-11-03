@@ -405,9 +405,6 @@ fun SettingsGroupScreen(
             return
         }
         when (row) {
-            BipeSettingsRow.PROFILE_NAME_PHOTO -> onOpen(SettingsRoute.People(PeopleRoute.ProfileEdit))
-            BipeSettingsRow.PROFILE_HANDLE -> onOpen(SettingsRoute.People(PeopleRoute.ProfileLink))
-            BipeSettingsRow.PROFILE_PUBLIC_PROFILE -> onOpen(SettingsRoute.People(PeopleRoute.PublicProfile))
             BipeSettingsRow.PRIVACY_BLOCKED -> onOpen(SettingsRoute.People(PeopleRoute.BlockedList))
             BipeSettingsRow.PRIVACY_CONTACTS -> onOpen(SettingsRoute.People(PeopleRoute.Contacts))
             BipeSettingsRow.PRIVACY_MESSAGING -> onOpen(SettingsRoute.Messaging)

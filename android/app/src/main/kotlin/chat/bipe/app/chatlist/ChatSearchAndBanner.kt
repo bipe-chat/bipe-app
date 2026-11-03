@@ -197,7 +197,7 @@ fun ChatSearchResults(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Avatar(chat.name, chat.avatarUrl, media, size = 40.dp, userId = chat.peerUserId)
+                    Avatar(chat.name, chat.avatarUrl, media, size = 40.dp, userId = chat.peerUserId, members = chat.avatarMembers)
                     Column {
                         Text(chat.name, color = colors.inkPrimary, maxLines = 1)
                         // Each result shows whether it is a chat or a group.

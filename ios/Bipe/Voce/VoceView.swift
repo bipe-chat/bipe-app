@@ -40,7 +40,7 @@ struct VoceView: View {
                 // (bipe-chat/bipe#894): chat-list-prompt shows every ask.
                 if let account = model.accounts.first(where: \.isCurrent) {
                     Section {
-                        NavigationLink(value: SettingsRoute.group(.profile)) {
+                        NavigationLink(value: PeopleRoute.profileEdit) {
                             VoceProfileRow(account: account, media: chatList.media)
                         }
                         .accessibilityHint(BipeStrings.settingsProfile)
@@ -143,10 +143,8 @@ struct VoceView: View {
     private func peopleScreen(_ route: PeopleRoute) -> some View {
         switch route {
         case .profileEdit:
-            ProfileEditView(people: people)
-        case .publicProfile:
-            PublicProfileEditView(people: people, pickHandle: { showsHandlePick = true },
-                                  openLink: { path.append(PeopleRoute.profileLink) })
+            ProfileEditView(people: people, pickHandle: { showsHandlePick = true },
+                            openLink: { path.append(PeopleRoute.profileLink) })
         case .profileLink:
             ProfileLinkView(people: people, pickHandle: { showsHandlePick = true })
         case .profileQr:

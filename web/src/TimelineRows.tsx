@@ -30,6 +30,8 @@ import {
   link,
   lockSimple,
   pencilSimple,
+  pushPin,
+  pushPinSlash,
   smiley,
   trash,
   warningCircle,
@@ -288,6 +290,9 @@ export type RowHandlers = {
   vote: (row: MessageRow, answerIds: string[]) => Promise<void>;
   endPoll: (row: MessageRow) => Promise<void>;
   copyLink: (row: MessageRow) => void;
+  /** Spec message-pins: 'pin' or 'unpin' when the account may change the pins of this message, else undefined. */
+  pinState: (row: MessageRow) => 'pin' | 'unpin' | undefined;
+  togglePin: (row: MessageRow) => void;
   moreReactions: (row: MessageRow) => void;
   senders: (row: MessageRow, pill: ReactionPill) => void;
   /** Spec read-receipts failed tick: send again (SendHandle.tryResend). */
@@ -347,6 +352,13 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
     actions.push({ label: s('bipe_app_copy'), icon: copy, run: () => on.copy(row) });
   if (row.eventId)
     actions.push({ label: s('bipe_app_message_action_copy_link'), icon: link, run: () => on.copyLink(row) });
+  const pin = on.pinState(row);
+  if (pin)
+    actions.push({
+      label: pin === 'pin' ? s('bipe_pin_action') : s('bipe_unpin_action'),
+      icon: pin === 'pin' ? pushPin : pushPinSlash,
+      run: () => on.togglePin(row),
+    });
   if (row.canDelete)
     actions.push({ label: s('bipe_app_message_action_delete'), icon: trash, danger: true, run: () => on.remove(row) });
   return (

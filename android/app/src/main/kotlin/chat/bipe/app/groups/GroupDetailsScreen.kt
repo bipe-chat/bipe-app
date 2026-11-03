@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -146,6 +148,8 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val info by model.info.collectAsState()
     val notificationMode by model.notificationMode.collectAsState()
     val canEdit by model.canEdit.collectAsState()
+    val canEditPhoto by model.canEditPhoto.collectAsState()
+    var askingEmoji by remember { mutableStateOf(false) }
     val canInvite by model.canInvite.collectAsState()
     val canChangePrivacy by model.canChangePrivacy.collectAsState()
     val canMakeGroupLink by model.canMakeGroupLink.collectAsState()
@@ -171,6 +175,34 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
         }
     }
     val count = NumberFormat.getIntegerInstance().format(info.memberCount)
+    if (askingEmoji) {
+        var emojiText by remember { mutableStateOf("") }
+        val background = colors.accentWash.toArgb()
+        AlertDialog(
+            onDismissRequest = { askingEmoji = false },
+            title = { Text(stringResource(R.string.bipe_app_group_photo_emoji)) },
+            text = {
+                OutlinedTextField(
+                    value = emojiText,
+                    onValueChange = { emojiText = it },
+                    placeholder = { Text(stringResource(R.string.bipe_app_group_photo_emoji_hint)) },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        GroupDetailsModel.singleEmoji(emojiText)?.let {
+                            model.editPhoto.value = GroupDetailsModel.PhotoEdit.New("image/png", GroupDetailsModel.emojiPhoto(it, background))
+                        }
+                        askingEmoji = false
+                    },
+                    enabled = GroupDetailsModel.singleEmoji(emojiText) != null,
+                ) { Text(stringResource(R.string.bipe_app_group_photo_emoji)) }
+            },
+            dismissButton = { TextButton(onClick = { askingEmoji = false }) { Text(stringResource(R.string.bipe_app_cancel)) } },
+        )
+    }
 
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.GROUP_DETAILS.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -199,17 +231,20 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                         Image(bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(96.dp).clip(CircleShape))
                     } else {
                         val removed = !viewing && editPhoto == GroupDetailsModel.PhotoEdit.Removed
-                        Avatar(info.name, if (removed) null else info.avatarUrl, media, size = 96.dp)
+                        Avatar(info.name, if (removed) null else info.avatarUrl, media, size = 96.dp, members = info.avatarMembers)
                     }
                     if (viewing) {
                         Text(info.name, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary, textAlign = TextAlign.Center)
                         Text(stringResource(R.string.bipe_app_group_details_people, count), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
-                    } else {
+                    } else if (canEditPhoto) {
                         TextButton(
                             onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                             enabled = phase == GroupDetailsModel.Phase.EDITING,
                         ) {
                             Text(stringResource(R.string.bipe_app_group_photo_choose))
+                        }
+                        TextButton(onClick = { askingEmoji = true }, enabled = phase == GroupDetailsModel.Phase.EDITING) {
+                            Text(stringResource(R.string.bipe_app_group_photo_emoji))
                         }
                         val hasPhoto = editPhoto is GroupDetailsModel.PhotoEdit.New ||
                             (editPhoto == GroupDetailsModel.PhotoEdit.Unchanged && info.avatarUrl != null)

@@ -1137,6 +1137,8 @@ public struct BipeMyProfile: Decodable, Sendable, Equatable {
     public let photoSource: String?
     /// Social handles (ADR 0228), keyed by registries/profiles.json socials id. The contract sends `{}` when none.
     public let socials: [String: String]?
+    /// When the account signed up. Absent for an account without a sign-up row.
+    public let memberSince: Date?
 }
 
 /// Contract: `ProfileUpdate`.

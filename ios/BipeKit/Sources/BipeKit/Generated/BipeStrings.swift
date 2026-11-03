@@ -730,12 +730,6 @@ public enum BipeStrings {
 
     public static var publicProfilePhotoRemove: String { NSLocalizedString("bipe_public_profile_photo_remove", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var publicProfileSave: String { NSLocalizedString("bipe_public_profile_save", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var publicProfileSaved: String { NSLocalizedString("bipe_public_profile_saved", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var publicProfileShare: String { NSLocalizedString("bipe_public_profile_share", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static var publicProfileNameEmpty: String { NSLocalizedString("bipe_public_profile_name_empty", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func publicProfileNameTooLong(_ p1: String) -> String {
@@ -803,6 +797,10 @@ public enum BipeStrings {
     }
 
     public static var govbrRetry: String { NSLocalizedString("bipe_govbr_retry", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrDownload: String { NSLocalizedString("bipe_govbr_download", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrUpload: String { NSLocalizedString("bipe_govbr_upload", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var govbrGetApp: String { NSLocalizedString("bipe_govbr_get_app", tableName: "Bipe", bundle: .module, comment: "") }
 
@@ -2180,7 +2178,11 @@ public enum BipeStrings {
 
     public static var settingsProfile: String { NSLocalizedString("bipe_settings_profile", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var settingsProfileNamePhoto: String { NSLocalizedString("bipe_settings_profile_name_photo", tableName: "Bipe", bundle: .module, comment: "") }
+    public static var profileMemberSince: String { NSLocalizedString("bipe_profile_member_since", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var profileInternalId: String { NSLocalizedString("bipe_profile_internal_id", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var profileInternalIdFooter: String { NSLocalizedString("bipe_profile_internal_id_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var settingsPrivacy: String { NSLocalizedString("bipe_settings_privacy", tableName: "Bipe", bundle: .module, comment: "") }
 
@@ -3758,6 +3760,10 @@ public enum BipeStrings {
 
     public static var appGroupPhotoRemove: String { NSLocalizedString("bipe_app_group_photo_remove", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appGroupPhotoEmoji: String { NSLocalizedString("bipe_app_group_photo_emoji", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupPhotoEmojiHint: String { NSLocalizedString("bipe_app_group_photo_emoji_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appGroupAddPeople: String { NSLocalizedString("bipe_app_group_add_people", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func appGroupCreatePeople(_ p1: String) -> String {
@@ -4234,11 +4240,23 @@ public enum BipeStrings {
 
     public static var chatMarkUnread: String { NSLocalizedString("bipe_chat_mark_unread", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var chatSendMedia: String { NSLocalizedString("bipe_chat_send_media", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var chatFavouriteAction: String { NSLocalizedString("bipe_chat_favourite_action", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatUnfavouriteAction: String { NSLocalizedString("bipe_chat_unfavourite_action", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatFavourites: String { NSLocalizedString("bipe_chat_favourites", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouritesReorderAction: String { NSLocalizedString("bipe_chat_favourites_reorder_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouritesReorderHint: String { NSLocalizedString("bipe_chat_favourites_reorder_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouritesReorderDone: String { NSLocalizedString("bipe_chat_favourites_reorder_done", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouriteMoveEarlier: String { NSLocalizedString("bipe_chat_favourite_move_earlier", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouriteMoveLater: String { NSLocalizedString("bipe_chat_favourite_move_later", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatUnreadState: String { NSLocalizedString("bipe_chat_unread_state", tableName: "Bipe", bundle: .module, comment: "") }
 

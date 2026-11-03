@@ -120,6 +120,7 @@ import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.app.timeline.ChatArchiveToggle
 import chat.bipe.app.timeline.ChatTimelineScreen
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeFavouritesOrder
 import chat.bipe.shared.BipeNotificationDestination
 import chat.bipe.shared.BipeNotificationTarget
 import chat.bipe.shared.BipeProfileLink
@@ -183,6 +184,8 @@ fun HomeScreen(
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     // Spec chat-search openMessage (bipe-chat/bipe#671): the message the opened chat scrolls to.
     var focusEventId by rememberSaveable { mutableStateOf<String?>(null) }
+    /** Spec chat-row-actions sendMedia: the chat that opens with the photo picker. */
+    var sendMediaRoomId by rememberSaveable { mutableStateOf<String?>(null) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
     // invite-signed-in: a sign-up with someone else's invite from a link.
@@ -419,14 +422,16 @@ fun HomeScreen(
                     )
                     PeopleScreen(peopleStack.last(), people, withGroups)
                 } else if (roomId != null) {
-                    BackHandler { openRoomId = null; focusEventId = null }
+                    BackHandler { openRoomId = null; focusEventId = null; sendMediaRoomId = null }
                     val archiveMarkers by model.archive.markers.collectAsState()
                     ChatTimelineScreen(
                         session,
                         media,
                         roomId,
-                        onBack = { openRoomId = null; focusEventId = null },
+                        onBack = { openRoomId = null; focusEventId = null; sendMediaRoomId = null },
                         focusEventId = focusEventId,
+                        startPhotos = sendMediaRoomId == roomId,
+                        onStartPhotosUsed = { sendMediaRoomId = null },
                         onHistoryHelp = encryption::openSheet,
                         onOpenGroupDetails = groups.openGroupDetails,
                         onOpenInfo = {
@@ -469,7 +474,11 @@ fun HomeScreen(
                             showsBringPeople = true
                         },
                         onCreateGroup = groups.createGroup,
-                        onDeleteDm = groups.deleteDm,
+                        onSendMedia = {
+                            focusEventId = null
+                            sendMediaRoomId = it
+                            openRoomId = it
+                        },
                         onChatNotifications = groups.openNotifications,
                         onChatInfo = { chat ->
                             if (chat.isDm) chat.peerUserId?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
@@ -508,7 +517,8 @@ fun ChatListScreen(
     /** Spec chat-list-prompt: the entries the caller owns (approvePhone, recovery, pinReminder, bringPeopleReminder). */
     prompts: Map<BipeChatListPrompt, @Composable () -> Unit> = emptyMap(),
     onCreateGroup: () -> Unit = {},
-    onDeleteDm: (String) -> Unit = {},
+    /** Spec chat-row-actions sendMedia: opens the chat with the photo picker. */
+    onSendMedia: (String) -> Unit = {},
     onChatNotifications: (String) -> Unit = {},
     onChatInfo: (ChatSummary) -> Unit = {},
     onInvite: () -> Unit = {},
@@ -532,13 +542,19 @@ fun ChatListScreen(
     val readFailed by model.readActionFailed.collectAsState()
     val markingRoomId by model.markingRoomId.collectAsState()
     val favouriteFailed by model.favouriteFailed.collectAsState()
+    val favouritesOrder by model.favouritesOrder.collectAsState()
+    /** State reorderingFavourites of spec chat-list. Not saveable: leaving the list ends reorder mode. */
+    var reorderingFavourites by remember(model.session.userId, scope) { mutableStateOf(false) }
     var showingArchived by rememberSaveable(model.session.userId, scope) { mutableStateOf(false) }
     LaunchedEffect(listOpenRequest) { if (listOpenRequest > 0) showingArchived = false }
     val visibleChats = withoutClearedDms(allChats, { it.roomId }, { it.lastActivity })
     val chats = visibleChats.filter { scope.shows(it.scope) && archiveMarkers.containsKey(it.roomId) == showingArchived }
     val phase = model.phase(scope, allPhase, chats)
     // Spec chat-list favourites: a favourite shows in the row at the top, not again below it.
-    val favourites = if (showingArchived) emptyList() else chats.filter { it.isFavourite }
+    val favourites = if (showingArchived) emptyList() else {
+        BipeFavouritesOrder.sorted(chats.filter { it.isFavourite }, favouritesOrder, { it.roomId }, { it.name })
+    }
+    LaunchedEffect(favourites.size) { if (favourites.size < 2) reorderingFavourites = false }
     val listChats = if (showingArchived) chats else chats.filterNot { it.isFavourite }
     fun commands(chat: ChatSummary) = ChatRowCommands(
         archived = archiveMarkers.containsKey(chat.roomId), readPending = markingRoomId != null,
@@ -546,8 +562,9 @@ fun ChatListScreen(
         onRead = { model.setUnread(chat.roomId, !chat.isUnread) },
         onNotifications = { if (model.currentChat(chat.roomId) != null) onChatNotifications(chat.roomId) },
         onInfo = if (!chat.isDm || chat.peerUserId != null) ({ model.currentChat(chat.roomId)?.let(onChatInfo) }) else null,
-        onDelete = if (chat.isDm) ({ if (model.currentChat(chat.roomId)?.isDm == true) onDeleteDm(chat.roomId) }) else null,
+        onSendMedia = { if (model.currentChat(chat.roomId) != null) onSendMedia(chat.roomId) },
         onFavourite = if (archiveMarkers.containsKey(chat.roomId)) null else ({ model.setFavourite(chat.roomId, !chat.isFavourite) }),
+        onReorder = if (chat.isFavourite && favourites.size >= 2 && !archiveMarkers.containsKey(chat.roomId)) ({ reorderingFavourites = true }) else null,
     )
     val handleState by handle.state.collectAsState()
     val requestList = requests?.requests?.collectAsState()?.value.orEmpty()
@@ -637,7 +654,12 @@ fun ChatListScreen(
                     ChatListModel.Phase.EMPTY, ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                         // Spec chat-list favourites: the first item, above banners, cards, requests and invites.
                         if (favourites.isNotEmpty()) item(key = "favourites") {
-                            FavouritesGrid(favourites, media, model.session.userId, ::commands, onOpenChat)
+                            FavouritesGrid(
+                                favourites, media, model.session.userId, ::commands, onOpenChat,
+                                reordering = reorderingFavourites,
+                                onDone = { reorderingFavourites = false },
+                                onMove = { roomId, index -> model.moveFavourite(roomId, index, favourites.map { it.roomId }) },
+                            )
                         }
                         // Spec chat-list-prompt: under the favourites, so it scrolls with the chats (MZ decision 25 Oct 2026).
                         promptCard?.let { card ->
@@ -723,7 +745,7 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = 
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Avatar(chat.name, chat.avatarUrl, media, userId = chat.peerUserId)
+        Avatar(chat.name, chat.avatarUrl, media, userId = chat.peerUserId, members = chat.avatarMembers)
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -58,7 +58,8 @@ fun AppTabsScreen(
     /** Spec chat-list-prompt (bipe-chat/bipe#894): the prompt entries the caller owns, with their cards. */
     prompts: Map<BipeChatListPrompt, @Composable () -> Unit> = emptyMap(),
     onCreateGroup: () -> Unit = {},
-    onDeleteDm: (String) -> Unit = {},
+    /** Spec chat-row-actions sendMedia: opens the chat with the photo picker. */
+    onSendMedia: (String) -> Unit = {},
     onChatNotifications: (String) -> Unit = {},
     onChatInfo: (chat.bipe.app.chatlist.ChatSummary) -> Unit = {},
     onInvite: () -> Unit = {},
@@ -88,13 +89,13 @@ fun AppTabsScreen(
                     AppTabsModel.Tab.CONVERSAS ->
                         ChatListScreen(chatList, if (state.isCompany) ChatScope.TODAS else ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                             prompts = prompts,
-                            onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
+                            onCreateGroup = onCreateGroup, onSendMedia = onSendMedia, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                             requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
                             api = tabs.start.api, onBringPeople = onBringPeople)
                     AppTabsModel.Tab.GRUPOS ->
                         ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                             prompts = prompts,
-                            onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
+                            onCreateGroup = onCreateGroup, onSendMedia = onSendMedia, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                             requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
                     // Spec business-tools: the company account's Trabalho tab, in the place of Grupos.
                     AppTabsModel.Tab.TRABALHO -> WorkScreen(session, chatList, onOpenChat)

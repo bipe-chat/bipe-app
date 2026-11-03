@@ -20,7 +20,7 @@ import { normalize } from './util';
 const reg = { voiceMedia };
 
 /** A sheet over the chat: the dim, a card with a title bar, Escape and a click outside close it. */
-function Sheet({
+export function Sheet({
   title,
   onClose,
   children,

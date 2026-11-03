@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -40,13 +41,14 @@ import chat.bipe.app.common.edgeToEdge
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 
-/** A people screen: a back button and a title, then [content] in a scrolling column. */
+/** A people screen: a back button, a title and optional [actions] at the end, then [content] in a scrolling column. */
 @Composable
 fun PeopleScaffold(
     title: String,
     testTag: String,
     onBack: () -> Unit,
     scrolls: Boolean = true,
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = BipeTheme.colors
@@ -63,7 +65,9 @@ fun PeopleScaffold(
                         color = colors.inkPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
+                    actions()
                 }
                 val modifier = if (scrolls) Modifier.fillMaxSize().verticalScroll(rememberScrollState()) else Modifier.fillMaxSize()
                 Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
