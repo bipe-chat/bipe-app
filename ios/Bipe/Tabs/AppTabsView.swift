@@ -130,6 +130,8 @@ struct AppTabsView: View {
             EncryptionSheet(route: route, model: encryption, session: session)
         }
         .task { await encryption.observe() }
+        // Settings opens with its subtitles and switches filled (SettingsModel keeps the last values per account).
+        .task(id: session.userId) { await SettingsModel.prefetch(session: session, api: api) }
         .modifier(CallScreenCover())
         .modifier(IncomingCallCover(session: session))
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
