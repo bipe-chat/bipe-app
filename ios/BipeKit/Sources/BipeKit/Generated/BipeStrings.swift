@@ -804,6 +804,10 @@ public enum BipeStrings {
 
     public static var govbrRetry: String { NSLocalizedString("bipe_govbr_retry", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var govbrDownload: String { NSLocalizedString("bipe_govbr_download", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrUpload: String { NSLocalizedString("bipe_govbr_upload", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var govbrGetApp: String { NSLocalizedString("bipe_govbr_get_app", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var govbrNoOpenVerification: String { NSLocalizedString("bipe_govbr_no_open_verification", tableName: "Bipe", bundle: .module, comment: "") }
@@ -4233,6 +4237,8 @@ public enum BipeStrings {
     public static var messageActions: String { NSLocalizedString("bipe_message_actions", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatMarkUnread: String { NSLocalizedString("bipe_chat_mark_unread", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatSendMedia: String { NSLocalizedString("bipe_chat_send_media", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatFavouriteAction: String { NSLocalizedString("bipe_chat_favourite_action", tableName: "Bipe", bundle: .module, comment: "") }
 
