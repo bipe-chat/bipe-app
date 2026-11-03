@@ -13,6 +13,9 @@ plugins {
 }
 
 // The Firebase project's client values (not secrets: they ship in every APK). BuildConfig field to Gradle property.
+// Spec app-update (ADR 0233): testflight.yml passes -PbipeSelfUpdate=true for the tester APK only. Never the store ID set.
+val selfUpdate = findProperty("bipeSelfUpdate") == "true" && findProperty("bipeIdSet") != "store"
+
 val firebaseValues = mapOf(
     "FIREBASE_APP_ID" to "bipeFirebaseAppId",
     "FIREBASE_PROJECT_ID" to "bipeFirebaseProjectId",
@@ -41,6 +44,8 @@ android {
         // bipe-chat/bipe#542 and bipe-chat/bipe#17 close. The manifest placeholder enables the PDF intake alias with it.
         buildConfigField("boolean", "BIPE_GOVBR", "false")
         manifestPlaceholders["bipeGovbrEnabled"] = "false"
+        // Spec app-update (ADR 0233): only the tester APK of testflight.yml updates itself from bipe.chat.
+        buildConfigField("boolean", "BIPE_SELF_UPDATE", "false")
     }
 
     // ADR 0150: the play flavour may use Google Block Store; foss has no Google Play services (the build without
@@ -96,7 +101,14 @@ android {
             // fixed tester key in testflight.yml (one key for every tester APK, so installs update). Play signs the
             // store build again with the app signing key. Local builds without a key use debug signing.
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
+            buildConfigField("boolean", "BIPE_SELF_UPDATE", selfUpdate.toString())
         }
+    }
+
+    // Spec app-update: REQUEST_INSTALL_PACKAGES and the installer status receiver go only into the tester APK.
+    // Google Play forbids an app that updates itself outside Play, so the Play build never has them.
+    if (selfUpdate) {
+        sourceSets.getByName("release").manifest.srcFile("src/selfUpdate/AndroidManifest.xml")
     }
 
     compileOptions {

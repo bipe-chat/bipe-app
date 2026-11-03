@@ -4,6 +4,8 @@
 
 package chat.bipe.app.chatlist
 
+import chat.bipe.app.update.collectShows
+import chat.bipe.app.update.AppUpdateCard
 import android.content.Intent
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
@@ -256,6 +258,8 @@ fun HomeScreen(
     PhoneConfirmNoticeDialog(phoneNotice)
     // Critical banners refresh alongside account/profile and recovery checks.
     LaunchedEffect(foregroundCount) { remoteBanner.refresh() }
+    // Spec app-update check: the tester APK looks for a newer build (ADR 0233).
+    LaunchedEffect(foregroundCount) { app.appUpdate.check() }
     LaunchedEffect(foregroundCount) { recovery.load() }
     LaunchedEffect(foregroundCount) { bringPeople.load() }
     LaunchedEffect(foregroundCount) {
@@ -618,12 +622,15 @@ fun ChatListScreen(
             }
             // Spec chat-list-prompt (bipe-chat/bipe#894): one card at a time, from the entries whose condition holds.
             val remoteShows = remoteBanner?.collectShows() == true
+            val appUpdate = (context.applicationContext as BipeApplication).appUpdate
+            val updateShows = appUpdate.collectShows()
             val checkupShows = notificationCheckupShows(checkupClosed)
             val conversasCount = allChats.count { it.scope == ChatScope.CONVERSAS && !archiveMarkers.containsKey(it.roomId) }
             val firstCards = cards.visible(doneCards, conversasCount, handleState.currentHandle, BipeBringPeopleMemory(context, model.session.userId).sheetShown)
             val eligible = buildSet {
                 addAll(prompts.keys)
                 if (remoteShows) add(BipeChatListPrompt.REMOTE_BANNER)
+                if (updateShows) add(BipeChatListPrompt.APP_UPDATE)
                 if (checkupShows) add(BipeChatListPrompt.NOTIFICATION_CHECKUP)
                 if (handleState.showsPrompt) add(BipeChatListPrompt.HANDLE)
                 firstCards.forEach { card -> BipeChatListPrompt.entries.firstOrNull { it.name == card.name }?.let { add(it) } }
@@ -667,6 +674,7 @@ fun ChatListScreen(
                                 LaunchedEffect(card) { slot.didShow(card) }
                                 when (card) {
                                     BipeChatListPrompt.REMOTE_BANNER -> remoteBanner?.let { RemoteBannerCard(it, context) }
+                                    BipeChatListPrompt.APP_UPDATE -> AppUpdateCard(appUpdate)
                                     BipeChatListPrompt.NOTIFICATION_CHECKUP ->
                                         NotificationCheckupCard(onOpen = { showsCheckup = true }, onClose = { checkupClosed++ })
                                     BipeChatListPrompt.HANDLE -> HandlePromptCard(handle, open = onOpenHandlePick)

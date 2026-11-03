@@ -58,6 +58,9 @@ enum class BipeScreen(val id: String) {
     /** Tab bar (flow home). Spec: bipe-shared/product/screens/app-tabs.json */
     APP_TABS("app-tabs"),
 
+    /** Tester APK update (flow home). Spec: bipe-shared/product/screens/app-update.json */
+    APP_UPDATE("app-update"),
+
     /** Attach (flow chat). Spec: bipe-shared/product/screens/attachment-picker.json */
     ATTACHMENT_PICKER("attachment-picker"),
 

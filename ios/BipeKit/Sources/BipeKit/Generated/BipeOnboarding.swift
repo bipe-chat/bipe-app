@@ -338,6 +338,7 @@ public enum BipeOnboardingCard: String, CaseIterable, Sendable {
 /// The one prompt card of the chat list (spec chat-list-prompt, bipe-chat/bipe#894). `allCases` is the queue order.
 public enum BipeChatListPrompt: String, CaseIterable, Sendable {
     case remoteBanner
+    case appUpdate
     case approvePhone
     case notifications
     case notificationCheckup
@@ -355,6 +356,7 @@ public enum BipeChatListPrompt: String, CaseIterable, Sendable {
     public var preempts: Bool {
         switch self {
         case .remoteBanner: true
+        case .appUpdate: true
         case .approvePhone: true
         case .notifications: false
         case .notificationCheckup: false

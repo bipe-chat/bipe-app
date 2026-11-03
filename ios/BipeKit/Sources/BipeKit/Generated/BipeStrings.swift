@@ -802,6 +802,38 @@ public enum BipeStrings {
 
     public static var govbrUpload: String { NSLocalizedString("bipe_govbr_upload", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var govbrGuideTitle: String { NSLocalizedString("bipe_govbr_guide_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrGuideOpen: String { NSLocalizedString("bipe_govbr_guide_open", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func govbrGuideChoose(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_govbr_guide_choose", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var govbrGuideSign: String { NSLocalizedString("bipe_govbr_guide_sign", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrGuideAuthorize: String { NSLocalizedString("bipe_govbr_guide_authorize", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrGuideSave: String { NSLocalizedString("bipe_govbr_guide_save", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrMockService: String { NSLocalizedString("bipe_govbr_mock_service", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrMockSignFile: String { NSLocalizedString("bipe_govbr_mock_sign_file", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrMockChoose: String { NSLocalizedString("bipe_govbr_mock_choose", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrMockSign: String { NSLocalizedString("bipe_govbr_mock_sign", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrMockCode: String { NSLocalizedString("bipe_govbr_mock_code", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrMockAuthorize: String { NSLocalizedString("bipe_govbr_mock_authorize", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrMockDownload: String { NSLocalizedString("bipe_govbr_mock_download", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func govbrMockSignedName(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_govbr_mock_signed_name", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var govbrGetApp: String { NSLocalizedString("bipe_govbr_get_app", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var govbrNoOpenVerification: String { NSLocalizedString("bipe_govbr_no_open_verification", tableName: "Bipe", bundle: .module, comment: "") }
@@ -3051,6 +3083,18 @@ public enum BipeStrings {
     public static var remoteBannerUpdate: String { NSLocalizedString("bipe_remote_banner_update", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var remoteBannerDismiss: String { NSLocalizedString("bipe_remote_banner_dismiss", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUpdateTitle: String { NSLocalizedString("bipe_app_update_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appUpdateBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_update_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appUpdateDownloading: String { NSLocalizedString("bipe_app_update_downloading", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUpdateFailed: String { NSLocalizedString("bipe_app_update_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUpdatePermission: String { NSLocalizedString("bipe_app_update_permission", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var handlePromptTitle: String { NSLocalizedString("bipe_handle_prompt_title", tableName: "Bipe", bundle: .module, comment: "") }
 

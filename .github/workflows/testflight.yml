@@ -271,7 +271,7 @@ jobs:
           FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
           FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
         run: |
-          ./gradlew --no-daemon assemblePlayRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }} -PbipeCommit=${{ needs.build-number.outputs.commit }} \
+          ./gradlew --no-daemon assemblePlayRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }} -PbipeCommit=${{ needs.build-number.outputs.commit }} -PbipeSelfUpdate=true \
             -PbipeFirebaseAppId="$FIREBASE_APP_ID" -PbipeFirebaseProjectId="$FIREBASE_PROJECT_ID" \
             -PbipeFirebaseApiKey="$FIREBASE_API_KEY" -PbipeFirebaseSenderId="$FIREBASE_SENDER_ID" \
             -PbipeUploadStoreFile="$RUNNER_TEMP/tester.keystore"

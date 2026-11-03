@@ -52,6 +52,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Tab bar (flow home). Spec: bipe-shared/product/screens/app-tabs.json
     case appTabs = "app-tabs"
 
+    /// Tester APK update (flow home). Spec: bipe-shared/product/screens/app-update.json
+    case appUpdate = "app-update"
+
     /// Attach (flow chat). Spec: bipe-shared/product/screens/attachment-picker.json
     case attachmentPicker = "attachment-picker"
 

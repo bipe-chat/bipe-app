@@ -34,6 +34,9 @@ class BipeApplication : Application() {
     /** Spec notification-service. */
     val notifications: PhoneNotifications by lazy { PhoneNotifications(this) }
 
+    /** Spec app-update (ADR 0233): one offer and one download for every account. Tester APK only. */
+    val appUpdate: chat.bipe.app.update.AppUpdate by lazy { chat.bipe.app.update.AppUpdate(this, scope) }
+
     /** Action open of a notification: the chat that the home screen opens next. */
     val roomToOpen = MutableStateFlow<BipeNotificationOpen?>(null)
 
