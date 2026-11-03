@@ -266,6 +266,8 @@ class ChatTimelineModel(
     val inviterHint: StateFlow<InviterGreetings.Greeting?> = _inviterHint.asStateFlow()
     private val _isDm = MutableStateFlow(false)
     val isDm: StateFlow<Boolean> = _isDm.asStateFlow()
+    /** The account's news room (NewsRoomMark, bipe-chat/bipe#978): the header shows the Bipe badge and its name. */
+    val isNewsRoom: Boolean get() = chat.bipe.app.notifications.NewsRoomMark.roomId(session.userId) == roomId
     /** Spec call: the room is encrypted, and a call runs in it (RoomInfo.hasRoomCall). */
     private val _isEncrypted = MutableStateFlow(true)
     val isEncrypted: StateFlow<Boolean> = _isEncrypted.asStateFlow()

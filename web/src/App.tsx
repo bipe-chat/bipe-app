@@ -26,7 +26,7 @@ import {
   type Accounts,
   type Slot,
 } from './sdk';
-import { pending, s } from './ui/i18n';
+import { s } from './ui/i18n';
 import { Spinner } from './ui/Spinner';
 import { describe } from './util';
 
@@ -38,7 +38,7 @@ type Phase =
 
 export function App() {
   // Screen readers read the note; the page shows a spinner.
-  const [phase, setPhase] = useState<Phase>({ kind: 'loading', note: pending('bipe_web_loading') });
+  const [phase, setPhase] = useState<Phase>({ kind: 'loading', note: s('bipe_web_loading') });
   const [accounts, setAccounts] = useState<Accounts>({ list: [] });
   const accountsRef = useRef(accounts);
   accountsRef.current = accounts;
@@ -46,7 +46,7 @@ export function App() {
   const open = useCallback(async (list: Accounts, userId: string | undefined) => {
     const slot = list.list.find((s) => s.userId === userId) ?? list.list[0];
     if (!slot) return setPhase({ kind: 'login', slot: newSlot() });
-    setPhase({ kind: 'loading', note: pending('bipe_web_loading') });
+    setPhase({ kind: 'loading', note: s('bipe_web_loading') });
     const client = await restoreClient(slot);
     if (!client) {
       // The session of this slot is gone: drop the slot, go on with the others.

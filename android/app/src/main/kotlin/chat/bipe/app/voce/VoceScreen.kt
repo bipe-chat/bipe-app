@@ -5,19 +5,14 @@
 package chat.bipe.app.voce
 
 import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
-import chat.bipe.app.common.BipeTonalButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.ui.graphics.Color
-import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -61,8 +57,6 @@ import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.settings.SettingsHost
-import chat.bipe.app.linkcomputer.LinkComputerModel
-import chat.bipe.app.linkcomputer.LinkComputerScreen
 import chat.bipe.app.settings.SettingsRoute
 import chat.bipe.app.settings.SettingsIconTile
 import chat.bipe.app.settings.SettingsRootSection
@@ -83,7 +77,6 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     val context = LocalContext.current
     var openingNotes by remember { mutableStateOf(false) }
     var notesFailed by remember { mutableStateOf(false) }
-    var showsLinkPhone by rememberSaveable { mutableStateOf(false) }
     var showsMyBookings by rememberSaveable { mutableStateOf(false) }
     var showsYearRecap by rememberSaveable { mutableStateOf(false) }
     val notesTitle = stringResource(R.string.bipe_self_chat_title)
@@ -105,31 +98,25 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     SettingsHost(session, api, invites = tabs.invites(session), onClose = { tabs.selectTab(AppTabsModel.Tab.CONVERSAS) }, onSignedOut = { tabs.start.completeSignOut(session.userId) },
         onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles, trust = trust,
         rootContent = { settings, openGroup, openPeople, openInvites, openRoute ->
-            // Spec voce openLinkPhone: the only way into link-phone-show (ADR 0059).
-            if (showsLinkPhone) {
-                LinkComputerScreen(settings, onClose = { showsLinkPhone = false }, mode = LinkComputerModel.Mode.PHONE)
-            } else Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.VOCE.id), color = BipeTheme.colors.surfaceBase) {
+            Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.VOCE.id), color = BipeTheme.colors.surfaceBase) {
                 LazyColumn(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
-                    item { Text(stringResource(R.string.bipe_tab_you), style = MaterialTheme.typography.headlineMedium,
-                        color = BipeTheme.colors.inkPrimary, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) }
-                    item { state.accounts.firstOrNull { it.isCurrent }?.let {
-                        VoceHeader(it, media, openProfile = { openGroup(BipeSettingsGroup.PROFILE) },
-                            openQr = { openPeople(PeopleRoute.ProfileQr) })
-                    } }
-                    // Spec voce (bipe-chat/bipe#894): no prompt cards here; chat-list-prompt shows every ask.
-                    // Spec voce (MZ decision 25 Oct 2026): no account rows; the Você tab switches (hold, double tap,
-                    // TalkBack action). Nova conta stays here (spec account-new).
+                    // Spec voce openQr: the QR code button at the end of the title row; share and copy live on that
+                    // screen (profile-link).
                     item {
-                        VoceRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_app_account_new), tint = BipeTheme.colors.accentInk,
-                            titleColor = BipeTheme.colors.accentInk, tile = false, onClick = onNewAccount)
+                        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.bipe_tab_you), style = MaterialTheme.typography.headlineMedium,
+                                color = BipeTheme.colors.inkPrimary, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { openPeople(PeopleRoute.ProfileQr) }) {
+                                Icon(painterResource(PhosphorIcon.QR_CODE.drawable), contentDescription = stringResource(R.string.bipe_profile_qr_action),
+                                    tint = BipeTheme.colors.glyphPrimary)
+                            }
+                        }
                     }
-                    item { VoceSectionHeader(null) }
-                    item {
-                        VoceRow(PhosphorIcon.NOTEPAD, notesTitle, stringResource(R.string.bipe_self_chat_subtitle),
-                            enabled = !openingNotes, onClick = openNotes,
-                            trailing = if (openingNotes) { { CircularProgressIndicator(Modifier.size(24.dp), color = BipeTheme.colors.accentFill) } } else null)
+                    // Spec voce (bipe-chat/bipe#988): the profile row, then the trust card. No prompt cards here
+                    // (bipe-chat/bipe#894): chat-list-prompt shows every ask.
+                    current?.let { account ->
+                        item(key = "profile") { VoceProfileRow(account, media, openProfile = { openGroup(BipeSettingsGroup.PROFILE) }) }
                     }
-                    // Perfil de confiança after Anotações (ADR 0112, spec trust-card).
                     trustProfile?.let { profile ->
                         item(key = "trust-gap") { VoceSectionHeader(null) }
                         TrustCardSection(profile, TrustActions(
@@ -137,22 +124,37 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                             addPhoto = { openPeople(PeopleRoute.ProfileEdit) },
                             chooseHandle = { openRoute(SettingsRoute.HandlePick) },
                         ), openLadder = { openRoute(SettingsRoute.TrustProfile) })
-                        item(key = "trust-gap-end") { VoceSectionHeader(null) }
                     }
-                    item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
-                    item { VoceRow(PhosphorIcon.DEVICES, stringResource(R.string.bipe_app_link_phone_action), onClick = { showsLinkPhone = true }) }
-                    // Spec voce openYearRecap (ADR 0223): counted on this phone only.
+                    item { VoceSectionHeader(null) }
                     item {
-                        VoceRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_year_recap_title),
-                            stringResource(R.string.bipe_year_recap_row_subtitle, YearRecap.year().toString()), onClick = { showsYearRecap = true })
+                        VoceRow(PhosphorIcon.NOTEPAD, notesTitle, stringResource(R.string.bipe_self_chat_subtitle),
+                            enabled = !openingNotes, onClick = openNotes,
+                            trailing = if (openingNotes) { { CircularProgressIndicator(Modifier.size(24.dp), color = BipeTheme.colors.accentFill) } } else null)
                     }
-                    // Spec voce: Meus agendamentos above Configurações, for a personal account.
+                    // Spec voce: Meus agendamentos after Anotações, for a personal account.
                     if (current != null && !current.isCompany) {
                         item(key = "my-bookings") {
                             VoceRow(PhosphorIcon.CLOCK, stringResource(R.string.bipe_agenda_my_bookings), onClick = { showsMyBookings = true })
                         }
                     }
+                    // Spec voce openYearRecap (ADR 0223): counted on this phone only.
+                    item {
+                        VoceRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_year_recap_title),
+                            stringResource(R.string.bipe_year_recap_row_subtitle, YearRecap.year().toString()), onClick = { showsYearRecap = true })
+                    }
+                    item { VoceSectionHeader(null) }
+                    item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
                     SettingsRootSection(settings, openGroup)
+                    // Spec voce (MZ, 2 Nov 2026): no account rows; the Você tab switches (hold, double tap, TalkBack
+                    // action). Adicionar conta is the last row, plain accent text (spec account-new).
+                    item { VoceSectionHeader(null) }
+                    item {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.bipe_app_account_new), color = BipeTheme.colors.accentInk) },
+                            colors = ListItemDefaults.colors(containerColor = BipeTheme.colors.surfaceBase),
+                            modifier = Modifier.clickable(onClick = onNewAccount),
+                        )
+                    }
                 }
             }
         })
@@ -184,47 +186,21 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     }
 }
 
+/** Spec voce profile row (bipe-chat/bipe#988): avatar, name and @ in one full-width row that opens Seu perfil. */
 @Composable
-private fun VoceHeader(account: AccountSummary, media: MediaLoader, openProfile: () -> Unit, openQr: () -> Unit) {
+private fun VoceProfileRow(account: AccountSummary, media: MediaLoader, openProfile: () -> Unit) {
     val colors = BipeTheme.colors
-    val context = LocalContext.current
-    val shareTitle = stringResource(R.string.bipe_profile_share)
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.clickable(onClick = openProfile), horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Avatar(account.displayName, account.avatarUrl, media, size = 96.dp, userId = account.userId, isCompany = account.isCompany)
-            Text(account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary)
-            account.handle?.let { Text("@$it", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
-            // Spec voce: the visible way into Seu perfil, as the iPhone's account row.
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.bipe_settings_profile), style = MaterialTheme.typography.bodyMedium, color = colors.accentInk)
-                Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = colors.accentInk,
-                    modifier = Modifier.size(12.dp))
-            }
-        }
-        // QR and Compartilhar perfil side by side, as Material 3 tonal buttons.
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            BipeTonalButton(onClick = openQr, modifier = Modifier.weight(1f)) {
-                Icon(painterResource(PhosphorIcon.QR_CODE.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.bipe_profile_qr_action))
-            }
-            account.handle?.let { handle ->
-                BipeTonalButton(onClick = {
-                    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "https://bipe.chat/@$handle")
-                    context.startActivity(Intent.createChooser(send, shareTitle))
-                }, modifier = Modifier.weight(1f)) {
-                    Icon(painterResource(PhosphorIcon.SHARE_NETWORK.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(shareTitle)
-                }
-            }
-        }
-    }
+    val hint = stringResource(R.string.bipe_settings_profile)
+    ListItem(
+        headlineContent = {
+            Text(account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }, style = MaterialTheme.typography.titleLarge,
+                color = colors.inkPrimary)
+        },
+        supportingContent = account.handle?.let { handle -> @Composable { Text("@$handle", color = colors.inkSecondary) } },
+        leadingContent = { Avatar(account.displayName, account.avatarUrl, media, size = 56.dp, userId = account.userId, isCompany = account.isCompany) },
+        colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
+        modifier = Modifier.clickable(onClickLabel = hint, onClick = openProfile),
+    )
 }
 
 @Composable
@@ -239,7 +215,7 @@ private fun VoceSectionHeader(title: String?) {
 
 /**
  * A Material 3 list item for the rows of Você above Configurações: the settings icon tile (spec voce), or a plain
- * glyph in [tint] when [tile] is false (Nova conta).
+ * glyph in [tint] when [tile] is false.
  */
 @Composable
 private fun VoceRow(

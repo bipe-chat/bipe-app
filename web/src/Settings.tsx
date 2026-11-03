@@ -9,8 +9,10 @@
 // 18 px ink.onAccent glyph, the title and a chevron.
 
 import { Fragment, useEffect, useState } from 'react';
+import { PALETTES, useSetting, writeSetting, type Appearance, type ChatBackgroundOption } from './appearance';
 import { useClient } from './media';
-import { caretRight, chatCircle, bell, info, lockSimple, userCircle } from './phosphor/icons';
+import { caretRight, chatCircle, bell, check, info, lockSimple, userCircle } from './phosphor/icons';
+import { Spinner } from './ui/Spinner';
 import { settings } from './registries';
 import { useAccounts } from './accounts-context';
 import { Alert } from './ui/Alert';
@@ -37,11 +39,22 @@ const ICONS: Record<string, string> = {
 const key = (k: string) => k as StringKey;
 
 // The rows of switches the web keeps itself, in this browser, under the key the apps use on the phone.
-const LOCAL_SWITCHES: Record<string, string> = { readReceipts: 'bipe.settings.readReceipts' };
+const LOCAL_SWITCHES: Record<string, string> = {
+  readReceipts: 'bipe.settings.readReceipts',
+  // The web's notification choices (Notificações): sound and the message text, in this browser.
+  sound: 'bipe.web.notifications.sound',
+  preview: 'bipe.web.notifications.preview',
+};
+// Rows the web draws itself: Nome e foto, Tema (choice), Cores (link).
+const WEB_ROWS = new Set(['namePhoto', 'appearance', 'colors']);
 
 function webRow(row: SettingsRow): boolean {
   return (
-    row.kind === 'url' || row.key === 'signOut' || row.key === 'oldMessages' || LOCAL_SWITCHES[row.key] !== undefined
+    row.kind === 'url' ||
+    row.key === 'signOut' ||
+    row.key === 'oldMessages' ||
+    WEB_ROWS.has(row.key) ||
+    LOCAL_SWITCHES[row.key] !== undefined
   );
 }
 
@@ -92,6 +105,18 @@ function SwitchRow({ title, storageKey }: { title: string; storageKey: string })
 }
 
 function webSections(group: Group) {
+  // Notificações keeps the Element screen on the phone and lists no rows; the web has its own two switches.
+  if (group.key === 'notifications' && typeof Notification !== 'undefined')
+    return [
+      {
+        key: 'web',
+        footer: 'bipe_notifications_preview_footer',
+        rows: [
+          { key: 'sound', title: 'bipe_notifications_sound', kind: 'switch' },
+          { key: 'preview', title: 'bipe_notifications_preview', kind: 'switch' },
+        ],
+      },
+    ] as unknown as Group['sections'];
   return group.sections
     .map((section) => ({ ...section, rows: section.rows.filter(webRow) }))
     .filter((section) => section.rows.length > 0);
@@ -138,6 +163,14 @@ export function Settings({
         <div className="flex flex-col items-center gap-1 py-2 text-center">
           <Avatar name={me.name} size={96} mxcUrl={me.avatarUrl} userId={client.userId()} />
           <h3 className="mt-2 text-title2 text-ink-primary">{me.name}</h3>
+          {/* Seu perfil opens from the header (settings-root notes). */}
+          <button
+            type="button"
+            className="text-body text-accent-ink"
+            onClick={() => setOpen(settings.groups.find((g) => g.key === 'profile'))}
+          >
+            {s('bipe_settings_profile')}
+          </button>
         </div>
         <Section header={s('bipe_settings_section')}>
           {groups.map((g) => (
@@ -170,8 +203,11 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
   const [signingOut, setSigningOut] = useState<'one' | 'all'>();
   const accountCount = useAccounts().accounts.list.length;
   const [showsEncryption, setShowsEncryption] = useState(false);
+  const [sub, setSub] = useState<'profile' | 'colors'>();
   const encryption = useEncryptionState(useClient());
   if (showsEncryption) return <EncryptionSheet state={encryption} onClose={() => setShowsEncryption(false)} />;
+  if (sub === 'profile') return <ProfileEdit onBack={() => setSub(undefined)} />;
+  if (sub === 'colors') return <ColorsScreen onBack={() => setSub(undefined)} />;
   return (
     <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
       {signingOut && <SignOutAlert all={signingOut === 'all'} onClose={() => setSigningOut(undefined)} />}
@@ -184,7 +220,20 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
             footer={footerOf(section)}
           >
             {section.rows.map((row) =>
-              row.key === 'oldMessages' ? (
+              row.key === 'namePhoto' || row.key === 'colors' ? (
+                <li key={row.key}>
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full items-center gap-2 px-4 text-left hover:bg-surface-sunken"
+                    onClick={() => setSub(row.key === 'namePhoto' ? 'profile' : 'colors')}
+                  >
+                    <span className="min-w-0 flex-1 text-body text-ink-primary">{s(key(row.title))}</span>
+                    <Icon path={caretRight} size={16} className="text-glyph-secondary" />
+                  </button>
+                </li>
+              ) : row.key === 'appearance' ? (
+                <AppearanceRows key={row.key} />
+              ) : row.key === 'oldMessages' ? (
                 // Settings row account.oldMessages (Sua conta › Aparelhos) opens the encryption-status sheet,
                 // with this browser's verification state as its value.
                 <li key={row.key}>
@@ -195,11 +244,10 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
                   >
                     <span className="min-w-0 flex-1 text-body text-ink-primary">{s(key(row.title))}</span>
                     <span className="text-body text-ink-secondary">
-                      {/* TODO(string): bipe_web_verification_verified and _unverified, this browser's state. */}
                       {encryption.verification === VerificationState.Verified
-                        ? 'Approved'
+                        ? s('bipe_web_verification_verified')
                         : encryption.verification === VerificationState.Unverified
-                          ? 'Needs approval'
+                          ? s('bipe_web_verification_unverified')
                           : ''}
                     </span>
                     <Icon path={caretRight} size={16} className="text-glyph-secondary" />
@@ -237,8 +285,7 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
                         className="min-w-0 flex-1 py-1 text-left text-body text-trust-danger-ink"
                         onClick={() => setSigningOut('all')}
                       >
-                        {/* TODO(string): bipe_web_sign_out_all, "Sair de todas as contas deste navegador". */}
-                        {SIGN_OUT_ALL}
+                        {s('bipe_web_sign_out_all')}
                       </button>
                     </Row>
                   )}
@@ -264,7 +311,6 @@ function footerOf(section: ReturnType<typeof webSections>[number]): string | und
  * message keys (Encryption.isLastDevice) and the account has no recovery key. The phone's ways-back list is
  * about getting the account back on a phone; a browser comes back by scanning a new code, so it is left out.
  */
-const SIGN_OUT_ALL = 'Sair de todas as contas deste navegador';
 
 function SignOutAlert({ all, onClose }: { all: boolean; onClose: () => void }) {
   const client = useClient();
@@ -284,8 +330,14 @@ function SignOutAlert({ all, onClose }: { all: boolean; onClose: () => void }) {
   }, [client]);
   return (
     <Alert
-      title={all ? SIGN_OUT_ALL : s('bipe_account_sign_out')}
-      action={phase === 'signingOut' ? s('bipe_app_signing_out') : all ? SIGN_OUT_ALL : s('bipe_account_sign_out')}
+      title={all ? s('bipe_web_sign_out_all') : s('bipe_account_sign_out')}
+      action={
+        phase === 'signingOut'
+          ? s('bipe_app_signing_out')
+          : all
+            ? s('bipe_web_sign_out_all')
+            : s('bipe_account_sign_out')
+      }
       busy={phase === 'signingOut'}
       onCancel={onClose}
       onAction={() => {
@@ -296,9 +348,196 @@ function SignOutAlert({ all, onClose }: { all: boolean; onClose: () => void }) {
         });
       }}
     >
-      {/* TODO(string): bipe_web_sign_out_history, the web variant of bipe_app_sign_out_history ("neste celular"). */}
-      {onlyCopy && <p>Your old messages are only in this browser. Without the recovery key they do not come back.</p>}
+      {onlyCopy && <p>{s('bipe_web_sign_out_history')}</p>}
       {phase === 'failed' && <p className="text-trust-danger-ink">{s('bipe_error_generic')}</p>}
     </Alert>
+  );
+}
+
+// Tema (settings chats.look.appearance): Igual ao celular, Claro, Escuro, as one choice row each.
+// TODO(string): bipe_web_appearance_system, "Igual ao computador"; the app's option says "ao celular".
+function AppearanceRows() {
+  const value = useSetting('appearance');
+  const options: [Appearance, string][] = [
+    ['system', 'Igual ao computador'],
+    ['light', s('bipe_chats_appearance_light')],
+    ['dark', s('bipe_chats_appearance_dark')],
+  ];
+  return (
+    <>
+      {options.map(([v, label]) => (
+        <Row key={v}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={value === v}
+            className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
+            onClick={() => writeSetting('appearance', v)}
+          >
+            <span className="flex-1 text-body text-ink-primary">{label}</span>
+            {value === v && <Icon path={check} size={18} className="text-accent-ink" />}
+          </button>
+        </Row>
+      ))}
+    </>
+  );
+}
+
+// Cores (spec app-colors; AppColorsView.swift): the palettes of tokens appThemes, each a swatch in its own
+// accent, then the chat backgrounds. Salada de frutas needs the fruit tile, which the web does not have.
+function ColorsScreen({ onBack }: { onBack: () => void }) {
+  const palette = useSetting('palette');
+  const background = useSetting('chatBackground');
+  const backgrounds: ChatBackgroundOption[] = ['marca', 'cor', 'liso'];
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
+      <NavBar title={s('bipe_chats_colors')} onBack={onBack} />
+      <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
+        <Section header={s('bipe_chats_colors')} footer={s('bipe_chats_colors_footer')}>
+          {PALETTES.map((p) => (
+            <Row
+              key={p}
+              leading={
+                <span
+                  // The default palette has no data-palette rule; its accent.fill is acai step 1100 in both schemes.
+                  data-palette={p === 'acai' ? undefined : p}
+                  className={`size-[29px] rounded-full ${p === 'acai' ? 'bg-[var(--bipe-acai-1100)]' : 'bg-accent-fill'}`}
+                />
+              }
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={palette === p}
+                className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
+                onClick={() => writeSetting('palette', p)}
+              >
+                <span className="flex-1 text-body text-ink-primary">{s(key(`bipe_colors_${p}`))}</span>
+                {palette === p && <Icon path={check} size={18} className="text-accent-ink" />}
+              </button>
+            </Row>
+          ))}
+        </Section>
+        <Section header={s('bipe_chats_background')} footer={s('bipe_chats_background_footer')}>
+          {backgrounds.map((b) => (
+            <Row key={b}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={background === b}
+                className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
+                onClick={() => writeSetting('chatBackground', b)}
+              >
+                <span className="flex-1 text-body text-ink-primary">{s(key(`bipe_chats_background_${b}`))}</span>
+                {background === b && <Icon path={check} size={18} className="text-accent-ink" />}
+              </button>
+            </Row>
+          ))}
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+// Nome e foto (spec profile-edit, simplified): the display name (Client.setDisplayName) and the photo
+// (Client.uploadAvatar, Client.removeAvatar).
+function ProfileEdit({ onBack }: { onBack: () => void }) {
+  const client = useClient();
+  const { remember } = useAccounts();
+  const [name, setName] = useState('');
+  const [oldName, setOldName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string>();
+  const [photo, setPhoto] = useState<File | null>();
+  const [preview, setPreview] = useState<string>();
+  const [phase, setPhase] = useState<'editing' | 'saving' | 'failed' | 'saved'>('editing');
+  useEffect(() => {
+    let stopped = false;
+    Promise.all([client.displayName().catch(() => ''), client.avatarUrl().catch(() => undefined)]).then(([n, a]) => {
+      if (stopped) return;
+      setName(n ?? '');
+      setOldName(n ?? '');
+      setAvatarUrl(a ?? undefined);
+    });
+    return () => {
+      stopped = true;
+    };
+  }, [client]);
+  useEffect(() => {
+    if (!photo) return setPreview(undefined);
+    const url = URL.createObjectURL(photo);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+  const save = async () => {
+    setPhase('saving');
+    try {
+      if (name.trim() && name.trim() !== oldName) await client.setDisplayName(name.trim());
+      if (photo) await client.uploadAvatar(photo.type || 'image/jpeg', await photo.arrayBuffer());
+      else if (photo === null) await client.removeAvatar();
+      const fresh = await client.avatarUrl().catch(() => undefined);
+      remember({ name: name.trim() || oldName, avatarUrl: fresh ?? undefined });
+      setOldName(name.trim());
+      setPhoto(undefined);
+      setAvatarUrl(fresh ?? undefined);
+      setPhase('saved');
+    } catch (e) {
+      console.warn('[trace] profile save failed', e);
+      setPhase('failed');
+    }
+  };
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
+      <NavBar title={s('bipe_settings_profile_name_photo')} onBack={onBack} />
+      <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
+        <div className="flex flex-col items-center gap-2 py-2">
+          {preview ? (
+            <img src={preview} alt="" className="size-24 rounded-full object-cover" />
+          ) : (
+            <Avatar
+              name={name || oldName}
+              size={96}
+              mxcUrl={photo === null ? undefined : avatarUrl}
+              userId={client.userId()}
+            />
+          )}
+          <label className="cursor-pointer text-body text-accent-ink">
+            {s('bipe_app_group_photo_choose')}
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => e.target.files?.[0] && setPhoto(e.target.files[0])}
+            />
+          </label>
+          {(avatarUrl || photo) && (
+            <button type="button" className="text-body text-trust-danger-ink" onClick={() => setPhoto(null)}>
+              {s('bipe_app_group_photo_remove')}
+            </button>
+          )}
+        </div>
+        <Section>
+          <Row>
+            <input
+              className="min-h-11 min-w-0 flex-1 bg-transparent text-body text-ink-primary outline-none"
+              aria-label={s('bipe_settings_profile_name_photo')}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setPhase('editing');
+              }}
+            />
+          </Row>
+        </Section>
+        {phase === 'failed' && <p className="px-4 text-footnote text-trust-danger-ink">{s('bipe_app_save_error')}</p>}
+        <button
+          type="button"
+          disabled={phase === 'saving' || !name.trim()}
+          className="min-h-[50px] rounded-full bg-accent-fill px-6 text-headline text-ink-on-accent disabled:opacity-50"
+          onClick={() => void save()}
+        >
+          {phase === 'saving' ? <Spinner /> : s('bipe_app_save')}
+        </button>
+      </div>
+    </div>
   );
 }

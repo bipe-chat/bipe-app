@@ -170,6 +170,8 @@ final class ChatTimelineModel: ObservableObject {
 
     // chat-timeline and timeline-rows
     @Published private(set) var roomName = BipeStrings.dmNoName
+    /// The account's news room (NewsRoomMark, bipe-chat/bipe#978): the header shows the Bipe badge.
+    @Published private(set) var isNewsRoom = false
     @Published private(set) var roomAvatarUrl: String?
     @Published private(set) var peerUserId: String?
     /// Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone.
@@ -436,10 +438,12 @@ final class ChatTimelineModel: ObservableObject {
             if let peer, BipeChatRowName.realName(peer.displayName, userID: peer.userId) == nil {
                 peerHandle = await handles?.resolve(peer.userId)
             }
-            roomName = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName, peerName: peer?.displayName,
-                                               peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
-                                               dmRoomName: info.isDm ? info.rawName : nil, peerHandle: peerHandle,
-                                               groupHeroes: Self.groupHeroes(of: info, ownUserId: session.userId))
+            isNewsRoom = NewsRoomMark.roomId(for: session.userId) == info.id
+            roomName = isNewsRoom ? BipeStrings.newsRoomName
+                : BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName, peerName: peer?.displayName,
+                                          peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
+                                          dmRoomName: info.isDm ? info.rawName : nil, peerHandle: peerHandle,
+                                          groupHeroes: Self.groupHeroes(of: info, ownUserId: session.userId))
             roomAvatarUrl = info.isDm ? peer?.avatarUrl : info.avatarUrl
             peerUserId = peer?.userId
             hasCall = info.hasRoomCall

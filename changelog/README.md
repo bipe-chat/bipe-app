@@ -31,6 +31,9 @@ detail: what a person notices.
 - `refs` lists PRs and issues, or `[]`.
 - Leave `build` out. The build is the one CI makes of the commit that adds
   the file (`tools/version.mjs`: version.json build plus the commit count).
+  The changelog groups the builds by version: a version is released when
+  `release.yml` tags `releases/<version>` (ADR 0227). The builds after the
+  last release show under the next version, "not released yet".
 - The body starts with a bold headline in English. The page is public: no
   internal paths, no people's names.
 

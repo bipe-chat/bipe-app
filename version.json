@@ -1,5 +1,5 @@
 {
-  "$comment": "Bipe Next's own version (ADR 0163): a new app, not the fork's 26.x line. Change version by hand at a release; build is the base of the build number (tools/version.mjs adds the commit count).",
+  "$comment": "Bipe Next's own version line (ADR 0163, ADR 0227). version is the first version, used until the first public release; after it the version is an odometer from the tags releases/<version> (tools/version.mjs). Do not edit it to bump: run release.yml when a build goes public. build is the base of the build number (tools/version.mjs adds the commit count).",
   "version": "1.0.1",
   "build": 12
 }

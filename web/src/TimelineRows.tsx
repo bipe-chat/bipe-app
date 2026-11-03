@@ -11,6 +11,7 @@ import {
   EmbeddedEventDetails,
   EventOrTransactionId as EventOrTransactionIdValue,
   EventSendState,
+  MessageType,
   MsgLikeKind,
   ProfileDetails,
   TimelineItemContent,
@@ -41,11 +42,21 @@ import { internalRoute, navigate } from './router';
 import { pauseLeft, ScamWarningCard, scamKindOf, type ScamKind } from './ScamWarning';
 import { forwardCountOf } from './MessageSheets';
 import { previewText } from './row-preview';
+import {
+  LocationView,
+  parseGeoUri,
+  PollCard,
+  pollKindDisclosed,
+  StickerView,
+  type LocationInfo,
+  type PollInfo,
+  type StickerInfo,
+} from './Received';
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
-import { dayText, pending, s, timeText } from './ui/i18n';
+import { dayText, s, timeText } from './ui/i18n';
 import { Icon } from './ui/Icon';
 
-type Body = 'text' | 'media' | 'deleted' | 'undecryptable' | 'other';
+type Body = 'text' | 'media' | 'sticker' | 'poll' | 'location' | 'deleted' | 'undecryptable' | 'other';
 export type Send = 'sending' | 'failed' | 'sent' | 'read';
 export type ReplyQuoteData = {
   eventId: string;
@@ -82,6 +93,9 @@ export type MessageRow = {
   scamKind?: ScamKind;
   /** The chat.bipe.forward count of the content, for the forward line. */
   forwardCount: number;
+  sticker?: StickerInfo;
+  poll?: PollInfo;
+  location?: LocationInfo;
   /** Spec message-forward: a sent message (with an event ID) of kind message. */
   canForward: boolean;
   /** Mention links in the HTML body, drawn as pills. */
@@ -126,19 +140,54 @@ function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
   const kind = msgLike.kind;
   let body: Body = 'other';
   // A message kind this page does not draw (sticker, poll, ...).
-  let text = pending('bipe_app_timeline_unsupported');
+  let text = s('bipe_app_timeline_unsupported');
   let media: MediaInfo | undefined;
+  let sticker: StickerInfo | undefined;
+  let poll: PollInfo | undefined;
+  let location: LocationInfo | undefined;
   let mentions: MentionLink[] = [];
   let edited = false;
   if (MsgLikeKind.Message.instanceOf(kind)) {
-    media = mediaOf(kind.inner.content.msgType);
-    mentions = mentionLinksOf(kind.inner.content.msgType);
+    const type = kind.inner.content.msgType;
+    media = mediaOf(type);
+    mentions = mentionLinksOf(type);
     body = media ? 'media' : 'text';
     text = kind.inner.content.body;
     edited = kind.inner.content.isEdited;
+    if (MessageType.Location.instanceOf(type)) {
+      const c = type.inner.content;
+      const point = parseGeoUri(c.geoUri);
+      if (point) {
+        body = 'location';
+        location = { ...point, zoom: c.zoomLevel, description: c.description, body: c.body };
+      }
+    }
+  } else if (MsgLikeKind.Sticker.instanceOf(kind)) {
+    body = 'sticker';
+    const c = kind.inner;
+    text = c.body;
+    sticker = {
+      source: c.source,
+      body: c.body,
+      width: c.info.width === undefined ? undefined : Number(c.info.width),
+      height: c.info.height === undefined ? undefined : Number(c.info.height),
+      mimetype: c.info.mimetype,
+    };
+  } else if (MsgLikeKind.Poll.instanceOf(kind)) {
+    body = 'poll';
+    const c = kind.inner;
+    text = c.question;
+    poll = {
+      question: c.question,
+      disclosed: pollKindDisclosed(c.kind),
+      maxSelections: Number(c.maxSelections),
+      answers: c.answers.map((a) => ({ id: a.id, text: a.text })),
+      votes: c.votes,
+      ended: c.endTime !== undefined,
+    };
   } else if (MsgLikeKind.UnableToDecrypt.instanceOf(kind)) {
     body = 'undecryptable';
-    text = pending('bipe_web_timeline_undecryptable');
+    text = s('bipe_web_timeline_undecryptable');
   } else if (MsgLikeKind.Redacted.instanceOf(kind)) {
     body = 'deleted';
     text = event.isOwn ? s('bipe_app_message_deleted_own') : s('bipe_app_message_deleted');
@@ -157,7 +206,7 @@ function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
   const eventId = EventOrTransactionIdValue.EventId.instanceOf(event.eventOrTransactionId)
     ? event.eventOrTransactionId.inner.eventId
     : undefined;
-  const live = body === 'text' || body === 'media' || body === 'other';
+  const live = body !== 'deleted' && body !== 'undecryptable';
   let reply: ReplyQuoteData | undefined;
   if (msgLike.inReplyTo) {
     const details = msgLike.inReplyTo.event();
@@ -203,7 +252,11 @@ function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
     // The check reads the text and its links (safetyText), on received messages only.
     scamKind: !event.isOwn && body === 'text' ? scamKindOf(text) : undefined,
     forwardCount: live && eventId ? forwardCountOf(event.lazyProvider.debugInfo().originalJson) : 0,
-    canForward: (body === 'text' || body === 'media') && eventId !== undefined,
+    // Spec message-forward: kind message only; polls and stickers have no forward.
+    canForward: (body === 'text' || body === 'media' || body === 'location') && eventId !== undefined,
+    sticker,
+    poll,
+    location,
   };
 }
 
@@ -232,6 +285,8 @@ export type RowHandlers = {
   copy: (row: MessageRow) => void;
   loadReply: (eventId: string) => void;
   forward: (row: MessageRow) => void;
+  vote: (row: MessageRow, answerIds: string[]) => Promise<void>;
+  endPoll: (row: MessageRow) => Promise<void>;
   copyLink: (row: MessageRow) => void;
   moreReactions: (row: MessageRow) => void;
   senders: (row: MessageRow, pill: ReactionPill) => void;
@@ -297,11 +352,13 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
   return (
     <Bubble
       id={row.eventId ? `ev-${row.eventId}` : undefined}
+      at={row.at}
       own={row.own}
       pills={row.pills}
       onSenders={(pill) => on.senders(row, pill)}
       onReact={row.canReact ? (key) => on.react(row, key) : undefined}
       actions={actions}
+      plain={row.body === 'sticker'}
     >
       {!row.own && (!isDm || row.body === 'undecryptable') && (
         <span
@@ -312,7 +369,19 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
       )}
       {row.forwardCount > 0 && <ForwardLine count={row.forwardCount} />}
       {row.reply && <ReplyQuote reply={row.reply} onLoad={on.loadReply} />}
-      {row.media ? (
+      {row.sticker ? (
+        <StickerView sticker={row.sticker} />
+      ) : row.poll ? (
+        <PollCard
+          poll={row.poll}
+          ownUserId={row.ownUserId}
+          canEnd={row.own && row.eventId !== undefined}
+          onVote={(ids) => on.vote(row, ids)}
+          onEnd={() => on.endPoll(row)}
+        />
+      ) : row.location ? (
+        <LocationView location={row.location} />
+      ) : row.media ? (
         <TimelineMediaRow
           media={row.media}
           upload={
@@ -338,7 +407,7 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
       <Footer
         at={row.at}
         edited={row.edited}
-        send={row.body === 'text' || row.body === 'media' ? row.send : undefined}
+        send={row.body !== 'deleted' && row.body !== 'undecryptable' && row.body !== 'other' ? row.send : undefined}
         onRetry={() => on.retry(row)}
       />
     </Bubble>
@@ -402,23 +471,29 @@ function Bubble({
   onSenders,
   onReact,
   actions,
+  plain,
+  at,
   children,
 }: {
   id?: string;
+  /** The message time, for the floating date. */
+  at?: number;
   own: boolean;
   pills: ReactionPill[];
   onSenders: (pill: ReactionPill) => void;
   onReact?: (key: string) => void;
   actions: MessageAction[];
+  /** A sticker has no bubble (spec timeline-media). */
+  plain?: boolean;
   children: ReactNode;
 }) {
   const [menu, setMenu] = useState(false);
   const hasMenu = onReact !== undefined || actions.length > 0;
   return (
-    <li id={id} className={`flex flex-col gap-1 ${own ? 'items-end pl-12' : 'items-start pr-12'}`}>
+    <li id={id} data-at={at} className={`flex flex-col gap-1 ${own ? 'items-end pl-12' : 'items-start pr-12'}`}>
       <div className={`group relative flex max-w-full items-center gap-1 ${own ? 'flex-row-reverse' : ''}`}>
         <div
-          className={`flex max-w-full min-w-0 flex-col gap-1 rounded-2xl px-3 py-2 ${own ? 'bg-bubble-own' : 'bg-bubble-other'}`}
+          className={`flex max-w-full min-w-0 flex-col gap-1 rounded-2xl ${plain ? '' : `px-3 py-2 ${own ? 'bg-bubble-own' : 'bg-bubble-other'}`}`}
           onContextMenu={
             hasMenu
               ? (e) => {

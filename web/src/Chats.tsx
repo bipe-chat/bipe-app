@@ -26,16 +26,24 @@ import {
 } from './generated/matrix_sdk_ffi';
 import { useAccounts } from './accounts-context';
 import { AccountSwitcher } from './AccountSwitcher';
+import { DmDeleteAlert, NotifySheet } from './ChatActions';
+import { markRead, markUnread, useClearedChats } from './chat-actions';
+import { clearedChatHidden } from './bipe/generated/lib/registries.mjs';
 import { NewChat, NewGroup } from './NewChat';
 import {
   archive as archiveIcon,
   pencilSimple,
   bellSlash,
+  briefcase,
   caretLeft,
   gear,
   magnifyingGlass,
   userCircle,
   x,
+  bell,
+  check,
+  info as infoIcon,
+  trash,
 } from './phosphor/icons';
 import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
 import { bannerDismissed, EncryptionBanner, EncryptionSheet, needsApproval, useEncryptionState } from './Encryption';
@@ -43,10 +51,12 @@ import { isOfficial } from './registries';
 import { navigate, useRoute } from './router';
 import { useEscape } from './ui/keys';
 import { rowPreview, rowTime } from './row-preview';
-import { OfficialBadge } from './ui/List';
+import { NavBar, OfficialBadge } from './ui/List';
 import { RequestScreen, RequestsList, requesterOf } from './Requests';
 import { ClientContext } from './media';
 import { Settings } from './Settings';
+import { businessClientFor } from './work/business-client';
+import { WorkView } from './work/WorkView';
 import { RoomTimeline } from './Timeline';
 import { Avatar, useIsCompany } from './ui/Avatar';
 import { BipeMark } from './ui/BipeMark';
@@ -60,6 +70,7 @@ type Scope = 'conversas' | 'grupos';
 type Detail =
   | { kind: 'room'; room: Room }
   | { kind: 'settings' }
+  | { kind: 'work' }
   | { kind: 'requests' }
   | { kind: 'request'; roomId: string }
   | { kind: 'encryption' }
@@ -82,6 +93,9 @@ export function Chats({ client }: { client: Client }) {
   const setShowingArchived = (on: boolean) => navigate(on ? { kind: 'archived' } : { kind: 'list', scope });
   const [menu, setMenu] = useState<{ chat: ChatSummary; x: number; y: number }>();
   const [query, setQuery] = useState('');
+  const [sheet, setSheet] = useState<{ kind: 'notify' | 'delete'; chat: ChatSummary }>();
+  const [clearedVersion, setClearedVersion] = useState(0);
+  const clearedMarker = useClearedChats(client, clearedVersion);
   const [sync, setSync] = useState<SyncState>({ kind: 'starting' });
   const keep = useRef<{ sync?: SyncService; entries?: RoomListEntriesWithDynamicAdaptersResult }>({});
 
@@ -144,11 +158,13 @@ export function Chats({ client }: { client: Client }) {
       ? { kind: 'room', room: routeRoom }
       : route.kind === 'settings'
         ? { kind: 'settings' }
-        : route.kind === 'requests'
-          ? { kind: 'requests' }
-          : route.kind === 'request'
-            ? { kind: 'request', roomId: route.roomId }
-            : undefined;
+        : route.kind === 'work'
+          ? { kind: 'work' }
+          : route.kind === 'requests'
+            ? { kind: 'requests' }
+            : route.kind === 'request'
+              ? { kind: 'request', roomId: route.roomId }
+              : undefined;
   const setDetail = (next: Detail | undefined) => {
     const kind = next?.kind;
     setOverlay(kind === 'encryption' || kind === 'newChat' || kind === 'newGroup' ? kind : undefined);
@@ -177,8 +193,11 @@ export function Chats({ client }: { client: Client }) {
   openId.current = open?.id();
   const ownUserId = client.userId();
   const inScope = (c: ChatSummary) => (scope === 'conversas' ? c.kind === 'dm' : c.kind === 'group');
-  const active = summaries.filter((c) => inScope(c) && !archive.isArchived(c.roomId));
-  const archived = summaries.filter((c) => inScope(c) && archive.isArchived(c.roomId));
+  // Spec dm-delete: a cleared DM stays hidden until a message newer than its marker arrives.
+  const cleared = (c: ChatSummary) =>
+    c.kind === 'dm' && clearedChatHidden(clearedMarker(c.roomId), c.latest?.at ?? null);
+  const active = summaries.filter((c) => inScope(c) && !archive.isArchived(c.roomId) && !cleared(c));
+  const archived = summaries.filter((c) => inScope(c) && archive.isArchived(c.roomId) && !cleared(c));
   const requests = summaries.filter((c) => c.kind === 'request');
   const groupInvites = summaries.filter((c) => c.kind === 'groupInvite');
   // Tab badges (chat-list-filters): unread DMs; mentions in groups. Archived chats keep their badges.
@@ -204,7 +223,9 @@ export function Chats({ client }: { client: Client }) {
           ? s('bipe_archived_title')
           : route.kind === 'settings'
             ? s('bipe_settings_section')
-            : undefined;
+            : route.kind === 'work'
+              ? s('bipe_tab_work')
+              : undefined;
   useTabTitle(chatsBadge + groupsBadge, page);
   // The switcher shows each account's last known name, photo and unread badge (ADR 0225 point 4).
   const { remember, current: account } = useAccounts();
@@ -267,6 +288,45 @@ export function Chats({ client }: { client: Client }) {
   const rows = searching ? found : showingArchived ? archived : active;
   listed.current = rows;
 
+  const rowActions = (chat: ChatSummary): MenuItem[] => {
+    const info = chat.info;
+    const unread = Number(info?.numUnreadMessages ?? 0) > 0 || info?.isMarkedUnread === true;
+    const isArchived = archive.isArchived(chat.roomId);
+    const items: MenuItem[] = [
+      unread
+        ? {
+            label: s('bipe_app_notification_mark_read'),
+            icon: check,
+            run: () => void markRead(chat.room).catch(() => undefined),
+          }
+        : {
+            label: s('bipe_chat_mark_unread'),
+            icon: check,
+            run: () => void markUnread(chat.room).catch(() => undefined),
+          },
+      { label: s('bipe_settings_notifications'), icon: bell, run: () => setSheet({ kind: 'notify', chat }) },
+      {
+        label: s('bipe_chat_details'),
+        icon: infoIcon,
+        run: () => navigate({ kind: 'chat', roomId: chat.roomId, info: true }),
+      },
+      {
+        label: isArchived ? s('bipe_unarchive_action') : s('bipe_archive_action'),
+        icon: archiveIcon,
+        run: () => archive.set(chat.room, !isArchived, chat.latest?.at),
+      },
+    ];
+    // A DM never leaves; its menu deletes (ADR 0141).
+    if (chat.kind === 'dm')
+      items.push({
+        label: s('bipe_dm_delete_action'),
+        icon: trash,
+        danger: true,
+        run: () => setSheet({ kind: 'delete', chat }),
+      });
+    return items;
+  };
+
   return (
     <ClientContext value={client}>
       <div className="flex h-full min-h-0 overflow-hidden">
@@ -290,6 +350,18 @@ export function Chats({ client }: { client: Client }) {
             >
               <Icon path={pencilSimple} size={22} />
             </button>
+            {isCompany && (
+              // Trabalho: the business tools of a company account on the web (ADR 0226).
+              <button
+                className={`grid size-11 place-items-center rounded-full ${detail?.kind === 'work' ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}
+                aria-label={s('bipe_tab_work')}
+                title={s('bipe_tab_work')}
+                aria-pressed={detail?.kind === 'work'}
+                onClick={() => navigate({ kind: 'work' })}
+              >
+                <Icon path={briefcase} size={22} />
+              </button>
+            )}
             {/* Settings for this browser; sign out lives there, in Sua conta. */}
             <button
               className={`grid size-11 place-items-center rounded-full ${detail?.kind === 'settings' ? 'bg-accent-fill text-ink-on-accent' : 'bipe-glass text-glyph-primary'}`}
@@ -439,6 +511,19 @@ export function Chats({ client }: { client: Client }) {
             />
           ) : detail?.kind === 'encryption' ? (
             <EncryptionSheet state={encryption} onClose={() => setDetail(undefined)} />
+          ) : detail?.kind === 'work' ? (
+            isCompany ? (
+              <WorkView
+                client={businessClientFor(client)}
+                tool={route.kind === 'work' ? route.tool : undefined}
+                onTool={(tool) => navigate({ kind: 'work', tool })}
+                onClose={() => setDetail(undefined)}
+                nameOf={(userId) => client.getProfile(userId).then((p) => p.displayName ?? undefined)}
+              />
+            ) : (
+              // A personal account, or bipe-api has not answered yet: only the way back.
+              <NavBar title={s('bipe_tab_work')} onBack={() => setDetail(undefined)} />
+            )
           ) : detail?.kind === 'settings' ? (
             <Settings
               group={route.kind === 'settings' ? route.group : undefined}
@@ -478,13 +563,20 @@ export function Chats({ client }: { client: Client }) {
           )}
         </main>
       </div>
-      {menu && (
-        <ChatMenu
-          x={menu.x}
-          y={menu.y}
-          archived={archive.isArchived(menu.chat.roomId)}
-          onArchive={(value) => archive.set(menu.chat.room, value, menu.chat.latest?.at)}
-          onClose={() => setMenu(undefined)}
+      {menu && <ChatMenu x={menu.x} y={menu.y} items={rowActions(menu.chat)} onClose={() => setMenu(undefined)} />}
+      {sheet?.kind === 'notify' && (
+        <NotifySheet room={sheet.chat.room} isDm={sheet.chat.kind === 'dm'} onClose={() => setSheet(undefined)} />
+      )}
+      {sheet?.kind === 'delete' && (
+        <DmDeleteAlert
+          room={sheet.chat.room}
+          latestTs={sheet.chat.latest?.at ?? 0}
+          onClose={() => setSheet(undefined)}
+          onDone={() => {
+            setSheet(undefined);
+            setClearedVersion((v) => v + 1);
+            if (open?.id() === sheet.chat.roomId) setDetail(undefined);
+          }}
         />
       )}
     </ClientContext>
@@ -622,20 +714,10 @@ function GroupInviteRow({ invite, onJoined }: { invite: ChatSummary; onJoined: (
   );
 }
 
-// The row's actions (right-click or the context menu key): Arquivar or Desarquivar (spec chat-archive).
-function ChatMenu({
-  x,
-  y,
-  archived,
-  onArchive,
-  onClose,
-}: {
-  x: number;
-  y: number;
-  archived: boolean;
-  onArchive: (archived: boolean) => void;
-  onClose: () => void;
-}) {
+// The row's actions (spec chat-row-actions; right-click or the context menu key, the long press of the apps).
+type MenuItem = { label: string; icon: string; danger?: boolean; run: () => void };
+
+function ChatMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -647,22 +729,28 @@ function ChatMenu({
       <div
         role="menu"
         aria-label={s('bipe_chat_actions')}
-        className="fixed z-50 min-w-[200px] overflow-hidden rounded-[14px] bg-surface-raised py-1 shadow-lg ring-1 ring-line-subtle"
-        style={{ left: Math.min(x, window.innerWidth - 216), top: Math.min(y, window.innerHeight - 64) }}
+        className="fixed z-50 min-w-[240px] overflow-hidden rounded-[14px] bg-surface-raised py-1 shadow-lg ring-1 ring-line-subtle"
+        style={{
+          left: Math.min(x, window.innerWidth - 256),
+          top: Math.min(y, window.innerHeight - items.length * 44 - 16),
+        }}
       >
-        <button
-          type="button"
-          role="menuitem"
-          autoFocus
-          className="flex min-h-11 w-full items-center justify-between gap-4 px-4 text-left text-body text-ink-primary hover:bg-surface-sunken"
-          onClick={() => {
-            onClose();
-            onArchive(!archived);
-          }}
-        >
-          {archived ? s('bipe_unarchive_action') : s('bipe_archive_action')}
-          <Icon path={archiveIcon} size={22} className="text-glyph-primary" />
-        </button>
+        {items.map((item, i) => (
+          <button
+            key={item.label}
+            type="button"
+            role="menuitem"
+            autoFocus={i === 0}
+            className={`flex min-h-11 w-full items-center justify-between gap-4 px-4 text-left text-body hover:bg-surface-sunken ${item.danger ? 'text-trust-danger-ink' : 'text-ink-primary'}`}
+            onClick={() => {
+              onClose();
+              item.run();
+            }}
+          >
+            {item.label}
+            <Icon path={item.icon} size={22} className={item.danger ? '' : 'text-glyph-primary'} />
+          </button>
+        ))}
       </div>
     </>
   );

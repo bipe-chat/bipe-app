@@ -5,6 +5,7 @@
 package chat.bipe.app.chatlist
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.notifications.NewsRoomMark
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.app.common.applyDiff
@@ -63,6 +64,8 @@ data class ChatSummary(
     /** RoomInfo.isFavourite (m.favourite): the chat shows in the favourites row (spec chat-list). */
     val isFavourite: Boolean = false,
     val latestIncomingMs: Long? = null,
+    /** The account's news room (NewsRoomMark, bipe-chat/bipe#978). */
+    val isNewsRoom: Boolean = false,
 ) {
     val isUnread: Boolean get() = unreadCount > 0 || isMarkedUnread
 
@@ -70,9 +73,9 @@ data class ChatSummary(
     val scope: ChatScope
         get() = if (isDm) ChatScope.CONVERSAS else ChatScope.GRUPOS
 
-    /** Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only. */
+    /** Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only, or the news room. */
     val isOfficial: Boolean
-        get() = isDm && BipeOfficialAccounts.isOfficial(peerUserId)
+        get() = isNewsRoom || (isDm && BipeOfficialAccounts.isOfficial(peerUserId))
 }
 
 /** State scope of spec chat-list. TODAS: the Conversas tab of a company account, DMs and groups together (spec app-tabs). */
@@ -440,9 +443,12 @@ class ChatListModel(
             LatestEventValue.None -> if (info.isPublic == true && info.historyVisibility is RoomHistoryVisibility.WorldReadable) return null
         }
         val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
-        val name = BipeChatRowName.resolve(info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText,
-            dmRoomName = if (info.isDm) info.rawName else null,
-            groupHeroes = chat.bipe.app.timeline.groupHeroes(info, session.userId), noName = chat.bipe.app.people.Person.noName())
+        // Spec chat-list news room mark: the app-language name, not the room's Portuguese m.room.name.
+        val isNewsRoom = NewsRoomMark.roomId(session.userId) == info.id
+        val name = if (isNewsRoom) label(chat.bipe.shared.R.string.bipe_news_room_name)
+            else BipeChatRowName.resolve(info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText,
+                dmRoomName = if (info.isDm) info.rawName else null,
+                groupHeroes = chat.bipe.app.timeline.groupHeroes(info, session.userId), noName = chat.bipe.app.people.Person.noName())
         return ChatSummary(
             roomId = info.id,
             name = name,
@@ -461,6 +467,7 @@ class ChatListModel(
             isLowPriority = info.isLowPriority,
             isFavourite = info.isFavourite,
             latestIncomingMs = latestIncomingMs,
+            isNewsRoom = isNewsRoom,
         )
     }
 

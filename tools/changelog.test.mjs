@@ -46,6 +46,23 @@ test('builds: tags before version.json, the count after it', () => {
   assert.equal(buildFor(2, history, byCommit).build, 104); // c: no tag, next build is d
 });
 
+test('builds: a release tag gives its builds a version, later builds wait for the next one', () => {
+  const history = ['a', 'b', 'c', 'd'].map((commit, i) => ({ commit, date: `2026-11-0${i + 1}`, count: i + 1 }));
+  const list = builds({
+    history,
+    tags: new Map(),
+    versionAt: () => ({ version: '1.0.1', build: 10 }),
+    releases: new Map([['b', '1.0.1']]),
+    first: '1.0.1',
+  });
+  assert.deepEqual(list.map((b) => [b.build, b.version, b.released, b.releaseDate]), [
+    [11, '1.0.1', true, '2026-11-02'],
+    [12, '1.0.1', true, '2026-11-02'],
+    [13, '1.0.2', false, null],
+    [14, '1.0.2', false, null],
+  ]);
+});
+
 test('backfill skips tooling commits and moves issue numbers to refs', () => {
   assert.equal(draftUpdate({ subject: 'Regenerate from bipe-shared#348 (#359)', date: '2026-11-02', short: 'x', paths: ['ios/a.swift'] }), null);
   assert.equal(draftUpdate({ subject: 'Docs (#1)', date: '2026-11-02', short: 'x', paths: ['docs/a.md'] }), null);

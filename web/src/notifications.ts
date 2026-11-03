@@ -10,7 +10,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { RoomNotificationMode, type RoomLike as Room } from './generated/matrix_sdk_ffi';
 import type { ChatSummary } from './chat-model';
+import { readSetting } from './appearance';
 import { rowPreview } from './row-preview';
+import { s } from './ui/i18n';
 
 export function notificationsSupported(): boolean {
   return typeof Notification !== 'undefined';
@@ -52,8 +54,15 @@ export function useDesktopNotifications(
       if (chat.kind === 'group' && Number(chat.info?.numUnreadMentions ?? 0) === 0) continue;
       const text = rowPreview(latest, chat.kind === 'dm', ownUserId);
       if (!text) continue;
-      const body = chat.kind === 'group' && latest.senderName ? `${latest.senderName}: ${text}` : text;
-      const notification = new Notification(chat.face.name, { body, tag: chat.roomId });
+      // The web notification choices: the text or only that a message came; sound or silent.
+      const preview = readSetting('preview') !== 'false';
+      const full = chat.kind === 'group' && latest.senderName ? `${latest.senderName}: ${text}` : text;
+      const body = preview ? full : s('bipe_app_notification_new_message');
+      const notification = new Notification(chat.face.name, {
+        body,
+        tag: chat.roomId,
+        silent: readSetting('sound') === 'false',
+      });
       notification.onclick = () => {
         window.focus();
         onOpen(chat.room);

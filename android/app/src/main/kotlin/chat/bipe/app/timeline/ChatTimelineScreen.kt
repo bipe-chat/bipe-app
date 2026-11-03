@@ -332,14 +332,18 @@ fun ChatTimelineScreen(
                         Column(modifier = Modifier.weight(1f, fill = false)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    if (threadRoot == null) roomName else stringResource(R.string.bipe_thread_title),
+                                    when {
+                                        threadRoot != null -> stringResource(R.string.bipe_thread_title)
+                                        model.isNewsRoom -> stringResource(R.string.bipe_news_room_name)
+                                        else -> roomName
+                                    },
                                     style = MaterialTheme.typography.titleMedium,
                                     color = colors.inkPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f, fill = false),
                                 )
-                                if (isDm && BipeOfficialAccounts.isOfficial(peerUserId)) {
+                                if (model.isNewsRoom || (isDm && BipeOfficialAccounts.isOfficial(peerUserId))) {
                                     Spacer(Modifier.size(6.dp))
                                     OfficialBadge()
                                 }
