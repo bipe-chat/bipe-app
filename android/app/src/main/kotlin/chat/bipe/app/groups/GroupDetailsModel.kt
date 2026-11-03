@@ -32,7 +32,14 @@ class GroupDetailsModel(
         data object Removed : PhotoEdit
     }
 
-    data class Info(val name: String, val avatarUrl: String?, val description: String?, val memberCount: Int)
+    /** avatarMembers: spec chat-list notes, Group avatar, shown when the group has no photo. */
+    data class Info(
+        val name: String,
+        val avatarUrl: String?,
+        val description: String?,
+        val memberCount: Int,
+        val avatarMembers: List<chat.bipe.app.people.Person> = emptyList(),
+    )
 
     private val _info = MutableStateFlow(Info("", null, null, 0))
     val info: StateFlow<Info> = _info.asStateFlow()
@@ -40,6 +47,9 @@ class GroupDetailsModel(
     val notificationMode: StateFlow<NotifyMode?> = _notificationMode.asStateFlow()
     private val _canEdit = MutableStateFlow(false)
     val canEdit: StateFlow<Boolean> = _canEdit.asStateFlow()
+    private val _canEditPhoto = MutableStateFlow(false)
+    /** Spec group-details canEditPhoto: m.room.avatar. */
+    val canEditPhoto: StateFlow<Boolean> = _canEditPhoto.asStateFlow()
     private val _canInvite = MutableStateFlow(false)
     val canInvite: StateFlow<Boolean> = _canInvite.asStateFlow()
     private val _canChangePrivacy = MutableStateFlow(false)
@@ -86,6 +96,7 @@ class GroupDetailsModel(
         scope.launch {
             runCatching { room.getPowerLevels() }.getOrNull()?.let { levels ->
                 _canEdit.value = levels.canOwnUserSendState(StateEventType.RoomName)
+                _canEditPhoto.value = levels.canOwnUserSendState(StateEventType.RoomAvatar)
                 _canInvite.value = levels.canOwnUserInvite()
                 _canChangePrivacy.value = levels.canOwnUserSendState(StateEventType.RoomJoinRules)
                 _canMakeGroupLink.value = levels.canOwnUserSendState(StateEventType.RoomPowerLevels)
@@ -152,6 +163,41 @@ class GroupDetailsModel(
             avatarUrl = info.avatarUrl,
             description = info.topic?.takeIf { it.isNotEmpty() },
             memberCount = info.joinedMembersCount.toInt(),
+            avatarMembers = chat.bipe.app.common.groupAvatarMembers(info, session.userId),
         )
+    }
+
+    companion object {
+        private const val EMOJI_PHOTO_SIDE = 512
+
+        /** Spec group-details save params.emoji: one grapheme that is an emoji, else null. */
+        fun singleEmoji(text: String): String? {
+            val trimmed = text.trim()
+            if (trimmed.isEmpty()) return null
+            val graphemes = java.text.BreakIterator.getCharacterInstance().apply { setText(trimmed) }
+            if (graphemes.next() != trimmed.length) return null
+            val first = trimmed.codePointAt(0)
+            val isEmoji = Character.getType(first) == Character.OTHER_SYMBOL.toInt() || Character.isSupplementaryCodePoint(first)
+            return trimmed.takeIf { isEmoji }
+        }
+
+        /** Spec group-details save: the emoji centred on the background (accentWash), at 60 % of a 512 px square, as PNG. */
+        fun emojiPhoto(emoji: String, background: Int): ByteArray {
+            val side = EMOJI_PHOTO_SIDE.toFloat()
+            val bitmap = android.graphics.Bitmap.createBitmap(EMOJI_PHOTO_SIDE, EMOJI_PHOTO_SIDE, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+            canvas.drawColor(background)
+            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = side * 0.6f
+                textAlign = android.graphics.Paint.Align.CENTER
+            }
+            val metrics = paint.fontMetrics
+            canvas.drawText(emoji, side / 2, side / 2 - (metrics.ascent + metrics.descent) / 2, paint)
+            return java.io.ByteArrayOutputStream().use { out ->
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                bitmap.recycle()
+                out.toByteArray()
+            }
+        }
     }
 }

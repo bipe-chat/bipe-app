@@ -234,6 +234,9 @@ class ChatTimelineModel(
     val roomAvatarUrl = _roomAvatarUrl.asStateFlow()
     private val _peerUserId = MutableStateFlow<String?>(null)
     val peerUserId = _peerUserId.asStateFlow()
+    /** Spec chat-list notes, Group avatar: members shown when a group has no photo. */
+    private val _avatarMembers = MutableStateFlow<List<chat.bipe.app.people.Person>>(emptyList())
+    val avatarMembers = _avatarMembers.asStateFlow()
     private val _peerAway = MutableStateFlow(PeerAway.NONE)
     val peerAway: StateFlow<PeerAway> = _peerAway.asStateFlow()
     private val _invitingAgain = MutableStateFlow(false)
@@ -414,6 +417,7 @@ class ChatTimelineModel(
             )
             _roomAvatarUrl.value = if (info.isDm) peer?.avatarUrl else info.avatarUrl
             _peerUserId.value = peer?.userId
+            _avatarMembers.value = chat.bipe.app.common.groupAvatarMembers(info, session.userId)
             _hasCall.value = info.hasRoomCall
             _successorRoomId.value = info.successorRoom?.roomId
             room.predecessorRoom()?.roomId?.takeIf { it != _predecessor.value?.first }?.let { old ->

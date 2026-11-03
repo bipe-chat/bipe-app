@@ -170,7 +170,7 @@ private fun FavouriteCell(
             // The avatar is 80% of its column, so it follows the screen width, not the font scale.
             BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 val avatar = minOf(maxWidth * 0.8f, AVATAR_MAX.dp)
-                Avatar(chat.name, chat.avatarUrl, media, size = avatar, userId = chat.peerUserId)
+                Avatar(chat.name, chat.avatarUrl, media, size = avatar, userId = chat.peerUserId, members = chat.avatarMembers)
                 if (chat.isUnread) {
                     Box(
                         Modifier.align(Alignment.TopEnd).padding(end = (maxWidth - avatar) / 2).size(20.dp)

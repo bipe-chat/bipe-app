@@ -3758,6 +3758,10 @@ public enum BipeStrings {
 
     public static var appGroupPhotoRemove: String { NSLocalizedString("bipe_app_group_photo_remove", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appGroupPhotoEmoji: String { NSLocalizedString("bipe_app_group_photo_emoji", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupPhotoEmojiHint: String { NSLocalizedString("bipe_app_group_photo_emoji_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appGroupAddPeople: String { NSLocalizedString("bipe_app_group_add_people", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func appGroupCreatePeople(_ p1: String) -> String {
