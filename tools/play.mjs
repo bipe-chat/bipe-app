@@ -140,6 +140,9 @@ export const LISTING_LOCALES = ['pt-BR', 'en-US'];
 /** bipe-web store image targets (scripts/store-images.mjs) for each Play image type. */
 export const IMAGE_SETS = { phoneScreenshots: 'play-phone', featureGraphic: 'play-feature' };
 const PLAY_LIMITS = { title: 30, shortDescription: 80, fullDescription: 4000 };
+/** Play takes 2 to 8 phone screenshots per language. */
+export const PLAY_PHONE_MIN = 2;
+export const PLAY_PHONE_MAX = 8;
 
 /** The listing text from bipe-shared, through its own parser (tools/lib/appstore.mjs): no second copy here. */
 export async function loadListing(shared) {
@@ -156,8 +159,10 @@ function readManifest(images, set, locale) {
 
 /**
  * The plan of one listing run: per locale the text, the phone panels and the feature graphic, and every
- * problem that stops a real run. A panel must come from a native Android capture (play-phone/...): Play
- * screenshots show the app on Android, and the iPhone captures show the fork (bipe-chat/bipe#457 step 3).
+ * problem that stops a real run. The panels are the bipe-web store images: their captures are the site's phone
+ * scenes, on both stores (MZ, 1 November 2026), so any capture of that set is valid. The bipe-web set has one
+ * panel per row of the appstore.md screenshot table; Play gets the first PLAY_PHONE_MAX of them in table order,
+ * and `left` names the rest.
  */
 export function listingPlan({ listing, text }, images) {
   const problems = [];
@@ -169,6 +174,7 @@ export function listingPlan({ listing, text }, images) {
     }
     const rows = listing.screenshots[locale] ?? [];
     const sets = {};
+    let left = [];
     for (const [type, set] of Object.entries(IMAGE_SETS)) {
       const { file, manifest } = readManifest(images, set, locale);
       if (!manifest) {
@@ -181,20 +187,19 @@ export function listingPlan({ listing, text }, images) {
       if (type === 'phoneScreenshots') {
         const slugs = exports.map((e) => e.slug).join(',');
         if (slugs !== rows.map((r) => r.slug).join(',')) problems.push(`${locale}: ${set} panels (${slugs}) differ from the appstore.md screenshot table`);
-        if (exports.length < 2 || exports.length > 8) problems.push(`${locale}: ${exports.length} phone screenshots, Play takes 2 to 8`);
+        left = sets[type].slice(PLAY_PHONE_MAX);
+        sets[type] = sets[type].slice(0, PLAY_PHONE_MAX);
+        if (sets[type].length < PLAY_PHONE_MIN) problems.push(`${locale}: ${sets[type].length} phone screenshots, Play takes ${PLAY_PHONE_MIN} to ${PLAY_PHONE_MAX}`);
       } else if (exports.length !== 1) problems.push(`${locale}: ${exports.length} feature graphics, Play takes 1`);
-      for (const e of sets[type]) {
-        if (!existsSync(e.path)) problems.push(`${locale}: missing ${e.path}`);
-        if (e.capture && !e.capture.startsWith('play-phone/')) problems.push(`${locale}: ${e.file} uses the capture ${e.capture}, not a native Android capture (play-phone/)`);
-      }
+      for (const e of sets[type]) if (!existsSync(e.path)) problems.push(`${locale}: missing ${e.path}`);
     }
-    return { locale, fields, ...sets };
+    return { locale, fields, ...sets, left };
   });
   return { locales, problems };
 }
 
 export function printPlan(plan, pkg, log = console.log) {
-  for (const { locale, fields, phoneScreenshots, featureGraphic } of plan.locales) {
+  for (const { locale, fields, phoneScreenshots, featureGraphic, left = [] } of plan.locales) {
     log(`${pkg} ${locale}`);
     log(`  title: ${fields.title}`);
     log(`  short description: ${fields.shortDescription}`);
@@ -202,6 +207,7 @@ export function printPlan(plan, pkg, log = console.log) {
     for (const line of fields.fullDescription.split('\n')) log(`    ${line}`);
     log(`  phone screenshots (${phoneScreenshots.length}):`);
     for (const e of phoneScreenshots) log(`    ${e.order}. ${e.slug}: ${e.title} | ${e.sub ?? ''} (${e.file}, capture ${e.capture ?? 'none'})`);
+    if (left.length) log(`  not on Play (limit ${PLAY_PHONE_MAX}): ${left.map((e) => e.slug).join(', ')}`);
     log(`  feature graphic: ${featureGraphic.map((e) => `${e.file} (capture ${e.capture ?? 'none'})`).join(', ') || 'none'}`);
   }
   for (const p of plan.problems) log(`not ready: ${p}`);
@@ -214,7 +220,7 @@ export async function sendListing(call, pkg, plan, { read = readFileSync } = {})
   const base = `${app(pkg)}/edits/${edit.id}/listings`;
   const upload = `${UPLOAD_API}/applications/${encodeURIComponent(pkg)}/edits/${edit.id}/listings`;
   try {
-    for (const { locale, fields, ...images } of plan.locales) {
+    for (const { locale, fields, left, ...images } of plan.locales) {
       await call('PUT', `${base}/${locale}`, { body: fields });
       for (const type of Object.keys(IMAGE_SETS)) {
         await call('DELETE', `${base}/${locale}/${type}`);

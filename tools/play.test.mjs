@@ -123,12 +123,13 @@ test('play upload refuses tracks other than internal and discards a failed edit'
 
 // Store listing (bipe-chat/bipe#457). Synthetic listing and images; the real text is checked in bipe-shared.
 const ROWS = [{ slug: 'aviso-golpe' }, { slug: 'pedidos' }];
+const listingOf = (rows) => ({ screenshots: { 'pt-BR': rows, 'en-US': rows } });
 const synthetic = {
-  listing: { screenshots: { 'pt-BR': ROWS, 'en-US': ROWS } },
+  listing: listingOf(ROWS),
   text: (locale) => ({ language: locale, title: 'Bipe Chat', shortDescription: `short ${locale}`, fullDescription: `full ${locale}` }),
 };
 
-function images({ capture = 'play-phone' } = {}) {
+function images({ capture = 'iphone69', rows = ROWS } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'play-listing-'));
   for (const locale of ['pt-BR', 'en-US']) {
     const write = (set, exports) => {
@@ -136,7 +137,7 @@ function images({ capture = 'play-phone' } = {}) {
       for (const e of exports) writeFileSync(join(dir, set, locale, e.file), 'png');
       writeFileSync(join(dir, set, locale, 'manifest.json'), JSON.stringify({ exports }));
     };
-    write('play-phone', ROWS.map((r, i) => ({ order: i + 1, slug: r.slug, file: `0${i + 1}-${r.slug}.png`, title: r.slug, sub: null, capture: `${capture}/light/${locale}/${r.slug}.png` })));
+    write('play-phone', rows.map((r, i) => ({ order: i + 1, slug: r.slug, file: `${i + 1}-${r.slug}.png`, title: r.slug, sub: null, capture: `${capture}/light/${locale}/${r.slug}@acai.png` })));
     write('play-feature', [{ order: 1, slug: 'feature-graphic', file: '01-feature-graphic.png', capture: `${capture}/light/${locale}/aviso-golpe.png` }]);
   }
   return dir;
@@ -154,9 +155,23 @@ test('play listing plan has the text, the panels in table order and the feature 
   assert.ok(lines.some((l) => l.startsWith('    2. pedidos')));
 });
 
-test('play listing plan refuses iPhone captures and missing images', () => {
-  const plan = listingPlan(synthetic, images({ capture: 'iphone69' }));
-  assert.ok(plan.problems.some((p) => p.includes('not a native Android capture')));
+test('play listing plan sends the first 8 panels and names the rest', () => {
+  const rows = Array.from({ length: 9 }, (_, i) => ({ slug: `panel-${i + 1}` }));
+  const plan = listingPlan({ ...synthetic, listing: listingOf(rows) }, images({ rows }));
+  assert.deepEqual(plan.problems, []);
+  assert.equal(plan.locales[0].phoneScreenshots.length, 8);
+  assert.deepEqual(plan.locales[0].left.map((e) => e.slug), ['panel-9']);
+  const lines = [];
+  printPlan(plan, PKG, (l) => lines.push(l));
+  assert.ok(lines.includes('  not on Play (limit 8): panel-9'));
+});
+
+test('play listing plan refuses missing images, too few panels and long text', () => {
+  const one = [{ slug: 'aviso-golpe' }];
+  const few = listingPlan({ ...synthetic, listing: listingOf(one) }, images({ rows: one }));
+  assert.ok(few.problems.some((p) => p.includes('1 phone screenshots, Play takes 2 to 8')));
+  const order = listingPlan({ ...synthetic, listing: listingOf([...ROWS].reverse()) }, images());
+  assert.ok(order.problems.some((p) => p.includes('differ from the appstore.md screenshot table')));
   const empty = listingPlan(synthetic, mkdtempSync(join(tmpdir(), 'play-empty-')));
   assert.ok(empty.problems.some((p) => p.includes('no play-phone images')));
   const long = listingPlan({ ...synthetic, text: (locale) => ({ ...synthetic.text(locale), title: 'x'.repeat(31) }) }, images());
@@ -189,7 +204,7 @@ test('play listing sends text and images in one edit and commits', async () => {
 });
 
 test('play listing never sends a plan with problems and discards a failed edit', async () => {
-  const bad = listingPlan(synthetic, images({ capture: 'iphone69' }));
+  const bad = listingPlan(synthetic, mkdtempSync(join(tmpdir(), 'play-empty-')));
   const none = fakePlay({});
   await assert.rejects(sendListing(none.call, PKG, bad), /listing not sent/);
   assert.equal(none.calls.length, 0);
