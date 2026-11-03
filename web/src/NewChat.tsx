@@ -49,7 +49,7 @@ function dmPowerLevelsContent(userIds: string[]): string {
   });
 }
 
-async function roomWhenSynced(client: Client, roomId: string): Promise<Room | undefined> {
+export async function roomWhenSynced(client: Client, roomId: string): Promise<Room | undefined> {
   // The created room reaches the local store with the next sync.
   for (let attempt = 1; attempt <= 10; attempt++) {
     try {

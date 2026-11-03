@@ -7,8 +7,8 @@
 // a quote opens its versions and, while it is open or expired, a new version prefilled with the current one. The
 // builder follows the phone: lines from the catálogo or typed, 1 to 50 lines, quantity above 0 up to 100 000, unit
 // price in reais, validity 7 days ahead by default and sent as the end of that local day in UTC, an optional visit
-// service. Totals come from the server; the builder shows the draft total as a preview only. The customer name is
-// not resolved here (the screen has no Matrix client), so a row shows the customer's user ID. No Pix charge on the
+// service. Totals come from the server; the builder shows the draft total as a preview only. The customer shows by
+// profile name (common.tsx customerName), and openChat opens the DM with them. No Pix charge on the
 // web (ADR 0226 point 6); the phone offers none on a quote either.
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -31,6 +31,7 @@ import {
   inputClass,
   LoadState,
   money,
+  OpenChatButton,
   PrimaryButton,
   SecondaryButton,
   SplitPane,
@@ -254,6 +255,9 @@ function QuoteDetail({
       <NavBar title={s('bipe_quote_card_title')} onBack={onBack} />
       <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-8">
         <p className="truncate px-4 text-headline text-ink-primary">{customerLabel(quote.customer_id)}</p>
+        <div className="-mt-4">
+          <OpenChatButton customer={quote.customer_id} />
+        </div>
         {current && (
           <QuoteCard
             card={versionCard(current, catalog)}
@@ -372,6 +376,9 @@ function QuoteBuilder({
           void submit();
         }}
       >
+        <div className="-mb-4">
+          <OpenChatButton customer={customerId} />
+        </div>
         <Section header={customerLabel(customerId)}>
           {lines.map((line) => (
             <li key={line.key} className="flex flex-col gap-2 px-4 py-3 [&:not(:last-child)]:border-b-[0.5px] [&:not(:last-child)]:border-line-subtle">

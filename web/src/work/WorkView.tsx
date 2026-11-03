@@ -16,7 +16,16 @@ import { NavBar, Row, Section } from '../ui/List';
 import type { BusinessClient, WorkHours } from './business-client';
 import { AgendaScreen } from './Agenda';
 import { CatalogScreen } from './Catalog';
-import { LoadState, setNameLookup, PrimaryButton, inputClass, useAction, useLoad } from './common';
+import {
+  LoadState,
+  setNameLookup,
+  PrimaryButton,
+  inputClass,
+  useAction,
+  useLoad,
+  WorkHostProvider,
+  type WorkHost,
+} from './common';
 import { OrdersScreen } from './Orders';
 import { QueueScreen } from './Queue';
 import { QuotesScreen } from './Quotes';
@@ -35,7 +44,7 @@ const TOOLS: { tool: Tool; title: StringKey }[] = [
 /**
  * Shown only when the current account is a company account (bipe-api account type, ADR 0132). tool is the open
  * tool from the URL; onTool changes it (undefined: the list); onClose leaves Trabalho. nameOf gives the
- * Matrix profile name of a signed-in customer.
+ * Matrix profile name of a signed-in customer. host is the chat side: open a DM, send a text, the own @handle.
  */
 export function WorkView({
   client,
@@ -43,14 +52,34 @@ export function WorkView({
   onTool,
   onClose,
   nameOf,
+  host,
 }: {
   client: BusinessClient;
   tool?: string;
   onTool: (tool: string | undefined) => void;
   onClose: () => void;
   nameOf: (userId: string) => Promise<string | undefined>;
+  host: WorkHost;
 }) {
   setNameLookup(nameOf);
+  return (
+    <WorkHostProvider value={host}>
+      <ToolScreen client={client} tool={tool} onTool={onTool} onClose={onClose} />
+    </WorkHostProvider>
+  );
+}
+
+function ToolScreen({
+  client,
+  tool,
+  onTool,
+  onClose,
+}: {
+  client: BusinessClient;
+  tool?: string;
+  onTool: (tool: string | undefined) => void;
+  onClose: () => void;
+}) {
   const back = () => onTool(undefined);
   switch (tool as Tool | undefined) {
     case 'agenda':
