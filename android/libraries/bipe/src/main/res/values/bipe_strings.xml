@@ -1841,6 +1841,11 @@
     <string name="bipe_chat_favourite_action">Favoritar</string>
     <string name="bipe_chat_unfavourite_action">Remover dos favoritos</string>
     <string name="bipe_chat_favourites">Favoritos</string>
+    <string name="bipe_chat_favourites_reorder_action">Mudar a ordem dos favoritos</string>
+    <string name="bipe_chat_favourites_reorder_hint">Arraste para mudar a ordem.</string>
+    <string name="bipe_chat_favourites_reorder_done">Pronto</string>
+    <string name="bipe_chat_favourite_move_earlier">Mover para antes</string>
+    <string name="bipe_chat_favourite_move_later">Mover para depois</string>
     <string name="bipe_chat_unread_state">Não lida</string>
     <string name="bipe_chat_details">Ver informações</string>
     <string name="bipe_chat_read_error">Não deu para marcar a conversa. Tente de novo.</string>
