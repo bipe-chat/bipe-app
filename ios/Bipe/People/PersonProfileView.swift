@@ -95,6 +95,7 @@ struct PersonProfileView: View {
                     header
                 }
                 .listRowBackground(Color.clear)
+                socials
                 savedNumbers
                 actions
                 if model.fromDm, let roomId = model.dmRoomId {
@@ -171,6 +172,39 @@ struct PersonProfileView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
+    }
+
+    /// Spec socials (ADR 0228): under the bio, one row per network. A tap opens the link in the system browser,
+    /// which hands off to the network's app; never an in-app web view, never a link preview.
+    @ViewBuilder
+    private var socials: some View {
+        if !model.socials.isEmpty {
+            Section {
+                ForEach(model.socials) { link in
+                    Button {
+                        // Action openSocial. Not the openURL environment: the app routes Bipe links through it.
+                        UIApplication.shared.open(link.url)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text("\(link.platform.name) · @\(link.handle)")
+                                .foregroundStyle(BipeColor.inkPrimary)
+                            Spacer(minLength: 8)
+                            PhosphorIcon.link.image
+                                .resizable()
+                                .frame(width: 16, height: 16)
+                                .foregroundStyle(BipeColor.inkSecondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .accessibilityAddTraits(.isLink)
+                }
+            } header: {
+                Text(BipeStrings.publicProfileSocials)
+            } footer: {
+                Text(BipeStrings.publicProfileSocialsNotVerified)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+        }
     }
 
     /// Spec savedNumbers (ADR 0191, bipe-chat/bipe#788): only from the user's own address book. Empty: no row.

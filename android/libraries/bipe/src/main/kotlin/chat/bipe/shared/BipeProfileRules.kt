@@ -20,10 +20,15 @@ enum class BipeProfileProblem(val id: String) {
     NO_HANDLE("no_handle"),
 
     /** App only (profile-edit, security rule 8): a mark that looks like the verified seal. */
-    NAME_LOOKALIKE_EMOJI("name_lookalike_emoji");
+    NAME_LOOKALIKE_EMOJI("name_lookalike_emoji"),
+
+    /** `socialHandleProblem()` (ADR 0228). The server does not name the network: [BipeSocialHandles] finds the field. */
+    SOCIAL_INVALID("social_invalid"),
+    SOCIAL_RESERVED("social_reserved");
 
     val isNameProblem: Boolean get() = this == NAME_EMPTY || this == NAME_TOO_LONG || this == NAME_RESERVED || this == NAME_LOOKALIKE_EMOJI
     val isBioProblem: Boolean get() = this == BIO_TOO_LONG || this == BIO_TOO_MANY_LINES
+    val isSocialProblem: Boolean get() = this == SOCIAL_INVALID || this == SOCIAL_RESERVED
 
     @get:StringRes
     val messageRes: Int
@@ -35,6 +40,8 @@ enum class BipeProfileProblem(val id: String) {
             BIO_TOO_MANY_LINES -> R.string.bipe_public_profile_bio_too_many_lines
             NO_HANDLE -> R.string.bipe_public_profile_needs_handle
             NAME_LOOKALIKE_EMOJI -> R.string.bipe_warning_name_lookalike_emoji
+            SOCIAL_INVALID -> R.string.bipe_public_profile_social_invalid
+            SOCIAL_RESERVED -> R.string.bipe_public_profile_social_reserved
         }
 
     /** Format arguments for [messageRes]: the limit from registries/profiles.json. */
@@ -46,7 +53,15 @@ enum class BipeProfileProblem(val id: String) {
             else -> emptyArray()
         }
 
-    fun localizedMessage(context: Context): String = context.getString(messageRes, *messageArgs)
+    /**
+     * [network]: the registry name of the social field that has the problem. Without it, SOCIAL_INVALID has no
+     * text of its own and shows the generic error.
+     */
+    fun localizedMessage(context: Context, network: String? = null): String = when {
+        this != SOCIAL_INVALID -> context.getString(messageRes, *messageArgs)
+        network != null -> context.getString(messageRes, network)
+        else -> context.getString(R.string.bipe_error_generic)
+    }
 
     companion object {
         fun fromId(id: String): BipeProfileProblem? = entries.firstOrNull { it.id == id }

@@ -754,6 +754,18 @@ public enum BipeStrings {
 
     public static var publicProfileNotVerified: String { NSLocalizedString("bipe_public_profile_not_verified", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var publicProfileSocials: String { NSLocalizedString("bipe_public_profile_socials", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var publicProfileSocialsFooter: String { NSLocalizedString("bipe_public_profile_socials_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var publicProfileSocialsNotVerified: String { NSLocalizedString("bipe_public_profile_socials_not_verified", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func publicProfileSocialInvalid(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_public_profile_social_invalid", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var publicProfileSocialReserved: String { NSLocalizedString("bipe_public_profile_social_reserved", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var trustStepEmail: String { NSLocalizedString("bipe_trust_step_email", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var trustStepEmailBody: String { NSLocalizedString("bipe_trust_step_email_body", tableName: "Bipe", bundle: .module, comment: "") }
