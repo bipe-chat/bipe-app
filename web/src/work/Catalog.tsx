@@ -211,7 +211,7 @@ export function CatalogScreen({ client, onBack }: WorkScreenProps) {
         <Section>
           {shown.map((item, index) =>
             order ? (
-              <Row key={item.id} leading={<Thumb url={item.photo} size={44} />}>
+              <Row key={item.id} leading={<ItemThumb client={client} item={item} />}>
                 <div
                   draggable
                   className="flex min-w-0 flex-1 cursor-grab items-center gap-2 py-1"
@@ -242,7 +242,7 @@ export function CatalogScreen({ client, onBack }: WorkScreenProps) {
                 </div>
               </Row>
             ) : (
-              <Row key={item.id} leading={<Thumb url={item.photo} size={44} />}>
+              <Row key={item.id} leading={<ItemThumb client={client} item={item} />}>
                 <div className="flex min-w-0 flex-1 flex-col items-start">
                   <button
                     type="button"
@@ -348,10 +348,44 @@ function Badge({ text, className }: { text: string; className: string }) {
   );
 }
 
+// A hidden item's photo comes from the owner route with the Matrix token, as an object URL. One read per photo
+// version (the ?v= of CatalogItem.photo) for the page.
+const ownerPhotos = new Map<string, Promise<string | undefined>>();
+
 /**
- * The item photo, or the image glyph when there is none or it does not load. bipe-api serves the photo of an
- * active item only (the public route), so a hidden item shows the glyph.
+ * The photo URL to show for an item: the public URL of an active item, the owner read of a hidden one (the public
+ * route serves active items only).
  */
+function useItemPhoto(client: BusinessClient, item?: CatalogItem): string | undefined {
+  const url = item?.photo;
+  const hidden = item !== undefined && !item.active && url !== undefined;
+  const [owned, setOwned] = useState<{ key: string; url?: string }>();
+  useEffect(() => {
+    if (!hidden || !item || !url) return;
+    let live = true;
+    let read = ownerPhotos.get(url);
+    if (!read) {
+      read = client.itemPhoto(item.id).then(
+        (blob) => URL.createObjectURL(blob),
+        () => undefined,
+      );
+      ownerPhotos.set(url, read);
+    }
+    void read.then((objectUrl) => live && setOwned({ key: url, url: objectUrl }));
+    return () => {
+      live = false;
+    };
+  }, [client, hidden, item, url]);
+  if (!hidden) return url;
+  return owned?.key === url ? owned.url : undefined;
+}
+
+/** A list row's thumbnail. */
+function ItemThumb({ client, item }: { client: BusinessClient; item: CatalogItem }) {
+  return <Thumb url={useItemPhoto(client, item)} size={44} />;
+}
+
+/** The item photo, or the image glyph when there is none or it does not load. */
 function Thumb({ url, size, label }: { url?: string; size: number; label?: string }) {
   const [failed, setFailed] = useState<string>();
   if (url && url !== failed)
@@ -439,7 +473,8 @@ function ItemEditor({
     (!schedules ||
       (duration !== '' && minutes(duration, 1) && minutes(bufferBefore, 0) && minutes(bufferAfter, 0) && agendaIds.length > 0));
 
-  const photo = newPhoto?.url ?? (removesPhoto ? undefined : item?.photo);
+  const savedPhoto = useItemPhoto(client, item);
+  const photo = newPhoto?.url ?? (removesPhoto ? undefined : savedPhoto);
 
   // Action pickPhoto: scaled down to a JPEG under the profile photo limit.
   const pickPhoto = async (file: File | undefined) => {

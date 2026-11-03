@@ -38,6 +38,7 @@ import {
   Field,
   inputClass,
   LoadState,
+  OpenChatButton,
   PrimaryButton,
   SecondaryButton,
   SplitPane,
@@ -45,6 +46,7 @@ import {
   useAction,
   useLoad,
   useNames,
+  useWorkHost,
   type WorkScreenProps,
 } from './common';
 
@@ -732,6 +734,7 @@ function BookingPanel({
         </div>
       ) : (
         <div className="flex flex-col items-start">
+          <OpenChatButton customer={booking.customer} />
           {status === 'requested' && (
             <>
               <TextButton disabled={action.busy} onClick={() => void run(() => client.bookingAction(booking.id, 'accept'))}>
@@ -928,7 +931,11 @@ function BlockPanel({
   );
 }
 
-/** Action closeToday, for any day of the week: closed overrides; the bookings stay until the owner acts. */
+/**
+ * Action closeToday, for any day of the week: closed overrides; the bookings stay until the owner acts. Then the
+ * owner edits bipe_agenda_close_today_message and sends it into the DM with each signed-in customer of that day's
+ * open bookings, from this browser (ADR 0102, AgendaOwnerModel.send on the phone).
+ */
 function ClosePanel({
   client,
   state,
@@ -941,7 +948,76 @@ function ClosePanel({
   const today = localParts(state.time_zone, Date.now()).date;
   const [date, setDate] = useState(day);
   const save = useAction();
+  const host = useWorkHost();
+  const [customers, setCustomers] = useState<string[]>();
+  const [text, setText] = useState(s('bipe_agenda_close_today_message'));
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<number>();
   const title = date === today ? s('bipe_agenda_close_today') : s('bipe_web_agenda_close_day');
+
+  const close = async () => {
+    const found = await save.run(async () => {
+      await client.closeDay({ agenda_ids: agendaIds, date });
+      if (!host) return [];
+      // The message goes to the open bookings of that day; a failed read only skips the message.
+      const day = await client
+        .bookings({ date_from: date, date_to: date, agenda_id: agendaIds.length === 1 ? agendaIds[0] : undefined })
+        .catch(() => ({ bookings: [] as Booking[] }));
+      const ids = day.bookings
+        .filter((b) => OPEN.includes(b.status) && agendaIds.includes(b.agenda_id))
+        .flatMap((b) => ('user_id' in b.customer ? [b.customer.user_id] : []));
+      return [...new Set(ids)];
+    });
+    if (!found) return;
+    if (found.length === 0) onChanged();
+    else setCustomers(found);
+  };
+
+  const send = async () => {
+    const body = text.trim();
+    if (!host || !customers || !body) return;
+    setSending(true);
+    let count = 0;
+    for (const userId of customers) if (await host.sendText(userId, body)) count += 1;
+    setSending(false);
+    setSent(count);
+  };
+
+  if (customers) {
+    return (
+      <div className="flex flex-col gap-4 px-4 pb-8">
+        <PanelHeader title={title} onClose={onChanged} />
+        {sent === undefined ? (
+          <>
+            <Field label={s('bipe_agenda_close_today_send')}>
+              <textarea
+                className={`${inputClass} min-h-28 py-2`}
+                value={text}
+                disabled={sending}
+                onChange={(e) => setText(e.target.value)}
+              />
+            </Field>
+            <div className="flex gap-2">
+              <PrimaryButton disabled={sending || !text.trim()} onClick={() => void send()}>
+                {s('bipe_agenda_close_today_send')}
+              </PrimaryButton>
+              <SecondaryButton disabled={sending} onClick={onChanged}>
+                {s('bipe_app_cancel')}
+              </SecondaryButton>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-body text-ink-primary">{s('bipe_agenda_close_today_sent', String(sent))}</p>
+            <div>
+              <PrimaryButton onClick={onChanged}>{s('bipe_app_close')}</PrimaryButton>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4 px-4 pb-8">
       <PanelHeader title={title} onClose={onClose} />
@@ -952,13 +1028,7 @@ function ClosePanel({
       <p className="text-body text-ink-primary">{s('bipe_agenda_close_today_body')}</p>
       <AgendaError error={save.error} />
       <div className="flex gap-2">
-        <PrimaryButton
-          disabled={!date || save.busy}
-          onClick={async () => {
-            const done = await save.run(() => client.closeDay({ agenda_ids: agendaIds, date }));
-            if (done) onChanged();
-          }}
-        >
+        <PrimaryButton disabled={!date || save.busy} onClick={() => void close()}>
           {title}
         </PrimaryButton>
         <SecondaryButton onClick={onClose}>{s('bipe_app_cancel')}</SecondaryButton>
