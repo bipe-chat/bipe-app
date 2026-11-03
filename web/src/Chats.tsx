@@ -437,10 +437,9 @@ export function Chats({ client }: { client: Client }) {
             <ScopePicker
               scope={scope}
               badges={{ conversas: chatsBadge, grupos: groupsBadge }}
-              onChange={(next) => {
-                setScope(next);
-                setShowingArchived(false);
-              }}
+              // setScope goes to the list of that scope, out of Arquivadas too. A second navigate here would
+              // read the old scope and go back.
+              onChange={setScope}
             />
           )}
           {permission === 'default' && !bannerClosed && (
