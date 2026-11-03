@@ -75,10 +75,10 @@ struct VoceView: View {
                 }
                 SettingsRootSection(model: settings)
                 // Spec voce (MZ, 2 Nov 2026): no account rows; the Você tab switches (hold, double tap, VoiceOver
-                // action). Adicionar conta is the last row, plain accent text (spec account-new).
+                // action). Adicionar conta is the last row, with the same icon tile as every Você row (spec account-new).
                 Section {
                     Button(action: onNewAccount) {
-                        Text(BipeStrings.appAccountNew).foregroundStyle(BipeColor.accentInk)
+                        VoceTileLabel(icon: .plus, text: BipeStrings.appAccountNew)
                     }
                 }
             }

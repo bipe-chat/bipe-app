@@ -6,4 +6,4 @@ platforms: [ios, android]
 refs: [bipe#973]
 ---
 
-**Seu ano no Bipe moved from Você to Configurações › Conversas e mídia.**
+**Seu ano no Bipe moved from Você to Configurações › Conversas e mídia, and Adicionar conta has an icon like the other Você rows.**

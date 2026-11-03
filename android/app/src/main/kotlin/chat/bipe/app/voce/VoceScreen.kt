@@ -144,15 +144,9 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
                     SettingsRootSection(settings, openGroup)
                     // Spec voce (MZ, 2 Nov 2026): no account rows; the Você tab switches (hold, double tap, TalkBack
-                    // action). Adicionar conta is the last row, plain accent text (spec account-new).
+                    // action). Adicionar conta is the last row, with the same icon tile as every Você row (spec account-new).
                     item { VoceSectionHeader(null) }
-                    item {
-                        ListItem(
-                            headlineContent = { Text(stringResource(R.string.bipe_app_account_new), color = BipeTheme.colors.accentInk) },
-                            colors = ListItemDefaults.colors(containerColor = BipeTheme.colors.surfaceBase),
-                            modifier = Modifier.clickable(onClick = onNewAccount),
-                        )
-                    }
+                    item { VoceRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_app_account_new), onClick = onNewAccount) }
                 }
             }
         })
