@@ -56,6 +56,17 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "terms"], body: TermsAcceptance(termsVersion: version), accessToken: accessToken)
     }
     
+    // MARK: - Age signals (ADR 0229)
+
+    /// `PUT /v1/me/age`. Sends the OS age range, or source `none` with no range. The server keeps only the band and
+    /// returns it.
+    public func sendAgeSignal(source: String, lower: Int?, upper: Int?, method: String?, accessToken: String) async throws(BipeAPIError) -> String {
+        let response: AgeSignalResponse = try await send(method: "PUT", path: ["v1", "me", "age"],
+                                                         body: AgeSignalRequest(source: source, lower: lower, upper: upper, method: method),
+                                                         accessToken: accessToken)
+        return response.ageBand
+    }
+
     // MARK: - Device-first accounts (ADR 0057, ADR 0059)
     
     /// `GET /v1/me/account`. PIN state, recovery email and the recoveries of the last 7 days.
@@ -516,6 +527,17 @@ public struct BipeAPIClient: Sendable {
     
     private struct TermsAcceptance: Encodable {
         let termsVersion: String
+    }
+
+    private struct AgeSignalRequest: Encodable {
+        let source: String
+        let lower: Int?
+        let upper: Int?
+        let method: String?
+    }
+
+    private struct AgeSignalResponse: Decodable {
+        let ageBand: String
     }
     
     private struct PINRequest: Encodable {

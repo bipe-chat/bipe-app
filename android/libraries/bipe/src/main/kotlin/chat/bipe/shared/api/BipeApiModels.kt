@@ -230,6 +230,10 @@ data class BipeAccountStatus(
     @SerialName("account_type") val accountType: String? = null,
     /** ADR 0140: the waiting account deletion. Absent when none. */
     @SerialName("deletion") val deletion: BipeAccountDeletion? = null,
+    /** ADR 0229: the band from the last OS age signal (`unknown` when none). Absent from an older server. */
+    @SerialName("age_band") val ageBand: String? = null,
+    /** ADR 0229: when the app last sent an age signal. Absent when never. */
+    @Serializable(with = InstantSerializer::class) @SerialName("age_checked_at") val ageCheckedAt: Instant? = null,
 )
 
 /** `AccountDeletion` (ADR 0140). */
@@ -264,6 +268,17 @@ internal data class BipeWaitlistRequest(
 
 @Serializable
 internal data class BipeTermsRequest(@SerialName("terms_version") val termsVersion: String)
+
+@Serializable
+internal data class BipeAgeSignalRequest(
+    @SerialName("source") val source: String,
+    @SerialName("lower") val lower: Int? = null,
+    @SerialName("upper") val upper: Int? = null,
+    @SerialName("method") val method: String? = null,
+)
+
+@Serializable
+internal data class BipeAgeSignalResponse(@SerialName("age_band") val ageBand: String)
 
 @Serializable
 internal data class BipeSetHandleRequest(@SerialName("handle") val handle: String)

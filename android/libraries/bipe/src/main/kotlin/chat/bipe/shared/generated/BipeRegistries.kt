@@ -623,6 +623,9 @@ object BipeRegistries {
     const val THEFT_STATEMENT_LIFE_HOURS = 24
     const val THEFT_CHECK_MINUTES = 15
 
+    /** Age signals (ADR 0229, registries/age-signals.json). The server maps the range to a band; the app only reads and sends it. */
+    const val AGE_SIGNAL_RECHECK_DAYS = 7
+
     /** Username (handle) rules. The server is the authority; clients check early for feedback. */
     const val HANDLE_MIN_LENGTH = 3
     const val HANDLE_MAX_LENGTH = 30

@@ -8,6 +8,7 @@ import android.content.Context
 import chat.bipe.shared.BipeHandleProblem
 import chat.bipe.shared.BipeProfileProblem
 import chat.bipe.shared.R
+import chat.bipe.shared.account.BipeAgeSignal
 import chat.bipe.shared.account.BipePinProblem
 import chat.bipe.shared.generated.BipeRegistries
 import java.io.IOException
@@ -160,6 +161,19 @@ class BipeApiClient(baseUrl: String) {
             response = null,
         )
     }
+
+    /**
+     * `PUT /v1/me/age` (ADR 0229). Sends the OS age range, or source `none` with no range. The server keeps only the band
+     * and returns it.
+     */
+    suspend fun sendAgeSignal(signal: BipeAgeSignal, accessToken: String): String =
+        send(
+            "PUT",
+            listOf("v1", "me", "age"),
+            body = encode(BipeAgeSignalRequest.serializer(), BipeAgeSignalRequest(signal.source, signal.lower, signal.upper, signal.method)),
+            accessToken = accessToken,
+            response = BipeAgeSignalResponse.serializer(),
+        ).ageBand
 
     // Recovery (ADR 0057, ADR 0059)
 
