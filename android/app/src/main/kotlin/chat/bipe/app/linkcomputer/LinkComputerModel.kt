@@ -17,6 +17,7 @@ import chat.bipe.shared.weblink.BipeLinkComputer
 import chat.bipe.shared.weblink.BipeMatrixAccountApi
 import chat.bipe.shared.weblink.BipeWebLink
 import chat.bipe.shared.weblink.MasDeviceApproval
+import chat.bipe.shared.weblink.WebLinkKind
 import chat.bipe.shared.weblink.finishWebLink
 import chat.bipe.shared.weblink.webLinkPlace
 import java.time.Instant
@@ -532,7 +533,8 @@ class LinkComputerModel(
         approval = null
         consent = null
         val since = startedAt
-        runCatching { settings.authorized { settings.api.finishWebLink(since, it) } }
+        val kind = if (mode == Mode.COMPUTER) WebLinkKind.COMPUTER else WebLinkKind.PHONE
+        runCatching { settings.authorized { settings.api.finishWebLink(since, it, kind) } }
             .onFailure { android.util.Log.w("Bipe", "web-link finish failed") }
     }
 

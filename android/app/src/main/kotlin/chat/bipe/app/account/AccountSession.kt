@@ -114,14 +114,17 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
     companion object {
         /**
          * Signs in with the hidden password (MAS compatibility login, m.login.password), saves the session, starts the
-         * sync. Every step has a time limit ([AccountStep]).
+         * sync. Every step has a time limit ([AccountStep]). When this phone still holds the account's store, the login
+         * keeps that store and its device ID, so the cross-signing keys and the room keys stay (bipe-chat/bipe#909).
+         * Only a store without a known device ID goes.
          */
         suspend fun signIn(context: Context, userId: String, password: String, sessionStore: SessionStore): AccountSession {
-            deleteStore(context, userId)
+            val keptDeviceId = if (hasStore(context, userId)) storedDeviceId(context, userId) else null
+            if (keptDeviceId == null) deleteStore(context, userId)
             val client = AccountStep.run("build client") { makeClient(context, userId, sessionStore) }
-            AccountStep.run("login") { client.login(userId, password, AppConfig.DEVICE_NAME, null) }
+            AccountStep.run("login") { client.login(userId, password, AppConfig.DEVICE_NAME, keptDeviceId) }
             sessionStore.save(client.session())
-            return start(client)
+            return start(client, context)
         }
 
         /**
@@ -133,7 +136,7 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
             val client = AccountStep.run("build client") { makeClient(context, expired.userId, sessionStore) }
             AccountStep.run("login") { client.login(expired.userId, password, AppConfig.DEVICE_NAME, deviceId) }
             sessionStore.save(client.session())
-            return start(client)
+            return start(client, context)
         }
 
         /** true when the server refused the hidden password (M_FORBIDDEN), not a network or local failure. */
@@ -145,16 +148,17 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
             if (!hasStore(context, saved.userId)) throw AccountStep.NoStore()
             val client = AccountStep.run("build client") { makeClient(context, saved.userId, sessionStore, saved.homeserverUrl) }
             AccountStep.run("restore session") { client.restoreSession(saved) }
-            return start(client)
+            return start(client, context)
         }
 
-        private suspend fun start(client: Client): AccountSession {
+        private suspend fun start(client: Client, context: Context): AccountSession {
             val syncService = AccountStep.run("sync service") {
                 // start() spawns SDK network tasks; offline mode retries when connectivity returns.
                 // Initial sync/reachability responses must never gate local readiness.
                 client.syncService().withOfflineMode().finish().also { it.start() }
             }
             return AccountSession(client, syncService, client.userId()).also {
+                runCatching { saveDeviceId(context, it.userId, client.deviceId()) }
                 it.watchAuthErrors()
                 it.watchSendQueues()
             }
@@ -193,7 +197,24 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 .withSearchIndexStore(File(data, "SearchIndex").apply { mkdirs() }.path, null)
         }
 
-        /** Deletes the store of an account. A new sign-in needs an empty store: the crypto store belongs to one device. */
+        /**
+         * The device ID the account's store belongs to, kept in the store folder so it goes with the store
+         * (bipe-chat/bipe#909). The saved session can be gone (soft logout, PIN recovery) while the store stays.
+         */
+        fun storedDeviceId(context: Context, userId: String): String? =
+            runCatching { deviceIdFile(storePaths(context, folderName(userId)).first).readText().trim() }
+                .getOrNull()?.takeIf { it.isNotEmpty() }
+
+        private fun saveDeviceId(context: Context, userId: String, deviceId: String) {
+            deviceIdFile(storePaths(context, folderName(userId)).first).writeText(deviceId)
+        }
+
+        private fun deviceIdFile(data: File) = File(data, "bipe-device-id")
+
+        /**
+         * Deletes the store of an account. A new sign-in without a known device ID needs an empty store: the crypto
+         * store belongs to one device.
+         */
         fun deleteStore(context: Context, userId: String) = deleteStoreFolder(context, folderName(userId))
 
         fun deleteStoreFolder(context: Context, folder: String) {

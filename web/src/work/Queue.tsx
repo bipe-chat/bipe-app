@@ -9,6 +9,7 @@
 // 30 seconds while it shows and right after each action. Space or Enter outside a field calls the next place.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import QRCode from 'qrcode';
 import type { CatalogItem, Queue, QueuePlace, QueuePlaceStatus } from '../bipe/generated/business-api';
 import type { StringKey } from '../bipe/generated/strings';
 import { locale, s, timeText } from '../ui/i18n';
@@ -24,8 +25,12 @@ import {
   useAction,
   useLoad,
   useNames,
+  useWorkHost,
   type WorkScreenProps,
 } from './common';
+
+/** BipeProfileLink.queueURL on the phone: the counter QR code link of the queue (spec queue-customer). */
+const queueLink = (handle: string) => `https://bipe.chat/@${handle}?fila`;
 
 /** Action refresh: every 30 seconds while the screen shows (refreshEvery30Seconds on iOS). */
 const REFRESH_MS = 30_000;
@@ -194,6 +199,7 @@ export function QueueScreen({ client, onBack }: WorkScreenProps) {
   }
 
   const isOpen = queue?.open === true;
+  const [showsQr, setShowsQr] = useState(false);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-grouped-screen">
@@ -219,7 +225,10 @@ export function QueueScreen({ client, onBack }: WorkScreenProps) {
             </span>
           </label>
           <span className="text-body text-ink-secondary">{s('bipe_queue_waiting_count', String(waiting.length))}</span>
+          <SecondaryButton onClick={() => setShowsQr((on) => !on)}>{s('bipe_queue_qr_title')}</SecondaryButton>
         </div>
+
+        {showsQr && <CounterQr />}
 
         {act.error !== undefined && (
           <p role="alert" className="text-footnote text-trust-danger-ink">
@@ -482,5 +491,68 @@ function PolicyForm({
         </PrimaryButton>
       </div>
     </form>
+  );
+}
+
+/**
+ * Action showQr: a QR code of https://bipe.chat/@<handle>?fila with bipe_queue_qr_body, on a white field with a quiet
+ * zone (QueueViews.swift QueueQrView). Compartilhar shares the PNG where the browser can, else saves it, to print.
+ * A company without an @handle sees bipe_public_profile_needs_handle.
+ */
+function CounterQr() {
+  const host = useWorkHost();
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [handle, setHandle] = useState<string | null>();
+  useEffect(() => {
+    let live = true;
+    (host?.ownHandle() ?? Promise.resolve(undefined))
+      .catch(() => undefined)
+      .then((h) => live && setHandle(h ?? null));
+    return () => {
+      live = false;
+    };
+  }, [host]);
+  useEffect(() => {
+    const target = canvas.current;
+    if (!handle || !target) return;
+    void QRCode.toCanvas(target, queueLink(handle), { errorCorrectionLevel: 'M', margin: 2, scale: 8 }).then(() => {
+      // As in QrLogin.tsx: without the fixed inline size the canvas fills the white field.
+      target.style.removeProperty('width');
+      target.style.removeProperty('height');
+    });
+  }, [handle]);
+
+  const share = () => {
+    const target = canvas.current;
+    if (!target || !handle) return;
+    target.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `fila-${handle}.png`, { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: s('bipe_queue_qr_title') }).catch(() => undefined);
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+
+  if (handle === undefined) return <Spinner />;
+  if (handle === null) {
+    return <p className="text-center text-body text-ink-secondary">{s('bipe_public_profile_needs_handle')}</p>;
+  }
+  return (
+    <div className="flex flex-col items-center gap-4 rounded-2xl bg-grouped-cell p-6">
+      <h3 className="text-headline text-ink-primary">{s('bipe_queue_qr_title')}</h3>
+      <div className="w-full max-w-[320px] rounded-2xl bg-white p-4">
+        <canvas ref={canvas} className="block h-auto w-full [image-rendering:pixelated]" />
+      </div>
+      <p className="text-center text-body text-ink-secondary">{s('bipe_queue_qr_body')}</p>
+      <SecondaryButton onClick={share}>{s('bipe_app_share')}</SecondaryButton>
+    </div>
   );
 }

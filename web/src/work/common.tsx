@@ -6,7 +6,7 @@
 // fields and the two-column layout (a list next to its detail on a wide screen, one column on a narrow one).
 // The screens follow the same bipe-shared specs as the apps; these parts only carry the web layout.
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { s } from '../ui/i18n';
 import { Spinner } from '../ui/Spinner';
 import type { BookingCustomer } from '../bipe/generated/business-api';
@@ -210,4 +210,33 @@ const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' 
 /** A BRL amount in cents, as the apps show it: R$ 12,50. */
 export function money(cents: number): string {
   return brl.format(cents / 100);
+}
+
+// ---- the chat side ------------------------------------------------------------------------------------------------
+
+/**
+ * What the Trabalho screens need from the account's chats, set by WorkView: open the DM with a customer
+ * (openChat in agenda-owner-booking, order-owner and quote-builder), send a text into that DM from this
+ * browser (the close-day message, ADR 0102: the server sends nothing) and the company's own @handle (the queue
+ * QR code). sendText answers false when the message did not go.
+ */
+export type WorkHost = {
+  openChat: (userId: string) => void;
+  sendText: (userId: string, text: string) => Promise<boolean>;
+  ownHandle: () => Promise<string | undefined>;
+};
+
+const HostContext = createContext<WorkHost | undefined>(undefined);
+export const WorkHostProvider = HostContext.Provider;
+
+export function useWorkHost(): WorkHost | undefined {
+  return useContext(HostContext);
+}
+
+/** Action openChat: bipe_app_person_message for a signed-in customer; nothing for a name-only one. */
+export function OpenChatButton({ customer }: { customer: BookingCustomer | string }) {
+  const host = useWorkHost();
+  const userId = typeof customer === 'string' ? customer : 'user_id' in customer ? customer.user_id : undefined;
+  if (!host || !userId) return null;
+  return <TextButton onClick={() => host.openChat(userId)}>{s('bipe_app_person_message')}</TextButton>;
 }

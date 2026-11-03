@@ -178,7 +178,7 @@ private struct TrustStepRow: View {
                 Text(TrustText.title(step.id)).foregroundStyle(BipeColor.inkPrimary)
                 Text(TrustText.body(step.id, isCompany: isCompany)).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                 if step.status == .comingSoon {
-                    Text(BipeStrings.trustComingSoon).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                    Text(BipeStrings.trustComingSoon).font(.footnote).italic().foregroundStyle(BipeColor.inkDisabled)
                 }
             }
             Spacer()
@@ -186,6 +186,10 @@ private struct TrustStepRow: View {
                 // A check, never the Bipe seal (trust-ui.md): the status has an icon, not only a colour.
                 PhosphorIcon.checkCircle.image.resizable().frame(width: 22, height: 22)
                     .foregroundStyle(BipeColor.statusSuccess)
+                    .accessibilityHidden(true)
+            } else if step.status == .comingSoon {
+                PhosphorIcon.clock.image.resizable().frame(width: 22, height: 22)
+                    .foregroundStyle(BipeColor.inkDisabled)
                     .accessibilityHidden(true)
             }
         }

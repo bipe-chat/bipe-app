@@ -661,9 +661,10 @@ final class LinkComputerModel: ObservableObject {
         consent = nil
         let api = settings.api
         let since = startedAt
+        let kind: WebLinkKind = mode == .computer ? .computer : .phone
         do {
             try await settings.authorized { (token: String) async throws(BipeAPIError) in
-                try await api.finishWebLink(since: since, accessToken: token)
+                try await api.finishWebLink(since: since, kind: kind, accessToken: token)
             }
         } catch {
             NSLog("Bipe web-link finish failed")

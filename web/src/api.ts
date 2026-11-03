@@ -50,6 +50,14 @@ export function accountType(userId: string): Promise<'personal' | 'company' | un
   return hit;
 }
 
+/** Contract PublicProfile: what anyone with the exact handle sees. socials: network id → handle without @ (ADR 0228). */
+export type PublicProfile = { handle: string; name: string; bio?: string; photo_url?: string; socials?: Record<string, string> };
+
+/** GET /v1/profiles/{handle}. No auth. A 404 (no such handle, or the profile is off) is undefined. */
+export function publicProfile(handle: string): Promise<PublicProfile | undefined> {
+  return call<PublicProfile>(`/v1/profiles/${encodeURIComponent(handle)}`);
+}
+
 /** The OpenID-authenticated core routes of one account. */
 export class BipeApi {
   private openId?: OpenId;

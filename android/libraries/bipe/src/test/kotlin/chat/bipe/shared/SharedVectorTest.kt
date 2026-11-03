@@ -204,6 +204,26 @@ class SharedVectorTest {
         }
     }
 
+    /** Social handles on a public profile (ADR 0228): clean, problem and url for every case. */
+    @Test
+    fun socialHandles() {
+        val cases = vectors("social-handles.json", "cases")
+        assertWithMessage("social handle vectors").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val id = vector.string("platform")!!
+            val platform = BipeSocialHandles.platform(id)
+            assertWithMessage("platform $id").that(platform).isNotNull()
+            val input = vector.string("input")!!
+            val label = "$id \"$input\""
+            assertWithMessage("handle $label").that(BipeSocialHandles.clean(input)).isEqualTo(vector.string("handle"))
+            assertWithMessage("problem $label").that(BipeSocialHandles.problem(platform!!, input, vector.string("ownHandle"))?.id)
+                .isEqualTo(vector.string("problem"))
+            vector.string("url")?.let { url ->
+                assertWithMessage("url $label").that(BipeSocialHandles.url(platform, input)).isEqualTo(url)
+            }
+        }
+    }
+
     @Test
     fun pinReminderSchedule() {
         for (vector in vectors("onboarding-schedule.json", "pinReminder")) {

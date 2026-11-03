@@ -29,6 +29,7 @@ import {
   inputClass,
   LoadState,
   money,
+  OpenChatButton,
   PrimaryButton,
   SecondaryButton,
   SplitPane,
@@ -264,6 +265,9 @@ function OrderDetail({
           )}
         </li>
       </Section>
+      <div className="-mt-4">
+        <OpenChatButton customer={order.customer} />
+      </div>
 
       {refusing ? (
         <Section header={s('bipe_order_refuse_title')}>
@@ -645,10 +649,7 @@ function orderErrorText(e: unknown): string {
   }
 }
 
-/**
- * The customer of an order: the typed name. A signed-in customer shows the no-name placeholder, the phone's last
- * fallback (BusinessText.customer): WorkScreenProps carries no Matrix client to look up the display name.
- */
+/** The customer of an order: the typed name, or the signed-in customer's profile name (common.tsx customerName). */
 function customerText(c: BookingCustomer): string {
   return customerName(c);
 }

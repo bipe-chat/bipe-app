@@ -20,6 +20,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import chat.bipe.app.business.WorkScreen
 import chat.bipe.app.chatlist.ChatListModel
 import chat.bipe.app.chatlist.ChatListScreen
@@ -27,11 +29,13 @@ import chat.bipe.app.chatlist.ChatRequestsModel
 import chat.bipe.app.chatlist.ChatScope
 import chat.bipe.app.chatlist.ChatSearchModel
 import chat.bipe.app.chatlist.RemoteBannerModel
+import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeHaptic
 import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.app.people.PeopleRoute
 import chat.bipe.app.voce.VoceScreen
+import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeChatListPrompt
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
@@ -111,6 +115,13 @@ fun AppTabsScreen(
                 tabs.longPressVoce()
             },
             voceMenu = { AccountMenu(tabs, media, onNewAccount) },
+            // The current account's photo (centre-cropped to 1:1) or initial, like the iOS tab (MZ, 2 Nov 2026).
+            voceIcon = state.accounts.firstOrNull { it.isCurrent }?.let { account ->
+                {
+                    Avatar(account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }, account.avatarUrl,
+                        tabs.media(account.userId) ?: media, size = 28.dp, userId = account.userId, isCompany = account.isCompany)
+                }
+            },
         )
     }
 }

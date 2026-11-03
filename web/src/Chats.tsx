@@ -56,6 +56,7 @@ import { RequestScreen, RequestsList, requesterOf } from './Requests';
 import { ClientContext } from './media';
 import { Settings } from './Settings';
 import { businessClientFor } from './work/business-client';
+import { workHostFor } from './work/host';
 import { WorkView } from './work/WorkView';
 import { RoomTimeline } from './Timeline';
 import { Avatar, useIsCompany } from './ui/Avatar';
@@ -519,6 +520,7 @@ export function Chats({ client }: { client: Client }) {
                 onTool={(tool) => navigate({ kind: 'work', tool })}
                 onClose={() => setDetail(undefined)}
                 nameOf={(userId) => client.getProfile(userId).then((p) => p.displayName ?? undefined)}
+                host={workHostFor(client, (roomId) => navigate({ kind: 'chat', roomId }))}
               />
             ) : (
               // A personal account, or bipe-api has not answered yet: only the way back.
