@@ -166,7 +166,7 @@ fun GovbrVerifyScreen(session: AccountSession, api: BipeApiClient, onVerified: (
     }
     val save: (BipeGovbrFlow.Phase.WaitingForSignature) -> Unit = { current ->
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (saveToDownloads(context, current.pdf, current.fileName)) needsApp = !openGovbrApp(context)
+            app.scope.launch { if (saveToDownloads(context, current.pdf, current.fileName)) needsApp = !openGovbrApp(context) }
         } else {
             createDocument.launch(current.fileName)
         }
