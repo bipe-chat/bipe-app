@@ -14,7 +14,7 @@ import { isOfficial } from './registries';
 import { GroupDetails } from './GroupDetails';
 import type { ChatSummary } from './chat-model';
 import { ProfileFactsLines, useHandle } from './Trust';
-import { Avatar } from './ui/Avatar';
+import { Avatar, type AvatarMember } from './ui/Avatar';
 import { s } from './ui/i18n';
 import { NavBar, OfficialBadge, Row, Section } from './ui/List';
 import { useEscape } from './ui/keys';
@@ -69,16 +69,18 @@ function Header({
   badge,
   subtitle,
   userId,
+  members,
 }: {
   name: string;
   avatarUrl?: string;
   badge?: boolean;
   subtitle?: string;
   userId?: string;
+  members?: AvatarMember[];
 }) {
   return (
     <div className="flex flex-col items-center gap-1 py-2 text-center">
-      <Avatar name={name} size={96} mxcUrl={avatarUrl} userId={userId} />
+      <Avatar name={name} size={96} mxcUrl={avatarUrl} userId={userId} members={members} />
       <div className="mt-2 flex items-center gap-1.5">
         <h3 className="text-title2 text-ink-primary">{name}</h3>
         {badge && <OfficialBadge />}

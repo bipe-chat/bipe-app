@@ -370,7 +370,7 @@ export function RoomTimeline({
             aria-expanded={showsInfo}
             onClick={() => onInfo(!showsInfo)}
           >
-            <Avatar name={name} size={32} mxcUrl={face.avatarUrl} userId={face.peer?.userId} />
+            <Avatar name={name} size={32} mxcUrl={face.avatarUrl} userId={face.peer?.userId} members={face.members} />
             <h2 className="truncate text-headline text-ink-primary">{name}</h2>
           </button>
           {/* Buscar na conversa (spec chat-search with roomId). */}
