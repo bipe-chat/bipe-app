@@ -135,25 +135,6 @@ struct GovbrVerifyView: View {
     @ViewBuilder
     private var phaseContent: some View {
         switch flow.phase {
-        case .ready, .preparing:
-            Button { Task { await flow.start() } } label: {
-                HStack {
-                    if flow.phase == .preparing { ProgressView().tint(BipeColor.inkOnAccent) }
-                    Text(BipeStrings.govbrStart)
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bipeProminent)
-            .disabled(flow.phase == .preparing)
-        case .waitingForSignature:
-            Button { picksPDF = true } label: {
-                Text(BipeStrings.govbrAlreadySigned).frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bipeProminent)
-            Button { Task { await flow.start() } } label: {
-                Text(BipeStrings.govbrRetry).frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bipeBordered)
         case .checking:
             HStack(spacing: 12) {
                 ProgressView()
@@ -170,20 +151,51 @@ struct GovbrVerifyView: View {
                 Text(BipeStrings.appClose).frame(maxWidth: .infinity)
             }
             .buttonStyle(.bipeProminent)
-        case .rejected(let reason):
-            Text(Self.text(reason)).foregroundStyle(BipeColor.inkPrimary)
-            retryButton
-        case .failed:
-            Text(BipeStrings.errorGeneric).foregroundStyle(BipeColor.inkPrimary)
-            retryButton
+        default:
+            if case .rejected(let reason) = flow.phase {
+                Text(Self.text(reason)).foregroundStyle(BipeColor.inkPrimary)
+            } else if case .failed = flow.phase {
+                Text(BipeStrings.errorGeneric).foregroundStyle(BipeColor.inkPrimary)
+            }
+            // Spec govbr-verify (bipe-chat/bipe#1007): two numbered buttons in sequence. Neither replaces the other; the
+            // next step is the prominent one.
+            stepButton(1, BipeStrings.govbrDownload, next: !isWaiting, busy: flow.phase == .preparing, action: download)
+                .disabled(flow.phase == .preparing)
+            stepButton(2, BipeStrings.govbrUpload, next: isWaiting, busy: false) { picksPDF = true }
+                .disabled(!isWaiting)
         }
     }
 
-    private var retryButton: some View {
-        Button { Task { await flow.start() } } label: {
-            Text(BipeStrings.govbrRetry).frame(maxWidth: .infinity)
+    private var isWaiting: Bool {
+        if case .waitingForSignature = flow.phase { return true }
+        return false
+    }
+
+    /// Button 1: the open challenge again when there is one, else a new challenge (spec action download).
+    private func download() {
+        if isWaiting {
+            exportsPDF = true
+        } else {
+            Task { await flow.start() }
         }
-        .buttonStyle(.bipeProminent)
+    }
+
+    @ViewBuilder
+    private func stepButton(_ number: Int, _ title: String, next: Bool, busy: Bool, action: @escaping () -> Void) -> some View {
+        let label = HStack(spacing: 10) {
+            if busy {
+                ProgressView().tint(BipeColor.inkOnAccent)
+            } else {
+                Text(verbatim: "\(number)").font(.subheadline.monospacedDigit().bold())
+            }
+            Text(title)
+        }
+        .frame(maxWidth: .infinity)
+        if next {
+            Button(action: action) { label }.buttonStyle(.bipeProminent)
+        } else {
+            Button(action: action) { label }.buttonStyle(.bipeBordered)
+        }
     }
 
     private var pdfDocument: GovbrPDF? {
