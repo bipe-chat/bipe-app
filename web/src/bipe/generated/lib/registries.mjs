@@ -299,6 +299,8 @@ function validate(reg, phosphor) {
   const rn = reg.relationshipNames;
   if (rn.comparison !== "normalised-exact" || rn.fullNameMinimumWords !== 2 || rn.familyTerms !== "whole-words" || rn.confirmation !== "saved-label-and-verified-name") fail("relationship-names: unsupported ADR 0018 policy");
   if (reg.clearedChats.eventType !== "chat.bipe.cleared_chats") fail("cleared-chats: eventType must be chat.bipe.cleared_chats");
+  if (reg.chatFavourites.version !== 1 || reg.chatFavourites.orderEventType !== "chat.bipe.favourites_order") fail("chat-favourites: orderEventType must be chat.bipe.favourites_order");
+  if (!Number.isSafeInteger(reg.chatFavourites.orderMax) || reg.chatFavourites.orderMax < 1) fail("chat-favourites: orderMax must be a positive integer");
   const du = reg.dataUse;
   if (!Number.isInteger(du.budgetMegabytesPerDay) || du.budgetMegabytesPerDay < 1 || typeof du.dataSaverDefault !== "boolean") fail("data-use: budgetMegabytesPerDay must be a positive integer and dataSaverDefault a boolean");
   const bm = reg.brandMarks;
