@@ -798,6 +798,10 @@ public enum BipeStrings {
 
     public static var govbrRetry: String { NSLocalizedString("bipe_govbr_retry", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var govbrDownload: String { NSLocalizedString("bipe_govbr_download", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var govbrUpload: String { NSLocalizedString("bipe_govbr_upload", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var govbrGetApp: String { NSLocalizedString("bipe_govbr_get_app", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var govbrNoOpenVerification: String { NSLocalizedString("bipe_govbr_no_open_verification", tableName: "Bipe", bundle: .module, comment: "") }
