@@ -238,14 +238,28 @@ final class AccountSession {
         return (try? FileManager.default.createDirectory(at: index, withIntermediateDirectories: true)) != nil ? index : nil
     }
 
-    /// The data and cache folders of one store, made when missing.
+    /// The data and cache folders of one store, made when missing. Both `Sessions` folders stay out of iCloud and
+    /// computer backups: the store holds the Olm account, the room keys and the private cross-signing keys
+    /// (bipe-chat/bipe#913, ADR 0073).
     static func storePaths(folder: String) throws -> (data: URL, cache: URL) {
         let fileManager = FileManager.default
         let root = storeRoot()
-        let data = root.appendingPathComponent("Sessions", isDirectory: true).appendingPathComponent(folder, isDirectory: true)
-        let cache = root.appendingPathComponent("Library/Caches/Sessions", isDirectory: true).appendingPathComponent(folder, isDirectory: true)
+        let sessions = root.appendingPathComponent("Sessions", isDirectory: true)
+        let cachedSessions = root.appendingPathComponent("Library/Caches/Sessions", isDirectory: true)
+        let data = sessions.appendingPathComponent(folder, isDirectory: true)
+        let cache = cachedSessions.appendingPathComponent(folder, isDirectory: true)
         try fileManager.createDirectory(at: data, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: cache, withIntermediateDirectories: true)
+        excludeFromBackup(sessions)
+        excludeFromBackup(cachedSessions)
         return (data, cache)
+    }
+
+    private static func excludeFromBackup(_ folder: URL) {
+        var folder = folder
+        guard (try? folder.resourceValues(forKeys: [.isExcludedFromBackupKey]))?.isExcludedFromBackup != true else { return }
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? folder.setResourceValues(values)
     }
 }
