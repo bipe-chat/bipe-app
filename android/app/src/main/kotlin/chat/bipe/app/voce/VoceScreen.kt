@@ -78,7 +78,6 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     var openingNotes by remember { mutableStateOf(false) }
     var notesFailed by remember { mutableStateOf(false) }
     var showsMyBookings by rememberSaveable { mutableStateOf(false) }
-    var showsYearRecap by rememberSaveable { mutableStateOf(false) }
     val notesTitle = stringResource(R.string.bipe_self_chat_title)
     val openNotes: () -> Unit = {
         if (!openingNotes) {
@@ -97,6 +96,10 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     val trustProfile by trust.profile.collectAsState()
     SettingsHost(session, api, invites = tabs.invites(session), onClose = { tabs.selectTab(AppTabsModel.Tab.CONVERSAS) }, onSignedOut = { tabs.start.completeSignOut(session.userId) },
         onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles, trust = trust,
+        // Spec year-recap: the last row of Conversas e mídia opens it.
+        yearRecap = { back ->
+            BusinessFullScreen(onDismiss = back) { YearRecapScreen(session, tabs.chatList(session), onBack = back) }
+        },
         rootContent = { settings, openGroup, openPeople, openInvites, openRoute ->
             Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.VOCE.id), color = BipeTheme.colors.surfaceBase) {
                 LazyColumn(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
@@ -137,11 +140,6 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                             VoceRow(PhosphorIcon.CLOCK, stringResource(R.string.bipe_agenda_my_bookings), onClick = { showsMyBookings = true })
                         }
                     }
-                    // Spec voce openYearRecap (ADR 0223): counted on this phone only.
-                    item {
-                        VoceRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_year_recap_title),
-                            stringResource(R.string.bipe_year_recap_row_subtitle, YearRecap.year().toString()), onClick = { showsYearRecap = true })
-                    }
                     item { VoceSectionHeader(null) }
                     item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
                     SettingsRootSection(settings, openGroup)
@@ -171,11 +169,6 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     }
                 }
             })
-        }
-    }
-    if (showsYearRecap) {
-        BusinessFullScreen(onDismiss = { showsYearRecap = false }) {
-            YearRecapScreen(session, tabs.chatList(session), onBack = { showsYearRecap = false })
         }
     }
     if (notesFailed) {

@@ -60,7 +60,7 @@ public enum BipeSettingsGroup: String, CaseIterable, Sendable {
         case .privacy: [BipeSettingsSection(key: "talk", titleKey: "bipe_privacy_who_can_talk", footerKey: nil, rows: [.privacyMessaging, .privacyRequestPhotos, .privacyBlocked]), BipeSettingsSection(key: "find", titleKey: "bipe_privacy_who_can_find", footerKey: nil, rows: [.privacyNumber, .privacyDiscovery, .privacyContacts]), BipeSettingsSection(key: "see", titleKey: "bipe_privacy_what_others_see", footerKey: nil, rows: [.privacyPresence, .privacyReadReceipts]), BipeSettingsSection(key: "data", titleKey: "bipe_privacy_your_data", footerKey: nil, rows: [.privacyExport, .privacyWhatBipeKeeps, .privacyWhoCanRead]), BipeSettingsSection(key: "assistants", titleKey: "bipe_privacy_assistants", footerKey: nil, rows: [.privacyAssistantSend])]
         case .account: [BipeSettingsSection(key: "waysBack", titleKey: "bipe_fallback_title", footerKey: nil, rows: [.accountWaysBackStatus, .accountEmail, .accountLinkedAccounts, .accountRecoveryKey, .accountTheftProtection]), BipeSettingsSection(key: "pin", titleKey: "bipe_account_pin_lock_section", footerKey: "bipe_account_pin_footer", rows: [.accountChangePin, .accountAppLock, .accountBiometricUnlock]), BipeSettingsSection(key: "devices", titleKey: "bipe_account_devices", footerKey: nil, rows: [.accountLinkPhone, .accountLinkedDevices, .accountOldMessages]), BipeSettingsSection(key: "leave", titleKey: nil, footerKey: nil, rows: [.accountSignOut, .accountDelete])]
         case .notifications: []
-        case .chats: [BipeSettingsSection(key: "look", titleKey: "bipe_chats_appearance", footerKey: nil, rows: [.chatsAppearance, .chatsColors, .chatsAccessibility, .chatsLanguage]), BipeSettingsSection(key: "media", titleKey: "bipe_chats_photos_videos", footerKey: nil, rows: [.chatsShowMedia, .chatsMediaQuality, .chatsDataUse]), BipeSettingsSection(key: "more", titleKey: nil, footerKey: nil, rows: [.chatsStickerSuggestions, .chatsLiveLocation])]
+        case .chats: [BipeSettingsSection(key: "look", titleKey: "bipe_chats_appearance", footerKey: nil, rows: [.chatsAppearance, .chatsColors, .chatsAccessibility, .chatsLanguage]), BipeSettingsSection(key: "media", titleKey: "bipe_chats_photos_videos", footerKey: nil, rows: [.chatsShowMedia, .chatsMediaQuality, .chatsDataUse]), BipeSettingsSection(key: "more", titleKey: nil, footerKey: nil, rows: [.chatsStickerSuggestions, .chatsLiveLocation, .chatsYearRecap])]
         case .help: [BipeSettingsSection(key: "help", titleKey: nil, footerKey: nil, rows: [.helpDocs, .helpSupport, .helpReportProblem]), BipeSettingsSection(key: "about", titleKey: nil, footerKey: "bipe_about_steward", rows: [.helpTerms, .helpPrivacy, .helpLicenses, .helpVersions])]
         }
     }
@@ -124,6 +124,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
     case chatsDataUse = "chats.dataUse"
     case chatsStickerSuggestions = "chats.stickerSuggestions"
     case chatsLiveLocation = "chats.liveLocation"
+    case chatsYearRecap = "chats.yearRecap"
     case helpDocs = "help.docs"
     case helpSupport = "help.support"
     case helpReportProblem = "help.reportProblem"
@@ -171,6 +172,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .chatsDataUse: .link
         case .chatsStickerSuggestions: .switch
         case .chatsLiveLocation: .link
+        case .chatsYearRecap: .link
         case .helpDocs: .url
         case .helpSupport: .action
         case .helpReportProblem: .action
@@ -223,6 +225,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .chatsDataUse: "bipe_chats_data_use"
         case .chatsStickerSuggestions: "bipe_chats_sticker_suggestions"
         case .chatsLiveLocation: "bipe_chats_live_location"
+        case .chatsYearRecap: "bipe_year_recap_title"
         case .helpDocs: "bipe_help_center"
         case .helpSupport: "bipe_settings_support"
         case .helpReportProblem: "bipe_help_report_problem"
@@ -272,6 +275,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .chatsDataUse: nil
         case .chatsStickerSuggestions: NSLocalizedString("bipe_chats_sticker_suggestions_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .chatsLiveLocation: NSLocalizedString("bipe_chats_live_location_footer", tableName: "Bipe", bundle: .module, comment: "")
+        case .chatsYearRecap: nil
         case .helpDocs: nil
         case .helpSupport: nil
         case .helpReportProblem: nil
@@ -323,6 +327,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .chatsDataUse: nil
         case .chatsStickerSuggestions: "planned:841"
         case .chatsLiveLocation: nil
+        case .chatsYearRecap: nil
         case .helpDocs: nil
         case .helpSupport: nil
         case .helpReportProblem: nil

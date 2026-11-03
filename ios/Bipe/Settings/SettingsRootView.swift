@@ -12,6 +12,7 @@ enum SettingsRoute: Hashable {
     case group(BipeSettingsGroup)
     case support
     case notifications
+    case yearRecap
 }
 
 /// The settings stack. Until the Você tab (bipe-chat/bipe#567) is on main, chat-list opens it as a sheet; the Você tab
@@ -132,8 +133,9 @@ struct SettingsIconTile: View {
 }
 
 extension View {
-    /// The destinations of the settings stack.
-    func settingsDestinations(model: SettingsModel, onSignedOut: @escaping () -> Void) -> some View {
+    /// The destinations of the settings stack. The year recap needs the chat list (spec year-recap).
+    func settingsDestinations(model: SettingsModel, chatList: ChatListModel? = nil,
+                              onSignedOut: @escaping () -> Void) -> some View {
         navigationDestination(for: SettingsRoute.self) { route in
             switch route {
             case .group(let group):
@@ -142,6 +144,8 @@ extension View {
                 SupportOpenView(session: model.session, api: model.api)
             case .notifications:
                 NotificationSettingsView(session: model.session, api: model.api)
+            case .yearRecap:
+                if let chatList { YearRecapView(chatList: chatList) }
             }
         }
     }

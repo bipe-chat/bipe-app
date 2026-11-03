@@ -148,6 +148,7 @@ sealed interface SettingsRoute {
     data object TrustProfile : SettingsRoute
     data object BusinessClaim : SettingsRoute
     data object GovbrVerify : SettingsRoute
+    data object YearRecap : SettingsRoute
 }
 
 /**
@@ -164,6 +165,7 @@ fun SettingsHost(
     onOpenChat: (String) -> Unit = {},
     onProfileChanged: () -> Unit = {},
     trust: TrustCardModel? = null,
+    yearRecap: (@Composable (onBack: () -> Unit) -> Unit)? = null,
     rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit, (PeopleRoute) -> Unit, () -> Unit, (SettingsRoute) -> Unit) -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -246,6 +248,8 @@ fun SettingsHost(
             openSupport = { stack.add(SettingsRoute.Support) },
             onBack = pop,
         )
+        // Spec year-recap: opens from the last row of Conversas e mídia (MZ, 3 Nov 2026).
+        SettingsRoute.YearRecap -> yearRecap?.invoke(pop)
         SettingsRoute.AppColors -> AppColorsScreen(onBack = pop)
         SettingsRoute.Accessibility -> AccessibilitySettingsScreen(onBack = pop)
         // bipe-chat/bipe#676: appearance and media quality, kept on the phone.
@@ -428,6 +432,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.CHATS_ACCESSIBILITY -> onOpen(SettingsRoute.Accessibility)
             BipeSettingsRow.CHATS_DATA_USE -> onOpen(SettingsRoute.DataUse)
             BipeSettingsRow.CHATS_LIVE_LOCATION -> onOpen(SettingsRoute.LiveLocationDistance)
+            BipeSettingsRow.CHATS_YEAR_RECAP -> onOpen(SettingsRoute.YearRecap)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
             // The screens of the other rows come with their own specs (see settings-group notes).
             else -> Unit

@@ -5058,10 +5058,6 @@ public enum BipeStrings {
 
     public static var yearRecapTitle: String { NSLocalizedString("bipe_year_recap_title", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static func yearRecapRowSubtitle(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_year_recap_row_subtitle", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
     public static func yearRecapCardTitle(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_year_recap_card_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
