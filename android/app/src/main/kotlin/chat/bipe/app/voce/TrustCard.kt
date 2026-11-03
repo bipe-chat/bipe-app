@@ -30,6 +30,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.BuildConfig
@@ -257,12 +258,15 @@ private fun TrustStepRow(number: Int, step: BipeTrustProfile.Step, isCompany: Bo
             Text(stringResource(stepTitle(step.id)), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
             Text(stringResource(stepBody(step.id, isCompany)), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
             if (step.status == BipeTrustProfile.Status.COMING_SOON) {
-                Text(comingSoon, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+                Text(comingSoon, style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = colors.inkDisabled)
             }
         }
         if (done) {
             // A check, never the Bipe seal (trust-ui.md): the status has an icon, not only a colour.
             Icon(painterResource(PhosphorIcon.CHECK_CIRCLE.drawable), contentDescription = null, tint = colors.statusSuccess,
+                modifier = Modifier.size(22.dp))
+        } else if (step.status == BipeTrustProfile.Status.COMING_SOON) {
+            Icon(painterResource(PhosphorIcon.CLOCK.drawable), contentDescription = null, tint = colors.inkDisabled,
                 modifier = Modifier.size(22.dp))
         }
     }
