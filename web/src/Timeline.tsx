@@ -29,6 +29,7 @@ import {
 } from './phosphor/icons';
 import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
 import { ChatInfo } from './ChatInfo';
+import { PinnedBanner, usePinnedMessages } from './Pins';
 import { useRoomFace } from './room-face';
 import { itemRow, markRead, TimelineRowView, type MessageRow, type RowHandlers } from './TimelineRows';
 import { Alert } from './ui/Alert';
@@ -163,6 +164,22 @@ export function RoomTimeline({
   // With the read receipts switch off, DMs show no read ticks either (bipe_privacy_read_receipts_footer).
   const rows = face.isDirect && readReceiptsOn() ? markRead(itemRows) : itemRows;
   const typing = useTyping(room, ownUserId);
+  // Spec message-pins: groups only, with RoomPowerLevels.canOwnUserPinUnpin.
+  const isGroup = face.isDirect === false;
+  const pins = usePinnedMessages(room, isGroup);
+  const pinnedIds = new Set(pins.map((p) => p.eventId));
+  const [canPin, setCanPin] = useState(false);
+  useEffect(() => {
+    if (!isGroup) return setCanPin(false);
+    let stopped = false;
+    room
+      .getPowerLevels()
+      .then((levels) => !stopped && setCanPin(levels.canOwnUserPinUnpin()))
+      .catch(() => undefined);
+    return () => {
+      stopped = true;
+    };
+  }, [room, isGroup]);
   const ignored = useIgnoredUsers(client);
   const blocked = face.isDirect === true && face.peer !== undefined && ignored.has(face.peer.userId);
   const [unblocking, setUnblocking] = useState(false);
@@ -276,6 +293,18 @@ export function RoomTimeline({
         .then(() => setToast(s('bipe_app_copied')));
     },
     senders: (_row, pill) => setSheet({ kind: 'senders', pill }),
+    pinState: (row) => {
+      if (!canPin || !row.eventId || row.body === 'deleted') return undefined;
+      return pinnedIds.has(row.eventId) ? 'unpin' : 'pin';
+    },
+    togglePin: (row) => {
+      const t = timeline.current;
+      if (!t || !row.eventId) return;
+      (pinnedIds.has(row.eventId) ? t.unpinEvent(row.eventId) : t.pinEvent(row.eventId)).catch((e: unknown) => {
+        console.warn('[trace] pin failed', e);
+        setNote(s('bipe_error_generic'));
+      });
+    },
     retry: (row) => {
       row.provider
         .getSendHandle()
@@ -356,6 +385,18 @@ export function RoomTimeline({
             <Icon path={magnifyingGlass} size={22} />
           </button>
         </header>
+        {isGroup && (
+          <PinnedBanner
+            pins={pins}
+            jump={(eventId) => {
+              const el = document.getElementById(`ev-${eventId}`);
+              if (!el) return navigate({ kind: 'chat', roomId: room.id(), eventId });
+              el.scrollIntoView({ block: 'center' });
+              el.dataset.highlight = 'true';
+              setTimeout(() => delete el.dataset.highlight, 2000);
+            }}
+          />
+        )}
         {searching && (
           <ChatSearch
             rows={rows}

@@ -10,7 +10,8 @@
 // Structure (specs chat-list, chat-list-filters, chat-requests, chat-archive; ADR 0053): two scopes,
 // Conversas (DMs, with the Pedidos row on top) and Grupos (other joined rooms, group invites on top).
 // The apps switch them with the tab bar; the web has a segmented control under the title. Archived chats
-// leave both lists and show under the Arquivadas row at the end of each scope.
+// leave both lists and show under the Arquivadas row at the end of each scope. Favourites (m.favourite)
+// leave the list too and show as a grid of large avatars at its top.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { ChatArchive, useArchiveVersion } from './archive';
@@ -43,6 +44,7 @@ import {
   bell,
   check,
   info as infoIcon,
+  star,
   trash,
 } from './phosphor/icons';
 import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
@@ -80,6 +82,9 @@ type Detail =
 
 export function Chats({ client }: { client: Client }) {
   const [rooms, setRooms] = useState<Room[]>([]);
+  // The favourites stream: favourites beyond the loaded pages of the main list (ChatListModel tagStream).
+  const [favouriteRooms, setFavouriteRooms] = useState<Room[]>([]);
+  const [favouriteFailed, setFavouriteFailed] = useState(false);
   // The page comes from the URL (router.ts); the encryption sheet is an overlay without one.
   const route = useRoute();
   // Screens without a URL: the encryption sheet, Nova conversa and Novo grupo.
@@ -98,7 +103,11 @@ export function Chats({ client }: { client: Client }) {
   const [clearedVersion, setClearedVersion] = useState(0);
   const clearedMarker = useClearedChats(client, clearedVersion);
   const [sync, setSync] = useState<SyncState>({ kind: 'starting' });
-  const keep = useRef<{ sync?: SyncService; entries?: RoomListEntriesWithDynamicAdaptersResult }>({});
+  const keep = useRef<{
+    sync?: SyncService;
+    entries?: RoomListEntriesWithDynamicAdaptersResult;
+    favourites?: RoomListEntriesWithDynamicAdaptersResult;
+  }>({});
 
   useEffect(() => {
     let stopped = false;
@@ -115,6 +124,23 @@ export function Chats({ client }: { client: Client }) {
       keep.current.entries = entries;
       // NonLeft: joined rooms and invites. The scopes, requests and archive split them here.
       entries.controller().setFilter(new RoomListEntriesDynamicFilterKind.NonLeft());
+      const favourites = list.entriesWithDynamicAdapters(100, {
+        onUpdate(updates) {
+          if (!stopped)
+            setFavouriteRooms((prev) => applyDiffs(prev, updates, RoomListEntriesUpdate as unknown as DiffVariants));
+        },
+      });
+      keep.current.favourites = favourites;
+      favourites.controller().setFilter(
+        new RoomListEntriesDynamicFilterKind.All({
+          filters: [
+            new RoomListEntriesDynamicFilterKind.Joined(),
+            new RoomListEntriesDynamicFilterKind.NonSpace(),
+            new RoomListEntriesDynamicFilterKind.Favourite(),
+            new RoomListEntriesDynamicFilterKind.DeduplicateVersions(),
+          ],
+        }),
+      );
       console.info(`[trace] signed in as ${client.userId()}`);
       setSync({ kind: 'ready' });
     })().catch((e) => setSync({ kind: 'failed', message: describe(e) }));
@@ -124,7 +150,13 @@ export function Chats({ client }: { client: Client }) {
     };
   }, [client]);
 
-  const summaries = useChatSummaries(rooms);
+  // The main list first, then the favourites it has not loaded yet.
+  const allRooms = useMemo(() => {
+    const ids = new Set(rooms.map((r) => r.id()));
+    const extra = favouriteRooms.filter((r) => !ids.has(r.id()));
+    return extra.length === 0 ? rooms : [...rooms, ...extra];
+  }, [rooms, favouriteRooms]);
+  const summaries = useChatSummaries(allRooms);
   const archive = useMemo(() => new ChatArchive(client.userId()), [client]);
   useArchiveVersion(archive);
   useEffect(() => {
@@ -197,7 +229,15 @@ export function Chats({ client }: { client: Client }) {
   // Spec dm-delete: a cleared DM stays hidden until a message newer than its marker arrives.
   const cleared = (c: ChatSummary) =>
     c.kind === 'dm' && clearedChatHidden(clearedMarker(c.roomId), c.latest?.at ?? null);
-  const active = summaries.filter((c) => inScope(c) && !archive.isArchived(c.roomId) && !cleared(c));
+  const isFavourite = (c: ChatSummary) => c.info?.isFavourite === true;
+  // Spec chat-list favourites: the favourites of the scope that are not archived, in room list order.
+  const favourites = summaries.filter(
+    (c) => inScope(c) && isFavourite(c) && !archive.isArchived(c.roomId) && !cleared(c),
+  );
+  // A favourite shows in the row at the top, not again below it.
+  const active = summaries.filter(
+    (c) => inScope(c) && !isFavourite(c) && !archive.isArchived(c.roomId) && !cleared(c),
+  );
   const archived = summaries.filter((c) => inScope(c) && archive.isArchived(c.roomId) && !cleared(c));
   const requests = summaries.filter((c) => c.kind === 'request');
   const groupInvites = summaries.filter((c) => c.kind === 'groupInvite');
@@ -287,7 +327,17 @@ export function Chats({ client }: { client: Client }) {
     (c) => (c.kind === 'dm' || c.kind === 'group') && normalize(c.face.name).includes(needle),
   );
   const rows = searching ? found : showingArchived ? archived : active;
-  listed.current = rows;
+  const shownFavourites = searching || showingArchived ? [] : favourites;
+  listed.current = [...shownFavourites, ...rows];
+
+  /** Action setFavourite of spec chat-list: the m.favourite tag, so it syncs to the account's other devices. */
+  const setFavourite = (chat: ChatSummary, favourite: boolean) => {
+    setFavouriteFailed(false);
+    chat.room.setIsFavourite(favourite, undefined).catch((e: unknown) => {
+      console.warn('[trace] favourite failed', describe(e));
+      setFavouriteFailed(true);
+    });
+  };
 
   const rowActions = (chat: ChatSummary): MenuItem[] => {
     const info = chat.info;
@@ -317,6 +367,13 @@ export function Chats({ client }: { client: Client }) {
         run: () => archive.set(chat.room, !isArchived, chat.latest?.at),
       },
     ];
+    // Spec chat-row-actions favourite. The SDK drops m.lowpriority when it sets m.favourite: not for an archive.
+    if (!isArchived)
+      items.splice(1, 0, {
+        label: isFavourite(chat) ? s('bipe_chat_unfavourite_action') : s('bipe_chat_favourite_action'),
+        icon: star,
+        run: () => setFavourite(chat, !isFavourite(chat)),
+      });
     // A DM never leaves; its menu deletes (ADR 0141).
     if (chat.kind === 'dm')
       items.push({
@@ -417,6 +474,7 @@ export function Chats({ client }: { client: Client }) {
               <p className="text-footnote break-words text-ink-secondary">{sync.message}</p>
             </div>
           )}
+          {favouriteFailed && <p className="px-4 py-2 text-footnote text-trust-danger-ink">{s('bipe_error_generic')}</p>}
           {archive.failed && (
             <div className="flex items-center gap-3 px-4 py-2">
               <p className="min-w-0 flex-1 text-footnote text-trust-danger-ink">{s('bipe_archive_error')}</p>
@@ -430,10 +488,24 @@ export function Chats({ client }: { client: Client }) {
             onScroll={(e) => {
               // loadMore (spec chat-list): the next page when the end of the list is near.
               const el = e.currentTarget;
-              if (el.scrollTop + el.clientHeight > el.scrollHeight - 200)
+              if (el.scrollTop + el.clientHeight > el.scrollHeight - 200) {
                 keep.current.entries?.controller().addOnePage();
+                keep.current.favourites?.controller().addOnePage();
+              }
             }}
           >
+            {/* The first item of the list, above banners, requests and invites. */}
+            {shownFavourites.length > 0 && (
+              <FavouritesGrid
+                chats={shownFavourites}
+                openId={open?.id()}
+                onOpen={(chat) => openChat(chat.room)}
+                onMenu={(chat, e) => {
+                  e.preventDefault();
+                  setMenu({ chat, x: e.clientX, y: e.clientY });
+                }}
+              />
+            )}
             {!searching && !showingArchived && needsApproval(encryption) && !encryptionDismissed && (
               <EncryptionBanner
                 onOpen={() => setDetail({ kind: 'encryption' })}
@@ -659,6 +731,51 @@ function EntryRow({
           )}
         </span>
       </button>
+    </li>
+  );
+}
+
+// FavouritesGrid (ChatListView.swift; spec chat-list favourites): large avatars, three per line, the name
+// under each, an unread dot on the avatar. Right-click opens the same menu as a row.
+function FavouritesGrid({
+  chats,
+  openId,
+  onOpen,
+  onMenu,
+}: {
+  chats: ChatSummary[];
+  openId?: string;
+  onOpen: (chat: ChatSummary) => void;
+  onMenu: (chat: ChatSummary, e: MouseEvent) => void;
+}) {
+  return (
+    <li>
+      <ul aria-label={s('bipe_chat_favourites')} className="grid grid-cols-3 gap-x-3 gap-y-4 px-4 py-2">
+        {chats.map((chat) => {
+          const unread = Number(chat.info?.numUnreadMessages ?? 0) > 0 || chat.info?.isMarkedUnread === true;
+          const selected = openId === chat.roomId;
+          return (
+            <li key={chat.roomId}>
+              <button
+                type="button"
+                className={`flex w-full flex-col items-center gap-1.5 rounded-xl py-1 ${selected ? 'bg-accent-wash' : 'hover:bg-surface-raised'}`}
+                aria-current={selected || undefined}
+                aria-label={unread ? `${chat.face.name}, ${s('bipe_chat_unread_state')}` : chat.face.name}
+                onClick={() => onOpen(chat)}
+                onContextMenu={(e) => onMenu(chat, e)}
+              >
+                <span className="relative">
+                  <Avatar name={chat.face.name} size={72} mxcUrl={chat.face.avatarUrl} userId={chat.face.peer?.userId} />
+                  {unread && (
+                    <span className="absolute top-0 right-0 size-[14px] rounded-full border-2 border-surface-base bg-accent-fill" />
+                  )}
+                </span>
+                <span className="w-full truncate px-1 text-center text-caption text-ink-primary">{chat.face.name}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </li>
   );
 }
