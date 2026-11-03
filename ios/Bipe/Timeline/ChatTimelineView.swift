@@ -54,14 +54,17 @@ struct ChatTimelineView: View {
     private let roomId: String
     /// Spec chat-search openMessage: the message to scroll to after the chat opens.
     private let focusEventId: String?
+    /// Spec chat-row-actions sendMedia: the attachment choice to open once the chat shows.
+    private let startAttachment: AttachmentChoice?
     /// The account's people service, for the blocked bar of a DM (block-person). nil: no bar.
     private let people: PeopleService?
 
     /// threadRoot: the thread view of spec threads (bipe#667); nil for the main timeline.
     init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil,
          focusEventId: String? = nil, threadRoot: String? = nil, openInfo: (() -> Void)? = nil,
-         archive: ChatArchiveToggle? = nil) {
+         archive: ChatArchiveToggle? = nil, startAttachment: AttachmentChoice? = nil) {
         self.focusEventId = focusEventId
+        self.startAttachment = startAttachment
         _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId, threadRoot: threadRoot))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
         _pinned = StateObject(wrappedValue: PinnedMessagesModel(session: session, roomId: roomId))
@@ -263,6 +266,7 @@ struct ChatTimelineView: View {
             await model.start()
         }
         .task(id: model.isGroup) { if model.isGroup { await pinned.observe() } }
+        .task(id: startAttachment) { if let startAttachment { attaching = startAttachment } }
         // Spec chat-search openMessage (bipe#671): scroll to the message once the first rows are in.
         .task(id: focusEventId) {
             guard let focusEventId else { return }

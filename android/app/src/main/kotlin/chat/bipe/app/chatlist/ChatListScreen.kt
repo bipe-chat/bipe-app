@@ -184,6 +184,8 @@ fun HomeScreen(
     var openRoomId by rememberSaveable { mutableStateOf(initialRoomId) }
     // Spec chat-search openMessage (bipe-chat/bipe#671): the message the opened chat scrolls to.
     var focusEventId by rememberSaveable { mutableStateOf<String?>(null) }
+    /** Spec chat-row-actions sendMedia: the chat that opens with the photo picker. */
+    var sendMediaRoomId by rememberSaveable { mutableStateOf<String?>(null) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
     // invite-signed-in: a sign-up with someone else's invite from a link.
@@ -420,14 +422,16 @@ fun HomeScreen(
                     )
                     PeopleScreen(peopleStack.last(), people, withGroups)
                 } else if (roomId != null) {
-                    BackHandler { openRoomId = null; focusEventId = null }
+                    BackHandler { openRoomId = null; focusEventId = null; sendMediaRoomId = null }
                     val archiveMarkers by model.archive.markers.collectAsState()
                     ChatTimelineScreen(
                         session,
                         media,
                         roomId,
-                        onBack = { openRoomId = null; focusEventId = null },
+                        onBack = { openRoomId = null; focusEventId = null; sendMediaRoomId = null },
                         focusEventId = focusEventId,
+                        startPhotos = sendMediaRoomId == roomId,
+                        onStartPhotosUsed = { sendMediaRoomId = null },
                         onHistoryHelp = encryption::openSheet,
                         onOpenGroupDetails = groups.openGroupDetails,
                         onOpenInfo = {
@@ -470,7 +474,11 @@ fun HomeScreen(
                             showsBringPeople = true
                         },
                         onCreateGroup = groups.createGroup,
-                        onDeleteDm = groups.deleteDm,
+                        onSendMedia = {
+                            focusEventId = null
+                            sendMediaRoomId = it
+                            openRoomId = it
+                        },
                         onChatNotifications = groups.openNotifications,
                         onChatInfo = { chat ->
                             if (chat.isDm) chat.peerUserId?.let { navigation.push(PeopleRoute.PersonProfile(it, fromDm = true)) }
@@ -509,7 +517,8 @@ fun ChatListScreen(
     /** Spec chat-list-prompt: the entries the caller owns (approvePhone, recovery, pinReminder, bringPeopleReminder). */
     prompts: Map<BipeChatListPrompt, @Composable () -> Unit> = emptyMap(),
     onCreateGroup: () -> Unit = {},
-    onDeleteDm: (String) -> Unit = {},
+    /** Spec chat-row-actions sendMedia: opens the chat with the photo picker. */
+    onSendMedia: (String) -> Unit = {},
     onChatNotifications: (String) -> Unit = {},
     onChatInfo: (ChatSummary) -> Unit = {},
     onInvite: () -> Unit = {},
@@ -553,7 +562,7 @@ fun ChatListScreen(
         onRead = { model.setUnread(chat.roomId, !chat.isUnread) },
         onNotifications = { if (model.currentChat(chat.roomId) != null) onChatNotifications(chat.roomId) },
         onInfo = if (!chat.isDm || chat.peerUserId != null) ({ model.currentChat(chat.roomId)?.let(onChatInfo) }) else null,
-        onDelete = if (chat.isDm) ({ if (model.currentChat(chat.roomId)?.isDm == true) onDeleteDm(chat.roomId) }) else null,
+        onSendMedia = { if (model.currentChat(chat.roomId) != null) onSendMedia(chat.roomId) },
         onFavourite = if (archiveMarkers.containsKey(chat.roomId)) null else ({ model.setFavourite(chat.roomId, !chat.isFavourite) }),
         onReorder = if (chat.isFavourite && favourites.size >= 2 && !archiveMarkers.containsKey(chat.roomId)) ({ reorderingFavourites = true }) else null,
     )

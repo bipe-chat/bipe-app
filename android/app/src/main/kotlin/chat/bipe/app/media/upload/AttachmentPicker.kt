@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +61,9 @@ fun AttachmentMenu(
     onLocation: () -> Unit,
     /** Action poll: opens poll-create. null hides the row (canPoll false). */
     onPoll: (() -> Unit)?,
+    /** Spec chat-row-actions sendMedia: true opens the photo picker without the menu. */
+    openPhotos: Boolean = false,
+    onPhotosOpened: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -75,6 +79,12 @@ fun AttachmentMenu(
 
     val photos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(UploadPreviewModel.MAX_ITEMS)) { uris ->
         if (uris.isNotEmpty()) deliver(uris)
+    }
+    LaunchedEffect(openPhotos) {
+        if (openPhotos) {
+            onPhotosOpened()
+            photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+        }
     }
     val file = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) deliver(listOf(uri))
