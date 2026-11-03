@@ -86,7 +86,8 @@ final class GroupDetailsModel: ObservableObject {
             canEdit = levels.canOwnUserSendState(stateEvent: .roomName)
             canEditPhoto = levels.canOwnUserSendState(stateEvent: .roomAvatar)
             canInvite = levels.canOwnUserInvite()
-            canChangePrivacy = levels.canOwnUserSendState(stateEvent: .roomJoinRules)
+            // A moderator opens group-privacy to answer requests to join (spec group-details, bipe-chat/bipe#733).
+            canChangePrivacy = levels.canOwnUserSendState(stateEvent: .roomJoinRules) || levels.canOwnUserKick()
             canMakeGroupLink = levels.canOwnUserSendState(stateEvent: .roomPowerLevels)
         }
         notificationMode = await ChatNotificationsModel.currentMode(client: session.client, roomId: roomId)

@@ -154,6 +154,8 @@ struct RoomFacts {
     var deliveredEventIds: Set<String> = []
     /// False in a DM while the own read receipts switch is off: the read tick of the other person stays hidden.
     var showsOthersRead = true
+    /// Groups only: the admins and moderators by user ID (spec chat-timeline senderRole, bipe-chat/bipe#733).
+    var roles: [String: GroupRole] = [:]
 }
 
 /// Builds the rows of spec timeline-rows from the SDK timeline items, oldest first.
@@ -255,6 +257,7 @@ enum TimelineRowBuilder {
             // Spec timeline-rows nameAmbiguous: groups only; the SDK flag or a look-alike name among the members.
             base.senderNameAmbiguous = !event.isOwn && !facts.isDm
                 && (event.senderProfile.isNameAmbiguous || ambiguousSenders.contains(event.sender))
+            base.senderRole = event.isOwn || facts.isDm ? nil : facts.roles[event.sender]
             // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
             var mediaContent = MediaContent(content.kind)
             if case .media(var media) = mediaContent {

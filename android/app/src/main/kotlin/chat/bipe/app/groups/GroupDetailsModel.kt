@@ -98,7 +98,8 @@ class GroupDetailsModel(
                 _canEdit.value = levels.canOwnUserSendState(StateEventType.RoomName)
                 _canEditPhoto.value = levels.canOwnUserSendState(StateEventType.RoomAvatar)
                 _canInvite.value = levels.canOwnUserInvite()
-                _canChangePrivacy.value = levels.canOwnUserSendState(StateEventType.RoomJoinRules)
+                // A moderator opens group-privacy to answer requests to join (spec group-details, bipe-chat/bipe#733).
+                _canChangePrivacy.value = levels.canOwnUserSendState(StateEventType.RoomJoinRules) || levels.canOwnUserKick()
                 _canMakeGroupLink.value = levels.canOwnUserSendState(StateEventType.RoomPowerLevels)
             }
             _notificationMode.value = ChatNotificationsModel.currentMode(session.client, roomId)

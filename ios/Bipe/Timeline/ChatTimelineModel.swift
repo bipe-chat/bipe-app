@@ -55,6 +55,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var senderName: String
     /// Spec timeline-rows nameAmbiguous: another member of the room shows the same name (bipe-chat/bipe#825).
     var senderNameAmbiguous = false
+    /// Spec chat-timeline senderRole: admin or moderator, groups only.
+    var senderRole: GroupRole? = nil
     var isOwn: Bool
     var sentAt: Date
     var sendState: SendState
@@ -431,7 +433,9 @@ final class ChatTimelineModel: ObservableObject {
     }
 
     private func loadRoomFacts(_ room: Room) async {
+        var creators: [String] = []
         if let info = try? await room.roomInfo() {
+            creators = info.creators ?? []
             facts.isDm = info.isDm
             facts.joinedMembers = Int(info.joinedMembersCount)
             isGroup = !info.isDm && !info.isSpace
@@ -467,6 +471,7 @@ final class ChatTimelineModel: ObservableObject {
             canPost = powerLevels.canOwnUserSendMessage(message: .roomMessage)
             canPoll = !facts.isDm && powerLevels.canOwnUserSendMessage(message: .pollStart)
             canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
+            facts.roles = facts.isDm ? [:] : GroupPeople.staffRoles(levels: powerLevels.userPowerLevels(), creators: creators)
         }
         isDm = facts.isDm
         isEncrypted = facts.isEncrypted

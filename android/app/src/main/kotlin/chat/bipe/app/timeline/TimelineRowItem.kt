@@ -200,7 +200,7 @@ fun TimelineRowItem(
             Box(Modifier.clickable { onOpenPoll(poll.eventId) }) {
                 Bubble(message.isOwn) {
                     if (!message.isOwn && !isDm) {
-                        Text(memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
+                        Text(senderLabel(message), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
                     }
                     PollCard(poll)
                     MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))
@@ -360,7 +360,7 @@ private fun MessageBubbleRow(
                     },
             ) {
                 if (!message.isOwn && !isDm) {
-                    Text(memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
+                    Text(senderLabel(message), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
                 }
                 // Spec chat-timeline notes (bipe-chat/bipe#933): voice rows keep their own source line.
                 if (message.voice == null) BipeForwardMark.line(message.forwardCount)?.let { ForwardLine(it) }
@@ -625,7 +625,7 @@ private fun UndecryptableRow(message: TimelineMessage, onHistoryHelp: () -> Unit
     LaunchedEffect(message.id, encryption) { if (approvalCanHelp) encryption?.noteUndecryptable() }
     Bubble(message.isOwn, modifier = Modifier.testTag(BipeScreen.MESSAGE_UNDECRYPTABLE.id)) {
         if (!message.isOwn) {
-            Text(memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
+            Text(senderLabel(message), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(painterResource(PhosphorIcon.LOCK_SIMPLE.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(14.dp).padding(top = 2.dp))
@@ -668,5 +668,16 @@ private fun DeletedRow(message: TimelineMessage) {
             )
         }
         MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))
+    }
+}
+
+/** The sender line of a group row: [memberLabel] and the role (spec chat-timeline senderRole, bipe-chat/bipe#733). */
+@Composable
+private fun senderLabel(message: TimelineMessage): String {
+    val label = memberLabel(message.senderName, message.senderId, message.senderNameAmbiguous)
+    return when (message.senderRole) {
+        chat.bipe.app.groups.GroupRole.ADMIN -> "$label · ${stringResource(R.string.bipe_app_role_badge_admin)}"
+        chat.bipe.app.groups.GroupRole.MODERATOR -> "$label · ${stringResource(R.string.bipe_app_role_badge_moderator)}"
+        else -> label
     }
 }
