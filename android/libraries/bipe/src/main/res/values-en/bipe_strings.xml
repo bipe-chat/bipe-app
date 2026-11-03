@@ -305,9 +305,6 @@
     <string name="bipe_public_profile_bio_placeholder">Say a little about yourself</string>
     <string name="bipe_public_profile_photo_change">Change photo</string>
     <string name="bipe_public_profile_photo_remove">Remove photo</string>
-    <string name="bipe_public_profile_save">Save</string>
-    <string name="bipe_public_profile_saved">Profile saved.</string>
-    <string name="bipe_public_profile_share">Share profile</string>
     <string name="bipe_public_profile_name_empty">Add a name.</string>
     <string name="bipe_public_profile_name_too_long">Name too long. Use at most %1$s characters.</string>
     <string name="bipe_public_profile_bio_too_long">Bio too long. Use at most %1$s characters.</string>
@@ -935,7 +932,9 @@
     <string name="bipe_dm_files_empty">Files and audio from this chat appear here.</string>
     <string name="bipe_settings_section">Settings</string>
     <string name="bipe_settings_profile">Your profile</string>
-    <string name="bipe_settings_profile_name_photo">Name and photo</string>
+    <string name="bipe_profile_member_since">Member since</string>
+    <string name="bipe_profile_internal_id">Internal ID</string>
+    <string name="bipe_profile_internal_id_footer">Support may ask for this code. Tap it to copy.</string>
     <string name="bipe_settings_privacy">Privacy</string>
     <string name="bipe_settings_account">Your account</string>
     <string name="bipe_settings_notifications">Notifications</string>

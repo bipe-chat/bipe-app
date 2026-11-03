@@ -110,12 +110,11 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
             ),
             onBack = navigation.pop,
         )
-        PeopleRoute.ProfileEdit -> ProfileEditScreen(people, onBack = navigation.pop)
-        PeopleRoute.PublicProfile -> PublicProfileEditScreen(
+        PeopleRoute.ProfileEdit -> ProfileEditScreen(
             people,
+            onBack = navigation.pop,
             pickHandle = navigation.pickHandle,
             openLink = { navigation.push(PeopleRoute.ProfileLink) },
-            onBack = navigation.pop,
         )
         PeopleRoute.ProfileQr -> ProfileLinkScreen(people, pickHandle = navigation.pickHandle, onBack = navigation.pop, showQr = true)
         PeopleRoute.ProfileLink -> ProfileLinkScreen(people, pickHandle = navigation.pickHandle, onBack = navigation.pop)
@@ -178,8 +177,7 @@ fun PeopleMenu(open: (PeopleRoute) -> Unit) {
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         listOf(
-            Triple(PhosphorIcon.USER_CIRCLE, R.string.bipe_settings_profile_name_photo, PeopleRoute.ProfileEdit),
-            Triple(PhosphorIcon.USER_CIRCLE, R.string.bipe_settings_public_profile, PeopleRoute.PublicProfile),
+            Triple(PhosphorIcon.USER_CIRCLE, R.string.bipe_settings_profile, PeopleRoute.ProfileEdit),
             Triple(PhosphorIcon.QR_CODE, R.string.bipe_app_profile_link, PeopleRoute.ProfileLink),
             Triple(PhosphorIcon.ADDRESS_BOOK, R.string.bipe_contacts_title, PeopleRoute.Contacts),
             Triple(PhosphorIcon.CHAT_TEXT, R.string.bipe_messaging_title, PeopleRoute.WhoCanMessage),

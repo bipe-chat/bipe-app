@@ -238,6 +238,8 @@ data class BipeMyProfile(
     @SerialName("photo_source") val photoSource: String? = null,
     /** Social handles (ADR 0228), keyed by registries/profiles.json socials id. The contract sends `{}` when none. */
     @SerialName("socials") val socials: Map<String, String> = emptyMap(),
+    /** When the account signed up (ISO 8601). Absent for an account without a sign-up row. */
+    @SerialName("member_since") val memberSince: String? = null,
 )
 
 /** Contract `ProfileUpdate`. */

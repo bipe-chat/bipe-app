@@ -730,12 +730,6 @@ public enum BipeStrings {
 
     public static var publicProfilePhotoRemove: String { NSLocalizedString("bipe_public_profile_photo_remove", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var publicProfileSave: String { NSLocalizedString("bipe_public_profile_save", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var publicProfileSaved: String { NSLocalizedString("bipe_public_profile_saved", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var publicProfileShare: String { NSLocalizedString("bipe_public_profile_share", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static var publicProfileNameEmpty: String { NSLocalizedString("bipe_public_profile_name_empty", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func publicProfileNameTooLong(_ p1: String) -> String {
@@ -2180,7 +2174,11 @@ public enum BipeStrings {
 
     public static var settingsProfile: String { NSLocalizedString("bipe_settings_profile", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var settingsProfileNamePhoto: String { NSLocalizedString("bipe_settings_profile_name_photo", tableName: "Bipe", bundle: .module, comment: "") }
+    public static var profileMemberSince: String { NSLocalizedString("bipe_profile_member_since", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var profileInternalId: String { NSLocalizedString("bipe_profile_internal_id", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var profileInternalIdFooter: String { NSLocalizedString("bipe_profile_internal_id_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var settingsPrivacy: String { NSLocalizedString("bipe_settings_privacy", tableName: "Bipe", bundle: .module, comment: "") }
 

@@ -382,8 +382,8 @@ final class IgnoredUsersStream: IgnoredUsersListener {
 /// The people screens a navigation stack can push.
 enum PeopleRoute: Hashable {
     case person(userId: String, fromDm: Bool)
+    /// Spec profile-edit: Seu perfil, one screen.
     case profileEdit
-    case publicProfile
     case profileLink
     case profileQr
     case contacts

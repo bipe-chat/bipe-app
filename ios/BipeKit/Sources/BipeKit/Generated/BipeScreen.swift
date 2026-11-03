@@ -325,7 +325,7 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json
     case problemReport = "problem-report"
 
-    /// Your name and photo (flow profile). Spec: bipe-shared/product/screens/profile-edit.json
+    /// Seu perfil (flow profile). Spec: bipe-shared/product/screens/profile-edit.json
     case profileEdit = "profile-edit"
 
     /// Open a profile link (flow people). Spec: bipe-shared/product/screens/profile-link-open.json
@@ -333,9 +333,6 @@ public enum BipeScreen: String, CaseIterable, Sendable {
 
     /// Your link and QR code (flow profile). Spec: bipe-shared/product/screens/profile-link.json
     case profileLink = "profile-link"
-
-    /// Public profile (flow profile). Spec: bipe-shared/product/screens/public-profile-edit.json
-    case publicProfileEdit = "public-profile-edit"
 
     /// Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json
     case pushRegistration = "push-registration"

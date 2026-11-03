@@ -30,9 +30,6 @@ enum class BipeSettingsRow(
     val urlPt: String?,
     val urlEn: String?,
 ) {
-    PROFILE_NAME_PHOTO("profile.namePhoto", BipeSettingsRowKind.LINK, R.string.bipe_settings_profile_name_photo, null, null, null, null),
-    PROFILE_HANDLE("profile.handle", BipeSettingsRowKind.LINK, R.string.bipe_settings_handle, null, null, null, null),
-    PROFILE_PUBLIC_PROFILE("profile.publicProfile", BipeSettingsRowKind.LINK, R.string.bipe_settings_public_profile, null, null, null, null),
     PRIVACY_MESSAGING("privacy.messaging", BipeSettingsRowKind.CHOICE, R.string.bipe_settings_messaging, null, null, null, null),
     PRIVACY_REQUEST_PHOTOS("privacy.requestPhotos", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_requests_hide_photos, R.string.bipe_privacy_requests_hide_photos_footer, null, null, null),
     PRIVACY_BLOCKED("privacy.blocked", BipeSettingsRowKind.LINK, R.string.bipe_privacy_blocked, null, null, null, null),
@@ -120,7 +117,7 @@ enum class BipeSettingsGroup(
 
     val sections: List<BipeSettingsSection>
         get() = when (this) {
-            PROFILE -> listOf(BipeSettingsSection("main", null, null, listOf(BipeSettingsRow.PROFILE_NAME_PHOTO, BipeSettingsRow.PROFILE_HANDLE, BipeSettingsRow.PROFILE_PUBLIC_PROFILE)))
+            PROFILE -> listOf()
             PRIVACY -> listOf(BipeSettingsSection("talk", R.string.bipe_privacy_who_can_talk, null, listOf(BipeSettingsRow.PRIVACY_MESSAGING, BipeSettingsRow.PRIVACY_REQUEST_PHOTOS, BipeSettingsRow.PRIVACY_BLOCKED)), BipeSettingsSection("find", R.string.bipe_privacy_who_can_find, null, listOf(BipeSettingsRow.PRIVACY_NUMBER, BipeSettingsRow.PRIVACY_DISCOVERY, BipeSettingsRow.PRIVACY_CONTACTS)), BipeSettingsSection("see", R.string.bipe_privacy_what_others_see, null, listOf(BipeSettingsRow.PRIVACY_PRESENCE, BipeSettingsRow.PRIVACY_READ_RECEIPTS)), BipeSettingsSection("data", R.string.bipe_privacy_your_data, null, listOf(BipeSettingsRow.PRIVACY_EXPORT, BipeSettingsRow.PRIVACY_WHAT_BIPE_KEEPS, BipeSettingsRow.PRIVACY_WHO_CAN_READ)), BipeSettingsSection("assistants", R.string.bipe_privacy_assistants, null, listOf(BipeSettingsRow.PRIVACY_ASSISTANT_SEND)))
             ACCOUNT -> listOf(BipeSettingsSection("waysBack", R.string.bipe_fallback_title, null, listOf(BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS, BipeSettingsRow.ACCOUNT_EMAIL, BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS, BipeSettingsRow.ACCOUNT_RECOVERY_KEY, BipeSettingsRow.ACCOUNT_THEFT_PROTECTION)), BipeSettingsSection("pin", R.string.bipe_account_pin_lock_section, R.string.bipe_account_pin_footer, listOf(BipeSettingsRow.ACCOUNT_CHANGE_PIN, BipeSettingsRow.ACCOUNT_APP_LOCK, BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK)), BipeSettingsSection("devices", R.string.bipe_account_devices, null, listOf(BipeSettingsRow.ACCOUNT_LINK_PHONE, BipeSettingsRow.ACCOUNT_LINKED_DEVICES, BipeSettingsRow.ACCOUNT_OLD_MESSAGES)), BipeSettingsSection("leave", null, null, listOf(BipeSettingsRow.ACCOUNT_SIGN_OUT, BipeSettingsRow.ACCOUNT_DELETE)))
             NOTIFICATIONS -> listOf()
