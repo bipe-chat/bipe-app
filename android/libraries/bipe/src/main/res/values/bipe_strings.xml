@@ -2199,7 +2199,6 @@
     <string name="bipe_group_link_preview_count">Pessoas no grupo: %1$s. Toque para entrar.</string>
     <string name="bipe_groups_service_name">Bipe Grupos</string>
     <string name="bipe_year_recap_title">Seu ano no Bipe</string>
-    <string name="bipe_year_recap_row_subtitle">Seu %1$s em números, contado neste celular</string>
     <string name="bipe_year_recap_card_title">Meu %1$s no Bipe</string>
     <string name="bipe_year_recap_reading">Lendo as conversas deste celular: %1$s de %2$s</string>
     <string name="bipe_year_recap_on_device">O Bipe fez essas contas neste celular. Nada sai daqui até você compartilhar.</string>

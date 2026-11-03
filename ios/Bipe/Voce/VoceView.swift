@@ -21,7 +21,7 @@ struct VoceView: View {
     @State private var openingNotes = false
     @State private var notesFailed = false
     @State private var govbrFlow: BipeGovbrFlow?
-    private enum Destination: Hashable { case notes(String), invites, trust, myBookings, claim, yearRecap }
+    private enum Destination: Hashable { case notes(String), invites, trust, myBookings, claim }
 
     init(model: AppTabsModel, chatList: ChatListModel, api: BipeAPIClient, onNewAccount: @escaping () -> Void) {
         self.model = model
@@ -67,17 +67,6 @@ struct VoceView: View {
                             VoceTileLabel(icon: .clock, text: BipeStrings.agendaMyBookings)
                         }
                     }
-                    // Spec voce openYearRecap (ADR 0223): counted on this phone only.
-                    NavigationLink(value: Destination.yearRecap) {
-                        HStack(spacing: 12) {
-                            SettingsIconTile(icon: .chartBar)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(BipeStrings.yearRecapTitle).foregroundStyle(BipeColor.inkPrimary)
-                                Text(BipeStrings.yearRecapRowSubtitle(String(YearRecap.year())))
-                                    .font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
-                            }
-                        }
-                    }
                 }
                 Section {
                     NavigationLink(value: Destination.invites) {
@@ -86,10 +75,10 @@ struct VoceView: View {
                 }
                 SettingsRootSection(model: settings)
                 // Spec voce (MZ, 2 Nov 2026): no account rows; the Você tab switches (hold, double tap, VoiceOver
-                // action). Adicionar conta is the last row, plain accent text (spec account-new).
+                // action). Adicionar conta is the last row, with the same icon tile as every Você row (spec account-new).
                 Section {
                     Button(action: onNewAccount) {
-                        Text(BipeStrings.appAccountNew).foregroundStyle(BipeColor.accentInk)
+                        VoceTileLabel(icon: .plus, text: BipeStrings.appAccountNew)
                     }
                 }
             }
@@ -104,7 +93,7 @@ struct VoceView: View {
                     .accessibilityLabel(BipeStrings.profileQrAction)
                 }
             }
-            .settingsDestinations(model: settings) {
+            .settingsDestinations(model: settings, chatList: chatList) {
                 Task { await model.start.signOut(userId: chatList.session.userId, alreadyLoggedOut: true) }
             }
             .navigationDestination(for: Destination.self) { destination in
@@ -120,8 +109,6 @@ struct VoceView: View {
                     }
                 case .myBookings:
                     MyBookingsView(people: people, openChat: { path.append(Destination.notes($0)) })
-                case .yearRecap:
-                    YearRecapView(chatList: chatList)
                 case .claim:
                     BusinessClaimView(session: chatList.session, api: api) {
                         let isCompany = model.accounts.first(where: \.isCurrent)?.isCompany ?? false

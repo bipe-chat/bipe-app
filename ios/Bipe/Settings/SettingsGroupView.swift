@@ -320,6 +320,9 @@ struct SettingsGroupView: View {
             }
         case .helpSupport:
             NavigationLink(value: SettingsRoute.support) { SettingsRowLabel(title: row.title) }
+        // Spec settings-group (MZ, 3 Nov 2026): the year recap is the last row of Conversas e mídia (ADR 0223).
+        case .chatsYearRecap:
+            NavigationLink(value: SettingsRoute.yearRecap) { SettingsRowLabel(title: row.title) }
         case .accountOldMessages:
             if let encryption {
                 OldMessagesRow(model: encryption) { tapButton(row) }

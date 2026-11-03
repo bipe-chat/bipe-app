@@ -4,13 +4,7 @@
 
 package chat.bipe.app.voce
 
-import androidx.compose.ui.semantics.Role
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 
 import androidx.compose.foundation.layout.WindowInsets
@@ -45,20 +39,16 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.business.BusinessFullScreen
 import chat.bipe.app.business.MyBookingsScreen
-import chat.bipe.app.common.Avatar
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.common.MediaLoader
-import chat.bipe.app.tabs.AccountSummary
 import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.settings.SettingsHost
 import chat.bipe.app.settings.SettingsRoute
-import chat.bipe.app.settings.SettingsIconTile
 import chat.bipe.app.settings.SettingsRootSection
 import chat.bipe.app.people.PeopleRoute
 import chat.bipe.shared.generated.BipeSettingsGroup
@@ -78,7 +68,6 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     var openingNotes by remember { mutableStateOf(false) }
     var notesFailed by remember { mutableStateOf(false) }
     var showsMyBookings by rememberSaveable { mutableStateOf(false) }
-    var showsYearRecap by rememberSaveable { mutableStateOf(false) }
     val notesTitle = stringResource(R.string.bipe_self_chat_title)
     val openNotes: () -> Unit = {
         if (!openingNotes) {
@@ -97,6 +86,10 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
     val trustProfile by trust.profile.collectAsState()
     SettingsHost(session, api, invites = tabs.invites(session), onClose = { tabs.selectTab(AppTabsModel.Tab.CONVERSAS) }, onSignedOut = { tabs.start.completeSignOut(session.userId) },
         onOpenChat = onOpenChat, onProfileChanged = tabs::refreshProfiles, trust = trust,
+        // Spec year-recap: the last row of Conversas e mídia opens it.
+        yearRecap = { back ->
+            BusinessFullScreen(onDismiss = back) { YearRecapScreen(session, tabs.chatList(session), onBack = back) }
+        },
         rootContent = { settings, openGroup, openPeople, openInvites, openRoute ->
             Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.VOCE.id), color = BipeTheme.colors.surfaceBase) {
                 LazyColumn(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
@@ -137,24 +130,13 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                             VoceRow(PhosphorIcon.CLOCK, stringResource(R.string.bipe_agenda_my_bookings), onClick = { showsMyBookings = true })
                         }
                     }
-                    // Spec voce openYearRecap (ADR 0223): counted on this phone only.
-                    item {
-                        VoceRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_year_recap_title),
-                            stringResource(R.string.bipe_year_recap_row_subtitle, YearRecap.year().toString()), onClick = { showsYearRecap = true })
-                    }
                     item { VoceSectionHeader(null) }
                     item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
                     SettingsRootSection(settings, openGroup)
                     // Spec voce (MZ, 2 Nov 2026): no account rows; the Você tab switches (hold, double tap, TalkBack
-                    // action). Adicionar conta is the last row, plain accent text (spec account-new).
+                    // action). Adicionar conta is the last row, with the same icon tile as every Você row (spec account-new).
                     item { VoceSectionHeader(null) }
-                    item {
-                        ListItem(
-                            headlineContent = { Text(stringResource(R.string.bipe_app_account_new), color = BipeTheme.colors.accentInk) },
-                            colors = ListItemDefaults.colors(containerColor = BipeTheme.colors.surfaceBase),
-                            modifier = Modifier.clickable(onClick = onNewAccount),
-                        )
-                    }
+                    item { VoceRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_app_account_new), onClick = onNewAccount) }
                 }
             }
         })
@@ -173,11 +155,6 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
             })
         }
     }
-    if (showsYearRecap) {
-        BusinessFullScreen(onDismiss = { showsYearRecap = false }) {
-            YearRecapScreen(session, tabs.chatList(session), onBack = { showsYearRecap = false })
-        }
-    }
     if (notesFailed) {
         AlertDialog(onDismissRequest = { notesFailed = false },
             text = { Text(stringResource(R.string.bipe_self_chat_error)) },
@@ -185,60 +162,3 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
             dismissButton = { TextButton(onClick = { notesFailed = false }) { Text(stringResource(R.string.bipe_app_cancel)) } })
     }
 }
-
-/** Spec voce profile row (bipe-chat/bipe#988): avatar, name and @ in one full-width row that opens Seu perfil. */
-@Composable
-private fun VoceProfileRow(account: AccountSummary, media: MediaLoader, openProfile: () -> Unit) {
-    val colors = BipeTheme.colors
-    val hint = stringResource(R.string.bipe_settings_profile)
-    ListItem(
-        headlineContent = {
-            Text(account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }, style = MaterialTheme.typography.titleLarge,
-                color = colors.inkPrimary)
-        },
-        supportingContent = account.handle?.let { handle -> @Composable { Text("@$handle", color = colors.inkSecondary) } },
-        leadingContent = { Avatar(account.displayName, account.avatarUrl, media, size = 56.dp, userId = account.userId, isCompany = account.isCompany) },
-        colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
-        modifier = Modifier.clickable(onClickLabel = hint, onClick = openProfile),
-    )
-}
-
-@Composable
-private fun VoceSectionHeader(title: String?) {
-    if (title == null) {
-        Spacer(Modifier.size(8.dp))
-        return
-    }
-    Text(title, style = MaterialTheme.typography.labelLarge, color = BipeTheme.colors.accentInk,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp))
-}
-
-/**
- * A Material 3 list item for the rows of Você above Configurações: the settings icon tile (spec voce), or a plain
- * glyph in [tint] when [tile] is false.
- */
-@Composable
-private fun VoceRow(
-    icon: PhosphorIcon,
-    title: String,
-    subtitle: String? = null,
-    tint: Color = BipeTheme.colors.glyphPrimary,
-    titleColor: Color = BipeTheme.colors.inkPrimary,
-    tile: Boolean = true,
-    enabled: Boolean = true,
-    trailing: (@Composable () -> Unit)? = null,
-    onClick: () -> Unit,
-) {
-    val colors = BipeTheme.colors
-    ListItem(
-        headlineContent = { Text(title, color = titleColor) },
-        supportingContent = subtitle?.let { text -> @Composable { Text(text, color = colors.inkSecondary) } },
-        leadingContent = {
-            if (tile) SettingsIconTile(icon) else Icon(painterResource(icon.drawable), contentDescription = null, tint = tint)
-        },
-        trailingContent = trailing,
-        colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
-        modifier = Modifier.clickable(enabled = enabled, onClick = onClick),
-    )
-}
-
