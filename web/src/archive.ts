@@ -13,6 +13,9 @@ import { chatArchiveSync } from './bipe/generated/lib/registries.mjs';
 import { chatArchive } from './bipe/generated/registries.json';
 import type { RoomLike as Room } from './generated/matrix_sdk_ffi';
 
+/** The localStorage key of one account's markers; sign-out removes it (sdk.ts). */
+export const archiveKey = (userId: string) => `bipe.chat-archive.v1.${userId}`;
+
 type Stored = { markers: Record<string, number>; synced: string[] };
 type Action = { room: Room; archived: boolean; marker: number | null };
 export type ArchiveInput = {
@@ -38,7 +41,7 @@ export class ChatArchive {
   private readonly key: string;
 
   constructor(userId: string) {
-    this.key = `bipe.chat-archive.v1.${userId}`;
+    this.key = archiveKey(userId);
     this.reload();
   }
 
