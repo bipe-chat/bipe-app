@@ -4,7 +4,8 @@
 
 // One summary per room of the SDK room list (ChatSummary on iOS): RoomInfo and the latest event, read
 // again each time the room list hands over a new Room for that row (the SDK sends a Set when the room
-// changes). The order stays the SDK's: newest activity first.
+// changes), and the row (time and text) from those and the room's local timeline (row-activity.ts).
+// The order stays the SDK's: newest activity first.
 
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -14,8 +15,11 @@ import {
   type RoomInfo,
   type RoomLike as Room,
   type TimelineItemContent,
+  type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
 import { faceOf, type RoomFace } from './room-face';
+import { localEvents, resolveRow, RoomTimelines, type Row } from './row-activity';
+import { rowPreview } from './row-preview';
 
 export type Latest = {
   at: number;
@@ -32,7 +36,9 @@ export type ChatSummary = {
   roomId: string;
   info?: RoomInfo;
   face: RoomFace;
+  /** The SDK latest event, for notifications. The list shows `row`. */
   latest?: Latest;
+  row: Row;
   kind: ChatKind;
 };
 
@@ -72,17 +78,24 @@ export function kindOf(info: RoomInfo | undefined): ChatKind {
   return info.isDm ? 'dm' : 'group';
 }
 
-export function useChatSummaries(rooms: Room[]): ChatSummary[] {
-  const loaded = useRef(new Map<string, { room: Room; info?: RoomInfo; latest?: Latest }>());
+type Entry = { room: Room; info?: RoomInfo; latest?: Latest };
+
+export function useChatSummaries(rooms: Room[], ownUserId: string): ChatSummary[] {
+  const loaded = useRef(new Map<string, Entry>());
   const mounted = useRef(true);
   const [, setVersion] = useState(0);
+  const [timelines] = useState(() => new RoomTimelines(() => mounted.current && setVersion((v) => v + 1)));
+  // The last row of each room, from the inputs it came from: a row changes only when they do.
+  const rows = useRef(new Map<string, { entry?: Entry; items?: TimelineItem[]; row: Row }>());
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      timelines.dispose();
     };
-  }, []);
+  }, [timelines]);
   useEffect(() => {
+    timelines.watch(rooms);
     for (const room of rooms) {
       const id = room.id();
       const seen = loaded.current.get(id);
@@ -97,16 +110,26 @@ export function useChatSummaries(rooms: Room[]): ChatSummary[] {
         })
         .catch((e: unknown) => console.warn('[trace] room info failed', id, e));
     }
-  }, [rooms]);
+  }, [rooms, timelines]);
   return rooms.map((room) => {
     const id = room.id();
     const entry = loaded.current.get(id);
+    const items = timelines.items(id);
+    let last = rows.current.get(id);
+    if (!last || last.entry !== entry || last.items !== items) {
+      const isDm = entry?.info?.isDm ?? false;
+      const latest = entry?.latest;
+      const sdk = latest && { at: latest.at, isOwn: latest.isOwn, preview: rowPreview(latest, isDm, ownUserId) };
+      last = { entry, items, row: resolveRow(sdk, localEvents(items ?? [], isDm, ownUserId), last?.row) };
+      rows.current.set(id, last);
+    }
     return {
       room,
       roomId: id,
       info: entry?.info,
       face: faceOf(room, entry?.info),
       latest: entry?.latest,
+      row: last.row,
       kind: kindOf(entry?.info),
     };
   });

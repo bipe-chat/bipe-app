@@ -52,7 +52,7 @@ import { bannerDismissed, EncryptionBanner, EncryptionSheet, needsApproval, useE
 import { isOfficial } from './registries';
 import { navigate, useRoute } from './router';
 import { useEscape } from './ui/keys';
-import { rowPreview, rowTime } from './row-preview';
+import { rowTime } from './row-preview';
 import { NavBar, OfficialBadge } from './ui/List';
 import { RequestScreen, RequestsList, requesterOf } from './Requests';
 import { ClientContext } from './media';
@@ -176,7 +176,7 @@ export function Chats({ client }: { client: Client }) {
       });
   }, [allRooms]);
 
-  const summaries = useChatSummaries(allRooms);
+  const summaries = useChatSummaries(allRooms, client.userId());
   const archive = useMemo(() => new ChatArchive(client.userId()), [client]);
   useArchiveVersion(archive);
   useEffect(() => {
@@ -187,10 +187,8 @@ export function Chats({ client }: { client: Client }) {
           room: c.room,
           roomId: c.roomId,
           serverArchived: c.info?.isLowPriority ?? false,
-          activity: c.latest?.at,
-          // TODO: iOS reads the newest incoming message from the local timeline (RowActivityScanner); the
-          // web takes the SDK latest event when someone else sent it.
-          incoming: c.latest && !c.latest.isOwn ? c.latest.at : undefined,
+          activity: c.row.at,
+          incoming: c.row.incomingAt,
         })),
     );
   }, [summaries, archive]);
@@ -248,7 +246,7 @@ export function Chats({ client }: { client: Client }) {
   const inScope = (c: ChatSummary) => (scope === 'conversas' ? c.kind === 'dm' : c.kind === 'group');
   // Spec dm-delete: a cleared DM stays hidden until a message newer than its marker arrives.
   const cleared = (c: ChatSummary) =>
-    c.kind === 'dm' && clearedChatHidden(clearedMarker(c.roomId), c.latest?.at ?? null);
+    c.kind === 'dm' && clearedChatHidden(clearedMarker(c.roomId), c.row.at ?? null);
   const isFavourite = (c: ChatSummary) => c.info?.isFavourite === true;
   // Spec chat-list favourites: the favourites of the scope that are not archived, in room list order.
   const favourites = summaries.filter(
@@ -384,7 +382,7 @@ export function Chats({ client }: { client: Client }) {
       {
         label: isArchived ? s('bipe_unarchive_action') : s('bipe_archive_action'),
         icon: archiveIcon,
-        run: () => archive.set(chat.room, !isArchived, chat.latest?.at),
+        run: () => archive.set(chat.room, !isArchived, chat.row.at),
       },
     ];
     // Spec chat-row-actions favourite. The SDK drops m.lowpriority when it sets m.favourite: not for an archive.
@@ -567,7 +565,6 @@ export function Chats({ client }: { client: Client }) {
               <ChatRow
                 key={chat.roomId}
                 chat={chat}
-                ownUserId={ownUserId}
                 selected={open?.id() === chat.roomId}
                 onOpen={() => openChat(chat.room)}
                 onMenu={(e) => {
@@ -663,7 +660,7 @@ export function Chats({ client }: { client: Client }) {
       {sheet?.kind === 'delete' && (
         <DmDeleteAlert
           room={sheet.chat.room}
-          latestTs={sheet.chat.latest?.at ?? 0}
+          latestTs={sheet.chat.row.at ?? 0}
           onClose={() => setSheet(undefined)}
           onDone={() => {
             setSheet(undefined);
@@ -905,20 +902,17 @@ function ChatMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuI
 // unread count (or the marked-unread dot) on the second. The separator starts at the text.
 function ChatRow({
   chat,
-  ownUserId,
   selected,
   onOpen,
   onMenu,
 }: {
   chat: ChatSummary;
-  ownUserId: string;
   selected: boolean;
   onOpen: () => void;
   onMenu: (e: MouseEvent) => void;
 }) {
   const { name, avatarUrl } = chat.face;
   const info = chat.info;
-  const preview = rowPreview(chat.latest, chat.kind === 'dm', ownUserId);
   const unread = Number(info?.numUnreadMessages ?? 0);
   const mentions = Number(info?.numUnreadMentions ?? 0);
   const muted = info?.cachedUserDefinedNotificationMode === RoomNotificationMode.Mute;
@@ -936,18 +930,18 @@ function ChatRow({
           <span className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1 truncate text-headline text-ink-primary">{name}</span>
             {isOfficial(chat.face.peer?.userId) && <OfficialBadge />}
-            {chat.latest && (
+            {chat.row.at !== undefined && (
               <time
                 className="shrink-0 text-caption text-ink-secondary tabular-nums"
-                dateTime={new Date(chat.latest.at).toISOString()}
+                dateTime={new Date(chat.row.at).toISOString()}
               >
-                {rowTime(chat.latest.at)}
+                {rowTime(chat.row.at)}
               </time>
             )}
           </span>
           <span className="flex items-center gap-2">
             <span className="line-clamp-2 min-w-0 flex-1 text-subheadline break-words text-ink-secondary">
-              {preview ?? ''}
+              {chat.row.preview ?? ''}
             </span>
             {muted && (
               <Icon

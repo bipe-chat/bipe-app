@@ -1385,7 +1385,7 @@
          {
           "field": "badgeStatus"
          },
-         "master_key_mismatch"
+         "device_mismatch"
         ]
        },
        {
@@ -5480,6 +5480,16 @@
    "bipe_app_group_member_make_moderator": "Tornar moderador do grupo",
    "bipe_app_group_member_remove_moderator": "Remover como moderador",
    "bipe_app_group_roles_custom": "Outro app mudou as permissões deste grupo. O Bipe mostra a função mais próxima de cada pessoa.",
+   "bipe_app_state_made_admin": "%1$s tornou %2$s admin do grupo",
+   "bipe_app_state_made_moderator": "%1$s tornou %2$s moderador do grupo",
+   "bipe_app_state_removed_admin": "%1$s tirou %2$s de admin do grupo",
+   "bipe_app_state_removed_moderator": "%1$s tirou %2$s de moderador do grupo",
+   "bipe_app_role_badge_admin": "admin",
+   "bipe_app_role_badge_moderator": "moderador",
+   "bipe_app_group_roles_title": "Funções",
+   "bipe_app_group_role_admin_body": "Admin: muda as funções, o nome, a foto e a descrição do grupo, e pode avisar todos.",
+   "bipe_app_group_role_moderator_body": "Moderador: remove e bane pessoas, apaga mensagens de qualquer pessoa e fixa mensagens.",
+   "bipe_app_group_role_member_body": "Membro: escreve, reage e responde.",
    "bipe_app_group_member_remove": "Remover do grupo",
    "bipe_app_group_member_remove_body": "%1$s sai do grupo e pode voltar com um convite novo.",
    "bipe_app_group_member_ban": "Banir do grupo",
@@ -7770,6 +7780,16 @@
    "bipe_app_group_member_make_moderator": "Make group moderator",
    "bipe_app_group_member_remove_moderator": "Remove as moderator",
    "bipe_app_group_roles_custom": "Another app changed the permissions of this group. Bipe shows the closest role for each person.",
+   "bipe_app_state_made_admin": "%1$s made %2$s a group admin",
+   "bipe_app_state_made_moderator": "%1$s made %2$s a group moderator",
+   "bipe_app_state_removed_admin": "%1$s removed %2$s as group admin",
+   "bipe_app_state_removed_moderator": "%1$s removed %2$s as group moderator",
+   "bipe_app_role_badge_admin": "admin",
+   "bipe_app_role_badge_moderator": "moderator",
+   "bipe_app_group_roles_title": "Roles",
+   "bipe_app_group_role_admin_body": "Admin: changes the roles and the group's name, photo and description, and can notify everyone.",
+   "bipe_app_group_role_moderator_body": "Moderator: removes and bans people, deletes anyone's messages and pins messages.",
+   "bipe_app_group_role_member_body": "Member: writes, reacts and replies.",
    "bipe_app_group_member_remove": "Remove from group",
    "bipe_app_group_member_remove_body": "%1$s leaves the group and can come back with a new invite.",
    "bipe_app_group_member_ban": "Ban from group",

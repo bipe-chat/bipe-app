@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 
@@ -83,7 +84,47 @@ enum GroupPeople {
     }
 
     static func isAdmin(_ member: RoomMember) -> Bool {
-        member.suggestedRoleForPowerLevel == .creator || member.suggestedRoleForPowerLevel == .administrator
+        role(member) == .admin
+    }
+
+    /// Spec group-members GroupMember.role: a level between two roles shows the lower one.
+    static func role(_ member: RoomMember) -> GroupRole {
+        if member.suggestedRoleForPowerLevel == .creator { return .admin }
+        let level = level(member.powerLevel)
+        if level >= BipeGroupPowerLevels.admin { return .admin }
+        if level >= BipeGroupPowerLevels.moderator { return .moderator }
+        return .member
+    }
+
+    /// The m.room.power_levels of a new group (spec group-create notes, bipe-chat/bipe#733). The users map stays
+    /// empty, so the server keeps the creator at the top.
+    static var newGroupPowerLevels: PowerLevels {
+        PowerLevels(usersDefault: Int32(BipeGroupPowerLevels.usersDefault),
+                    eventsDefault: Int32(BipeGroupPowerLevels.eventsDefault),
+                    stateDefault: Int32(BipeGroupPowerLevels.stateDefault),
+                    ban: Int32(BipeGroupPowerLevels.ban),
+                    kick: Int32(BipeGroupPowerLevels.kick),
+                    redact: Int32(BipeGroupPowerLevels.redact),
+                    invite: Int32(BipeGroupPowerLevels.invite),
+                    notifications: NotificationPowerLevels(room: Int32(BipeGroupPowerLevels.notificationsRoom)),
+                    users: [:],
+                    events: BipeGroupPowerLevels.events.mapValues { Int32($0) })
+    }
+}
+
+/// The three roles of a group (spec group-members, bipe-chat/bipe#733).
+enum GroupRole: Equatable {
+    case admin
+    case moderator
+    case member
+
+    /// Sort order in the members list: admins first.
+    var rank: Int {
+        switch self {
+        case .admin: 0
+        case .moderator: 1
+        case .member: 2
+        }
     }
 }
 

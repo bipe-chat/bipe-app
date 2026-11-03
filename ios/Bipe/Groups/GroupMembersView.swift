@@ -38,6 +38,13 @@ struct GroupMembersView: View {
                     }
                 }
             }
+            if model.customRoles {
+                Section {
+                    Text(BipeStrings.appGroupRolesCustom)
+                        .font(.footnote)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                }
+            }
             if model.loading {
                 ProgressView().frame(maxWidth: .infinity)
             }
@@ -128,8 +135,8 @@ struct GroupMembersView: View {
                     Text(BipeStrings.appYou)
                         .font(.footnote)
                         .foregroundStyle(BipeColor.inkSecondary)
-                } else if member.isAdmin {
-                    Text(BipeStrings.appGroupAdmin)
+                } else if member.role != .member {
+                    Text(member.isAdmin ? BipeStrings.appGroupAdmin : BipeStrings.appGroupModerator)
                         .font(.footnote)
                         .foregroundStyle(BipeColor.accentInk)
                 }
@@ -143,6 +150,8 @@ struct GroupMembersView: View {
         case .viewProfile: BipeStrings.appGroupMemberProfile
         case .makeAdmin: BipeStrings.appGroupMemberMakeAdmin
         case .removeAdmin: BipeStrings.appGroupMemberRemoveAdmin
+        case .makeModerator: BipeStrings.appGroupMemberMakeModerator
+        case .removeModerator: BipeStrings.appGroupMemberRemoveModerator
         case .remove: BipeStrings.appGroupMemberRemove
         case .ban: BipeStrings.appGroupMemberBan
         case .unban: BipeStrings.appGroupMemberUnban

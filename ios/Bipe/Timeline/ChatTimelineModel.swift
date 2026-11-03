@@ -269,6 +269,9 @@ final class ChatTimelineModel: ObservableObject {
     private var typingUserIds: [String] = []
     private var handleChangesTask: Task<Void, Never>?
     private var factsTask: Task<Void, Never>?
+    /// Reads the timeline diffs. Not the view's task: SwiftUI cancels that one when the screen goes off screen for a
+    /// pushed screen or a cover, and start() runs once, so new messages would stop until the chat opened again.
+    private var diffsTask: Task<Void, Never>?
     private var factsStale = false
     /// Spec read-receipts: a new delivered ack for this room rebuilds the ticks.
     private var deliveredChanges: AnyCancellable?
@@ -293,6 +296,7 @@ final class ChatTimelineModel: ObservableObject {
     deinit {
         handle?.cancel()
         typingHandle?.cancel()
+        diffsTask?.cancel()
         handleChangesTask?.cancel()
         theftTask?.cancel()
     }
@@ -369,14 +373,17 @@ final class ChatTimelineModel: ObservableObject {
         let stream = TimelineDiffStream()
         handle = await timeline.addListener(listener: stream)
         Task { [weak self] in await self?.loadHistory() }
-        for await diffs in stream.updates {
-            for diff in diffs {
-                items.apply(diff.vectorDiff)
+        diffsTask = Task { [weak self] in
+            for await diffs in stream.updates {
+                guard let self else { return }
+                for diff in diffs {
+                    self.items.apply(diff.vectorDiff)
+                }
+                // The rows follow the SDK at once. The room facts can wait on the network (a DM peer's @handle,
+                // the peer's membership), so they load after and build the rows again.
+                self.rebuild()
+                self.refreshRoomFacts(room)
             }
-            // The rows follow the SDK at once. The room facts can wait on the network (a DM peer's @handle,
-            // the peer's membership), so they load after and build the rows again.
-            rebuild()
-            refreshRoomFacts(room)
         }
     }
 
