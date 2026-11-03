@@ -14,11 +14,11 @@ import {
   TimelineDiff,
   TimelineFilter,
   TimelineFocus,
-  TimelineReadReceiptTracking,
   type RoomLike as Room,
   type TaskHandleLike as TaskHandle,
   type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
+import { TimelineReadReceiptTracking } from './generated/matrix_sdk_ui';
 import { Sheet } from './MessageSheets';
 import { chatText } from './phosphor/icons';
 import { previewText } from './row-preview';
