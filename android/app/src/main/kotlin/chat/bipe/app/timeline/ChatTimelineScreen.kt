@@ -40,6 +40,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -916,6 +922,16 @@ private fun ComposerBar(
                     modifier = Modifier
                         .weight(1f)
                         .focusRequester(focus)
+                        // A hardware keyboard: Enter sends, Shift+Enter makes a new line (bipe-chat/bipe#832). Enter
+                        // from the on-screen keyboard (a virtual device) keeps making a new line.
+                        .onPreviewKeyEvent { event ->
+                            val hardware = event.nativeKeyEvent.device?.isVirtual == false
+                            if (!hardware || event.isShiftPressed || (event.key != Key.Enter && event.key != Key.NumPadEnter)) {
+                                return@onPreviewKeyEvent false
+                            }
+                            if (event.type == KeyEventType.KeyDown && canSend) onSend()
+                            true
+                        }
                         // 22 dp line + 2 x 13 = 48 dp, the sticker button's height, so one line sits in the middle.
                         .padding(vertical = 13.dp),
                     decorationBox = { inner ->

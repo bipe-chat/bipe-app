@@ -650,6 +650,13 @@ private struct ComposerBar: View {
                           text: Binding(get: { model.draft }, set: { model.editDraft($0) }),
                           axis: .vertical)
                     .focused($focused)
+                    // A hardware keyboard: Return sends, Shift+Return makes a new line (bipe-chat/bipe#832). The
+                    // on-screen keyboard does not send key presses, so its return key keeps making a new line.
+                    .onKeyPress(.return, phases: .down) { press in
+                        guard !press.modifiers.contains(.shift) else { return .ignored }
+                        if model.canSend { Task { await model.send() } }
+                        return .handled
+                    }
                     .lineLimit(1...(verticalSizeClass == .compact ? 3 : 5))
                     // 22 pt line + 2 x 11 = 44 pt, the sticker button's height, so one line sits in the middle.
                     .padding(.vertical, 11)
