@@ -3876,6 +3876,34 @@ public enum BipeStrings {
 
     public static var appGroupRolesCustom: String { NSLocalizedString("bipe_app_group_roles_custom", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func appStateMadeAdmin(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_made_admin", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func appStateMadeModerator(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_made_moderator", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func appStateRemovedAdmin(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_removed_admin", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func appStateRemovedModerator(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_app_state_removed_moderator", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var appRoleBadgeAdmin: String { NSLocalizedString("bipe_app_role_badge_admin", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appRoleBadgeModerator: String { NSLocalizedString("bipe_app_role_badge_moderator", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupRolesTitle: String { NSLocalizedString("bipe_app_group_roles_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupRoleAdminBody: String { NSLocalizedString("bipe_app_group_role_admin_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupRoleModeratorBody: String { NSLocalizedString("bipe_app_group_role_moderator_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupRoleMemberBody: String { NSLocalizedString("bipe_app_group_role_member_body", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appGroupMemberRemove: String { NSLocalizedString("bipe_app_group_member_remove", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func appGroupMemberRemoveBody(_ p1: String) -> String {
