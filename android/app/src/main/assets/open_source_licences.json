@@ -92,6 +92,10 @@
       "licence": "LicenseRef-Android-SDK-License"
     },
     {
+      "name": "com.google.android.play:age-signals",
+      "licence": "LicenseRef-Android-SDK-License"
+    },
+    {
       "name": "com.google.crypto.tink:tink-android",
       "licence": "Apache-2.0"
     },

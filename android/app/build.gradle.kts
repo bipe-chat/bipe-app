@@ -161,6 +161,8 @@ dependencies {
     "playImplementation"(libs.firebase.messaging)
     // Deferred invite (ADR 0154): src/play/.../InstallReferrers.kt.
     "playImplementation"(libs.installreferrer)
+    // Age signal (ADR 0229): src/play/.../AgeSignalSources.kt.
+    "playImplementation"(libs.play.age.signals)
     // Store captures (bipe-chat/bipe#457): src/screenshotTest, not in the APK.
     screenshotTestImplementation(platform(libs.androidx.compose.bom))
     screenshotTestImplementation(libs.screenshot.validation.api)

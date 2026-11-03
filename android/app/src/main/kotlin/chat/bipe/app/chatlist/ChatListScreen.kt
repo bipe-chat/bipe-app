@@ -64,6 +64,8 @@ import androidx.compose.ui.window.DialogProperties
 import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.account.AgeSignalModel
+import chat.bipe.app.account.AgeSignalSources
 import chat.bipe.app.account.TermsReacceptModel
 import chat.bipe.app.account.TermsReacceptScreen
 import chat.bipe.app.common.Avatar
@@ -167,6 +169,7 @@ fun HomeScreen(
     var showsBringPeople by rememberSaveable { mutableStateOf(false) }
     val settings = remember(session) { SettingsModel(context.applicationContext, session, api, scope) }
     val terms = remember(session) { TermsReacceptModel(api, session, scope) }
+    val ageSignal = remember(session) { AgeSignalModel(api, session, AgeSignalSources.create(context.applicationContext), scope) }
     val people = remember(session) { PeopleService(context, session, api, media, scope) }
     val requests = remember(session) { ChatRequestsModel(context.applicationContext, session, api, scope, people) }
     val search = remember(session) { ChatSearchModel(session, model, scope, context.applicationContext) }
@@ -245,6 +248,8 @@ fun HomeScreen(
     }
     // phone-link-status, action checkNotice: on launch and on every return to the foreground.
     LaunchedEffect(foregroundCount) { phoneNotice.check() }
+    // ADR 0229: the OS age signal, at most once per recheck period (the server's age_checked_at).
+    LaunchedEffect(foregroundCount) { ageSignal.check() }
     PhoneConfirmNoticeDialog(phoneNotice)
     // Critical banners refresh alongside account/profile and recovery checks.
     LaunchedEffect(foregroundCount) { remoteBanner.refresh() }

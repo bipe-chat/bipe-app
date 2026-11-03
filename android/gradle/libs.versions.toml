@@ -31,6 +31,7 @@ zxing = "3.5.3"
 play-services-auth-blockstore = "16.4.0"
 firebase-messaging = "24.1.0"
 installreferrer = "2.2"
+play-age-signals = "0.0.4"
 # Calls (spec call, ADR 0186): LiveKit and the WebRTC build its POM names.
 livekit = "2.29.2"
 webrtc = "150.7871.04"
@@ -81,6 +82,7 @@ androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 play-services-auth-blockstore = { module = "com.google.android.gms:play-services-auth-blockstore", version.ref = "play-services-auth-blockstore" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebase-messaging" }
 installreferrer = { module = "com.android.installreferrer:installreferrer", version.ref = "installreferrer" }
+play-age-signals = { module = "com.google.android.play:age-signals", version.ref = "play-age-signals" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
