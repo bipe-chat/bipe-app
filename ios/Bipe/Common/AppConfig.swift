@@ -42,14 +42,17 @@ enum AppConfig {
     static let isDeveloperBuild = false
     #endif
 
-    /// Trust step 5, Verificar com gov.br (spec govbr-verify, bipe-chat/bipe#544): a build value, never a stored or remote one.
-    /// On only in Xcode debug builds of the tester ID set; off in every Release build (TestFlight, ad hoc, store) until
-    /// bipe-chat/bipe#542 and bipe-chat/bipe#17 close.
+    /// Trust step 5, Verificar com gov.br (spec govbr-verify, bipe-chat/bipe#544): a build or install value, never a stored
+    /// or remote one. On in Xcode debug builds of the tester ID set and in TestFlight installs (MZ, 3 November 2026: test
+    /// the real loop before the bipe-chat/bipe#17 review). Off in the App Store until bipe-chat/bipe#17 closes.
     #if DEBUG
     static let govbrEnabled = AppConfig.isDeveloperBuild && appID != "chat.bipe.app"
     #else
-    static let govbrEnabled = false
+    static let govbrEnabled = isTestFlight
     #endif
+
+    /// True when TestFlight installed this Release build: its receipt is the sandbox one. The App Store gets the same binary.
+    static let isTestFlight = Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
 
     #if DEBUG
     static let pusherAppId = appID + ".ios.dev"

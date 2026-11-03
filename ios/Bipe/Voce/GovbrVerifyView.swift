@@ -34,10 +34,14 @@ final class GovbrInbox: ObservableObject {
         flowUserId = nil
     }
 
-    /// onOpenURL: `true` when `url` is a PDF, which this method then handles. With the build flag off it handles nothing.
+    /// onOpenURL: `true` when `url` is a PDF, which this method then handles. With the flag off it only deletes the copy
+    /// that iOS put in Documents/Inbox: the PDF handler is on in every build (project.yml), and a signed file holds a CPF.
     func open(_ url: URL) -> Bool {
-        guard AppConfig.govbrEnabled, url.isFileURL,
-              UTType(filenameExtension: url.pathExtension)?.conforms(to: .pdf) == true else { return false }
+        guard url.isFileURL, UTType(filenameExtension: url.pathExtension)?.conforms(to: .pdf) == true else { return false }
+        guard AppConfig.govbrEnabled else {
+            _ = Self.read(url)
+            return true
+        }
         let pdf = Self.read(url)
         guard let flow else {
             showsNoOpenVerification = true
