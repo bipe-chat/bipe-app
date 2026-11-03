@@ -72,8 +72,20 @@ class SettingsModel(
             }
     }
 
-    private val _state = MutableStateFlow(State())
+    private val _state = MutableStateFlow(lastStates[session.userId] ?: State())
     val state: StateFlow<State> = _state
+
+    init {
+        scope.launch { _state.collect { lastStates[session.userId] = it } }
+    }
+
+    companion object {
+        /**
+         * The last values read, per account, for this app run. A new model starts from them, so settings opens with its
+         * subtitles and switches filled and load() only refreshes them. Memory only: nothing goes to disk.
+         */
+        private val lastStates = java.util.concurrent.ConcurrentHashMap<String, State>()
+    }
 
     /** Spec settings-root, action appear: reads the summaries. Each fills in when it arrives. */
     fun load() {
