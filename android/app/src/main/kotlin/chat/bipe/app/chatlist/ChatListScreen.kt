@@ -210,6 +210,8 @@ fun HomeScreen(
     }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check(); tabs.refreshProfiles(); requests.refreshTrust() }
+    // Settings opens with its subtitles and switches filled (SettingsModel keeps the last values per account).
+    LaunchedEffect(settings) { settings.load() }
     var peopleStack by remember { mutableStateOf(listOf<PeopleRoute>()) }
     DisposableEffect(people) {
         people.start()

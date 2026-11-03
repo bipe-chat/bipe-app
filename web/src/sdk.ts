@@ -5,6 +5,7 @@
 // matrix-sdk-ffi in the browser (ubrn wasm2 bindings from CI, web.yml), and the accounts of this browser.
 // Provenance: matrix-sdk-ffi ClientBuilder, IndexedDbStoreBuilder,
 // LoginWithQrCodeHandler.generate (MSC4108), SyncService, RoomListService.
+// The encryption settings are the phones' (AccountSession.swift builder, AccountSession.kt).
 //
 // Several accounts (ADR 0225): each account is a slot with its own SDK stores (IndexedDB prefix), its own
 // sealed session record and its own store passphrase (session-store.ts). Only the current account has a
@@ -12,6 +13,8 @@
 // The first account keeps the store and record names it had with one account, so it needs no new sign-in.
 
 import { uniffiInitAsync } from './generated';
+import { BackupDownloadStrategy } from './generated/matrix_sdk';
+import { CollectStrategy, TrustRequirement } from './generated/matrix_sdk_crypto';
 import {
   ClientBuilder,
   IndexedDbStoreBuilder,
@@ -31,6 +34,7 @@ import {
   saveSession,
   storePassphrase,
 } from './session-store';
+import { archiveKey } from './archive';
 
 // Server name of the Bipe homeserver (ADR 0062).
 export const SERVER_NAME = 'bipe.net.br';
@@ -69,6 +73,15 @@ async function buildClient(slot: Slot, restored?: Session): Promise<Client> {
     .serverNameOrHomeserverUrl(SERVER_NAME)
     .indexeddbStore(new IndexedDbStoreBuilder(slot.storeName).passphrase(passphrase))
     .slidingSyncVersionBuilder(SlidingSyncVersionBuilder.DiscoverNative)
+    // Spec encryption-status: cross-signing and key backup with no screen, as on the phones.
+    .autoEnableCrossSigning(true)
+    .autoEnableBackups(true)
+    // Security rule 13: a server-added device receives no keys without its owner's signature.
+    .roomKeyRecipientStrategy(CollectStrategy.IdentityBasedStrategy)
+    // Keep pre-trust-metadata history readable; current senders must be cross-signed.
+    .decryptionSettings({ senderDeviceTrustRequirement: TrustRequirement.CrossSignedOrLegacy })
+    // #903: the QR sign-in brings the backup key (syncingSecrets), so old messages decrypt from the backup.
+    .backupDownloadStrategy(BackupDownloadStrategy.AfterDecryptionFailure)
     .setSessionDelegate({
       retrieveSessionFromKeychain(userId: string): Session {
         if (current && current.userId === userId) return current;
@@ -192,6 +205,7 @@ export async function forgetSlot(slot: Slot): Promise<void> {
 export async function signOutAccount(accounts: Accounts, slot: Slot, client: Client): Promise<void> {
   await client.logout();
   await deleteSecrets(slot.sessionKey, slot.passphraseKey);
+  if (slot.userId) localStorage.removeItem(archiveKey(slot.userId));
   const list = accounts.list.filter((s) => s.id !== slot.id);
   await saveAccounts({ current: list[0]?.userId, list });
   markWipe([slot.storeName]);
@@ -212,6 +226,8 @@ export async function signOutAll(accounts: Accounts, current: Client): Promise<v
       console.warn('[trace] sign-out of one account failed', slot.userId, e);
     }
   }
+  // #903: no Bipe data stays in the browser. Every page key starts with "bipe."; the wipe mark is set after.
+  for (const k of Object.keys(localStorage)) if (k.startsWith('bipe.')) localStorage.removeItem(k);
   markWipe(accounts.list.map((s) => s.storeName));
   await clearSecrets();
   window.location.reload();
