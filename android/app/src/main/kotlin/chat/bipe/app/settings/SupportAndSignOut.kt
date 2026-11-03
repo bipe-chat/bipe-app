@@ -54,6 +54,7 @@ import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.settings.supportRoomId
+import chat.bipe.shared.weblink.signOutWebLinks
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -180,12 +181,18 @@ fun SignOutSheet(model: SettingsModel, onDismiss: () -> Unit, onSignedOut: () ->
             if (failed) {
                 Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
             }
-            // Action signOut: Client.logout, then the account's password, session and SDK store leave this phone.
+            // Action signOut: a company account first signs out the web sessions this phone approved (bipe#398); a
+            // failure is logged and does not stop the sign-out. Then Client.logout, then the account's password,
+            // session and SDK store leave this phone.
             BipeOutlinedButton(
                 onClick = {
                     signingOut = true
                     failed = false
                     scope.launch {
+                        if (model.state.value.isCompany) {
+                            runCatching { model.authorized { model.api.signOutWebLinks(it) } }
+                                .onFailure { android.util.Log.w("Bipe", "web-link sign-out failed") }
+                        }
                         val loggedOut = runCatching { model.session.client.logout() }.isSuccess
                         signingOut = false
                         if (loggedOut) onSignedOut() else failed = true

@@ -167,20 +167,34 @@ class BipeMatrixAccountApi(homeserver: String) {
 }
 
 @Serializable
-private data class WebLinkFinish(@SerialName("since") val since: String)
+private data class WebLinkFinish(@SerialName("since") val since: String, @SerialName("kind") val kind: String? = null)
+
+@Serializable
+private data class WebLinkSignedOut(@SerialName("signed_out") val signedOut: Int = 0)
+
+/** What the phone approved: a web sign-in (link-computer) or a new phone (link-phone). */
+enum class WebLinkKind(val wire: String) { COMPUTER("computer"), PHONE("phone") }
 
 @Serializable
 private data class WebLinkFinished(@SerialName("finished") val finished: Int = 0)
 
-/** `POST /v1/web-link/finish`: ends the MAS browser sessions that the private web view made (ADR 0118). */
-suspend fun BipeApiClient.finishWebLink(since: Instant, accessToken: String) {
+/**
+ * `POST /v1/web-link/finish`: ends the MAS browser sessions that the private web view made (ADR 0118). With kind
+ * computer, bipe-api also records the web session that this phone approved (bipe-chat/bipe#398).
+ */
+suspend fun BipeApiClient.finishWebLink(since: Instant, accessToken: String, kind: WebLinkKind? = null) {
     send(
         "POST",
         listOf("v1", "web-link", "finish"),
-        body = encode(WebLinkFinish.serializer(), WebLinkFinish(since.toString())),
+        body = encode(WebLinkFinish.serializer(), WebLinkFinish(since.toString(), kind?.wire)),
         accessToken = accessToken,
         response = WebLinkFinished.serializer(),
     )
+}
+
+/** `POST /v1/web-link/sign-out`: signs out the web sessions that this phone approved (bipe-chat/bipe#398). */
+suspend fun BipeApiClient.signOutWebLinks(accessToken: String) {
+    send("POST", listOf("v1", "web-link", "sign-out"), accessToken = accessToken, response = WebLinkSignedOut.serializer())
 }
 
 /** Contract: `GET /v1/web-link/place`. Every field is optional. */
