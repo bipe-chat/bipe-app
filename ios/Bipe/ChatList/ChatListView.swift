@@ -47,6 +47,8 @@ struct ChatListView: View {
     @State private var detail: ChatDetail?
     /// The message the open chat scrolls to (spec room-link-open, bipe-chat/bipe#666). Any other detail clears it.
     @State private var focusEventId: String?
+    /// Spec chat-row-actions sendMedia: the open chat shows the photo picker. Any other detail clears it.
+    @State private var startAttachment: AttachmentChoice?
     @State private var path = NavigationPath()
     @State private var compactColumn: NavigationSplitViewColumn
     @State private var showsHandlePick = false
@@ -540,7 +542,10 @@ struct ChatListView: View {
 
     @ViewBuilder private func rowMenu(_ roomId: String) -> some View {
         if let chat = model.currentChat(roomId) {
-            archiveAction(chat)
+            // Spec chat-row-actions: Send media first, Archive last, no delete (a chat is archived, never deleted).
+            Button { sendMedia(roomId) } label: {
+                Label(BipeStrings.chatSendMedia, systemImage: "photo.on.rectangle")
+            }
             // Spec chat-row-actions favourite. The SDK drops m.lowpriority when it sets m.favourite: not for an archive.
             if !archive.contains(chat) {
                 Button {
@@ -564,11 +569,7 @@ struct ChatListView: View {
                 Label(BipeStrings.chatDetails, systemImage: "info.circle")
             }
                 .disabled(chat.isDm && chat.peerUserId == nil)
-            if chat.isDm {
-                Button(role: .destructive) { deletingDm = roomId } label: {
-                    Label(BipeStrings.dmDeleteAction, systemImage: "trash")
-                }
-            }
+            archiveAction(chat)
         }
     }
 
@@ -639,6 +640,12 @@ struct ChatListView: View {
     }
 
     /// Opens the chat at a message when eventId is set.
+    /// Spec chat-row-actions sendMedia: opens the chat with the photo picker.
+    private func sendMedia(_ roomId: String) {
+        show(.room(roomId))
+        startAttachment = .photos
+    }
+
     private func openMessage(_ roomId: String, eventId: String?) {
         show(.room(roomId))
         focusEventId = eventId
@@ -646,6 +653,7 @@ struct ChatListView: View {
 
     private func show(_ next: ChatDetail) {
         focusEventId = nil
+        startAttachment = nil
         detail = next
         path = NavigationPath()
         compactColumn = .detail
@@ -654,6 +662,7 @@ struct ChatListView: View {
     /// closeChat: back to the list with nothing selected.
     private func closeDetail() {
         focusEventId = nil
+        startAttachment = nil
         detail = nil
         path = NavigationPath()
         compactColumn = .sidebar
@@ -694,7 +703,7 @@ struct ChatListView: View {
                     path.append(PeopleRoute.person(userId: userId, fromDm: true))
                 }
             }
-        }, archive: archiveToggle(roomId))
+        }, archive: archiveToggle(roomId), startAttachment: startAttachment)
     }
 
     /// Spec chat-archive from the DM chat menu, on the same archive as the row action.

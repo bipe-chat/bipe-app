@@ -162,6 +162,9 @@ fun ChatTimelineScreen(
     threadRoot: String? = null,
     /** Spec chat-search openMessage (bipe-chat/bipe#671): the message to scroll to after the chat opens. */
     focusEventId: String? = null,
+    /** Spec chat-row-actions sendMedia: open the photo picker once the chat shows. */
+    startPhotos: Boolean = false,
+    onStartPhotosUsed: () -> Unit = {},
 ) {
     // Spec app-tabs: the tab bar hides while a chat or thread is open.
     HidesTabBar()
@@ -572,6 +575,8 @@ fun ChatTimelineScreen(
                         attachMenu = { expanded, onDismiss ->
                             AttachmentMenu(
                                 expanded = expanded,
+                                openPhotos = startPhotos,
+                                onPhotosOpened = onStartPhotosUsed,
                                 onDismiss = onDismiss,
                                 onPicked = { files -> upload = PickedUpload(files, model.takeReplyEventId()) },
                                 onStickers = { showsStickers = true },

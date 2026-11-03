@@ -38,7 +38,8 @@ class ChatRowCommands(
     val onRead: () -> Unit,
     val onNotifications: () -> Unit,
     val onInfo: (() -> Unit)?,
-    val onDelete: (() -> Unit)?,
+    /** Spec chat-row-actions sendMedia: opens the chat with the photo picker. */
+    val onSendMedia: () -> Unit,
     /** Favourite or unfavourite. null for an archived chat: the SDK drops m.lowpriority when it sets m.favourite. */
     val onFavourite: (() -> Unit)?,
 )
@@ -51,7 +52,7 @@ private class ChatRowLabels(chat: ChatSummary, commands: ChatRowCommands, val st
     val notifications = strings(R.string.bipe_settings_notifications)
     val details = strings(R.string.bipe_chat_details)
     val menu = strings(R.string.bipe_chat_actions)
-    val delete = strings(R.string.bipe_dm_delete_action)
+    val sendMedia = strings(R.string.bipe_chat_send_media)
 }
 
 @Composable
@@ -60,33 +61,30 @@ private fun rowLabels(chat: ChatSummary, commands: ChatRowCommands): ChatRowLabe
     return ChatRowLabels(chat, commands) { resources.getString(it) }
 }
 
-/** The accessibility actions of the row menu: the same commands, Delete included (bipe-chat/bipe#587). */
+/** The accessibility actions of the row menu: the same commands in the same order (bipe-chat/bipe#587). */
 private fun accessibilityActions(labels: ChatRowLabels, commands: ChatRowCommands, menu: MutableState<Boolean>) = buildList {
     add(CustomAccessibilityAction(labels.menu) { menu.value = true; true })
-    add(CustomAccessibilityAction(labels.archive) { commands.onArchive(); true })
+    add(CustomAccessibilityAction(labels.sendMedia) { commands.onSendMedia(); true })
     commands.onFavourite?.let { favourite -> add(CustomAccessibilityAction(labels.favourite) { favourite(); true }) }
     if (!commands.readPending) add(CustomAccessibilityAction(labels.read) { commands.onRead(); true })
     add(CustomAccessibilityAction(labels.notifications) { commands.onNotifications(); true })
     commands.onInfo?.let { open -> add(CustomAccessibilityAction(labels.details) { open(); true }) }
-    commands.onDelete?.let { delete -> add(CustomAccessibilityAction(labels.delete) { delete(); true }) }
+    add(CustomAccessibilityAction(labels.archive) { commands.onArchive(); true })
 }
 
-/** The long-press menu of one chat (spec chat-row-actions). */
+/** The long-press menu of one chat (spec chat-row-actions): Send media first, Archive last, no delete. */
 @Composable
 fun ChatRowMenu(chat: ChatSummary, commands: ChatRowCommands, menu: MutableState<Boolean>) {
-    val colors = BipeTheme.colors
     val labels = rowLabels(chat, commands)
     DropdownMenu(expanded = menu.value, onDismissRequest = { menu.value = false }) {
-        DropdownMenuItem(text = { Text(labels.archive) }, onClick = { menu.value = false; commands.onArchive() })
+        DropdownMenuItem(text = { Text(labels.sendMedia) }, onClick = { menu.value = false; commands.onSendMedia() })
         commands.onFavourite?.let { favourite ->
             DropdownMenuItem(text = { Text(labels.favourite) }, onClick = { menu.value = false; favourite() })
         }
         DropdownMenuItem(text = { Text(labels.read) }, enabled = !commands.readPending, onClick = { menu.value = false; commands.onRead() })
         DropdownMenuItem(text = { Text(labels.notifications) }, onClick = { menu.value = false; commands.onNotifications() })
         DropdownMenuItem(text = { Text(labels.details) }, enabled = commands.onInfo != null, onClick = { menu.value = false; commands.onInfo?.invoke() })
-        commands.onDelete?.let { delete ->
-            DropdownMenuItem(text = { Text(labels.delete, color = colors.trustDangerInk) }, onClick = { menu.value = false; delete() })
-        }
+        DropdownMenuItem(text = { Text(labels.archive) }, onClick = { menu.value = false; commands.onArchive() })
     }
 }
 
