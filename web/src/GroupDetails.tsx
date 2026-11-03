@@ -23,14 +23,14 @@ import { PersonRow, SearchBox, usePeople } from './NewChat';
 import { isOfficial } from './registries';
 import type { RoomFace } from './room-face';
 import { Alert } from './ui/Alert';
-import { Avatar } from './ui/Avatar';
+import { Avatar, type AvatarMember } from './ui/Avatar';
 import { s } from './ui/i18n';
 import { NavBar, OfficialBadge, Row, Section } from './ui/List';
 import { Spinner } from './ui/Spinner';
 import { userPlus } from './phosphor/icons';
 import { Icon } from './ui/Icon';
 
-type Rights = { edit: boolean; invite: boolean; kick: boolean; roles: boolean };
+type Rights = { edit: boolean; photo: boolean; invite: boolean; kick: boolean; roles: boolean };
 
 const isAdmin = (m: RoomMember) =>
   m.suggestedRoleForPowerLevel === RoomMemberRole.Administrator ||
@@ -50,12 +50,12 @@ export function GroupDetails({
   room: Room;
   face: RoomFace;
   chats: ChatSummary[];
-  Header: (p: { name: string; avatarUrl?: string; subtitle?: string }) => React.ReactNode;
+  Header: (p: { name: string; avatarUrl?: string; subtitle?: string; members?: AvatarMember[] }) => React.ReactNode;
 }) {
   const [members, setMembers] = useState<RoomMember[]>();
   const [topic, setTopic] = useState(room.topic());
   const [count, setCount] = useState<number>();
-  const [rights, setRights] = useState<Rights>({ edit: false, invite: false, kick: false, roles: false });
+  const [rights, setRights] = useState<Rights>({ edit: false, photo: false, invite: false, kick: false, roles: false });
   const [version, setVersion] = useState(0);
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -71,8 +71,10 @@ export function GroupDetails({
       setCount(Number(info.joinedMembersCount));
       if (levels)
         setRights({
-          // canEdit of the spec: the level for m.room.name covers photo and description in Bipe groups.
+          // canEdit of the spec: the level for m.room.name covers the name and description; canEditPhoto
+          // is the level for m.room.avatar.
           edit: levels.canOwnUserSendState(new StateEventType.RoomName()),
+          photo: levels.canOwnUserSendState(new StateEventType.RoomAvatar()),
           invite: levels.canOwnUserInvite(),
           kick: levels.canOwnUserKick(),
           roles: levels.canOwnUserSendState(new StateEventType.RoomPowerLevels()),
@@ -108,6 +110,8 @@ export function GroupDetails({
         name={face.name}
         topic={topic ?? ''}
         avatarUrl={face.avatarUrl}
+        members={face.members}
+        canEditPhoto={rights.photo}
         onDone={() => {
           setEditing(false);
           reload();
@@ -119,9 +123,10 @@ export function GroupDetails({
       <Header
         name={face.name}
         avatarUrl={face.avatarUrl}
+        members={face.members}
         subtitle={s('bipe_app_group_details_people', people.toLocaleString())}
       />
-      {rights.edit && (
+      {(rights.edit || rights.photo) && (
         <button type="button" className="-mt-4 self-center text-body text-accent-ink" onClick={() => setEditing(true)}>
           {s('bipe_app_edit')}
         </button>
@@ -354,21 +359,54 @@ function AddPeople({
   );
 }
 
+// The one emoji of the emoji photo, or undefined (a flag, a skin tone and a ZWJ sequence count as one).
+function singleEmoji(text: string): string | undefined {
+  const parts = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text.trim()));
+  return parts.length === 1 && /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(parts[0].segment)
+    ? parts[0].segment
+    : undefined;
+}
+
+// Spec group-details save.params.emoji: the emoji at 60 % of a 512 px PNG on accent.wash. It is uploaded as a
+// normal m.room.avatar, so every Matrix client shows it.
+async function emojiPhoto(emoji: string): Promise<File> {
+  const side = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = side;
+  canvas.height = side;
+  const g = canvas.getContext('2d')!;
+  g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bipe-accent-wash').trim();
+  g.fillRect(0, 0, side, side);
+  g.font = `${side * 0.6}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(emoji, side / 2, side * 0.54);
+  const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/png'));
+  if (!blob) throw new Error('emoji photo: no PNG');
+  return new File([blob], 'emoji.png', { type: 'image/png' });
+}
+
 // The editing phase of group-details: name, description and photo, then Salvar. bipe_app_save_error on
-// failure, and the form stays.
+// failure, and the form stays. The photo controls show only with canEditPhoto.
 function EditGroup({
   room,
   name: oldName,
   topic: oldTopic,
   avatarUrl,
+  members,
+  canEditPhoto,
   onDone,
 }: {
   room: Room;
   name: string;
   topic: string;
   avatarUrl?: string;
+  members?: AvatarMember[];
+  canEditPhoto: boolean;
   onDone: () => void;
 }) {
+  const [askingEmoji, setAskingEmoji] = useState(false);
+  const [emoji, setEmoji] = useState('');
   const [name, setName] = useState(oldName);
   const [topic, setTopic] = useState(oldTopic);
   const [photo, setPhoto] = useState<File | null>();
@@ -406,24 +444,63 @@ function EditGroup({
         {preview ? (
           <img src={preview} alt="" className="size-24 rounded-full object-cover" />
         ) : (
-          <Avatar name={name || oldName} size={96} mxcUrl={photo === null ? undefined : avatarUrl} />
-        )}
-        <label className="cursor-pointer text-body text-accent-ink">
-          {s('bipe_app_group_photo_choose')}
-          <input
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) setPhoto(f);
-            }}
+          <Avatar
+            name={name || oldName}
+            size={96}
+            mxcUrl={photo === null ? undefined : avatarUrl}
+            members={photo === null || !avatarUrl ? members : undefined}
           />
-        </label>
-        {(avatarUrl || photo) && (
-          <button type="button" className="text-body text-trust-danger-ink" onClick={() => setPhoto(null)}>
-            {s('bipe_app_group_photo_remove')}
-          </button>
+        )}
+        {canEditPhoto && (
+          <>
+            <label className="cursor-pointer text-body text-accent-ink">
+              {s('bipe_app_group_photo_choose')}
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) setPhoto(f);
+                }}
+              />
+            </label>
+            {(avatarUrl || photo) && (
+              <button type="button" className="text-body text-trust-danger-ink" onClick={() => setPhoto(null)}>
+                {s('bipe_app_group_photo_remove')}
+              </button>
+            )}
+            {askingEmoji ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  className="min-h-11 w-24 rounded-full bg-surface-sunken text-center text-title2 text-ink-primary outline-none"
+                  aria-label={s('bipe_app_group_photo_emoji_hint')}
+                  placeholder={s('bipe_app_group_photo_emoji_hint')}
+                  value={emoji}
+                  onChange={(e) => setEmoji(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={!singleEmoji(emoji)}
+                  className="text-body text-accent-ink disabled:opacity-50"
+                  onClick={() => {
+                    const one = singleEmoji(emoji);
+                    if (!one) return;
+                    void emojiPhoto(one).then(setPhoto);
+                    setAskingEmoji(false);
+                    setEmoji('');
+                  }}
+                >
+                  {s('bipe_app_group_photo_emoji')}
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="text-body text-accent-ink" onClick={() => setAskingEmoji(true)}>
+                {s('bipe_app_group_photo_emoji')}
+              </button>
+            )}
+          </>
         )}
       </div>
       <Section header={s('bipe_app_group_name')}>

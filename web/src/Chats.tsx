@@ -437,10 +437,9 @@ export function Chats({ client }: { client: Client }) {
             <ScopePicker
               scope={scope}
               badges={{ conversas: chatsBadge, grupos: groupsBadge }}
-              onChange={(next) => {
-                setScope(next);
-                setShowingArchived(false);
-              }}
+              // setScope goes to the list of that scope, out of Arquivadas too. A second navigate here would
+              // read the old scope and go back.
+              onChange={setScope}
             />
           )}
           {permission === 'default' && !bannerClosed && (
@@ -765,7 +764,13 @@ function FavouritesGrid({
                 onContextMenu={(e) => onMenu(chat, e)}
               >
                 <span className="relative">
-                  <Avatar name={chat.face.name} size={72} mxcUrl={chat.face.avatarUrl} userId={chat.face.peer?.userId} />
+                  <Avatar
+                    name={chat.face.name}
+                    size={72}
+                    mxcUrl={chat.face.avatarUrl}
+                    userId={chat.face.peer?.userId}
+                    members={chat.face.members}
+                  />
                   {unread && (
                     <span className="absolute top-0 right-0 size-[14px] rounded-full border-2 border-surface-base bg-accent-fill" />
                   )}
@@ -906,7 +911,7 @@ function ChatRow({
         onClick={onOpen}
         onContextMenu={onMenu}
       >
-        <Avatar name={name} size={48} mxcUrl={avatarUrl} userId={chat.face.peer?.userId} />
+        <Avatar name={name} size={48} mxcUrl={avatarUrl} userId={chat.face.peer?.userId} members={chat.face.members} />
         <span className="flex min-h-[72px] min-w-0 flex-1 flex-col justify-center gap-1 border-b-[0.5px] border-line-subtle py-2 pr-4">
           <span className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1 truncate text-headline text-ink-primary">{name}</span>
