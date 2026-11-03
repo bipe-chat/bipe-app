@@ -487,7 +487,7 @@ function ProfileEdit({ onBack }: { onBack: () => void }) {
   };
   return (
     <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
-      <NavBar title={s('bipe_settings_profile_name_photo')} onBack={onBack} />
+      <NavBar title={s('bipe_settings_profile')} onBack={onBack} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
         <div className="flex flex-col items-center gap-2 py-2">
           {preview ? (
@@ -519,7 +519,7 @@ function ProfileEdit({ onBack }: { onBack: () => void }) {
           <Row>
             <input
               className="min-h-11 min-w-0 flex-1 bg-transparent text-body text-ink-primary outline-none"
-              aria-label={s('bipe_settings_profile_name_photo')}
+              aria-label={s('bipe_profile_display_name')}
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
