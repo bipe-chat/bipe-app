@@ -22,6 +22,8 @@ struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
     @ObservedObject private var archive: ChatArchiveModel
     @State private var showingArchived = false
+    /// State reorderingFavourites of spec chat-list.
+    @State private var reorderingFavourites = false
     @ObservedObject private var notifications = NotificationActions.shared
     @StateObject private var handle: HandlePickModel
     @StateObject private var recovery: RecoveryReminderModel
@@ -515,7 +517,11 @@ struct ChatListView: View {
             List {
                 // The first item of the list, above banners, cards, requests and invites.
                 if !favourites.isEmpty {
-                    FavouritesGrid(chats: favourites, media: model.media, open: openChat) { rowMenu($0) }
+                    FavouritesGrid(chats: favourites, media: model.media, reordering: $reorderingFavourites, open: openChat,
+                                   move: { roomId, index in
+                                       let shown = favourites.map(\.roomId)
+                                       Task { await model.moveFavourite(roomId: roomId, to: index, shown: shown) }
+                                   }) { rowMenu($0) }
                         .listRowBackground(BipeColor.surfaceBase)
                         .listRowSeparator(.hidden)
                 }
@@ -548,6 +554,12 @@ struct ChatListView: View {
                 } label: {
                     Label(chat.isFavourite ? BipeStrings.chatUnfavouriteAction : BipeStrings.chatFavouriteAction,
                           systemImage: chat.isFavourite ? "star.slash" : "star")
+                }
+                // Spec chat-row-actions reorderFavourites: a favourite, when its scope has two or more.
+                if chat.isFavourite && model.favourites(in: scope).count >= 2 {
+                    Button { reorderingFavourites = true } label: {
+                        Label(BipeStrings.chatFavouritesReorderAction, systemImage: "arrow.left.arrow.right")
+                    }
                 }
             }
             Button {
@@ -799,12 +811,16 @@ struct ChatRow: View {
 }
 
 /// Spec chat-list favourites: large avatars, three per line, the name under each.
+/// In reorder mode a cell drags onto another cell to take its place (spec chat-list reorderingFavourites).
 private struct FavouritesGrid<MenuContent: View>: View {
     let chats: [ChatSummary]
     let media: MediaLoader
+    @Binding var reordering: Bool
     let open: (String) -> Void
+    let move: (_ roomId: String, _ index: Int) -> Void
     @ViewBuilder let menu: (String) -> MenuContent
     @State private var gridWidth: CGFloat = 0
+    @State private var dropTarget: String?
 
     /// The avatar is 80% of its column, so it follows the screen width, not Dynamic Type. Capped at 92 pt on wide screens.
     private var avatarSize: CGFloat {
@@ -813,24 +829,72 @@ private struct FavouritesGrid<MenuContent: View>: View {
     }
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
-            ForEach(chats) { chat in
-                // A Menu, not .contextMenu: the grid is one List row, and List shows the first
-                // .contextMenu of a row for every cell in it. The Menu belongs to its own cell.
-                Menu { menu(chat.roomId) } label: { cell(chat) } primaryAction: { open(chat.roomId) }
-                    .menuIndicator(.hidden)
-                    .menuStyle(.button)
-                    .buttonStyle(.plain)
-                    // A Menu plays no haptic when a long press opens it; the list rows' .contextMenu does.
-                    .simultaneousGesture(LongPressGesture().onEnded { _ in BipeHaptics.play(.hold) })
-                    .accessibilityActions { menu(chat.roomId) }
-                    .accessibilityLabel(chat.isUnread ? chat.name + ", " + BipeStrings.chatUnreadState : chat.name)
+        VStack(spacing: 8) {
+            if reordering {
+                HStack {
+                    Text(BipeStrings.chatFavouritesReorderHint)
+                        .font(.footnote)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                    Spacer()
+                    Button(BipeStrings.chatFavouritesReorderDone) { reordering = false }
+                        .font(.body.weight(.semibold))
+                        .buttonStyle(.borderless)
+                }
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
+                ForEach(Array(chats.enumerated()), id: \.element.id) { index, chat in
+                    if reordering {
+                        reorderCell(chat, index: index)
+                    } else {
+                        // A Menu, not .contextMenu: the grid is one List row, and List shows the first
+                        // .contextMenu of a row for every cell in it. The Menu belongs to its own cell.
+                        Menu { menu(chat.roomId) } label: { cell(chat) } primaryAction: { open(chat.roomId) }
+                            .menuIndicator(.hidden)
+                            .menuStyle(.button)
+                            .buttonStyle(.plain)
+                            // A Menu plays no haptic when a long press opens it; the list rows' .contextMenu does.
+                            .simultaneousGesture(LongPressGesture().onEnded { _ in BipeHaptics.play(.hold) })
+                            .accessibilityActions { menu(chat.roomId) }
+                            .accessibilityLabel(cellLabel(chat))
+                    }
+                }
             }
         }
         .padding(.vertical, 8)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(BipeStrings.chatFavourites)
+        // Reorder mode ends with fewer than two favourites or when the list goes away.
+        .onChange(of: chats.count) { _, count in if count < 2 { reordering = false } }
+        .onDisappear { reordering = false }
+    }
+
+    private func reorderCell(_ chat: ChatSummary, index: Int) -> some View {
+        cell(chat)
+            .opacity(dropTarget == chat.roomId ? 0.5 : 1)
+            .draggable(chat.roomId) { cell(chat) }
+            .dropDestination(for: String.self) { items, _ in
+                guard let roomId = items.first, roomId != chat.roomId, chats.contains(where: { $0.roomId == roomId }) else { return false }
+                BipeHaptics.play(.hold)
+                move(roomId, index)
+                return true
+            } isTargeted: { targeted in
+                if targeted { dropTarget = chat.roomId } else if dropTarget == chat.roomId { dropTarget = nil }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(cellLabel(chat))
+            .accessibilityActions {
+                if index > 0 {
+                    Button(BipeStrings.chatFavouriteMoveEarlier) { move(chat.roomId, index - 1) }
+                }
+                if index < chats.count - 1 {
+                    Button(BipeStrings.chatFavouriteMoveLater) { move(chat.roomId, index + 1) }
+                }
+            }
+    }
+
+    private func cellLabel(_ chat: ChatSummary) -> String {
+        chat.isUnread ? chat.name + ", " + BipeStrings.chatUnreadState : chat.name
     }
 
     private func cell(_ chat: ChatSummary) -> some View {

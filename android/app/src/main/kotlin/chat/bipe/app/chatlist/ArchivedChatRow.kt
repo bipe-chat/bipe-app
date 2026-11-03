@@ -41,12 +41,15 @@ class ChatRowCommands(
     val onDelete: (() -> Unit)?,
     /** Favourite or unfavourite. null for an archived chat: the SDK drops m.lowpriority when it sets m.favourite. */
     val onFavourite: (() -> Unit)?,
+    /** Spec chat-row-actions reorderFavourites: starts reorder mode. null unless the chat is a favourite of a scope with two or more. */
+    val onReorder: (() -> Unit)? = null,
 )
 
 /** The labels of [ChatRowCommands] for [chat], in menu order. */
 private class ChatRowLabels(chat: ChatSummary, commands: ChatRowCommands, val strings: (Int) -> String) {
     val archive = strings(if (commands.archived) R.string.bipe_unarchive_action else R.string.bipe_archive_action)
     val favourite = strings(if (chat.isFavourite) R.string.bipe_chat_unfavourite_action else R.string.bipe_chat_favourite_action)
+    val reorder = strings(R.string.bipe_chat_favourites_reorder_action)
     val read = strings(if (chat.isUnread) R.string.bipe_app_notification_mark_read else R.string.bipe_chat_mark_unread)
     val notifications = strings(R.string.bipe_settings_notifications)
     val details = strings(R.string.bipe_chat_details)
@@ -65,6 +68,7 @@ private fun accessibilityActions(labels: ChatRowLabels, commands: ChatRowCommand
     add(CustomAccessibilityAction(labels.menu) { menu.value = true; true })
     add(CustomAccessibilityAction(labels.archive) { commands.onArchive(); true })
     commands.onFavourite?.let { favourite -> add(CustomAccessibilityAction(labels.favourite) { favourite(); true }) }
+    commands.onReorder?.let { reorder -> add(CustomAccessibilityAction(labels.reorder) { reorder(); true }) }
     if (!commands.readPending) add(CustomAccessibilityAction(labels.read) { commands.onRead(); true })
     add(CustomAccessibilityAction(labels.notifications) { commands.onNotifications(); true })
     commands.onInfo?.let { open -> add(CustomAccessibilityAction(labels.details) { open(); true }) }
@@ -80,6 +84,9 @@ fun ChatRowMenu(chat: ChatSummary, commands: ChatRowCommands, menu: MutableState
         DropdownMenuItem(text = { Text(labels.archive) }, onClick = { menu.value = false; commands.onArchive() })
         commands.onFavourite?.let { favourite ->
             DropdownMenuItem(text = { Text(labels.favourite) }, onClick = { menu.value = false; favourite() })
+        }
+        commands.onReorder?.let { reorder ->
+            DropdownMenuItem(text = { Text(labels.reorder) }, onClick = { menu.value = false; reorder() })
         }
         DropdownMenuItem(text = { Text(labels.read) }, enabled = !commands.readPending, onClick = { menu.value = false; commands.onRead() })
         DropdownMenuItem(text = { Text(labels.notifications) }, onClick = { menu.value = false; commands.onNotifications() })

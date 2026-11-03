@@ -4240,6 +4240,16 @@ public enum BipeStrings {
 
     public static var chatFavourites: String { NSLocalizedString("bipe_chat_favourites", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var chatFavouritesReorderAction: String { NSLocalizedString("bipe_chat_favourites_reorder_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouritesReorderHint: String { NSLocalizedString("bipe_chat_favourites_reorder_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouritesReorderDone: String { NSLocalizedString("bipe_chat_favourites_reorder_done", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouriteMoveEarlier: String { NSLocalizedString("bipe_chat_favourite_move_earlier", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatFavouriteMoveLater: String { NSLocalizedString("bipe_chat_favourite_move_later", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var chatUnreadState: String { NSLocalizedString("bipe_chat_unread_state", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatDetails: String { NSLocalizedString("bipe_chat_details", tableName: "Bipe", bundle: .module, comment: "") }
