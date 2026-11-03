@@ -22,6 +22,11 @@ import { describe } from './util';
 
 // The steps (bipe_web_signin_*): ready shows the three instructions beside the code; scanned asks for the
 // check code; then approve on the phone, keys, done.
+// Before the scan the code changes this often (Synapse keeps a rendezvous session 60 s, see the effect below).
+const REFRESH_MS = 25_000;
+// The planned end of a code that nobody scanned in time.
+class Refresh extends Error {}
+
 type Step = 'starting' | 'ready' | 'checkCode' | 'approve' | 'keys' | 'expired' | 'done';
 // slot: the new account's empty slot. onCancel: Adicionar conta from an account goes back to it.
 export function QrLogin({
@@ -55,33 +60,47 @@ export function QrLogin({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    // The rendezvous code expires unscanned (HumanQrLoginError.NotFound or
-    // Expired). Before the phone scans it, make a new code instead of failing.
-    let scanned = false;
+    // Synapse deletes the rendezvous session 60 s after the code is made, and the phone's steps after the scan
+    // (check code, warning, owner check, consent) must fit in what is left. So before the scan this page makes a
+    // new code every REFRESH_MS, and a scan always has at least 35 s. If the session still ends after the scan
+    // (HumanQrLoginError.NotFound or Expired), the page shows a new code in place of the error.
     const attempt = async (): Promise<Client> => {
       const client = await newClient(slot);
       const handler = client.newLoginWithQrCodeHandler(oauthConfiguration());
-      await handler.generate({
-        onUpdate(state) {
-          console.info('[trace] qr progress', (state as { tag?: string }).tag ?? state);
-          if (GeneratedQrLoginProgress.QrReady.instanceOf(state)) {
-            setQr(state.inner.qrCode.toBytes());
-            setStep('ready');
-          } else if (GeneratedQrLoginProgress.QrScanned.instanceOf(state)) {
-            scanned = true;
-            setWasScanned(true);
-            setCheckSender(state.inner.checkCodeSender);
-            setStep('checkCode');
-          } else if (GeneratedQrLoginProgress.WaitingForToken.instanceOf(state)) {
-            setCheckSender(undefined);
-            setStep('approve');
-          } else if (GeneratedQrLoginProgress.SyncingSecrets.instanceOf(state)) {
-            setStep('keys');
-          } else if (GeneratedQrLoginProgress.Done.instanceOf(state)) {
-            setStep('done');
-          }
-        },
-      });
+      const abort = new AbortController();
+      let refresh: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await handler.generate(
+          {
+            onUpdate(state) {
+              console.info('[trace] qr progress', (state as { tag?: string }).tag ?? state);
+              if (GeneratedQrLoginProgress.QrReady.instanceOf(state)) {
+                setQr(state.inner.qrCode.toBytes());
+                setStep('ready');
+                refresh = setTimeout(() => abort.abort(), REFRESH_MS);
+              } else if (GeneratedQrLoginProgress.QrScanned.instanceOf(state)) {
+                clearTimeout(refresh);
+                setWasScanned(true);
+                setCheckSender(state.inner.checkCodeSender);
+                setStep('checkCode');
+              } else if (GeneratedQrLoginProgress.WaitingForToken.instanceOf(state)) {
+                setCheckSender(undefined);
+                setStep('approve');
+              } else if (GeneratedQrLoginProgress.SyncingSecrets.instanceOf(state)) {
+                setStep('keys');
+              } else if (GeneratedQrLoginProgress.Done.instanceOf(state)) {
+                setStep('done');
+              }
+            },
+          },
+          { signal: abort.signal },
+        );
+      } catch (e) {
+        if (abort.signal.aborted) throw new Refresh();
+        throw e;
+      } finally {
+        clearTimeout(refresh);
+      }
       return client;
     };
     (async () => {
@@ -91,9 +110,15 @@ export function QrLogin({
           if (!cancelled.current) onDone(client);
           return;
         } catch (e) {
-          if (scanned || !/\b(NotFound|Expired)\b/.test(describe(e))) throw e;
+          if (cancelled.current) return;
+          const expired = !(e instanceof Refresh);
+          if (expired && !/\b(NotFound|Expired)\b/.test(describe(e))) throw e;
           setQr(undefined);
-          setStep('expired');
+          setWasScanned(false);
+          setCheckSender(undefined);
+          setCode('');
+          sent.current = false;
+          setStep(expired ? 'expired' : 'starting');
         }
       }
     })().catch((e) => onError(describe(e)));
