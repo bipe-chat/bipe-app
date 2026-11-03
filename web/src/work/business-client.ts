@@ -125,6 +125,21 @@ export class BusinessClient {
   setItemPhoto = (id: string, jpeg: Blob) =>
     this.request<CatalogItem>('PUT', `/v1/me/business/catalog/items/${enc(id)}/photo`, jpeg, 'image/jpeg');
   deleteItemPhoto = (id: string) => this.del(`/v1/me/business/catalog/items/${enc(id)}/photo`);
+  /** The owner's read of any item photo, hidden items too (the public photo URL serves active items only). */
+  itemPhoto = async (id: string): Promise<Blob> => {
+    const token = await this.accessToken();
+    if (!token) throw new WorkError('unauthorized', 401);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/v1/me/business/catalog/items/${enc(id)}/photo`, {
+        headers: { Accept: 'image/jpeg', Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      throw new WorkError('network', 0);
+    }
+    if (!res.ok) throw new WorkError('not_found', res.status);
+    return res.blob();
+  };
 
   // ---- Agenda (specs agenda-owner, agenda-setup, agenda-settings, agenda-owner-booking) ----
 
