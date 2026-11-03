@@ -3084,6 +3084,18 @@ public enum BipeStrings {
 
     public static var remoteBannerDismiss: String { NSLocalizedString("bipe_remote_banner_dismiss", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appUpdateTitle: String { NSLocalizedString("bipe_app_update_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func appUpdateBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_app_update_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var appUpdateDownloading: String { NSLocalizedString("bipe_app_update_downloading", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUpdateFailed: String { NSLocalizedString("bipe_app_update_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appUpdatePermission: String { NSLocalizedString("bipe_app_update_permission", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var handlePromptTitle: String { NSLocalizedString("bipe_handle_prompt_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var handlePromptBody: String { NSLocalizedString("bipe_handle_prompt_body", tableName: "Bipe", bundle: .module, comment: "") }

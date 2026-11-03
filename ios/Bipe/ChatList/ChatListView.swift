@@ -390,6 +390,9 @@ struct ChatListView: View {
         case .notificationCheckup:
             // Android only (spec notification-checkup): iOS never makes this entry eligible.
             EmptyView()
+        case .appUpdate:
+            // Android tester APK only (spec app-update): TestFlight and the App Store update iOS.
+            EmptyView()
         case .recovery:
             RecoveryReminderCard(model: recovery) { showsRecoveryEmail = true }
         case .pinReminder:

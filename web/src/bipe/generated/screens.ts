@@ -36,6 +36,8 @@ export const BipeScreen = {
   appLock: "app-lock",
   /** Tab bar (flow home). Spec: bipe-shared/product/screens/app-tabs.json */
   appTabs: "app-tabs",
+  /** Tester APK update (flow home). Spec: bipe-shared/product/screens/app-update.json */
+  appUpdate: "app-update",
   /** Attach (flow chat). Spec: bipe-shared/product/screens/attachment-picker.json */
   attachmentPicker: "attachment-picker",
   /** Block or unblock a person (flow people). Spec: bipe-shared/product/screens/block-person.json */

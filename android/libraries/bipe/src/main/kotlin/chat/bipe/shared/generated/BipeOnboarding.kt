@@ -139,6 +139,7 @@ enum class BipeChatListPrompt(
     val preempts: Boolean,
 ) {
     REMOTE_BANNER(true),
+    APP_UPDATE(true),
     APPROVE_PHONE(true),
     NOTIFICATIONS(false),
     NOTIFICATION_CHECKUP(false),
@@ -157,6 +158,7 @@ enum class BipeChatListPrompt(
     val key: String
         get() = when (this) {
             REMOTE_BANNER -> "remoteBanner"
+            APP_UPDATE -> "appUpdate"
             APPROVE_PHONE -> "approvePhone"
             NOTIFICATIONS -> "notifications"
             NOTIFICATION_CHECKUP -> "notificationCheckup"

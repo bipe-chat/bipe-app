@@ -1346,6 +1346,11 @@
     <string name="bipe_notifications_prompt_allow">Turn on notifications</string>
     <string name="bipe_remote_banner_update">Update Bipe</string>
     <string name="bipe_remote_banner_dismiss">Close notice</string>
+    <string name="bipe_app_update_title">New Bipe version</string>
+    <string name="bipe_app_update_body">Version %1$s is out. Your chats stay on the phone.</string>
+    <string name="bipe_app_update_downloading">Downloading the new version…</string>
+    <string name="bipe_app_update_failed">Couldn\'t update. Try again.</string>
+    <string name="bipe_app_update_permission">Allow Bipe to install updates, then tap Update Bipe again.</string>
     <string name="bipe_handle_prompt_title">Pick your @</string>
     <string name="bipe_handle_prompt_body">With an @, people can find you on Bipe.</string>
     <string name="bipe_photo_prompt_title">Add a photo</string>
