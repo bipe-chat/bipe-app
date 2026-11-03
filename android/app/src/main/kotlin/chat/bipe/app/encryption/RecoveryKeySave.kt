@@ -64,6 +64,7 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgress
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgressListener
 import org.matrix.rustcomponents.sdk.RecoveryState
+import org.matrix.rustcomponents.sdk.VerificationState
 import org.matrix.rustcomponents.sdk.RecoveryStateListener
 import org.matrix.rustcomponents.sdk.TaskHandle
 import chat.bipe.shared.api.BipeApiClient
@@ -80,6 +81,8 @@ class RecoveryKeySaveModel(private val session: AccountSession, private val api:
     private val encryption = session.client.encryption()
     private val _recoveryState = MutableStateFlow(encryption.recoveryState())
     val recoveryState: StateFlow<RecoveryState> = _recoveryState.asStateFlow()
+    private val _verificationState = MutableStateFlow(encryption.verificationState())
+    val verificationState: StateFlow<VerificationState> = _verificationState.asStateFlow()
     private val _phase = MutableStateFlow(Phase.INTRO)
     val phase: StateFlow<Phase> = _phase.asStateFlow()
     private val _progress = MutableStateFlow(Progress.STARTING)
@@ -114,7 +117,12 @@ class RecoveryKeySaveModel(private val session: AccountSession, private val api:
                 updates.trySend(status)
             }
         })
-        scope.launch { for (state in updates) _recoveryState.value = state }
+        scope.launch {
+            for (state in updates) {
+                _recoveryState.value = state
+                _verificationState.value = encryption.verificationState()
+            }
+        }
     }
 
     fun close() {
@@ -124,8 +132,20 @@ class RecoveryKeySaveModel(private val session: AccountSession, private val api:
 
     fun keyExists(state: RecoveryState): Boolean = state == RecoveryState.ENABLED || state == RecoveryState.INCOMPLETE
 
-    /** Action create: a first key with enableRecovery; a new key (the old one stops working) after the owner check. */
+    /**
+     * State needsApproval (bipe-chat/bipe#911): this phone may lack the private cross-signing keys. A key made here
+     * would replace the default secret storage key, and the old recovery key would stop working in every client.
+     * The phone is approved first, or the person enters the old key (recovery-key-enter).
+     */
+    fun needsApproval(recovery: RecoveryState, verification: VerificationState): Boolean =
+        recovery == RecoveryState.INCOMPLETE || verification != VerificationState.VERIFIED
+
+    /**
+     * Action create: a first key with enableRecovery; a new key (the old one stops working) after the owner check.
+     * Never while needsApproval.
+     */
     fun create(confirmOwner: suspend () -> Boolean) {
+        if (needsApproval(_recoveryState.value, _verificationState.value)) return
         val replace = keyExists(_recoveryState.value)
         scope.launch {
             if (replace && !confirmOwner()) return@launch
@@ -211,6 +231,8 @@ fun RecoveryKeySaveScreen(session: AccountSession, api: BipeApiClient, onClose: 
     }
     val colors = BipeTheme.colors
     val recoveryState by model.recoveryState.collectAsState()
+    val verificationState by model.verificationState.collectAsState()
+    val encryptionStatus = LocalEncryptionStatus.current
     val phase by model.phase.collectAsState()
     val key by model.recoveryKey.collectAsState()
     val account by model.account.collectAsState()
@@ -227,7 +249,19 @@ fun RecoveryKeySaveScreen(session: AccountSession, api: BipeApiClient, onClose: 
         ) {
             Text(stringResource(R.string.bipe_account_recovery_key), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.inkPrimary)
             when (phase) {
-                RecoveryKeySaveModel.Phase.INTRO -> {
+                RecoveryKeySaveModel.Phase.INTRO -> if (model.needsApproval(recoveryState, verificationState)) {
+                    Text(stringResource(R.string.bipe_app_history_none), color = colors.inkSecondary)
+                    Spacer(Modifier.weight(1f))
+                    BipeButton(
+                        onClick = {
+                            onClose()
+                            encryptionStatus?.openSheet()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.bipe_app_link_approve_phone))
+                    }
+                } else {
                     Text(
                         stringResource(if (exists) R.string.bipe_account_recovery_key_saved else R.string.bipe_account_recovery_key_missing),
                         style = MaterialTheme.typography.titleMedium,
