@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import chat.bipe.app.BipeApplication
@@ -189,10 +187,14 @@ fun GovbrVerifyScreen(session: AccountSession, api: BipeApiClient, onVerified: (
         item(key = "govbr-intro") {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(R.string.bipe_govbr_intro), style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
-                StepLine(1, stringResource(R.string.bipe_govbr_step_save))
-                StepLine(2, stringResource(R.string.bipe_govbr_step_sign))
-                StepLine(3, stringResource(R.string.bipe_govbr_step_share))
                 Text(stringResource(R.string.bipe_govbr_needs_level), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+            }
+        }
+        item(key = "govbr-guide") {
+            Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.bipe_govbr_guide_title), style = MaterialTheme.typography.titleSmall, color = colors.inkSecondary,
+                    modifier = Modifier.padding(horizontal = 16.dp))
+                GovbrGuide((phase as? BipeGovbrFlow.Phase.WaitingForSignature)?.fileName ?: BipeRegistries.GOVBR_FILE_NAME)
             }
         }
         item(key = "govbr-phase") {
@@ -239,15 +241,6 @@ fun GovbrVerifyScreen(session: AccountSession, api: BipeApiClient, onVerified: (
             Text(stringResource(R.string.bipe_govbr_safety), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary,
                 modifier = Modifier.padding(16.dp))
         }
-    }
-}
-
-@Composable
-private fun StepLine(number: Int, text: String) {
-    val colors = BipeTheme.colors
-    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.Top) {
-        Text(number.toString(), style = MaterialTheme.typography.titleSmall, color = colors.inkSecondary, modifier = Modifier.width(24.dp))
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.inkPrimary, modifier = Modifier.padding(start = 12.dp))
     }
 }
 

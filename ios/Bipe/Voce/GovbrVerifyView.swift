@@ -87,11 +87,14 @@ struct GovbrVerifyView: View {
             List {
                 Section {
                     Text(BipeStrings.govbrIntro).foregroundStyle(BipeColor.inkPrimary)
-                    StepLine(number: 1, text: BipeStrings.govbrStepSave)
-                    StepLine(number: 2, text: BipeStrings.govbrStepSign)
-                    StepLine(number: 3, text: BipeStrings.govbrStepShare)
                 } footer: {
                     Text(BipeStrings.govbrNeedsLevel)
+                }
+                Section {
+                    GovbrGuide(fileName: pdfFileName)
+                        .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 8, trailing: 0))
+                } header: {
+                    Text(BipeStrings.govbrGuideTitle)
                 }
                 Section {
                     phaseContent
@@ -217,22 +220,6 @@ struct GovbrVerifyView: View {
         case .cpfInUse: BipeStrings.govbrReasonCpfInUse
         case .changedAfterSigning: BipeStrings.govbrReasonChangedAfterSigning
         }
-    }
-}
-
-private struct StepLine: View {
-    let number: Int
-    let text: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Text(verbatim: "\(number)")
-                .font(.subheadline.monospacedDigit().bold())
-                .foregroundStyle(BipeColor.inkSecondary)
-                .frame(width: 24, alignment: .center)
-            Text(text).font(.subheadline).foregroundStyle(BipeColor.inkPrimary)
-        }
-        .accessibilityElement(children: .combine)
     }
 }
 
