@@ -499,6 +499,6 @@ enum class BipeScreen(val id: String) {
     /** Opening hours of a work account (flow settings). Spec: bipe-shared/product/screens/work-hours.json */
     WORK_HOURS("work-hours"),
 
-    /** Seu ano no Bipe (flow voce). Spec: bipe-shared/product/screens/year-recap.json */
+    /** Suas estatísticas (flow voce). Spec: bipe-shared/product/screens/year-recap.json */
     YEAR_RECAP("year-recap"),
 }

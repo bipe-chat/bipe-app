@@ -330,7 +330,7 @@ export const BipeScreen = {
   whoCanMessage: "who-can-message",
   /** Opening hours of a work account (flow settings). Spec: bipe-shared/product/screens/work-hours.json */
   workHours: "work-hours",
-  /** Seu ano no Bipe (flow voce). Spec: bipe-shared/product/screens/year-recap.json */
+  /** Suas estatísticas (flow voce). Spec: bipe-shared/product/screens/year-recap.json */
   yearRecap: "year-recap",
 } as const;
 

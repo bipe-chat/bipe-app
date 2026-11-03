@@ -2197,7 +2197,7 @@
     <string name="bipe_group_link_preview_title">Group %1$s on Bipe</string>
     <string name="bipe_group_link_preview_count">People in the group: %1$s. Tap to join.</string>
     <string name="bipe_groups_service_name">Bipe Grupos</string>
-    <string name="bipe_year_recap_title">Your year on Bipe</string>
+    <string name="bipe_year_recap_title">Your stats</string>
     <string name="bipe_year_recap_card_title">My %1$s on Bipe</string>
     <string name="bipe_year_recap_reading">Reading the chats on this phone: %1$s of %2$s</string>
     <string name="bipe_year_recap_on_device">Bipe did this count on this phone. Nothing leaves it until you share.</string>
