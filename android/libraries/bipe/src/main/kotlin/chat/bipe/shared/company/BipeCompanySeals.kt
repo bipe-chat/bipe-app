@@ -123,7 +123,6 @@ class BipeCompanySeals(
                 val result = verifier.value.verify(
                     envelopeJson = lookup.json,
                     sender = userId,
-                    senderDevice = "",
                     senderMasterKey = masterKey(userId),
                     nowMillis = now,
                 )

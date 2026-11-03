@@ -353,7 +353,6 @@ struct SharedVectorTests {
             let envelope = try JSONSerialization.data(withJSONObject: #require(vector["envelope"]))
             let result = try verifier.verify(envelopeJSON: envelope,
                                              sender: #require(vector["sender"] as? String),
-                                             senderDevice: #require(vector["senderDevice"] as? String),
                                              senderMasterKey: vector["senderMasterKey"] as? String,
                                              now: now)
             let outcome = switch result {
