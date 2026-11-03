@@ -312,6 +312,12 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title)
             }
+        case .helpVersions:
+            NavigationLink {
+                VersionHistoryView()
+            } label: {
+                SettingsRowLabel(title: row.title)
+            }
         case .helpSupport:
             NavigationLink(value: SettingsRoute.support) { SettingsRowLabel(title: row.title) }
         // Spec settings-group (MZ, 3 Nov 2026): the year recap is the last row of Conversas e mídia (ADR 0223).

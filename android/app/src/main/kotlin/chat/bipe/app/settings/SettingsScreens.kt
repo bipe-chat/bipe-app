@@ -135,6 +135,7 @@ sealed interface SettingsRoute {
     data object TheftProtection : SettingsRoute
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
+    data object Versions : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
     data object AppearanceChoice : SettingsRoute
     data object MediaQualityChoice : SettingsRoute
@@ -222,6 +223,7 @@ fun SettingsHost(
         SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
         SettingsRoute.TheftProtection -> TheftProtectionScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
+        SettingsRoute.Versions -> VersionHistoryScreen(onBack = pop)
         SettingsRoute.DataUse -> DataUseScreen(onBack = pop)
         SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, api, onClose = pop)
         SettingsRoute.RecoveryEmail -> {
@@ -418,6 +420,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_THEFT_PROTECTION -> onOpen(SettingsRoute.TheftProtection)
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
+            BipeSettingsRow.HELP_VERSIONS -> onOpen(SettingsRoute.Versions)
             BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)
             // Spec encryption-status, action openSheet: the same sheet as the chat list banner.
             BipeSettingsRow.ACCOUNT_OLD_MESSAGES -> encryption?.openSheet()

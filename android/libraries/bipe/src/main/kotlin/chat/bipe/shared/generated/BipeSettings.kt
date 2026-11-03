@@ -71,7 +71,7 @@ enum class BipeSettingsRow(
     HELP_TERMS("help.terms", BipeSettingsRowKind.URL, R.string.bipe_help_terms, null, null, "https://bipe.chat/termos/", "https://bipe.chat/en/terms/"),
     HELP_PRIVACY("help.privacy", BipeSettingsRowKind.URL, R.string.bipe_help_privacy, null, null, "https://bipe.chat/privacidade/", "https://bipe.chat/en/privacy/"),
     HELP_LICENSES("help.licenses", BipeSettingsRowKind.LINK, R.string.bipe_help_licenses, null, null, null, null),
-    HELP_VERSIONS("help.versions", BipeSettingsRowKind.URL, R.string.bipe_help_versions, null, null, "https://bipe.chat/versoes/", "https://bipe.chat/en/versions/"),
+    HELP_VERSIONS("help.versions", BipeSettingsRowKind.LINK, R.string.bipe_help_versions, null, null, null, null),
     ;
 
     /** The page a url row opens, in the app language ("pt" or "en"). */
@@ -87,6 +87,7 @@ enum class BipeSettingsUrl(val pt: String, val en: String) {
     LGPD("https://bipe.chat/lgpd/", "https://bipe.chat/en/lgpd/"),
     ACCESSIBILITY("https://bipe.chat/acessibilidade/", "https://bipe.chat/en/accessibility/"),
     VERSIONS("https://bipe.chat/versoes/", "https://bipe.chat/en/versions/"),
+    VERSIONS_DATA("https://bipe.chat/versoes/changelog.json", "https://bipe.chat/en/versions/changelog.json"),
     ;
 
     /** The page in the app language ("pt" or "en"). */
