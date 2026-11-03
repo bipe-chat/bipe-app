@@ -22,8 +22,11 @@ import { Spinner } from './ui/Spinner';
 import { BlockAlert, DmDeleteAlert, LeaveAlert, NotifySheet, ReportSheet } from './ChatActions';
 import { useIgnoredUsers } from './chat-actions';
 import { useClient } from './media';
-import { bell, flag, prohibit, signOut, trash } from './phosphor/icons';
+import { bell, flag, link, prohibit, signOut, trash } from './phosphor/icons';
 import { Icon } from './ui/Icon';
+import { publicProfile } from './api';
+import { socialHandleClean, socialUrl } from './bipe/generated/lib/registries.mjs';
+import { profiles } from './bipe/generated/registries.json';
 
 export function ChatInfo({
   room,
@@ -85,8 +88,8 @@ function Header({
   );
 }
 
-// The @handle and the profile facts come from bipe-api (Trust.tsx). TODO: trust marks and the bio
-// (public profile) are not read yet.
+// The @handle and the profile facts come from bipe-api (Trust.tsx), the social handles from the public profile.
+// TODO: trust marks and the bio are not read yet.
 function PersonInfo({ face }: { face: RoomFace }) {
   const handle = useHandle(face.peer?.userId);
   return (
@@ -99,7 +102,46 @@ function PersonInfo({ face }: { face: RoomFace }) {
         subtitle={handle ? `@${handle}` : undefined}
       />
       <ProfileFactsLines userId={face.peer?.userId} />
+      <SocialLinks handle={handle} />
     </>
+  );
+}
+
+type SocialLink = { id: string; name: string; handle: string; url: string };
+
+/** Spec person-profile socials: PublicProfile.socials in registry order, unknown ids skipped, links built here. */
+function socialLinks(socials: Record<string, string> | undefined): SocialLink[] {
+  if (!socials) return [];
+  return profiles.socials.flatMap((p) => {
+    const handle = socialHandleClean(socials[p.id] ?? '');
+    return handle ? [{ id: p.id, name: p.name, handle, url: socialUrl(p.id, handle, { profiles }) }] : [];
+  });
+}
+
+// Spec person-profile socials (ADR 0228): one row per network, opened in a new browser tab, never a preview.
+// The link comes from the registry template, never from the server.
+function SocialLinks({ handle }: { handle?: string }) {
+  const [links, setLinks] = useState<SocialLink[]>([]);
+  useEffect(() => {
+    if (!handle) return;
+    let stopped = false;
+    void publicProfile(handle).then((p) => !stopped && setLinks(socialLinks(p?.socials)));
+    return () => {
+      stopped = true;
+    };
+  }, [handle]);
+  if (links.length === 0) return null;
+  return (
+    <Section header={s('bipe_public_profile_socials')} footer={s('bipe_public_profile_socials_not_verified')}>
+      {links.map((l) => (
+        <Row key={l.id}>
+          <a href={l.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 flex-1 items-center gap-2 text-body text-ink-primary">
+            <span className="min-w-0 flex-1 truncate">{`${l.name} · @${l.handle}`}</span>
+            <Icon path={link} size={16} className="text-ink-secondary" />
+          </a>
+        </Row>
+      ))}
+    </Section>
   );
 }
 

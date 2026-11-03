@@ -236,6 +236,8 @@ data class BipeMyProfile(
     @SerialName("photo_url") val photoUrl: String? = null,
     /** The mxc URI of the Matrix avatar that the photo copies. Absent without a photo or for an older upload. */
     @SerialName("photo_source") val photoSource: String? = null,
+    /** Social handles (ADR 0228), keyed by registries/profiles.json socials id. The contract sends `{}` when none. */
+    @SerialName("socials") val socials: Map<String, String> = emptyMap(),
 )
 
 /** Contract `ProfileUpdate`. */
@@ -244,6 +246,8 @@ data class BipeProfileUpdate(
     @SerialName("enabled") val enabled: Boolean,
     @SerialName("name") val name: String,
     @SerialName("bio") val bio: String,
+    /** Social handles (ADR 0228). null: the server keeps the stored handles. A value replaces them all. */
+    @SerialName("socials") val socials: Map<String, String>? = null,
 )
 
 /** Contract `PublicProfile`. Never carries the Matrix ID. */
@@ -253,6 +257,11 @@ data class BipePublicProfile(
     @SerialName("name") val name: String,
     @SerialName("bio") val bio: String? = null,
     @SerialName("photo_url") val photoUrl: String? = null,
+    /**
+     * Social handles (ADR 0228): registries/profiles.json socials id to handle without @. Absent when empty.
+     * The apps build each link with [chat.bipe.shared.BipeSocialHandles.url]; the server sends no URL.
+     */
+    @SerialName("socials") val socials: Map<String, String> = emptyMap(),
     /** The same envelope as `GET /v1/badges/{userId}`. Absent when that call would not answer 200. */
     @SerialName("badge") val badge: chat.bipe.shared.BadgeEnvelope? = null,
 )

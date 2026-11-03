@@ -1094,6 +1094,9 @@ public struct BipePublicProfile: Decodable, Sendable, Equatable {
     public let bio: String?
     /// Absent without a photo. The URL changes when the photo changes.
     public let photoUrl: URL?
+    /// Social handles (ADR 0228): registries/profiles.json socials id to handle without @. Absent when empty.
+    /// The apps build each link with `BipeSocialHandles.url`; the server sends no URL.
+    public let socials: [String: String]?
     /// Set by the server only. The apps do not show a profile badge yet.
     public let badge: BadgeEnvelope?
 }
@@ -1110,6 +1113,8 @@ public struct BipeMyProfile: Decodable, Sendable, Equatable {
     public let photoUrl: URL?
     /// The mxc URI of the Matrix avatar that the photo copies. Absent without a photo or for an older upload.
     public let photoSource: String?
+    /// Social handles (ADR 0228), keyed by registries/profiles.json socials id. The contract sends `{}` when none.
+    public let socials: [String: String]?
 }
 
 /// Contract: `ProfileUpdate`.
@@ -1117,11 +1122,14 @@ public struct BipeProfileUpdate: Encodable, Sendable, Equatable {
     public let enabled: Bool
     public let name: String
     public let bio: String
+    /// Social handles (ADR 0228). nil: the server keeps the stored handles. A value replaces them all.
+    public let socials: [String: String]?
     
-    public init(enabled: Bool, name: String, bio: String) {
+    public init(enabled: Bool, name: String, bio: String, socials: [String: String]? = nil) {
         self.enabled = enabled
         self.name = name
         self.bio = bio
+        self.socials = socials
     }
 }
 
