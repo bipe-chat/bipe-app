@@ -481,6 +481,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Upload preview (flow chat). Spec: bipe-shared/product/screens/upload-preview.json
     case uploadPreview = "upload-preview"
 
+    /// Version history (flow settings). Spec: bipe-shared/product/screens/version-history.json
+    case versionHistory = "version-history"
+
     /// Você (flow voce). Spec: bipe-shared/product/screens/voce.json
     case voce = "voce"
 
