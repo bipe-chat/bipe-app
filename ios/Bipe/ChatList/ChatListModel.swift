@@ -90,6 +90,10 @@ final class ChatListModel: ObservableObject {
     private var summaryTask: Task<Void, Never>?
     @Published private(set) var markingRoomId: String?
     @Published private(set) var favouriteFailed = false
+    /// The favourites order of spec chat-list (registries/chat-favourites.json): room IDs, first first.
+    @Published private(set) var favouritesOrder: [String] = []
+    /// A local order that is not on the server yet: a read must not replace it.
+    private var favouritesOrderUnsaved = false
     @Published private(set) var readActionFailed = false
     /// A local read found an undecryptable message: feeds encryption-status noteUndecryptable (bipe-chat/bipe#853).
     @Published private(set) var hasUndecryptable = false
@@ -123,9 +127,10 @@ final class ChatListModel: ObservableObject {
         chats.filter { (scope == .todas || $0.scope == scope) && archive.contains($0) == archived }
     }
 
-    /// State favourites of spec chat-list: the favourites of one scope that are not archived.
+    /// State favourites of spec chat-list: the favourites of one scope that are not archived, in the favourites order.
     func favourites(in scope: ChatScope) -> [ChatSummary] {
-        chats(in: scope).filter(\.isFavourite)
+        BipeFavouritesOrder.sorted(chats(in: scope).filter(\.isFavourite), order: favouritesOrder,
+                                   roomId: \.roomId, name: \.name)
     }
 
     /// The phase of one scope: empty when the list loaded and the scope has no chat.
@@ -172,7 +177,10 @@ final class ChatListModel: ObservableObject {
         let archived = tagStream(roomList, tag: .lowPriority) { $0.archivedRooms.apply($1) }
         archiveEntries = archived.0
         archiveTask = archived.1
-        let favourites = tagStream(roomList, tag: .favourite) { $0.favouriteRooms.apply($1) }
+        await loadFavouritesOrder()
+        let favourites = tagStream(roomList, tag: .favourite, onUpdate: { await $0.loadFavouritesOrder() }) {
+            $0.favouriteRooms.apply($1)
+        }
         favouriteEntries = favourites.0
         favouriteTask = favourites.1
 
@@ -202,6 +210,7 @@ final class ChatListModel: ObservableObject {
 
     /// A room list stream of joined rooms with one tag (m.lowpriority or m.favourite).
     private func tagStream(_ roomList: RoomList, tag: RoomListEntriesDynamicFilterKind,
+                           onUpdate: (@MainActor (ChatListModel) async -> Void)? = nil,
                            apply: @escaping @MainActor (ChatListModel, VectorDiff<Room>) -> Void)
         -> (RoomListEntriesWithDynamicAdaptersResult, Task<Void, Never>) {
         let stream = RoomListEntriesStream()
@@ -219,6 +228,7 @@ final class ChatListModel: ObservableObject {
                     }
                     apply(self, update.vectorDiff)
                 }
+                await onUpdate?(self)
                 refreshSummaries()
                 await updateSubscriptions()
             }
@@ -280,11 +290,37 @@ final class ChatListModel: ObservableObject {
             let info = try await room.roomInfo()
             guard info.membership == .joined, !info.isSpace else { throw ReadFailure.unavailable }
             try await room.setIsFavourite(isFavourite: favourite, tagOrder: nil)
+            // Spec chat-list favourites order: a new favourite goes last, a removed one leaves the order.
+            await saveFavouritesOrder(favourite ? BipeFavouritesOrder.adding(roomId, to: favouritesOrder)
+                                                : BipeFavouritesOrder.removing(roomId, from: favouritesOrder))
             refreshSummaries()
         } catch is CancellationError {
         } catch {
             favouriteFailed = true
         }
+    }
+
+    /// Action moveFavourite of spec chat-list: moves a favourite among the shown favourites of its scope and writes the order.
+    func moveFavourite(roomId: String, to index: Int, shown: [String]) async {
+        await saveFavouritesOrder(BipeFavouritesOrder.moving(roomId, to: index, shown: shown, order: favouritesOrder))
+    }
+
+    /// Reads the favourites order from the account data, unless this phone has an order it could not write yet.
+    private func loadFavouritesOrder() async {
+        guard !favouritesOrderUnsaved,
+              let json = try? await session.client.accountData(eventType: BipeFavouritesOrder.eventType) else { return }
+        favouritesOrder = BipeFavouritesOrder.parse(json)
+    }
+
+    /// Shows the order at once and writes it. A failed write keeps it on this phone; the next change writes it again.
+    private func saveFavouritesOrder(_ order: [String]) async {
+        favouritesOrder = order
+        favouritesOrderUnsaved = true
+        do {
+            try await session.client.setAccountData(eventType: BipeFavouritesOrder.eventType,
+                                                    content: BipeFavouritesOrder.content(order))
+            if favouritesOrder == order { favouritesOrderUnsaved = false }
+        } catch {}
     }
 
     func retryReadAction() async {

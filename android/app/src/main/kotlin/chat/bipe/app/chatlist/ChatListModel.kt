@@ -39,6 +39,7 @@ import org.matrix.rustcomponents.sdk.RoomNotificationMode
 import org.matrix.rustcomponents.sdk.TaskHandle
 import chat.bipe.app.voce.NotesRoom
 import chat.bipe.shared.BipeChatRowName
+import chat.bipe.shared.BipeFavouritesOrder
 import java.util.UUID
 
 /** Type ChatSummary of spec chat-list. */
@@ -130,6 +131,11 @@ class ChatListModel(
     val readActionFailed = _readActionFailed.asStateFlow()
     private val _favouriteFailed = MutableStateFlow(false)
     val favouriteFailed = _favouriteFailed.asStateFlow()
+    /** The favourites order of spec chat-list (registries/chat-favourites.json): room IDs, first first. */
+    private val _favouritesOrder = MutableStateFlow<List<String>>(emptyList())
+    val favouritesOrder = _favouritesOrder.asStateFlow()
+    /** A local order that is not on the server yet: a read must not replace it. */
+    private var favouritesOrderUnsaved = false
     /** A local read found an undecryptable message: feeds encryption-status noteUndecryptable (bipe-chat/bipe#853). */
     private val _hasUndecryptable = MutableStateFlow(false)
     val hasUndecryptable = _hasUndecryptable.asStateFlow()
@@ -180,7 +186,8 @@ class ChatListModel(
                 archiveEntries = entries
                 archiveJob = job
             }
-            tagStream(roomList, RoomListEntriesDynamicFilterKind.Favourite, favouriteRooms).let { (entries, job) ->
+            loadFavouritesOrder()
+            tagStream(roomList, RoomListEntriesDynamicFilterKind.Favourite, favouriteRooms, ::loadFavouritesOrder).let { (entries, job) ->
                 favouriteEntries = entries
                 favouriteJob = job
             }
@@ -211,6 +218,7 @@ class ChatListModel(
     /** A room list stream of joined rooms with one tag (m.lowpriority or m.favourite), applied to [target]. */
     private fun CoroutineScope.tagStream(
         roomList: org.matrix.rustcomponents.sdk.RoomList, tag: RoomListEntriesDynamicFilterKind, target: MutableList<Room>,
+        onUpdate: (suspend () -> Unit)? = null,
     ): Pair<RoomListEntriesWithDynamicAdaptersResult, Job> {
         val updates = Channel<List<RoomListEntriesUpdate>>(Channel.UNLIMITED)
         val entries = roomList.entriesWithDynamicAdapters(PAGE_SIZE, object : RoomListEntriesListener {
@@ -233,6 +241,7 @@ class ChatListModel(
                     }
                     target.applyDiff(update.toVectorDiff())
                 }
+                onUpdate?.invoke()
                 refreshSummaries()
                 updateSubscriptions()
             }
@@ -304,6 +313,9 @@ class ChatListModel(
                 val info = room.roomInfo()
                 check(info.membership == org.matrix.rustcomponents.sdk.Membership.JOINED && !info.isSpace)
                 room.setIsFavourite(favourite, null)
+                // Spec chat-list favourites order: a new favourite goes last, a removed one leaves the order.
+                val order = _favouritesOrder.value
+                saveFavouritesOrder(if (favourite) BipeFavouritesOrder.adding(roomId, order) else BipeFavouritesOrder.removing(roomId, order))
                 refreshSummaries()
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
@@ -311,6 +323,27 @@ class ChatListModel(
                 _favouriteFailed.value = true
             }
         }
+    }
+
+    /** Action moveFavourite of spec chat-list: moves a favourite among the [shown] favourites of its scope and writes the order. */
+    fun moveFavourite(roomId: String, index: Int, shown: List<String>) {
+        scope.launch { saveFavouritesOrder(BipeFavouritesOrder.moving(roomId, index, shown, _favouritesOrder.value)) }
+    }
+
+    /** Reads the favourites order from the account data, unless this phone has an order it could not write yet. */
+    private suspend fun loadFavouritesOrder() {
+        if (favouritesOrderUnsaved) return
+        val json = runCatching { session.client.accountData(BipeFavouritesOrder.EVENT_TYPE) }.getOrNull() ?: return
+        _favouritesOrder.value = BipeFavouritesOrder.parse(json)
+    }
+
+    /** Shows the order at once and writes it. A failed write keeps it on this phone; the next change writes it again. */
+    private suspend fun saveFavouritesOrder(order: List<String>) {
+        _favouritesOrder.value = order
+        favouritesOrderUnsaved = true
+        val saved = runCatching { session.client.setAccountData(BipeFavouritesOrder.EVENT_TYPE, BipeFavouritesOrder.content(order)) }
+            .isSuccess
+        if (saved && _favouritesOrder.value == order) favouritesOrderUnsaved = false
     }
 
     fun retryReadAction() { failedReadIntent?.let { (roomId, unread) -> setUnread(roomId, unread) } }
