@@ -624,6 +624,14 @@ public enum BipeRegistries {
     public static let theftStatementLifeHours = 24
     public static let theftCheckMinutes = 15
 
+    /// Age signals (ADR 0229, registries/age-signals.json). The server maps the range to a band; the app only reads and sends it.
+    public static let ageSignalAppleGates: [Int] = [
+        13,
+        16,
+        18,
+    ]
+    public static let ageSignalRecheckDays = 7
+
     /// Username (handle) rules. The server is the authority; clients check early for feedback.
     public static let handleMinLength = 3
     public static let handleMaxLength = 30
