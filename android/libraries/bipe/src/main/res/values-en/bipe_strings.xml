@@ -1201,15 +1201,6 @@
     <string name="bipe_help_privacy">Privacy policy</string>
     <string name="bipe_help_licenses">Open source licences</string>
     <string name="bipe_help_versions">Version history</string>
-    <string name="bipe_versions_note">The release notes are in English.</string>
-    <string name="bipe_versions_testing">In testing</string>
-    <string name="bipe_versions_released">Released %1$s</string>
-    <string name="bipe_versions_build">Build %1$s</string>
-    <string name="bipe_versions_kind_new">New</string>
-    <string name="bipe_versions_kind_improved">Improved</string>
-    <string name="bipe_versions_kind_fixed">Fixed</string>
-    <string name="bipe_versions_kind_removed">Removed</string>
-    <string name="bipe_versions_error">Could not load the history. Check the internet and try again.</string>
     <string name="bipe_help_version">Version %1$s</string>
     <string name="bipe_help_device_id_copied">Device ID copied</string>
     <string name="bipe_profile_display_name">Your name</string>

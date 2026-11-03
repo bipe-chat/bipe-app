@@ -487,9 +487,6 @@ enum class BipeScreen(val id: String) {
     /** Upload preview (flow chat). Spec: bipe-shared/product/screens/upload-preview.json */
     UPLOAD_PREVIEW("upload-preview"),
 
-    /** Version history (flow settings). Spec: bipe-shared/product/screens/version-history.json */
-    VERSION_HISTORY("version-history"),
-
     /** Você (flow voce). Spec: bipe-shared/product/screens/voce.json */
     VOCE("voce"),
 

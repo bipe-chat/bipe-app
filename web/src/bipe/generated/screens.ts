@@ -322,8 +322,6 @@ export const BipeScreen = {
   typingIndicator: "typing-indicator",
   /** Upload preview (flow chat). Spec: bipe-shared/product/screens/upload-preview.json */
   uploadPreview: "upload-preview",
-  /** Version history (flow settings). Spec: bipe-shared/product/screens/version-history.json */
-  versionHistory: "version-history",
   /** Você (flow voce). Spec: bipe-shared/product/screens/voce.json */
   voce: "voce",
   /** Voice message (flow chat). Spec: bipe-shared/product/screens/voice-message.json */

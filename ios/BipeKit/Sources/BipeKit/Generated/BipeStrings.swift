@@ -2772,28 +2772,6 @@ public enum BipeStrings {
 
     public static var helpVersions: String { NSLocalizedString("bipe_help_versions", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var versionsNote: String { NSLocalizedString("bipe_versions_note", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var versionsTesting: String { NSLocalizedString("bipe_versions_testing", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func versionsReleased(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_versions_released", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static func versionsBuild(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_versions_build", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static var versionsKindNew: String { NSLocalizedString("bipe_versions_kind_new", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var versionsKindImproved: String { NSLocalizedString("bipe_versions_kind_improved", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var versionsKindFixed: String { NSLocalizedString("bipe_versions_kind_fixed", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var versionsKindRemoved: String { NSLocalizedString("bipe_versions_kind_removed", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var versionsError: String { NSLocalizedString("bipe_versions_error", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static func helpVersion(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_help_version", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }

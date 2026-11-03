@@ -173,7 +173,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .helpTerms: .url
         case .helpPrivacy: .url
         case .helpLicenses: .link
-        case .helpVersions: .link
+        case .helpVersions: .url
         }
     }
 
@@ -331,6 +331,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .helpDocs: URL(string: language == "pt" ? "https://bipe.chat/docs/" : "https://bipe.chat/en/docs/")
         case .helpTerms: URL(string: language == "pt" ? "https://bipe.chat/termos/" : "https://bipe.chat/en/terms/")
         case .helpPrivacy: URL(string: language == "pt" ? "https://bipe.chat/privacidade/" : "https://bipe.chat/en/privacy/")
+        case .helpVersions: URL(string: language == "pt" ? "https://bipe.chat/versoes/" : "https://bipe.chat/en/versions/")
         default: nil
         }
     }
@@ -345,7 +346,6 @@ public enum BipeSettingsUrl: String, CaseIterable, Sendable {
     case lgpd
     case accessibility
     case versions
-    case versionsData
 
     /// The page in the app language ("pt" or "en").
     public func url(language: String) -> URL? {
@@ -357,7 +357,6 @@ public enum BipeSettingsUrl: String, CaseIterable, Sendable {
         case .lgpd: URL(string: language == "pt" ? "https://bipe.chat/lgpd/" : "https://bipe.chat/en/lgpd/")
         case .accessibility: URL(string: language == "pt" ? "https://bipe.chat/acessibilidade/" : "https://bipe.chat/en/accessibility/")
         case .versions: URL(string: language == "pt" ? "https://bipe.chat/versoes/" : "https://bipe.chat/en/versions/")
-        case .versionsData: URL(string: language == "pt" ? "https://bipe.chat/versoes/changelog.json" : "https://bipe.chat/en/versions/changelog.json")
         }
     }
 }
