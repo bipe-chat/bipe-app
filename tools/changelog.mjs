@@ -5,7 +5,9 @@
 // The changelog: one file per change in changelog/updates/, grouped by build (changelog/README.md).
 // A build is a commit that CI built: a tag builds/next/<number> from before tools/version.mjs, or any main commit
 // since version.json (its build plus the commit count, tools/version.mjs). A change belongs to the first build at or
-// after its commit. An update without `build` takes the build of the commit that added its file.
+// after its commit. An update without `build` takes the build of the commit that added its file. A build has the
+// version tools/version.mjs gives its commit; the builds of one version ship in its release, a tag
+// releases/<version> (ADR 0227). The builds after the last release wait for the next one.
 // Usage: node tools/changelog.mjs                    prints the changelog, newest build first
 //        node tools/changelog.mjs --since <build>    prints only the builds after <build>
 //        node tools/changelog.mjs --json [--ref <rev>] prints the builds as JSON for bipe-web, from the commit <rev>
@@ -21,7 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO_ROOT, isMain } from './lib.mjs';
-import { TAG_PREFIX } from './version.mjs';
+import { RELEASE_PREFIX, TAG_PREFIX, readHistory, releaseVersions, versionName } from './version.mjs';
 
 export const KINDS = ['new', 'improved', 'fixed', 'removed'];
 // web/ is a spike: its changes stay out of the changelog.
@@ -98,16 +100,24 @@ export function checkUpdates(root) {
 // --- builds -----------------------------------------------------------------------------------------------------
 
 /**
- * The builds in HEAD's history, oldest first: { build, commit, date, version }.
+ * The builds in HEAD's history, oldest first: { build, commit, date, version, released, releaseDate }.
  * `history` is HEAD's first-parent commits oldest first as { commit, date, count };
- * `tags` maps commit to tag number; `versionAt(commit)` returns version.json at that commit or null.
+ * `tags` maps commit to tag number; `versionAt(commit)` returns version.json at that commit or null;
+ * `releases` maps commit to the version released there (tags releases/<version>); `first` is the version before the
+ * first release (version.json). `released` tells whether the build's version has gone public, on `releaseDate`.
  */
-export function builds({ history, tags, versionAt }) {
+export function builds({ history, tags, versionAt, releases = new Map(), first }) {
   const out = [];
+  const before = [];
+  const releaseDates = new Map();
+  for (const { commit, date } of history) if (releases.has(commit)) releaseDates.set(releases.get(commit), date);
   for (const { commit, date, count } of history) {
     const file = versionAt(commit);
-    if (file) out.push({ build: file.build + count, commit, date, version: file.version });
-    else if (tags.has(commit)) out.push({ build: tags.get(commit), commit, date, version: null });
+    const version = versionName({ base: first, released: before, atCommit: releases.get(commit) });
+    if (releases.has(commit)) before.push(releases.get(commit));
+    const build = file ? file.build + count : tags.get(commit);
+    if (build === undefined) continue;
+    out.push({ build, commit, date, version, released: releaseDates.has(version), releaseDate: releaseDates.get(version) ?? null });
   }
   return out;
 }
@@ -121,13 +131,6 @@ export function buildFor(index, history, byCommit) {
   return null;
 }
 
-function readHistory(root, ref) {
-  const rows = lines(git(root, 'log', '--first-parent', '--reverse', '--format=%H %cs', ref));
-  return rows.map((row, i) => {
-    const [commit, date] = row.split(' ');
-    return { commit, date, count: i + 1 };
-  });
-}
 
 function readTags(root) {
   const tags = new Map();
@@ -155,9 +158,20 @@ function versionReader(root, history, ref) {
   };
 }
 
+function readReleases(root) {
+  const releases = new Map();
+  for (const row of lines(git(root, 'tag', '--list', `${RELEASE_PREFIX}*`, '--format=%(refname:short) %(*objectname)%(objectname)'))) {
+    const [tag, sha] = row.split(' ');
+    const [version] = releaseVersions([tag]);
+    if (version) releases.set(sha.slice(0, 40), version);
+  }
+  return releases;
+}
+
 function loadBuilds(root, ref = 'HEAD') {
   const history = readHistory(root, ref);
-  const list = builds({ history, tags: readTags(root), versionAt: versionReader(root, history, ref) });
+  const first = JSON.parse(git(root, 'show', `${ref}:version.json`)).version;
+  const list = builds({ history, tags: readTags(root), versionAt: versionReader(root, history, ref), releases: readReleases(root), first });
   return { history, list, byCommit: new Map(list.map((b) => [b.commit, b])) };
 }
 
@@ -171,7 +185,10 @@ export function updateBullet(update) {
   return `- ${body} _(${where}; ${update.kind})_`;
 }
 
-/** Markdown, newest build first. `updates` carry `build`; those without one wait under "Next build". */
+/**
+ * Markdown, newest version and build first. `updates` carry `build`; those without one wait under "Next build".
+ * A version heading says when it went public, or that it has not yet.
+ */
 export function renderChangelog(updates, buildList, { since = 0 } = {}) {
   const byBuild = new Map();
   for (const u of updates) {
@@ -183,10 +200,15 @@ export function renderChangelog(updates, buildList, { since = 0 } = {}) {
   const info = new Map(buildList.map((b) => [b.build, b]));
   const keys = [...byBuild.keys()].sort((a, b) => (a === 'next' ? -1 : b === 'next' ? 1 : b - a));
   const out = ['# Bipe app changelog', ''];
+  let version;
   for (const key of keys) {
     const b = info.get(key);
-    if (key === 'next') out.push('## Next build');
-    else out.push(`## Build ${key}${b?.version ? ` (${b.version})` : ''}${b ? ` — ${b.date}` : ''}`);
+    if (b && b.version !== version) {
+      version = b.version;
+      out.push(`## ${version} — ${b.released ? `released ${b.releaseDate}` : 'not released yet'}`, '');
+    }
+    if (key === 'next') out.push('### Next build');
+    else out.push(`### Build ${key}${b ? ` — ${b.date}` : ''}`);
     out.push('');
     const entries = byBuild.get(key).sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id));
     for (const u of entries) out.push(updateBullet(u));
@@ -210,6 +232,8 @@ export function changelogJson(updates, buildList) {
     .map((build) => ({
       build,
       version: info.get(build)?.version ?? null,
+      released: info.get(build)?.released ?? false,
+      releaseDate: info.get(build)?.releaseDate ?? null,
       date: info.get(build)?.date ?? byBuild.get(build)[0].date,
       updates: byBuild
         .get(build)
