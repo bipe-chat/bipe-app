@@ -124,6 +124,25 @@ export function Chats({ client }: { client: Client }) {
     };
   }, [client]);
 
+  // The SDK computes a room's latest event (row text and time) only for subscribed rooms, like
+  // BipeRoomSubscriptions on iOS and Android. A subscription replaces the previous one, so it carries every
+  // loaded room.
+  const subscribed = useRef('');
+  useEffect(() => {
+    const sync = keep.current.sync;
+    const ids = rooms.map((r) => r.id()).sort();
+    const key = ids.join('\n');
+    if (!sync || !ids.length || key === subscribed.current) return;
+    subscribed.current = key;
+    sync
+      .roomListService()
+      .subscribeToRooms(ids)
+      .catch((e: unknown) => {
+        if (subscribed.current === key) subscribed.current = '';
+        console.warn('[trace] room subscription failed', e);
+      });
+  }, [rooms]);
+
   const summaries = useChatSummaries(rooms);
   const archive = useMemo(() => new ChatArchive(client.userId()), [client]);
   useArchiveVersion(archive);
