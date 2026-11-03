@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +51,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
@@ -58,6 +61,7 @@ import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.BipeProfileProblem
 import chat.bipe.shared.BipeProfileRules
 import chat.bipe.shared.BipeNameLookalikes
+import chat.bipe.shared.BipeSocialHandles
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
@@ -67,6 +71,7 @@ import chat.bipe.shared.api.myProfile
 import chat.bipe.shared.api.setMyProfile
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.generated.SocialPlatform
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -216,7 +221,10 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit) {
     }
 }
 
-/** Spec public-profile-edit: the public profile behind bipe.chat/@handle, in no search (ADR 0041). The photo is the profile photo (syncPhoto). */
+/**
+ * Spec public-profile-edit: the public profile behind bipe.chat/@handle, in no search (ADR 0041), with its social
+ * handles (ADR 0228). The photo is the profile photo (syncPhoto).
+ */
 @Composable
 fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openLink: () -> Unit, onBack: () -> Unit) {
     val colors = BipeTheme.colors
@@ -228,6 +236,10 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
     var handle by remember { mutableStateOf<String?>(null) }
     var name by remember { mutableStateOf("") }
     var bio by remember { mutableStateOf("") }
+    // Spec socials: the text of each field by registries/profiles.json socials id, without the fixed @.
+    var socials by remember { mutableStateOf(mapOf<String, String>()) }
+    // MyProfile.socials ids this build does not know. Saved back unchanged, so a newer network is not removed.
+    var otherSocials by remember { mutableStateOf(mapOf<String, String>()) }
     // Client.avatarUrl: the public page shows a copy of it.
     var avatarUrl by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
@@ -240,12 +252,20 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
         handle = profile.handle
         name = profile.name
         bio = profile.bio
+        socials = profile.socials.filterKeys { BipeSocialHandles.platform(it) != null }
+        otherSocials = profile.socials.filterKeys { BipeSocialHandles.platform(it) == null }
     }
+
+    // The problem of one social field: socialHandleProblem with the user's own @.
+    fun socialProblem(platform: SocialPlatform): BipeProfileProblem? =
+        BipeSocialHandles.problem(platform, socials[platform.id].orEmpty(), handle)
 
     fun message(failure: Throwable): String {
         val server = failure as? BipeApiException.Server
         val problem = server?.takeIf { it.code == BipeApiErrorCode.PROFILE_INVALID }?.reason?.let(BipeProfileProblem::fromId)
-        return problem?.localizedMessage(context)
+        // The server does not name the network: the first field with the same problem here is the one.
+        val network = problem?.takeIf { it.isSocialProblem }?.let { p -> BipeRegistries.profileSocials.firstOrNull { socialProblem(it) == p }?.name }
+        return problem?.localizedMessage(context, network)
             ?: (failure as? BipeApiException)?.localizedMessage(context)
             ?: context.getString(R.string.bipe_error_network)
     }
@@ -268,6 +288,7 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
     }
 
     val problem = BipeProfileRules.problem(name, bio)
+    val hasSocialProblem = BipeRegistries.profileSocials.any { socialProblem(it) != null }
     PeopleScaffold(stringResource(R.string.bipe_settings_public_profile), BipeScreen.PUBLIC_PROFILE_EDIT.id, onBack) {
         if (loading) {
             Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = colors.accentFill) }
@@ -298,22 +319,51 @@ fun PublicProfileEditScreen(people: PeopleService, pickHandle: () -> Unit, openL
             minLines = 2,
             modifier = Modifier.fillMaxWidth(),
         )
+        // Spec socials (ADR 0228): one field per network in registry order, a fixed @ before the text.
+        // The field takes a handle, never a URL: plain text keyboard, no autocorrect, no autocapitalisation.
+        Text(stringResource(R.string.bipe_public_profile_socials), style = MaterialTheme.typography.titleSmall, color = colors.inkPrimary)
+        BipeRegistries.profileSocials.forEach { platform ->
+            val fieldProblem = socialProblem(platform)
+            OutlinedTextField(
+                value = socials[platform.id].orEmpty(),
+                // Action setSocial.
+                onValueChange = { socials = socials + (platform.id to it); saved = false },
+                label = { Text(platform.name) },
+                prefix = { Text("@", color = colors.inkSecondary) },
+                singleLine = true,
+                isError = fieldProblem != null,
+                supportingText = fieldProblem?.let { p -> @Composable { Text(p.localizedMessage(context, platform.name), color = colors.trustDangerInk) } },
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.None,
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Text,
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Text(stringResource(R.string.bipe_public_profile_socials_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
         when {
             problem != null -> Text(problem.localizedMessage(context), color = colors.trustDangerInk)
             error != null -> Text(error.orEmpty(), color = colors.trustDangerInk)
             saved -> Text(stringResource(R.string.bipe_public_profile_saved), color = colors.statusSuccess)
         }
         BipeButton(
-            enabled = problem == null && !saving,
+            enabled = problem == null && !hasSocialProblem && !saving,
             modifier = Modifier.fillMaxWidth(),
             onClick = {
                 // Action save: PUT /v1/me/profile, then syncPhoto.
                 saving = true
                 error = null
                 val isOn = enabled && handle != null
+                // Every non-empty field after socialHandleClean. The whole object goes, so a cleared field is removed.
+                val socialHandles = otherSocials + BipeRegistries.profileSocials
+                    .associate { it.id to BipeSocialHandles.clean(socials[it.id].orEmpty()) }
+                    .filterValues { it.isNotEmpty() }
                 scope.launch {
                     runCatching {
-                        val profile = people.withToken { people.api.setMyProfile(BipeProfileUpdate(isOn, name.trim(), bio.trim()), it) }
+                        val profile = people.withToken {
+                            people.api.setMyProfile(BipeProfileUpdate(isOn, name.trim(), bio.trim(), socialHandles), it)
+                        }
                         people.syncPublicPhoto(profile)
                     }.onSuccess {
                         applyProfile(it)

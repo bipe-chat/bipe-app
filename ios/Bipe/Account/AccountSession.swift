@@ -78,13 +78,17 @@ final class AccountSession {
 
     /// Signs in with the hidden password (MAS compatibility login, m.login.password), saves the session and starts the sync.
     /// Every step has a time limit (AccountStep).
+    /// When this phone still holds the account's store, the login keeps that store and its device ID, so the
+    /// cross-signing keys and the room keys stay (bipe-chat/bipe#909). Only a store without a known device ID goes.
     static func signIn(userId: String, password: String) async throws -> AccountSession {
         // The old saved session goes first, so the notification service never opens the new store with the old device ID.
         SessionStore.delete(userId: userId)
-        deleteStore(userId: userId)
+        let keptDeviceId = hasStore(userId: userId) ? storedDeviceId(userId: userId) : nil
+        if keptDeviceId == nil { deleteStore(userId: userId) }
         let client = try await AccountStep.run("build client") { try await makeClient(userId: userId) }
         try await AccountStep.run("login") {
-            try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName, deviceId: nil)
+            try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName,
+                                   deviceId: keptDeviceId)
         }
         SessionStore.save(try client.session())
         return try await start(client)
@@ -110,6 +114,7 @@ final class AccountSession {
             return syncService
         }
         let session = AccountSession(client: client, syncService: syncService, userId: try client.userId())
+        if let deviceId = try? client.deviceId() { saveDeviceId(deviceId, userId: session.userId) }
         session.authErrorsHandle = try? client.setDelegate(delegate: session.authErrors)
         session.sendQueueErrors.client = client
         session.sendQueueHandle = client.subscribeToSendQueueStatus(listener: session.sendQueueErrors)
@@ -204,8 +209,26 @@ final class AccountSession {
         return builder
     }
 
-    /// Deletes the store of an account. A new sign-in needs an empty store: the crypto store
-    /// belongs to one device.
+    /// The device ID the account's store belongs to, kept in the store folder so it goes with the store
+    /// (bipe-chat/bipe#909). The saved session can be gone (soft logout, PIN recovery) while the store stays.
+    static func storedDeviceId(userId: String) -> String? {
+        guard let paths = try? storePaths(userId: userId),
+              let text = try? String(contentsOf: deviceIdFile(data: paths.data), encoding: .utf8) else { return nil }
+        let deviceId = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return deviceId.isEmpty ? nil : deviceId
+    }
+
+    private static func saveDeviceId(_ deviceId: String, userId: String) {
+        guard let paths = try? storePaths(userId: userId) else { return }
+        try? Data(deviceId.utf8).write(to: deviceIdFile(data: paths.data), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    private static func deviceIdFile(data: URL) -> URL {
+        data.appendingPathComponent("bipe-device-id", isDirectory: false)
+    }
+
+    /// Deletes the store of an account. A new sign-in without a known device ID needs an empty store: the crypto
+    /// store belongs to one device.
     static func deleteStore(userId: String) {
         deleteStore(folder: folderName(userId: userId))
     }

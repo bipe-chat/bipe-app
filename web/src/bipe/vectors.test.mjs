@@ -61,6 +61,15 @@ test("handles.json", () => {
   }
 });
 
+test("social-handles.json", () => {
+  for (const c of vectors("social-handles.json").cases) {
+    const label = `${c.platform} ${JSON.stringify(c.input)}`;
+    assert.equal(rules.socialHandleClean(c.input), c.handle, label);
+    assert.equal(rules.socialHandleProblem(c.platform, c.input, c.ownHandle, reg), c.problem, label);
+    if (c.url) assert.equal(rules.socialUrl(c.platform, c.input, reg), c.url, label);
+  }
+});
+
 test("handle-suggestions.json", () => {
   for (const { name, suggestions } of vectors("handle-suggestions.json").cases)
     assert.deepEqual(rules.handleSuggestions(name, reg), suggestions, name);

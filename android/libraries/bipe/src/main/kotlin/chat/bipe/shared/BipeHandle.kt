@@ -55,6 +55,17 @@ object BipeHandle {
         }
     }
 
+    private val skeletonStrip = Regex(BipeRegistries.HANDLE_SKELETON_STRIP)
+
+    /**
+     * Port of `handleSkeleton()`: normalize, then the separators and the spaces removed. normalize() turns every JS
+     * whitespace run into one " ", so removing " " is JS `\s+`.
+     */
+    fun skeleton(handle: String): String = NameNormalizer.normalize(handle).replace(skeletonStrip, "").replace(" ", "")
+
+    /** The skeletons of the reserved names (`reservedHandleSkeletons()`). The names are already normalised. */
+    val reservedSkeletons: Set<String> by lazy { BipeRegistries.reservedNames.keys.mapTo(HashSet()) { it.replace(" ", "") } }
+
     /**
      * Escolha seu @ (bipe-chat/bipe#200): port of `handleSuggestions()` in bipe-shared tools/lib/registries.mjs. Must
      * match test-vectors/handle-suggestions.json. The caller checks availability in this order.

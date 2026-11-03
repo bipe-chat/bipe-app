@@ -246,6 +246,25 @@ struct SharedVectorTests {
         }
     }
 
+    /// Social handles on a public profile (ADR 0228): clean, problem and url for every case.
+    @Test
+    func socialHandles() throws {
+        let cases = try SharedVectors.array("social-handles.json", key: "cases")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let id = try #require(vector["platform"] as? String)
+            let platform = try #require(BipeSocialHandles.platform(id), "platform \(id)")
+            let input = try #require(vector["input"] as? String)
+            let label = "\(id) \(input.debugDescription)"
+            let problem = BipeSocialHandles.problem(platform, input: input, ownHandle: vector["ownHandle"] as? String)
+            #expect(BipeSocialHandles.clean(input) == vector["handle"] as? String, "handle \(label)")
+            #expect(problem?.rawValue == vector["problem"] as? String, "problem \(label)")
+            if let url = vector["url"] as? String {
+                #expect(BipeSocialHandles.url(platform, input: input) == url, "url \(label)")
+            }
+        }
+    }
+
     @Test
     func pinReminderSchedule() throws {
         for vector in try SharedVectors.array("onboarding-schedule.json", key: "pinReminder") {

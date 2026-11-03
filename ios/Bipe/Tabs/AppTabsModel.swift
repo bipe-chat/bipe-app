@@ -244,7 +244,8 @@ final class AppTabsModel: ObservableObject {
                 : UIBezierPath(ovalIn: bounds)
             shape.addClip()
             if let photo = avatarPhotos[account.userId] {
-                photo.draw(in: bounds)
+                // The centre square, so a photo that is not 1:1 is not squashed.
+                photo.centreSquare().draw(in: bounds)
             } else {
                 UIColor(BipeColor.accentWash).setFill()
                 UIRectFill(bounds)

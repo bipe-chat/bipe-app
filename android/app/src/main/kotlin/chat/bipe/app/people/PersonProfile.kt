@@ -7,6 +7,7 @@ package chat.bipe.app.people
 import chat.bipe.app.common.BipeToasts
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -54,10 +55,13 @@ import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.shared.BipeProfileLink
+import chat.bipe.shared.BipeSocialHandles
 import chat.bipe.shared.NameNormalizer
 import chat.bipe.shared.BipeTrustSources
 import chat.bipe.shared.R
 import chat.bipe.shared.api.publicProfile
+import chat.bipe.shared.generated.BipeRegistries
+import chat.bipe.shared.generated.SocialPlatform
 import chat.bipe.shared.company.BipeCompanySealState
 import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.generated.BipeTrustFacts
@@ -74,6 +78,17 @@ import org.matrix.rustcomponents.sdk.MembershipState
 /** Type TrustMark of spec person-profile. */
 data class TrustMark(val kind: Kind, val text: String) {
     enum class Kind { VERIFIED_NAME, COMPANY, COMPANY_REVOKED, COMPANY_SUSPENDED, CONFIRMED_IN_PERSON, NAME_SUSPENDED }
+}
+
+/** Type SocialLink of spec person-profile (ADR 0228). [url] is socialUrl, built on the device; the server sends no URL. */
+data class SocialLink(val platform: SocialPlatform, val handle: String, val url: String) {
+    companion object {
+        /** The links of PublicProfile.socials in registry order. Unknown ids and empty handles are skipped. */
+        fun links(socials: Map<String, String>): List<SocialLink> = BipeRegistries.profileSocials.mapNotNull { platform ->
+            val handle = socials[platform.id]?.let(BipeSocialHandles::clean)?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            SocialLink(platform, handle, BipeSocialHandles.url(platform, handle))
+        }
+    }
 }
 
 /** A group where the user may invite (action addToGroup). */
@@ -105,6 +120,8 @@ class PersonProfileModel(
         val facts: BipeTrustFacts = BipeTrustSources.profileFacts("", null, BipeTrustSources.Seal.None),
         val reservedNameWarning: Boolean = false,
         val bio: String? = null,
+        /** Spec socials: empty shows no section. */
+        val socials: List<SocialLink> = emptyList(),
         val dmRoomId: String? = null,
         /** Spec savedNumbers (ADR 0191): the numbers the user saved for this person in the own address book. Empty: no row. */
         val savedNumbers: List<String> = emptyList(),
@@ -131,8 +148,9 @@ class PersonProfileModel(
             readIdentityNow()
             // The seal store answers later and emits; it fails closed.
             scope.launch { people.seals.states.collect { applySeal(people.seals.seal(userId)) } }
-            val bio = person.handle?.let { handle -> runCatching { people.api.publicProfile(handle) }.getOrNull()?.bio?.trim() }
-            _state.value = _state.value.copy(bio = bio?.takeIf { it.isNotEmpty() })
+            val profile = person.handle?.let { handle -> runCatching { people.api.publicProfile(handle) }.getOrNull() }
+            val bio = profile?.bio?.trim()
+            _state.value = _state.value.copy(bio = bio?.takeIf { it.isNotEmpty() }, socials = SocialLink.links(profile?.socials.orEmpty()))
         }
     }
 
@@ -287,6 +305,7 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
                 Header(model, state, isBlocked, onOpenSeal = { showsSeal = true })
                 // Spec business-chat-bar: a company's tools under its name (ADR 0103: Agendar).
                 if (state.isCompany) BusinessProfileButtons(people.session, people.media, userId)
+                SocialLinks(state.socials)
                 SavedNumbers(state.savedNumbers)
                 RowGroup {
                     IconRow(PhosphorIcon.CHAT_TEXT, stringResource(R.string.bipe_app_person_message), enabled = !state.openingChat) {
@@ -396,6 +415,41 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
             Text(bio, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary, textAlign = TextAlign.Center)
             Text(stringResource(R.string.bipe_public_profile_not_verified), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
         }
+    }
+}
+
+/**
+ * Spec socials (ADR 0228): under the bio, one row per network. A tap opens the link in the system browser, which hands
+ * off to the network's app; never an in-app web view, never a link preview. Empty: no section.
+ */
+@Composable
+private fun SocialLinks(links: List<SocialLink>) {
+    if (links.isEmpty()) return
+    val colors = BipeTheme.colors
+    val context = LocalContext.current
+    RowGroup {
+        Text(
+            stringResource(R.string.bipe_public_profile_socials),
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.inkSecondary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        links.forEach { link ->
+            ListItem(
+                headlineContent = { Text("${link.platform.name} · @${link.handle}", style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary) },
+                trailingContent = { Icon(painterResource(PhosphorIcon.LINK.drawable), contentDescription = null, tint = colors.inkSecondary, modifier = Modifier.size(16.dp)) },
+                modifier = Modifier.fillMaxWidth().clickable(role = Role.Button) {
+                    // Action openSocial.
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url)).addCategory(Intent.CATEGORY_BROWSABLE)) }
+                },
+            )
+        }
+        Text(
+            stringResource(R.string.bipe_public_profile_socials_not_verified),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.inkSecondary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
     }
 }
 

@@ -95,10 +95,21 @@ struct SignOutView: View {
         }
     }
 
-    /// Action signOut: Client.logout, then the account's password, session and SDK store leave this phone. The synced
-    /// recovery token stays, so recovery-start finds it. Then account-start.
+    /// Action signOut: a company account first signs out the web sessions this phone approved (bipe-chat/bipe#398); a
+    /// failure is logged and does not stop the sign-out. Then Client.logout, then the account's password, session and
+    /// SDK store leave this phone. The synced recovery token stays, so recovery-start finds it. Then account-start.
     private func signOut() async {
         phase = .signingOut
+        if model.account?.accountType == .company {
+            let api = model.api
+            do {
+                try await model.authorized { (token: String) async throws(BipeAPIError) in
+                    try await api.signOutWebLinks(accessToken: token)
+                }
+            } catch {
+                NSLog("Bipe web-link sign-out failed")
+            }
+        }
         do {
             try await model.session.client.logout()
         } catch {
