@@ -4,6 +4,7 @@
 
 import BipeKit
 import MatrixRustSDK
+import Phosphor
 import PhotosUI
 import SwiftUI
 import UIKit
@@ -46,9 +47,18 @@ struct ProfileEditView: View {
     @State private var phase: Phase = .loading
     @State private var error: String?
     @State private var copied = false
+    @State private var notice: String?
+    /// The network name column of the socials section, so every @ field starts at the same x.
+    @ScaledMetric(relativeTo: .body) private var socialLabelWidth: CGFloat = 96
     @Environment(\.dismiss) private var dismiss
 
     private var handle: String? { stored?.handle }
+
+    /// Spec socials: the public page (https://bipe.chat/@handle), only while the saved profile is on, so the link works.
+    private var publicLink: URL? {
+        guard stored?.enabled == true else { return nil }
+        return handle.flatMap(BipeProfileLink.url(handle:))
+    }
 
     /// nameProblem of the spec: empty, tooLong, reserved or lookalikeEmoji, else none.
     private var nameProblem: BipeProfileProblem? {
@@ -121,6 +131,7 @@ struct ProfileEditView: View {
         .onChange(of: pickerItem) { _, item in
             Task { await load(item) }
         }
+        .toast($notice)
         .accessibilityIdentifier(BipeScreen.profileEdit.rawValue)
         .task { await appear() }
         // Back from profile-link or handle-pick: the @ may have changed.
@@ -219,30 +230,56 @@ struct ProfileEditView: View {
         }
     }
 
-    /// Spec socials (ADR 0228): one field per network in registry order, a fixed @ before the text.
-    /// The field takes a handle, never a URL: default keyboard, no autocorrect, no autocapitalisation.
+    /// Spec socials (ADR 0228): the public page link with copy and share, then one field per network in registry
+    /// order. The network names sit in one column, so the fields line up. Each field has a fixed @ before the text
+    /// and takes a handle, never a URL: default keyboard, no autocorrect, no autocapitalisation.
     private var socialsSection: some View {
         Section {
+            if let publicLink {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(BipeStrings.appProfileLink)
+                        .font(.footnote)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                    Text(publicLink.absoluteString)
+                        .font(.body.monospaced())
+                        .foregroundStyle(BipeColor.inkPrimary)
+                        .textSelection(.enabled)
+                }
+                // Actions copyLink and shareLink.
+                HStack(spacing: 24) {
+                    Button {
+                        UIPasteboard.general.url = publicLink
+                        notice = BipeStrings.appCopied
+                    } label: {
+                        IconLabel(icon: .copy, text: BipeStrings.appCopy)
+                    }
+                    ShareLink(item: publicLink) {
+                        IconLabel(icon: .shareNetwork, text: BipeStrings.appShare)
+                    }
+                }
+                .buttonStyle(.borderless)
+            }
             ForEach(BipeRegistries.profileSocials, id: \.id) { platform in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         Text(platform.name)
                             .foregroundStyle(BipeColor.inkPrimary)
-                        Spacer(minLength: 8)
-                        HStack(spacing: 0) {
-                            Text(verbatim: "@")
-                                .foregroundStyle(BipeColor.inkSecondary)
-                            // The row shows the network name: no placeholder, the label is for VoiceOver.
-                            TextField("", text: socialBinding(platform.id))
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .accessibilityLabel(platform.name)
-                        }
+                            .lineLimit(1)
+                            .frame(width: socialLabelWidth, alignment: .leading)
+                        Text(verbatim: "@")
+                            .foregroundStyle(BipeColor.inkSecondary)
+                        // The row shows the network name: no placeholder, the label is for VoiceOver.
+                        TextField("", text: socialBinding(platform.id))
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .accessibilityLabel(platform.name)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     if let problem = socialProblem(platform) {
                         Text(problem.localizedMessage(network: platform.name))
                             .font(.footnote)
                             .foregroundStyle(BipeColor.trustDangerInk)
+                            .padding(.leading, socialLabelWidth + 8)
                     }
                 }
             }

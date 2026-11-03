@@ -6,6 +6,7 @@ package chat.bipe.app.people
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,7 +52,9 @@ import android.graphics.BitmapFactory
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.BipeToasts
+import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeNameLookalikes
+import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.BipeProfileProblem
 import chat.bipe.shared.BipeProfileRules
 import chat.bipe.shared.BipeSocialHandles
@@ -102,6 +105,8 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit, pickHandle: (()
     var error by remember { mutableStateOf<String?>(null) }
 
     val handle = stored?.handle
+    // Spec socials: the public page (https://bipe.chat/@handle), only while the saved profile is on, so the link works.
+    val publicLink = handle?.takeIf { stored?.enabled == true }?.let(BipeProfileLink::url)
 
     fun applyProfile(profile: BipeMyProfile) {
         stored = profile
@@ -280,9 +285,24 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit, pickHandle: (()
                 modifier = Modifier.fillMaxWidth(),
             )
             publicProblem?.let { Footnote(it.localizedMessage(context), isError = true) }
-            // Spec socials (ADR 0228): one field per network in registry order, a fixed @ before the text.
-            // The field takes a handle, never a URL: plain text keyboard, no autocorrect, no autocapitalisation.
+            // Spec socials (ADR 0228): the public page link with copy and share, then one field per network in registry
+            // order, a fixed @ before the text. The field takes a handle, never a URL: plain text keyboard, no autocorrect,
+            // no autocapitalisation.
             SectionTitle(stringResource(R.string.bipe_public_profile_socials))
+            publicLink?.let { link ->
+                RowGroup {
+                    ValueItem(stringResource(R.string.bipe_app_profile_link), link, monospaced = true)
+                    // Action copyLink.
+                    IconRow(PhosphorIcon.COPY, stringResource(R.string.bipe_app_copy), containerColor = colors.surfaceBase) {
+                        context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(link, link))
+                        BipeToasts.copied(context)
+                    }
+                    // Action shareLink.
+                    IconRow(PhosphorIcon.SHARE_NETWORK, stringResource(R.string.bipe_app_share), containerColor = colors.surfaceBase) {
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, link), null))
+                    }
+                }
+            }
             BipeRegistries.profileSocials.forEach { platform ->
                 val fieldProblem = socialProblem(platform)
                 OutlinedTextField(
