@@ -4,13 +4,16 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.shared.generated.BipeGroupPowerLevels
 import java.text.Collator
 import java.text.Normalizer
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientException
 import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.MembershipState
+import org.matrix.rustcomponents.sdk.NotificationPowerLevels
 import org.matrix.rustcomponents.sdk.PowerLevel
+import org.matrix.rustcomponents.sdk.PowerLevels
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.RoomMember
 import uniffi.matrix_sdk.RoomMemberRole
@@ -89,9 +92,39 @@ object GroupPeople {
         is PowerLevel.Value -> powerLevel.value
     }
 
-    fun isAdmin(member: RoomMember): Boolean =
-        member.suggestedRoleForPowerLevel == RoomMemberRole.CREATOR || member.suggestedRoleForPowerLevel == RoomMemberRole.ADMINISTRATOR
+    fun isAdmin(member: RoomMember): Boolean = role(member) == GroupRole.ADMIN
+
+    /** Spec group-members GroupMember.role: a level between two roles shows the lower one. */
+    fun role(member: RoomMember): GroupRole {
+        if (member.suggestedRoleForPowerLevel == RoomMemberRole.CREATOR) return GroupRole.ADMIN
+        val level = level(member.powerLevel)
+        return when {
+            level >= BipeGroupPowerLevels.ADMIN -> GroupRole.ADMIN
+            level >= BipeGroupPowerLevels.MODERATOR -> GroupRole.MODERATOR
+            else -> GroupRole.MEMBER
+        }
+    }
+
+    /**
+     * The m.room.power_levels of a new group (spec group-create notes, bipe-chat/bipe#733). The users map stays
+     * empty, so the server keeps the creator at the top.
+     */
+    fun newGroupPowerLevels(): PowerLevels = PowerLevels(
+        usersDefault = BipeGroupPowerLevels.USERS_DEFAULT.toInt(),
+        eventsDefault = BipeGroupPowerLevels.EVENTS_DEFAULT.toInt(),
+        stateDefault = BipeGroupPowerLevels.STATE_DEFAULT.toInt(),
+        ban = BipeGroupPowerLevels.BAN.toInt(),
+        kick = BipeGroupPowerLevels.KICK.toInt(),
+        redact = BipeGroupPowerLevels.REDACT.toInt(),
+        invite = BipeGroupPowerLevels.INVITE.toInt(),
+        notifications = NotificationPowerLevels(room = BipeGroupPowerLevels.NOTIFICATIONS_ROOM.toInt()),
+        users = emptyMap(),
+        events = BipeGroupPowerLevels.EVENTS.mapValues { it.value.toInt() },
+    )
 }
+
+/** The three roles of a group (spec group-members, bipe-chat/bipe#733), in the order of the members list. */
+enum class GroupRole { ADMIN, MODERATOR, MEMBER }
 
 /** How an invite went (group-invite-members PersonPick status refused and failed). */
 enum class InviteOutcome {

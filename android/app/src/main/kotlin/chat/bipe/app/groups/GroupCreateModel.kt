@@ -92,6 +92,7 @@ class GroupCreateModel(
                         preset = RoomPreset.PRIVATE_CHAT,
                         invite = null,
                         avatar = avatar,
+                        powerLevelContentOverride = GroupPeople.newGroupPowerLevels(),
                     ),
                 )
                 // The room reaches the store with the next sync.
