@@ -24,7 +24,7 @@ export function faceOf(room: Room, info: RoomInfo | undefined): RoomFace {
   const peer = info.isDirect && info.heroes.length === 1 ? info.heroes[0] : undefined;
   const own = room.ownUserId();
   const members =
-    info.isDirect || info.avatarUrl ? undefined : info.heroes.filter((h) => h.userId !== own).slice(0, 3);
+    info.isDm || info.avatarUrl ? undefined : info.heroes.filter((h) => h.userId !== own).slice(0, 3);
   return {
     name: peer?.displayName ?? info.displayName ?? room.displayName() ?? room.id(),
     avatarUrl: peer ? peer.avatarUrl : (info.avatarUrl ?? room.avatarUrl()),
