@@ -1836,9 +1836,15 @@
     <string name="bipe_chat_actions">Chat actions</string>
     <string name="bipe_message_actions">Message actions</string>
     <string name="bipe_chat_mark_unread">Mark as unread</string>
+    <string name="bipe_chat_send_media">Send photo or video</string>
     <string name="bipe_chat_favourite_action">Favourite</string>
     <string name="bipe_chat_unfavourite_action">Remove from favourites</string>
     <string name="bipe_chat_favourites">Favourites</string>
+    <string name="bipe_chat_favourites_reorder_action">Reorder favourites</string>
+    <string name="bipe_chat_favourites_reorder_hint">Drag to change the order.</string>
+    <string name="bipe_chat_favourites_reorder_done">Done</string>
+    <string name="bipe_chat_favourite_move_earlier">Move earlier</string>
+    <string name="bipe_chat_favourite_move_later">Move later</string>
     <string name="bipe_chat_unread_state">Unread</string>
     <string name="bipe_chat_details">View details</string>
     <string name="bipe_chat_read_error">Could not mark the chat. Try again.</string>
