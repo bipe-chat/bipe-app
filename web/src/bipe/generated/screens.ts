@@ -218,14 +218,12 @@ export const BipeScreen = {
   pollHistory: "poll-history",
   /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
   problemReport: "problem-report",
-  /** Your name and photo (flow profile). Spec: bipe-shared/product/screens/profile-edit.json */
+  /** Seu perfil (flow profile). Spec: bipe-shared/product/screens/profile-edit.json */
   profileEdit: "profile-edit",
   /** Open a profile link (flow people). Spec: bipe-shared/product/screens/profile-link-open.json */
   profileLinkOpen: "profile-link-open",
   /** Your link and QR code (flow profile). Spec: bipe-shared/product/screens/profile-link.json */
   profileLink: "profile-link",
-  /** Public profile (flow profile). Spec: bipe-shared/product/screens/public-profile-edit.json */
-  publicProfileEdit: "public-profile-edit",
   /** Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json */
   pushRegistration: "push-registration",
   /** Question card (flow chat). Spec: bipe-shared/product/screens/question-card.json */

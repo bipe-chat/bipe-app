@@ -51,7 +51,6 @@ import chat.bipe.app.settings.SettingsHost
 import chat.bipe.app.settings.SettingsRoute
 import chat.bipe.app.settings.SettingsRootSection
 import chat.bipe.app.people.PeopleRoute
-import chat.bipe.shared.generated.BipeSettingsGroup
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeScreen
@@ -108,7 +107,7 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     // Spec voce (bipe-chat/bipe#988): the profile row, then the trust card. No prompt cards here
                     // (bipe-chat/bipe#894): chat-list-prompt shows every ask.
                     current?.let { account ->
-                        item(key = "profile") { VoceProfileRow(account, media, openProfile = { openGroup(BipeSettingsGroup.PROFILE) }) }
+                        item(key = "profile") { VoceProfileRow(account, media, openProfile = { openPeople(PeopleRoute.ProfileEdit) }) }
                     }
                     trustProfile?.let { profile ->
                         item(key = "trust-gap") { VoceSectionHeader(null) }

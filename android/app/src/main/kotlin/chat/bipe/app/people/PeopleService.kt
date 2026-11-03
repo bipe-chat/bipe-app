@@ -70,8 +70,8 @@ data class Person(
 /** The people screens the home screen can show on top of the chat list. */
 sealed interface PeopleRoute {
     data class PersonProfile(val userId: String, val fromDm: Boolean) : PeopleRoute
+    /** Spec profile-edit: Seu perfil, one screen. */
     data object ProfileEdit : PeopleRoute
-    data object PublicProfile : PeopleRoute
     data object ProfileQr : PeopleRoute
     data object ProfileLink : PeopleRoute
     /** [queue]: the counter QR link `?fila` of a business opens queue-customer for [handle] (spec queue-customer notes). */

@@ -56,7 +56,7 @@ public enum BipeSettingsGroup: String, CaseIterable, Sendable {
 
     public var sections: [BipeSettingsSection] {
         switch self {
-        case .profile: [BipeSettingsSection(key: "main", titleKey: nil, footerKey: nil, rows: [.profileNamePhoto, .profileHandle, .profilePublicProfile])]
+        case .profile: []
         case .privacy: [BipeSettingsSection(key: "talk", titleKey: "bipe_privacy_who_can_talk", footerKey: nil, rows: [.privacyMessaging, .privacyRequestPhotos, .privacyBlocked]), BipeSettingsSection(key: "find", titleKey: "bipe_privacy_who_can_find", footerKey: nil, rows: [.privacyNumber, .privacyDiscovery, .privacyContacts]), BipeSettingsSection(key: "see", titleKey: "bipe_privacy_what_others_see", footerKey: nil, rows: [.privacyPresence, .privacyReadReceipts]), BipeSettingsSection(key: "data", titleKey: "bipe_privacy_your_data", footerKey: nil, rows: [.privacyExport, .privacyWhatBipeKeeps, .privacyWhoCanRead]), BipeSettingsSection(key: "assistants", titleKey: "bipe_privacy_assistants", footerKey: nil, rows: [.privacyAssistantSend])]
         case .account: [BipeSettingsSection(key: "waysBack", titleKey: "bipe_fallback_title", footerKey: nil, rows: [.accountWaysBackStatus, .accountEmail, .accountLinkedAccounts, .accountRecoveryKey, .accountTheftProtection]), BipeSettingsSection(key: "pin", titleKey: "bipe_account_pin_lock_section", footerKey: "bipe_account_pin_footer", rows: [.accountChangePin, .accountAppLock, .accountBiometricUnlock]), BipeSettingsSection(key: "devices", titleKey: "bipe_account_devices", footerKey: nil, rows: [.accountLinkPhone, .accountLinkedDevices, .accountOldMessages]), BipeSettingsSection(key: "leave", titleKey: nil, footerKey: nil, rows: [.accountSignOut, .accountDelete])]
         case .notifications: []
@@ -87,9 +87,6 @@ public enum BipeSettingsRowKind: String, Sendable {
 }
 
 public enum BipeSettingsRow: String, CaseIterable, Sendable {
-    case profileNamePhoto = "profile.namePhoto"
-    case profileHandle = "profile.handle"
-    case profilePublicProfile = "profile.publicProfile"
     case privacyMessaging = "privacy.messaging"
     case privacyRequestPhotos = "privacy.requestPhotos"
     case privacyBlocked = "privacy.blocked"
@@ -135,9 +132,6 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
 
     public var kind: BipeSettingsRowKind {
         switch self {
-        case .profileNamePhoto: .link
-        case .profileHandle: .link
-        case .profilePublicProfile: .link
         case .privacyMessaging: .choice
         case .privacyRequestPhotos: .switch
         case .privacyBlocked: .link
@@ -188,9 +182,6 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
 
     public var titleKey: String {
         switch self {
-        case .profileNamePhoto: "bipe_settings_profile_name_photo"
-        case .profileHandle: "bipe_settings_handle"
-        case .profilePublicProfile: "bipe_settings_public_profile"
         case .privacyMessaging: "bipe_settings_messaging"
         case .privacyRequestPhotos: "bipe_privacy_requests_hide_photos"
         case .privacyBlocked: "bipe_privacy_blocked"
@@ -238,9 +229,6 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
 
     public var footer: String? {
         switch self {
-        case .profileNamePhoto: nil
-        case .profileHandle: nil
-        case .profilePublicProfile: nil
         case .privacyMessaging: nil
         case .privacyRequestPhotos: NSLocalizedString("bipe_privacy_requests_hide_photos_footer", tableName: "Bipe", bundle: .module, comment: "")
         case .privacyBlocked: nil
@@ -290,9 +278,6 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
     /// "planned:<issue>": hidden until bipe-chat/bipe#<issue> ships.
     public var gate: String? {
         switch self {
-        case .profileNamePhoto: nil
-        case .profileHandle: nil
-        case .profilePublicProfile: nil
         case .privacyMessaging: nil
         case .privacyRequestPhotos: nil
         case .privacyBlocked: nil

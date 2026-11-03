@@ -1677,7 +1677,7 @@
  },
  "settings": {
   "version": 1,
-  "$comment": "Settings structure (ADR 0112 in bipe/docs/adr). One source for the order of groups, sections and rows on iOS and Android. `root` is the order of the group rows under Configurações in the Você tab; `profile` opens from the Você header. `icon` is the Phosphor icon (bipe-app tools/phosphor.json) of a root group row: a glyph in ink.onAccent on an accent.fill tile, as in the iPhone Settings app. A group with `screen: \"element\"` keeps the Element screen and lists no rows here. Row kinds: link (opens a screen), choice (opens a picker), switch, info (a value, no action), url (opens a page from `urls`), action (runs something), destructive. `gate`: absent = always shown; `ios` or `android` = that platform only; `flag:<name>` = behind that app feature flag; `planned:<issue>` = hidden until bipe-chat/bipe#<issue> ships. Titles are bipe_* string keys; a row without its own string has no place here. A new top-level group needs a new ADR.",
+  "$comment": "Settings structure (ADR 0112 in bipe/docs/adr). One source for the order of groups, sections and rows on iOS and Android. `root` is the order of the group rows under Configurações in the Você tab; `profile` opens from the Você header; since 3 Nov 2026 it is one screen (product/screens/profile-edit) and lists no rows here. `icon` is the Phosphor icon (bipe-app tools/phosphor.json) of a root group row: a glyph in ink.onAccent on an accent.fill tile, as in the iPhone Settings app. A group with `screen: \"element\"` keeps the Element screen and lists no rows here. Row kinds: link (opens a screen), choice (opens a picker), switch, info (a value, no action), url (opens a page from `urls`), action (runs something), destructive. `gate`: absent = always shown; `ios` or `android` = that platform only; `flag:<name>` = behind that app feature flag; `planned:<issue>` = hidden until bipe-chat/bipe#<issue> ships. Titles are bipe_* string keys; a row without its own string has no place here. A new top-level group needs a new ADR.",
   "root": [
    "privacy",
    "account",
@@ -1719,30 +1719,7 @@
    {
     "key": "profile",
     "title": "bipe_settings_profile",
-    "sections": [
-     {
-      "key": "main",
-      "rows": [
-       {
-        "key": "namePhoto",
-        "title": "bipe_settings_profile_name_photo",
-        "kind": "link"
-       },
-       {
-        "key": "handle",
-        "title": "bipe_settings_handle",
-        "kind": "link",
-        "adr": "0016"
-       },
-       {
-        "key": "publicProfile",
-        "title": "bipe_settings_public_profile",
-        "kind": "link",
-        "adr": "0041"
-       }
-      ]
-     }
-    ]
+    "sections": []
    },
    {
     "key": "privacy",
@@ -4082,9 +4059,6 @@
    "bipe_public_profile_bio_placeholder": "Conte um pouco sobre você",
    "bipe_public_profile_photo_change": "Trocar foto",
    "bipe_public_profile_photo_remove": "Remover foto",
-   "bipe_public_profile_save": "Salvar",
-   "bipe_public_profile_saved": "Perfil salvo.",
-   "bipe_public_profile_share": "Compartilhar perfil",
    "bipe_public_profile_name_empty": "Coloque um nome.",
    "bipe_public_profile_name_too_long": "Nome muito longo. Use no máximo %1$s caracteres.",
    "bipe_public_profile_bio_too_long": "Bio muito longa. Use no máximo %1$s caracteres.",
@@ -4712,7 +4686,9 @@
    "bipe_dm_files_empty": "Os arquivos e áudios desta conversa aparecem aqui.",
    "bipe_settings_section": "Configurações",
    "bipe_settings_profile": "Seu perfil",
-   "bipe_settings_profile_name_photo": "Nome e foto",
+   "bipe_profile_member_since": "Membro desde",
+   "bipe_profile_internal_id": "ID interno",
+   "bipe_profile_internal_id_footer": "O suporte pode pedir este código. Toque nele para copiar.",
    "bipe_settings_privacy": "Privacidade",
    "bipe_settings_account": "Sua conta",
    "bipe_settings_notifications": "Notificações",
@@ -6340,9 +6316,6 @@
    "bipe_public_profile_bio_placeholder": "Say a little about yourself",
    "bipe_public_profile_photo_change": "Change photo",
    "bipe_public_profile_photo_remove": "Remove photo",
-   "bipe_public_profile_save": "Save",
-   "bipe_public_profile_saved": "Profile saved.",
-   "bipe_public_profile_share": "Share profile",
    "bipe_public_profile_name_empty": "Add a name.",
    "bipe_public_profile_name_too_long": "Name too long. Use at most %1$s characters.",
    "bipe_public_profile_bio_too_long": "Bio too long. Use at most %1$s characters.",
@@ -6970,7 +6943,9 @@
    "bipe_dm_files_empty": "Files and audio from this chat appear here.",
    "bipe_settings_section": "Settings",
    "bipe_settings_profile": "Your profile",
-   "bipe_settings_profile_name_photo": "Name and photo",
+   "bipe_profile_member_since": "Member since",
+   "bipe_profile_internal_id": "Internal ID",
+   "bipe_profile_internal_id_footer": "Support may ask for this code. Tap it to copy.",
    "bipe_settings_privacy": "Privacy",
    "bipe_settings_account": "Your account",
    "bipe_settings_notifications": "Notifications",

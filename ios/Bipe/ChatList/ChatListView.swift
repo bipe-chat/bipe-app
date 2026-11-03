@@ -298,14 +298,13 @@ struct ChatListView: View {
     /// (lanes D and E), this menu is their way in.
     private var peopleMenu: some View {
         Menu {
-            Button { path.append(PeopleRoute.profileEdit) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsProfileNamePhoto) }
-            Button { path.append(PeopleRoute.publicProfile) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsPublicProfile) }
+            Button { path.append(PeopleRoute.profileEdit) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsProfile) }
             Button { path.append(PeopleRoute.profileLink) } label: { IconLabel(icon: .qrCode, text: BipeStrings.appProfileLink) }
             Button { path.append(PeopleRoute.contacts) } label: { IconLabel(icon: .addressBook, text: BipeStrings.contactsTitle) }
             Button { path.append(PeopleRoute.whoCanMessage) } label: { IconLabel(icon: .chatText, text: BipeStrings.messagingTitle) }
             Button { path.append(PeopleRoute.blockedList) } label: { IconLabel(icon: .prohibit, text: BipeStrings.privacyBlocked) }
         } label: {
-            PhosphorIcon.userCircle.labelledImage(BipeStrings.settingsPublicProfile)
+            PhosphorIcon.userCircle.labelledImage(BipeStrings.settingsProfile)
                 .resizable()
                 .frame(width: 26, height: 26)
                 .foregroundStyle(BipeColor.accentInk)
@@ -327,11 +326,8 @@ struct ChatListView: View {
                                   },
                                   notifications: { notificationsRoom = $0 }))
         case .profileEdit:
-            ProfileEditView(people: people)
-        case .publicProfile:
-            PublicProfileEditView(people: people,
-                                  pickHandle: { showsHandlePick = true },
-                                  openLink: { path.append(PeopleRoute.profileLink) })
+            ProfileEditView(people: people, pickHandle: { showsHandlePick = true },
+                            openLink: { path.append(PeopleRoute.profileLink) })
         case .profileQr:
             ProfileLinkView(people: people, pickHandle: { showsHandlePick = true }, initiallyShowsQr: true)
         case .profileLink:
