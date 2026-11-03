@@ -1674,6 +1674,10 @@
     <string name="bipe_app_group_member_profile">View profile</string>
     <string name="bipe_app_group_member_make_admin">Make group admin</string>
     <string name="bipe_app_group_member_remove_admin">Remove as admin</string>
+    <string name="bipe_app_group_moderator">Group moderator</string>
+    <string name="bipe_app_group_member_make_moderator">Make group moderator</string>
+    <string name="bipe_app_group_member_remove_moderator">Remove as moderator</string>
+    <string name="bipe_app_group_roles_custom">Another app changed the permissions of this group. Bipe shows the closest role for each person.</string>
     <string name="bipe_app_group_member_remove">Remove from group</string>
     <string name="bipe_app_group_member_remove_body">%1$s leaves the group and can come back with a new invite.</string>
     <string name="bipe_app_group_member_ban">Ban from group</string>

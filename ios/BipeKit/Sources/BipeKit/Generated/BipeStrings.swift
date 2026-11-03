@@ -3868,6 +3868,14 @@ public enum BipeStrings {
 
     public static var appGroupMemberRemoveAdmin: String { NSLocalizedString("bipe_app_group_member_remove_admin", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appGroupModerator: String { NSLocalizedString("bipe_app_group_moderator", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMemberMakeModerator: String { NSLocalizedString("bipe_app_group_member_make_moderator", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupMemberRemoveModerator: String { NSLocalizedString("bipe_app_group_member_remove_moderator", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var appGroupRolesCustom: String { NSLocalizedString("bipe_app_group_roles_custom", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appGroupMemberRemove: String { NSLocalizedString("bipe_app_group_member_remove", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func appGroupMemberRemoveBody(_ p1: String) -> String {
