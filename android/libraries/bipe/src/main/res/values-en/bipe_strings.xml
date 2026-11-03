@@ -314,6 +314,11 @@
     <string name="bipe_public_profile_bio_too_many_lines">Use at most %1$s lines in the bio.</string>
     <string name="bipe_public_profile_photo_invalid">That photo didn\'t work. Try another one.</string>
     <string name="bipe_public_profile_not_verified">This profile doesn\'t verify the person\'s name</string>
+    <string name="bipe_public_profile_socials">Social accounts</string>
+    <string name="bipe_public_profile_socials_footer">Type only the @handle of each account. Anyone who opens your profile sees them.</string>
+    <string name="bipe_public_profile_socials_not_verified">Bipe doesn\'t check that these accounts belong to this person</string>
+    <string name="bipe_public_profile_social_invalid">That handle doesn\'t work on %1$s. Type only the @handle, not the link.</string>
+    <string name="bipe_public_profile_social_reserved">That handle is reserved for verified institutions. Use your own.</string>
     <string name="bipe_trust_step_email">Email confirmed</string>
     <string name="bipe_trust_step_email_body">Open a link we send to your email.</string>
     <string name="bipe_trust_step_pix">Pix</string>

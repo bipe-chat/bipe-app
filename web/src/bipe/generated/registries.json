@@ -598,7 +598,7 @@
   }
  },
  "profiles": {
-  "$comment": "Public profile rules, ADR 0041 (bipe/docs/adr). The server is the authority; clients check early for feedback. The name is also checked against reserved-names.json (exact match after normalize()). sealLookalikeEmoji (security.md rule 8): marks that look like the verified seal and may not appear in a display name. Compare after removing the variation selectors U+FE0E and U+FE0F from the name and the entry; an entry is found when it is a substring of the name.",
+  "$comment": "Public profile rules, ADR 0041 (bipe/docs/adr). The server is the authority; clients check early for feedback. The name is also checked against reserved-names.json (exact match after normalize()). sealLookalikeEmoji (security.md rule 8): marks that look like the verified seal and may not appear in a display name. Compare after removing the variation selectors U+FE0E and U+FE0F from the name and the entry; an entry is found when it is a substring of the name. socials (ADR 0228): the networks a public profile may link to, in display order. The user types a handle, never a URL. pattern: the whole handle after socialHandleClean() (trim, one leading @), case-insensitive by its character classes. url: https only, {handle} once.",
   "version": 1,
   "nameMaxLength": 50,
   "bioMaxLength": 160,
@@ -614,6 +614,50 @@
    "✔",
    "✓",
    "🔰"
+  ],
+  "socials": [
+   {
+    "id": "instagram",
+    "name": "Instagram",
+    "pattern": "^[A-Za-z0-9._]{1,30}$",
+    "url": "https://www.instagram.com/{handle}"
+   },
+   {
+    "id": "linkedin",
+    "name": "LinkedIn",
+    "pattern": "^[A-Za-z0-9-]{3,100}$",
+    "url": "https://www.linkedin.com/in/{handle}"
+   },
+   {
+    "id": "tiktok",
+    "name": "TikTok",
+    "pattern": "^[A-Za-z0-9._]{2,24}$",
+    "url": "https://www.tiktok.com/@{handle}"
+   },
+   {
+    "id": "youtube",
+    "name": "YouTube",
+    "pattern": "^[A-Za-z0-9._-]{3,30}$",
+    "url": "https://www.youtube.com/@{handle}"
+   },
+   {
+    "id": "facebook",
+    "name": "Facebook",
+    "pattern": "^[A-Za-z0-9.]{5,50}$",
+    "url": "https://www.facebook.com/{handle}"
+   },
+   {
+    "id": "x",
+    "name": "X",
+    "pattern": "^[A-Za-z0-9_]{1,15}$",
+    "url": "https://x.com/{handle}"
+   },
+   {
+    "id": "github",
+    "name": "GitHub",
+    "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$",
+    "url": "https://github.com/{handle}"
+   }
   ]
  },
  "inviteCodes": {
@@ -4041,6 +4085,11 @@
    "bipe_public_profile_bio_too_many_lines": "Use no máximo %1$s linhas na bio.",
    "bipe_public_profile_photo_invalid": "Não deu para usar essa foto. Tente outra.",
    "bipe_public_profile_not_verified": "Este perfil não comprova o nome da pessoa",
+   "bipe_public_profile_socials": "Redes sociais",
+   "bipe_public_profile_socials_footer": "Escreva só o @ de cada conta. Quem abrir seu perfil vê essas contas.",
+   "bipe_public_profile_socials_not_verified": "O Bipe não confere se essas contas são da pessoa",
+   "bipe_public_profile_social_invalid": "Esse @ não funciona no %1$s. Escreva só o @, não o link.",
+   "bipe_public_profile_social_reserved": "Esse @ é reservado para instituições verificadas. Use o seu.",
    "bipe_trust_step_email": "E-mail confirmado",
    "bipe_trust_step_email_body": "Abra o link que a gente mandou para o seu e-mail.",
    "bipe_trust_step_pix": "Pix",
@@ -6295,6 +6344,11 @@
    "bipe_public_profile_bio_too_many_lines": "Use at most %1$s lines in the bio.",
    "bipe_public_profile_photo_invalid": "That photo didn't work. Try another one.",
    "bipe_public_profile_not_verified": "This profile doesn't verify the person's name",
+   "bipe_public_profile_socials": "Social accounts",
+   "bipe_public_profile_socials_footer": "Type only the @handle of each account. Anyone who opens your profile sees them.",
+   "bipe_public_profile_socials_not_verified": "Bipe doesn't check that these accounts belong to this person",
+   "bipe_public_profile_social_invalid": "That handle doesn't work on %1$s. Type only the @handle, not the link.",
+   "bipe_public_profile_social_reserved": "That handle is reserved for verified institutions. Use your own.",
    "bipe_trust_step_email": "Email confirmed",
    "bipe_trust_step_email_body": "Open a link we send to your email.",
    "bipe_trust_step_pix": "Pix",

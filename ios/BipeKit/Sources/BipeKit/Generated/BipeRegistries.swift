@@ -16,6 +16,14 @@ public struct ScamPattern: Sendable, Equatable {
     public let regex: String
 }
 
+/// A network a public profile may link to (ADR 0228). url holds {handle} once.
+public struct SocialPlatform: Sendable, Equatable {
+    public let id: String
+    public let name: String
+    public let pattern: String
+    public let url: String
+}
+
 public enum BipeRegistries {
     /// Normalised reserved display names and their category.
     public static let reservedNames: [String: ReservedNameCategory] = [
@@ -628,6 +636,8 @@ public enum BipeRegistries {
     public static let handleMinLength = 3
     public static let handleMaxLength = 30
     public static let handlePattern = "^[a-z0-9](?:[a-z0-9_]|\\.(?!\\.))*[a-z0-9_]$"
+    /// Characters handleSkeleton() removes after normalize() (a regex character class).
+    public static let handleSkeletonStrip = "[._]"
     /// Owned handles (ADR 0065): only these may be shorter than `handleMinLength`, down to `handleOwnerMinLength`.
     public static let handleOwnerMinLength = 2
     /// Escolha seu @ (bipe-chat/bipe#200): how many free suggestions show, and how many candidates to check.
@@ -673,6 +683,16 @@ public enum BipeRegistries {
         "✔",
         "✓",
         "🔰",
+    ]
+    /// Social handles on a public profile (ADR 0228), in display order.
+    public static let profileSocials: [SocialPlatform] = [
+        SocialPlatform(id: "instagram", name: "Instagram", pattern: "^[A-Za-z0-9._]{1,30}$", url: "https://www.instagram.com/{handle}"),
+        SocialPlatform(id: "linkedin", name: "LinkedIn", pattern: "^[A-Za-z0-9-]{3,100}$", url: "https://www.linkedin.com/in/{handle}"),
+        SocialPlatform(id: "tiktok", name: "TikTok", pattern: "^[A-Za-z0-9._]{2,24}$", url: "https://www.tiktok.com/@{handle}"),
+        SocialPlatform(id: "youtube", name: "YouTube", pattern: "^[A-Za-z0-9._-]{3,30}$", url: "https://www.youtube.com/@{handle}"),
+        SocialPlatform(id: "facebook", name: "Facebook", pattern: "^[A-Za-z0-9.]{5,50}$", url: "https://www.facebook.com/{handle}"),
+        SocialPlatform(id: "x", name: "X", pattern: "^[A-Za-z0-9_]{1,15}$", url: "https://x.com/{handle}"),
+        SocialPlatform(id: "github", name: "GitHub", pattern: "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$", url: "https://github.com/{handle}"),
     ]
 
     /// Invite codes: the code inside anything a user pastes (registries/invite-codes.json).

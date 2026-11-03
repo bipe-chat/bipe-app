@@ -19,6 +19,9 @@ enum class ReservedNameCategory(val id: String) {
 
 data class ScamPattern(val id: String, val regex: String)
 
+/** A network a public profile may link to (ADR 0228). [url] holds {handle} once. */
+data class SocialPlatform(val id: String, val name: String, val pattern: String, val url: String)
+
 object BipeRegistries {
     /** Normalised reserved display names and their category. */
     val reservedNames: Map<String, ReservedNameCategory> = mapOf(
@@ -633,6 +636,8 @@ object BipeRegistries {
     const val HANDLE_SUGGESTIONS_SHOWN = 3
     const val HANDLE_SUGGESTION_CANDIDATES = 8
     const val HANDLE_PATTERN = "^[a-z0-9](?:[a-z0-9_]|\\.(?!\\.))*[a-z0-9_]\$"
+    /** Characters handleSkeleton() removes after normalize() (a regex character class). */
+    const val HANDLE_SKELETON_STRIP = "[._]"
 
     /** Owned handles (ADR 0065): only these may be shorter than [HANDLE_MIN_LENGTH], down to [HANDLE_OWNER_MIN_LENGTH]. */
     const val HANDLE_OWNER_MIN_LENGTH = 2
@@ -676,6 +681,16 @@ object BipeRegistries {
         "✔",
         "✓",
         "🔰",
+    )
+    /** Social handles on a public profile (ADR 0228), in display order. */
+    val profileSocials: List<SocialPlatform> = listOf(
+        SocialPlatform("instagram", "Instagram", "^[A-Za-z0-9._]{1,30}\$", "https://www.instagram.com/{handle}"),
+        SocialPlatform("linkedin", "LinkedIn", "^[A-Za-z0-9-]{3,100}\$", "https://www.linkedin.com/in/{handle}"),
+        SocialPlatform("tiktok", "TikTok", "^[A-Za-z0-9._]{2,24}\$", "https://www.tiktok.com/@{handle}"),
+        SocialPlatform("youtube", "YouTube", "^[A-Za-z0-9._-]{3,30}\$", "https://www.youtube.com/@{handle}"),
+        SocialPlatform("facebook", "Facebook", "^[A-Za-z0-9.]{5,50}\$", "https://www.facebook.com/{handle}"),
+        SocialPlatform("x", "X", "^[A-Za-z0-9_]{1,15}\$", "https://x.com/{handle}"),
+        SocialPlatform("github", "GitHub", "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\$", "https://github.com/{handle}"),
     )
 
     /** Invite codes: the code inside anything a user pastes (registries/invite-codes.json). */
