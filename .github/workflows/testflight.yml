@@ -187,7 +187,14 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee "$RUNNER_TEMP/upload.log" | grep -E "error:|EXPORT (SUCCEEDED|FAILED)|Upload" || true
-          grep -q "EXPORT SUCCEEDED" "$RUNNER_TEMP/upload.log"
+          grep -q "EXPORT SUCCEEDED" "$RUNNER_TEMP/upload.log" && exit 0
+          # A re-run of a run whose upload passed: one commit has one build number (tools/version.mjs), so a
+          # number that App Store Connect already has is this commit's build. Go on to the testing group.
+          if grep -q "bundle version must be higher than the previously uploaded version: ‘${BUILD_NUMBER}’" "$RUNNER_TEMP/upload.log"; then
+            echo "::warning::Build $BUILD_NUMBER is already in App Store Connect (re-run); the upload is skipped."
+            exit 0
+          fi
+          exit 1
       - name: Export the ad hoc IPA
         run: |
           set -o pipefail
