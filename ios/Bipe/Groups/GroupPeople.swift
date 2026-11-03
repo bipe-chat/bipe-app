@@ -90,10 +90,20 @@ enum GroupPeople {
     /// Spec group-members GroupMember.role: a level between two roles shows the lower one.
     static func role(_ member: RoomMember) -> GroupRole {
         if member.suggestedRoleForPowerLevel == .creator { return .admin }
-        let level = level(member.powerLevel)
-        if level >= BipeGroupPowerLevels.admin { return .admin }
-        if level >= BipeGroupPowerLevels.moderator { return .moderator }
-        return .member
+        return GroupRole(level: level(member.powerLevel))
+    }
+
+    /// The admins and moderators of a group by user ID, for the sender line (spec chat-timeline senderRole).
+    /// Creators (room version 12) are not in the power levels and count as admins.
+    static func staffRoles(levels: [String: Int64], creators: [String]) -> [String: GroupRole] {
+        var roles = levels.compactMapValues { level -> GroupRole? in
+            let role = GroupRole(level: level)
+            return role == .member ? nil : role
+        }
+        for creator in creators {
+            roles[creator] = .admin
+        }
+        return roles
     }
 
     /// The m.room.power_levels of a new group (spec group-create notes, bipe-chat/bipe#733). The users map stays
@@ -117,6 +127,17 @@ enum GroupRole: Equatable {
     case admin
     case moderator
     case member
+
+    /// A level between two roles is the lower one.
+    init(level: Int64) {
+        if level >= BipeGroupPowerLevels.admin {
+            self = .admin
+        } else if level >= BipeGroupPowerLevels.moderator {
+            self = .moderator
+        } else {
+            self = .member
+        }
+    }
 
     /// Sort order in the members list: admins first.
     var rank: Int {

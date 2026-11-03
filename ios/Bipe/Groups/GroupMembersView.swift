@@ -75,6 +75,17 @@ struct GroupMembersView: View {
                     Text(BipeStrings.appGroupMembersBanned)
                 }
             }
+            // Spec group-members notes: what each role does (bipe-chat/bipe#733).
+            Section {
+                ForEach([BipeStrings.appGroupRoleAdminBody, BipeStrings.appGroupRoleModeratorBody, BipeStrings.appGroupRoleMemberBody],
+                        id: \.self) { text in
+                    Text(text)
+                        .font(.footnote)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                }
+            } header: {
+                Text(BipeStrings.appGroupRolesTitle)
+            }
         }
         .searchable(text: Binding(get: { model.query }, set: { model.setQuery($0) }), prompt: BipeStrings.appPeopleSearch)
         .navigationTitle(BipeStrings.appGroupMembersTitle)
