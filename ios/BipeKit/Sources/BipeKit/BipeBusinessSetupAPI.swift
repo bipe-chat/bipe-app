@@ -48,6 +48,19 @@ public struct BipeBusinessToday: Decodable, Sendable, Equatable {
     public let quoteRequests: [BipeQuoteRequest]
 }
 
+/// Contract `AgendaFeed`: a secret URL that shows once.
+public struct BipeAgendaFeed: Decodable, Sendable, Equatable {
+    public let url: String
+    public let includeCustomerFirstName: Bool
+}
+
+/// Contract `BusyImport`. The secret address never comes back.
+public struct BipeBusyImport: Decodable, Sendable, Identifiable, Equatable {
+    public let id: String
+    public let agendaId: String
+    public let failing: Bool?
+}
+
 /// Contract `WebSettings`: the owner's web switches (ADR 0195).
 public struct BipeWebSettings: Codable, Sendable, Equatable {
     public var webBooking: Bool
@@ -84,6 +97,31 @@ extension BipeBusinessAPI {
     }
 
     private struct WebClaim: Encodable { let token: String }
+
+    /// `POST /v1/me/business/agenda/agendas/{id}/feed`. The URL shows once; a new one revokes the old (ADR 0101).
+    public func issueAgendaFeed(agendaId: String, includeFirstName: Bool) async throws(BipeAPIError) -> BipeAgendaFeed {
+        try await request("POST", ["v1", "me", "business", "agenda", "agendas", agendaId, "feed"], json: FeedOptions(includeCustomerFirstName: includeFirstName))
+    }
+
+    /// `GET .../busy-imports`.
+    public func busyImports(agendaId: String) async throws(BipeAPIError) -> [BipeBusyImport] {
+        let list: BusyImports = try await request("GET", ["v1", "me", "business", "agenda", "agendas", agendaId, "busy-imports"])
+        return list.imports
+    }
+
+    /// `POST .../busy-imports`. `bad_request` for an address the server refuses or cannot read.
+    public func addBusyImport(agendaId: String, url: String) async throws(BipeAPIError) -> BipeBusyImport {
+        try await request("POST", ["v1", "me", "business", "agenda", "agendas", agendaId, "busy-imports"], json: BusyImportInput(url: url))
+    }
+
+    /// `DELETE .../busy-imports/{id}`, with its busy blocks.
+    public func removeBusyImport(agendaId: String, importId: String) async throws(BipeAPIError) {
+        let _: BipeAPIClient.NoContent = try await request("DELETE", ["v1", "me", "business", "agenda", "agendas", agendaId, "busy-imports", importId])
+    }
+
+    private struct FeedOptions: Encodable { let includeCustomerFirstName: Bool }
+    private struct BusyImports: Decodable { let imports: [BipeBusyImport] }
+    private struct BusyImportInput: Encodable { let url: String }
 
     /// `GET /v1/business-stops/{workAccount}`: whether this account stopped the work account (ADR 0237).
     public func businessStopped(_ workAccount: String) async throws(BipeAPIError) -> Bool {
