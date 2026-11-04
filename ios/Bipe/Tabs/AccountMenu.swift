@@ -53,7 +53,7 @@ struct AccountRows: View {
     }
 }
 
-/// Spec account-switcher: the panel a hold on Você opens. It sits right on top of the tab bar and is as wide as it, so it
+/// Spec account-switcher: the panel a hold on Você or the row Contas neste celular opens. It sits right on top of the tab bar and is as wide as it, so it
 /// reads as part of the bar (MZ, 2 Nov 2026; it replaces the native menu of ADR 0135, which floated high and had wide
 /// rows). Every account, then Nova conta. A tap outside, a switch or Nova conta closes it.
 struct AccountSwitcherPanel: View {

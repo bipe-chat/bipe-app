@@ -215,7 +215,7 @@ final class SettingsModel: ObservableObject {
         case .privacy: whoCanMessage?.settingsSummary
         case .account: waysBack?.summary
         case .notifications: notificationsOn.map { $0 ? BipeStrings.settingsNotificationsOn : BipeStrings.settingsNotificationsOff }
-        case .help: BipeStrings.helpVersion(AppVersion.name)
+        case .help: BipeStrings.helpVersion(AppVersion.nameAndBuild)
         // chats: SettingsRootSection reads the theme and palette itself.
         case .profile, .chats: nil
         }

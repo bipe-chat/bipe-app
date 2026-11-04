@@ -583,13 +583,16 @@ enum AppVersion {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
     }
 
+    /// The version name and build, for the Ajuda e sobre summary in settings-root: "26.10.2 (141)" (tools/version.mjs).
+    static var nameAndBuild: String {
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        return "\(name) (\(build))"
+    }
+
     /// The version name, build and commit, for bipe_help_version: "26.10.2 (141) 5481bba" (tools/version.mjs).
     static var display: String {
-        let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? ""
-        let build = info?["CFBundleVersion"] as? String ?? ""
-        let commit = info?["BipeCommit"] as? String ?? ""
-        return commit.isEmpty ? "\(version) (\(build))" : "\(version) (\(build)) \(commit)"
+        let commit = Bundle.main.infoDictionary?["BipeCommit"] as? String ?? ""
+        return commit.isEmpty ? nameAndBuild : "\(nameAndBuild) \(commit)"
     }
 
     /// "pt" or "en", for the url rows of registries/settings.json.

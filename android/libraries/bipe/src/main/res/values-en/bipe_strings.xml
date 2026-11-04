@@ -1202,8 +1202,6 @@
     <string name="bipe_help_licenses">Open source licences</string>
     <string name="bipe_help_versions">Version history</string>
     <string name="bipe_versions_note">The release notes are in English.</string>
-    <string name="bipe_versions_testing">In testing</string>
-    <string name="bipe_versions_released">Released %1$s</string>
     <string name="bipe_versions_build">Build %1$s</string>
     <string name="bipe_versions_kind_new">New</string>
     <string name="bipe_versions_kind_improved">Improved</string>

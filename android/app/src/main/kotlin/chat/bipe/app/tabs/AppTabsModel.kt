@@ -134,7 +134,10 @@ class AppTabsModel(
     }
 
     /** Action longPressVoce: opens the account menu without changing the visible tab. */
-    fun longPressVoce() {
+    fun longPressVoce() = openAccountSwitcher()
+
+    /** Opens account-switcher: the hold on the tab, and action openAccounts of spec voce. */
+    fun openAccountSwitcher() {
         _state.value = _state.value.copy(showsAccountSwitcher = true)
     }
 

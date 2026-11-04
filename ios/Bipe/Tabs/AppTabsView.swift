@@ -141,7 +141,8 @@ struct AppTabsView: View {
                                                                     bottomInset: bottomInset,
                                                                     onNewAccount: { showsNewAccount = true }, close: close))
                                    },
-                                   showsSwitchAction: model.accounts.count > 1))
+                                   showsSwitchAction: model.accounts.count > 1,
+                                   switcherRequests: model.accountSwitcherRequests))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
         .shareToChat(chatList: chatList, openChat: { roomId in

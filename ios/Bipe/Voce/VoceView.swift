@@ -74,9 +74,12 @@ struct VoceView: View {
                     }
                 }
                 SettingsRootSection(model: settings)
-                // Spec voce (MZ, 2 Nov 2026): no account rows; the Você tab switches (hold, double tap, VoiceOver
-                // action). Adicionar conta is the last row, with the same icon tile as every Você row (spec account-new).
+                // Spec voce (MZ, 4 Nov 2026): the accounts stay in the switcher, which this row opens too, as the Você
+                // tab does (hold, VoiceOver action). Adicionar conta is the last row (spec account-new).
                 Section {
+                    Button { model.openAccountSwitcher() } label: {
+                        VoceTileLabel(icon: .usersThree, text: BipeStrings.appAccountSwitcherTitle)
+                    }
                     Button(action: onNewAccount) {
                         VoceTileLabel(icon: .plus, text: BipeStrings.appAccountNew)
                     }

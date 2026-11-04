@@ -19,9 +19,11 @@ struct TabBarGestures: UIViewRepresentable {
     let switcher: (_ bottomInset: CGFloat, _ close: @escaping () -> Void) -> AnyView
     /// Two or more accounts: the Você item gets the VoiceOver action that opens the switcher (spec app-tabs).
     var showsSwitchAction = false
+    /// A new value opens the switcher: the row Contas neste celular on Você (spec voce openAccounts).
+    var switcherRequests = 0
 
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(switcherRequests: switcherRequests)
     }
 
     func makeUIView(context: Context) -> ProbeView {
@@ -36,6 +38,7 @@ struct TabBarGestures: UIViewRepresentable {
         context.coordinator.switcher = switcher
         context.coordinator.showsSwitchAction = showsSwitchAction
         view.install()
+        context.coordinator.handle(switcherRequests: switcherRequests)
     }
 
     /// An empty view that looks for the tab bar once it is in a window.
@@ -71,6 +74,7 @@ struct TabBarGestures: UIViewRepresentable {
         var onDoubleTap: () -> Void = {}
         var switcher: (CGFloat, @escaping () -> Void) -> AnyView = { _, _ in AnyView(EmptyView()) }
         var showsSwitchAction = false
+        private var handledSwitcherRequests: Int
         private weak var tabBar: UITabBar?
         private lazy var doubleTap: UITapGestureRecognizer = {
             let recognizer = UITapGestureRecognizer(target: self, action: #selector(didDoubleTap(_:)))
@@ -87,6 +91,18 @@ struct TabBarGestures: UIViewRepresentable {
             recognizer.delegate = self
             return recognizer
         }()
+
+        /// A coordinator made after a request does not open the switcher for it.
+        init(switcherRequests: Int) {
+            handledSwitcherRequests = switcherRequests
+        }
+
+        func handle(switcherRequests: Int) {
+            guard switcherRequests != handledSwitcherRequests else { return }
+            handledSwitcherRequests = switcherRequests
+            // Not during the SwiftUI update.
+            DispatchQueue.main.async { [weak self] in self?.presentSwitcher() }
+        }
 
         func attach(to tabBar: UITabBar) {
             updateSwitchAction(in: tabBar)
