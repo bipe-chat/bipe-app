@@ -1200,8 +1200,6 @@
 "bipe_help_licenses" = "Open source licences";
 "bipe_help_versions" = "Version history";
 "bipe_versions_note" = "The release notes are in English.";
-"bipe_versions_testing" = "In testing";
-"bipe_versions_released" = "Released %1$@";
 "bipe_versions_build" = "Build %1$@";
 "bipe_versions_kind_new" = "New";
 "bipe_versions_kind_improved" = "Improved";
@@ -2296,6 +2294,9 @@
 "bipe_web_encryption_verified" = "This browser is approved and reads your messages.";
 "bipe_web_recovery_key_enter_body" = "The key brings your old messages to this browser.";
 "bipe_web_verification_verified" = "Approved";
+"bipe_jump_to_date_title" = "Go to a date";
+"bipe_jump_to_date_empty" = "No messages on that day.";
+"bipe_web_appearance_system" = "Same as the computer";
 "bipe_web_verification_unverified" = "Needs approval";
 "bipe_web_upload_cancel" = "Stop sending";
 "bipe_web_emoji_search" = "Search emoji";

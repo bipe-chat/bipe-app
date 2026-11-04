@@ -2774,12 +2774,6 @@ public enum BipeStrings {
 
     public static var versionsNote: String { NSLocalizedString("bipe_versions_note", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var versionsTesting: String { NSLocalizedString("bipe_versions_testing", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func versionsReleased(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_versions_released", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
     public static func versionsBuild(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_versions_build", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
@@ -5295,6 +5289,12 @@ public enum BipeStrings {
     public static var webRecoveryKeyEnterBody: String { NSLocalizedString("bipe_web_recovery_key_enter_body", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var webVerificationVerified: String { NSLocalizedString("bipe_web_verification_verified", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var jumpToDateTitle: String { NSLocalizedString("bipe_jump_to_date_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var jumpToDateEmpty: String { NSLocalizedString("bipe_jump_to_date_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webAppearanceSystem: String { NSLocalizedString("bipe_web_appearance_system", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var webVerificationUnverified: String { NSLocalizedString("bipe_web_verification_unverified", tableName: "Bipe", bundle: .module, comment: "") }
 
