@@ -4588,6 +4588,26 @@ public enum BipeStrings {
 
     public static var businessStopped: String { NSLocalizedString("bipe_business_stopped", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var agendaCalendarSection: String { NSLocalizedString("bipe_agenda_calendar_section", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaFeedGet: String { NSLocalizedString("bipe_agenda_feed_get", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaFeedFooter: String { NSLocalizedString("bipe_agenda_feed_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaFeedFirstName: String { NSLocalizedString("bipe_agenda_feed_first_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaBusyAdd: String { NSLocalizedString("bipe_agenda_busy_add", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaBusyUrl: String { NSLocalizedString("bipe_agenda_busy_url", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaBusyFooter: String { NSLocalizedString("bipe_agenda_busy_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaBusyFailing: String { NSLocalizedString("bipe_agenda_busy_failing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaBusyInvalid: String { NSLocalizedString("bipe_agenda_busy_invalid", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var agendaBusyRemove: String { NSLocalizedString("bipe_agenda_busy_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var businessToolsTitle: String { NSLocalizedString("bipe_business_tools_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var businessToolsFooter: String { NSLocalizedString("bipe_business_tools_footer", tableName: "Bipe", bundle: .module, comment: "") }
