@@ -4472,6 +4472,36 @@ public enum BipeStrings {
 
     public static var workSuggestDismiss: String { NSLocalizedString("bipe_work_suggest_dismiss", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var lojaYourName: String { NSLocalizedString("bipe_loja_your_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var lojaRecordsTitle: String { NSLocalizedString("bipe_loja_records_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var lojaGetAlerts: String { NSLocalizedString("bipe_loja_get_alerts", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var lojaPickup: String { NSLocalizedString("bipe_loja_pickup", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var lojaPayAtPickup: String { NSLocalizedString("bipe_loja_pay_at_pickup", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var lojaWaiting: String { NSLocalizedString("bipe_loja_waiting", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var lojaSend: String { NSLocalizedString("bipe_loja_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var lojaAppOnly: String { NSLocalizedString("bipe_loja_app_only", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func lojaClaimed(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_loja_claimed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var webBookingSwitch: String { NSLocalizedString("bipe_web_booking_switch", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webBookingSwitchFooter: String { NSLocalizedString("bipe_web_booking_switch_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webOrdersSwitch: String { NSLocalizedString("bipe_web_orders_switch", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webOrdersSwitchFooter: String { NSLocalizedString("bipe_web_orders_switch_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var webRecordMark: String { NSLocalizedString("bipe_web_record_mark", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var businessToolsTitle: String { NSLocalizedString("bipe_business_tools_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var businessToolsFooter: String { NSLocalizedString("bipe_business_tools_footer", tableName: "Bipe", bundle: .module, comment: "") }

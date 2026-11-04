@@ -164,6 +164,8 @@ export const BipeScreen = {
   locationSend: "location-send",
   /** Location (flow chat). Spec: bipe-shared/product/screens/location-view.json */
   locationView: "location-view",
+  /** Shop on the web (flow business). Spec: bipe-shared/product/screens/loja-web.json */
+  lojaWeb: "loja-web",
   /** Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json */
   mediaViewer: "media-viewer",
   /** Message actions (flow chat). Spec: bipe-shared/product/screens/message-actions.json */

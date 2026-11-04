@@ -244,6 +244,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Location (flow chat). Spec: bipe-shared/product/screens/location-view.json
     case locationView = "location-view"
 
+    /// Shop on the web (flow business). Spec: bipe-shared/product/screens/loja-web.json
+    case lojaWeb = "loja-web"
+
     /// Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json
     case mediaViewer = "media-viewer"
 
