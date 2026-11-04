@@ -1958,6 +1958,8 @@
     <string name="bipe_web_orders_switch">Orders on the web</string>
     <string name="bipe_web_orders_switch_footer">People without Bipe order with a first name, for pickup and payment on pickup only.</string>
     <string name="bipe_web_record_mark">On the web</string>
+    <string name="bipe_web_queue_switch">Join the queue on the web</string>
+    <string name="bipe_loja_queue_position">You are number %1$s in the queue</string>
     <string name="bipe_business_tools_title">Business tools</string>
     <string name="bipe_business_tools_footer">Customers find these on your profile and in their chat with you.</string>
     <string name="bipe_business_tools_a11y">Business tools</string>
