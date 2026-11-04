@@ -110,6 +110,15 @@ export type Row =
   | { kind: 'readMarker'; key: string }
   | { kind: 'start'; key: string };
 
+/** Spec dm-delete: a day whose messages are all cleared shows no date, so the old date does not stay on screen. */
+export function withoutEmptyDays(rows: Row[]): Row[] {
+  return rows.filter((row, i) => {
+    if (row.kind !== 'day') return true;
+    const next = rows.slice(i + 1).find((r) => r.kind === 'message' || r.kind === 'day');
+    return next?.kind === 'message';
+  });
+}
+
 function nameOf(profile: ProfileDetails, userId: string): string {
   return ProfileDetails.Ready.instanceOf(profile) ? (profile.inner.displayName ?? userId) : userId;
 }

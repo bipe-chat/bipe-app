@@ -354,12 +354,11 @@ function SignOutAlert({ all, onClose }: { all: boolean; onClose: () => void }) {
   );
 }
 
-// Tema (settings chats.look.appearance): Igual ao celular, Claro, Escuro, as one choice row each.
-// TODO(string): bipe_web_appearance_system, "Igual ao computador"; the app's option says "ao celular".
+// Tema (settings chats.look.appearance): Igual ao computador, Claro, Escuro, as one choice row each.
 function AppearanceRows() {
   const value = useSetting('appearance');
   const options: [Appearance, string][] = [
-    ['system', 'Igual ao computador'],
+    ['system', s('bipe_web_appearance_system')],
     ['light', s('bipe_chats_appearance_light')],
     ['dark', s('bipe_chats_appearance_dark')],
   ];
