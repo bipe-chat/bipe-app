@@ -39,7 +39,7 @@ const REFRESH_MS = 30_000;
 const MIN_WINDOW = 1;
 const MAX_WINDOW = 240;
 
-const STATUS_TEXT: Record<QueuePlaceStatus, StringKey> = {
+export const STATUS_TEXT: Record<QueuePlaceStatus, StringKey> = {
   waiting: 'bipe_queue_status_waiting',
   called: 'bipe_queue_called',
   served: 'bipe_queue_status_served',
@@ -47,7 +47,7 @@ const STATUS_TEXT: Record<QueuePlaceStatus, StringKey> = {
   left: 'bipe_queue_status_left',
 };
 
-const STATUS_TINT: Record<QueuePlaceStatus, string> = {
+export const STATUS_TINT: Record<QueuePlaceStatus, string> = {
   waiting: 'text-trust-caution-ink',
   called: 'text-trust-verified-ink',
   served: 'text-ink-secondary',
@@ -56,7 +56,7 @@ const STATUS_TINT: Record<QueuePlaceStatus, string> = {
 };
 
 /** The text of a failed queue call, as BipeAPIError.queueMessage on iOS. Never the raw API message. */
-function queueErrorText(e: unknown): string {
+export function queueErrorText(e: unknown): string {
   if (!(e instanceof WorkError)) return s('bipe_queue_error');
   switch (e.code) {
     case 'network':

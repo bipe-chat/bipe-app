@@ -386,7 +386,7 @@ function ItemThumb({ client, item }: { client: BusinessClient; item: CatalogItem
 }
 
 /** The item photo, or the image glyph when there is none or it does not load. */
-function Thumb({ url, size, label }: { url?: string; size: number; label?: string }) {
+export function Thumb({ url, size, label }: { url?: string; size: number; label?: string }) {
   const [failed, setFailed] = useState<string>();
   if (url && url !== failed)
     return (
@@ -794,7 +794,7 @@ function inputOf(item: CatalogItem): CatalogItemInput {
 }
 
 /** Spec priceText: the business's text, bipe_catalog_price_from with it, or bipe_catalog_price_on_request. */
-function priceText(price: CatalogPrice): string {
+export function priceText(price: CatalogPrice): string {
   if (price.mode === 'on_request') return s('bipe_catalog_price_on_request');
   return price.mode === 'from' ? s('bipe_catalog_price_from', price.text) : price.text;
 }
