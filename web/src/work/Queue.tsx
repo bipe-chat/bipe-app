@@ -74,6 +74,8 @@ export function queueErrorText(e: unknown): string {
 
 /** A typed walk-in shows its name. A signed-in customer has no name on this screen yet: the placeholder, as iOS without a name. */
 function placeName(place: QueuePlace): string {
+  // A web place is name-only with a web mark (ADR 0195 point 17).
+  if (place.web) return `${customerName(place.customer)} · ${s('bipe_web_record_mark')}`;
   return customerName(place.customer);
 }
 

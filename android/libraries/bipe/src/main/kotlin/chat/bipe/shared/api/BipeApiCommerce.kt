@@ -289,6 +289,8 @@ data class BipeQueuePlace(
     @SerialName("joined_at") val joinedAt: String,
     @SerialName("called_at") val calledAt: String? = null,
     @SerialName("served_at") val servedAt: String? = null,
+    /** Joined on the web with a first name (ADR 0185). No chat. */
+    @SerialName("web") val web: Boolean = false,
 ) {
     val placeStatus: BipeQueuePlaceStatus get() = BipeQueuePlaceStatus.fromId(status)
 }

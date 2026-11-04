@@ -369,7 +369,7 @@ export function WithToolState({ client, id, screen }: { client: BusinessClient; 
   const action = useAction();
   const web = useLoad(() => client.webSettings().catch(() => undefined), [client]);
   const tool = tools.data?.tools.find((t) => t.id === id);
-  const webKey = id === 'agenda' ? 'web_booking' : id === 'orders' ? 'web_orders' : undefined;
+  const webKey = id === 'agenda' ? 'web_booking' : id === 'orders' ? 'web_orders' : id === 'queue' ? 'web_queue' : undefined;
   const set = (state: 'live' | 'off') =>
     void action.run(() => client.setBusinessTool(id, state)).then((updated) => {
       if (updated) tools.setData(updated);
@@ -394,7 +394,7 @@ export function WithToolState({ client, id, screen }: { client: BusinessClient; 
                   });
                 }}
               />
-              {id === 'agenda' ? s('bipe_web_booking_switch') : s('bipe_web_orders_switch')}
+              {id === 'agenda' ? s('bipe_web_booking_switch') : id === 'orders' ? s('bipe_web_orders_switch') : s('bipe_web_queue_switch')}
             </label>
           )}
           {tool.state === 'setup' && (

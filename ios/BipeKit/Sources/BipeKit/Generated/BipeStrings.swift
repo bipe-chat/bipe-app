@@ -4502,6 +4502,12 @@ public enum BipeStrings {
 
     public static var webRecordMark: String { NSLocalizedString("bipe_web_record_mark", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var webQueueSwitch: String { NSLocalizedString("bipe_web_queue_switch", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func lojaQueuePosition(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_loja_queue_position", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var businessToolsTitle: String { NSLocalizedString("bipe_business_tools_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var businessToolsFooter: String { NSLocalizedString("bipe_business_tools_footer", tableName: "Bipe", bundle: .module, comment: "") }

@@ -408,13 +408,30 @@ struct WorkToolStateBar: View {
 
     private var tool: BipeBusinessTool? { model.tools?.first { $0.id == id } }
 
+    private var webKey: WritableKeyPath<BipeWebSettings, Bool>? {
+        switch id {
+        case "agenda": \.webBooking
+        case "orders": \.webOrders
+        case "queue": \.webQueue
+        default: nil
+        }
+    }
+
+    private var webTitle: String {
+        switch id {
+        case "agenda": BipeStrings.webBookingSwitch
+        case "orders": BipeStrings.webOrdersSwitch
+        default: BipeStrings.webQueueSwitch
+        }
+    }
+
     var body: some View {
-        if let web = model.web, tool?.state == .live, id == "agenda" || id == "orders" {
-            Toggle(id == "agenda" ? BipeStrings.webBookingSwitch : BipeStrings.webOrdersSwitch,
-                   isOn: Binding(get: { id == "agenda" ? web.webBooking : web.webOrders },
+        if let web = model.web, tool?.state == .live, let key = webKey {
+            Toggle(webTitle,
+                   isOn: Binding(get: { web[keyPath: key] },
                                  set: { on in
                                      var next = web
-                                     if id == "agenda" { next.webBooking = on } else { next.webOrders = on }
+                                     next[keyPath: key] = on
                                      Task { await model.setWeb(next) }
                                  }))
                 .font(.footnote)
