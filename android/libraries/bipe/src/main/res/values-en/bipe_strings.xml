@@ -1202,6 +1202,8 @@
     <string name="bipe_help_licenses">Open source licences</string>
     <string name="bipe_help_versions">Version history</string>
     <string name="bipe_versions_note">The release notes are in English.</string>
+    <string name="bipe_versions_testing">In testing</string>
+    <string name="bipe_versions_released">Released %1$s</string>
     <string name="bipe_versions_build">Build %1$s</string>
     <string name="bipe_versions_kind_new">New</string>
     <string name="bipe_versions_kind_improved">Improved</string>
@@ -2296,6 +2298,9 @@
     <string name="bipe_web_encryption_verified">This browser is approved and reads your messages.</string>
     <string name="bipe_web_recovery_key_enter_body">The key brings your old messages to this browser.</string>
     <string name="bipe_web_verification_verified">Approved</string>
+    <string name="bipe_jump_to_date_title">Go to a date</string>
+    <string name="bipe_jump_to_date_empty">No messages on that day.</string>
+    <string name="bipe_web_appearance_system">Same as the computer</string>
     <string name="bipe_web_verification_unverified">Needs approval</string>
     <string name="bipe_web_upload_cancel">Stop sending</string>
     <string name="bipe_web_emoji_search">Search emoji</string>
