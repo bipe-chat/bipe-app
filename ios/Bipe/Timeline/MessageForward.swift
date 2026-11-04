@@ -16,11 +16,12 @@ struct ForwardChat: Identifiable, Equatable {
     var id: String { roomId }
 }
 
-/// Spec message-forward (bipe#664, bipe#860): copies of sent messages to up to 5 chats.
+/// Spec message-forward (bipe#664, bipe#860): copies of sent messages to up to 5 chats, 1 for a message forwarded
+/// many times (bipe-chat/bipe#933).
 @MainActor
 final class MessageForwardModel: ObservableObject {
-    /// Spec message-forward notes: at most this many chats per forward.
-    static let limit = 5
+    /// State picked: forwardChats, or forwardChatsManyTimes when a sent content reaches forwardedManyTimes.
+    let limit: Int
 
     @Published var query = ""
     @Published private(set) var chats: [ForwardChat] = []
@@ -35,6 +36,14 @@ final class MessageForwardModel: ObservableObject {
     init(client: Client, contentJsons: [String]) {
         self.client = client
         self.contentJsons = contentJsons
+        limit = BipeForwardMark.chatLimit(sentCounts: contentJsons.map { BipeForwardMark.count(eventJson: $0) })
+    }
+
+    /// bipe_forward_limit with the limit, or bipe_forward_limit_many for the many-times limit.
+    var limitText: String {
+        limit == BipeRegistries.forwardChatsManyTimes && limit < BipeRegistries.forwardChats
+            ? BipeStrings.forwardLimitMany
+            : BipeStrings.forwardLimit(String(limit))
     }
 
     /// State chats: joined chats, spaces left out, by name.
@@ -57,7 +66,7 @@ final class MessageForwardModel: ObservableObject {
     func toggle(_ roomId: String) {
         if let index = picked.firstIndex(of: roomId) {
             picked.remove(at: index)
-        } else if picked.count >= Self.limit {
+        } else if picked.count >= limit {
             showsLimit = true
         } else {
             picked.append(roomId)
@@ -146,7 +155,7 @@ struct MessageForwardSheet: View {
                 }
             }
             .disabled(model.isSending)
-            .alert(BipeStrings.forwardLimit(String(MessageForwardModel.limit)), isPresented: $model.showsLimit) {
+            .alert(model.limitText, isPresented: $model.showsLimit) {
                 Button(BipeStrings.actionContinue, role: .cancel) {}
             }
         }

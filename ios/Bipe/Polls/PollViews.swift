@@ -272,7 +272,7 @@ struct PollDetailView: View {
                                     .foregroundStyle(BipeColor.accentInk)
                             }
                             if !option.voterIds.isEmpty {
-                                Text(option.voterIds.map { names[$0] ?? $0 }.joined(separator: ", "))
+                                Text(option.voterIds.map { names[$0] ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) }.joined(separator: ", "))
                                     .font(.caption)
                                     .foregroundStyle(BipeColor.inkSecondary)
                             }

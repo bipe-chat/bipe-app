@@ -65,6 +65,11 @@ data class BipeTheftMark(
 private data class GuardiansRequest(@SerialName("user_ids") val userIds: List<String>)
 
 @Serializable
+private data class GuardiansSetRequest(@SerialName("user_ids") val userIds: List<String>, @SerialName("pin") val pin: String) {
+    override fun toString(): String = "GuardiansSetRequest"
+}
+
+@Serializable
 private data class PhoneRequest(@SerialName("phone_id") val phoneId: String)
 
 @Serializable
@@ -74,11 +79,11 @@ private data class TheftMarksResponse(val marks: List<BadgeEnvelope> = emptyList
 suspend fun BipeApiClient.guardians(accessToken: String): BipeGuardianState =
     send("GET", listOf("v1", "me", "guardians"), accessToken = accessToken, response = BipeGuardianState.serializer())
 
-/** `PUT /v1/me/guardians`. Replaces the list (0 to [BipeRegistries.THEFT_MAX_GUARDIANS] IDs). */
-suspend fun BipeApiClient.setGuardians(userIds: List<String>, accessToken: String): BipeGuardianState = send(
+/** `PUT /v1/me/guardians`. Replaces the list (0 to [BipeRegistries.THEFT_MAX_GUARDIANS] IDs). Needs the current PIN (bipe-chat/bipe#908). */
+suspend fun BipeApiClient.setGuardians(userIds: List<String>, pin: String, accessToken: String): BipeGuardianState = send(
     "PUT",
     listOf("v1", "me", "guardians"),
-    body = encode(GuardiansRequest.serializer(), GuardiansRequest(userIds)),
+    body = encode(GuardiansSetRequest.serializer(), GuardiansSetRequest(userIds, pin)),
     accessToken = accessToken,
     response = BipeGuardianState.serializer(),
 )

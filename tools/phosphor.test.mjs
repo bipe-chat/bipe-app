@@ -29,7 +29,7 @@ test('phosphor names follow each platform', () => {
   assert.match(vectorDrawable(PATH), /android:viewportWidth="256"/);
 });
 
-test('phosphor writes both platforms from a package', () => {
+test('phosphor writes every platform from a package', () => {
   const root = mkdtempSync(join(tmpdir(), 'bipe-phosphor-'));
   const pkg = join(root, 'package');
   mkdirSync(join(pkg, 'assets/regular'), { recursive: true });
@@ -48,6 +48,10 @@ test('phosphor writes both platforms from a package', () => {
   assert.ok(existsSync(join(root, 'ios/Phosphor/Sources/Phosphor/Resources/Phosphor.xcassets/chat-circle.imageset/chat-circle.svg')));
   assert.ok(existsSync(join(root, 'android/libraries/phosphor/src/main/res/drawable/phosphor_chat_circle.xml')));
   assert.ok(existsSync(join(root, 'ios/Phosphor/LICENSE')) && existsSync(join(root, 'android/libraries/phosphor/LICENSE')));
+  const web = readFileSync(join(root, 'web/src/phosphor/icons.ts'), 'utf8');
+  assert.ok(hasHeader(web));
+  assert.ok(web.includes(`export const chatCircle = '${PATH}';`));
+  assert.ok(existsSync(join(root, 'web/src/phosphor/LICENSE')));
 
   writeFileSync(join(root, 'tools/phosphor.json'), JSON.stringify({ version: '1.0.0', weight: 'regular', icons: ['chat-circle'] }));
   assert.throws(() => writeIcons(pkg, root), /wants @phosphor-icons\/core@1\.0\.0/);

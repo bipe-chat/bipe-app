@@ -22,6 +22,8 @@ struct ChatSummary: Identifiable, Equatable {
     var mentionCount: Int
     /// The other member of a DM, for the avatar account-type lookup. Groups keep their room avatar.
     var peerUserId: String? = nil
+    /// Spec chat-list notes, Group avatar: members shown when a group has no photo.
+    var avatarMembers: [Person] = []
     /// RoomInfo.isDm, the one DM test (ADR 0141).
     var isDm = false
     var isMuted = false
@@ -36,8 +38,11 @@ struct ChatSummary: Identifiable, Equatable {
 
     /// ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test.
     var scope: ChatScope { isDm ? .conversas : .grupos }
-    /// Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only.
-    var isOfficial: Bool { isDm && BipeOfficialAccounts.isOfficial(peerUserId) }
+    /// The account's news room (NewsRoomMark, bipe-chat/bipe#978).
+    var isNewsRoom = false
+
+    /// Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only, or the news room.
+    var isOfficial: Bool { isNewsRoom || (isDm && BipeOfficialAccounts.isOfficial(peerUserId)) }
 }
 
 /// State scope of spec chat-list.
@@ -79,12 +84,18 @@ final class ChatListModel: ObservableObject {
     private var knownRows: [String: BipeRowActivity.Row] = [:]
     /// Rows take a newer message of the local timeline as their date and text (bipe-chat/bipe#592).
     private var rowActivity: RowActivityScanner?
+    /// Spec read-receipts: the delivered acks of this account, sent and received while the list runs.
+    let delivered: DeliveredAcks
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult?
     private var handles: [TaskHandle] = []
     private var summaryTask: Task<Void, Never>?
     @Published private(set) var markingRoomId: String?
     @Published private(set) var favouriteFailed = false
+    /// The favourites order of spec chat-list (registries/chat-favourites.json): room IDs, first first.
+    @Published private(set) var favouritesOrder: [String] = []
+    /// A local order that is not on the server yet: a read must not replace it.
+    private var favouritesOrderUnsaved = false
     @Published private(set) var readActionFailed = false
     /// A local read found an undecryptable message: feeds encryption-status noteUndecryptable (bipe-chat/bipe#853).
     @Published private(set) var hasUndecryptable = false
@@ -99,6 +110,7 @@ final class ChatListModel: ObservableObject {
         archive = ChatArchiveModel(session: session)
         media = MediaLoader(client: session.client)
         notes = NotesRoom(session: session)
+        delivered = DeliveredAcks(client: session.client, ownUserId: session.userId)
         clearChanges = ClearedChatsStore.shared.$revision.dropFirst().sink { [weak self] _ in
             self?.refreshSummaries()
         }
@@ -107,6 +119,9 @@ final class ChatListModel: ObservableObject {
             self?.refreshSummaries()
         }
         rowActivity = RowActivityScanner(client: session.client, ownUserId: session.userId) { [weak self] in self?.refreshSummaries() }
+        rowActivity?.onDmIncoming = { [delivered] room, eventId, sender in
+            Task { await delivered.send(room: room, eventId: eventId, sender: sender) }
+        }
     }
 
     /// The chats of one scope, in room list order.
@@ -114,9 +129,10 @@ final class ChatListModel: ObservableObject {
         chats.filter { (scope == .todas || $0.scope == scope) && archive.contains($0) == archived }
     }
 
-    /// State favourites of spec chat-list: the favourites of one scope that are not archived.
+    /// State favourites of spec chat-list: the favourites of one scope that are not archived, in the favourites order.
     func favourites(in scope: ChatScope) -> [ChatSummary] {
-        chats(in: scope).filter(\.isFavourite)
+        BipeFavouritesOrder.sorted(chats(in: scope).filter(\.isFavourite), order: favouritesOrder,
+                                   roomId: \.roomId, name: \.name)
     }
 
     /// The phase of one scope: empty when the list loaded and the scope has no chat.
@@ -127,6 +143,8 @@ final class ChatListModel: ObservableObject {
 
     deinit {
         handles.forEach { $0.cancel() }
+        let delivered = delivered
+        Task { await delivered.stop() }
         summaryTask?.cancel()
         archiveTask?.cancel()
         favouriteTask?.cancel()
@@ -143,6 +161,7 @@ final class ChatListModel: ObservableObject {
         started = true
         await refreshNotes()
         await AssistantDraftsStore.shared.learnRoomId(session: session)
+        await delivered.start()
         guard let roomList = try? await session.syncService.roomListService().allRooms() else { return }
 
         let loading = RoomListLoadingStream()
@@ -160,7 +179,10 @@ final class ChatListModel: ObservableObject {
         let archived = tagStream(roomList, tag: .lowPriority) { $0.archivedRooms.apply($1) }
         archiveEntries = archived.0
         archiveTask = archived.1
-        let favourites = tagStream(roomList, tag: .favourite) { $0.favouriteRooms.apply($1) }
+        await loadFavouritesOrder()
+        let favourites = tagStream(roomList, tag: .favourite, onUpdate: { await $0.loadFavouritesOrder() }) {
+            $0.favouriteRooms.apply($1)
+        }
         favouriteEntries = favourites.0
         favouriteTask = favourites.1
 
@@ -183,11 +205,14 @@ final class ChatListModel: ObservableObject {
             refreshSummaries()
             // Cached rows publish first. The SDK hydrates latest events in the background, even offline.
             await updateSubscriptions()
+            // A first DM can come after start: the ack receiver binds to it (no work while one runs).
+            await delivered.start()
         }
     }
 
     /// A room list stream of joined rooms with one tag (m.lowpriority or m.favourite).
     private func tagStream(_ roomList: RoomList, tag: RoomListEntriesDynamicFilterKind,
+                           onUpdate: (@MainActor (ChatListModel) async -> Void)? = nil,
                            apply: @escaping @MainActor (ChatListModel, VectorDiff<Room>) -> Void)
         -> (RoomListEntriesWithDynamicAdaptersResult, Task<Void, Never>) {
         let stream = RoomListEntriesStream()
@@ -205,6 +230,7 @@ final class ChatListModel: ObservableObject {
                     }
                     apply(self, update.vectorDiff)
                 }
+                await onUpdate?(self)
                 refreshSummaries()
                 await updateSubscriptions()
             }
@@ -244,7 +270,7 @@ final class ChatListModel: ObservableObject {
                   let room = try? session.client.getRoom(roomId: roomId) else { throw ReadFailure.unavailable }
             let info = try await room.roomInfo()
             guard info.membership == .joined, !info.isSpace else { throw ReadFailure.unavailable }
-            if !unread { try await room.markAsRead(receiptType: .read) }
+            if !unread { try await room.markAsRead(receiptType: ReadReceiptSetting.receiptType(isDm: info.isDm)) }
             try await room.setUnreadFlag(newValue: unread)
             failedReadIntent = nil
             refreshSummaries()
@@ -266,11 +292,37 @@ final class ChatListModel: ObservableObject {
             let info = try await room.roomInfo()
             guard info.membership == .joined, !info.isSpace else { throw ReadFailure.unavailable }
             try await room.setIsFavourite(isFavourite: favourite, tagOrder: nil)
+            // Spec chat-list favourites order: a new favourite goes last, a removed one leaves the order.
+            await saveFavouritesOrder(favourite ? BipeFavouritesOrder.adding(roomId, to: favouritesOrder)
+                                                : BipeFavouritesOrder.removing(roomId, from: favouritesOrder))
             refreshSummaries()
         } catch is CancellationError {
         } catch {
             favouriteFailed = true
         }
+    }
+
+    /// Action moveFavourite of spec chat-list: moves a favourite among the shown favourites of its scope and writes the order.
+    func moveFavourite(roomId: String, to index: Int, shown: [String]) async {
+        await saveFavouritesOrder(BipeFavouritesOrder.moving(roomId, to: index, shown: shown, order: favouritesOrder))
+    }
+
+    /// Reads the favourites order from the account data, unless this phone has an order it could not write yet.
+    private func loadFavouritesOrder() async {
+        guard !favouritesOrderUnsaved,
+              let json = try? await session.client.accountData(eventType: BipeFavouritesOrder.eventType) else { return }
+        favouritesOrder = BipeFavouritesOrder.parse(json)
+    }
+
+    /// Shows the order at once and writes it. A failed write keeps it on this phone; the next change writes it again.
+    private func saveFavouritesOrder(_ order: [String]) async {
+        favouritesOrder = order
+        favouritesOrderUnsaved = true
+        do {
+            try await session.client.setAccountData(eventType: BipeFavouritesOrder.eventType,
+                                                    content: BipeFavouritesOrder.content(order))
+            if favouritesOrder == order { favouritesOrderUnsaved = false }
+        } catch {}
     }
 
     func retryReadAction() async {
@@ -382,7 +434,7 @@ final class ChatListModel: ObservableObject {
         switch content {
         case .roomMembership(let userId, let displayName, let change?, _):
             let own = userId == ownUserId
-            let name = displayName.flatMap { $0.isEmpty ? nil : $0 } ?? userId
+            let name = BipeChatRowName.person(userID: userId, displayName: displayName, handle: nil)
             switch change {
             case .joined, .invitationAccepted, .knockAccepted:
                 if isDm { return own ? BipeStrings.dmJoinedByYou : BipeStrings.dmJoined(name) }
@@ -423,9 +475,12 @@ final class ChatListModel: ObservableObject {
             if info.isPublic == true, case .worldReadable = info.historyVisibility { return nil }
         }
         let peer = info.isDm ? info.heroes.first(where: { $0.userId != ownUserId }) : nil
-        let name = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName,
+        // Spec chat-list news room mark: the app-language name, not the room's Portuguese m.room.name.
+        let isNewsRoom = NewsRoomMark.roomId(for: ownUserId) == info.id
+        let name = isNewsRoom ? BipeStrings.newsRoomName : BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName,
             peerName: peer?.displayName, peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
-            dmRoomName: info.isDm ? info.rawName : nil)
+            dmRoomName: info.isDm ? info.rawName : nil,
+            groupHeroes: ChatTimelineModel.groupHeroes(of: info, ownUserId: ownUserId))
         return ChatSummary(roomId: info.id,
                            name: name,
                            // ADR 0141: a DM shows the person's photo, never m.room.avatar.
@@ -437,11 +492,13 @@ final class ChatListModel: ObservableObject {
                            memberCount: Int(info.activeMembersCount),
                            mentionCount: Int(info.numUnreadMentions),
                            peerUserId: peer?.userId,
+                           avatarMembers: Person.groupAvatarMembers(of: info, ownUserId: ownUserId),
                            isDm: info.isDm,
                            isMuted: info.cachedUserDefinedNotificationMode == .mute,
                            isMarkedUnread: info.isMarkedUnread,
                            isLowPriority: info.isLowPriority,
                            isFavourite: info.isFavourite,
-                           latestIncomingMs: latestIncomingMs)
+                           latestIncomingMs: latestIncomingMs,
+                           isNewsRoom: isNewsRoom)
     }
 }

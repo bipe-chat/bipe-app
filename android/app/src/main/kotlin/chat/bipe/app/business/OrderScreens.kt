@@ -514,7 +514,8 @@ fun OrderOwnerScreen(business: BusinessApi, customers: List<Pair<String, String>
                         ownerMode = true,
                         business = business,
                         route = business.session.userId,
-                        customerName = order.customer.userId?.let { names[it] } ?: order.customer.name,
+                        customerName = order.customer.userId?.let { names[it] }
+                            ?: order.customer.name?.let { if (order.web) "$it · ${stringResource(R.string.bipe_web_record_mark)}" else it },
                         onChanged = { attempt++ },
                         onOpenChat = onOpenChat,
                     )

@@ -9,26 +9,34 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import chat.bipe.app.business.WorkScreen
-import chat.bipe.app.chatlist.ChatRequestsModel
-import chat.bipe.app.chatlist.ChatSearchModel
-import chat.bipe.app.chatlist.RemoteBannerModel
 import chat.bipe.app.chatlist.ChatListModel
 import chat.bipe.app.chatlist.ChatListScreen
+import chat.bipe.app.chatlist.ChatRequestsModel
 import chat.bipe.app.chatlist.ChatScope
+import chat.bipe.app.chatlist.ChatSearchModel
+import chat.bipe.app.chatlist.RemoteBannerModel
+import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeHaptic
 import chat.bipe.app.handle.HandlePickModel
-import chat.bipe.app.voce.VoceScreen
 import chat.bipe.app.people.PeopleRoute
+import chat.bipe.app.voce.VoceScreen
+import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeChatListPrompt
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
 
@@ -47,12 +55,11 @@ fun AppTabsScreen(
     remoteBanner: RemoteBannerModel,
     onOpenRequests: () -> Unit,
     onFindHandle: (String) -> Unit,
-    /** Spec encryption-status: the banner above Conversas. */
-    banner: @Composable () -> Unit = {},
-    /** Spec recovery-reminder: the card above Conversas. */
-    recoveryCard: @Composable () -> Unit = {},
+    /** Spec chat-list-prompt (bipe-chat/bipe#894): the prompt entries the caller owns, with their cards. */
+    prompts: Map<BipeChatListPrompt, @Composable () -> Unit> = emptyMap(),
     onCreateGroup: () -> Unit = {},
-    onDeleteDm: (String) -> Unit = {},
+    /** Spec chat-row-actions sendMedia: opens the chat with the photo picker. */
+    onSendMedia: (String) -> Unit = {},
     onChatNotifications: (String) -> Unit = {},
     onChatInfo: (chat.bipe.app.chatlist.ChatSummary) -> Unit = {},
     onInvite: () -> Unit = {},
@@ -73,30 +80,34 @@ fun AppTabsScreen(
         searchFrom = state.selectedTab
         tabs.selectTab(AppTabsModel.Tab.SEARCH)
     }
+    // Spec app-tabs: an open chat or thread hides the tab bar.
+    val tabBarHiders = remember { mutableIntStateOf(0) }
     Column(modifier = Modifier.fillMaxSize().testTag(BipeScreen.APP_TABS.id)) {
         Box(modifier = Modifier.weight(1f)) {
-            when (state.selectedTab) {
-                AppTabsModel.Tab.CONVERSAS ->
-                    ChatListScreen(chatList, if (state.isCompany) ChatScope.TODAS else ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        banner = banner, recoveryCard = recoveryCard,
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
-                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
-                        api = tabs.start.api, onBringPeople = onBringPeople)
-                AppTabsModel.Tab.GRUPOS ->
-                    ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
-                        banner = banner,
-                        onCreateGroup = onCreateGroup, onDeleteDm = onDeleteDm, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
-                        requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
-                // Spec business-tools: the company account's Trabalho tab, in the place of Grupos.
-                AppTabsModel.Tab.TRABALHO -> WorkScreen(session, chatList, onOpenChat)
-                AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
-                AppTabsModel.Tab.SEARCH -> {
-                    BackHandler { tabs.selectTab(searchFrom) }
-                    ChatSearchScreen(search, media, onOpenChat, onFindHandle, onOpenMessage)
+            CompositionLocalProvider(LocalTabBarHiders provides tabBarHiders) {
+                when (state.selectedTab) {
+                    AppTabsModel.Tab.CONVERSAS ->
+                        ChatListScreen(chatList, if (state.isCompany) ChatScope.TODAS else ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
+                            prompts = prompts,
+                            onCreateGroup = onCreateGroup, onSendMedia = onSendMedia, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
+                            requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
+                            api = tabs.start.api, onBringPeople = onBringPeople)
+                    AppTabsModel.Tab.GRUPOS ->
+                        ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
+                            prompts = prompts,
+                            onCreateGroup = onCreateGroup, onSendMedia = onSendMedia, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
+                            requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest)
+                    // Spec business-tools: the company account's Trabalho tab, in the place of Grupos.
+                    AppTabsModel.Tab.TRABALHO -> WorkScreen(session, chatList, onOpenChat)
+                    AppTabsModel.Tab.VOCE -> VoceScreen(tabs, session, tabs.start.api, media, onNewAccount, onOpenChat)
+                    AppTabsModel.Tab.SEARCH -> {
+                        BackHandler { tabs.selectTab(searchFrom) }
+                        ChatSearchScreen(search, media, onOpenChat, onFindHandle, onOpenMessage)
+                    }
                 }
             }
         }
-        BipeTabBar(
+        if (tabBarHiders.intValue == 0) BipeTabBar(
             state = state,
             onSelect = tabs::selectTab,
             onDoubleTapVoce = { if (tabs.doubleTapVoce()) view.bipeHaptic(BipeHaptic.Tick) },
@@ -105,6 +116,13 @@ fun AppTabsScreen(
                 tabs.longPressVoce()
             },
             voceMenu = { AccountMenu(tabs, media, onNewAccount) },
+            // The current account's photo (centre-cropped to 1:1) or initial, like the iOS tab (MZ, 2 Nov 2026).
+            voceIcon = state.accounts.firstOrNull { it.isCurrent }?.let { account ->
+                {
+                    Avatar(account.displayName.ifBlank { stringResource(R.string.bipe_tab_you) }, account.avatarUrl,
+                        tabs.media(account.userId) ?: media, size = 28.dp, userId = account.userId, isCompany = account.isCompany)
+                }
+            },
         )
     }
 }

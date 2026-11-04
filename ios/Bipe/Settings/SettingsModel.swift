@@ -14,24 +14,63 @@ final class SettingsModel: ObservableObject {
     let session: AccountSession
     let api: BipeAPIClient
 
-    @Published private(set) var whoCanMessage: BipeWhoCanMessage?
-    @Published private(set) var account: BipeAccountStatus?
+    @Published private(set) var whoCanMessage: BipeWhoCanMessage? { didSet { remember() } }
+    @Published private(set) var account: BipeAccountStatus? { didSet { remember() } }
     /// Spec phone-link-status: `nil` until GET /v1/me/phone answers.
-    @Published private(set) var phone: BipePhoneLinkState?
+    @Published private(set) var phone: BipePhoneLinkState? { didSet { remember() } }
     /// The own linked number in E.164 from GET /v1/me/phone (ADR 0191), `nil` for a link made before the server stored it.
-    @Published private(set) var phoneNumber: String?
+    @Published private(set) var phoneNumber: String? { didSet { remember() } }
     /// The discovery switch (PUT /v1/me/discovery): `nil` until GET /v1/me/phone answers.
-    @Published private(set) var discoverableByPhone: Bool?
-    @Published private(set) var hasRecoveryKey = false
-    @Published private(set) var notificationsOn: Bool?
+    @Published private(set) var discoverableByPhone: Bool? { didSet { remember() } }
+    @Published private(set) var hasRecoveryKey = false { didSet { remember() } }
+    @Published private(set) var notificationsOn: Bool? { didSet { remember() } }
     @Published private(set) var appLockOn = AppLockModel.shared.store.isOn
     @Published private(set) var biometricUnlockOn = AppLockModel.shared.store.biometricUnlock
     /// The assistant send switch (ADR 0210): global account data chat.bipe.assistant_send. `nil` until it is read.
-    @Published private(set) var assistantSend: Bool?
+    @Published private(set) var assistantSend: Bool? { didSet { remember() } }
+
+    /// The last values read, per account, for this app run. A new model starts from them, so settings opens with its
+    /// subtitles and switches filled and `load()` only refreshes them. Memory only: nothing goes to disk.
+    private struct Snapshot {
+        var whoCanMessage: BipeWhoCanMessage?
+        var account: BipeAccountStatus?
+        var phone: BipePhoneLinkState?
+        var phoneNumber: String?
+        var discoverableByPhone: Bool?
+        var hasRecoveryKey = false
+        var notificationsOn: Bool?
+        var assistantSend: Bool?
+    }
+    private static var snapshots: [String: Snapshot] = [:]
+    private var seeding = false
 
     init(session: AccountSession, api: BipeAPIClient) {
         self.session = session
         self.api = api
+        guard let last = Self.snapshots[session.userId] else { return }
+        seeding = true
+        whoCanMessage = last.whoCanMessage
+        account = last.account
+        phone = last.phone
+        phoneNumber = last.phoneNumber
+        discoverableByPhone = last.discoverableByPhone
+        hasRecoveryKey = last.hasRecoveryKey
+        notificationsOn = last.notificationsOn
+        assistantSend = last.assistantSend
+        seeding = false
+    }
+
+    /// Reads the summaries ahead of the first settings open, so the first open after launch is filled too.
+    static func prefetch(session: AccountSession, api: BipeAPIClient) async {
+        await SettingsModel(session: session, api: api).load()
+    }
+
+    private func remember() {
+        guard !seeding else { return }
+        Self.snapshots[session.userId] = Snapshot(
+            whoCanMessage: whoCanMessage, account: account, phone: phone, phoneNumber: phoneNumber,
+            discoverableByPhone: discoverableByPhone, hasRecoveryKey: hasRecoveryKey,
+            notificationsOn: notificationsOn, assistantSend: assistantSend)
     }
 
     /// `nil` until GET /v1/me/account answers.
@@ -176,7 +215,9 @@ final class SettingsModel: ObservableObject {
         case .privacy: whoCanMessage?.settingsSummary
         case .account: waysBack?.summary
         case .notifications: notificationsOn.map { $0 ? BipeStrings.settingsNotificationsOn : BipeStrings.settingsNotificationsOff }
-        case .profile, .chats, .help: nil
+        case .help: BipeStrings.helpVersion(AppVersion.nameAndBuild)
+        // chats: SettingsRootSection reads the theme and palette itself.
+        case .profile, .chats: nil
         }
     }
 

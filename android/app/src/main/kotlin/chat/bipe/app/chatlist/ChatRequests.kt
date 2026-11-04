@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,7 +70,6 @@ import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.inviteConnections
 import chat.bipe.shared.invites.BipeInviteTrust
-import chat.bipe.shared.company.BipeCompanySealState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -275,8 +275,20 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         ),
     )
 
-    private suspend fun summaries(rooms: List<Room>): List<ChatRequestSummary> =
-        rooms.mapNotNull { summary(it) }.filter { !it.isDm }.sortedByDescending { it.invitedAt ?: 0 }
+    private suspend fun summaries(rooms: List<Room>): List<ChatRequestSummary> {
+        val visible = mutableListOf<ChatRequestSummary>()
+        for (room in rooms) {
+            val invite = summary(room) ?: continue
+            if (invite.isDm) continue
+            // Group invites have no invite pairs: only an official inviter joins by itself there.
+            if (BipeInviteTrust.acceptsAutomatically(invite.isDm, invite.inviterId, false, emptySet())) {
+                if (invite.roomId in _pending.value) continue
+                if (run(invite.roomId) { it.join() }) continue
+            }
+            visible += invite
+        }
+        return visible.sortedByDescending { it.invitedAt ?: 0 }
+    }
 
     private suspend fun summary(room: Room): ChatRequestSummary? {
         val info = runCatching { room.roomInfo() }.getOrNull() ?: return null
@@ -285,8 +297,7 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         if (inviter?.isIgnored == true) return null
         val invitedAt = (room.latestEvent() as? LatestEventValue.RemoteInvite)?.timestamp?.toLong()
         val inviterId = inviter?.userId.orEmpty()
-        val inviterName = inviter?.displayName?.takeIf { it.isNotBlank() }
-            ?: inviterId.takeIf { it.isNotEmpty() }?.let { chat.bipe.app.people.Person.localpart(it) }
+        val inviterName = inviterId.takeIf { it.isNotEmpty() }?.let { chat.bipe.app.people.Person.name(it, inviter?.displayName) }
         val isDm = isDirectInvite(info)
         return ChatRequestSummary(
             roomId = info.id,
@@ -359,24 +370,35 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
 /** The requests row at the top of Conversas (spec chat-requests, rowCount). Hidden at 0. */
 @Composable
 fun ChatRequestsRow(count: Int, onClick: () -> Unit) {
+    ListEntryRow(PhosphorIcon.USER_CIRCLE, stringResource(R.string.bipe_requests_title), stringResource(R.string.bipe_requests_row_body), count, onClick)
+}
+
+/** A chat-list entry that is not a chat (requests, Archived): an icon in the avatar footprint, then the title. */
+@Composable
+fun ListEntryRow(icon: PhosphorIcon, title: String, detail: String? = null, count: Int? = null, onClick: () -> Unit) {
     val colors = BipeTheme.colors
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painterResource(PhosphorIcon.USER_CIRCLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(40.dp))
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.bipe_requests_title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-            Text(stringResource(R.string.bipe_requests_row_body), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
+        // Same footprint as the ChatRow avatar (Avatar, 48dp), so the title lines up with the chats.
+        Box(Modifier.size(48.dp).background(colors.accentWash, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(24.dp))
         }
-        Text(
-            count.toString(),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = colors.inkOnAccent,
-            modifier = Modifier.background(colors.accentFill, CircleShape).padding(horizontal = 7.dp, vertical = 2.dp),
-        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
+            detail?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
+        }
+        count?.let {
+            Text(
+                it.toString(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = colors.inkOnAccent,
+                modifier = Modifier.background(colors.accentFill, CircleShape).padding(horizontal = 7.dp, vertical = 2.dp),
+            )
+        }
     }
 }
 
@@ -579,15 +601,16 @@ private data class RequestTrust(val kind: ChatRequestSummary.Trust, val verified
 @Composable
 private fun requestTrust(model: ChatRequestsModel, request: ChatRequestSummary): RequestTrust {
     val seals by model.people.seals.states.collectAsState()
+    val persons by model.people.seals.personSeals.collectAsState()
     val tick by produceState(0L, model, request.inviterId) {
         while (isActive) { delay(30_000); value += 1 }
     }
-    return remember(request.inviterId, request.trust, seals[request.inviterId], tick) {
+    return remember(request.inviterId, request.trust, seals[request.inviterId], persons[request.inviterId], tick) {
         if (request.trust == ChatRequestSummary.Trust.EXTERNAL) RequestTrust(ChatRequestSummary.Trust.EXTERNAL)
         else {
-            val seal = model.people.seals.seal(request.inviterId)
-            if (seal is BipeCompanySealState.Verified && seal.payload.name.isNotBlank()) {
-                RequestTrust(ChatRequestSummary.Trust.VERIFIED, seal.payload.name, seal.payload.msk?.let { "master:$it" })
+            val badge = model.people.seals.verifiedBadge(request.inviterId)
+            if (badge != null && badge.name.isNotBlank()) {
+                RequestTrust(ChatRequestSummary.Trust.VERIFIED, badge.name, badge.msk?.let { "master:$it" })
             } else RequestTrust(ChatRequestSummary.Trust.UNVERIFIED)
         }
     }

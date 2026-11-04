@@ -18,7 +18,25 @@ public enum BipeCompanySealState: Equatable, Sendable {
     case suspended
 }
 
-/// Fetches, verifies and caches company badges, and which accounts are companies. One instance per user session.
+/// What the app shows for a person's seal: a `pix` or `govbr` badge (bipe#596, ADR 0239).
+public enum BipePersonSealState: Equatable, Sendable {
+    /// No seal and no notice.
+    case none
+    /// A verified name: a valid badge bound to the account's master key.
+    case verified(BadgePayload)
+    /// The account had a seal and its badge no longer verifies: a master key reset.
+    case suspended
+}
+
+/// The compact mark next to a name (spec person-profile notes). The same in every place.
+public enum BipeSealMark: Equatable, Sendable {
+    case person
+    case company
+    case personSuspended
+    case companySuspended
+}
+
+/// Fetches, verifies and caches company and person badges, and which accounts are companies. One instance per user session.
 ///
 /// The account type draws a company avatar as a rounded square, verified or not (ADR 0132). It never changes after
 /// sign-up, so known companies stay in `UserDefaults`. An unknown type gives a circle.
@@ -35,6 +53,8 @@ public final class BipeCompanySeals {
     private var entries: [String: Entry] = [:]
     /// Verified `institution` badges (bipe#245). Set and cleared with the entry of the same account.
     private var institutions: [String: BadgePayload] = [:]
+    /// Person seals (bipe#596). Set and cleared with the entry of the same account.
+    private var persons: [String: BipePersonSealState] = [:]
     private var companies: Set<String>
     
     @ObservationIgnored private let apiClient: BipeAPIClient
@@ -98,6 +118,38 @@ public final class BipeCompanySeals {
         return payload
     }
     
+    /// The person seal, queued like ``state(for:)``. A badge past its exp shows no seal while the new fetch runs.
+    public func personState(for userID: String) -> BipePersonSealState {
+        _ = state(for: userID)
+        let state: BipePersonSealState = persons[userID] ?? .none
+        if case .verified(let payload) = state, Date(timeIntervalSince1970: TimeInterval(payload.exp)) <= .now {
+            return .none
+        }
+        return state
+    }
+    
+    /// The verified badge of a company or a person, or `nil`.
+    public func verifiedBadge(for userID: String) -> BadgePayload? {
+        if case .verified(let payload) = personState(for: userID) {
+            return payload
+        }
+        return badge(for: userID)
+    }
+    
+    /// The compact mark next to a name, or `nil`. A revoked company seal has no mark.
+    public func mark(for userID: String) -> BipeSealMark? {
+        switch personState(for: userID) {
+        case .verified: return .person
+        case .suspended: return .personSuspended
+        case .none: break
+        }
+        switch state(for: userID) {
+        case .verified: return .company
+        case .suspended: return .companySuspended
+        case .none, .revoked: return nil
+        }
+    }
+    
     /// Whether the account is a company (ADR 0132). Queues a fetch when the cache has no fresh value.
     public func isCompany(_ userID: String) -> Bool {
         guard BipeServers.isBipeUserID(userID) else { return false }
@@ -155,6 +207,7 @@ public final class BipeCompanySeals {
     private func load(_ userID: String) async {
         defer { inFlight.remove(userID) }
         let wasSeen = seen.contains(userID)
+        let wasPersonSeen = seen.contains(Self.personSeenKey(userID))
         
         let lookup: BipeBadgeLookup
         do {
@@ -167,8 +220,10 @@ public final class BipeCompanySeals {
         switch lookup {
         case .none:
             setSeen(userID, false)
+            setSeen(Self.personSeenKey(userID), false)
             store(.none, for: userID)
         case .gone(let reason):
+            setSeen(Self.personSeenKey(userID), false)
             store(wasSeen ? .revoked(reason) : .none, for: userID)
         case .envelope(let json):
             let key: String?
@@ -182,22 +237,36 @@ public final class BipeCompanySeals {
             do {
                 verifier = try BadgeVerifier.bipeTrusted()
             } catch {
-                store(wasSeen ? .suspended : .none, for: userID)
+                storeInvalid(for: userID, wasSeen: wasSeen, wasPersonSeen: wasPersonSeen)
                 return
             }
-            switch verifier.verify(envelopeJSON: json, sender: userID, senderDevice: "", senderMasterKey: key) {
+            switch verifier.verify(envelopeJSON: json, sender: userID, senderMasterKey: key) {
             case .valid(let payload) where payload.lvl == .cnpj:
                 setSeen(userID, true)
                 let expiry = min(Date(timeIntervalSince1970: TimeInterval(payload.exp)), .now.addingTimeInterval(Self.ttl))
                 entries[userID] = Entry(state: .verified(payload), expiry: expiry)
                 institutions[userID] = nil
+                persons[userID] = nil
             case .valid(let payload) where payload.lvl == .institution:
                 store(.none, for: userID)
                 institutions[userID] = payload
+            case .valid(let payload) where payload.lvl == .pix || payload.lvl == .govbr:
+                // The seal shows only when identityVerified holds (registries/trust-facts.json).
+                let identity = BipeTrustSources.Identity(masterKey: key, isVerified: false, hasVerificationViolation: false)
+                let facts = BipeTrustSources.profileFacts(userId: userID, identity: identity, seal: .verified(name: payload.name))
+                guard facts.identity == "verified" else {
+                    store(.none, for: userID)
+                    return
+                }
+                setSeen(Self.personSeenKey(userID), true)
+                let expiry = min(Date(timeIntervalSince1970: TimeInterval(payload.exp)), .now.addingTimeInterval(Self.ttl))
+                store(.none, for: userID)
+                entries[userID] = Entry(state: .none, expiry: expiry)
+                persons[userID] = .verified(payload)
             case .valid:
                 store(.none, for: userID)
             case .invalid:
-                store(wasSeen ? .suspended : .none, for: userID)
+                storeInvalid(for: userID, wasSeen: wasSeen, wasPersonSeen: wasPersonSeen)
             }
         }
     }
@@ -212,11 +281,28 @@ public final class BipeCompanySeals {
         }
         entries[userID] = Entry(state: state, expiry: .now.addingTimeInterval(Self.errorTTL))
         institutions[userID] = nil
+        if case .verified = persons[userID] {
+            persons[userID] = nil
+        }
+    }
+    
+    /// A badge that does not verify suspends only a seal this phone saw before.
+    private func storeInvalid(for userID: String, wasSeen: Bool, wasPersonSeen: Bool) {
+        store(wasSeen ? .suspended : .none, for: userID)
+        if wasPersonSeen {
+            persons[userID] = .suspended
+        }
     }
     
     private func store(_ state: BipeCompanySealState, for userID: String) {
         entries[userID] = Entry(state: state, expiry: .now.addingTimeInterval(Self.ttl))
         institutions[userID] = nil
+        persons[userID] = nil
+    }
+    
+    /// A person seal seen before shares the persisted set with company seals. A user ID starts with `@`, so the keys differ.
+    private static func personSeenKey(_ userID: String) -> String {
+        "person:" + userID
     }
     
     private func setSeen(_ userID: String, _ isSeen: Bool) {

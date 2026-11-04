@@ -16,7 +16,6 @@ import android.text.TextPaint
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.core.content.res.ResourcesCompat
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.PixCheck
 import chat.bipe.shared.R
@@ -71,14 +70,13 @@ object PixShareResult {
     /** The same text as plain text, no link or QR, on the light theme. */
     private fun card(context: Context, text: String): File {
         val colors = BipeLightColors
-        val nunito = ResourcesCompat.getFont(context, chat.bipe.app.R.font.nunito) ?: Typeface.DEFAULT
         val titlePaint = TextPaint(TextPaint.ANTI_ALIAS_FLAG).apply {
-            typeface = Typeface.create(nunito, Typeface.BOLD)
+            typeface = Typeface.DEFAULT_BOLD
             textSize = 44f
             color = colors.accentInk.toArgb()
         }
         val bodyPaint = TextPaint(TextPaint.ANTI_ALIAS_FLAG).apply {
-            typeface = Typeface.create(nunito, Typeface.BOLD)
+            typeface = Typeface.DEFAULT_BOLD
             textSize = 56f
             color = colors.inkPrimary.toArgb()
         }

@@ -31,17 +31,38 @@ final class RecoveryKeySaveModel: ObservableObject {
     }
 
     @Published private(set) var recoveryState: RecoveryState
+    @Published private(set) var verificationState: VerificationState
     @Published private(set) var phase: Phase = .intro
     @Published private(set) var progress: Progress = .starting
     /// Held in memory while showKey lasts. Never logged, never stored by the app.
     @Published private(set) var recoveryKey: String?
+    /// State account: the account the key belongs to, so a screenshot of the key names it.
+    @Published private(set) var account: String
 
     private let session: AccountSession
+    private let api: BipeAPIClient
     private var handle: TaskHandle?
 
-    init(session: AccountSession) {
+    init(session: AccountSession, api: BipeAPIClient) {
         self.session = session
+        self.api = api
+        account = BipeAccountLabels.label(for: session.userId)
         recoveryState = session.client.encryption().recoveryState()
+        verificationState = session.client.encryption().verificationState()
+    }
+
+    /// State account: the display name and @handle; never the Matrix user ID (People names).
+    func loadAccount() async {
+        let displayName = BipeChatRowName.realName((try? await session.client.displayName()) ?? nil, userID: session.userId) ?? ""
+        let api = api
+        let mine = try? await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle in
+            try await api.myHandle(openID: token)
+        }
+        guard let handle = mine?.handle, !handle.isEmpty else {
+            account = displayName.isEmpty ? BipeAccountLabels.label(for: session.userId) : displayName
+            return
+        }
+        account = displayName.isEmpty ? "@\(handle)" : "\(displayName) (@\(handle))"
     }
 
     deinit {
@@ -54,6 +75,7 @@ final class RecoveryKeySaveModel: ObservableObject {
         handle = session.client.encryption().recoveryStateListener(listener: stream)
         for await state in stream.updates {
             recoveryState = state
+            verificationState = session.client.encryption().verificationState()
         }
     }
 
@@ -61,8 +83,17 @@ final class RecoveryKeySaveModel: ObservableObject {
         recoveryState == .enabled || recoveryState == .incomplete
     }
 
+    /// State needsApproval (bipe-chat/bipe#911): this phone may lack the private cross-signing keys. A key made here
+    /// would replace the default secret storage key, and the old recovery key would stop working in every client.
+    /// The phone is approved first, or the person enters the old key (recovery-key-enter).
+    var needsApproval: Bool {
+        recoveryState == .incomplete || verificationState != .verified
+    }
+
     /// Action create: a first key with enableRecovery; a new key (the old one stops working) after the owner check.
+    /// Never while needsApproval.
     func create() async {
+        guard !needsApproval else { return }
         let encryption = session.client.encryption()
         if keyExists {
             guard await OwnerCheck.owner(reason: BipeStrings.appRecoveryKeyBiometric) else { return }
@@ -137,10 +168,11 @@ private final class ProgressStream: EnableRecoveryProgressListener {
 struct RecoveryKeySaveView: View {
     @StateObject private var model: RecoveryKeySaveModel
     @State private var copied = false
+    @Environment(\.encryptionStatus) private var encryption
     private let close: () -> Void
 
-    init(session: AccountSession, close: @escaping () -> Void) {
-        _model = StateObject(wrappedValue: RecoveryKeySaveModel(session: session))
+    init(session: AccountSession, api: BipeAPIClient, close: @escaping () -> Void) {
+        _model = StateObject(wrappedValue: RecoveryKeySaveModel(session: session, api: api))
         self.close = close
     }
 
@@ -158,11 +190,26 @@ struct RecoveryKeySaveView: View {
         .interactiveDismissDisabled(model.phase == .creating || model.phase == .showKey)
         .accessibilityIdentifier(BipeScreen.recoveryKeySave.rawValue)
         .task { await model.observe() }
+        .task { await model.loadAccount() }
     }
 
     @ViewBuilder
     private var content: some View {
         switch model.phase {
+        case .intro where model.needsApproval:
+            Text(BipeStrings.appHistoryNone)
+                .foregroundStyle(BipeColor.inkSecondary)
+            Spacer()
+            filled(BipeStrings.appLinkApprovePhone) {
+                close()
+                if let encryption {
+                    // A sheet cannot open while this sheet is still on screen.
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(600))
+                        encryption.openSheet()
+                    }
+                }
+            }
         case .intro:
             Text(model.keyExists ? BipeStrings.accountRecoveryKeySaved : BipeStrings.accountRecoveryKeyMissing)
                 .font(.headline)
@@ -187,6 +234,10 @@ struct RecoveryKeySaveView: View {
         case .showKey:
             Text(BipeStrings.appRecoveryKeyShowBody)
                 .foregroundStyle(BipeColor.inkSecondary)
+            Text(BipeStrings.appRecoveryKeyAccount(model.account))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(BipeColor.inkPrimary)
+                .textSelection(.enabled)
             Text(model.groupedKey)
                 .font(.title3.monospaced())
                 .foregroundStyle(BipeColor.inkPrimary)

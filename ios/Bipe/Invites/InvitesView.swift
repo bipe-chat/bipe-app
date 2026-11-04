@@ -24,6 +24,7 @@ struct InvitesView: View {
     @State private var renaming: BipeInvite?
     @State private var name = ""
     @State private var revoking: BipeInvite?
+    @State private var toast: String?
 
     var body: some View {
         List {
@@ -68,6 +69,7 @@ struct InvitesView: View {
         .background(BipeColor.surfaceBase.ignoresSafeArea())
         .navigationTitle(BipeStrings.invitesTitle)
         .accessibilityIdentifier(BipeScreen.invites.rawValue)
+        .toast($toast)
         .task { await model.refresh() }
         .refreshable { await model.refresh() }
         .sheet(isPresented: $creating) { InviteCreateView(model: model) }
@@ -93,10 +95,10 @@ struct InvitesView: View {
     /// Long press on a pending invite: share and copy need the link on this phone; rename and revoke work everywhere.
     @ViewBuilder private func pendingActions(_ invite: BipeInvite) -> some View {
         if let url = model.links[invite.id] {
-            ShareLink(item: BipeStrings.invitesShareMessage(url.absoluteString)) {
+            ShareLink(item: BipeInviteShare(url: url, expiresAt: invite.expiresAt).message) {
                 Label(BipeStrings.appShare, systemImage: "square.and.arrow.up")
             }
-            Button { UIPasteboard.general.url = url } label: {
+            Button { UIPasteboard.general.url = url; toast = BipeStrings.appCopied } label: {
                 Label(BipeStrings.appCopy, systemImage: "doc.on.doc")
             }
         }
@@ -151,17 +153,32 @@ private struct JoinedInviteRow: View {
                 AvatarView(name: person?.displayName ?? "", mxcUrl: person?.avatarUrl, loader: people.media,
                            size: 40, userId: invite.joinedUserId)
                 VStack(alignment: .leading) {
-                    Text(person?.displayName ?? BipeStrings.invitesStatusUsed).foregroundStyle(BipeColor.inkPrimary)
-                    Text(failed ? BipeStrings.errorNetwork : BipeStrings.invitesChat)
-                        .font(.caption).foregroundStyle(BipeColor.inkSecondary)
+                    Text(title).foregroundStyle(BipeColor.inkPrimary)
+                    if let caption {
+                        Text(caption).font(.caption).foregroundStyle(BipeColor.inkSecondary)
+                    }
                 }
                 Spacer()
                 if opening { ProgressView() }
             }
         }
+        .disabled(invite.joinedUserId == nil)
         .task(id: invite.joinedUserId) {
             if let userId = invite.joinedUserId { person = try? await people.person(userId) }
         }
+    }
+
+    private var savedName: String? { invite.name?.isEmpty == false ? invite.name : nil }
+
+    /// The name the user gave the invite first, then the name the person chose.
+    private var title: String { savedName ?? person?.displayName ?? BipeStrings.invitesStatusUsed }
+
+    /// The person's own name under the saved one. No joined account (a company sign-up, a deleted account): only "used".
+    private var caption: String? {
+        if failed { return BipeStrings.errorNetwork }
+        guard invite.joinedUserId != nil else { return savedName == nil ? nil : BipeStrings.invitesStatusUsed }
+        if let savedName, let displayName = person?.displayName, displayName != savedName { return displayName }
+        return BipeStrings.invitesChat
     }
 }
 
@@ -258,7 +275,7 @@ struct InviteCardView: View {
                         Text(BipeStrings.invitesExpires(card.expiresAt.formatted(date: .abbreviated, time: .omitted)))
                             .font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
                         VStack(spacing: 12) {
-                            ShareLink(item: BipeStrings.invitesShareMessage(url.absoluteString)) {
+                            ShareLink(item: BipeInviteShare(url: url, expiresAt: card.expiresAt).message) {
                                 Label { Text(BipeStrings.appShare) } icon: { PhosphorIcon.shareNetwork.image.resizable().frame(width: 20, height: 20) }
                                     .frame(maxWidth: .infinity)
                             }
@@ -314,5 +331,13 @@ struct InviteCardView: View {
 
 struct InviteJoinNotice: ViewModifier {
     @ObservedObject var model: InvitesModel
-    func body(content: Content) -> some View { content.toast($model.notice) }
+    func body(content: Content) -> some View {
+        content.toast($model.notice)
+            // An invite join push for this account, or its tap (bipe-chat/bipe#967): refresh at once.
+            .onReceive(NotificationActions.shared.$invitesToRefresh) { userId in
+                guard let userId, userId == model.session.userId else { return }
+                NotificationActions.shared.invitesToRefresh = nil
+                Task { await model.refresh() }
+            }
+    }
 }

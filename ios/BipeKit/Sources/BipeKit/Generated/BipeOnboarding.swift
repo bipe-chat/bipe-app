@@ -153,7 +153,7 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
 
     public var titleKey: String {
         switch self {
-        case .notifications: "bipe_notifications_prompt_title"
+        case .notifications: "bipe_notifications_prompt_title_generic"
         case .handle: "bipe_handle_prompt_title"
         case .recovery: "bipe_fallback_title"
         case .photo: "bipe_photo_prompt_title"
@@ -208,13 +208,13 @@ public enum BipeOnboardingPrompt: String, CaseIterable, Sendable {
     /// True when the prompt shares the one prompt slot (`BipeOnboarding.promptSlotHours`, bipe-chat/bipe#200).
     public var usesSlot: Bool {
         switch self {
-        case .notifications: false
+        case .notifications: true
         case .handle: true
-        case .recovery: false
+        case .recovery: true
         case .photo: true
         case .pinReminder: true
         case .osTheftProtection: true
-        case .bringPeople: false
+        case .bringPeople: true
         case .bringPeopleReminder: true
         }
     }
@@ -324,6 +324,53 @@ public enum BipeOnboardingCard: String, CaseIterable, Sendable {
         case .notes: false
         }
     }
+
+    /// True when the card shows only while the bring-people sheet never showed on this account.
+    public var needsNoBringPeople: Bool {
+        switch self {
+        case .invite: true
+        case .profile: false
+        case .notes: false
+        }
+    }
+}
+
+/// The one prompt card of the chat list (spec chat-list-prompt, bipe-chat/bipe#894). `allCases` is the queue order.
+public enum BipeChatListPrompt: String, CaseIterable, Sendable {
+    case remoteBanner
+    case appUpdate
+    case approvePhone
+    case notifications
+    case notificationCheckup
+    case recovery
+    case pinReminder
+    case osTheftProtection
+    case handle
+    case photo
+    case profile
+    case bringPeopleReminder
+    case invite
+    case notes
+
+    /// True for tiers critical and access: the entry ignores the prompt slot and takes the card at once.
+    public var preempts: Bool {
+        switch self {
+        case .remoteBanner: true
+        case .appUpdate: true
+        case .approvePhone: true
+        case .notifications: false
+        case .notificationCheckup: false
+        case .recovery: false
+        case .pinReminder: false
+        case .osTheftProtection: false
+        case .handle: false
+        case .photo: false
+        case .profile: false
+        case .bringPeopleReminder: false
+        case .invite: false
+        case .notes: false
+        }
+    }
 }
 
 public enum BipeOnboarding {
@@ -333,7 +380,7 @@ public enum BipeOnboarding {
     /// Trigger pinReminderDue (bipe-chat/bipe#202): the gap in days after each step, then pinReminderThenEveryDays.
     public static let pinReminderDays = [1, 3, 7, 14, 30]
     public static let pinReminderThenEveryDays = 60
-    /// Trigger voceAfterDays (bipe-chat/bipe#125): days after this phone first saw the account.
+    /// Trigger afterDaysOnPhone (bipe-chat/bipe#125): days after this phone first saw the account.
     public static let osTheftProtectionAfterDays = 1
     /// Specs bring-people and bring-people-reminder (bipe-chat/bipe#752).
     public static let bringPeopleSlots = 4

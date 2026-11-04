@@ -5,7 +5,8 @@
 package chat.bipe.app.timeline
 
 import chat.bipe.app.common.MemberNames
-import chat.bipe.app.common.displayName
+import chat.bipe.app.groups.GroupRole
+import chat.bipe.app.common.realName
 import chat.bipe.app.common.isNameAmbiguous
 import chat.bipe.stickers.StickerPackRef
 import chat.bipe.app.media.MediaContent
@@ -121,11 +122,19 @@ data class MessageReceipt(
     /** Only the newest own message shows its tick label as text. */
     val showsLabel: Boolean,
 ) {
-    enum class Tick { SENDING, SENT, READ, FAILED }
+    /** DELIVERED, DM only: a device of the other person acked this event or a newer one (ADR 0222). */
+    enum class Tick { SENDING, SENT, DELIVERED, READ, FAILED }
 }
 
 /** Type ReceiptReader of spec read-receipts. */
-data class ReceiptReader(val userId: String, val name: String, val avatarUrl: String?, val readAt: Long?)
+data class ReceiptReader(
+    val userId: String,
+    val name: String,
+    val avatarUrl: String?,
+    val readAt: Long?,
+    /** Spec read-receipts nameAmbiguous: another member shows the same name (bipe-chat/bipe#825). */
+    val nameAmbiguous: Boolean = false,
+)
 
 /** A member's display name and avatar in this room. */
 data class MemberInfo(val name: String, val avatarUrl: String?)
@@ -145,6 +154,12 @@ data class RoomFacts(
     val roomMembers: Set<String> = emptySet(),
     /** Cached handle changes of the room members (BipeHandleChangeStore), oldest first. */
     val handleChanges: List<BipeHandleChange> = emptyList(),
+    /** DM only: the event IDs that a device of the other person acked (DeliveredLog, spec read-receipts). */
+    val deliveredEventIds: Set<String> = emptySet(),
+    /** False in a DM while the own read receipts switch is off: the read tick of the other person stays hidden. */
+    val showsOthersRead: Boolean = true,
+    /** Groups only: the admins and moderators by user ID (spec chat-timeline senderRole, bipe-chat/bipe#733). */
+    val roles: Map<String, GroupRole> = emptyMap(),
 )
 
 /** Strings the builder puts into rows. */
@@ -176,14 +191,14 @@ object TimelineRowBuilder {
             if (userId == facts.ownUserId) return strings.you
             facts.members[userId]?.let { return it.name }
             unknown += userId
-            return userId
+            return chat.bipe.app.people.Person.name(userId, null)
         }
 
         fun readers(receipts: Map<String, Receipt>): List<ReceiptReader> {
             if (facts.isDm) return emptyList()
             return receipts
                 .filterKeys { it != facts.ownUserId }
-                .map { (userId, receipt) -> ReceiptReader(userId, name(userId), facts.members[userId]?.avatarUrl, receipt.timestamp?.toLong()) }
+                .map { (userId, receipt) -> ReceiptReader(userId, name(userId), facts.members[userId]?.avatarUrl, receipt.timestamp?.toLong(), userId in ambiguousSenders) }
                 .sortedByDescending { it.readAt ?: 0L }
         }
 
@@ -191,11 +206,15 @@ object TimelineRowBuilder {
         val readUpToHere = linkedMapOf<String, Receipt>()
         val receipts = mutableMapOf<Int, MessageReceipt>()
         var newestOwnIndex: Int? = null
+        // A delivered ack covers this event and every older one (spec read-receipts notes).
+        var deliveredUpToHere = false
         for (index in items.indices.reversed()) {
             val event = items[index].asEvent() ?: continue
             for ((userId, receipt) in event.readReceipts) {
                 if (userId != facts.ownUserId && userId !in readUpToHere) readUpToHere[userId] = receipt
             }
+            val eventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
+            if (eventId != null && eventId in facts.deliveredEventIds) deliveredUpToHere = true
             if (!event.isOwn || !isShownMessage(event)) continue
             if (newestOwnIndex == null) newestOwnIndex = index
             val tick = when (event.localSendState) {
@@ -203,8 +222,19 @@ object TimelineRowBuilder {
                 is EventSendState.SendingFailed -> MessageReceipt.Tick.FAILED
                 else -> {
                     val othersInRoom = maxOf(1, facts.joinedMembers - 1)
-                    val isRead = if (facts.isDm) readUpToHere.isNotEmpty() else readUpToHere.size >= othersInRoom
-                    if (isRead) MessageReceipt.Tick.READ else MessageReceipt.Tick.SENT
+                    if (facts.isDm) {
+                        // Read wins over delivered; a hidden read still means the phone got it.
+                        val isRead = readUpToHere.isNotEmpty()
+                        when {
+                            isRead && facts.showsOthersRead -> MessageReceipt.Tick.READ
+                            isRead || deliveredUpToHere -> MessageReceipt.Tick.DELIVERED
+                            else -> MessageReceipt.Tick.SENT
+                        }
+                    } else if (readUpToHere.size >= othersInRoom) {
+                        MessageReceipt.Tick.READ
+                    } else {
+                        MessageReceipt.Tick.SENT
+                    }
                 }
             }
             receipts[index] = MessageReceipt(tick, readers(event.readReceipts), readers(readUpToHere), index == newestOwnIndex)
@@ -243,8 +273,12 @@ object TimelineRowBuilder {
                     val base = message(id, event, name(event.sender)).copy(
                         senderNameAmbiguous = !event.isOwn && !facts.isDm &&
                             (event.senderProfile.isNameAmbiguous || event.sender in ambiguousSenders),
+                        senderRole = if (event.isOwn || facts.isDm) null else facts.roles[event.sender],
                     )
                     // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
+                    // Specs chat-timeline and voice-message forwardCount: the SDK types have no field for the forward mark
+                    // (bipe-chat/bipe#83, bipe-chat/bipe#933).
+                    val forwardCount = BipeForwardMark.count(event.lazyProvider.debugInfo().originalJson)
                     val mediaContent = when (val found = MediaContent.of(content.kind)) {
                         is MediaContent.Media -> MediaContent.Media(
                             found.media.copy(
@@ -263,10 +297,7 @@ object TimelineRowBuilder {
                                 },
                             ),
                         )
-                        // Spec voice-message forwardCount: the SDK types have no field for the forward mark (bipe-chat/bipe#83).
-                        is MediaContent.Voice -> MediaContent.Voice(
-                            found.voice.copy(forwardCount = BipeForwardMark.count(event.lazyProvider.debugInfo().originalJson)),
-                        )
+                        is MediaContent.Voice -> MediaContent.Voice(found.voice.copy(forwardCount = forwardCount))
                         else -> found
                     }
                     when (val kind = content.kind) {
@@ -302,10 +333,10 @@ object TimelineRowBuilder {
                             }
                             // The SDK types have no field for chat.bipe.assistant; it comes from the event JSON (ADR 0210).
                             val message = if (BipeAssistantSend.sender(eventId(event)) { event.lazyProvider.debugInfo().originalJson } != null) {
-                                built.copy(assistantLabel = strings.format(R.string.bipe_app_assistant_sent_label, event.senderProfile.displayName(event.sender)))
+                                built.copy(assistantLabel = strings.format(R.string.bipe_app_assistant_sent_label, event.senderProfile.realName(event.sender) ?: name(event.sender)))
                             } else {
                                 built
-                            }
+                            }.copy(forwardCount = forwardCount)
                             val isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited ?: false
                             val isSent = event.localSendState.let { it == null || it is EventSendState.Sent }
                             val details = MessageDetails(
@@ -470,7 +501,7 @@ object TimelineRowBuilder {
             kind = TimelineMessage.Kind.UNSUPPORTED,
             body = null,
             senderId = event.sender,
-            senderName = if (event.isOwn) senderName else event.senderProfile.displayName(senderName),
+            senderName = if (event.isOwn) senderName else event.senderProfile.realName(event.sender) ?: senderName,
             isOwn = event.isOwn,
             sentAt = event.timestamp.toLong(),
             sendState = if (event.isOwn) sendState else TimelineMessage.SendState.SENT,
@@ -488,7 +519,7 @@ object TimelineRowBuilder {
                 MessageReply(
                     eventId,
                     MessageReply.State.READY,
-                    senderName = if (isOwn) strings.you else event.senderProfile.displayName(name(event.sender)),
+                    senderName = if (isOwn) strings.you else event.senderProfile.realName(event.sender) ?: name(event.sender),
                     preview = replyPreview(event.content, isOwn, strings),
                 )
             }

@@ -24,6 +24,20 @@ private final class AuthErrorRelay: ClientDelegate, @unchecked Sendable {
     func onBackgroundTaskErrorReport(taskName: String, error: BackgroundTaskFailureReason) {}
 }
 
+/// Switches a room's send queue on again after the SDK switched it off (bipe-chat/bipe#947). matrix-rust-sdk turns a
+/// room's queue off after a failed send and never turns it on by itself, so messages stayed on "Sending…".
+private final class SendQueueRelay: SendQueueRoomErrorListener, @unchecked Sendable {
+    weak var client: Client?
+
+    func onError(roomId: String, error: ClientError) {
+        AccountStep.log.error("send queue: off after an error, on again in 15 s: \(String(describing: error), privacy: .private)")
+        Task { [weak client = self.client] in
+            try? await Task.sleep(for: .seconds(15))
+            try? client?.getRoom(roomId: roomId)?.enableSendQueue(enable: true)
+        }
+    }
+}
+
 /// A signed-in account: the SDK client and its sync service.
 /// Also compiled into the notification service extension (project.yml): keep it free of app-only types.
 final class AccountSession {
@@ -40,6 +54,8 @@ final class AccountSession {
     }
     private let authErrors = AuthErrorRelay()
     private var authErrorsHandle: TaskHandle?
+    private let sendQueueErrors = SendQueueRelay()
+    private var sendQueueHandle: TaskHandle?
 
     init(client: Client, syncService: SyncService, userId: String) {
         self.client = client
@@ -62,13 +78,17 @@ final class AccountSession {
 
     /// Signs in with the hidden password (MAS compatibility login, m.login.password), saves the session and starts the sync.
     /// Every step has a time limit (AccountStep).
+    /// When this phone still holds the account's store, the login keeps that store and its device ID, so the
+    /// cross-signing keys and the room keys stay (bipe-chat/bipe#909). Only a store without a known device ID goes.
     static func signIn(userId: String, password: String) async throws -> AccountSession {
         // The old saved session goes first, so the notification service never opens the new store with the old device ID.
         SessionStore.delete(userId: userId)
-        deleteStore(userId: userId)
+        let keptDeviceId = hasStore(userId: userId) ? storedDeviceId(userId: userId) : nil
+        if keptDeviceId == nil { deleteStore(userId: userId) }
         let client = try await AccountStep.run("build client") { try await makeClient(userId: userId) }
         try await AccountStep.run("login") {
-            try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName, deviceId: nil)
+            try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName,
+                                   deviceId: keptDeviceId)
         }
         SessionStore.save(try client.session())
         return try await start(client)
@@ -94,7 +114,10 @@ final class AccountSession {
             return syncService
         }
         let session = AccountSession(client: client, syncService: syncService, userId: try client.userId())
+        if let deviceId = try? client.deviceId() { saveDeviceId(deviceId, userId: session.userId) }
         session.authErrorsHandle = try? client.setDelegate(delegate: session.authErrors)
+        session.sendQueueErrors.client = client
+        session.sendQueueHandle = client.subscribeToSendQueueStatus(listener: session.sendQueueErrors)
         return session
     }
 
@@ -109,6 +132,11 @@ final class AccountSession {
         }
         SessionStore.save(try client.session())
         return try await start(client)
+    }
+
+    /// Switches every room's send queue on again, for a queue the SDK left off after a failed send (bipe-chat/bipe#947).
+    func resumeSending() async {
+        await client.enableAllSendQueues(enable: true)
     }
 
     /// Stops the sync and the room subscriptions and keeps everything on this phone (spec soft-logout).
@@ -155,9 +183,10 @@ final class AccountSession {
     }
 
     /// The settings every client of the app shares; the caller names the server.
-    static func builder(paths: (data: URL, cache: URL), process: Process = .app) -> ClientBuilder {
+    static func builder(paths: (data: URL, cache: URL), process: Process = .app) throws -> ClientBuilder {
+        let key = try storeKey(paths: paths)
         var builder = ClientBuilder()
-            .sessionPaths(dataPath: paths.data.path, cachePath: paths.cache.path)
+            .sqliteStore(config: SqliteStoreBuilder(dataPath: paths.data.path, cachePath: paths.cache.path).key(key: key))
             // Bipe uses native sliding sync. Discovery requests /versions during build, making even
             // a saved local session wait for internet. Restore also retains the saved sync version.
             .slidingSyncVersionBuilder(versionBuilder: .native)
@@ -176,13 +205,49 @@ final class AccountSession {
             builder = builder.systemIsMemoryConstrained()
         } else if let index = searchIndexPath(data: paths.data) {
             // Spec chat-search notes (bipe#671): the SDK's local message index, main app only.
-            builder = builder.withSearchIndexStore(path: index.path, password: nil)
+            builder = builder.withSearchIndexStore(path: index.path, password: key?.base64EncodedString())
         }
         return builder
     }
 
-    /// Deletes the store of an account. A new sign-in needs an empty store: the crypto store
-    /// belongs to one device.
+    /// The key of the store in `paths` (bipe-chat/bipe#913). A new store gets the install's key and a marker file, so
+    /// it never opens without the key. A store from before the key stays plain until its next fresh sign-in, with no
+    /// migration (MZ, 3 Nov 2026). Throws when a keyed store's key cannot be read: the store stays, closed.
+    private static func storeKey(paths: (data: URL, cache: URL)) throws -> Data? {
+        let fileManager = FileManager.default
+        let marker = paths.data.appendingPathComponent("bipe-store-keyed", isDirectory: false)
+        if fileManager.fileExists(atPath: marker.path) {
+            guard let key = try BipeCredentialStore().storeKey() else { throw BipeCredentialStore.StoreKeyError.unavailable }
+            return key
+        }
+        guard try fileManager.contentsOfDirectory(atPath: paths.data.path).isEmpty else { return nil }
+        let key = try BipeCredentialStore().storeKeyMakingOne()
+        // A cache left without its data folder is plain, and a keyed client cannot open it.
+        try? fileManager.removeItem(at: paths.cache)
+        try Data().write(to: marker, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        return key
+    }
+
+    /// The device ID the account's store belongs to, kept in the store folder so it goes with the store
+    /// (bipe-chat/bipe#909). The saved session can be gone (soft logout, PIN recovery) while the store stays.
+    static func storedDeviceId(userId: String) -> String? {
+        guard let paths = try? storePaths(userId: userId),
+              let text = try? String(contentsOf: deviceIdFile(data: paths.data), encoding: .utf8) else { return nil }
+        let deviceId = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return deviceId.isEmpty ? nil : deviceId
+    }
+
+    private static func saveDeviceId(_ deviceId: String, userId: String) {
+        guard let paths = try? storePaths(userId: userId) else { return }
+        try? Data(deviceId.utf8).write(to: deviceIdFile(data: paths.data), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    private static func deviceIdFile(data: URL) -> URL {
+        data.appendingPathComponent("bipe-device-id", isDirectory: false)
+    }
+
+    /// Deletes the store of an account. A new sign-in without a known device ID needs an empty store: the crypto
+    /// store belongs to one device.
     static func deleteStore(userId: String) {
         deleteStore(folder: folderName(userId: userId))
     }
@@ -215,14 +280,28 @@ final class AccountSession {
         return (try? FileManager.default.createDirectory(at: index, withIntermediateDirectories: true)) != nil ? index : nil
     }
 
-    /// The data and cache folders of one store, made when missing.
+    /// The data and cache folders of one store, made when missing. Both `Sessions` folders stay out of iCloud and
+    /// computer backups: the store holds the Olm account, the room keys and the private cross-signing keys
+    /// (bipe-chat/bipe#913, ADR 0073).
     static func storePaths(folder: String) throws -> (data: URL, cache: URL) {
         let fileManager = FileManager.default
         let root = storeRoot()
-        let data = root.appendingPathComponent("Sessions", isDirectory: true).appendingPathComponent(folder, isDirectory: true)
-        let cache = root.appendingPathComponent("Library/Caches/Sessions", isDirectory: true).appendingPathComponent(folder, isDirectory: true)
+        let sessions = root.appendingPathComponent("Sessions", isDirectory: true)
+        let cachedSessions = root.appendingPathComponent("Library/Caches/Sessions", isDirectory: true)
+        let data = sessions.appendingPathComponent(folder, isDirectory: true)
+        let cache = cachedSessions.appendingPathComponent(folder, isDirectory: true)
         try fileManager.createDirectory(at: data, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: cache, withIntermediateDirectories: true)
+        excludeFromBackup(sessions)
+        excludeFromBackup(cachedSessions)
         return (data, cache)
+    }
+
+    private static func excludeFromBackup(_ folder: URL) {
+        var folder = folder
+        guard (try? folder.resourceValues(forKeys: [.isExcludedFromBackupKey]))?.isExcludedFromBackup != true else { return }
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? folder.setResourceValues(values)
     }
 }

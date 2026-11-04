@@ -75,7 +75,8 @@ final class GroupCreateModel: ObservableObject {
                                                   visibility: .private,
                                                   preset: .privateChat,
                                                   invite: nil,
-                                                  avatar: avatar)
+                                                  avatar: avatar,
+                                                  powerLevelContentOverride: GroupPeople.newGroupPowerLevels)
             let roomId = try await session.client.createRoom(request: parameters)
             var allInvited = true
             // The room reaches the store with the next sync.

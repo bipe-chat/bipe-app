@@ -112,6 +112,8 @@ export function token({ keyId, issuerId, key, now = Math.floor(Date.now() / 1000
   return `${input}.${b64url(sig)}`;
 }
 
+const RETRY_DELAYS = [15_000, 30_000, 60_000, 120_000];
+
 export function client(env = process.env) {
   for (const name of ['ASC_KEY_ID', 'ASC_ISSUER_ID', 'ASC_KEY_PATH']) {
     if (!env[name]) throw new Error(`${name} is not set`);
@@ -125,11 +127,19 @@ export function client(env = process.env) {
       jwt = token({ keyId: env.ASC_KEY_ID, issuerId: env.ASC_ISSUER_ID, key, now });
       jwtAt = now;
     }
-    const res = await fetch(`${API}${path}`, {
-      method,
-      headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    // Apple's API sometimes answers 500 or 503 (testflight runs of 3 Nov 2026 stopped on GET /v1/builds).
+    // Try a 5xx again up to 4 times, 15 s, 30 s, 60 s and 120 s apart.
+    let res;
+    for (let attempt = 0; ; attempt += 1) {
+      res = await fetch(`${API}${path}`, {
+        method,
+        headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status < 500 || attempt >= RETRY_DELAYS.length) break;
+      console.warn(`${method} ${path.split('?')[0]}: ${res.status}, trying again in ${RETRY_DELAYS[attempt] / 1000} s`);
+      await new Promise((done) => setTimeout(done, RETRY_DELAYS[attempt]));
+    }
     const text = await res.text();
     const json = text ? JSON.parse(text) : {};
     if (!res.ok) {

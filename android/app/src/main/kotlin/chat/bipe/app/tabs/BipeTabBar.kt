@@ -25,6 +25,9 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -38,9 +41,22 @@ import androidx.compose.ui.semantics.semantics
 import chat.bipe.shared.R
 import java.text.NumberFormat
 
+/** The number of open screens that hide the tab bar (spec app-tabs: an open chat or thread). null outside app-tabs. */
+internal val LocalTabBarHiders = compositionLocalOf<MutableIntState?> { null }
+
+/** Hides the tab bar of app-tabs while this composable is on screen. */
+@Composable
+fun HidesTabBar() {
+    val hiders = LocalTabBarHiders.current ?: return
+    DisposableEffect(hiders) {
+        hiders.intValue += 1
+        onDispose { hiders.intValue -= 1 }
+    }
+}
+
 /**
  * The bottom bar of app-tabs: the standard Material 3 navigation bar with Material icons; the system sets their size,
- * colour and selected state (ADR 0149).
+ * colour and selected state (ADR 0149). Você shows the account's photo or initial instead, as on iOS.
  */
 @Composable
 internal fun BipeTabBar(
@@ -50,6 +66,8 @@ internal fun BipeTabBar(
     onLongPressVoce: () -> Unit,
     /** The account menu, anchored to the Você item (ADR 0135). */
     voceMenu: @Composable () -> Unit = {},
+    /** The current account's photo or initial, as on iOS; null keeps the generic person until the account loads. */
+    voceIcon: (@Composable () -> Unit)? = null,
 ) {
     NavigationBar {
         // A company account has its groups in Conversas (spec app-tabs).
@@ -74,6 +92,7 @@ internal fun BipeTabBar(
             R.string.bipe_tab_you, 0, onSelect,
             showsDot = state.otherAccountUnread,
             menu = voceMenu,
+            customIcon = voceIcon,
             modifier = Modifier.voceGestures(onDoubleTapVoce, onLongPressVoce).voceSwitchAction(
                 if (state.accounts.size > 1) stringResource(R.string.bipe_a11y_switch_account) else null,
                 onLongPressVoce,
@@ -93,6 +112,7 @@ private fun RowScope.TabItem(
     onSelect: (AppTabsModel.Tab) -> Unit,
     showsDot: Boolean = false,
     menu: @Composable () -> Unit = {},
+    customIcon: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val selected = state.selectedTab == tab
@@ -108,7 +128,7 @@ private fun RowScope.TabItem(
                 }
             }) {
                 Box {
-                    Icon(if (selected) selectedIcon else icon, contentDescription = null)
+                    if (customIcon != null) customIcon() else Icon(if (selected) selectedIcon else icon, contentDescription = null)
                     menu()
                 }
             }

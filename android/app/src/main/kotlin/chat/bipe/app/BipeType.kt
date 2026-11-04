@@ -5,50 +5,40 @@
 package chat.bipe.app
 
 import androidx.compose.material3.Typography
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 
 /**
- * Nunito, bundled as one variable font (res/font/nunito.ttf, SIL OFL 1.1, ADR 0159). One entry per weight sets
- * the wght axis, so each Material weight draws at its own weight, not a synthesized bold.
+ * App UI type: the system face with the sizes and line heights of the iOS text styles at the default Dynamic Type
+ * size, so a screen reads at the same size on both apps. The Material 3 defaults (14 sp body, wide tracking) read
+ * small next to iOS. Font scale still applies. `FontFamily.Monospace` on codes overrides the face.
  */
-@OptIn(ExperimentalTextApi::class)
-private val Nunito = FontFamily(
-    listOf(300, 400, 500, 600, 700, 800, 900).map { weight ->
-        Font(
-            R.font.nunito,
-            weight = FontWeight(weight),
-            variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
-        )
-    },
-)
+private fun TextStyle.ios(size: Int, lineHeight: Int, weight: FontWeight = fontWeight ?: FontWeight.Normal, tracking: TextUnit = 0.em) =
+    copy(fontSize = size.sp, lineHeight = lineHeight.sp, fontWeight = weight, letterSpacing = tracking)
 
-private fun TextStyle.nunito() = copy(fontFamily = Nunito)
-
-/**
- * Rounded type for all app UI text (ADR 0159): the Material 3 type scale (sizes, weights, line heights) with
- * Nunito as the face. Font scale still applies. `FontFamily.Monospace` on codes overrides it.
- */
 internal val BipeTypography: Typography = Typography().run {
     Typography(
-        displayLarge = displayLarge.nunito(),
-        displayMedium = displayMedium.nunito(),
-        displaySmall = displaySmall.nunito(),
-        headlineLarge = headlineLarge.nunito(),
-        headlineMedium = headlineMedium.nunito(),
-        headlineSmall = headlineSmall.nunito(),
-        titleLarge = titleLarge.nunito(),
-        titleMedium = titleMedium.nunito(),
-        titleSmall = titleSmall.nunito(),
-        bodyLarge = bodyLarge.nunito(),
-        bodyMedium = bodyMedium.nunito(),
-        bodySmall = bodySmall.nunito(),
-        labelLarge = labelLarge.nunito(),
-        labelMedium = labelMedium.nunito(),
-        labelSmall = labelSmall.nunito(),
+        displayLarge = displayLarge,
+        displayMedium = displayMedium,
+        displaySmall = displaySmall.ios(36, 44, FontWeight.Bold),
+        // largeTitle 34 bold, title1 28, title2 22, title3 20.
+        headlineLarge = headlineLarge.ios(34, 41, FontWeight.Bold, (-0.01).em),
+        headlineMedium = headlineMedium.ios(28, 34, FontWeight.Bold, (-0.01).em),
+        headlineSmall = headlineSmall.ios(24, 30, FontWeight.SemiBold),
+        titleLarge = titleLarge.ios(22, 28, FontWeight.SemiBold),
+        // headline 17 semibold; subheadline 15.
+        titleMedium = titleMedium.ios(17, 22, FontWeight.SemiBold),
+        titleSmall = titleSmall.ios(15, 20, FontWeight.SemiBold),
+        // body 17, subheadline 15, footnote 13.
+        bodyLarge = bodyLarge.ios(17, 22),
+        bodyMedium = bodyMedium.ios(15, 20),
+        bodySmall = bodySmall.ios(13, 18),
+        // Buttons 17 medium; caption1 12.
+        labelLarge = labelLarge.ios(17, 22, FontWeight.Medium),
+        labelMedium = labelMedium.ios(13, 18, FontWeight.Medium),
+        labelSmall = labelSmall.ios(12, 16, FontWeight.Medium),
     )
 }

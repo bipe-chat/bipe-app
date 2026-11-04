@@ -88,7 +88,7 @@ struct MyBookingsView: View {
                             open(booking.businessId)
                         } label: {
                             HStack {
-                                Text(businessNames[booking.businessId] ?? Person.localpart(of: booking.businessId))
+                                Text(businessNames[booking.businessId] ?? BipeChatRowName.person(userID: booking.businessId, displayName: nil, handle: nil))
                                     .font(.headline)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 Spacer()
@@ -151,7 +151,7 @@ struct MyBookingsView: View {
 
     private func addToCalendar(_ booking: BipeBooking) {
         sharedFile = BookingCalendarFile.write(booking, serviceName: serviceNames[booking.serviceId] ?? "",
-                                               businessName: businessNames[booking.businessId] ?? Person.localpart(of: booking.businessId))
+                                               businessName: businessNames[booking.businessId] ?? BipeChatRowName.person(userID: booking.businessId, displayName: nil, handle: nil))
         if sharedFile == nil { notice = BipeStrings.agendaErrorSave }
     }
 

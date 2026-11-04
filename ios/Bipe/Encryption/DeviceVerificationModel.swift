@@ -92,6 +92,14 @@ final class DeviceVerificationModel: ObservableObject {
         if let activeObserver { NotificationCenter.default.removeObserver(activeObserver) }
     }
 
+    /// When the current flow began. A new request replaces a flow that is older than the SDK's verification timeout
+    /// (bipe-chat/bipe#949).
+    private var flowStartedAt: Date?
+    /// When this model cancelled a stale flow to take a new request. The SDK reports that cancel later, without a flow ID.
+    private var replacedAt: Date?
+    /// The SDK cancels a verification request after 10 minutes (matrix-sdk-crypto VERIFICATION_TIMEOUT).
+    private static let flowTimeout: TimeInterval = 10 * 60
+
     /// The flow has ended or has not started; a new request may begin.
     var isFinished: Bool {
         switch phase {
@@ -127,6 +135,7 @@ final class DeviceVerificationModel: ObservableObject {
         symbols = []
         mismatch = false
         canNotifyAgain = false
+        flowStartedAt = Date()
         phase = .requesting
         guard let controller = await readyController() else {
             phase = .failed
@@ -260,7 +269,20 @@ final class DeviceVerificationModel: ObservableObject {
         switch event {
         case .receivedRequest(let details):
             // Action receive: only requests from this account's own devices (spec notes).
-            guard details.senderProfile.userId == session.userId, isFinished || phase == .incoming else { return }
+            guard details.senderProfile.userId == session.userId else { return }
+            // A flow that ended without a terminal SDK event must not drop every later request (bipe-chat/bipe#949).
+            // The new request replaces a flow that has not reached compare, or any flow past the SDK timeout.
+            if !isFinished {
+                let stale = flowStartedAt.map { Date().timeIntervalSince($0) > Self.flowTimeout } ?? true
+                let early: Set<Phase> = [.requesting, .waitingForOther, .incoming, .confirmIdentity]
+                guard stale || early.contains(phase) else {
+                    AccountStep.log.notice("verification: request \(details.flowId, privacy: .public) dropped, phase \(String(describing: self.phase), privacy: .public)")
+                    return
+                }
+                AccountStep.log.notice("verification: request \(details.flowId, privacy: .public) replaces a flow in phase \(String(describing: self.phase), privacy: .public)")
+                replacedAt = Date()
+                try? await controller?.cancelVerification()
+            }
             do {
                 try await controller?.acknowledgeVerificationRequest(senderId: details.senderProfile.userId, flowId: details.flowId)
             } catch {
@@ -272,6 +294,7 @@ final class DeviceVerificationModel: ObservableObject {
                                            firstSeenAt: Date(milliseconds: details.firstSeenTimestamp))
             symbols = []
             mismatch = false
+            flowStartedAt = Date()
             phase = .incoming
             startCooldown()
             lookUpPlace(deviceId: details.deviceId)
@@ -294,14 +317,24 @@ final class DeviceVerificationModel: ObservableObject {
         case .finished:
             phase = .done
         case .cancelled:
+            guard !isEchoOfReplace else { return }
             if phase != .done {
                 phase = .cancelled
             }
         case .failed:
+            guard !isEchoOfReplace else { return }
             if phase != .done {
                 phase = .failed
             }
         }
+    }
+
+    /// true for the cancel of the flow that a new incoming request just replaced: the SDK reports it a moment
+    /// later, and it must not end the new flow.
+    private var isEchoOfReplace: Bool {
+        guard phase == .incoming, let replacedAt, Date().timeIntervalSince(replacedAt) < 5 else { return false }
+        self.replacedAt = nil
+        return true
     }
 
     /// Rule 5: the approve button waits webLinkCooldownSeconds, as on the QR approval.

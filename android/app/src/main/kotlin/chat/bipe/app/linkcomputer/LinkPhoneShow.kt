@@ -62,6 +62,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import chat.bipe.app.encryption.LocalEncryptionStatus
 
 /** Debug builds and the emulator only: the copy button of link-phone-show and the paste field of recovery-old-phone. */
 fun canCopyQrCode(context: Context): Boolean {
@@ -155,7 +156,12 @@ private fun ShowPhases(state: LinkComputerModel.State, model: LinkComputerModel)
                 color = colors.inkPrimary,
                 textAlign = TextAlign.Center,
             )
-            BipeButton(onClick = model::newCode) { Text(stringResource(R.string.bipe_app_link_phone_new_code)) }
+            LinkFailureCode(state.errorCode)
+            if (state.showError == LinkComputerModel.Failure.NEEDS_APPROVAL && LocalEncryptionStatus.current != null) {
+                BipeButton(onClick = model::approvePhone) { Text(stringResource(R.string.bipe_app_link_approve_phone)) }
+            } else {
+                BipeButton(onClick = model::newCode) { Text(stringResource(R.string.bipe_app_link_phone_new_code)) }
+            }
         }
     }
 }

@@ -25,6 +25,8 @@ enum PeopleLink: Equatable, Identifiable {
 
     /// `nil` when the URL is not a profile link: the app ignores it.
     init?(url: URL) {
+        // A claim link is for the shop's records, not the profile (ShopClaim.swift).
+        if BipeProfileLink.shopClaim(from: url) != nil { return nil }
         if let handle = BipeProfileLink.queueHandle(from: url) {
             self = .queue(handle)
         } else if let handle = BipeProfileLink.handle(from: url) {

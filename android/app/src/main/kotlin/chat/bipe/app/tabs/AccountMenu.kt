@@ -46,7 +46,8 @@ import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
 
 /**
- * Spec account-switcher (ADR 0135): the Material 3 dropdown menu that a long press on Você opens, anchored to the item.
+ * Spec account-switcher (ADR 0135): the Material 3 dropdown menu that a long press on Você or the row Contas neste
+ * celular opens, anchored to the item.
  * Each account shows its photo or initial, name and @handle, with a check on the current one; then Nova conta, which
  * opens account-new.
  */
@@ -72,7 +73,7 @@ fun AccountMenu(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: ()
                         if (owner != null) {
                             Text(stringResource(R.string.bipe_account_company_owner, owner), style = MaterialTheme.typography.bodyMedium,
                                 color = BipeTheme.colors.inkSecondary)
-                        } else account.handle?.let {
+                        } else account.handle?.takeIf { "@$it" != name }?.let {
                             Text("@$it", style = MaterialTheme.typography.bodyMedium, color = BipeTheme.colors.inkSecondary)
                         }
                     }
@@ -130,7 +131,7 @@ fun AccountRows(tabs: AppTabsModel, fallbackMedia: MediaLoader) {
                 if (owner != null) {
                     Text(stringResource(R.string.bipe_account_company_owner, owner), color = BipeTheme.colors.inkSecondary,
                         style = MaterialTheme.typography.bodyMedium)
-                } else account.handle?.let { Text("@$it", color = BipeTheme.colors.inkSecondary, style = MaterialTheme.typography.bodyMedium) }
+                } else account.handle?.takeIf { "@$it" != name }?.let { Text("@$it", color = BipeTheme.colors.inkSecondary, style = MaterialTheme.typography.bodyMedium) }
             }
             if (account.hasUnread) Box(Modifier.size(8.dp).background(BipeTheme.colors.accentFill, CircleShape))
             if (account.isCurrent) Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = BipeTheme.colors.accentInk)

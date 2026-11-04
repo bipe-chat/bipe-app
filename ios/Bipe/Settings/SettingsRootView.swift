@@ -12,6 +12,7 @@ enum SettingsRoute: Hashable {
     case group(BipeSettingsGroup)
     case support
     case notifications
+    case yearRecap
 }
 
 /// The settings stack. Until the Você tab (bipe-chat/bipe#567) is on main, chat-list opens it as a sheet; the Você tab
@@ -40,9 +41,13 @@ struct SettingsHomeView: View {
     }
 }
 
-/// Spec settings-root: one row per group of BipeSettings root, with the current state as the subtitle (ADR 0112).
+/// Spec settings-root: one row per group of BipeSettings root, laid out as the iPhone Settings app: icon tile, title,
+/// the current state as the subtitle (ADR 0112).
 struct SettingsRootSection: View {
     @ObservedObject var model: SettingsModel
+    // Read here, not in the model, so the chats summary follows a change made in the group screen.
+    @AppStorage(Appearance.key) private var appearance = Appearance.system.rawValue
+    private let theme = BipeTheme.shared
 
     var body: some View {
         Section {
@@ -61,16 +66,33 @@ struct SettingsRootSection: View {
     }
 
     private func row(_ group: BipeSettingsGroup) -> some View {
-        SettingsRootRow(title: group.title, summary: model.summary(of: group), needsAttention: model.needsAttention(group))
+        SettingsRootRow(icon: group.icon.flatMap(PhosphorIcon.init(rawValue:)), title: group.title,
+                        summary: summary(of: group), needsAttention: model.needsAttention(group))
+    }
+
+    private func summary(of group: BipeSettingsGroup) -> String? {
+        guard group == .chats else { return model.summary(of: group) }
+        let theme = (Appearance(rawValue: appearance) ?? .system).title
+        return "\(theme) · \(self.theme.palette.title)"
     }
 }
 
 private struct SettingsRootRow: View {
+    let icon: PhosphorIcon?
     let title: String
     let summary: String?
     let needsAttention: Bool
 
     var body: some View {
+        HStack(spacing: 12) {
+            if let icon {
+                SettingsIconTile(icon: icon)
+            }
+            text
+        }
+    }
+
+    private var text: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 Text(title)
@@ -93,18 +115,37 @@ private struct SettingsRootRow: View {
     }
 }
 
+/// The icon tile of the iPhone Settings app (spec settings-root): a glyph in ink.onAccent on accent.fill, in a rounded square.
+/// Decorative: the row title says what the row is.
+struct SettingsIconTile: View {
+    let icon: PhosphorIcon
+    @ScaledMetric(relativeTo: .body) private var side: CGFloat = 29
+
+    var body: some View {
+        icon.image
+            .resizable()
+            .frame(width: side * 0.62, height: side * 0.62)
+            .foregroundStyle(BipeColor.inkOnAccent)
+            .frame(width: side, height: side)
+            .background(BipeColor.accentFill, in: RoundedRectangle(cornerRadius: side * 0.24, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
 extension View {
-    /// The destinations of the settings stack.
-    func settingsDestinations(model: SettingsModel, onNewAccount: (() -> Void)? = nil,
+    /// The destinations of the settings stack. The year recap needs the chat list (spec year-recap).
+    func settingsDestinations(model: SettingsModel, chatList: ChatListModel? = nil,
                               onSignedOut: @escaping () -> Void) -> some View {
         navigationDestination(for: SettingsRoute.self) { route in
             switch route {
             case .group(let group):
-                SettingsGroupView(model: model, group: group, onSignedOut: onSignedOut, onNewAccount: onNewAccount)
+                SettingsGroupView(model: model, group: group, onSignedOut: onSignedOut)
             case .support:
                 SupportOpenView(session: model.session, api: model.api)
             case .notifications:
                 NotificationSettingsView(session: model.session, api: model.api)
+            case .yearRecap:
+                if let chatList { YearRecapView(chatList: chatList) }
             }
         }
     }

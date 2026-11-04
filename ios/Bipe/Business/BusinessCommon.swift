@@ -187,10 +187,10 @@ struct BusinessOwnerContext {
     /// Opens the DM with the signed-in customer (action openChat); nil inside that DM.
     let openChat: ((String) -> Void)?
 
-    /// The customer's name: the DM name, else the profile name, else the ID's localpart. Never the Matrix ID.
+    /// The customer's name: the DM name, else People names (profile name, @, bipe_person_no_name). Never the Matrix ID.
     @MainActor func name(of userId: String) async -> String {
         if let known = customers.first(where: { $0.userId == userId }) { return known.name }
-        return (try? await people.person(userId))?.displayName ?? Person.localpart(of: userId)
+        return (try? await people.person(userId))?.displayName ?? BipeChatRowName.person(userID: userId, displayName: nil, handle: nil)
     }
 
     /// The names of these signed-in customers that `known` does not have yet.
@@ -232,7 +232,7 @@ enum BusinessText {
 
     /// The customer of an order or a place: the typed name, or the signed-in customer's name.
     static func customer(_ customer: BipeBookingCustomer, names: [String: String]) -> String {
-        customer.name ?? customer.userId.map { names[$0] ?? Person.localpart(of: $0) } ?? ""
+        customer.name ?? customer.userId.map { names[$0] ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) } ?? ""
     }
 }
 

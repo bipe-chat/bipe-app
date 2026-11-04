@@ -16,10 +16,11 @@ import UIKit
 /// the app icon. Trust colours never change.
 public enum BipePalette: String, CaseIterable, Sendable {
     case acai
+    case goiaba
     case pitanga
-    case caju
-    case jabuticaba
+    case maracuja
     case jenipapo
+    case jabuticaba
 
     /// The palette of a new install.
     public static let standard: BipePalette = .acai
@@ -28,10 +29,11 @@ public enum BipePalette: String, CaseIterable, Sendable {
     public var iconBackground: UInt32 {
         switch self {
         case .acai: 0x802F7C
-        case .pitanga: 0xC13F26
-        case .caju: 0xA05B00
-        case .jabuticaba: 0x614381
+        case .goiaba: 0xC52A7A
+        case .pitanga: 0xBC4500
+        case .maracuja: 0x7B6C00
         case .jenipapo: 0x005678
+        case .jabuticaba: 0x4E4694
         }
     }
 
@@ -42,10 +44,11 @@ public enum BipePalette: String, CaseIterable, Sendable {
     public var alternateIconName: String? {
         switch self {
         case .acai: nil
+        case .goiaba: "AppIcon-Goiaba"
         case .pitanga: "AppIcon-Pitanga"
-        case .caju: "AppIcon-Caju"
-        case .jabuticaba: "AppIcon-Jabuticaba"
+        case .maracuja: "AppIcon-Maracuja"
         case .jenipapo: "AppIcon-Jenipapo"
+        case .jabuticaba: "AppIcon-Jabuticaba"
         }
     }
 }
@@ -114,18 +117,20 @@ public enum BipeColor {
     public static func accentInk(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: accentInkAcai
+        case .goiaba: accentInkGoiaba
         case .pitanga: accentInkPitanga
-        case .caju: accentInkCaju
-        case .jabuticaba: accentInkJabuticaba
+        case .maracuja: accentInkMaracuja
         case .jenipapo: accentInkJenipapo
+        case .jabuticaba: accentInkJabuticaba
         }
     }
 
     private static let accentInkAcai = dynamic(0x802F7C, 0xDB91D4, 0x4E144B, 0xF7D2F3)
-    private static let accentInkPitanga = dynamic(0x9C2106, 0xF88C76, 0x5D0D00, 0xFFD3CA)
-    private static let accentInkCaju = dynamic(0x7E4000, 0xD7A04D, 0x4A2300, 0xF5DAB5)
-    private static let accentInkJabuticaba = dynamic(0x614381, 0xB99ED9, 0x38234D, 0xE5D8F6)
+    private static let accentInkGoiaba = dynamic(0x9F005D, 0xFC83B6, 0x5E0034, 0xFFD2E2)
+    private static let accentInkPitanga = dynamic(0x8F3300, 0xFF895A, 0x541B00, 0xFFD5C4)
+    private static let accentInkMaracuja = dynamic(0x5C5000, 0xC0AB00, 0x352E00, 0xE9DE9F)
     private static let accentInkJenipapo = dynamic(0x005678, 0x67B2DA, 0x003145, 0xBFE2F7)
+    private static let accentInkJabuticaba = dynamic(0x4E4694, 0xA5A2EC, 0x2C265A, 0xDADAFF)
 
     /// Buttons and the send button. Follows the app theme (BipeTheme).
     public static var accentFill: Color { accentFill(BipeTheme.shared.palette) }
@@ -134,18 +139,20 @@ public enum BipeColor {
     public static func accentFill(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: accentFillAcai
+        case .goiaba: accentFillGoiaba
         case .pitanga: accentFillPitanga
-        case .caju: accentFillCaju
-        case .jabuticaba: accentFillJabuticaba
+        case .maracuja: accentFillMaracuja
         case .jenipapo: accentFillJenipapo
+        case .jabuticaba: accentFillJabuticaba
         }
     }
 
     private static let accentFillAcai = dynamic(0x802F7C, 0xDB91D4, 0x4E144B, 0xF7D2F3)
-    private static let accentFillPitanga = dynamic(0x9C2106, 0xF88C76, 0x5D0D00, 0xFFD3CA)
-    private static let accentFillCaju = dynamic(0x7E4000, 0xD7A04D, 0x4A2300, 0xF5DAB5)
-    private static let accentFillJabuticaba = dynamic(0x614381, 0xB99ED9, 0x38234D, 0xE5D8F6)
+    private static let accentFillGoiaba = dynamic(0x9F005D, 0xFC83B6, 0x5E0034, 0xFFD2E2)
+    private static let accentFillPitanga = dynamic(0x8F3300, 0xFF895A, 0x541B00, 0xFFD5C4)
+    private static let accentFillMaracuja = dynamic(0x5C5000, 0xC0AB00, 0x352E00, 0xE9DE9F)
     private static let accentFillJenipapo = dynamic(0x005678, 0x67B2DA, 0x003145, 0xBFE2F7)
+    private static let accentFillJabuticaba = dynamic(0x4E4694, 0xA5A2EC, 0x2C265A, 0xDADAFF)
 
     /// accent.fill while pressed. Follows the app theme (BipeTheme).
     public static var accentFillPressed: Color { accentFillPressed(BipeTheme.shared.palette) }
@@ -154,18 +161,20 @@ public enum BipeColor {
     public static func accentFillPressed(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: accentFillPressedAcai
+        case .goiaba: accentFillPressedGoiaba
         case .pitanga: accentFillPressedPitanga
-        case .caju: accentFillPressedCaju
-        case .jabuticaba: accentFillPressedJabuticaba
+        case .maracuja: accentFillPressedMaracuja
         case .jenipapo: accentFillPressedJenipapo
+        case .jabuticaba: accentFillPressedJabuticaba
         }
     }
 
     private static let accentFillPressedAcai = dynamic(0x4E144B, 0xF7D2F3, 0x340D32, 0xFCE7F9)
-    private static let accentFillPressedPitanga = dynamic(0x5D0D00, 0xFFD3CA, 0x410700, 0xFFE9E5)
-    private static let accentFillPressedCaju = dynamic(0x4A2300, 0xF5DAB5, 0x321600, 0xFBEBD7)
-    private static let accentFillPressedJabuticaba = dynamic(0x38234D, 0xE5D8F6, 0x261734, 0xF1EBFB)
+    private static let accentFillPressedGoiaba = dynamic(0x5E0034, 0xFFD2E2, 0x420023, 0xFFE8EF)
+    private static let accentFillPressedPitanga = dynamic(0x541B00, 0xFFD5C4, 0x3A1000, 0xFFE9E1)
+    private static let accentFillPressedMaracuja = dynamic(0x352E00, 0xE9DE9F, 0x231D00, 0xF4EFCC)
     private static let accentFillPressedJenipapo = dynamic(0x003145, 0xBFE2F7, 0x002130, 0xDDF1FC)
+    private static let accentFillPressedJabuticaba = dynamic(0x2C265A, 0xDADAFF, 0x1D183D, 0xECECFF)
 
     /// Subtle accent background. Follows the app theme (BipeTheme).
     public static var accentWash: Color { accentWash(BipeTheme.shared.palette) }
@@ -174,41 +183,199 @@ public enum BipeColor {
     public static func accentWash(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: accentWashAcai
+        case .goiaba: accentWashGoiaba
         case .pitanga: accentWashPitanga
-        case .caju: accentWashCaju
-        case .jabuticaba: accentWashJabuticaba
+        case .maracuja: accentWashMaracuja
         case .jenipapo: accentWashJenipapo
+        case .jabuticaba: accentWashJabuticaba
         }
     }
 
     private static let accentWashAcai = dynamic(0xFEF6FD, 0x2D0B2B, 0xFDEDFB, 0x360D34)
-    private static let accentWashPitanga = dynamic(0xFFF7F5, 0x380601, 0xFFEFEB, 0x430700)
-    private static let accentWashCaju = dynamic(0xFEF7EF, 0x2D1200, 0xFCF0E1, 0x341700)
-    private static let accentWashJabuticaba = dynamic(0xFAF7FE, 0x20142C, 0xF5EFFC, 0x261735)
+    private static let accentWashGoiaba = dynamic(0xFFF6F9, 0x39001E, 0xFFEEF3, 0x420024)
+    private static let accentWashPitanga = dynamic(0xFFF7F3, 0x330D00, 0xFFEEE8, 0x3B1000)
+    private static let accentWashMaracuja = dynamic(0xFBF8EA, 0x1E1A00, 0xF7F3D8, 0x241E00)
     private static let accentWashJenipapo = dynamic(0xF2FAFE, 0x001C29, 0xE6F5FD, 0x002231)
+    private static let accentWashJabuticaba = dynamic(0xF7F8FF, 0x181534, 0xF0F1FF, 0x1D193F)
 
-    /// Own chat bubble, with ink.primary text. Follows the app theme (BipeTheme).
+    /// Own chat bubble, with ink.primary text. Light: a tint lighter than chat.background, so the bubble stands out (MZ, 2 November 2026). Follows the app theme (BipeTheme).
     public static var bubbleOwn: Color { bubbleOwn(BipeTheme.shared.palette) }
 
-    /// Own chat bubble, with ink.primary text, in the given palette.
+    /// Own chat bubble, with ink.primary text. Light: a tint lighter than chat.background, so the bubble stands out (MZ, 2 November 2026), in the given palette.
     public static func bubbleOwn(_ palette: BipePalette) -> Color {
         switch palette {
         case .acai: bubbleOwnAcai
+        case .goiaba: bubbleOwnGoiaba
         case .pitanga: bubbleOwnPitanga
-        case .caju: bubbleOwnCaju
-        case .jabuticaba: bubbleOwnJabuticaba
+        case .maracuja: bubbleOwnMaracuja
         case .jenipapo: bubbleOwnJenipapo
+        case .jabuticaba: bubbleOwnJabuticaba
         }
     }
 
-    private static let bubbleOwnAcai = dynamic(0xFADDF6, 0x451142, 0xF3C4ED, 0x591955)
-    private static let bubbleOwnPitanga = dynamic(0xFFE0D8, 0x530A00, 0xFFC5B8, 0x6B1000)
-    private static let bubbleOwnCaju = dynamic(0xF8E3C6, 0x411E00, 0xF0CD9F, 0x542800)
-    private static let bubbleOwnJabuticaba = dynamic(0xECE2F9, 0x311F44, 0xDCCCF1, 0x402A58)
-    private static let bubbleOwnJenipapo = dynamic(0xCFEAF9, 0x002B3D, 0xADDAF2, 0x003950)
+    private static let bubbleOwnAcai = dynamic(0xFDEDFB, 0x591955, 0xF3C4ED, 0x591955)
+    private static let bubbleOwnGoiaba = dynamic(0xFFEEF3, 0x6B003C, 0xFFC3D9, 0x6B003C)
+    private static let bubbleOwnPitanga = dynamic(0xFFEEE8, 0x5F1F00, 0xFFC7B1, 0x5F1F00)
+    private static let bubbleOwnMaracuja = dynamic(0xF7F3D8, 0x3C3500, 0xE2D584, 0x3C3500)
+    private static let bubbleOwnJenipapo = dynamic(0xE6F5FD, 0x003950, 0xADDAF2, 0x003950)
+    private static let bubbleOwnJabuticaba = dynamic(0xF0F1FF, 0x322C66, 0xCFCFFE, 0x322C66)
 
-    /// Chat bubble of other people, with ink.primary text.
-    public static let bubbleOther = dynamic(0xF2F2F4, 0x1C1E21, 0xE4E6E9, 0x25272B)
+    /// Chat bubble of other people, with ink.primary text. Light: white on the tinted chat.background (MZ, 2 November 2026).
+    public static let bubbleOther = dynamic(0xFFFFFF, 0x313439, 0xE4E6E9, 0x25272B)
+
+    /// Chat timeline background (ADR 0213; light step 500 since 2 November 2026, so white and tinted bubbles stand out), with ink.primary text. High contrast: the flat palette colour. Follows the app theme (BipeTheme).
+    public static var chatBackground: Color { chatBackground(BipeTheme.shared.palette) }
+
+    /// Chat timeline background (ADR 0213; light step 500 since 2 November 2026, so white and tinted bubbles stand out), with ink.primary text. High contrast: the flat palette colour, in the given palette.
+    public static func chatBackground(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatBackgroundAcai
+        case .goiaba: chatBackgroundGoiaba
+        case .pitanga: chatBackgroundPitanga
+        case .maracuja: chatBackgroundMaracuja
+        case .jenipapo: chatBackgroundJenipapo
+        case .jabuticaba: chatBackgroundJabuticaba
+        }
+    }
+
+    private static let chatBackgroundAcai = dynamic(0xF3C4ED, 0x280A26, 0xFFFAFE, 0x280A26)
+    private static let chatBackgroundGoiaba = dynamic(0xFFC3D9, 0x34001A, 0xFFFAFC, 0x34001A)
+    private static let chatBackgroundPitanga = dynamic(0xFFC7B1, 0x2E0B00, 0xFFFBF9, 0x2E0B00)
+    private static let chatBackgroundMaracuja = dynamic(0xE2D584, 0x1B1600, 0xFDFCF4, 0x1B1600)
+    private static let chatBackgroundJenipapo = dynamic(0xADDAF2, 0x001925, 0xF8FCFF, 0x001925)
+    private static let chatBackgroundJabuticaba = dynamic(0xCFCFFE, 0x15132E, 0xFBFBFF, 0x15132E)
+
+    /// Soft blob on the chat background, top trailing (ADR 0213). Follows the app theme (BipeTheme).
+    public static var chatBlob: Color { chatBlob(BipeTheme.shared.palette) }
+
+    /// Soft blob on the chat background, top trailing (ADR 0213), in the given palette.
+    public static func chatBlob(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatBlobAcai
+        case .goiaba: chatBlobGoiaba
+        case .pitanga: chatBlobPitanga
+        case .maracuja: chatBlobMaracuja
+        case .jenipapo: chatBlobJenipapo
+        case .jabuticaba: chatBlobJabuticaba
+        }
+    }
+
+    private static let chatBlobAcai = dynamic(0xEBB1E5, 0x360D34, 0xFFFAFE, 0x280A26)
+    private static let chatBlobGoiaba = dynamic(0xFFABCB, 0x420024, 0xFFFAFC, 0x34001A)
+    private static let chatBlobPitanga = dynamic(0xFFB293, 0x3B1000, 0xFFFBF9, 0x2E0B00)
+    private static let chatBlobMaracuja = dynamic(0xD7C558, 0x241E00, 0xFDFCF4, 0x1B1600)
+    private static let chatBlobJenipapo = dynamic(0x93CCEB, 0x002231, 0xF8FCFF, 0x001925)
+    private static let chatBlobJabuticaba = dynamic(0xBFBFF9, 0x1D193F, 0xFBFBFF, 0x15132E)
+
+    /// Soft blob on the chat background, leading (ADR 0213). Follows the app theme (BipeTheme).
+    public static var chatBlobDeep: Color { chatBlobDeep(BipeTheme.shared.palette) }
+
+    /// Soft blob on the chat background, leading (ADR 0213), in the given palette.
+    public static func chatBlobDeep(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatBlobDeepAcai
+        case .goiaba: chatBlobDeepGoiaba
+        case .pitanga: chatBlobDeepPitanga
+        case .maracuja: chatBlobDeepMaracuja
+        case .jenipapo: chatBlobDeepJenipapo
+        case .jabuticaba: chatBlobDeepJabuticaba
+        }
+    }
+
+    private static let chatBlobDeepAcai = dynamic(0xDD94D6, 0x451142, 0xFFFAFE, 0x280A26)
+    private static let chatBlobDeepGoiaba = dynamic(0xFE87B8, 0x54002E, 0xFFFAFC, 0x34001A)
+    private static let chatBlobDeepPitanga = dynamic(0xFF8E62, 0x4A1700, 0xFFFBF9, 0x2E0B00)
+    private static let chatBlobDeepMaracuja = dynamic(0xC4AE00, 0x2E2700, 0xFDFCF4, 0x1B1600)
+    private static let chatBlobDeepJenipapo = dynamic(0x6CB5DC, 0x002B3D, 0xF8FCFF, 0x001925)
+    private static let chatBlobDeepJabuticaba = dynamic(0xA8A5EE, 0x262050, 0xFBFBFF, 0x15132E)
+
+    /// Bipe marks on the chat background, the big one included (ADR 0213). Follows the app theme (BipeTheme).
+    public static var chatMark: Color { chatMark(BipeTheme.shared.palette) }
+
+    /// Bipe marks on the chat background, the big one included (ADR 0213), in the given palette.
+    public static func chatMark(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatMarkAcai
+        case .goiaba: chatMarkGoiaba
+        case .pitanga: chatMarkPitanga
+        case .maracuja: chatMarkMaracuja
+        case .jenipapo: chatMarkJenipapo
+        case .jabuticaba: chatMarkJabuticaba
+        }
+    }
+
+    private static let chatMarkAcai = dynamic(0xEBB1E5, 0x2D0B2B, 0xFFFAFE, 0x280A26)
+    private static let chatMarkGoiaba = dynamic(0xFFABCB, 0x39001E, 0xFFFAFC, 0x34001A)
+    private static let chatMarkPitanga = dynamic(0xFFB293, 0x330D00, 0xFFFBF9, 0x2E0B00)
+    private static let chatMarkMaracuja = dynamic(0xD7C558, 0x1E1A00, 0xFDFCF4, 0x1B1600)
+    private static let chatMarkJenipapo = dynamic(0x93CCEB, 0x001C29, 0xF8FCFF, 0x001925)
+    private static let chatMarkJabuticaba = dynamic(0xBFBFF9, 0x181534, 0xFBFBFF, 0x15132E)
+
+    /// Bipe marks on the chat background in the second tone (ADR 0213). Follows the app theme (BipeTheme).
+    public static var chatMarkAlt: Color { chatMarkAlt(BipeTheme.shared.palette) }
+
+    /// Bipe marks on the chat background in the second tone (ADR 0213), in the given palette.
+    public static func chatMarkAlt(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatMarkAltAcai
+        case .goiaba: chatMarkAltGoiaba
+        case .pitanga: chatMarkAltPitanga
+        case .maracuja: chatMarkAltMaracuja
+        case .jenipapo: chatMarkAltJenipapo
+        case .jabuticaba: chatMarkAltJabuticaba
+        }
+    }
+
+    private static let chatMarkAltAcai = dynamic(0xFADDF6, 0x360D34, 0xFFFAFE, 0x280A26)
+    private static let chatMarkAltGoiaba = dynamic(0xFFDDE9, 0x420024, 0xFFFAFC, 0x34001A)
+    private static let chatMarkAltPitanga = dynamic(0xFFDFD4, 0x3B1000, 0xFFFBF9, 0x2E0B00)
+    private static let chatMarkAltMaracuja = dynamic(0xEFE7B8, 0x241E00, 0xFDFCF4, 0x1B1600)
+    private static let chatMarkAltJenipapo = dynamic(0xCFEAF9, 0x002231, 0xF8FCFF, 0x001925)
+    private static let chatMarkAltJabuticaba = dynamic(0xE3E4FF, 0x1D193F, 0xFBFBFF, 0x15132E)
+
+    /// Fruit outlines and dots on the Salada de frutas chat background (ADR 0215). Follows the app theme (BipeTheme).
+    public static var chatFruit: Color { chatFruit(BipeTheme.shared.palette) }
+
+    /// Fruit outlines and dots on the Salada de frutas chat background (ADR 0215), in the given palette.
+    public static func chatFruit(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatFruitAcai
+        case .goiaba: chatFruitGoiaba
+        case .pitanga: chatFruitPitanga
+        case .maracuja: chatFruitMaracuja
+        case .jenipapo: chatFruitJenipapo
+        case .jabuticaba: chatFruitJabuticaba
+        }
+    }
+
+    private static let chatFruitAcai = dynamic(0xC06AB9, 0x451142, 0xFFFAFE, 0x280A26)
+    private static let chatFruitGoiaba = dynamic(0xE45396, 0x54002E, 0xFFFAFC, 0x34001A)
+    private static let chatFruitPitanga = dynamic(0xE95C11, 0x4A1700, 0xFFFBF9, 0x2E0B00)
+    private static let chatFruitMaracuja = dynamic(0x9C8A00, 0x2E2700, 0xFDFCF4, 0x1B1600)
+    private static let chatFruitJenipapo = dynamic(0x3392BE, 0x002B3D, 0xF8FCFF, 0x001925)
+    private static let chatFruitJabuticaba = dynamic(0x8580D4, 0x262050, 0xFBFBFF, 0x15132E)
+
+    /// Soft fill inside the fruit outlines on the Salada de frutas chat background (ADR 0215). Follows the app theme (BipeTheme).
+    public static var chatFruitFill: Color { chatFruitFill(BipeTheme.shared.palette) }
+
+    /// Soft fill inside the fruit outlines on the Salada de frutas chat background (ADR 0215), in the given palette.
+    public static func chatFruitFill(_ palette: BipePalette) -> Color {
+        switch palette {
+        case .acai: chatFruitFillAcai
+        case .goiaba: chatFruitFillGoiaba
+        case .pitanga: chatFruitFillPitanga
+        case .maracuja: chatFruitFillMaracuja
+        case .jenipapo: chatFruitFillJenipapo
+        case .jabuticaba: chatFruitFillJabuticaba
+        }
+    }
+
+    private static let chatFruitFillAcai = dynamic(0xEBB1E5, 0x2D0B2B, 0xFFFAFE, 0x280A26)
+    private static let chatFruitFillGoiaba = dynamic(0xFFABCB, 0x39001E, 0xFFFAFC, 0x34001A)
+    private static let chatFruitFillPitanga = dynamic(0xFFB293, 0x330D00, 0xFFFBF9, 0x2E0B00)
+    private static let chatFruitFillMaracuja = dynamic(0xD7C558, 0x1E1A00, 0xFDFCF4, 0x1B1600)
+    private static let chatFruitFillJenipapo = dynamic(0x93CCEB, 0x001C29, 0xF8FCFF, 0x001925)
+    private static let chatFruitFillJabuticaba = dynamic(0xBFBFF9, 0x181534, 0xFBFBFF, 0x15132E)
 
     /// Verified text and the seal. The seal shape carries the meaning, not the colour (trust-ui.md).
     public static let trustVerifiedInk = dynamic(0x802F7C, 0xDB91D4, 0x4E144B, 0xF7D2F3)
@@ -265,4 +432,305 @@ public enum BipeColor {
         return Color(red: Double((light >> 16) & 0xFF) / 255, green: Double((light >> 8) & 0xFF) / 255, blue: Double(light & 0xFF) / 255)
         #endif
     }
+}
+
+/// Chat background (ADR 0213): the options in Settings, Cores, and the places of the blobs and marks on
+/// BipeColor.chatBackground. Every tone is a themed chat colour, so the composition follows the palette.
+public enum BipeChatBackground: String, CaseIterable, Sendable {
+    case marca
+    case frutas
+    case cor
+    case liso
+
+    /// The option of a new install.
+    public static let standard: BipeChatBackground = .marca
+
+    /// A colour of the composition: one of the themed chat tokens.
+    public enum Tone: Sendable {
+        case blob, blobDeep, mark, markAlt
+
+        public var colour: Color {
+            switch self {
+            case .blob: BipeColor.chatBlob
+            case .blobDeep: BipeColor.chatBlobDeep
+            case .mark: BipeColor.chatMark
+            case .markAlt: BipeColor.chatMarkAlt
+            }
+        }
+    }
+
+    /// A soft blob: a radial gradient from the tone at blobOpacity to clear. Centre x, y as fractions of the width
+    /// and height; radius as a fraction of the longer side.
+    public struct Blob: Sendable {
+        public let x: Double, y: Double, radius: Double, tone: Tone
+    }
+
+    /// A Bipe mark (the app icon shape, upright). Top-leading corner x, y as fractions of the width and height;
+    /// side as a fraction of the shorter side.
+    public struct Mark: Sendable {
+        public let x: Double, y: Double, side: Double, opacity: Double, tone: Tone
+    }
+
+    public static let blobOpacity: Double = 0.85
+
+    public static let blobs: [Blob] = [
+        Blob(x: 0.95, y: 0.02, radius: 0.62, tone: .blob),
+        Blob(x: 0.05, y: 0.55, radius: 0.55, tone: .blobDeep),
+    ]
+
+    /// In drawing order: the big mark is last.
+    public static let marks: [Mark] = [
+        Mark(x: 0.6, y: 0.04, side: 0.22, opacity: 0.7, tone: .mark),
+        Mark(x: -0.07, y: 0.08, side: 0.3, opacity: 0.7, tone: .markAlt),
+        Mark(x: 0.14, y: 0.34, side: 0.12, opacity: 0.7, tone: .mark),
+        Mark(x: -0.06, y: 0.58, side: 0.26, opacity: 0.7, tone: .markAlt),
+        Mark(x: 0.69, y: 0.91, side: 0.15, opacity: 0.7, tone: .mark),
+        Mark(x: 0.37, y: 0.18, side: 0.075, opacity: 0.7, tone: .markAlt),
+        Mark(x: 0.44, y: 0.37, side: 0.86, opacity: 1, tone: .mark),
+    ]
+}
+
+/// Salada de frutas (ADR 0215): the fruit tile of bipe-shared design/chat-fruits.mjs. Draft artwork. Draw it on
+/// BipeColor.chatBackground, repeated, each tile clipped to its square: bodies filled with chatFruitFill and stroked
+/// in chatFruit, lines stroked in chatFruit, dots filled with chatFruit. A path is a flat list: 0 x y move,
+/// 1 x y line, 2 x1 y1 x2 y2 x y cubic, 3 close, on the glyph's 48-unit box.
+public enum BipeChatFruits {
+    /// Side of the square tile, in tile units.
+    public static let tile: Double = 480
+    /// Points per tile unit.
+    public static let scale: Double = 0.8
+    /// Outline width, in tile units, the same for every glyph.
+    public static let stroke: Double = 1.6
+
+    public struct Glyph: Sendable {
+        public let bodies: [[Float]], lines: [[Float]], dots: [[Float]]
+    }
+
+    /// A glyph on the tile: centre x, y and size (of its 48-unit box) in tile units, rotation in degrees, mirrored on x.
+    public struct Placement: Sendable {
+        public let glyph: Int, x: Double, y: Double, size: Double, rotation: Double, mirror: Bool
+    }
+
+    public static let glyphs: [Glyph] = [
+        // acai
+        Glyph(bodies: [[0, 23, 18, 2, 23, 20.21, 21.21, 22, 19, 22, 2, 16.79, 22, 15, 20.21, 15, 18, 2, 15, 15.79, 16.79, 14, 19, 14, 2, 21.21, 14, 23, 15.79, 23, 18, 3], [0, 32, 18, 2, 32, 20.21, 30.21, 22, 28, 22, 2, 25.79, 22, 24, 20.21, 24, 18, 2, 24, 15.79, 25.79, 14, 28, 14, 2, 30.21, 14, 32, 15.79, 32, 18, 3], [0, 18.5, 26, 2, 18.5, 28.21, 16.71, 30, 14.5, 30, 2, 12.29, 30, 10.5, 28.21, 10.5, 26, 2, 10.5, 23.79, 12.29, 22, 14.5, 22, 2, 16.71, 22, 18.5, 23.79, 18.5, 26, 3], [0, 27.5, 26, 2, 27.5, 28.21, 25.71, 30, 23.5, 30, 2, 21.29, 30, 19.5, 28.21, 19.5, 26, 2, 19.5, 23.79, 21.29, 22, 23.5, 22, 2, 25.71, 22, 27.5, 23.79, 27.5, 26, 3], [0, 36.5, 26, 2, 36.5, 28.21, 34.71, 30, 32.5, 30, 2, 30.29, 30, 28.5, 28.21, 28.5, 26, 2, 28.5, 23.79, 30.29, 22, 32.5, 22, 2, 34.71, 22, 36.5, 23.79, 36.5, 26, 3], [0, 23, 34, 2, 23, 36.21, 21.21, 38, 19, 38, 2, 16.79, 38, 15, 36.21, 15, 34, 2, 15, 31.79, 16.79, 30, 19, 30, 2, 21.21, 30, 23, 31.79, 23, 34, 3], [0, 32, 34, 2, 32, 36.21, 30.21, 38, 28, 38, 2, 25.79, 38, 24, 36.21, 24, 34, 2, 24, 31.79, 25.79, 30, 28, 30, 2, 30.21, 30, 32, 31.79, 32, 34, 3], [0, 27.5, 42, 2, 27.5, 44.21, 25.71, 46, 23.5, 46, 2, 21.29, 46, 19.5, 44.21, 19.5, 42, 2, 19.5, 39.79, 21.29, 38, 23.5, 38, 2, 25.71, 38, 27.5, 39.79, 27.5, 42, 3]], lines: [[0, 24, 13, 1, 24, 6, 0, 24, 9, 2, 27, 3, 34, 3, 37, 5, 2, 34, 9, 28, 10, 24, 9]], dots: [[0, 18.5, 16.6, 2, 18.5, 17.1, 18.1, 17.5, 17.6, 17.5, 2, 17.1, 17.5, 16.7, 17.1, 16.7, 16.6, 2, 16.7, 16.1, 17.1, 15.7, 17.6, 15.7, 2, 18.1, 15.7, 18.5, 16.1, 18.5, 16.6, 3], [0, 27.5, 16.6, 2, 27.5, 17.1, 27.1, 17.5, 26.6, 17.5, 2, 26.1, 17.5, 25.7, 17.1, 25.7, 16.6, 2, 25.7, 16.1, 26.1, 15.7, 26.6, 15.7, 2, 27.1, 15.7, 27.5, 16.1, 27.5, 16.6, 3], [0, 23, 24.6, 2, 23, 25.1, 22.6, 25.5, 22.1, 25.5, 2, 21.6, 25.5, 21.2, 25.1, 21.2, 24.6, 2, 21.2, 24.1, 21.6, 23.7, 22.1, 23.7, 2, 22.6, 23.7, 23, 24.1, 23, 24.6, 3], [0, 27.5, 32.6, 2, 27.5, 33.1, 27.1, 33.5, 26.6, 33.5, 2, 26.1, 33.5, 25.7, 33.1, 25.7, 32.6, 2, 25.7, 32.1, 26.1, 31.7, 26.6, 31.7, 2, 27.1, 31.7, 27.5, 32.1, 27.5, 32.6, 3]]),
+        // goiaba
+        Glyph(bodies: [[0, 24, 10, 2, 30, 10, 33, 14, 33, 18, 2, 39, 21, 42, 27, 41, 32, 2, 40, 40, 33, 44, 24, 44, 2, 15, 44, 8, 40, 7, 32, 2, 6, 27, 9, 21, 15, 18, 2, 15, 14, 18, 10, 24, 10, 3]], lines: [[0, 24, 10, 1, 25, 5], [0, 25, 6, 2, 27.19, 1.48, 31.7, -0.16, 36.28, 1.9, 2, 34.09, 6.42, 29.58, 8.06, 25, 6, 3, 0, 27.26, 5.18, 1, 33.46, 2.92], [0, 13, 31, 2, 13.33, 27, 14.83, 24, 17.5, 22], [0, 22, 44, 1, 24, 41.5, 1, 26, 44]], dots: []),
+        // pitanga
+        Glyph(bodies: [[0, 42, 28, 2, 42, 35.18, 33.94, 41, 24, 41, 2, 14.06, 41, 6, 35.18, 6, 28, 2, 6, 20.82, 14.06, 15, 24, 15, 2, 33.94, 15, 42, 20.82, 42, 28, 3]], lines: [[0, 17, 16.5, 2, 14, 24.17, 14, 31.83, 17, 39.5, 0, 31, 16.5, 2, 34, 24.17, 34, 31.83, 31, 39.5, 0, 24, 15, 1, 24, 41], [0, 19, 15.5, 1, 24, 17.5, 1, 29, 15.5, 0, 24, 15, 1, 25.5, 8]], dots: []),
+        // maracuja
+        Glyph(bodies: [[0, 42, 24, 2, 42, 33.94, 33.94, 42, 24, 42, 2, 14.06, 42, 6, 33.94, 6, 24, 2, 6, 14.06, 14.06, 6, 24, 6, 2, 33.94, 6, 42, 14.06, 42, 24, 3]], lines: [[0, 37.5, 24, 2, 37.5, 31.46, 31.46, 37.5, 24, 37.5, 2, 16.54, 37.5, 10.5, 31.46, 10.5, 24, 2, 10.5, 16.54, 16.54, 10.5, 24, 10.5, 2, 31.46, 10.5, 37.5, 16.54, 37.5, 24, 3]], dots: [[0, 33.2, 24, 2, 33.2, 24.94, 32.44, 25.7, 31.5, 25.7, 2, 30.56, 25.7, 29.8, 24.94, 29.8, 24, 2, 29.8, 23.06, 30.56, 22.3, 31.5, 22.3, 2, 32.44, 22.3, 33.2, 23.06, 33.2, 24, 3], [0, 30.38, 29.86, 2, 30.38, 30.8, 29.62, 31.56, 28.68, 31.56, 2, 27.74, 31.56, 26.98, 30.8, 26.98, 29.86, 2, 26.98, 28.92, 27.74, 28.16, 28.68, 28.16, 2, 29.62, 28.16, 30.38, 28.92, 30.38, 29.86, 3], [0, 24.03, 31.31, 2, 24.03, 32.25, 23.27, 33.01, 22.33, 33.01, 2, 21.39, 33.01, 20.63, 32.25, 20.63, 31.31, 2, 20.63, 30.37, 21.39, 29.61, 22.33, 29.61, 2, 23.27, 29.61, 24.03, 30.37, 24.03, 31.31, 3], [0, 18.94, 27.25, 2, 18.94, 28.19, 18.18, 28.95, 17.24, 28.95, 2, 16.3, 28.95, 15.54, 28.19, 15.54, 27.25, 2, 15.54, 26.32, 16.3, 25.55, 17.24, 25.55, 2, 18.18, 25.55, 18.94, 26.32, 18.94, 27.25, 3], [0, 18.94, 20.75, 2, 18.94, 21.68, 18.18, 22.45, 17.24, 22.45, 2, 16.3, 22.45, 15.54, 21.68, 15.54, 20.75, 2, 15.54, 19.81, 16.3, 19.05, 17.24, 19.05, 2, 18.18, 19.05, 18.94, 19.81, 18.94, 20.75, 3], [0, 24.03, 16.69, 2, 24.03, 17.63, 23.27, 18.39, 22.33, 18.39, 2, 21.39, 18.39, 20.63, 17.63, 20.63, 16.69, 2, 20.63, 15.75, 21.39, 14.99, 22.33, 14.99, 2, 23.27, 14.99, 24.03, 15.75, 24.03, 16.69, 3], [0, 30.38, 18.14, 2, 30.38, 19.08, 29.62, 19.84, 28.68, 19.84, 2, 27.74, 19.84, 26.98, 19.08, 26.98, 18.14, 2, 26.98, 17.2, 27.74, 16.44, 28.68, 16.44, 2, 29.62, 16.44, 30.38, 17.2, 30.38, 18.14, 3], [0, 25.7, 24, 2, 25.7, 24.94, 24.94, 25.7, 24, 25.7, 2, 23.06, 25.7, 22.3, 24.94, 22.3, 24, 2, 22.3, 23.06, 23.06, 22.3, 24, 22.3, 2, 24.94, 22.3, 25.7, 23.06, 25.7, 24, 3]]),
+        // jenipapo
+        Glyph(bodies: [[0, 35.07, 24.76, 2, 37.36, 33.3, 33.81, 41.67, 27.14, 43.45, 2, 20.47, 45.24, 13.21, 39.77, 10.93, 31.24, 2, 8.64, 22.7, 12.19, 14.33, 18.86, 12.55, 2, 25.53, 10.76, 32.79, 16.23, 35.07, 24.76, 3]], lines: [[0, 27, 12.5, 1, 30, 5], [0, 30, 6, 2, 31.1, 1.9, 34.56, -0.1, 38.66, 1, 2, 37.56, 5.1, 34.1, 7.1, 30, 6, 3, 0, 31.73, 5, 1, 36.5, 2.25], [0, 19.8, 42, 2, 19.8, 42.99, 18.99, 43.8, 18, 43.8, 2, 17.01, 43.8, 16.2, 42.99, 16.2, 42, 2, 16.2, 41.01, 17.01, 40.2, 18, 40.2, 2, 18.99, 40.2, 19.8, 41.01, 19.8, 42, 3]], dots: [[0, 20.3, 24, 2, 20.3, 24.72, 19.72, 25.3, 19, 25.3, 2, 18.28, 25.3, 17.7, 24.72, 17.7, 24, 2, 17.7, 23.28, 18.28, 22.7, 19, 22.7, 2, 19.72, 22.7, 20.3, 23.28, 20.3, 24, 3], [0, 26.3, 22, 2, 26.3, 22.72, 25.72, 23.3, 25, 23.3, 2, 24.28, 23.3, 23.7, 22.72, 23.7, 22, 2, 23.7, 21.28, 24.28, 20.7, 25, 20.7, 2, 25.72, 20.7, 26.3, 21.28, 26.3, 22, 3], [0, 28.3, 30, 2, 28.3, 30.72, 27.72, 31.3, 27, 31.3, 2, 26.28, 31.3, 25.7, 30.72, 25.7, 30, 2, 25.7, 29.28, 26.28, 28.7, 27, 28.7, 2, 27.72, 28.7, 28.3, 29.28, 28.3, 30, 3], [0, 21.3, 32, 2, 21.3, 32.72, 20.72, 33.3, 20, 33.3, 2, 19.28, 33.3, 18.7, 32.72, 18.7, 32, 2, 18.7, 31.28, 19.28, 30.7, 20, 30.7, 2, 20.72, 30.7, 21.3, 31.28, 21.3, 32, 3], [0, 25.3, 37, 2, 25.3, 37.72, 24.72, 38.3, 24, 38.3, 2, 23.28, 38.3, 22.7, 37.72, 22.7, 37, 2, 22.7, 36.28, 23.28, 35.7, 24, 35.7, 2, 24.72, 35.7, 25.3, 36.28, 25.3, 37, 3]]),
+        // jabuticaba
+        Glyph(bodies: [[0, 23, 24, 2, 23, 27.31, 20.31, 30, 17, 30, 2, 13.69, 30, 11, 27.31, 11, 24, 2, 11, 20.69, 13.69, 18, 17, 18, 2, 20.31, 18, 23, 20.69, 23, 24, 3], [0, 35, 32, 2, 35, 35.31, 32.31, 38, 29, 38, 2, 25.69, 38, 23, 35.31, 23, 32, 2, 23, 28.69, 25.69, 26, 29, 26, 2, 32.31, 26, 35, 28.69, 35, 32, 3], [0, 38, 15, 2, 38, 18.31, 35.31, 21, 32, 21, 2, 28.69, 21, 26, 18.31, 26, 15, 2, 26, 11.69, 28.69, 9, 32, 9, 2, 35.31, 9, 38, 11.69, 38, 15, 3]], lines: [[0, 5, 42, 2, 15, 33, 27, 22, 43, 7], [0, 13.4, 24, 2, 13.4, 22.01, 15.01, 20.4, 17, 20.4], [0, 25.4, 32, 2, 25.4, 30.01, 27.01, 28.4, 29, 28.4], [0, 28.4, 15, 2, 28.4, 13.01, 30.01, 11.4, 32, 11.4]], dots: []),
+        // caju
+        Glyph(bodies: [[0, 15, 9, 2, 19, 6, 29, 6, 33, 9, 2, 35, 17, 35, 25, 31, 29, 2, 28, 32, 20, 32, 17, 29, 2, 13, 25, 13, 17, 15, 9, 3]], lines: [[0, 19, 32, 2, 15, 37, 18, 44, 24, 44, 2, 30, 44, 32, 39, 29, 36, 2, 27, 34, 25, 37, 23.5, 35.5, 2, 22.5, 34, 21, 32, 19, 32], [0, 19, 14, 2, 18.33, 18, 18.5, 21.33, 19.5, 24], [0, 24, 7, 1, 24, 3]], dots: []),
+        // banana
+        Glyph(bodies: [[0, 8, 12, 2, 9, 30, 24, 42, 42, 36, 2, 40, 33, 37, 33, 35, 34, 2, 22, 36, 14, 27, 12, 12, 2, 11.5, 10, 8.5, 10, 8, 12, 3]], lines: [[0, 8, 12, 1, 7.5, 8], [0, 13, 20, 2, 16, 28, 23, 32, 31, 33]], dots: []),
+        // abacaxi
+        Glyph(bodies: [[0, 35, 32, 2, 35, 39.46, 30.08, 45.5, 24, 45.5, 2, 17.92, 45.5, 13, 39.46, 13, 32, 2, 13, 24.54, 17.92, 18.5, 24, 18.5, 2, 30.08, 18.5, 35, 24.54, 35, 32, 3]], lines: [[0, 17, 26, 1, 21, 30, 1, 25, 26, 1, 29, 30, 0, 15, 33, 1, 19, 37, 1, 23, 33, 1, 27, 37, 1, 31, 33, 0, 19, 40, 1, 23, 44, 0, 29, 40, 1, 25, 44], [0, 24, 18.5, 1, 24, 5, 0, 24, 18.5, 1, 17, 8, 0, 24, 18.5, 1, 31, 8, 0, 24, 18.5, 1, 13, 14, 0, 24, 18.5, 1, 35, 14]], dots: []),
+        // melancia
+        Glyph(bodies: [[0, 6, 16, 2, 6, 25.94, 14.06, 34, 24, 34, 2, 33.94, 34, 42, 25.94, 42, 16, 3]], lines: [[0, 10.5, 16, 2, 10.5, 23.46, 16.54, 29.5, 24, 29.5, 2, 31.46, 29.5, 37.5, 23.46, 37.5, 16]], dots: [[0, 19.5, 21, 2, 19.5, 21.83, 18.83, 22.5, 18, 22.5, 2, 17.17, 22.5, 16.5, 21.83, 16.5, 21, 2, 16.5, 20.17, 17.17, 19.5, 18, 19.5, 2, 18.83, 19.5, 19.5, 20.17, 19.5, 21, 3], [0, 25.5, 24, 2, 25.5, 24.83, 24.83, 25.5, 24, 25.5, 2, 23.17, 25.5, 22.5, 24.83, 22.5, 24, 2, 22.5, 23.17, 23.17, 22.5, 24, 22.5, 2, 24.83, 22.5, 25.5, 23.17, 25.5, 24, 3], [0, 31.5, 21, 2, 31.5, 21.83, 30.83, 22.5, 30, 22.5, 2, 29.17, 22.5, 28.5, 21.83, 28.5, 21, 2, 28.5, 20.17, 29.17, 19.5, 30, 19.5, 2, 30.83, 19.5, 31.5, 20.17, 31.5, 21, 3], [0, 22.5, 28, 2, 22.5, 28.83, 21.83, 29.5, 21, 29.5, 2, 20.17, 29.5, 19.5, 28.83, 19.5, 28, 2, 19.5, 27.17, 20.17, 26.5, 21, 26.5, 2, 21.83, 26.5, 22.5, 27.17, 22.5, 28, 3], [0, 28.5, 28, 2, 28.5, 28.83, 27.83, 29.5, 27, 29.5, 2, 26.17, 29.5, 25.5, 28.83, 25.5, 28, 2, 25.5, 27.17, 26.17, 26.5, 27, 26.5, 2, 27.83, 26.5, 28.5, 27.17, 28.5, 28, 3]]),
+        // coco
+        Glyph(bodies: [[0, 41, 26, 2, 41, 35.39, 33.39, 43, 24, 43, 2, 14.61, 43, 7, 35.39, 7, 26, 2, 7, 16.61, 14.61, 9, 24, 9, 2, 33.39, 9, 41, 16.61, 41, 26, 3]], lines: [[0, 12, 34, 2, 14.67, 36.67, 18, 38.33, 22, 39]], dots: [[0, 22, 18, 2, 22, 19.1, 21.1, 20, 20, 20, 2, 18.9, 20, 18, 19.1, 18, 18, 2, 18, 16.9, 18.9, 16, 20, 16, 2, 21.1, 16, 22, 16.9, 22, 18, 3], [0, 30, 18, 2, 30, 19.1, 29.1, 20, 28, 20, 2, 26.9, 20, 26, 19.1, 26, 18, 2, 26, 16.9, 26.9, 16, 28, 16, 2, 29.1, 16, 30, 16.9, 30, 18, 3], [0, 26, 24, 2, 26, 25.1, 25.1, 26, 24, 26, 2, 22.9, 26, 22, 25.1, 22, 24, 2, 22, 22.9, 22.9, 22, 24, 22, 2, 25.1, 22, 26, 22.9, 26, 24, 3]]),
+        // limao
+        Glyph(bodies: [[0, 42, 24, 2, 42, 33.94, 33.94, 42, 24, 42, 2, 14.06, 42, 6, 33.94, 6, 24, 2, 6, 14.06, 14.06, 6, 24, 6, 2, 33.94, 6, 42, 14.06, 42, 24, 3]], lines: [[0, 38.5, 24, 2, 38.5, 32.01, 32.01, 38.5, 24, 38.5, 2, 15.99, 38.5, 9.5, 32.01, 9.5, 24, 2, 9.5, 15.99, 15.99, 9.5, 24, 9.5, 2, 32.01, 9.5, 38.5, 15.99, 38.5, 24, 3], [0, 26.5, 24, 1, 36, 24, 0, 25.77, 25.77, 1, 32.49, 32.49, 0, 24, 26.5, 1, 24, 36, 0, 22.23, 25.77, 1, 15.51, 32.49, 0, 21.5, 24, 1, 12, 24, 0, 22.23, 22.23, 1, 15.51, 15.51, 0, 24, 21.5, 1, 24, 12, 0, 25.77, 22.23, 1, 32.49, 15.51]], dots: []),
+        // manga
+        Glyph(bodies: [[0, 14, 37, 2, 5, 29, 9, 13, 23, 11, 2, 35, 10, 42, 18, 39, 28, 2, 36, 37, 24, 43, 14, 37, 3]], lines: [[0, 23, 11, 1, 24, 5], [0, 24, 6, 2, 26.57, 1.69, 31.21, 0.45, 35.59, 2.89, 2, 33.02, 7.21, 28.38, 8.45, 24, 6, 3, 0, 26.32, 5.38, 1, 32.69, 3.67], [0, 15, 30, 2, 15.67, 24.67, 18, 21, 22, 19]], dots: []),
+        // carambola
+        Glyph(bodies: [[0, 24, 5, 1, 29.88, 15.91, 1, 42.07, 18.13, 1, 33.51, 27.09, 1, 35.17, 39.37, 1, 24, 34, 1, 12.83, 39.37, 1, 14.49, 27.09, 1, 5.93, 18.13, 1, 18.12, 15.91, 3]], lines: [[0, 24, 15, 1, 26.94, 19.95, 1, 32.56, 21.22, 1, 28.76, 25.55, 1, 29.29, 31.28, 1, 24, 29, 1, 18.71, 31.28, 1, 19.24, 25.55, 1, 15.44, 21.22, 1, 21.06, 19.95, 3]], dots: [[0, 25.3, 24, 2, 25.3, 24.72, 24.72, 25.3, 24, 25.3, 2, 23.28, 25.3, 22.7, 24.72, 22.7, 24, 2, 22.7, 23.28, 23.28, 22.7, 24, 22.7, 2, 24.72, 22.7, 25.3, 23.28, 25.3, 24, 3]]),
+        // cacau
+        Glyph(bodies: [[0, 32.48, 29.3, 2, 26.63, 38.67, 18.09, 43.89, 13.4, 40.96, 2, 8.72, 38.03, 9.67, 28.07, 15.52, 18.7, 2, 21.37, 9.33, 29.91, 4.11, 34.6, 7.04, 2, 39.28, 9.97, 38.33, 19.93, 32.48, 29.3, 3]], lines: [[0, 34.33, 7.46, 1, 13.67, 40.54, 0, 27.66, 6.83, 2, 20.13, 15.1, 14.3, 24.42, 10.17, 34.81, 0, 37.83, 13.19, 2, 33.7, 23.58, 27.87, 32.9, 20.34, 41.17]], dots: []),
+        // folha
+        Glyph(bodies: [[0, 7, 38, 2, 9.76, 22.63, 22.02, 12.34, 37.64, 12.29, 2, 34.88, 27.66, 22.62, 37.95, 7, 38, 3, 0, 13.13, 32.86, 1, 29.98, 18.72]], lines: [[0, 17, 31, 1, 19, 23, 0, 25, 26, 1, 28, 18, 0, 32, 20, 1, 35, 14]], dots: []),
+        // ponto
+        Glyph(bodies: [], lines: [], dots: [[0, 29, 24, 2, 29, 26.76, 26.76, 29, 24, 29, 2, 21.24, 29, 19, 26.76, 19, 24, 2, 19, 21.24, 21.24, 19, 24, 19, 2, 26.76, 19, 29, 21.24, 29, 24, 3]]),
+        // anel
+        Glyph(bodies: [], lines: [[0, 32, 24, 2, 32, 28.42, 28.42, 32, 24, 32, 2, 19.58, 32, 16, 28.42, 16, 24, 2, 16, 19.58, 19.58, 16, 24, 16, 2, 28.42, 16, 32, 19.58, 32, 24, 3]], dots: []),
+        // semente
+        Glyph(bodies: [], lines: [], dots: [[0, 27.9, 26.25, 2, 25.96, 29.6, 22.65, 31.3, 20.5, 30.06, 2, 18.35, 28.82, 18.17, 25.1, 20.1, 21.75, 2, 22.04, 18.4, 25.35, 16.7, 27.5, 17.94, 2, 29.65, 19.18, 29.83, 22.9, 27.9, 26.25, 3]]),
+        // brilho
+        Glyph(bodies: [], lines: [[0, 24, 10, 2, 25.33, 18, 30, 22.67, 38, 24, 2, 30, 25.33, 25.33, 30, 24, 38, 2, 22.67, 30, 18, 25.33, 10, 24, 2, 18, 22.67, 22.67, 18, 24, 10, 3]], dots: []),
+        // folhinha
+        Glyph(bodies: [], lines: [[0, 8, 32, 2, 10.7, 19.12, 21.19, 11.78, 34.21, 13.65, 2, 31.51, 26.52, 21.03, 33.87, 8, 32, 3, 0, 13.24, 28.33, 1, 27.66, 18.23]], dots: []),
+        // trio
+        Glyph(bodies: [], lines: [], dots: [[0, 15, 24, 2, 15, 25.66, 13.66, 27, 12, 27, 2, 10.34, 27, 9, 25.66, 9, 24, 2, 9, 22.34, 10.34, 21, 12, 21, 2, 13.66, 21, 15, 22.34, 15, 24, 3], [0, 27, 24, 2, 27, 25.66, 25.66, 27, 24, 27, 2, 22.34, 27, 21, 25.66, 21, 24, 2, 21, 22.34, 22.34, 21, 24, 21, 2, 25.66, 21, 27, 22.34, 27, 24, 3], [0, 39, 24, 2, 39, 25.66, 37.66, 27, 36, 27, 2, 34.34, 27, 33, 25.66, 33, 24, 2, 33, 22.34, 34.34, 21, 36, 21, 2, 37.66, 21, 39, 22.34, 39, 24, 3]]),
+        // gota
+        Glyph(bodies: [], lines: [[0, 24, 8, 2, 30, 18, 34, 24, 34, 30, 2, 34, 35.52, 29.52, 40, 24, 40, 2, 18.48, 40, 14, 35.52, 14, 30, 2, 14, 24, 18, 18, 24, 8, 3]], dots: []),
+    ]
+
+    public static let placements: [Placement] = [
+        Placement(glyph: 0, x: 140.76, y: 256.67, size: 67.18, rotation: -18.33, mirror: false),
+        Placement(glyph: 15, x: 421.33, y: 91.58, size: 65.52, rotation: -32.07, mirror: true),
+        Placement(glyph: 13, x: 262.99, y: 365.7, size: 66.12, rotation: -38.29, mirror: false),
+        Placement(glyph: 9, x: -16.32, y: 299.7, size: 69.74, rotation: 37.91, mirror: false),
+        Placement(glyph: 9, x: 463.68, y: 299.7, size: 69.74, rotation: 37.91, mirror: false),
+        Placement(glyph: 6, x: 83.97, y: 171.35, size: 41.77, rotation: -6.72, mirror: true),
+        Placement(glyph: 4, x: 368.65, y: 177.11, size: 42.21, rotation: -6.6, mirror: true),
+        Placement(glyph: 10, x: 337.57, y: 330.38, size: 50.11, rotation: -15.24, mirror: true),
+        Placement(glyph: 2, x: 63.98, y: 438.26, size: 42.68, rotation: -15.98, mirror: true),
+        Placement(glyph: 12, x: 161.65, y: 20.94, size: 47.22, rotation: 16.58, mirror: false),
+        Placement(glyph: 12, x: 161.65, y: 500.94, size: 47.22, rotation: 16.58, mirror: false),
+        Placement(glyph: 5, x: 396.76, y: 314.52, size: 46.44, rotation: 37.79, mirror: true),
+        Placement(glyph: 1, x: 311.6, y: 427.71, size: 46.28, rotation: 41.44, mirror: false),
+        Placement(glyph: 14, x: -17.34, y: -15.6, size: 46.87, rotation: 4.37, mirror: false),
+        Placement(glyph: 14, x: -17.34, y: 464.4, size: 46.87, rotation: 4.37, mirror: false),
+        Placement(glyph: 14, x: 462.66, y: -15.6, size: 46.87, rotation: 4.37, mirror: false),
+        Placement(glyph: 14, x: 462.66, y: 464.4, size: 46.87, rotation: 4.37, mirror: false),
+        Placement(glyph: 3, x: 247.72, y: 157.47, size: 41.45, rotation: 20.18, mirror: false),
+        Placement(glyph: 11, x: 113.68, y: 4.47, size: 48.35, rotation: -42.83, mirror: false),
+        Placement(glyph: 11, x: 113.68, y: 484.47, size: 48.35, rotation: -42.83, mirror: false),
+        Placement(glyph: 7, x: 302.69, y: 6.91, size: 49.07, rotation: 10.7, mirror: false),
+        Placement(glyph: 7, x: 302.69, y: 486.91, size: 49.07, rotation: 10.7, mirror: false),
+        Placement(glyph: 8, x: -2.47, y: 133.44, size: 48, rotation: 43.76, mirror: false),
+        Placement(glyph: 8, x: 477.53, y: 133.44, size: 48, rotation: 43.76, mirror: false),
+        Placement(glyph: 12, x: 353.5, y: -21.41, size: 47.01, rotation: -0.97, mirror: true),
+        Placement(glyph: 12, x: 353.5, y: 458.59, size: 47.01, rotation: -0.97, mirror: true),
+        Placement(glyph: 9, x: 381.93, y: 409.88, size: 46.77, rotation: -27.91, mirror: false),
+        Placement(glyph: 11, x: 252.31, y: 86.5, size: 45.79, rotation: -22.44, mirror: true),
+        Placement(glyph: 1, x: 176.76, y: 172.81, size: 45.79, rotation: 26.24, mirror: false),
+        Placement(glyph: 13, x: 197.84, y: 270.07, size: 48.76, rotation: -18.66, mirror: false),
+        Placement(glyph: 5, x: 171.32, y: 441.76, size: 48.54, rotation: -22.38, mirror: true),
+        Placement(glyph: 10, x: -6.7, y: 403.68, size: 45.79, rotation: -0.39, mirror: true),
+        Placement(glyph: 10, x: 473.3, y: 403.68, size: 45.79, rotation: -0.39, mirror: true),
+        Placement(glyph: 15, x: 315.54, y: 77.94, size: 47.82, rotation: 17.4, mirror: true),
+        Placement(glyph: 3, x: 298.32, y: 285.21, size: 47.01, rotation: -20.53, mirror: false),
+        Placement(glyph: 8, x: 67.11, y: 346.82, size: 45.84, rotation: -3.25, mirror: false),
+        Placement(glyph: 4, x: 73.58, y: 48.84, size: 46.47, rotation: -19.18, mirror: false),
+        Placement(glyph: 14, x: 254.45, y: 435.82, size: 45.01, rotation: -19.91, mirror: true),
+        Placement(glyph: 2, x: 1.28, y: 80.39, size: 49.92, rotation: 22.74, mirror: true),
+        Placement(glyph: 2, x: 481.28, y: 80.39, size: 49.92, rotation: 22.74, mirror: true),
+        Placement(glyph: 6, x: 282.87, y: 125.84, size: 42.16, rotation: 26.45, mirror: false),
+        Placement(glyph: 7, x: 214.4, y: -9.84, size: 41.93, rotation: -37.59, mirror: true),
+        Placement(glyph: 7, x: 214.4, y: 470.16, size: 41.93, rotation: -37.59, mirror: true),
+        Placement(glyph: 0, x: 51.05, y: 231.69, size: 44.91, rotation: -5.66, mirror: false),
+        Placement(glyph: 2, x: 248.61, y: 33.98, size: 50.49, rotation: 1.44, mirror: true),
+        Placement(glyph: 11, x: 81.82, y: 114.66, size: 48.57, rotation: -26.58, mirror: false),
+        Placement(glyph: 4, x: 442.12, y: 232.19, size: 41.68, rotation: 6.81, mirror: false),
+        Placement(glyph: 8, x: 405.69, y: 33.48, size: 42.97, rotation: 6.32, mirror: true),
+        Placement(glyph: 9, x: 166.84, y: 380.78, size: 41.91, rotation: 29.13, mirror: false),
+        Placement(glyph: 0, x: 330.26, y: 148.16, size: 48.52, rotation: -8.7, mirror: false),
+        Placement(glyph: 1, x: 204.73, y: 341.37, size: 44.41, rotation: -23.26, mirror: false),
+        Placement(glyph: 6, x: 262.47, y: 217.65, size: 46.18, rotation: 15.48, mirror: false),
+        Placement(glyph: 7, x: 358.63, y: 248.96, size: 48.22, rotation: 29.23, mirror: true),
+        Placement(glyph: 14, x: 157.06, y: 336.26, size: 43.08, rotation: 13.13, mirror: true),
+        Placement(glyph: 5, x: 30.52, y: 191.37, size: 42.39, rotation: -24.74, mirror: false),
+        Placement(glyph: 3, x: 21.05, y: 24.08, size: 42.9, rotation: -8.8, mirror: true),
+        Placement(glyph: 3, x: 21.05, y: 504.08, size: 42.9, rotation: -8.8, mirror: true),
+        Placement(glyph: 3, x: 501.05, y: 24.08, size: 42.9, rotation: -8.8, mirror: true),
+        Placement(glyph: 3, x: 501.05, y: 504.08, size: 42.9, rotation: -8.8, mirror: true),
+        Placement(glyph: 12, x: 88.69, y: 282.35, size: 47.63, rotation: -24.73, mirror: true),
+        Placement(glyph: 10, x: 116.35, y: 388.38, size: 45.4, rotation: -31.99, mirror: true),
+        Placement(glyph: 15, x: 138.5, y: 89.09, size: 48.68, rotation: 40.37, mirror: false),
+        Placement(glyph: 13, x: 237.64, y: 297.84, size: 44.8, rotation: 30.02, mirror: true),
+        Placement(glyph: 0, x: 206.59, y: 115.18, size: 43.79, rotation: 39.1, mirror: false),
+        Placement(glyph: 3, x: 323.99, y: 203.73, size: 44.66, rotation: 31.48, mirror: true),
+        Placement(glyph: 12, x: 419.43, y: 151.27, size: 48.47, rotation: 23.34, mirror: false),
+        Placement(glyph: 10, x: 206.78, y: 211.42, size: 47.5, rotation: -27.21, mirror: false),
+        Placement(glyph: 11, x: 364.67, y: 76.76, size: 47.32, rotation: -9.78, mirror: true),
+        Placement(glyph: 8, x: 400.68, y: -21.53, size: 43.83, rotation: -18.91, mirror: false),
+        Placement(glyph: 8, x: 400.68, y: 458.47, size: 43.83, rotation: -18.91, mirror: false),
+        Placement(glyph: 4, x: 444.1, y: 356.62, size: 46.59, rotation: -5.88, mirror: true),
+        Placement(glyph: 2, x: 374.11, y: 123.28, size: 43.38, rotation: -41.79, mirror: false),
+        Placement(glyph: 13, x: 129.9, y: 176.68, size: 45.46, rotation: -14.46, mirror: true),
+        Placement(glyph: 15, x: 19.23, y: 357.83, size: 44.24, rotation: 34.03, mirror: true),
+        Placement(glyph: 15, x: 499.23, y: 357.83, size: 44.24, rotation: 34.03, mirror: true),
+        Placement(glyph: 7, x: 344.2, y: 31.76, size: 41.79, rotation: 40.66, mirror: true),
+        Placement(glyph: 6, x: 199.17, y: 66.28, size: 47.52, rotation: -7.28, mirror: true),
+        Placement(glyph: 9, x: 448.95, y: 189.5, size: 41.42, rotation: -2.92, mirror: false),
+        Placement(glyph: 5, x: 336.97, y: 384.44, size: 48.12, rotation: 5.58, mirror: false),
+        Placement(glyph: 14, x: 208.92, y: 406.63, size: 45.56, rotation: 28.41, mirror: true),
+        Placement(glyph: 8, x: 43.04, y: 305.9, size: 46.3, rotation: 15.35, mirror: false),
+        Placement(glyph: 13, x: 122.92, y: 442.42, size: 26.74, rotation: 3.51, mirror: false),
+        Placement(glyph: 14, x: 155.84, y: 140.1, size: 27.25, rotation: -23.15, mirror: false),
+        Placement(glyph: 15, x: 123.05, y: 307.05, size: 29.78, rotation: 9.78, mirror: true),
+        Placement(glyph: 5, x: 38.47, y: 65.54, size: 26.22, rotation: 35.08, mirror: false),
+        Placement(glyph: 0, x: 24.07, y: 261.88, size: 29.69, rotation: -34.2, mirror: false),
+        Placement(glyph: 3, x: 129.43, y: 45.77, size: 26.14, rotation: 36.17, mirror: false),
+        Placement(glyph: 12, x: 399.8, y: 236.74, size: 29.32, rotation: -27.41, mirror: false),
+        Placement(glyph: 7, x: 292.53, y: 246.77, size: 25.87, rotation: 14.64, mirror: true),
+        Placement(glyph: 6, x: 393.67, y: 368.14, size: 27.73, rotation: -6.3, mirror: true),
+        Placement(glyph: 10, x: 47.75, y: 142.92, size: 26.08, rotation: 5.81, mirror: false),
+        Placement(glyph: 11, x: 25.91, y: 457.09, size: 31.03, rotation: -9.1, mirror: false),
+        Placement(glyph: 12, x: 423.68, y: 266.35, size: 29.84, rotation: -30.23, mirror: false),
+        Placement(glyph: 8, x: 104.4, y: 207.84, size: 27.77, rotation: 42.33, mirror: true),
+        Placement(glyph: 5, x: 379.97, y: 212.68, size: 26.13, rotation: 21.89, mirror: true),
+        Placement(glyph: 2, x: 432.52, y: 430.21, size: 29.89, rotation: 26.79, mirror: true),
+        Placement(glyph: 10, x: 0.11, y: 239.21, size: 29.94, rotation: 37.59, mirror: true),
+        Placement(glyph: 10, x: 480.11, y: 239.21, size: 29.94, rotation: 37.59, mirror: true),
+        Placement(glyph: 3, x: 454.61, y: 37.04, size: 28.45, rotation: -38.54, mirror: true),
+        Placement(glyph: 6, x: 112.44, y: 344.88, size: 27.74, rotation: -12.81, mirror: false),
+        Placement(glyph: 1, x: 40.75, y: 389.73, size: 26.66, rotation: -32.71, mirror: true),
+        Placement(glyph: 13, x: 289.31, y: 167.42, size: 30.54, rotation: -17.14, mirror: false),
+        Placement(glyph: 9, x: 362.43, y: 293.03, size: 26.11, rotation: 30.28, mirror: true),
+        Placement(glyph: 14, x: 76.34, y: 389.75, size: 29.04, rotation: -38.98, mirror: true),
+        Placement(glyph: 11, x: 418.6, y: 391.02, size: 28.07, rotation: 41.83, mirror: true),
+        Placement(glyph: 7, x: 116.83, y: 138.3, size: 29.44, rotation: 41.41, mirror: false),
+        Placement(glyph: 15, x: 407.73, y: 196.74, size: 30.39, rotation: -30.82, mirror: true),
+        Placement(glyph: 4, x: 236.55, y: 255.51, size: 25.84, rotation: 14.13, mirror: true),
+        Placement(glyph: 6, x: 161.1, y: 208.68, size: 25.82, rotation: 7.64, mirror: false),
+        Placement(glyph: 9, x: 66.7, y: 8.92, size: 26.94, rotation: 20.76, mirror: true),
+        Placement(glyph: 9, x: 66.7, y: 488.92, size: 26.94, rotation: 20.76, mirror: true),
+        Placement(glyph: 5, x: 42.3, y: 101.08, size: 26.37, rotation: -33.22, mirror: false),
+        Placement(glyph: 22, x: 241.73, y: 189.93, size: 15.37, rotation: -5.23, mirror: false),
+        Placement(glyph: 22, x: 92.01, y: 324.75, size: 13.57, rotation: 14.62, mirror: false),
+        Placement(glyph: 22, x: 286.62, y: 46.85, size: 11.62, rotation: 41.65, mirror: false),
+        Placement(glyph: 21, x: 274.65, y: 309.66, size: 9.93, rotation: 27.5, mirror: true),
+        Placement(glyph: 17, x: 91.31, y: 368.75, size: 10.97, rotation: 24.56, mirror: true),
+        Placement(glyph: 21, x: 54.51, y: 273.72, size: 14.53, rotation: -30.85, mirror: true),
+        Placement(glyph: 17, x: 267.8, y: 250.39, size: 14.63, rotation: -15.24, mirror: false),
+        Placement(glyph: 19, x: 135.09, y: 418.49, size: 16.6, rotation: 26.29, mirror: true),
+        Placement(glyph: 18, x: 17.38, y: 160.36, size: 11.89, rotation: 11.93, mirror: false),
+        Placement(glyph: 17, x: 342.31, y: 417.56, size: 11.25, rotation: 0.12, mirror: true),
+        Placement(glyph: 21, x: 140.11, y: 363.79, size: 13.59, rotation: 22.31, mirror: true),
+        Placement(glyph: 16, x: 208.89, y: 308.1, size: 10.19, rotation: 41.82, mirror: false),
+        Placement(glyph: 21, x: 432.15, y: -5.2, size: 11.96, rotation: -33.47, mirror: true),
+        Placement(glyph: 21, x: 432.15, y: 474.8, size: 11.96, rotation: -33.47, mirror: true),
+        Placement(glyph: 17, x: 344.38, y: 102.34, size: 11.91, rotation: 7.04, mirror: true),
+        Placement(glyph: 21, x: 202.58, y: 147.64, size: 14, rotation: 20.62, mirror: false),
+        Placement(glyph: 17, x: 93.56, y: 240.62, size: 10.87, rotation: 10.13, mirror: true),
+        Placement(glyph: 20, x: 316.9, y: 45.05, size: 10.3, rotation: 5.02, mirror: true),
+        Placement(glyph: 19, x: 206.21, y: 442.3, size: 9.38, rotation: 7.9, mirror: true),
+        Placement(glyph: 20, x: 183.07, y: -5.68, size: 11.69, rotation: -26.83, mirror: true),
+        Placement(glyph: 20, x: 183.07, y: 474.32, size: 11.69, rotation: -26.83, mirror: true),
+        Placement(glyph: 19, x: 266.64, y: 470.21, size: 12.99, rotation: -8.39, mirror: false),
+        Placement(glyph: 19, x: 260.17, y: 267.7, size: 10.49, rotation: -39.77, mirror: false),
+        Placement(glyph: 16, x: 275.97, y: 413.78, size: 10.73, rotation: -9.73, mirror: true),
+        Placement(glyph: 16, x: 94.97, y: 450.3, size: 14.95, rotation: -8.05, mirror: false),
+        Placement(glyph: 20, x: 332.65, y: 287.26, size: 16.65, rotation: 13.17, mirror: false),
+        Placement(glyph: 18, x: 17.36, y: 220.05, size: 13.45, rotation: -7.37, mirror: true),
+        Placement(glyph: 18, x: 0.89, y: 175.87, size: 11.88, rotation: -29.74, mirror: false),
+        Placement(glyph: 18, x: 480.89, y: 175.87, size: 11.88, rotation: -29.74, mirror: false),
+        Placement(glyph: 21, x: 67.66, y: 205.57, size: 10.65, rotation: 37.89, mirror: false),
+        Placement(glyph: 17, x: 243.44, y: 120.98, size: 12.24, rotation: -0.53, mirror: false),
+        Placement(glyph: 19, x: 313.44, y: 118.08, size: 9.18, rotation: 35.75, mirror: true),
+        Placement(glyph: 21, x: 166.51, y: 302.17, size: 15.76, rotation: 40.22, mirror: false),
+        Placement(glyph: 20, x: 362.82, y: 354.95, size: 9.45, rotation: -11.73, mirror: true),
+        Placement(glyph: 20, x: 387.69, y: 273.86, size: 13.94, rotation: -14.29, mirror: true),
+        Placement(glyph: 17, x: 91.48, y: 410.83, size: 16.39, rotation: 44.01, mirror: true),
+        Placement(glyph: 21, x: 139.29, y: 123.62, size: 12.17, rotation: -35.7, mirror: false),
+        Placement(glyph: 16, x: 437.6, y: 19.38, size: 11.78, rotation: -24.04, mirror: true),
+        Placement(glyph: 22, x: 170.66, y: 110.41, size: 13.45, rotation: -21.51, mirror: true),
+        Placement(glyph: 20, x: 178.63, y: 236.11, size: 9.19, rotation: 27.9, mirror: false),
+        Placement(glyph: 21, x: 215.51, y: 169.81, size: 16.5, rotation: -4.54, mirror: false),
+        Placement(glyph: 22, x: 469.62, y: 213.7, size: 16.6, rotation: 11.09, mirror: false),
+        Placement(glyph: 17, x: 179.4, y: 131.65, size: 9.71, rotation: 16.74, mirror: true),
+        Placement(glyph: 19, x: 146.4, y: 467.2, size: 14.27, rotation: -25.74, mirror: true),
+        Placement(glyph: 20, x: 324.3, y: 257.94, size: 10.83, rotation: -1.97, mirror: false),
+        Placement(glyph: 17, x: 294.89, y: 322.07, size: 9.74, rotation: 13.31, mirror: true),
+        Placement(glyph: 17, x: 39.86, y: 415.14, size: 9.36, rotation: 29.82, mirror: false),
+        Placement(glyph: 21, x: 101.6, y: 86.1, size: 12.32, rotation: 27.11, mirror: true),
+        Placement(glyph: 18, x: 381.67, y: 12.09, size: 9.83, rotation: 43.72, mirror: false),
+        Placement(glyph: 19, x: 26.17, y: 410.2, size: 10.11, rotation: -22.94, mirror: false),
+        Placement(glyph: 17, x: 303.88, y: 395.05, size: 11.56, rotation: 25.61, mirror: false),
+        Placement(glyph: 21, x: 165.79, y: 59.34, size: 9.78, rotation: -44.36, mirror: true),
+        Placement(glyph: 18, x: 113.08, y: 419.8, size: 10.28, rotation: 17.11, mirror: false),
+        Placement(glyph: 18, x: 197.58, y: 18.32, size: 12.36, rotation: 32.6, mirror: true),
+        Placement(glyph: 17, x: 237.35, y: 328.7, size: 10.73, rotation: 19.69, mirror: true),
+        Placement(glyph: 18, x: 324.6, y: 240.03, size: 14.32, rotation: 13.56, mirror: false),
+        Placement(glyph: 22, x: 266, y: 183.35, size: 9.25, rotation: -25.76, mirror: true),
+        Placement(glyph: 18, x: 466.4, y: 257.91, size: 9.16, rotation: -1.61, mirror: true),
+        Placement(glyph: 18, x: 312.1, y: 360.08, size: 11.07, rotation: 26.52, mirror: false),
+    ]
 }

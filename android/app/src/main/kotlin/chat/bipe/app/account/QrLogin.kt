@@ -28,7 +28,7 @@ object QrLogin {
         val paths = AccountSession.storePaths(context, FOLDER)
         val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "0"
         return AccountStep.run("build client") {
-            AccountSession.builder(paths, sessionStore)
+            AccountSession.builder(context, paths, sessionStore)
                 .serverNameOrHomeserverUrl(serverName ?: AppConfig.HOMESERVER)
                 // The MAS consent page on the old phone shows the user agent: it names the phone model (ADR 0059).
                 .userAgent("Bipe/$version ($model; Android ${Build.VERSION.RELEASE})")

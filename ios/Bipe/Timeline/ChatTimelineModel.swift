@@ -55,6 +55,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var senderName: String
     /// Spec timeline-rows nameAmbiguous: another member of the room shows the same name (bipe-chat/bipe#825).
     var senderNameAmbiguous = false
+    /// Spec chat-timeline senderRole: admin or moderator, groups only.
+    var senderRole: GroupRole? = nil
     var isOwn: Bool
     var sentAt: Date
     var sendState: SendState
@@ -77,6 +79,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var richText: BipeMessageText? = nil
     /// Spec chat-timeline notes (ADR 0210): bipe_app_assistant_sent_label when the sender's assistant sent the message.
     var assistantLabel: String? = nil
+    /// Spec chat-timeline forwardCount (bipe-chat/bipe#933): the count of the forward mark, 0 without one.
+    var forwardCount = 0
 }
 
 /// Type MessageEdit of spec message-edit.
@@ -155,6 +159,8 @@ final class ChatTimelineModel: ObservableObject {
     static let historyPagesPerLoad = 5
     /// The tries of one page before the load stops: a fresh login can fail the first pages during the first sync.
     static let historyTries = 3
+    /// The pause after a failed load before the top of the list tries again.
+    static let historyRetry: Duration = .seconds(10)
     /// Spec message-reactions notes: the quick reactions, in this order.
     static let quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"]
     /// Spec message-reply openOriginal: at most 5 pages back.
@@ -166,8 +172,12 @@ final class ChatTimelineModel: ObservableObject {
 
     // chat-timeline and timeline-rows
     @Published private(set) var roomName = BipeStrings.dmNoName
+    /// The account's news room (NewsRoomMark, bipe-chat/bipe#978): the header shows the Bipe badge.
+    @Published private(set) var isNewsRoom = false
     @Published private(set) var roomAvatarUrl: String?
     @Published private(set) var peerUserId: String?
+    /// Spec chat-list notes, Group avatar: members shown when a group has no photo.
+    @Published private(set) var avatarMembers: [Person] = []
     /// Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone.
     @Published private(set) var peerAway: PeerAway = .none
     @Published private(set) var invitingAgain = false
@@ -263,8 +273,17 @@ final class ChatTimelineModel: ObservableObject {
     private var typingSentAt: Date?
     private var typingUserIds: [String] = []
     private var handleChangesTask: Task<Void, Never>?
+    private var factsTask: Task<Void, Never>?
+    /// Reads the timeline diffs. Not the view's task: SwiftUI cancels that one when the screen goes off screen for a
+    /// pushed screen or a cover, and start() runs once, so new messages would stop until the chat opened again.
+    private var diffsTask: Task<Void, Never>?
+    private var factsStale = false
+    /// Spec read-receipts: a new delivered ack for this room rebuilds the ticks.
+    private var deliveredChanges: AnyCancellable?
     private var lastReadEventId: String?
     private var noticeTask: Task<Void, Never>?
+    /// The account's @ resolver (People names), set by the view before start. nil: names fall back to the cached @.
+    var handles: BipeHandleResolver?
 
     /// Spec threads (bipe#667): the root event of the thread view; nil for the main timeline.
     let threadRoot: String?
@@ -283,6 +302,7 @@ final class ChatTimelineModel: ObservableObject {
     deinit {
         handle?.cancel()
         typingHandle?.cancel()
+        diffsTask?.cancel()
         handleChangesTask?.cancel()
         theftTask?.cancel()
     }
@@ -332,6 +352,11 @@ final class ChatTimelineModel: ObservableObject {
             inviterHint = greeting
         }
         await loadRoomFacts(room)
+        deliveredChanges = NotificationCenter.default.publisher(for: DeliveredLog.changed)
+            .compactMap { $0.userInfo?["roomId"] as? String }
+            .filter { [roomId] in $0 == roomId }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.rebuild() }
         // Action appear of spec composer: a saved newMessage draft fills the field.
         if draft.isEmpty, let saved = await room.newMessageDraft(threadRoot: threadRoot) {
             draft = saved
@@ -354,12 +379,17 @@ final class ChatTimelineModel: ObservableObject {
         let stream = TimelineDiffStream()
         handle = await timeline.addListener(listener: stream)
         Task { [weak self] in await self?.loadHistory() }
-        for await diffs in stream.updates {
-            for diff in diffs {
-                items.apply(diff.vectorDiff)
+        diffsTask = Task { [weak self] in
+            for await diffs in stream.updates {
+                guard let self else { return }
+                for diff in diffs {
+                    self.items.apply(diff.vectorDiff)
+                }
+                // The rows follow the SDK at once. The room facts can wait on the network (a DM peer's @handle,
+                // the peer's membership), so they load after and build the rows again.
+                self.rebuild()
+                self.refreshRoomFacts(room)
             }
-            await loadRoomFacts(room)
-            rebuild()
         }
     }
 
@@ -398,17 +428,42 @@ final class ChatTimelineModel: ObservableObject {
         return eventId
     }
 
+    /// Loads the room facts off the timeline update path, then builds the rows again. One load at a time;
+    /// a change during a load runs one more.
+    private func refreshRoomFacts(_ room: Room) {
+        factsStale = true
+        guard factsTask == nil else { return }
+        factsTask = Task { [weak self] in
+            while let self, self.factsStale {
+                self.factsStale = false
+                await self.loadRoomFacts(room)
+                self.rebuild()
+            }
+            self?.factsTask = nil
+        }
+    }
+
     private func loadRoomFacts(_ room: Room) async {
+        var creators: [String] = []
         if let info = try? await room.roomInfo() {
+            creators = info.creators ?? []
             facts.isDm = info.isDm
             facts.joinedMembers = Int(info.joinedMembersCount)
             isGroup = !info.isDm && !info.isSpace
             let peer = info.isDm ? info.heroes.first(where: { $0.userId != session.userId }) : nil
-            let peerName = peer?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let name = peerName.flatMap { $0.isEmpty ? nil : $0 } ?? peer.map { Person.localpart(of: $0.userId) } ?? BipeStrings.dmNoName
-            roomName = info.isDm ? name : (info.displayName ?? info.id)
+            var peerHandle: String?
+            if let peer, BipeChatRowName.realName(peer.displayName, userID: peer.userId) == nil {
+                peerHandle = await handles?.resolve(peer.userId)
+            }
+            isNewsRoom = NewsRoomMark.roomId(for: session.userId) == info.id
+            roomName = isNewsRoom ? BipeStrings.newsRoomName
+                : BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName, peerName: peer?.displayName,
+                                          peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
+                                          dmRoomName: info.isDm ? info.rawName : nil, peerHandle: peerHandle,
+                                          groupHeroes: Self.groupHeroes(of: info, ownUserId: session.userId))
             roomAvatarUrl = info.isDm ? peer?.avatarUrl : info.avatarUrl
             peerUserId = peer?.userId
+            avatarMembers = Person.groupAvatarMembers(of: info, ownUserId: session.userId)
             hasCall = info.hasRoomCall
             successorRoomId = info.successorRoom?.roomId
             if let old = room.predecessorRoom()?.roomId, predecessor?.roomId != old {
@@ -427,6 +482,7 @@ final class ChatTimelineModel: ObservableObject {
             canPost = powerLevels.canOwnUserSendMessage(message: .roomMessage)
             canPoll = !facts.isDm && powerLevels.canOwnUserSendMessage(message: .pollStart)
             canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
+            facts.roles = facts.isDm ? [:] : GroupPeople.staffRoles(levels: powerLevels.userPowerLevels(), creators: creators)
         }
         isDm = facts.isDm
         isEncrypted = facts.isEncrypted
@@ -441,14 +497,20 @@ final class ChatTimelineModel: ObservableObject {
     // MARK: chat-timeline
 
     /// Action loadHistory: back-paginates 20 events at a time until the rows have historyFill more messages,
-    /// at most maxPages pages. A failed page is tried again. Does nothing at the start or while a load runs.
+    /// at most maxPages pages. A failed page is tried again. After a failed load it waits historyRetry, then
+    /// changes historyLoads so the top of the list tries again. Does nothing at the start or while a load runs.
     func loadHistory(maxPages: Int = ChatTimelineModel.historyPagesPerLoad) async {
         guard let timeline, !reachedStart, !isLoadingHistory else { return }
         isLoadingHistory = true
         defer { isLoadingHistory = false }
         let before = messages.count
         for _ in 0..<maxPages {
-            guard let hitStart = await paginateBackwards(timeline) else { return }
+            guard let hitStart = await paginateBackwards(timeline) else {
+                // Without a new historyLoads the header task keeps its id and history stops loading.
+                try? await Task.sleep(for: Self.historyRetry)
+                if !Task.isCancelled { historyLoads += 1 }
+                return
+            }
             if hitStart {
                 reachedStart = true
                 break
@@ -479,7 +541,7 @@ final class ChatTimelineModel: ObservableObject {
         // Spec composer editText: pills that left the text go; an @word in a group filters the members.
         mentions = ComposerMarkdown.mentions(mentions, in: text)
         if !isDm, let query = ComposerMarkdown.mentionQuery(text) {
-            suggestions = mentionDirectory.suggestions(query, everyoneLabel: BipeStrings.appComposerMentionEveryone)
+            suggestions = mentionDirectory.suggestions(query, everyoneLabel: BipeStrings.appComposerMentionEveryone, handles: handles)
         } else {
             suggestions = []
         }
@@ -560,12 +622,13 @@ final class ChatTimelineModel: ObservableObject {
 
     // MARK: timeline-rows
 
-    /// Action markAsRead: a public read receipt (ADR 0050) for the newest event, while the newest rows are on screen.
+    /// Action markAsRead: a read receipt for the newest event, while the newest rows are on screen. Public, except in a
+    /// DM while the read receipts switch is off (ADR 0222).
     func markAsRead() async {
         guard let timeline, UIApplication.shared.applicationState == .active,
               let newest = await timeline.latestEventId(), newest != lastReadEventId else { return }
         lastReadEventId = newest
-        try? await timeline.markAsRead(receiptType: .read)
+        try? await timeline.markAsRead(receiptType: ReadReceiptSetting.receiptType(isDm: facts.isDm))
     }
 
     // MARK: message-actions
@@ -965,7 +1028,7 @@ final class ChatTimelineModel: ObservableObject {
             return
         }
         typingUserIds = userIds.filter { $0 != session.userId }
-        typingNames = typingUserIds.map { facts.members[$0]?.name ?? $0 }
+        typingNames = typingUserIds.map { facts.members[$0]?.name ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) }
         loadMembers(Set(typingUserIds).subtracting(facts.members.keys))
     }
 
@@ -1148,8 +1211,11 @@ final class ChatTimelineModel: ObservableObject {
         guard let members = await GroupPeople.members(of: room, cachedOnly: true) else { return }
         let joined = members.filter { $0.membership == .join }
         facts.roomMembers = Set(joined.map(\.userId))
-        for member in joined where facts.members[member.userId] == nil {
-            facts.members[member.userId] = (member.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? member.userId, member.avatarUrl)
+        let newMembers = joined.filter { facts.members[$0.userId] == nil }
+        let found = await resolveHandles(of: newMembers.filter { BipeChatRowName.realName($0.displayName, userID: $0.userId) == nil }.map(\.userId))
+        for member in newMembers where facts.members[member.userId] == nil {
+            facts.members[member.userId] = (BipeChatRowName.person(userID: member.userId, displayName: member.displayName,
+                                                                   handle: found[member.userId]), member.avatarUrl)
         }
         facts.handleChanges = store.changes(for: facts.roomMembers)
         handleChangesTask = Task { [weak self] in
@@ -1164,6 +1230,9 @@ final class ChatTimelineModel: ObservableObject {
     }
 
     private func rebuild() {
+        // Spec read-receipts: delivered acks and the read receipts switch count in a DM only.
+        facts.deliveredEventIds = facts.isDm ? Set(DeliveredLog.eventIds(userId: session.userId, roomId: roomId)) : []
+        facts.showsOthersRead = !facts.isDm || ReadReceiptSetting.isOn
         let built = TimelineRowBuilder.rows(items: items, facts: facts)
         rows = built.rows
         if built.hitStart {
@@ -1187,14 +1256,41 @@ final class ChatTimelineModel: ObservableObject {
         guard let room, !missing.isEmpty else { return }
         membersLoading.formUnion(missing)
         Task {
+            var loaded: [String: (name: String?, avatarUrl: String?)] = [:]
             for userId in missing {
                 let name = (try? await room.memberDisplayName(userId: userId)) ?? nil
                 let avatarUrl = (try? await room.memberAvatarUrl(userId: userId)) ?? nil
-                facts.members[userId] = (name.flatMap { $0.isEmpty ? nil : $0 } ?? userId, avatarUrl)
+                loaded[userId] = (name, avatarUrl)
             }
-            typingNames = typingUserIds.map { facts.members[$0]?.name ?? $0 }
+            let found = await resolveHandles(of: loaded.filter { BipeChatRowName.realName($0.value.name, userID: $0.key) == nil }.map(\.key))
+            for (userId, member) in loaded {
+                facts.members[userId] = (BipeChatRowName.person(userID: userId, displayName: member.name, handle: found[userId]),
+                                         member.avatarUrl)
+            }
+            typingNames = typingUserIds.map { facts.members[$0]?.name ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) }
             rebuild()
         }
+    }
+
+    /// People names: the @handles of members without a real name, through the resolver's batched lookup.
+    private func resolveHandles(of userIds: [String]) async -> [String: String] {
+        guard let handles, !userIds.isEmpty else { return [:] }
+        return await withTaskGroup(of: (String, String?).self) { group in
+            for userId in userIds {
+                group.addTask { (userId, await handles.resolve(userId)) }
+            }
+            var found: [String: String] = [:]
+            for await (userId, handle) in group {
+                if let handle { found[userId] = handle }
+            }
+            return found
+        }
+    }
+
+    /// The heroes of a group without m.room.name, for BipeChatRowName.resolve. nil for a DM or a named group.
+    nonisolated static func groupHeroes(of info: RoomInfo, ownUserId: String) -> [(userID: String, displayName: String?)]? {
+        guard !info.isDm, (info.rawName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return info.heroes.filter { $0.userId != ownUserId }.map { ($0.userId, $0.displayName) }
     }
 
     /// peerAway: Room.member of the DM's other person; a leave or ban is left, and a profile that is not found

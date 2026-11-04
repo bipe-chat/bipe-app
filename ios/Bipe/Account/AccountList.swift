@@ -63,8 +63,7 @@ enum AccountList {
     /// The owner's name, for the company's Sua conta: only while the owner is on this phone and its name is known.
     static func ownerName(of companyId: String) -> String? {
         guard let owner = owner(of: companyId), order.contains(owner) else { return nil }
-        let name = BipeAccountLabels.label(for: owner)
-        return name == owner ? nil : name
+        return BipeAccountLabels.name(for: owner)
     }
 
     private static func ownerKey(_ userId: String) -> String {

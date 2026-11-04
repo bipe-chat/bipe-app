@@ -15,15 +15,28 @@ public enum BipeProfileProblem: String, Sendable, Equatable {
     case noHandle = "no_handle"
     /// App only (profile-edit, security rule 8): a mark that looks like the verified seal.
     case nameLookalikeEmoji = "name_lookalike_emoji"
+    /// `socialHandleProblem()` (ADR 0228). The server does not name the network: `BipeSocialHandles` finds the field.
+    case socialInvalid = "social_invalid"
+    case socialReserved = "social_reserved"
     
     public var isNameProblem: Bool {
         switch self {
         case .nameEmpty, .nameTooLong, .nameReserved, .nameLookalikeEmoji: true
-        case .bioTooLong, .bioTooManyLines, .noHandle: false
+        case .bioTooLong, .bioTooManyLines, .noHandle, .socialInvalid, .socialReserved: false
         }
     }
     
+    public var isSocialProblem: Bool {
+        self == .socialInvalid || self == .socialReserved
+    }
+    
+    /// Without `network`, socialInvalid has no text of its own and shows the generic error.
     public var localizedMessage: String {
+        localizedMessage(network: nil)
+    }
+    
+    /// `network`: the registry name of the social field that has the problem.
+    public func localizedMessage(network: String?) -> String {
         switch self {
         case .nameEmpty: BipeStrings.publicProfileNameEmpty
         case .nameTooLong: BipeStrings.publicProfileNameTooLong(String(BipeRegistries.profileNameMaxLength))
@@ -32,6 +45,8 @@ public enum BipeProfileProblem: String, Sendable, Equatable {
         case .bioTooManyLines: BipeStrings.publicProfileBioTooManyLines(String(BipeRegistries.profileBioMaxLines))
         case .noHandle: BipeStrings.publicProfileNeedsHandle
         case .nameLookalikeEmoji: BipeStrings.warningNameLookalikeEmoji
+        case .socialInvalid: network.map(BipeStrings.publicProfileSocialInvalid) ?? BipeStrings.errorGeneric
+        case .socialReserved: BipeStrings.publicProfileSocialReserved
         }
     }
 }

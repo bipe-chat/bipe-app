@@ -570,9 +570,11 @@ public struct BipeBooking: Decodable, Sendable, Identifiable, Equatable {
     public let source: Source
     /// Only while held: when the 5-minute hold ends.
     public let holdExpiresAt: Date?
+    /// Made on the web with a first name (ADR 0195). No chat.
+    public let web: Bool
 
     private enum CodingKeys: String, CodingKey {
-        case id, businessId, serviceId, agendaId, start, end, status, customer, source, holdExpiresAt
+        case id, businessId, serviceId, agendaId, start, end, status, customer, source, holdExpiresAt, web
     }
 
     public init(from decoder: Decoder) throws {
@@ -588,6 +590,7 @@ public struct BipeBooking: Decodable, Sendable, Identifiable, Equatable {
         customer = try container.decode(BipeBookingCustomer.self, forKey: .customer)
         source = try Source(rawValue: container.decode(String.self, forKey: .source)) ?? .customer
         holdExpiresAt = try container.decodeIfPresent(Date.self, forKey: .holdExpiresAt)
+        web = try container.decodeIfPresent(Bool.self, forKey: .web) ?? false
     }
 
     /// Held, requested and confirmed bookings before their end can still be cancelled.
