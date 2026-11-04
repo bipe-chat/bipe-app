@@ -545,6 +545,15 @@ fun SettingsGroupScreen(
                             if (model.setAssistantSend(isOn)) view.bipeHaptic(BipeHaptic.Tick)
                         }
                     }
+                    // Spec chat-list, Mural setting (ADR 0246): per account on this phone, off by default, not synced.
+                    BipeSettingsRow.CHATS_MURAL -> {
+                        val setting = remember { chat.bipe.app.chatlist.MuralSetting.of(context) }
+                        val muralAccounts by setting.accounts.collectAsState()
+                        SettingsSwitchItem(title, footer, isOn = model.session.userId in muralAccounts) { isOn ->
+                            setting.set(model.session.userId, isOn)
+                            view.bipeHaptic(BipeHaptic.Tick)
+                        }
+                    }
                     // Saved on the server; wired by the screen that owns it.
                     else -> if (row.kind == BipeSettingsRowKind.SWITCH) {
                         SettingsSwitchItem(title, footer, isOn = false, enabled = false) {}

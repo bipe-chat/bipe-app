@@ -2215,6 +2215,12 @@
     <string name="bipe_poll_state_ended">Ended</string>
     <string name="bipe_chats_media_quality_standard">Standard, smaller files</string>
     <string name="bipe_chats_media_quality_high">High, as they were taken</string>
+    <string name="bipe_chats_mural">Mural</string>
+    <string name="bipe_chats_mural_footer">Your chats show as tiles of different sizes. Mentions and unread messages make a tile bigger. Bipe builds the mural on this device, and none of it leaves the device.</string>
+    <string name="bipe_chat_mural_no_news">Nothing new</string>
+    <string name="bipe_chat_mural_view_list">See all as a list</string>
+    <string name="bipe_chat_mural_reason_mention">Mentioned you</string>
+    <string name="bipe_chat_mural_reason_unanswered">No reply yet</string>
     <string name="bipe_chats_theme">Theme</string>
     <string name="bipe_chats_photos_videos">Photos and videos</string>
     <string name="bipe_room_upgrade_replaced">This group was replaced by a new group. New messages go there.</string>

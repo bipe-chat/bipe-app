@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -550,6 +552,8 @@ fun ChatListScreen(
     api: BipeApiClient? = null,
     /** Spec chat-list-cards shareInvite: opens bring-people. */
     onBringPeople: () -> Unit = {},
+    /** State muralEnabled of spec chat-list (ADR 0246): the Conversas tab of an account with Mural on. */
+    mural: Boolean = false,
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
@@ -569,15 +573,31 @@ fun ChatListScreen(
     var reorderingFavourites by remember(model.session.userId, scope) { mutableStateOf(false) }
     var showingArchived by rememberSaveable(model.session.userId, scope) { mutableStateOf(false) }
     LaunchedEffect(listOpenRequest) { if (listOpenRequest > 0) showingArchived = false }
+    /** State muralShowsList of spec chat-list. */
+    var muralShowsList by rememberSaveable(model.session.userId, scope) { mutableStateOf(false) }
+    val showsMuralTiles = mural && !muralShowsList && !showingArchived
+    // Spec chat-list openMuralList: back returns to the tiles. The archived list opens from the plain list only.
+    BackHandler(enabled = mural && muralShowsList) { if (showingArchived) showingArchived = false else muralShowsList = false }
     val visibleChats = withoutClearedDms(allChats, { it.roomId }, { it.lastActivity })
     val chats = visibleChats.filter { scope.shows(it.scope) && archiveMarkers.containsKey(it.roomId) == showingArchived }
     val phase = model.phase(scope, allPhase, chats)
     // Spec chat-list favourites: a favourite shows in the row at the top, not again below it.
-    val favourites = if (showingArchived) emptyList() else {
+    // Spec chat-list, Mural scope: no favourites row in Mural, so the plain list of Mural has every favourite as a row.
+    val favourites = if (showingArchived || mural) emptyList() else {
         BipeFavouritesOrder.sorted(chats.filter { it.isFavourite }, favouritesOrder, { it.roomId }, { it.name })
     }
     LaunchedEffect(favourites.size) { if (favourites.size < 2) reorderingFavourites = false }
-    val listChats = if (showingArchived) chats else chats.filterNot { it.isFavourite }
+    val listChats = if (showingArchived || mural) chats else chats.filterNot { it.isFavourite }
+    val listState = rememberLazyListState()
+    // Spec chat-list, Mural grid rules: new tiers and positions wait until the screen is at rest.
+    val muralTouch = remember { mutableStateOf(false) }
+    var muralReplyFocused by remember { mutableStateOf(false) }
+    val muralPlan = if (mural) {
+        rememberMuralPlan(chats, media, atRest = !listState.isScrollInProgress && !muralTouch.value && !muralReplyFocused)
+    } else {
+        emptyList()
+    }
+    LaunchedEffect(showsMuralTiles) { if (mural) listState.scrollToItem(0) }
     fun commands(chat: ChatSummary) = ChatRowCommands(
         archived = archiveMarkers.containsKey(chat.roomId), readPending = markingRoomId != null,
         onArchive = { model.currentChat(chat.roomId)?.let { model.archive.set(it, !archiveMarkers.containsKey(it.roomId)) } },
@@ -676,7 +696,10 @@ fun ChatListScreen(
                     ChatListModel.Phase.LOADING -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = colors.accentFill)
                     }
-                    ChatListModel.Phase.EMPTY, ChatListModel.Phase.LOADED -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    ChatListModel.Phase.EMPTY, ChatListModel.Phase.LOADED -> LazyColumn(
+                        modifier = Modifier.fillMaxSize().then(if (mural) Modifier.imePadding().muralTouchWatch(muralTouch) else Modifier),
+                        state = listState,
+                    ) {
                         // Spec chat-list favourites: the first item, above banners, cards, requests and invites.
                         if (favourites.isNotEmpty()) item(key = "favourites") {
                             FavouritesGrid(
@@ -706,6 +729,9 @@ fun ChatListScreen(
                         }
                         // Spec chat-archive openArchived: Archived opens from the last row of the list; this row goes back.
                         // The action errors scroll with the list, after the cards (same order as iOS).
+                        if (mural && muralShowsList && !showingArchived) item(key = "mural-back") {
+                            ListEntryRow(PhosphorIcon.CARET_LEFT, stringResource(R.string.bipe_app_chat_list_title)) { muralShowsList = false }
+                        }
                         if (showingArchived) item(key = "archived-back") {
                             ListEntryRow(PhosphorIcon.CARET_LEFT, stringResource(if (scope == ChatScope.GRUPOS) R.string.bipe_tab_groups else R.string.bipe_app_chat_list_title)) {
                                 showingArchived = false
@@ -744,14 +770,23 @@ fun ChatListScreen(
                                 LaunchedEffect(allChats.size) { model.loadMore(scope) }
                             }
                         }
-                        items(listChats, key = { it.roomId }) { chat ->
-                            ArchivedChatRow(chat, media, ownerId = model.session.userId, commands = commands(chat), onOpen = { onOpenChat(chat.roomId) })
-                            if (!showingArchived && chat.roomId == listChats.lastOrNull()?.roomId) {
-                                LaunchedEffect(allChats.size) { model.loadMore(scope) }
+                        if (showsMuralTiles) {
+                            muralItems(
+                                muralPlan, chats, media, model, ::commands, onOpenChat,
+                                onReplyFocus = { muralReplyFocused = it },
+                                onShowList = { muralShowsList = true },
+                                onLoadMore = { model.loadMore(scope) },
+                            )
+                        } else {
+                            items(listChats, key = { it.roomId }) { chat ->
+                                ArchivedChatRow(chat, media, ownerId = model.session.userId, commands = commands(chat), onOpen = { onOpenChat(chat.roomId) })
+                                if (!showingArchived && chat.roomId == listChats.lastOrNull()?.roomId) {
+                                    LaunchedEffect(allChats.size) { model.loadMore(scope) }
+                                }
                             }
-                        }
-                        if (!showingArchived) item(key = "archived") {
-                            ListEntryRow(PhosphorIcon.ARCHIVE, stringResource(R.string.bipe_archived_title)) { showingArchived = true }
+                            if (!showingArchived) item(key = "archived") {
+                                ListEntryRow(PhosphorIcon.ARCHIVE, stringResource(R.string.bipe_archived_title)) { showingArchived = true }
+                            }
                         }
                     }
                 }
@@ -829,43 +864,50 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = 
                         modifier = Modifier.padding(start = 8.dp).size(16.dp),
                     )
                 }
-                if (chat.unreadCount > 0) {
-                    if (chat.mentionCount > 0) {
-                        // A mention has its own mark, not only a colour (bipe#497). The count's label reads it.
-                        Text(
-                            "@",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = colors.inkOnAccent,
-                            modifier = Modifier
-                                .padding(start = 8.dp)
-                                .background(colors.accentFill, CircleShape)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .clearAndSetSemantics {},
-                        )
-                    }
-                    val count = NumberFormat.getIntegerInstance().format(chat.unreadCount)
-                    // A mention is read with the count; the badge shows it by colour only (bipe#495).
-                    val unread = stringResource(R.string.bipe_app_chat_list_unread, count)
-                    val label = if (chat.mentionCount > 0) "$unread, ${stringResource(R.string.bipe_a11y_mention)}" else unread
-                    Text(
-                        count,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.inkOnAccent,
-                        modifier = Modifier
-                            .padding(start = 8.dp)
-                            .background(colors.accentFill, CircleShape)
-                            .padding(horizontal = 7.dp, vertical = 2.dp)
-                            .semantics { contentDescription = label },
-                    )
-                } else if (chat.isMarkedUnread) {
-                    val unreadLabel = stringResource(R.string.bipe_chat_unread_state)
-                    Box(Modifier.size(8.dp).background(colors.accentFill, CircleShape).semantics { contentDescription = unreadLabel })
-                }
+                ChatUnreadBadge(chat)
             }
         }
         actions()
+    }
+}
+
+/** The unread count of a chat, with the @ mark of a mention, or the dot of a chat marked unread. Nothing when read. */
+@Composable
+internal fun ChatUnreadBadge(chat: ChatSummary) {
+    val colors = BipeTheme.colors
+    if (chat.unreadCount > 0) {
+        if (chat.mentionCount > 0) {
+            // A mention has its own mark, not only a colour (bipe#497). The count's label reads it.
+            Text(
+                "@",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = colors.inkOnAccent,
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .background(colors.accentFill, CircleShape)
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                    .clearAndSetSemantics {},
+            )
+        }
+        val count = NumberFormat.getIntegerInstance().format(chat.unreadCount)
+        // A mention is read with the count; the badge shows it by colour only (bipe#495).
+        val unread = stringResource(R.string.bipe_app_chat_list_unread, count)
+        val label = if (chat.mentionCount > 0) "$unread, ${stringResource(R.string.bipe_a11y_mention)}" else unread
+        Text(
+            count,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = colors.inkOnAccent,
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .background(colors.accentFill, CircleShape)
+                .padding(horizontal = 7.dp, vertical = 2.dp)
+                .semantics { contentDescription = label },
+        )
+    } else if (chat.isMarkedUnread) {
+        val unreadLabel = stringResource(R.string.bipe_chat_unread_state)
+        Box(Modifier.size(8.dp).background(colors.accentFill, CircleShape).semantics { contentDescription = unreadLabel })
     }
 }
 

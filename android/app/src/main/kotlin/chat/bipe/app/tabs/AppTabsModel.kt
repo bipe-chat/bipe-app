@@ -65,6 +65,8 @@ class AppTabsModel(
         val maxPersonalAccounts: Int = BipeRegistries.MAX_PERSONAL_ACCOUNTS,
         /** The account on screen is a company account (ADR 0132): the Agenda tab and the business tools show. */
         val isCompany: Boolean = false,
+        /** Spec chat-list muralEnabled: the setting of the account on screen, on this device (ADR 0246). */
+        val muralEnabled: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
@@ -80,12 +82,15 @@ class AppTabsModel(
     private var sessionIds: List<String> = emptyList()
     private var currentId: String? = null
     private val accountList = AccountList(start.appContext)
+    private val muralSetting = chat.bipe.app.chatlist.MuralSetting.of(start.appContext)
 
     init {
         scope.launch {
             combine(start.sessions, start.userId) { sessions, userId -> sessions to userId }
                 .collect { (sessions, userId) -> sessionsChanged(sessions, userId) }
         }
+        // Spec chat-list, Mural setting: turning it on or off changes the Conversas tab at once.
+        scope.launch { muralSetting.accounts.collect { refresh() } }
     }
 
     /** The chat list of an account, started on first use. */
@@ -235,6 +240,7 @@ class AppTabsModel(
         _state.value = _state.value.copy(
             selectedTab = selected,
             isCompany = isCompany,
+            muralEnabled = currentId in muralSetting.accounts.value,
             accounts = accounts,
             conversasUnread = chats.count { it.scope == ChatScope.CONVERSAS && it.isUnread },
             gruposAttention = chats.filter { it.scope == ChatScope.GRUPOS }.sumOf { it.mentionCount },

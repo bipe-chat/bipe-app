@@ -87,11 +87,11 @@ fun AppTabsScreen(
             CompositionLocalProvider(LocalTabBarHiders provides tabBarHiders) {
                 when (state.selectedTab) {
                     AppTabsModel.Tab.CONVERSAS ->
-                        ChatListScreen(chatList, if (state.isCompany) ChatScope.TODAS else ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
+                        ChatListScreen(chatList, if (state.isCompany || state.muralEnabled) ChatScope.TODAS else ChatScope.CONVERSAS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                             prompts = prompts,
                             onCreateGroup = onCreateGroup, onSendMedia = onSendMedia, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                             requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
-                            api = tabs.start.api, onBringPeople = onBringPeople)
+                            api = tabs.start.api, onBringPeople = onBringPeople, mural = state.muralEnabled)
                     AppTabsModel.Tab.GRUPOS ->
                         ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                             prompts = prompts,

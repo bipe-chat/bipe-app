@@ -22,6 +22,8 @@ struct SettingsGroupView: View {
     @AppStorage(BipeSettingsRow.chatsMediaQuality.rawValue) private var mediaQuality = MediaQuality.standard.rawValue
     /// chats.liveLocation: the update distance of live location (spec settings-group notes).
     @AppStorage(LiveLocationRule.distanceKey) private var liveDistance = BipeRegistries.mapsLiveDefaultDistanceMetres
+    /// chats.mural: per account, on this device, default off, no sync (spec chat-list notes, ADR 0246).
+    @AppStorage private var muralEnabled: Bool
     /// chats.colors: the row value follows the palette (spec app-colors).
     private let theme = BipeTheme.shared
     @StateObject private var export: DataExportModel
@@ -42,6 +44,7 @@ struct SettingsGroupView: View {
         self.model = model
         self.group = group
         self.onSignedOut = onSignedOut
+        _muralEnabled = AppStorage(wrappedValue: false, MuralSetting.key(userId: model.session.userId))
         _export = StateObject(wrappedValue: DataExportModel(model: model))
     }
 
@@ -306,6 +309,8 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title, value: Self.distanceLabel(LiveLocationRule.distance), footer: row.footer)
             }
+        case .chatsMural:
+            Toggle(isOn: $muralEnabled) { SettingsRowLabel(title: row.title, footer: row.footer) }
         case .chatsDataUse:
             NavigationLink {
                 DataUseView(session: model.session)
