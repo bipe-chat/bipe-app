@@ -132,9 +132,12 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     item { VoceSectionHeader(null) }
                     item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
                     SettingsRootSection(settings, openGroup)
-                    // Spec voce (MZ, 2 Nov 2026): no account rows; the Você tab switches (hold, double tap, TalkBack
-                    // action). Adicionar conta is the last row, with the same icon tile as every Você row (spec account-new).
+                    // Spec voce (MZ, 4 Nov 2026): the accounts stay in the switcher, which this row opens too, as the Você
+                    // tab does (hold, TalkBack action). Adicionar conta is the last row (spec account-new).
                     item { VoceSectionHeader(null) }
+                    item {
+                        VoceRow(PhosphorIcon.USERS_THREE, stringResource(R.string.bipe_app_account_switcher_title), onClick = tabs::openAccountSwitcher)
+                    }
                     item { VoceRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_app_account_new), onClick = onNewAccount) }
                 }
             }

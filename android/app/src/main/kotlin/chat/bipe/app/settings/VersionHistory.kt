@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,7 +44,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
@@ -53,17 +53,17 @@ import kotlinx.serialization.json.jsonPrimitive
 data class ChangelogUpdate(val id: String, val kind: String, val headline: String, val detail: String)
 
 /** One build with its Android changes. */
-data class ChangelogBuild(val build: Int, val date: String, val updates: List<ChangelogUpdate>)
+data class ChangelogBuild(val build: Int, val version: String?, val updates: List<ChangelogUpdate>)
 
-/** The builds of one version, newest first. */
-data class ChangelogVersion(val version: String?, val released: Boolean, val releaseDate: String?, val builds: List<ChangelogBuild>)
+/** The builds of one day, newest first. */
+data class ChangelogDay(val date: String, val builds: List<ChangelogBuild>)
 
 /**
- * tools/changelog.mjs --json, grouped by version, with only the Android changes. Builds with no Android change drop
+ * tools/changelog.mjs --json, grouped by day, with only the Android changes. Builds with no Android change drop
  * out. Fails closed: a build without a number or a date is left out.
  */
-internal fun parseChangelog(body: String): List<ChangelogVersion> {
-    val out = mutableListOf<ChangelogVersion>()
+internal fun parseChangelog(body: String): List<ChangelogDay> {
+    val days = linkedMapOf<String, MutableList<ChangelogBuild>>()
     for (element in Json.parseToJsonElement(body).jsonArray) {
         val b = element as? JsonObject ?: continue
         val build = b["build"]?.jsonPrimitive?.intOrNull ?: continue
@@ -80,25 +80,14 @@ internal fun parseChangelog(body: String): List<ChangelogVersion> {
             )
         }
         if (updates.isEmpty()) continue
-        val version = b.text("version")
-        val last = out.lastOrNull()
-        if (last != null && last.version == version) {
-            out[out.lastIndex] = last.copy(builds = last.builds + ChangelogBuild(build, date, updates))
-        } else {
-            out += ChangelogVersion(
-                version = version,
-                released = b["released"]?.jsonPrimitive?.booleanOrNull ?: false,
-                releaseDate = b.text("releaseDate"),
-                builds = listOf(ChangelogBuild(build, date, updates)),
-            )
-        }
+        days.getOrPut(date) { mutableListOf() }.add(ChangelogBuild(build, b.text("version"), updates))
     }
-    return out
+    return days.map { (date, builds) -> ChangelogDay(date, builds) }
 }
 
 private fun JsonObject.text(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 
-private suspend fun fetchChangelog(url: String): List<ChangelogVersion> = withContext(Dispatchers.IO) {
+private suspend fun fetchChangelog(url: String): List<ChangelogDay> = withContext(Dispatchers.IO) {
     val connection = URL(url).openConnection() as HttpURLConnection
     val body = try {
         connection.connectTimeout = 15_000
@@ -118,7 +107,7 @@ private fun day(text: String, language: String): String? = runCatching {
 }.getOrNull()
 
 /**
- * Spec version-history: what changed in each version and build, newest first. The list is the changelog JSON that
+ * Spec version-history: what changed by day and then by build, newest first. The list is the changelog JSON that
  * bipe-web publishes at the versionsData url (registries/settings.json).
  */
 @Composable
@@ -126,17 +115,17 @@ fun VersionHistoryScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val language = appLanguage(context)
     val colors = BipeTheme.colors
-    var versions by remember { mutableStateOf<List<ChangelogVersion>?>(null) }
+    var days by remember { mutableStateOf<List<ChangelogDay>?>(null) }
     var failed by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
     LaunchedEffect(attempt) {
         failed = false
         runCatching { fetchChangelog(BipeSettingsUrl.VERSIONS_DATA.url(language)) }
-            .onSuccess { versions = it }
+            .onSuccess { days = it }
             .onFailure { failed = true }
     }
     SettingsPage(stringResource(R.string.bipe_help_versions), BipeScreen.VERSION_HISTORY.id, onBack) {
-        val loaded = versions
+        val loaded = days
         when {
             failed -> item(key = "failed") {
                 Column(
@@ -165,26 +154,21 @@ fun VersionHistoryScreen(onBack: () -> Unit) {
                         )
                     }
                 }
-                for (version in loaded) {
-                    val key = version.version ?: "build"
-                    item(key = "header-$key") {
-                        Column {
-                            SectionHeader(version.version?.let { stringResource(R.string.bipe_help_version, it) } ?: "")
-                            val released = version.releaseDate?.let { day(it, language) }
+                for (entry in loaded) {
+                    item(key = "day-${entry.date}") { SectionHeader(day(entry.date, language) ?: entry.date) }
+                    for (build in entry.builds) {
+                        item(key = "build-${build.build}") {
                             Text(
-                                if (version.released && released != null) {
-                                    stringResource(R.string.bipe_versions_released, released)
-                                } else {
-                                    stringResource(R.string.bipe_versions_testing)
-                                },
+                                // "Versão 1.0.1 (446)", the same text as the Ajuda e sobre row.
+                                build.version?.let { stringResource(R.string.bipe_help_version, "$it (${build.build})") }
+                                    ?: stringResource(R.string.bipe_versions_build, build.build.toString()),
                                 style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
                                 color = colors.inkSecondary,
-                                modifier = Modifier.padding(horizontal = 16.dp),
+                                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp).semantics { heading() },
                             )
                         }
-                    }
-                    for (build in version.builds) {
-                        items(build.updates, key = { "update-${it.id}" }) { update -> UpdateRow(update, build, language) }
+                        items(build.updates, key = { "update-${it.id}" }) { update -> UpdateRow(update) }
                     }
                 }
             }
@@ -193,7 +177,7 @@ fun VersionHistoryScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun UpdateRow(update: ChangelogUpdate, build: ChangelogBuild, language: String) {
+private fun UpdateRow(update: ChangelogUpdate) {
     val colors = BipeTheme.colors
     val kind = when (update.kind) {
         "new" -> stringResource(R.string.bipe_versions_kind_new)
@@ -202,8 +186,6 @@ private fun UpdateRow(update: ChangelogUpdate, build: ChangelogBuild, language: 
         "removed" -> stringResource(R.string.bipe_versions_kind_removed)
         else -> null
     }
-    val tags = listOfNotNull(stringResource(R.string.bipe_versions_build, build.build.toString()), kind, day(build.date, language))
-        .joinToString(" · ")
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).semantics(mergeDescendants = true) {},
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -212,6 +194,6 @@ private fun UpdateRow(update: ChangelogUpdate, build: ChangelogBuild, language: 
         if (update.detail.isNotEmpty()) {
             Text(update.detail, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
         }
-        Text(tags, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+        if (kind != null) Text(kind, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
     }
 }

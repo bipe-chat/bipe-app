@@ -45,7 +45,7 @@ const REFRESH_MS = 30_000;
 /** The most of one item in an order (bipe-api MAX_QUANTITY, OrderCart.maxQuantity on iOS). */
 const MAX_QUANTITY = 999;
 
-const STATUS_TEXT: Record<OrderStatus, StringKey> = {
+export const STATUS_TEXT: Record<OrderStatus, StringKey> = {
   sent: 'bipe_order_status_sent',
   accepted: 'bipe_order_status_accepted',
   refused: 'bipe_order_status_refused',
@@ -55,7 +55,7 @@ const STATUS_TEXT: Record<OrderStatus, StringKey> = {
 };
 
 /** The status colours of BipeOrderStatus.tint on iOS. */
-const STATUS_TINT: Record<OrderStatus, string> = {
+export const STATUS_TINT: Record<OrderStatus, string> = {
   sent: 'text-trust-caution-ink',
   accepted: 'text-trust-verified-ink',
   ready: 'text-trust-verified-ink',
@@ -84,10 +84,10 @@ const GROUPS: { statuses: OrderStatus[]; header: () => string }[] = [
 /** The right column: an order, the new order, or the order settings. */
 type Pane = { kind: 'order'; id: string } | { kind: 'new' } | { kind: 'settings' };
 
-export function OrdersScreen({ client, onBack }: WorkScreenProps) {
+export function OrdersScreen({ client, onBack, openOrderId }: WorkScreenProps & { openOrderId?: string }) {
   useNames();
   const orders = useLoad(() => client.orders(), [client]);
-  const [pane, setPane] = useState<Pane>();
+  const [pane, setPane] = useState<Pane | undefined>(openOrderId ? { kind: 'order', id: openOrderId } : undefined);
   const { reload, setData } = orders;
 
   // Read the list again every 30 s while the screen is open, so new orders show. A hidden tab skips a turn.
@@ -628,7 +628,7 @@ function OrderErrorLine({ error }: { error: unknown }) {
   );
 }
 
-function orderErrorText(e: unknown): string {
+export function orderErrorText(e: unknown): string {
   if (!(e instanceof WorkError)) return s('bipe_order_error');
   switch (e.code) {
     case 'network':
@@ -655,16 +655,16 @@ function customerText(c: BookingCustomer): string {
 }
 
 /** The price of an orderable product (isOrderable on iOS): an active fixed-price product with an amount. */
-function unitCents(item: CatalogItem): number | undefined {
+export function unitCents(item: CatalogItem): number | undefined {
   if (item.kind !== 'product' || !item.active) return undefined;
   return item.price.mode === 'fixed' ? item.price.amount_cents : undefined;
 }
 
-function fulfilmentText(f: Order['fulfilment']): string {
+export function fulfilmentText(f: Order['fulfilment']): string {
   return f === 'pickup' ? s('bipe_order_pickup') : s('bipe_order_delivery');
 }
 
-function refuseText(reason: OrderRefuseReason): string {
+export function refuseText(reason: OrderRefuseReason): string {
   const key = REFUSE_REASONS.find((r) => r.reason === reason)?.text;
   return key ? s(key) : reason;
 }

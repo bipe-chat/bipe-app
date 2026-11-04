@@ -26,7 +26,7 @@ import chat.bipe.shared.settings.whoCanMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import chat.bipe.app.common.appVersionName
+import chat.bipe.app.common.appVersionWithBuild
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.RecoveryState
@@ -173,7 +173,7 @@ class SettingsModel(
         BipeSettingsGroup.NOTIFICATIONS -> state.notificationsOn?.let {
             context.getString(if (it) R.string.bipe_settings_notifications_on else R.string.bipe_settings_notifications_off)
         }
-        BipeSettingsGroup.HELP -> context.getString(R.string.bipe_help_version, appVersionName(context))
+        BipeSettingsGroup.HELP -> context.getString(R.string.bipe_help_version, appVersionWithBuild(context))
         // chats: SettingsRootSection reads the theme and palette from AppTheme state.
         BipeSettingsGroup.PROFILE, BipeSettingsGroup.CHATS -> null
     }

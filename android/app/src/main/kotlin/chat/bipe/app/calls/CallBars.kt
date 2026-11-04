@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,22 +36,6 @@ import chat.bipe.app.timeline.ChatTimelineModel
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import kotlinx.coroutines.launch
-
-/** Spec call start: the voice and video buttons of a group's chat header. A DM has them in its chat menu. */
-@Composable
-fun CallHeaderButtons(model: ChatTimelineModel, session: AccountSession, roomName: String) {
-    val colors = BipeTheme.colors
-    val start = rememberCallStart(model, session, roomName) ?: return
-    for (video in listOf(false, true)) {
-        IconButton(onClick = { start(video) }) {
-            Icon(
-                painterResource(if (video) PhosphorIcon.VIDEO_CAMERA.drawable else PhosphorIcon.PHONE.drawable),
-                contentDescription = stringResource(if (video) R.string.bipe_call_video else R.string.bipe_call_voice),
-                tint = colors.glyphPrimary,
-            )
-        }
-    }
-}
 
 /**
  * Spec call start in a DM: the voice and video rows of the chat menu (chat-timeline notes).

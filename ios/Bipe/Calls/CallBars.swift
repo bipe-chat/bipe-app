@@ -6,43 +6,6 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
-/// Spec call start: the voice and video buttons of a group's chat header. A DM has them in its chat menu.
-struct CallHeaderButtons: View {
-    @ObservedObject var model: ChatTimelineModel
-    let session: AccountSession
-    @ObservedObject private var calls = CallCenter.shared
-    @State private var focus: String?
-
-    var body: some View {
-        HStack(spacing: 4) {
-            if model.isEncrypted, focus != nil {
-                button(video: false)
-                button(video: true)
-            }
-        }
-        .task(id: session.userId) { focus = await calls.focusUrl(for: session) }
-    }
-
-    private func button(video: Bool) -> some View {
-        Button {
-            Self.start(model: model, session: session, video: video)
-        } label: {
-            Label {
-                Text(video ? BipeStrings.callVideo : BipeStrings.callVoice)
-            } icon: {
-                (video ? PhosphorIcon.videoCamera : PhosphorIcon.phone).image.resizable().frame(width: 22, height: 22)
-            }
-        }
-        .labelStyle(.iconOnly)
-    }
-
-    static func start(model: ChatTimelineModel, session: AccountSession, video: Bool) {
-        guard let room = model.matrixRoom else { return }
-        let ring = CallRingTarget(isDm: model.isDm, peerUserId: model.peerUserId)
-        Task { await CallCenter.shared.start(session: session, room: room, roomName: model.roomName, video: video, ring: ring) }
-    }
-}
-
 /// Spec call start in a DM: the voice and video rows of the chat menu (chat-timeline notes).
 /// focus: the account's call focus, read by the screen that owns the menu; nil hides the rows.
 struct CallMenuItems: View {
@@ -52,13 +15,19 @@ struct CallMenuItems: View {
 
     var body: some View {
         if model.isEncrypted, focus != nil {
-            Button { CallHeaderButtons.start(model: model, session: session, video: false) } label: {
+            Button { start(video: false) } label: {
                 Label(BipeStrings.callVoice, systemImage: "phone")
             }
-            Button { CallHeaderButtons.start(model: model, session: session, video: true) } label: {
+            Button { start(video: true) } label: {
                 Label(BipeStrings.callVideo, systemImage: "video")
             }
         }
+    }
+
+    private func start(video: Bool) {
+        guard let room = model.matrixRoom else { return }
+        let ring = CallRingTarget(isDm: model.isDm, peerUserId: model.peerUserId)
+        Task { await CallCenter.shared.start(session: session, room: room, roomName: model.roomName, video: video, ring: ring) }
     }
 }
 
