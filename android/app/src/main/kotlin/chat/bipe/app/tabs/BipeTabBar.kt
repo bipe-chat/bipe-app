@@ -70,10 +70,10 @@ internal fun BipeTabBar(
     voceIcon: (@Composable () -> Unit)? = null,
 ) {
     NavigationBar {
-        // A company account has its groups in Conversas (spec app-tabs).
+        // A company account has its groups in Conversas, and so does an account with Mural on (spec app-tabs, ADR 0246).
         TabItem(
             state, AppTabsModel.Tab.CONVERSAS, Icons.Outlined.ChatBubbleOutline, Icons.Filled.ChatBubble,
-            R.string.bipe_tab_chats, if (state.isCompany) state.conversasUnread + state.gruposAttention else state.conversasUnread, onSelect,
+            R.string.bipe_tab_chats, if (state.isCompany || state.muralEnabled) state.conversasUnread + state.gruposAttention else state.conversasUnread, onSelect,
         )
         // A company account has Trabalho in the place of Grupos (spec app-tabs, business-tools).
         if (state.isCompany) {

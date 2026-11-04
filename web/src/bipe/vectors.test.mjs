@@ -13,6 +13,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import * as rules from "./generated/lib/registries.mjs";
 import { cvmLines } from "./generated/lib/cvm.mjs";
+import { homePlan, homeScore } from "./generated/lib/home-score.mjs";
 import { noticeLinkClickable } from "./generated/lib/notice.mjs";
 import { pixCheck } from "./generated/lib/pix.mjs";
 import { ptBR, en, t } from "./generated/strings.ts";
@@ -171,6 +172,24 @@ test("notice-links.json", () => {
 test("cvm-lines.json", () => {
   for (const { name, cvm, ...expected } of vectors("cvm-lines.json").vectors)
     assert.deepEqual({ ...cvmLines(cvm) }, expected, name);
+});
+
+test("home-score.json", () => {
+  const file = vectors("home-score.json");
+  for (const c of file.score) {
+    const { score, reason } = homeScore(c.input, reg.homeScore);
+    assert.deepEqual(
+      { score, reason, tier: homePlan([c.input], reg.homeScore)[0].tier },
+      c.expected,
+      c.name,
+    );
+  }
+  for (const c of file.plan)
+    assert.deepEqual(
+      homePlan(c.input, reg.homeScore).map(({ id, score, tier }) => ({ id, score, tier })),
+      c.expected,
+      c.name,
+    );
 });
 
 test("strings: en has every pt-BR key, and t() fills placeholders", () => {

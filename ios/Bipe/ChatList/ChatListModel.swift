@@ -259,6 +259,11 @@ final class ChatListModel: ObservableObject {
         chats.first { $0.roomId == roomId }
     }
 
+    /// The local timeline events of a room, for the Mural inputs (spec chat-list). No network, no pagination. nil: not read yet.
+    func localEvents(roomId: String) -> [BipeRowActivity.LocalEvent]? {
+        rowActivity?.localEvents(roomId: roomId)
+    }
+
     /// Marking read is an explicit public receipt, followed by clearing the manual unread flag (ADR 0050).
     func setUnread(roomId: String, unread: Bool) async {
         guard markingRoomId == nil else { return }

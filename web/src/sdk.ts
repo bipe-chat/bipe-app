@@ -35,6 +35,7 @@ import {
   storePassphrase,
 } from './session-store';
 import { archiveKey } from './archive';
+import { muralKey } from './mural-plan';
 
 // Server name of the Bipe homeserver (ADR 0062).
 export const SERVER_NAME = 'bipe.net.br';
@@ -205,7 +206,10 @@ export async function forgetSlot(slot: Slot): Promise<void> {
 export async function signOutAccount(accounts: Accounts, slot: Slot, client: Client): Promise<void> {
   await client.logout();
   await deleteSecrets(slot.sessionKey, slot.passphraseKey);
-  if (slot.userId) localStorage.removeItem(archiveKey(slot.userId));
+  if (slot.userId) {
+    localStorage.removeItem(archiveKey(slot.userId));
+    localStorage.removeItem(muralKey(slot.userId));
+  }
   const list = accounts.list.filter((s) => s.id !== slot.id);
   await saveAccounts({ current: list[0]?.userId, list });
   markWipe([slot.storeName]);

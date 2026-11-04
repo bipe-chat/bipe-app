@@ -19,7 +19,7 @@ struct SealMark: View {
                 .resizable()
                 .frame(width: size, height: size)
                 .foregroundStyle(tint(mark))
-                .accessibilityLabel(label(mark))
+                .accessibilityLabel(Self.label(mark))
         }
     }
 
@@ -37,7 +37,7 @@ struct SealMark: View {
         }
     }
 
-    private func label(_ mark: BipeSealMark) -> String {
+    static func label(_ mark: BipeSealMark) -> String {
         switch mark {
         case .person: BipeStrings.badgeVerified
         case .company: BipeStrings.badgeCompany

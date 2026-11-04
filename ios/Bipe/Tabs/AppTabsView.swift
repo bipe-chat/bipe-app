@@ -24,6 +24,8 @@ struct AppTabsView: View {
     @StateObject private var encryption: EncryptionStatusModel
     /// Spec govbr-verify, action receiveDocument: a signed PDF from the share sheet or open with.
     @ObservedObject private var govbr = GovbrInbox.shared
+    /// Spec chat-list muralEnabled: Conversas shows the groups too, so its badge counts them (spec app-tabs).
+    @AppStorage private var muralEnabled: Bool
     private struct InviteCode: Identifiable {
         let code: String
         var id: String { code }
@@ -34,6 +36,7 @@ struct AppTabsView: View {
         self.session = session
         self.api = api
         self.initialRoomId = initialRoomId
+        _muralEnabled = AppStorage(wrappedValue: false, MuralSetting.key(userId: session.userId))
         _encryption = StateObject(wrappedValue: EncryptionStatusModel(session: session))
     }
 
@@ -72,7 +75,7 @@ struct AppTabsView: View {
             } label: {
                 Label(BipeStrings.tabChats, systemImage: "bubble.left.and.bubble.right")
             }
-            .badge(model.currentIsCompany ? model.conversasUnread + model.gruposAttention : model.conversasUnread)
+            .badge(model.currentIsCompany || muralEnabled ? model.conversasUnread + model.gruposAttention : model.conversasUnread)
 
             // A company account has Trabalho in the place of Grupos (spec app-tabs, business-tools).
             if model.currentIsCompany {

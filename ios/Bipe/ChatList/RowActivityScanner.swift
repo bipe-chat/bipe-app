@@ -127,7 +127,8 @@ final class RowActivityScanner {
                                                    senderName: event.senderProfile.displayName(or: event.sender),
                                                    roomId: roomId, isDm: isDm, ownUserId: ownUserId)
             return BipeRowActivity.LocalEvent(timestampMs: event.timestamp, kind: kind(of: event.content, preview: preview),
-                                              previewText: preview, isOwn: event.isOwn)
+                                              previewText: preview, isOwn: event.isOwn,
+                                              isStateLine: isStateLine(event.content))
         }
         // Spec read-receipts: the newest event this device got from the other person in a DM.
         var dmIncoming: (eventId: String, sender: String)?
@@ -140,6 +141,14 @@ final class RowActivityScanner {
     private static func isUndecryptable(_ content: TimelineItemContent) -> Bool {
         guard case .msgLike(let content) = content, case .unableToDecrypt = content.kind else { return false }
         return true
+    }
+
+    /// A membership or room state event: the row can show it as a line, but it is no message (spec chat-list, Mural inputs).
+    private static func isStateLine(_ content: TimelineItemContent) -> Bool {
+        switch content {
+        case .roomMembership, .state: true
+        default: false
+        }
     }
 
     /// Message-like events, undecryptable ones included: the time of an encrypted event is not encrypted. A call is a

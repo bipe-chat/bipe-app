@@ -32,6 +32,8 @@ export type Row = { at?: number; preview?: string; incomingAt?: number };
 export type LocalEvent = {
   at: number;
   message: boolean;
+  /** A message, a sticker or a call, undecryptable ones too; not a membership line (Mural inputs, spec chat-list). */
+  messageLike: boolean;
   preview?: string;
   isOwn: boolean;
 };
@@ -105,6 +107,7 @@ export function localEvents(items: TimelineItem[], isDm: boolean, ownUserId: str
     events.push({
       at: latest.at,
       message: isMessage(event.content, preview),
+      messageLike: isMessageLike(event.content),
       preview,
       isOwn: latest.isOwn,
     });
@@ -115,16 +118,18 @@ export function localEvents(items: TimelineItem[], isDm: boolean, ownUserId: str
 // Message-like events, undecryptable ones included, and calls (the SDK takes a call as a latest event too).
 // A join, leave or room creation counts when it has a line (spec chat-list, row text).
 function isMessage(content: TimelineItemContent, preview: string | undefined): boolean {
-  if (
-    TimelineItemContent.MsgLike.instanceOf(content) ||
-    TimelineItemContent.RtcNotification.instanceOf(content) ||
-    TimelineItemContent.CallInvite.instanceOf(content)
-  ) {
-    return true;
-  }
+  if (isMessageLike(content)) return true;
   return (
     (TimelineItemContent.RoomMembership.instanceOf(content) || TimelineItemContent.State.instanceOf(content)) &&
     preview !== undefined
+  );
+}
+
+function isMessageLike(content: TimelineItemContent): boolean {
+  return (
+    TimelineItemContent.MsgLike.instanceOf(content) ||
+    TimelineItemContent.RtcNotification.instanceOf(content) ||
+    TimelineItemContent.CallInvite.instanceOf(content)
   );
 }
 

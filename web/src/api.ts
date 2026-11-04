@@ -128,6 +128,12 @@ export class BipeApi {
     });
     return r?.facts.find((f) => f.user_id === userId);
   }
+
+  /** GET /v1/me/news: the account's news room, only while the account gets news (spec chat-list, news room mark). */
+  async newsRoomId(): Promise<string | undefined> {
+    const r = await this.authed<{ subscribed: boolean; room_id?: string }>('/v1/me/news');
+    return r?.subscribed ? r.room_id : undefined;
+  }
 }
 
 const apis = new WeakMap<Client, BipeApi>();
