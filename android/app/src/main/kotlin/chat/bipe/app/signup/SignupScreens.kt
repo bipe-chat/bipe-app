@@ -534,6 +534,8 @@ private fun SignupNameScreen(model: SignupFlowModel) {
         }
         BipeField(stringResource(if (model.isCompany) R.string.bipe_company_name else R.string.bipe_signup_display_name), name, model::editName)
         FieldFooter(stringResource(R.string.bipe_signup_display_name_footer))
+        // The person's region, read-only (ADR 0197).
+        FieldFooter(stringResource(R.string.bipe_onboarding_point_brazil))
         TermsRow(accepted, onToggle = model::toggleTerms)
         if (required) FieldFooter(stringResource(R.string.bipe_signup_terms_required), isError = true)
         PrimaryButton(stringResource(step.primary.title), enabled = model.canContinueName(name, accepted), onClick = model::continueFromName)
