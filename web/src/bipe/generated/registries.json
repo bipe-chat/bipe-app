@@ -1239,6 +1239,27 @@
     "source": "synapse_db",
     "detail": "The day the user got a fifth contact (bipe-chat/bipe#752). A contact is another local person who shares a DM with the user: a room that is not a space, has no room name, 2 joined members, no invited member, and m.room.member events from exactly those 2 people (room_stats_current, room_stats_state.room_type, current_state_events type, events sender, type, room_id and origin_server_ts only). The day of a contact is the day of the first member event of the person who came second. Only that day is kept: not the contacts, not the rooms, not the count.",
     "content": "none"
+   },
+   {
+    "id": "work_step_shown",
+    "once": false,
+    "source": "api",
+    "detail": "GET /v1/me/business/setup answered with a step not done (ADR 0194). One event per account and day; no step ID and no record content.",
+    "content": "none"
+   },
+   {
+    "id": "work_step_done",
+    "once": false,
+    "source": "api",
+    "detail": "The server computed a setup step as done for the first time for this account (ADR 0194).",
+    "content": "none"
+   },
+   {
+    "id": "work_sector_skipped",
+    "once": true,
+    "source": "api",
+    "detail": "PUT /v1/me/business/sector with no sector (Pular) on an account that never had one (ADR 0194).",
+    "content": "none"
    }
   ]
  },
@@ -2766,6 +2787,175 @@
   "maxPerAccount": 3,
   "inviteDays": 14,
   "recheckMinutes": 10
+ },
+ "businessTools": {
+  "$comment": "Business tools and the step-by-step path of the Trabalho tab (ADR 0194, bipe-chat/bipe#798). Stable IDs. needs: a real dependency; catalog_service and catalog_product mean at least one active catálogo item of that kind. A tool with no needs is never blocked. steps: the done rule is computed by bipe-api from records. sectors: step_order is the order the sector sets, first_tool the first tool the tab suggests, agenda_template an ID of agenda-templates.json (or absent). A sector never limits the tools (ADR 0194 point 9). generic: the path of an account with no sector. suggestions: rules on records only, never on chats (ADR 0194 points 14 to 16). resale: the sector that shows Selos de revenda in the tab (ADR 0194 point 19).",
+  "version": 1,
+  "tools": [
+   {
+    "id": "catalog"
+   },
+   {
+    "id": "agenda",
+    "needs": "catalog_service"
+   },
+   {
+    "id": "orders",
+    "needs": "catalog_product"
+   },
+   {
+    "id": "quotes"
+   },
+   {
+    "id": "queue"
+   }
+  ],
+  "steps": [
+   {
+    "id": "profile",
+    "rule": "photo, description and work hours"
+   },
+   {
+    "id": "link",
+    "rule": "the account has a handle and the owner opened the link or QR code screen"
+   },
+   {
+    "id": "catalog",
+    "rule": "at least catalogMinItems active catálogo items"
+   },
+   {
+    "id": "first_tool",
+    "rule": "at least one tool is live"
+   },
+   {
+    "id": "seal",
+    "rule": "a verified CNPJ claim; an autônomo with no CNPJ does not get this step (ADR 0138)"
+   },
+   {
+    "id": "second_seat",
+    "rule": "the account has a second seat"
+   }
+  ],
+  "catalogMinItems": 3,
+  "generic": {
+   "first_tool": "catalog",
+   "step_order": [
+    "profile",
+    "link",
+    "catalog",
+    "first_tool",
+    "seal",
+    "second_seat"
+   ]
+  },
+  "sectors": [
+   {
+    "id": "beauty",
+    "first_tool": "agenda",
+    "agenda_template": "barbershop",
+    "step_order": [
+     "profile",
+     "catalog",
+     "first_tool",
+     "link",
+     "seal",
+     "second_seat"
+    ]
+   },
+   {
+    "id": "food",
+    "first_tool": "orders",
+    "step_order": [
+     "profile",
+     "catalog",
+     "first_tool",
+     "link",
+     "seal",
+     "second_seat"
+    ]
+   },
+   {
+    "id": "repair",
+    "first_tool": "quotes",
+    "step_order": [
+     "profile",
+     "link",
+     "first_tool",
+     "catalog",
+     "seal",
+     "second_seat"
+    ]
+   },
+   {
+    "id": "health",
+    "first_tool": "agenda",
+    "agenda_template": "clinic",
+    "step_order": [
+     "profile",
+     "catalog",
+     "first_tool",
+     "link",
+     "seal",
+     "second_seat"
+    ]
+   },
+   {
+    "id": "resale",
+    "first_tool": "catalog",
+    "step_order": [
+     "profile",
+     "catalog",
+     "link",
+     "first_tool",
+     "seal",
+     "second_seat"
+    ]
+   },
+   {
+    "id": "home_services",
+    "first_tool": "quotes",
+    "agenda_template": "other",
+    "step_order": [
+     "profile",
+     "link",
+     "first_tool",
+     "catalog",
+     "seal",
+     "second_seat"
+    ]
+   },
+   {
+    "id": "other",
+    "first_tool": "catalog",
+    "step_order": [
+     "profile",
+     "link",
+     "catalog",
+     "first_tool",
+     "seal",
+     "second_seat"
+    ]
+   }
+  ],
+  "resaleSector": "resale",
+  "suggestionDismissDays": 30,
+  "suggestions": [
+   {
+    "id": "quotes_for_on_request",
+    "tool": "quotes",
+    "rule": "an active catálogo item with the price on request, and the tool is off"
+   },
+   {
+    "id": "agenda_for_services",
+    "tool": "agenda",
+    "rule": "an active catálogo service, and the tool is off"
+   },
+   {
+    "id": "orders_for_products",
+    "tool": "orders",
+    "rule": "an active catálogo product with a fixed amount, and the tool is off"
+   }
+  ]
  },
  "voiceMedia": {
   "$comment": "Voice message audio expiry (ADR 0164, bipe-chat/bipe#622). After the upload, the sending app registers the media ID of a voice message with the API (PUT /v1/me/voice-media). The API deletes the file from the media repository transcriptDays after the upload when the message has a transcript, noTranscriptDays after it when it has none. The event and the transcript stay. Media that nobody registered never expires. Any account can keep a voice message's audio (PUT /v1/me/kept-media), up to maxKeptPerAccount; kept audio never expires while one account keeps it. The app keeps an incoming voice message with a scam warning by itself (reason scam). maxKeptPerAccount 200 is a default (about 36 MB of one-minute 24 kbit/s audio per account); MZ can overrule it. Forward marks (bipe-chat/bipe#83): a forward from a Bipe app adds the top-level object forwardKey with an integer count to the copied content: the count of the original plus 1, or 1 when the original has none. A count of forwardedManyTimes or more shows the many-times line on a voice message or audio file. A missing or malformed mark counts as 0 and means no forward line, never proof that the message was not forwarded: a modified app can drop or fake the mark. forwardedManyTimes 5 is a default (the threshold people know from other messengers); MZ can overrule it. Every forwarded message of any kind with a count of 1 or more shows a forward line (bipe-chat/bipe#933): forwarded, or forwardedManyTimes at the threshold. A forward goes to at most forwardChats chats; when a content it sends has a count of forwardedManyTimes or more (the original count plus 1), it goes to at most forwardChatsManyTimes chats, the brake other messengers put on chain messages. forwardChats 5 and forwardChatsManyTimes 1 are defaults; MZ can overrule them.",
@@ -5699,6 +5889,58 @@
    "bipe_chat_unread_state": "Não lida",
    "bipe_chat_details": "Ver informações",
    "bipe_chat_read_error": "Não deu para marcar a conversa. Tente de novo.",
+   "bipe_sector_beauty": "Barbearia e salão",
+   "bipe_sector_food": "Comida e padaria",
+   "bipe_sector_repair": "Conserto e reforma",
+   "bipe_sector_health": "Saúde e bem-estar",
+   "bipe_sector_resale": "Revenda",
+   "bipe_sector_home_services": "Serviços em casa",
+   "bipe_sector_other": "Outro",
+   "bipe_work_sector_title": "O que você faz?",
+   "bipe_work_sector_body": "Com isso, a gente sugere por onde começar. Todas as ferramentas continuam aqui.",
+   "bipe_work_sector_skip": "Pular",
+   "bipe_work_sector_row": "Ramo",
+   "bipe_work_sector_none": "Não escolhido",
+   "bipe_work_next_step": "Próximo passo",
+   "bipe_work_progress": "%1$s de %2$s",
+   "bipe_work_setup_title": "Monte seu negócio",
+   "bipe_work_setup_done": "Tudo pronto.",
+   "bipe_work_step_profile": "Complete o perfil",
+   "bipe_work_step_profile_body": "Foto, descrição e horário de atendimento.",
+   "bipe_work_step_link": "Compartilhe seu link",
+   "bipe_work_step_link_body": "Mande o link ou imprima o QR code.",
+   "bipe_work_step_catalog": "Monte o catálogo",
+   "bipe_work_step_catalog_body": "Coloque pelo menos %1$s itens.",
+   "bipe_work_step_first_tool": "Publique: %1$s",
+   "bipe_work_step_first_tool_body": "Seus clientes passam a ver essa ferramenta.",
+   "bipe_work_step_seal": "Verifique o CNPJ",
+   "bipe_work_step_seal_body": "O selo mostra aos clientes que a empresa é sua.",
+   "bipe_work_step_second_seat": "Chame mais uma pessoa",
+   "bipe_work_step_second_seat_body": "Mais alguém atende os clientes com você.",
+   "bipe_work_today": "Hoje",
+   "bipe_work_today_bookings": "Horários de hoje",
+   "bipe_work_today_orders": "Pedidos abertos",
+   "bipe_work_today_queue": "Fila",
+   "bipe_work_today_queue_waiting": "%1$s esperando",
+   "bipe_work_today_quotes": "Orçamentos para responder",
+   "bipe_work_today_confirm": "Confirmar",
+   "bipe_work_today_accept": "Aceitar",
+   "bipe_work_today_call_next": "Chamar próximo",
+   "bipe_work_today_answer": "Responder",
+   "bipe_work_all_tools": "Todas as ferramentas",
+   "bipe_work_tool_turn_on": "Ligar",
+   "bipe_work_tool_publish": "Publicar",
+   "bipe_work_tool_turn_off": "Desligar",
+   "bipe_work_tool_state_setup": "Em preparação",
+   "bipe_work_tool_state_live": "Publicada",
+   "bipe_work_tool_needs_service": "A agenda precisa de um serviço no catálogo.",
+   "bipe_work_tool_needs_product": "Os pedidos precisam de um produto no catálogo.",
+   "bipe_work_tool_open_catalog": "Abrir catálogo",
+   "bipe_work_tool_error": "Não deu para mudar a ferramenta. Tente de novo.",
+   "bipe_work_suggest_quotes_for_on_request": "Você tem itens sob consulta. Ligue os orçamentos para responder com preço.",
+   "bipe_work_suggest_agenda_for_services": "Você tem serviços no catálogo. Ligue a agenda para receber agendamentos.",
+   "bipe_work_suggest_orders_for_products": "Você tem produtos no catálogo. Ligue os pedidos para vender pela conversa.",
+   "bipe_work_suggest_dismiss": "Agora não",
    "bipe_business_tools_title": "Ferramentas do negócio",
    "bipe_business_tools_footer": "Seus clientes encontram estas ferramentas no seu perfil e na conversa com você.",
    "bipe_business_tools_a11y": "Ferramentas do negócio",
@@ -8008,6 +8250,58 @@
    "bipe_chat_unread_state": "Unread",
    "bipe_chat_details": "View details",
    "bipe_chat_read_error": "Could not mark the chat. Try again.",
+   "bipe_sector_beauty": "Barbershop and salon",
+   "bipe_sector_food": "Food and bakery",
+   "bipe_sector_repair": "Repairs and renovation",
+   "bipe_sector_health": "Health and wellness",
+   "bipe_sector_resale": "Resale",
+   "bipe_sector_home_services": "Home services",
+   "bipe_sector_other": "Other",
+   "bipe_work_sector_title": "What do you do?",
+   "bipe_work_sector_body": "This tells us where to suggest you start. Every tool stays available.",
+   "bipe_work_sector_skip": "Skip",
+   "bipe_work_sector_row": "Line of business",
+   "bipe_work_sector_none": "Not chosen",
+   "bipe_work_next_step": "Next step",
+   "bipe_work_progress": "%1$s of %2$s",
+   "bipe_work_setup_title": "Set up your business",
+   "bipe_work_setup_done": "All set.",
+   "bipe_work_step_profile": "Complete your profile",
+   "bipe_work_step_profile_body": "Photo, description and opening hours.",
+   "bipe_work_step_link": "Share your link",
+   "bipe_work_step_link_body": "Send the link or print the QR code.",
+   "bipe_work_step_catalog": "Build your catalog",
+   "bipe_work_step_catalog_body": "Add at least %1$s items.",
+   "bipe_work_step_first_tool": "Publish: %1$s",
+   "bipe_work_step_first_tool_body": "Your customers start to see this tool.",
+   "bipe_work_step_seal": "Verify your CNPJ",
+   "bipe_work_step_seal_body": "The seal shows customers that the company is yours.",
+   "bipe_work_step_second_seat": "Add another person",
+   "bipe_work_step_second_seat_body": "Someone else answers customers with you.",
+   "bipe_work_today": "Today",
+   "bipe_work_today_bookings": "Today's bookings",
+   "bipe_work_today_orders": "Open orders",
+   "bipe_work_today_queue": "Queue",
+   "bipe_work_today_queue_waiting": "%1$s waiting",
+   "bipe_work_today_quotes": "Quotes to answer",
+   "bipe_work_today_confirm": "Confirm",
+   "bipe_work_today_accept": "Accept",
+   "bipe_work_today_call_next": "Call next",
+   "bipe_work_today_answer": "Answer",
+   "bipe_work_all_tools": "All tools",
+   "bipe_work_tool_turn_on": "Turn on",
+   "bipe_work_tool_publish": "Publish",
+   "bipe_work_tool_turn_off": "Turn off",
+   "bipe_work_tool_state_setup": "In setup",
+   "bipe_work_tool_state_live": "Published",
+   "bipe_work_tool_needs_service": "The agenda needs a service in the catalog.",
+   "bipe_work_tool_needs_product": "Orders need a product in the catalog.",
+   "bipe_work_tool_open_catalog": "Open catalog",
+   "bipe_work_tool_error": "Could not change the tool. Try again.",
+   "bipe_work_suggest_quotes_for_on_request": "You have items priced on request. Turn on quotes to answer with a price.",
+   "bipe_work_suggest_agenda_for_services": "You have services in your catalog. Turn on the agenda to take bookings.",
+   "bipe_work_suggest_orders_for_products": "You have products in your catalog. Turn on orders to sell through chat.",
+   "bipe_work_suggest_dismiss": "Not now",
    "bipe_business_tools_title": "Business tools",
    "bipe_business_tools_footer": "Customers find these on your profile and in their chat with you.",
    "bipe_business_tools_a11y": "Business tools",

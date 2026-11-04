@@ -4366,6 +4366,118 @@ public enum BipeStrings {
 
     public static var chatReadError: String { NSLocalizedString("bipe_chat_read_error", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var sectorBeauty: String { NSLocalizedString("bipe_sector_beauty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var sectorFood: String { NSLocalizedString("bipe_sector_food", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var sectorRepair: String { NSLocalizedString("bipe_sector_repair", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var sectorHealth: String { NSLocalizedString("bipe_sector_health", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var sectorResale: String { NSLocalizedString("bipe_sector_resale", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var sectorHomeServices: String { NSLocalizedString("bipe_sector_home_services", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var sectorOther: String { NSLocalizedString("bipe_sector_other", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workSectorTitle: String { NSLocalizedString("bipe_work_sector_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workSectorBody: String { NSLocalizedString("bipe_work_sector_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workSectorSkip: String { NSLocalizedString("bipe_work_sector_skip", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workSectorRow: String { NSLocalizedString("bipe_work_sector_row", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workSectorNone: String { NSLocalizedString("bipe_work_sector_none", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workNextStep: String { NSLocalizedString("bipe_work_next_step", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func workProgress(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_work_progress", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var workSetupTitle: String { NSLocalizedString("bipe_work_setup_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workSetupDone: String { NSLocalizedString("bipe_work_setup_done", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workStepProfile: String { NSLocalizedString("bipe_work_step_profile", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workStepProfileBody: String { NSLocalizedString("bipe_work_step_profile_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workStepLink: String { NSLocalizedString("bipe_work_step_link", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workStepLinkBody: String { NSLocalizedString("bipe_work_step_link_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workStepCatalog: String { NSLocalizedString("bipe_work_step_catalog", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func workStepCatalogBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_work_step_catalog_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func workStepFirstTool(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_work_step_first_tool", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var workStepFirstToolBody: String { NSLocalizedString("bipe_work_step_first_tool_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workStepSeal: String { NSLocalizedString("bipe_work_step_seal", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workStepSealBody: String { NSLocalizedString("bipe_work_step_seal_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workStepSecondSeat: String { NSLocalizedString("bipe_work_step_second_seat", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workStepSecondSeatBody: String { NSLocalizedString("bipe_work_step_second_seat_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workToday: String { NSLocalizedString("bipe_work_today", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workTodayBookings: String { NSLocalizedString("bipe_work_today_bookings", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workTodayOrders: String { NSLocalizedString("bipe_work_today_orders", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workTodayQueue: String { NSLocalizedString("bipe_work_today_queue", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func workTodayQueueWaiting(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_work_today_queue_waiting", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var workTodayQuotes: String { NSLocalizedString("bipe_work_today_quotes", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workTodayConfirm: String { NSLocalizedString("bipe_work_today_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workTodayAccept: String { NSLocalizedString("bipe_work_today_accept", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workTodayCallNext: String { NSLocalizedString("bipe_work_today_call_next", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workTodayAnswer: String { NSLocalizedString("bipe_work_today_answer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workAllTools: String { NSLocalizedString("bipe_work_all_tools", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workToolTurnOn: String { NSLocalizedString("bipe_work_tool_turn_on", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workToolPublish: String { NSLocalizedString("bipe_work_tool_publish", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workToolTurnOff: String { NSLocalizedString("bipe_work_tool_turn_off", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workToolStateSetup: String { NSLocalizedString("bipe_work_tool_state_setup", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workToolStateLive: String { NSLocalizedString("bipe_work_tool_state_live", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workToolNeedsService: String { NSLocalizedString("bipe_work_tool_needs_service", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workToolNeedsProduct: String { NSLocalizedString("bipe_work_tool_needs_product", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workToolOpenCatalog: String { NSLocalizedString("bipe_work_tool_open_catalog", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workToolError: String { NSLocalizedString("bipe_work_tool_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workSuggestQuotesForOnRequest: String { NSLocalizedString("bipe_work_suggest_quotes_for_on_request", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workSuggestAgendaForServices: String { NSLocalizedString("bipe_work_suggest_agenda_for_services", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workSuggestOrdersForProducts: String { NSLocalizedString("bipe_work_suggest_orders_for_products", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workSuggestDismiss: String { NSLocalizedString("bipe_work_suggest_dismiss", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var businessToolsTitle: String { NSLocalizedString("bipe_business_tools_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var businessToolsFooter: String { NSLocalizedString("bipe_business_tools_footer", tableName: "Bipe", bundle: .module, comment: "") }

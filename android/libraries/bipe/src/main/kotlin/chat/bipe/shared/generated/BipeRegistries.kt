@@ -884,6 +884,12 @@ object BipeRegistries {
     const val BRAND_MARK_MAX_PER_ACCOUNT = 3
     const val BRAND_MARK_RECHECK_MINUTES = 10
 
+    /** Business tools, steps and sectors (registries/business-tools.json, ADR 0194). The titles are strings by ID. */
+    val BUSINESS_TOOL_IDS: List<String> = listOf("catalog", "agenda", "orders", "quotes", "queue")
+    val BUSINESS_SECTOR_IDS: List<String> = listOf("beauty", "food", "repair", "health", "resale", "home_services", "other")
+    const val BUSINESS_RESALE_SECTOR = "resale"
+    const val BUSINESS_CATALOG_MIN_ITEMS = 3
+
     /** Voice message audio expiry (ADR 0164, bipe-chat/bipe#622; registries/voice-media.json). */
     const val VOICE_MEDIA_TRANSCRIPT_DAYS = 30
     const val VOICE_MEDIA_NO_TRANSCRIPT_DAYS = 90
