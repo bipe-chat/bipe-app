@@ -33,7 +33,7 @@ import { BusinessChatBar, BusinessChatSheets, BusinessToolButtons } from './work
 import { useBusinessChat } from './work/chat/useBusinessChat';
 import { PinnedBanner, usePinnedMessages } from './Pins';
 import { useRoomFace } from './room-face';
-import { itemRow, markRead, TimelineRowView, type MessageRow, type RowHandlers } from './TimelineRows';
+import { itemRow, markRead, TimelineRowView, withoutEmptyDays, type MessageRow, type RowHandlers } from './TimelineRows';
 import { Alert } from './ui/Alert';
 import { useAccounts } from './accounts-context';
 import { Avatar, useIsCompany } from './ui/Avatar';
@@ -159,10 +159,12 @@ export function RoomTimeline({
   const clearedMarker = useClearedChats(client);
   // Spec dm-delete: the timeline drops every event at or below the cleared marker of the DM.
   const marker = clearedMarker(room.id());
-  const itemRows = items
-    .map((i) => itemRow(i, ownUserId))
-    .filter((r) => r !== undefined)
-    .filter((r) => r.kind !== 'message' || clearedChatKeepsEvent(marker, r.at));
+  const itemRows = withoutEmptyDays(
+    items
+      .map((i) => itemRow(i, ownUserId))
+      .filter((r) => r !== undefined)
+      .filter((r) => r.kind !== 'message' || clearedChatKeepsEvent(marker, r.at)),
+  );
   // Read ticks only in a DM (spec read-receipts); groups keep the sent tick.
   // With the read receipts switch off, DMs show no read ticks either (bipe_privacy_read_receipts_footer).
   const rows = face.isDirect && readReceiptsOn() ? markRead(itemRows) : itemRows;
@@ -422,11 +424,10 @@ export function RoomTimeline({
           notice={jumpNotice}
           onPick={(day) => {
             setJumpNotice('');
-            firstEventOfDay(client, room.id(), day)
+            firstEventOfDay(client, room.id(), day, marker)
               .then((eventId) => {
                 if (eventId) navigate({ kind: 'chat', roomId: room.id(), eventId });
-                // TODO(string): bipe_jump_to_date_empty, "Nenhuma mensagem neste dia." (bipe-app PR #295).
-                else setJumpNotice('Nenhuma mensagem neste dia.');
+                else setJumpNotice(s('bipe_jump_to_date_empty'));
               })
               .catch(() => setJumpNotice(s('bipe_error_generic')));
           }}

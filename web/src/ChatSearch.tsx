@@ -128,9 +128,16 @@ export function ChatSearch({
  * timestamp_to_event?dir=f, MSC3030). matrix-sdk-ffi has no call for it, so the web uses the session's access
  * token, as the apps' ServerAccountData does. Returns the event ID, or undefined when the day has none.
  */
-export async function firstEventOfDay(client: Client, roomId: string, day: Date): Promise<string | undefined> {
+export async function firstEventOfDay(
+  client: Client,
+  roomId: string,
+  day: Date,
+  clearedMarker: number | null,
+): Promise<string | undefined> {
   const session = client.session();
-  const ts = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
+  const start = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
+  // Spec dm-delete: a cleared DM has no events at or below its marker, so the search starts after it.
+  const ts = clearedMarker === null ? start : Math.max(start, clearedMarker + 1);
   const base = session.homeserverUrl.replace(/\/$/, '');
   const res = await fetch(
     `${base}/_matrix/client/v1/rooms/${encodeURIComponent(roomId)}/timestamp_to_event?ts=${ts}&dir=f`,
@@ -140,7 +147,7 @@ export async function firstEventOfDay(client: Client, roomId: string, day: Date)
   const body = (await res.json()) as { event_id?: string; origin_server_ts?: number };
   if (!body.event_id || body.origin_server_ts === undefined) return undefined;
   // An event on a later day means the picked day had none.
-  const end = ts + 86_400_000;
+  const end = start + 86_400_000;
   return body.origin_server_ts < end ? body.event_id : undefined;
 }
 
@@ -167,8 +174,7 @@ export function FloatingDate({
         <button
           type="button"
           className={`pointer-events-auto rounded-full bg-surface-sunken px-2.5 py-1 text-caption text-ink-secondary shadow-sm motion-safe:transition-opacity motion-safe:duration-300 ${visible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-          // TODO(string): bipe_jump_to_date, "Ir para uma data", the label of the pill (bipe-app PR #295).
-          aria-label={`${dayText(at)}, Ir para uma data`}
+          aria-label={`${dayText(at)}, ${s('bipe_jump_to_date_title')}`}
           onClick={() => field.current?.showPicker?.() ?? field.current?.focus()}
         >
           {dayText(at)}
