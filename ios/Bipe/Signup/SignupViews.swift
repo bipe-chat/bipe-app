@@ -57,6 +57,7 @@ struct SignupFlowView: View {
             SignupWaitlistView(model: model)
         }
         .onOpenURL { url in
+            if ShopClaim.keep(url) { return }
             // A recovery link goes to account-start (recovery-email, action openLink).
             if BipeRecoveryLink.token(from: url) != nil {
                 onRecoveryLink(url)

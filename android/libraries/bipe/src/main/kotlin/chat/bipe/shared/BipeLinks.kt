@@ -29,6 +29,18 @@ object BipeProfileLink {
         return handle.takeIf { BipeHandle.localProblem(it) == null }
     }
 
+    /**
+     * The shop and token in a claim link of the shop on the web (ADR 0195 point 7):
+     * `https://www.bipe.chat/@handle#claim=<token>`. The token sits in the fragment, so no server receives it.
+     */
+    fun shopClaim(url: String): Pair<String, String>? {
+        val handle = handle(url) ?: return null
+        val fragment = runCatchingExceptions { URI(url).fragment }.getOrNull() ?: return null
+        if (!fragment.startsWith("claim=")) return null
+        val token = fragment.removePrefix("claim=")
+        return if (token.isEmpty()) null else handle to token
+    }
+
     /** The Matrix user ID in a `https://matrix.to/#/@user:server` permalink. */
     fun matrixUserId(permalink: String): String? {
         val uri = runCatchingExceptions { URI(permalink) }.getOrNull() ?: return null

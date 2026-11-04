@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ import chat.bipe.shared.api.BipeBookingStatus
 import chat.bipe.shared.api.BipeOrderStatus
 import chat.bipe.shared.api.BipeOwnerBookingAction
 import chat.bipe.shared.api.BipeOwnerOrderAction
+import chat.bipe.shared.api.BipeWebSettings
 import chat.bipe.shared.api.BipeWorkSetup
 import chat.bipe.shared.api.BipeWorkSuggestion
 import chat.bipe.shared.api.businessToday
@@ -54,6 +56,8 @@ import chat.bipe.shared.api.ownerBookingAction
 import chat.bipe.shared.api.ownerOrderAction
 import chat.bipe.shared.api.setBusinessTool
 import chat.bipe.shared.api.setWorkSector
+import chat.bipe.shared.api.setWebSettings
+import chat.bipe.shared.api.webSettings
 import chat.bipe.shared.api.workLinkOpened
 import chat.bipe.shared.api.workSetup
 import chat.bipe.shared.api.workSuggestions
@@ -77,6 +81,9 @@ class WorkHomeModel(val business: BusinessApi, private val context: Context) {
     var today by mutableStateOf<BipeBusinessToday?>(null)
         private set
     var askSector by mutableStateOf(false)
+    /** The owner's web switches (ADR 0195). */
+    var web by mutableStateOf<BipeWebSettings?>(null)
+        private set
 
     private val prefs get() = context.getSharedPreferences("bipe.work", Context.MODE_PRIVATE)
     private val askedKey get() = "sectorAsked.${business.session.userId}"
@@ -95,6 +102,7 @@ class WorkHomeModel(val business: BusinessApi, private val context: Context) {
             sector = it.sector
         }
         setup = read { business.withToken { workSetup(it) } }
+        web = read { business.withToken { webSettings(it) } }
         suggestion = read { business.withToken { workSuggestions(it) } }?.firstOrNull()
         val hasLive = tools?.any { it.state == BipeBusinessTool.LIVE } == true
         today = if (hasLive) read { business.withToken { businessToday(it) } } else null
@@ -116,6 +124,11 @@ class WorkHomeModel(val business: BusinessApi, private val context: Context) {
         val updated = read { business.withToken { setBusinessTool(tool.id, state, it) } }
         if (updated == null) BipeToasts.show(context.getString(R.string.bipe_work_tool_error))
         load()
+    }
+
+    suspend fun saveWeb(next: BipeWebSettings) {
+        val saved = read { business.withToken { setWebSettings(next, it) } }
+        if (saved == null) BipeToasts.show(context.getString(R.string.bipe_work_tool_error)) else web = saved
     }
 
     suspend fun dismissSuggestion() {
@@ -319,12 +332,14 @@ private fun TodaySection(today: BipeBusinessToday, model: WorkHomeModel, run: (s
     }
     SectionTitle(stringResource(R.string.bipe_work_today))
     today.bookings.forEach { booking ->
-        WorkRow(BusinessText.time(java.time.Instant.parse(booking.start)), trailing = if (booking.bookingStatus == BipeBookingStatus.REQUESTED) {
+        val time = BusinessText.time(java.time.Instant.parse(booking.start))
+        WorkRow(if (booking.web) "$time · ${stringResource(R.string.bipe_web_record_mark)}" else time, trailing = if (booking.bookingStatus == BipeBookingStatus.REQUESTED) {
             { action(R.string.bipe_work_today_confirm) { business.withToken { ownerBookingAction(booking.id, BipeOwnerBookingAction.ACCEPT, it) } } }
         } else null)
     }
     today.orders.forEach { order ->
-        WorkRow(BusinessText.reais(order.totalAmountCents), trailing = if (order.orderStatus == BipeOrderStatus.SENT) {
+        val total = BusinessText.reais(order.totalAmountCents)
+        WorkRow(if (order.web) "$total · ${stringResource(R.string.bipe_web_record_mark)}" else total, trailing = if (order.orderStatus == BipeOrderStatus.SENT) {
             { action(R.string.bipe_work_today_accept) { business.withToken { ownerOrderAction(order.id, BipeOwnerOrderAction.ACCEPT, it) } } }
         } else null)
     }
@@ -397,6 +412,21 @@ private fun WorkSectorDialog(model: WorkHomeModel, run: (suspend () -> Unit) -> 
 fun WorkToolStateBar(model: WorkHomeModel, run: (suspend () -> Unit) -> Unit, id: String) {
     val tool = model.tools?.firstOrNull { it.id == id } ?: return
     if (tool.state == BipeBusinessTool.OFF) return
+    val web = model.web
+    if (web != null && tool.state == BipeBusinessTool.LIVE && (id == "agenda" || id == "orders")) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(if (id == "agenda") R.string.bipe_web_booking_switch else R.string.bipe_web_orders_switch),
+                style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkPrimary, modifier = Modifier.weight(1f),
+            )
+            Switch(
+                checked = if (id == "agenda") web.webBooking else web.webOrders,
+                onCheckedChange = { on ->
+                    run { model.saveWeb(if (id == "agenda") web.copy(webBooking = on) else web.copy(webOrders = on)) }
+                },
+            )
+        }
+    }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         val state = if (tool.state == BipeBusinessTool.LIVE) R.string.bipe_work_tool_state_live else R.string.bipe_work_tool_state_setup
         Text(stringResource(state), style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary, modifier = Modifier.padding(start = 8.dp).weight(1f))

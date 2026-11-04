@@ -86,6 +86,8 @@ final class AccountStartModel: ObservableObject {
 
     /// Routes a recovery link to the recovery flow. A signed-in phone ignores it: noAccount alone shows the flow.
     func openLink(_ url: URL) {
+        // A claim link waits for the account, through sign-up (ADR 0195 point 7).
+        if ShopClaim.keep(url) { return }
         guard BipeRecoveryLink.token(from: url) != nil else { return }
         recoveryLink = url
         showsRecovery = true

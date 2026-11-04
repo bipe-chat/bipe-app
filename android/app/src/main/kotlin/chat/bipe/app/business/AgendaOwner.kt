@@ -458,7 +458,9 @@ private fun OwnerBookingRow(view: BookingView, showsAgenda: Boolean, onClick: ()
             Text(BusinessText.time(view.end), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(view.customerName.orEmpty(), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = colors.inkPrimary)
+            // A web record is name-only with a web mark (ADR 0195 point 17).
+            val shownName = view.customerName.orEmpty() + if (view.booking.web) " · ${stringResource(R.string.bipe_web_record_mark)}" else ""
+            Text(shownName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = colors.inkPrimary)
             Text(view.serviceName, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
             if (showsAgenda) view.agendaName?.let { Text(stringResource(R.string.bipe_agenda_with, it), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary) }
             Text(stringResource(BusinessText.status(view.status)), style = MaterialTheme.typography.labelSmall, color = statusColor(view.status))
@@ -600,7 +602,7 @@ fun AgendaOwnerBookingSheet(
             ) {
                 if (booking != null) {
                     Text(stringResource(BusinessText.status(booking.status)), style = MaterialTheme.typography.labelLarge, color = statusColor(booking.status))
-                    Detail(stringResource(R.string.bipe_agenda_customer), booking.customerName.orEmpty())
+                    Detail(stringResource(R.string.bipe_agenda_customer), booking.customerName.orEmpty() + if (booking.booking.web) " · ${stringResource(R.string.bipe_web_record_mark)}" else "")
                     Detail(stringResource(R.string.bipe_agenda_service), booking.serviceName)
                     booking.agendaName?.let { Detail(stringResource(R.string.bipe_agenda_person), it) }
                     Detail(stringResource(R.string.bipe_agenda_date), BusinessText.date(booking.start))

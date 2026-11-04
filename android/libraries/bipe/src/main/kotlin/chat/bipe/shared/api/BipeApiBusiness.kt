@@ -418,6 +418,8 @@ data class BipeBooking(
     @SerialName("customer") val customer: BipeBookingCustomer,
     @SerialName("source") val source: String,
     @SerialName("hold_expires_at") val holdExpiresAt: String? = null,
+    /** Made on the web with a first name (ADR 0195). No chat. */
+    @SerialName("web") val web: Boolean = false,
 ) {
     val bookingStatus: BipeBookingStatus get() = BipeBookingStatus.fromId(status)
 }

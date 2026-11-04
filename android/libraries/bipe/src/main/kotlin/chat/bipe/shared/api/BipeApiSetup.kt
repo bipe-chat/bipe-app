@@ -116,3 +116,42 @@ suspend fun BipeApiClient.businessToday(accessToken: String): BipeBusinessToday 
 /** `GET /v1/businesses/{business}/tools`. No auth. Live tool IDs only. */
 suspend fun BipeApiClient.liveTools(business: String): List<String> =
     send("GET", listOf("v1", "businesses", business, "tools"), response = LiveTools.serializer()).tools
+
+/** Contract `WebSettings`: the owner's web switches (ADR 0195). */
+@Serializable
+data class BipeWebSettings(
+    @SerialName("web_booking") val webBooking: Boolean,
+    @SerialName("web_orders") val webOrders: Boolean,
+)
+
+/** Contract `WebRecords`: the records a claim moved to the account. */
+@Serializable
+data class BipeWebRecords(
+    @SerialName("bookings") val bookings: List<BipeBooking>,
+    @SerialName("orders") val orders: List<BipeOrder>,
+)
+
+@Serializable
+private data class WebClaim(@SerialName("token") val token: String)
+
+/** `GET /v1/me/business/web-settings`. */
+suspend fun BipeApiClient.webSettings(accessToken: String): BipeWebSettings =
+    send("GET", listOf("v1", "me", "business", "web-settings"), accessToken = accessToken, response = BipeWebSettings.serializer())
+
+/** `PUT /v1/me/business/web-settings`. */
+suspend fun BipeApiClient.setWebSettings(settings: BipeWebSettings, accessToken: String): BipeWebSettings = send(
+    "PUT",
+    listOf("v1", "me", "business", "web-settings"),
+    body = encode(BipeWebSettings.serializer(), settings),
+    accessToken = accessToken,
+    response = BipeWebSettings.serializer(),
+)
+
+/** `POST /v1/businesses/{business}/web/claim`. The token's records move to this account; the token stops working. */
+suspend fun BipeApiClient.claimWebRecords(business: String, token: String, accessToken: String): BipeWebRecords = send(
+    "POST",
+    listOf("v1", "businesses", business, "web", "claim"),
+    body = encode(WebClaim.serializer(), WebClaim(token)),
+    accessToken = accessToken,
+    response = BipeWebRecords.serializer(),
+)

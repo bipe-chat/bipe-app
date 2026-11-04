@@ -51,6 +51,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import chat.bipe.shared.api.claimWebRecords
+import chat.bipe.app.common.BipeToasts
+import chat.bipe.app.business.ShopClaims
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -224,6 +227,16 @@ fun HomeScreen(
     val pendingLink by PeopleLinks.pending.collectAsState()
     LaunchedEffect(pendingLink) {
         PeopleLinks.take()?.let { peopleStack = peopleStack + it }
+    }
+    // ADR 0195 point 7: a claim link from the shop on the web moves its records here, then the chat with the shop opens.
+    LaunchedEffect(session, foregroundCount) {
+        val (shop, token) = ShopClaims.pending(context.applicationContext) ?: return@LaunchedEffect
+        val records = runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { api.claimWebRecords(shop, token, it) } }.getOrNull()
+        ShopClaims.clear(context.applicationContext)
+        if (records == null) return@LaunchedEffect
+        BipeToasts.show(context.getString(R.string.bipe_loja_claimed, "@$shop"))
+        val businessId = records.bookings.firstOrNull()?.businessId ?: records.orders.firstOrNull()?.businessId ?: return@LaunchedEffect
+        runCatching { people.openOrCreateDm(businessId) }.getOrNull()?.let { openRoomId = it }
     }
     val navigation = PeopleNavigation(
         push = { peopleStack = peopleStack + it },
