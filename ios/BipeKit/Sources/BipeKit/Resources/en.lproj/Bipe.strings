@@ -46,7 +46,7 @@
 "bipe_warning_photo_match" = "This account uses the same photo as %1$@, who is in your chats.";
 "bipe_device_approval_never_for_others" = "Bipe never asks you to approve someone else's phone.";
 "bipe_badge_verified_contact" = "Confirmed in person";
-"bipe_badge_suspended_body" = "This account signed in on a new device. The seal comes back when the person verifies again on that device.";
+"bipe_badge_suspended_body" = "This account changed its encryption keys. The seal comes back when the person verifies their name again.";
 "bipe_badge_company" = "Verified business";
 "bipe_badge_company_legal_name" = "Legal name";
 "bipe_badge_company_trade_name" = "Trade name";
@@ -1200,8 +1200,6 @@
 "bipe_help_licenses" = "Open source licences";
 "bipe_help_versions" = "Version history";
 "bipe_versions_note" = "The release notes are in English.";
-"bipe_versions_testing" = "In testing";
-"bipe_versions_released" = "Released %1$@";
 "bipe_versions_build" = "Build %1$@";
 "bipe_versions_kind_new" = "New";
 "bipe_versions_kind_improved" = "Improved";

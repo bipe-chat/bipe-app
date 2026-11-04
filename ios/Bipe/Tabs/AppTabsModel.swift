@@ -48,6 +48,8 @@ final class AppTabsModel: ObservableObject {
 
     @Published var selectedTab: Tab = .conversas
     @Published private(set) var accounts: [AccountSummary] = []
+    /// Counts the requests to open account-switcher from outside the tab bar (spec voce openAccounts).
+    @Published private(set) var accountSwitcherRequests = 0
     @Published private(set) var conversasUnread = 0
     @Published private(set) var gruposAttention = 0
     @Published private(set) var otherAccountUnread = false
@@ -120,6 +122,11 @@ final class AppTabsModel: ObservableObject {
         case .grupos where isCompany, .trabalho where !isCompany: .conversas
         default: tab
         }
+    }
+
+    /// Action openAccounts of spec voce: TabBarGestures opens account-switcher.
+    func openAccountSwitcher() {
+        accountSwitcherRequests += 1
     }
 
     /// Action doubleTapVoce: the next account in accounts, wrapping around, with the switch haptic (ADR 0134).

@@ -5,7 +5,7 @@
 import BipeKit
 import SwiftUI
 
-/// Spec version-history: what changed in each version and build, newest first. The list is tools/changelog.mjs --json,
+/// Spec version-history: what changed by day and then by build, newest first. The list is tools/changelog.mjs --json,
 /// which bipe-web publishes at the versionsData url (registries/settings.json). Only the changes for iOS show.
 struct VersionHistoryView: View {
     struct Update: Decodable, Hashable {
@@ -19,21 +19,17 @@ struct VersionHistoryView: View {
     struct Build: Decodable, Hashable {
         let build: Int
         let version: String?
-        let released: Bool?
-        let releaseDate: String?
         let date: String
         let updates: [Update]
     }
 
-    /// The builds of one version, newest first.
-    struct Version: Hashable {
-        let version: String?
-        let released: Bool
-        let releaseDate: String?
+    /// The builds of one day, newest first.
+    struct Day: Hashable {
+        let date: String
         let builds: [Build]
     }
 
-    private enum Phase { case loading, failed, loaded([Version]) }
+    private enum Phase { case loading, failed, loaded([Day]) }
 
     @State private var phase = Phase.loading
 
@@ -54,25 +50,26 @@ struct VersionHistoryView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-            case .loaded(let versions):
+            case .loaded(let days):
                 if AppVersion.language == "pt" {
                     Text(BipeStrings.versionsNote)
                         .font(.footnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
-                ForEach(versions, id: \.self) { version in
+                ForEach(days, id: \.date) { day in
                     Section {
-                        ForEach(version.builds, id: \.build) { build in
+                        ForEach(day.builds, id: \.build) { build in
+                            Text(verbatim: Self.label(build))
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(BipeColor.inkSecondary)
+                                .accessibilityAddTraits(.isHeader)
                             ForEach(build.updates, id: \.id) { update in
-                                UpdateRow(update: update, build: build)
+                                UpdateRow(update: update)
                             }
                         }
                     } header: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(version.version.map(BipeStrings.helpVersion) ?? "")
-                            Text(Self.status(version))
-                                .textCase(nil)
-                        }
+                        Text(verbatim: Self.day(day.date) ?? day.date)
+                            .textCase(nil)
                     }
                 }
             }
@@ -95,36 +92,32 @@ struct VersionHistoryView: View {
             request.cachePolicy = .reloadRevalidatingCacheData
             let (data, response) = try await URLSession.shared.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
-            phase = .loaded(Self.versions(try JSONDecoder().decode([Build].self, from: data)))
+            phase = .loaded(Self.days(try JSONDecoder().decode([Build].self, from: data)))
         } catch {
             phase = .failed
         }
     }
 
-    /// The builds grouped by version, with only the iOS changes. Builds with no iOS change drop out.
-    static func versions(_ builds: [Build]) -> [Version] {
-        var out: [Version] = []
+    /// The builds grouped by day, with only the iOS changes. Builds with no iOS change drop out.
+    static func days(_ builds: [Build]) -> [Day] {
+        var out: [Day] = []
         for build in builds {
             let updates = build.updates.filter { $0.platforms.contains("ios") }
             guard !updates.isEmpty else { continue }
-            let mine = Build(build: build.build, version: build.version, released: build.released,
-                             releaseDate: build.releaseDate, date: build.date, updates: updates)
-            if let last = out.last, last.version == build.version {
-                out[out.count - 1] = Version(version: last.version, released: last.released,
-                                             releaseDate: last.releaseDate, builds: last.builds + [mine])
+            let mine = Build(build: build.build, version: build.version, date: build.date, updates: updates)
+            if let index = out.firstIndex(where: { $0.date == build.date }) {
+                out[index] = Day(date: build.date, builds: out[index].builds + [mine])
             } else {
-                out.append(Version(version: build.version, released: build.released ?? false,
-                                   releaseDate: build.releaseDate, builds: [mine]))
+                out.append(Day(date: build.date, builds: [mine]))
             }
         }
         return out
     }
 
-    private static func status(_ version: Version) -> String {
-        if version.released, let date = version.releaseDate.flatMap(day) {
-            return BipeStrings.versionsReleased(date)
-        }
-        return BipeStrings.versionsTesting
+    /// "Versão 1.0.1 (446)", the same text as the Ajuda e sobre row.
+    private static func label(_ build: Build) -> String {
+        guard let version = build.version else { return BipeStrings.versionsBuild(String(build.build)) }
+        return BipeStrings.helpVersion("\(version) (\(build.build))")
     }
 
     /// "2026-11-03" as a day in the app language, for example "3 de novembro de 2026".
@@ -144,11 +137,9 @@ struct VersionHistoryView: View {
     }
 }
 
-/// One change: the headline, the detail, and its build, kind and day. Headline and detail are English and not
-/// translated.
+/// One change: the headline, the detail and its kind. Headline and detail are English and not translated.
 private struct UpdateRow: View {
     let update: VersionHistoryView.Update
-    let build: VersionHistoryView.Build
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -160,18 +151,14 @@ private struct UpdateRow: View {
                     .font(.subheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
-            Text(verbatim: tags)
-                .font(.footnote)
-                .foregroundStyle(BipeColor.inkSecondary)
+            if let kind = Self.kind(update.kind) {
+                Text(verbatim: kind)
+                    .font(.footnote)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
-    }
-
-    private var tags: String {
-        [BipeStrings.versionsBuild(String(build.build)), Self.kind(update.kind), VersionHistoryView.day(build.date)]
-            .compactMap { $0 }
-            .joined(separator: " · ")
     }
 
     private static func kind(_ kind: String) -> String? {
