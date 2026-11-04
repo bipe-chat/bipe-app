@@ -97,6 +97,7 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.LocalReduceMotion
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.memberLabel
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.common.chatBackground
 import chat.bipe.app.common.floatingSurface
@@ -867,7 +868,10 @@ private fun ComposerBar(
                             ) {
                                 Avatar(suggestion.name, suggestion.avatarUrl, media, size = 32.dp)
                                 Column {
-                                    Text(suggestion.name, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                                    // Spec composer nameAmbiguous: a member with no handle line shows the Matrix ID after a shared name.
+                                    val label = suggestion.userId?.takeIf { suggestion.handle == null }
+                                        ?.let { memberLabel(suggestion.name, it, suggestion.nameAmbiguous) } ?: suggestion.name
+                                    Text(label, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
                                     suggestion.handle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
                                 }
                             }
