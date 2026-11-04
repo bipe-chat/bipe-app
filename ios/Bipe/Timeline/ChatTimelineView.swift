@@ -183,11 +183,6 @@ struct ChatTimelineView: View {
                     if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
                     else { chatTitle }
                 }
-                if !model.isDm {
-                    ToolbarItem(placement: .primaryAction) {
-                        CallHeaderButtons(model: model, session: session)
-                    }
-                }
             }
             if model.isGroup, model.threadRoot == nil {
                 ToolbarItem(placement: .primaryAction) {

@@ -112,7 +112,6 @@ import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.groups.ClearedChatsStore
-import chat.bipe.app.calls.CallHeaderButtons
 import chat.bipe.app.calls.CallMenuItems
 import chat.bipe.app.calls.rememberCallStart
 import chat.bipe.app.groups.ChatNotificationsScreen
@@ -362,7 +361,6 @@ fun ChatTimelineScreen(
                             if (isDm) BrandMarkHeaderLine(peerUserId, people?.brandMarks)
                         }
                     }
-                    if (threadRoot == null && !isDm) CallHeaderButtons(model, session, roomName)
                     if (isGroup && onOpenGroupDetails != null && threadRoot == null) {
                         // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
                         Box {
