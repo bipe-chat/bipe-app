@@ -183,9 +183,10 @@ final class AccountSession {
     }
 
     /// The settings every client of the app shares; the caller names the server.
-    static func builder(paths: (data: URL, cache: URL), process: Process = .app) -> ClientBuilder {
+    static func builder(paths: (data: URL, cache: URL), process: Process = .app) throws -> ClientBuilder {
+        let key = try storeKey(paths: paths)
         var builder = ClientBuilder()
-            .sessionPaths(dataPath: paths.data.path, cachePath: paths.cache.path)
+            .sqliteStore(config: SqliteStoreBuilder(dataPath: paths.data.path, cachePath: paths.cache.path).key(key: key))
             // Bipe uses native sliding sync. Discovery requests /versions during build, making even
             // a saved local session wait for internet. Restore also retains the saved sync version.
             .slidingSyncVersionBuilder(versionBuilder: .native)
@@ -204,9 +205,27 @@ final class AccountSession {
             builder = builder.systemIsMemoryConstrained()
         } else if let index = searchIndexPath(data: paths.data) {
             // Spec chat-search notes (bipe#671): the SDK's local message index, main app only.
-            builder = builder.withSearchIndexStore(path: index.path, password: nil)
+            builder = builder.withSearchIndexStore(path: index.path, password: key?.base64EncodedString())
         }
         return builder
+    }
+
+    /// The key of the store in `paths` (bipe-chat/bipe#913). A new store gets the install's key and a marker file, so
+    /// it never opens without the key. A store from before the key stays plain until its next fresh sign-in, with no
+    /// migration (MZ, 3 Nov 2026). Throws when a keyed store's key cannot be read: the store stays, closed.
+    private static func storeKey(paths: (data: URL, cache: URL)) throws -> Data? {
+        let fileManager = FileManager.default
+        let marker = paths.data.appendingPathComponent("bipe-store-keyed", isDirectory: false)
+        if fileManager.fileExists(atPath: marker.path) {
+            guard let key = try BipeCredentialStore().storeKey() else { throw BipeCredentialStore.StoreKeyError.unavailable }
+            return key
+        }
+        guard try fileManager.contentsOfDirectory(atPath: paths.data.path).isEmpty else { return nil }
+        let key = try BipeCredentialStore().storeKeyMakingOne()
+        // A cache left without its data folder is plain, and a keyed client cannot open it.
+        try? fileManager.removeItem(at: paths.cache)
+        try Data().write(to: marker, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        return key
     }
 
     /// The device ID the account's store belongs to, kept in the store folder so it goes with the store
