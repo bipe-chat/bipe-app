@@ -1065,9 +1065,9 @@ final class ChatTimelineModel: ObservableObject {
     }
 
     /// Action confirmDelete: deletes for everyone, without a reason.
-    func confirmDelete() async {
-        guard let rowId = confirmDeleteRowId, let timeline, let event = item(rowId)?.asEvent() else { return }
+    func confirmDelete(rowId: String) async {
         confirmDeleteRowId = nil
+        guard let timeline, let event = item(rowId)?.asEvent() else { return }
         do {
             try await timeline.redactEvent(eventOrTransactionId: event.eventOrTransactionId, reason: nil)
         } catch {

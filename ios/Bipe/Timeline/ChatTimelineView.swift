@@ -362,14 +362,15 @@ struct ChatTimelineView: View {
         .sheet(isPresented: presence(\.report)) {
             MessageReportSheet(model: model)
         }
-        .alert(BipeStrings.appMessageDeleteTitle, isPresented: presence(\.confirmDeleteRowId)) {
+        // presenting: the alert clears confirmDeleteRowId through the binding before the Task runs, so the button keeps its own copy.
+        .alert(BipeStrings.appMessageDeleteTitle, isPresented: presence(\.confirmDeleteRowId), presenting: model.confirmDeleteRowId) { rowId in
             Button(BipeStrings.appMessageActionDelete, role: .destructive) {
-                Task { await model.confirmDelete() }
+                Task { await model.confirmDelete(rowId: rowId) }
             }
             Button(BipeStrings.appCancel, role: .cancel) {
                 model.confirmDeleteRowId = nil
             }
-        } message: {
+        } message: { _ in
             Text(BipeStrings.appMessageDeleteBody)
         }
         // Spec message-forward deleteSelection: one dialog for all own picked messages.
