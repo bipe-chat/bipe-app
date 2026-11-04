@@ -5066,6 +5066,18 @@ public enum BipeStrings {
 
     public static var chatsMediaQualityHigh: String { NSLocalizedString("bipe_chats_media_quality_high", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var chatsMural: String { NSLocalizedString("bipe_chats_mural", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsMuralFooter: String { NSLocalizedString("bipe_chats_mural_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatMuralNoNews: String { NSLocalizedString("bipe_chat_mural_no_news", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatMuralViewList: String { NSLocalizedString("bipe_chat_mural_view_list", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatMuralReasonMention: String { NSLocalizedString("bipe_chat_mural_reason_mention", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatMuralReasonUnanswered: String { NSLocalizedString("bipe_chat_mural_reason_unanswered", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var chatsTheme: String { NSLocalizedString("bipe_chats_theme", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatsPhotosVideos: String { NSLocalizedString("bipe_chats_photos_videos", tableName: "Bipe", bundle: .module, comment: "") }
