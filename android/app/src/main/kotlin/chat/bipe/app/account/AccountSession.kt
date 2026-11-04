@@ -9,6 +9,7 @@ import android.util.Base64
 import android.util.Log
 import chat.bipe.app.common.AppConfig
 import chat.bipe.shared.account.BipeAccountVault
+import chat.bipe.shared.account.BipeStoreKey
 import chat.bipe.shared.BipeRoomSubscriptions
 import chat.bipe.shared.api.BipeOpenIdTokens
 import kotlinx.coroutines.CoroutineScope
@@ -17,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
@@ -25,6 +27,7 @@ import org.matrix.rustcomponents.sdk.ClientException
 import org.matrix.rustcomponents.sdk.SendQueueRoomErrorListener
 import org.matrix.rustcomponents.sdk.Session
 import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
+import org.matrix.rustcomponents.sdk.SqliteStoreBuilder
 import org.matrix.rustcomponents.sdk.SyncService
 import org.matrix.rustcomponents.sdk.TaskHandle
 import uniffi.matrix_sdk.BackupDownloadStrategy
@@ -174,13 +177,14 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
          */
         suspend fun makeClient(context: Context, userId: String, sessionStore: SessionStore,
                                homeserverUrl: String = AppConfig.HOMESERVER): Client =
-            builder(storePaths(context, folderName(userId)), sessionStore).homeserverUrl(homeserverUrl).build()
+            builder(context, storePaths(context, folderName(userId)), sessionStore).homeserverUrl(homeserverUrl).build()
 
         /** The settings every client of the app shares; the caller names the server. */
-        fun builder(paths: Pair<File, File>, sessionStore: SessionStore): ClientBuilder {
+        suspend fun builder(context: Context, paths: Pair<File, File>, sessionStore: SessionStore): ClientBuilder {
             val (data, cache) = paths
+            val storeKey = storeKey(context, data, cache)
             return ClientBuilder()
-                .sessionPaths(data.path, cache.path)
+                .sqliteStore(SqliteStoreBuilder(data.path, cache.path).key(storeKey))
                 // Discovery requests /versions during build, blocking offline local restore.
                 .slidingSyncVersionBuilder(SlidingSyncVersionBuilder.NATIVE)
                 .setSessionDelegate(sessionStore.delegate())
@@ -194,7 +198,26 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 // Old messages decrypt from the key backup once this phone has the backup key (recovery-key-enter).
                 .backupDownloadStrategy(BackupDownloadStrategy.AFTER_DECRYPTION_FAILURE)
                 // Spec chat-search notes (bipe-chat/bipe#671): the SDK's local message index.
-                .withSearchIndexStore(File(data, "SearchIndex").apply { mkdirs() }.path, null)
+                .withSearchIndexStore(File(data, "SearchIndex").apply { mkdirs() }.path,
+                                      storeKey?.let { Base64.encodeToString(it, Base64.NO_WRAP) })
+        }
+
+        /**
+         * The key of the store in [data] (bipe-chat/bipe#913). A new store gets the install's key and a marker file, so
+         * it never opens without the key. A store from before the key stays plain until its next fresh sign-in; the SDK
+         * cannot add a key to it. Throws when a keyed store's key cannot be read: the store stays, closed.
+         */
+        private suspend fun storeKey(context: Context, data: File, cache: File): ByteArray? = withContext(Dispatchers.IO) {
+            val marker = File(data, "bipe-store-keyed")
+            when {
+                marker.exists() -> checkNotNull(BipeStoreKey(context).read()) { "store key missing" }
+                checkNotNull(data.list()).isNotEmpty() -> null
+                else -> BipeStoreKey(context).readOrCreate().also {
+                    // A cache left without its data folder is plain, and a keyed client cannot open it.
+                    cache.deleteRecursively()
+                    marker.writeText("")
+                }
+            }
         }
 
         /**
