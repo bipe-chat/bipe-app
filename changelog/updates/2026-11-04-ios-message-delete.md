@@ -6,4 +6,4 @@ platforms: [ios]
 refs: []
 ---
 
-**Deleting a message works again on iPhone.** Tapping Apagar in the confirmation did nothing, in every chat including Notes.
+**Deleting a message now works on iPhone.** Tapping Delete in the confirmation did nothing, in every chat.
