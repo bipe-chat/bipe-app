@@ -314,7 +314,7 @@ public enum BipeSettingsRow: String, CaseIterable, Sendable {
         case .chatsShowMedia: nil
         case .chatsMediaQuality: nil
         case .chatsDataUse: nil
-        case .chatsMural: "planned:1044"
+        case .chatsMural: nil
         case .chatsStickerSuggestions: "planned:841"
         case .chatsLiveLocation: nil
         case .chatsYearRecap: nil
