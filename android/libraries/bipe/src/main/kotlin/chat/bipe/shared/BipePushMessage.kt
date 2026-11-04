@@ -34,6 +34,9 @@ sealed interface BipePushMessage {
     data class GroupLinkJoined(val accountUserId: String, val roomId: String?) : BipePushMessage
 
     /** Nothing this phone can act on. */
+    /** A business push (bipe-chat/bipe#320): [kind] is one of BUSINESS_KINDS. */
+    data class BusinessNotice(val accountUserId: String, val kind: String) : BipePushMessage
+
     data object Ignored : BipePushMessage
 
     companion object {
@@ -48,6 +51,11 @@ sealed interface BipePushMessage {
         const val RECOVERY_COMPLETED = "recovery_completed"
         const val INVITE_JOINED = "invite_joined"
         const val GROUP_LINK_JOINED = "group_link_joined"
+        /** The business pushes (bipe-chat/bipe#320): content-free, so the phone shows fixed text. */
+        val BUSINESS_KINDS = setOf(
+            "booking_tomorrow", "booking_soon", "booking_changed", "order_updated", "queue_called",
+            "work_new_booking", "work_new_order", "work_cancelled", "work_today",
+        )
         /** group_link_joined only: the group. */
         const val PUSH_ROOM_ID = "bipe_room_id"
 
@@ -62,6 +70,9 @@ sealed interface BipePushMessage {
                 INVITE_JOINED -> return if (userId != null) InviteJoined(userId) else Ignored
                 GROUP_LINK_JOINED ->
                     return if (userId != null) GroupLinkJoined(userId, data[PUSH_ROOM_ID]?.takeIf { it.startsWith("!") }) else Ignored
+            }
+            data[PUSH_KIND]?.takeIf { it in BUSINESS_KINDS }?.let { kind ->
+                return if (userId != null) BusinessNotice(userId, kind) else Ignored
             }
             val roomId = data[ROOM_ID]?.takeIf { it.isNotBlank() }
             val eventId = data[EVENT_ID]?.takeIf { it.isNotBlank() }

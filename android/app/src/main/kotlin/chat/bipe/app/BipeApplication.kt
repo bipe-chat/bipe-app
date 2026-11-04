@@ -116,6 +116,7 @@ class BipeApplication : Application() {
                 invitesToRefresh.value = message.accountUserId
             }
             is BipePushMessage.GroupLinkJoined -> notifications.groupLinkJoined(message.accountUserId, message.roomId)
+            is BipePushMessage.BusinessNotice -> notifications.businessNotice(message.accountUserId, message.kind)
             BipePushMessage.Ignored -> Unit
         }
     }

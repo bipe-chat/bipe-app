@@ -214,6 +214,22 @@ class PhoneNotifications(private val context: Context) {
         roomId,
     )
 
+    /** The business pushes (bipe-chat/bipe#320): fixed text, and a tap opens the account. */
+    fun businessNotice(userId: String, kind: String) {
+        val (title, body) = when (kind) {
+            "booking_tomorrow" -> R.string.bipe_push_booking_tomorrow_title to R.string.bipe_push_booking_tomorrow_body
+            "booking_soon" -> R.string.bipe_push_booking_soon_title to R.string.bipe_push_booking_soon_body
+            "booking_changed" -> R.string.bipe_push_booking_changed_title to R.string.bipe_push_booking_changed_body
+            "order_updated" -> R.string.bipe_push_order_updated_title to R.string.bipe_push_order_updated_body
+            "queue_called" -> R.string.bipe_queue_called to R.string.bipe_push_queue_called_body
+            "work_new_booking" -> R.string.bipe_push_work_new_booking_title to R.string.bipe_push_work_body
+            "work_new_order" -> R.string.bipe_push_work_new_order_title to R.string.bipe_push_work_body
+            "work_cancelled" -> R.string.bipe_push_work_cancelled_title to R.string.bipe_push_work_body
+            else -> R.string.bipe_push_work_today_title to R.string.bipe_push_work_body
+        }
+        accountNotice(userId, KIND_BUSINESS, kind, context.getString(title), context.getString(body))
+    }
+
     /** A content-free push about the account, not a room: one notification per account and [tagName], no actions. */
     @SuppressLint("MissingPermission")
     private fun accountNotice(userId: String, kind: String, tagName: String, title: String, body: String, roomId: String? = null) {
@@ -627,8 +643,9 @@ class PhoneNotifications(private val context: Context) {
         const val KIND_RECOVERY = "recovery"
         const val KIND_INVITE_JOINED = "inviteJoined"
         const val KIND_GROUP_LINK_JOINED = "groupLinkJoined"
+        const val KIND_BUSINESS = "businessNotice"
         /** Content-free pushes about the account, shown by accountNotice. */
-        val ACCOUNT_NOTICE_KINDS = setOf(KIND_DEVICE_APPROVAL, KIND_RECOVERY, KIND_INVITE_JOINED, KIND_GROUP_LINK_JOINED)
+        val ACCOUNT_NOTICE_KINDS = setOf(KIND_BUSINESS, KIND_DEVICE_APPROVAL, KIND_RECOVERY, KIND_INVITE_JOINED, KIND_GROUP_LINK_JOINED)
         private const val OLD_INVITES_CHANNEL = "invites"
         private const val KEY_SOUND = "sound"
         private const val KEY_PREVIEW = "preview"

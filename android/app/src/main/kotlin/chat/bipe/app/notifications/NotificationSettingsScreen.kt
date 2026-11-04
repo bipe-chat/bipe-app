@@ -200,6 +200,11 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
             state.joinPrefs?.let { prefs ->
                 SwitchRow(stringResource(R.string.bipe_notifications_invite_joined), prefs.inviteJoined, true, model::setInviteJoined)
                 SwitchRow(stringResource(R.string.bipe_notifications_group_link_joined), prefs.groupLinkJoined, true, model::setGroupLinkJoined)
+                SwitchRow(stringResource(R.string.bipe_notifications_booking_reminders), prefs.bookingReminders, true, model::setBookingReminders)
+                if (state.isCompany) {
+                    SwitchRow(stringResource(R.string.bipe_notifications_work_alerts), prefs.workAlerts, true, model::setWorkAlerts)
+                    SwitchRow(stringResource(R.string.bipe_notifications_work_summary), prefs.workSummary, true, model::setWorkSummary)
+                }
                 Text(
                     stringResource(R.string.bipe_notifications_joins_footer),
                     style = MaterialTheme.typography.bodySmall,

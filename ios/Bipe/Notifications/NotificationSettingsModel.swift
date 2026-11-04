@@ -124,13 +124,24 @@ final class NotificationSettingsModel: ObservableObject {
     /// Action setInviteJoined.
     func setInviteJoined(_ isOn: Bool) async {
         guard let prefs = joinPrefs else { return }
-        await saveJoinPrefs(BipeNotificationPrefs(inviteJoined: isOn, groupLinkJoined: prefs.groupLinkJoined))
+        var next = prefs
+        next.inviteJoined = isOn
+        await saveJoinPrefs(next)
     }
 
     /// Action setGroupLinkJoined.
     func setGroupLinkJoined(_ isOn: Bool) async {
         guard let prefs = joinPrefs else { return }
-        await saveJoinPrefs(BipeNotificationPrefs(inviteJoined: prefs.inviteJoined, groupLinkJoined: isOn))
+        var next = prefs
+        next.groupLinkJoined = isOn
+        await saveJoinPrefs(next)
+    }
+
+    /// Actions setBookingReminders, setWorkAlerts, setWorkSummary (bipe-chat/bipe#320).
+    func setPref(_ key: WritableKeyPath<BipeNotificationPrefs, Bool>, _ isOn: Bool) async {
+        guard var next = joinPrefs else { return }
+        next[keyPath: key] = isOn
+        await saveJoinPrefs(next)
     }
 
     /// Shows the new value at once; a failure puts the switch back and shows bipe_error_generic.

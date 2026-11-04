@@ -109,7 +109,7 @@ final class NotificationActions: ObservableObject {
     func handle(_ response: UNNotificationResponse) async {
         let userInfo = response.notification.request.content.userInfo
         let kind = userInfo[NotificationKeys.kind] as? String
-        if kind == NotificationKeys.deviceApprovalKind || kind == NotificationKeys.recoveryKind {
+        if kind == NotificationKeys.deviceApprovalKind || kind == NotificationKeys.recoveryKind || kind == NotificationKeys.businessKind {
             // The route must still belong to the recorded owner; else the tap only opens the app.
             guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
                   let kind, let userId = NotificationKeys.noticeOwner(userInfo, kind: kind) else { return }
