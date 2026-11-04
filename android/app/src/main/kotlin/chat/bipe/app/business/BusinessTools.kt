@@ -53,8 +53,6 @@ import chat.bipe.app.chatlist.NativeDmSelection
 import chat.bipe.app.groups.GroupTopBar
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
-import chat.bipe.shared.api.BipeAgendaState
-import chat.bipe.shared.api.myAgenda
 import chat.bipe.shared.api.myBookings
 import chat.bipe.shared.api.publicAgendas
 import chat.bipe.shared.api.publicCatalog
@@ -65,7 +63,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** What the business tools section has open. */
-private enum class ToolScreen { AGENDA, CATALOG, ORDERS, QUOTES, QUEUE, BRAND_MARKS }
+private enum class ToolScreen(val toolId: String?) {
+    AGENDA("agenda"), CATALOG("catalog"), ORDERS("orders"), QUOTES("quotes"), QUEUE("queue"), BRAND_MARKS(null), SETUP(null)
+}
 
 /**
  * Spec app-tabs and business-tools: the Trabalho tab of a company account, in the place of Grupos.
@@ -85,17 +85,17 @@ fun WorkScreen(session: AccountSession, chatList: ChatListModel, onOpenChat: (St
 }
 
 /**
- * Spec business-tools: the Ferramentas do negócio section on the Trabalho tab of a company account. Agenda opens
- * agenda-owner, Catálogo catalog-owner, Pedidos order-owner, Orçamentos quote-builder and Fila virtual queue-owner.
+ * Spec business-tools (ADR 0194): the Trabalho tab step by step. Hoje, Próximo passo, one suggestion, the tools, and
+ * Todas as ferramentas. Agenda opens agenda-owner, Catálogo catalog-owner, Pedidos order-owner, Orçamentos
+ * quote-builder and Fila virtual queue-owner, each with Publicar and Desligar.
  * [chatList] gives the company's DMs (owner orders and walk-ins); [onOpenChat] takes a room ID.
  */
 @Composable
 fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpenChat: (String) -> Unit) {
-    val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val business = remember(session) { BusinessApi(session) }
-    // null: not loaded; Result of the state, whose null value means not activated.
-    var agenda by remember(session) { mutableStateOf<Result<BipeAgendaState?>?>(null) }
+    val home = remember(session) { WorkHomeModel(business, context.applicationContext) }
     var open by remember { mutableStateOf<ToolScreen?>(null) }
     val chats by chatList.chats.collectAsState()
     val customers = chats.filter { it.isDm && it.peerUserId != null }.map { it.peerUserId!! to it.name }
@@ -105,28 +105,15 @@ fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpe
         scope.launch { NativeDmSelection.roomId(userId, session)?.let(onOpenChat) }
     }
     val foreground = rememberForegroundRevision()
-    LaunchedEffect(business, foreground) { agenda = runCatching { business.withToken { myAgenda(it) } } }
+    LaunchedEffect(home, foreground) { home.load() }
+    val run: (suspend () -> Unit) -> Unit = { call -> scope.launch { call() } }
+    val openTool: (String) -> Unit = { id -> open = ToolScreen.entries.firstOrNull { it.toolId == id } }
     Column(Modifier.fillMaxWidth().testTag(BipeScreen.BUSINESS_TOOLS.id)) {
-        Text(stringResource(R.string.bipe_business_tools_title), style = MaterialTheme.typography.labelLarge, color = colors.accentInk,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp))
-        val state = agenda?.getOrNull()
-        val subtitle = when {
-            agenda == null || agenda?.isFailure == true -> null
-            state == null -> stringResource(R.string.bipe_agenda_activate)
-            state.published -> stringResource(R.string.bipe_agenda_published)
-            else -> stringResource(R.string.bipe_agenda_not_published)
-        }
-        ToolRow(PhosphorIcon.CLOCK, stringResource(R.string.bipe_tab_agenda), subtitle) { open = ToolScreen.AGENDA }
-        ToolRow(PhosphorIcon.NOTEPAD, stringResource(R.string.bipe_catalog_title), null) { open = ToolScreen.CATALOG }
-        ToolRow(PhosphorIcon.CHECKS, stringResource(R.string.bipe_orders_title), null) { open = ToolScreen.ORDERS }
-        ToolRow(PhosphorIcon.HANDSHAKE, stringResource(R.string.bipe_quotes_title), null) { open = ToolScreen.QUOTES }
-        ToolRow(PhosphorIcon.USERS_THREE, stringResource(R.string.bipe_queue_title), null) { open = ToolScreen.QUEUE }
-        ToolRow(PhosphorIcon.SEAL_CHECK, stringResource(R.string.bipe_brand_marks_title), null) { open = ToolScreen.BRAND_MARKS }
-        Text(stringResource(R.string.bipe_business_tools_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        WorkHomeSections(home, run, openTool, openSetup = { open = ToolScreen.SETUP }, openBrandMarks = { open = ToolScreen.BRAND_MARKS })
     }
     open?.let { screen ->
         BusinessFullScreen(onDismiss = { open = null }) {
+            screen.toolId?.let { WorkToolStateBar(home, run, it) }
             when (screen) {
                 ToolScreen.AGENDA -> AgendaOwnerScreen(session, chatList, onOpenChat = { roomId ->
                     open = null
@@ -137,22 +124,10 @@ fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpe
                 ToolScreen.QUOTES -> QuoteOwnerScreen(business, onOpenChat = openCustomerChat, onClose = { open = null })
                 ToolScreen.QUEUE -> QueueOwnerScreen(business, customers, onClose = { open = null })
                 ToolScreen.BRAND_MARKS -> BrandMarksScreen(business, onClose = { open = null })
+                ToolScreen.SETUP -> WorkSetupScreen(home, run, openTool, onClose = { open = null })
             }
         }
     }
-}
-
-@Composable
-private fun ToolRow(icon: PhosphorIcon, title: String, subtitle: String?, onClick: () -> Unit) {
-    val colors = BipeTheme.colors
-    ListItem(
-        headlineContent = { Text(title, color = colors.inkPrimary) },
-        supportingContent = subtitle?.let { text -> @Composable { Text(text, color = colors.inkSecondary) } },
-        leadingContent = { Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.glyphPrimary) },
-        trailingContent = { Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = colors.glyphSecondary) },
-        colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
-        modifier = Modifier.clickable(onClick = onClick),
-    )
 }
 
 /**

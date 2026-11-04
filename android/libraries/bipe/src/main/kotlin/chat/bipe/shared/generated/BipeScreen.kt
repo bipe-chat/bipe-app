@@ -505,6 +505,12 @@ enum class BipeScreen(val id: String) {
     /** Opening hours of a work account (flow settings). Spec: bipe-shared/product/screens/work-hours.json */
     WORK_HOURS("work-hours"),
 
+    /** What do you do? (flow business). Spec: bipe-shared/product/screens/work-sector.json */
+    WORK_SECTOR("work-sector"),
+
+    /** Set up your business (flow business). Spec: bipe-shared/product/screens/work-setup.json */
+    WORK_SETUP("work-setup"),
+
     /** Suas estatísticas (flow voce). Spec: bipe-shared/product/screens/year-recap.json */
     YEAR_RECAP("year-recap"),
 }

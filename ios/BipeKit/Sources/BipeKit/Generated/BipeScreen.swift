@@ -499,6 +499,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Opening hours of a work account (flow settings). Spec: bipe-shared/product/screens/work-hours.json
     case workHours = "work-hours"
 
+    /// What do you do? (flow business). Spec: bipe-shared/product/screens/work-sector.json
+    case workSector = "work-sector"
+
+    /// Set up your business (flow business). Spec: bipe-shared/product/screens/work-setup.json
+    case workSetup = "work-setup"
+
     /// Suas estatísticas (flow voce). Spec: bipe-shared/product/screens/year-recap.json
     case yearRecap = "year-recap"
 }

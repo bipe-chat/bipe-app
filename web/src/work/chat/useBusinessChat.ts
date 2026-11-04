@@ -38,6 +38,7 @@ type Tools = {
   hasCatalog: boolean;
   canOrder: boolean;
   queueOpen: boolean;
+  canRequestQuote: boolean;
   serviceNames: Record<string, string>;
   agendaNames: Record<string, string>;
 };
@@ -49,6 +50,7 @@ const NO_TOOLS: Tools = {
   hasCatalog: false,
   canOrder: false,
   queueOpen: false,
+  canRequestQuote: false,
   serviceNames: {},
   agendaNames: {},
 };
@@ -161,8 +163,10 @@ async function loadTools(matrix: Client, api: BusinessClient, peer: string): Pro
     .then((found) => found.get(peer))
     .catch(() => undefined);
   const business = handle ?? peer;
+  // Spec business-chat-bar: a tool shows only when it is live (ADR 0194 point 2).
+  const live = new Set(await api.liveTools(business).then((r) => r.tools, () => []));
   const [services, catalog, queue] = await Promise.all([
-    api.publicServices(business).then((r) => r.services).catch(() => []),
+    live.has('agenda') ? api.publicServices(business).then((r) => r.services).catch(() => []) : [],
     api.publicCatalog(business).then((r) => r.items).catch((): CatalogItem[] => []),
     api.publicQueue(business).catch(() => undefined),
   ]);
@@ -171,9 +175,10 @@ async function loadTools(matrix: Client, api: BusinessClient, peer: string): Pro
     isCompany: true,
     handle,
     canBook: services.length > 0,
-    hasCatalog: catalog.length > 0,
-    canOrder: catalog.some(isOrderable),
-    queueOpen: queue?.open ?? false,
+    hasCatalog: live.has('catalog') && catalog.length > 0,
+    canOrder: live.has('orders') && catalog.some(isOrderable),
+    queueOpen: live.has('queue') && (queue?.open ?? false),
+    canRequestQuote: live.has('quotes'),
     serviceNames: Object.fromEntries(services.map((x) => [x.id, x.name])),
     agendaNames: Object.fromEntries(agendas.map((a) => [a.id, a.name])),
   };

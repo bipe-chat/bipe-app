@@ -887,6 +887,12 @@ public enum BipeRegistries {
     public static let brandMarkMaxPerAccount = 3
     public static let brandMarkRecheckMinutes = 10
 
+    /// Business tools, steps and sectors (registries/business-tools.json, ADR 0194). The titles are strings by ID.
+    public static let businessToolIds: [String] = ["catalog", "agenda", "orders", "quotes", "queue"]
+    public static let businessSectorIds: [String] = ["beauty", "food", "repair", "health", "resale", "home_services", "other"]
+    public static let businessResaleSector = "resale"
+    public static let businessCatalogMinItems = 3
+
     /// Voice message audio expiry (ADR 0164, bipe-chat/bipe#622; registries/voice-media.json).
     public static let voiceMediaTranscriptDays = 30
     public static let voiceMediaNoTranscriptDays = 90

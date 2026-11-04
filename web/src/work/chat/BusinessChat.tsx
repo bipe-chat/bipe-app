@@ -62,7 +62,7 @@ function quoteErrorText(e: unknown): string {
   }
 }
 
-/** One tool per thing the business turned on. Pedir orçamento is on for every company. */
+/** One button per live tool (ADR 0194 point 2). */
 export function BusinessToolButtons({ chat, onPick }: { chat: BusinessChat; onPick?: () => void }) {
   const [asking, setAsking] = useState(false);
   if (!chat.isCompany) return null;
@@ -85,7 +85,7 @@ export function BusinessToolButtons({ chat, onPick }: { chat: BusinessChat; onPi
       {chat.canBook && chip('book', s('bipe_agenda_book'), () => chat.setRoute({ kind: 'book' }))}
       {chat.hasCatalog && chip('catalog', s('bipe_catalog_open'), () => chat.setRoute({ kind: 'catalog' }))}
       {chat.canOrder && chip('order', s('bipe_order_make'), () => chat.setRoute({ kind: 'order' }))}
-      {chip('quote', s('bipe_quote_request'), () => setAsking(true))}
+      {chat.canRequestQuote && chip('quote', s('bipe_quote_request'), () => setAsking(true))}
       {chat.queueOpen && chip('queue', s('bipe_queue_join'), () => chat.setRoute({ kind: 'queue' }))}
       {asking && (
         <Alert
