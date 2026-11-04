@@ -4,8 +4,8 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.app.common.BipeToasts
 import android.graphics.BitmapFactory
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -61,7 +63,7 @@ import java.text.NumberFormat
 import kotlinx.coroutines.launch
 
 /** The screens behind group-details. */
-private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS }
+private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, GALLERY, REPORT, POLLS, PRIVACY, GROUP_LINK }
 
 /** Spec group-details, with group-members, group-invite-members, chat-notifications and group-leave behind it. */
 @Composable
@@ -87,7 +89,7 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
         }
         GroupSubScreen.INVITE -> {
             GroupInviteMembersScreen(session, media, GroupInviteMembersModel.Mode.Invite(roomId), onBack = back) {
-                Toast.makeText(context, sentText, Toast.LENGTH_SHORT).show()
+                BipeToasts.show(sentText)
                 back()
             }
             return
@@ -95,6 +97,36 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
         GroupSubScreen.NOTIFICATIONS -> {
             BackHandler(onBack = back)
             ChatNotificationsScreen(session, roomId, onBack = back)
+            return
+        }
+        // Spec chat-media-gallery (bipe-chat/bipe#672).
+        GroupSubScreen.GALLERY -> chat.bipe.app.media.ChatMediaGalleryScreen(session, media, roomId, onClose = back)
+        // Spec group-details notes, report (bipe-chat/bipe#674).
+        GroupSubScreen.REPORT -> {
+            BackHandler(onBack = back)
+            chat.bipe.app.people.ReportChatScreen(
+                session, null, roomId, isDm = false, otherUserId = null,
+                onSent = { message ->
+                    BipeToasts.show(message)
+                    back()
+                },
+                onBack = back,
+            )
+            return
+        }
+        // Spec poll-history (bipe-chat/bipe#669).
+        GroupSubScreen.POLLS -> {
+            chat.bipe.app.polls.PollHistoryScreen(session, roomId, onBack = back)
+            return
+        }
+        // Spec group-privacy (bipe-chat/bipe#772).
+        GroupSubScreen.PRIVACY -> {
+            GroupPrivacyScreen(session, media, roomId, onBack = back)
+            return
+        }
+        // Spec group-link (ADR 0184, bipe-chat/bipe#744).
+        GroupSubScreen.GROUP_LINK -> {
+            GroupLinkScreen(session, roomId, onBack = back)
             return
         }
         GroupSubScreen.NONE -> Unit
@@ -116,7 +148,11 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val info by model.info.collectAsState()
     val notificationMode by model.notificationMode.collectAsState()
     val canEdit by model.canEdit.collectAsState()
+    val canEditPhoto by model.canEditPhoto.collectAsState()
+    var askingEmoji by remember { mutableStateOf(false) }
     val canInvite by model.canInvite.collectAsState()
+    val canChangePrivacy by model.canChangePrivacy.collectAsState()
+    val canMakeGroupLink by model.canMakeGroupLink.collectAsState()
     val phase by model.phase.collectAsState()
     val saveError by model.saveError.collectAsState()
     val editName by model.editName.collectAsState()
@@ -126,7 +162,7 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val saveErrorText = stringResource(R.string.bipe_app_save_error)
     LaunchedEffect(saveError) {
         if (saveError) {
-            Toast.makeText(context, saveErrorText, Toast.LENGTH_LONG).show()
+            BipeToasts.show(saveErrorText)
             model.dismissSaveError()
         }
     }
@@ -139,6 +175,34 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
         }
     }
     val count = NumberFormat.getIntegerInstance().format(info.memberCount)
+    if (askingEmoji) {
+        var emojiText by remember { mutableStateOf("") }
+        val background = colors.accentWash.toArgb()
+        AlertDialog(
+            onDismissRequest = { askingEmoji = false },
+            title = { Text(stringResource(R.string.bipe_app_group_photo_emoji)) },
+            text = {
+                OutlinedTextField(
+                    value = emojiText,
+                    onValueChange = { emojiText = it },
+                    placeholder = { Text(stringResource(R.string.bipe_app_group_photo_emoji_hint)) },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        GroupDetailsModel.singleEmoji(emojiText)?.let {
+                            model.editPhoto.value = GroupDetailsModel.PhotoEdit.New("image/png", GroupDetailsModel.emojiPhoto(it, background))
+                        }
+                        askingEmoji = false
+                    },
+                    enabled = GroupDetailsModel.singleEmoji(emojiText) != null,
+                ) { Text(stringResource(R.string.bipe_app_group_photo_emoji)) }
+            },
+            dismissButton = { TextButton(onClick = { askingEmoji = false }) { Text(stringResource(R.string.bipe_app_cancel)) } },
+        )
+    }
 
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.GROUP_DETAILS.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -167,17 +231,20 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                         Image(bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(96.dp).clip(CircleShape))
                     } else {
                         val removed = !viewing && editPhoto == GroupDetailsModel.PhotoEdit.Removed
-                        Avatar(info.name, if (removed) null else info.avatarUrl, media, size = 96.dp)
+                        Avatar(info.name, if (removed) null else info.avatarUrl, media, size = 96.dp, members = info.avatarMembers)
                     }
                     if (viewing) {
                         Text(info.name, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary, textAlign = TextAlign.Center)
                         Text(stringResource(R.string.bipe_app_group_details_people, count), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
-                    } else {
+                    } else if (canEditPhoto) {
                         TextButton(
                             onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                             enabled = phase == GroupDetailsModel.Phase.EDITING,
                         ) {
                             Text(stringResource(R.string.bipe_app_group_photo_choose))
+                        }
+                        TextButton(onClick = { askingEmoji = true }, enabled = phase == GroupDetailsModel.Phase.EDITING) {
+                            Text(stringResource(R.string.bipe_app_group_photo_emoji))
                         }
                         val hasPhoto = editPhoto is GroupDetailsModel.PhotoEdit.New ||
                             (editPhoto == GroupDetailsModel.PhotoEdit.Unchanged && info.avatarUrl != null)
@@ -205,12 +272,21 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     if (canInvite) {
                         GroupRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_app_group_add_people)) { sub = GroupSubScreen.INVITE }
                     }
+                    if (canChangePrivacy) {
+                        GroupRow(PhosphorIcon.LOCK_SIMPLE, stringResource(R.string.bipe_group_privacy_title)) { sub = GroupSubScreen.PRIVACY }
+                    }
+                    if (canMakeGroupLink) {
+                        GroupRow(PhosphorIcon.LINK, stringResource(R.string.bipe_group_link_title)) { sub = GroupSubScreen.GROUP_LINK }
+                    }
+                    GroupRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_gallery_title)) { sub = GroupSubScreen.GALLERY }
+                    GroupRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_poll_history)) { sub = GroupSubScreen.POLLS }
                     GroupRow(
                         PhosphorIcon.BELL,
                         stringResource(R.string.bipe_settings_notifications),
                         value = notificationMode?.let { stringResource(it.title) },
                     ) { sub = GroupSubScreen.NOTIFICATIONS }
                     Spacer(Modifier.height(16.dp))
+                    GroupRow(PhosphorIcon.FLAG, stringResource(R.string.bipe_app_report_group), tint = colors.trustDangerInk) { sub = GroupSubScreen.REPORT }
                     GroupRow(PhosphorIcon.SIGN_OUT, stringResource(R.string.bipe_app_group_leave_action), tint = colors.trustDangerInk) { leaving = true }
                 } else {
                     OutlinedTextField(

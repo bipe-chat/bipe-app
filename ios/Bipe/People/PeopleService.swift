@@ -6,29 +6,24 @@ import BipeKit
 import Contacts
 import Foundation
 import MatrixRustSDK
+import UIKit
 
 /// Type Person of the people specs: the name to show, the photo and the @. Never the Matrix ID (ADR 0013).
 struct Person: Identifiable, Equatable, Hashable {
     var userId: String
-    /// The saved contact name, else the profile name, else the @, else the ID's localpart.
+    /// People names: the saved contact name, else the real profile name, else the @, else bipe_person_no_name.
     var displayName: String
     var avatarUrl: String?
     var handle: String?
 
     init(userId: String, displayName: String?, avatarUrl: String? = nil, handle: String? = nil) {
         self.userId = userId
-        self.displayName = displayName.flatMap { $0.isEmpty ? nil : $0 } ?? Self.localpart(of: userId)
+        self.displayName = BipeChatRowName.person(userID: userId, displayName: displayName, handle: handle)
         self.avatarUrl = avatarUrl
         self.handle = handle
     }
 
     var id: String { userId }
-
-    /// The localpart of a Matrix ID, the last fallback of a name (blocked-list notes).
-    static func localpart(of userId: String) -> String {
-        let trimmed = userId.hasPrefix("@") ? String(userId.dropFirst()) : userId
-        return trimmed.split(separator: ":", maxSplits: 1).first.map(String.init) ?? trimmed
-    }
 }
 
 /// People and profiles for one account (bipe-chat/bipe#568): profiles with their @, the block list,
@@ -181,6 +176,50 @@ final class PeopleService: ObservableObject {
         try await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }, request)
     }
 
+    /// Spec public-profile-edit syncPhoto (ADR 0041, amended 2 Nov 2026): the public photo is a copy of the Matrix
+    /// avatar, because the web page cannot read Matrix media. Only for a published profile. Uploads only when the
+    /// avatar differs from photo_source. Returns the new profile, or `profile` when nothing changed or a step failed:
+    /// the next run tries again.
+    @discardableResult
+    func syncPublicPhoto(_ profile: BipeMyProfile) async -> BipeMyProfile {
+        guard profile.enabled else { return profile }
+        let client = session.client
+        let avatar: String?
+        do {
+            avatar = try await client.avatarUrl()
+        } catch {
+            return profile
+        }
+        let api = api
+        do throws(BipeAPIError) {
+            guard let mxc = avatar else {
+                guard profile.hasPhoto else { return profile }
+                return try await withToken { (token: String) async throws(BipeAPIError) -> BipeMyProfile in
+                    try await api.deleteMyProfilePhoto(accessToken: token)
+                }
+            }
+            guard mxc != profile.photoSource,
+                  let source = try? MediaSource.fromUrl(url: mxc),
+                  let data = try? await client.getMediaContent(mediaSource: source),
+                  let image = UIImage(data: data),
+                  let jpeg = BipeProfilePhoto.jpegData(from: image.centreSquare()) else { return profile }
+            return try await withToken { (token: String) async throws(BipeAPIError) -> BipeMyProfile in
+                try await api.setMyProfilePhoto(jpeg: jpeg, source: mxc, accessToken: token)
+            }
+        } catch {
+            return profile
+        }
+    }
+
+    /// syncPhoto after a photo change in profile-edit: GET /v1/me/profile first.
+    func syncPublicPhoto() async {
+        let api = api
+        guard let profile = try? await withToken({ (token: String) async throws(BipeAPIError) -> BipeMyProfile in
+            try await api.myProfile(accessToken: token)
+        }) else { return }
+        await syncPublicPhoto(profile)
+    }
+
     /// Runs `request` with the OpenID token, for the core routes (bipe-chat/bipe#646).
     func withOpenID<T>(_ request: (BipeOpenIDToken) async throws(BipeAPIError) -> T) async throws(BipeAPIError) -> T {
         try await BipeAPIClient.withOpenIDRetry(session.openID, request)
@@ -223,7 +262,7 @@ final class PeopleService: ObservableObject {
                       handle: loadedHandle)
     }
 
-    /// Several people at once. A profile that does not load still gives a row (the @ or the localpart).
+    /// Several people at once. A profile that does not load still gives a row (the @ or bipe_person_no_name).
     func people(_ userIds: [String]) async -> [Person] {
         var result: [Person] = []
         for userId in userIds {
@@ -238,18 +277,9 @@ final class PeopleService: ObservableObject {
         return result
     }
 
-    static func displayName(contactName: String?, profileName: String?, handle: String?, userId: String) -> String {
-        if let contactName = contactName?.trimmingCharacters(in: .whitespacesAndNewlines), !contactName.isEmpty {
-            return contactName
-        }
-        // A profile name that is the raw Matrix ID is no name (ADR 0013).
-        if let profileName = profileName?.trimmingCharacters(in: .whitespacesAndNewlines), !profileName.isEmpty, profileName != userId {
-            return profileName
-        }
-        if let handle {
-            return "@\(handle)"
-        }
-        return Person.localpart(of: userId)
+    /// People names (BipeChatRowName.person): never the Matrix ID or its localpart.
+    nonisolated static func displayName(contactName: String?, profileName: String?, handle: String?, userId: String) -> String {
+        BipeChatRowName.person(userID: userId, contactName: contactName, displayName: profileName, handle: handle)
     }
 
     /// The person's cross-signing identity for the trust facts (ADR 0074). nil: the SDK could not read it.
@@ -352,8 +382,8 @@ final class IgnoredUsersStream: IgnoredUsersListener {
 /// The people screens a navigation stack can push.
 enum PeopleRoute: Hashable {
     case person(userId: String, fromDm: Bool)
+    /// Spec profile-edit: Seu perfil, one screen.
     case profileEdit
-    case publicProfile
     case profileLink
     case profileQr
     case contacts

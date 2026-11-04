@@ -95,7 +95,7 @@ object IncomingCalls {
         // A group call notification stays a normal notification.
         if (read.notify) return false
         if (!read.ring || _ringing.value?.ringEventId == eventId || _ringing.value != null || CallCenter.isInCall(roomId)) return true
-        start(IncomingCall(session.userId, roomId, eventId, item.senderInfo.displayName ?: sender, item.senderInfo.avatarUrl, read.video, read.expiresAt))
+        start(IncomingCall(session.userId, roomId, eventId, chat.bipe.app.people.Person.name(sender, item.senderInfo.displayName), item.senderInfo.avatarUrl, read.video, read.expiresAt))
         return true
     }
 

@@ -29,10 +29,11 @@ enum NotificationMode: Hashable {
         }
     }
 
-    var label: String {
+    /// One name per mode on every screen: in a group, mentions is the quiet mode of chat-notifications.
+    func label(isDm: Bool) -> String {
         switch self {
         case .all: BipeStrings.appNotificationModeAll
-        case .mentions: BipeStrings.appNotificationModeMentions
+        case .mentions: isDm ? BipeStrings.appNotifyMentionsLegacy : BipeStrings.appNotifyQuiet
         case .off: BipeStrings.appNotificationModeOff
         }
     }
@@ -77,6 +78,8 @@ final class NotificationSettingsModel: ObservableObject {
     @Published private(set) var news: NewsSwitch = .unknown
     @Published private(set) var newsBusy = false
     @Published var showsNewsError = false
+    /// Spec joinPrefs, inviteJoined, groupLinkJoined (bipe-chat/bipe#967). nil: not read, the switches hide.
+    @Published private(set) var joinPrefs: BipeNotificationPrefs?
 
     enum NewsSwitch: Equatable {
         case unknown
@@ -108,7 +111,40 @@ final class NotificationSettingsModel: ObservableObject {
         }
         await load()
         await loadNews()
+        await loadJoinPrefs()
         await loadWorkSide()
+    }
+
+    func loadJoinPrefs() async {
+        joinPrefs = try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeNotificationPrefs in
+            try await api.notificationPrefs(accessToken: token)
+        }
+    }
+
+    /// Action setInviteJoined.
+    func setInviteJoined(_ isOn: Bool) async {
+        guard let prefs = joinPrefs else { return }
+        await saveJoinPrefs(BipeNotificationPrefs(inviteJoined: isOn, groupLinkJoined: prefs.groupLinkJoined))
+    }
+
+    /// Action setGroupLinkJoined.
+    func setGroupLinkJoined(_ isOn: Bool) async {
+        guard let prefs = joinPrefs else { return }
+        await saveJoinPrefs(BipeNotificationPrefs(inviteJoined: prefs.inviteJoined, groupLinkJoined: isOn))
+    }
+
+    /// Shows the new value at once; a failure puts the switch back and shows bipe_error_generic.
+    private func saveJoinPrefs(_ prefs: BipeNotificationPrefs) async {
+        let old = joinPrefs
+        joinPrefs = prefs
+        do {
+            joinPrefs = try await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeNotificationPrefs in
+                try await api.setNotificationPrefs(prefs, accessToken: token)
+            }
+        } catch {
+            joinPrefs = old
+            showsError = true
+        }
     }
 
     /// news: on only when the API has the user subscribed and the user is joined to or invited in the room.

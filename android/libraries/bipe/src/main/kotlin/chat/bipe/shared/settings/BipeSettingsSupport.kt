@@ -162,9 +162,14 @@ private data class PinRequest(@SerialName("pin") val pin: String) {
     override fun toString(): String = "PinRequest"
 }
 
-/** `PUT /v1/me/pin`. No old PIN: the owner check on the phone stands in for it (ADR 0057). */
-suspend fun BipeApiClient.setPin(pin: String, accessToken: String) {
-    send<Unit>("PUT", listOf("v1", "me", "pin"), body = encode(PinRequest.serializer(), PinRequest(pin)), accessToken = accessToken, response = null)
+@Serializable
+private data class PinChangeRequest(@SerialName("pin") val pin: String, @SerialName("old_pin") val oldPin: String? = null) {
+    override fun toString(): String = "PinChangeRequest"
+}
+
+/** `PUT /v1/me/pin`. A change needs the current PIN (bipe-chat/bipe#908); the first PIN needs none. */
+suspend fun BipeApiClient.setPin(pin: String, oldPin: String?, accessToken: String) {
+    send<Unit>("PUT", listOf("v1", "me", "pin"), body = encode(PinChangeRequest.serializer(), PinChangeRequest(pin, oldPin)), accessToken = accessToken, response = null)
 }
 
 /** `POST /v1/me/pin/check` (spec pin-reminder). A wrong PIN counts against the account; a right one resets the count. */

@@ -67,6 +67,8 @@ jobs:
       - run: node tools/strings.mjs
       # Accessibility labels are UI text too (bipe-chat/bipe#495).
       - run: node tools/a11y.mjs
+      # Every settings row that opens or changes something has a handler (bipe-chat/bipe#676).
+      - run: node tools/settings-rows.mjs
 
   sdk-version:
     runs-on: ubuntu-latest

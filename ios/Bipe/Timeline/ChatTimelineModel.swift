@@ -31,6 +31,14 @@ struct TimelineMessage: Identifiable, Equatable {
         case failed
     }
 
+    /// Spec identity-change sendAnyway: the send queue held the message because of a member's identity.
+    enum SendFailure: Equatable {
+        /// QueueWedgeError identityViolations: users that were verified and are not any more.
+        case identity(users: [String])
+        /// QueueWedgeError insecureDevices: user ID to device IDs.
+        case devices([String: [String]])
+    }
+
     /// Bipe's grouping of the SDK UtdCause (spec message-undecryptable).
     enum UndecryptableCause: Equatable {
         case waiting
@@ -45,9 +53,15 @@ struct TimelineMessage: Identifiable, Equatable {
     var body: String?
     var senderId: String
     var senderName: String
+    /// Spec timeline-rows nameAmbiguous: another member of the room shows the same name (bipe-chat/bipe#825).
+    var senderNameAmbiguous = false
+    /// Spec chat-timeline senderRole: admin or moderator, groups only.
+    var senderRole: GroupRole? = nil
     var isOwn: Bool
     var sentAt: Date
     var sendState: SendState
+    /// sendState failed only.
+    var sendFailure: SendFailure? = nil
     var cause: UndecryptableCause?
     /// Kind poll: the data of spec poll-detail.
     var poll: PollData?
@@ -63,20 +77,10 @@ struct TimelineMessage: Identifiable, Equatable {
     var isEmote = false
     /// Native, sanitized text runs. The original body stays available to edit and copy.
     var richText: BipeMessageText? = nil
-}
-
-/// Type MessageAction of spec message-actions, in the order of the sheet.
-enum MessageAction: CaseIterable, Identifiable {
-    case reply
-    case edit
-    case copy
-    case keepAudio
-    case unkeepAudio
-    case retry
-    case delete
-    case report
-
-    var id: Self { self }
+    /// Spec chat-timeline notes (ADR 0210): bipe_app_assistant_sent_label when the sender's assistant sent the message.
+    var assistantLabel: String? = nil
+    /// Spec chat-timeline forwardCount (bipe-chat/bipe#933): the count of the forward mark, 0 without one.
+    var forwardCount = 0
 }
 
 /// Type MessageEdit of spec message-edit.
@@ -102,19 +106,35 @@ enum TimelineNotice: Equatable {
     case copied
     case reactionFailed
     case editFailed
+    case pinFailed
     case deleteFailed
     case reported
     case inviteAgainFailed
     case keepLimit
     case keepFailed
+    case forwarded
+    case forwardFailed(String)
+    case selectionForwarded
+    case selectionLimit
+    case selectionDeleteFailed
+    case stickerSaved
+    case stickerSaveFailed
 
     var text: String {
         switch self {
+        case .forwarded: BipeStrings.forwardDone
+        case .forwardFailed(let names): BipeStrings.forwardFailed(names)
+        case .selectionForwarded: BipeStrings.selectForwardDone
+        case .selectionLimit: BipeStrings.selectLimit(String(ChatTimelineModel.selectionLimit))
+        case .selectionDeleteFailed: BipeStrings.selectDeleteFailed
+        case .stickerSaved: BipeStrings.stickerSaved
+        case .stickerSaveFailed: BipeStrings.stickerSaveFailed
         case .copied: BipeStrings.appCopied
         case .keepLimit: BipeStrings.voiceKeepLimit(String(BipeRegistries.voiceMediaMaxKeptPerAccount))
         case .keepFailed: BipeStrings.errorGeneric
         case .reactionFailed: BipeStrings.appReactionFailed
         case .editFailed: BipeStrings.appMessageEditFailed
+        case .pinFailed: BipeStrings.errorGeneric
         case .deleteFailed: BipeStrings.appMessageDeleteFailed
         case .reported: BipeStrings.appMessageReported
         case .inviteAgainFailed: BipeStrings.dmInviteAgainFailed
@@ -139,17 +159,25 @@ final class ChatTimelineModel: ObservableObject {
     static let historyPagesPerLoad = 5
     /// The tries of one page before the load stops: a fresh login can fail the first pages during the first sync.
     static let historyTries = 3
+    /// The pause after a failed load before the top of the list tries again.
+    static let historyRetry: Duration = .seconds(10)
     /// Spec message-reactions notes: the quick reactions, in this order.
     static let quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"]
     /// Spec message-reply openOriginal: at most 5 pages back.
     static let originalSearchPages = 5
     /// Spec typing-indicator: typing on at most once every 4 seconds.
     static let typingInterval: TimeInterval = 4
+    /// Spec message-forward selection: at most this many messages.
+    nonisolated static let selectionLimit = 10
 
     // chat-timeline and timeline-rows
     @Published private(set) var roomName = BipeStrings.dmNoName
+    /// The account's news room (NewsRoomMark, bipe-chat/bipe#978): the header shows the Bipe badge.
+    @Published private(set) var isNewsRoom = false
     @Published private(set) var roomAvatarUrl: String?
     @Published private(set) var peerUserId: String?
+    /// Spec chat-list notes, Group avatar: members shown when a group has no photo.
+    @Published private(set) var avatarMembers: [Person] = []
     /// Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone.
     @Published private(set) var peerAway: PeerAway = .none
     @Published private(set) var invitingAgain = false
@@ -168,6 +196,10 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var isEncrypted = true
     /// Spec call: a call runs in the room (RoomInfo.hasRoomCall).
     @Published private(set) var hasCall = false
+    /// Spec chat-timeline notes, upgraded groups (bipe#773): RoomInfo.successorRoom.
+    @Published private(set) var successorRoomId: String?
+    /// RoomInfo.predecessorRoom, with the old group's name.
+    @Published private(set) var predecessor: (roomId: String, name: String)?
     /// A DM or a group that needs an invite, for the show-media setting (spec timeline-media).
     @Published private(set) var isPrivateRoom = true
     @Published var draft = ""
@@ -180,13 +212,23 @@ final class ChatTimelineModel: ObservableObject {
     @Published var recording: VoiceRecordingModel?
     /// false: the composer is off, with the reason bar instead.
     @Published private(set) var canPost = true
-    /// The poll row of attachment-picker.
+    /// The poll row of attachment-picker. Never in a DM (ADR 0192).
     @Published private(set) var canPoll = true
+    /// Spec message-pins (bipe#665): RoomPowerLevels.canOwnUserPinUnpin, groups only.
+    @Published private(set) var canPin = false
+    /// RoomInfo.pinnedEventIds.
+    @Published private(set) var pinnedEventIds: Set<String> = []
     private let mentionDirectory = MentionDirectory()
     /// signup-done: the inviter while this chat has no first message (ADR 0034).
     @Published private(set) var inviterHint: BipeInviterGreeting?
     // message-actions
     @Published var actionsRowId: String?
+    /// Spec message-forward: the messages the picker is open for.
+    @Published var forwardingRowIds: [String]?
+    /// Spec message-forward selection (bipe#860): the picked rows in tap order. nil while the mode is off.
+    @Published private(set) var selection: [String]?
+    /// Spec message-forward deleteSelection: the dialog is open.
+    @Published var confirmsDeleteSelection = false
     /// Spec scam-warning money pause: one per message while this chat is open.
     @Published private(set) var moneyPause = BipeMoneyPause()
     // message-reply
@@ -204,6 +246,8 @@ final class ChatTimelineModel: ObservableObject {
     @Published var confirmDeleteRowId: String?
     // message-report
     @Published var report: MessageReport?
+    /// message-actions viewStickerPack: opens sticker-pack.
+    @Published var openingStickerPack: StickerPackRef?
     // read-receipts
     @Published var readersSheet: [ReceiptReader]?
     // typing-indicator
@@ -226,12 +270,27 @@ final class ChatTimelineModel: ObservableObject {
     private var typingSentAt: Date?
     private var typingUserIds: [String] = []
     private var handleChangesTask: Task<Void, Never>?
+    private var factsTask: Task<Void, Never>?
+    /// Reads the timeline diffs. Not the view's task: SwiftUI cancels that one when the screen goes off screen for a
+    /// pushed screen or a cover, and start() runs once, so new messages would stop until the chat opened again.
+    private var diffsTask: Task<Void, Never>?
+    private var factsStale = false
+    /// Spec read-receipts: a new delivered ack for this room rebuilds the ticks.
+    private var deliveredChanges: AnyCancellable?
     private var lastReadEventId: String?
     private var noticeTask: Task<Void, Never>?
+    /// The account's @ resolver (People names), set by the view before start. nil: names fall back to the cached @.
+    var handles: BipeHandleResolver?
 
-    init(session: AccountSession, roomId: String) {
+    /// Spec threads (bipe#667): the root event of the thread view; nil for the main timeline.
+    let threadRoot: String?
+    /// The thread the main timeline asks the view to open (spec threads openThread).
+    @Published var openThreadRoot: String?
+
+    init(session: AccountSession, roomId: String, threadRoot: String? = nil) {
         self.session = session
         self.roomId = roomId
+        self.threadRoot = threadRoot
         facts = RoomFacts(ownUserId: session.userId, isDm: false, isEncrypted: true, joinedMembers: 2,
                           canRedactOwn: true, canRedactOther: false, members: [:], replyLoadsTried: [])
     }
@@ -239,6 +298,7 @@ final class ChatTimelineModel: ObservableObject {
     deinit {
         handle?.cancel()
         typingHandle?.cancel()
+        diffsTask?.cancel()
         handleChangesTask?.cancel()
         theftTask?.cancel()
     }
@@ -272,7 +332,10 @@ final class ChatTimelineModel: ObservableObject {
         started = true
         guard let room = try? session.client.getRoom(roomId: roomId) else { return }
         self.room = room
-        let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: false),
+        // Spec threads notes: a group's main timeline hides thread replies; a DM shows them as plain messages.
+        let isDmRoom = (try? await room.roomInfo())?.isDm ?? false
+        let focus: TimelineFocus = threadRoot.map { .thread(rootEventId: $0) } ?? .live(hideThreadedEvents: !isDmRoom)
+        let configuration = TimelineConfiguration(focus: focus,
                                                   filter: .all,
                                                   internalIdPrefix: nil,
                                                   dateDividerMode: .daily,
@@ -285,8 +348,13 @@ final class ChatTimelineModel: ObservableObject {
             inviterHint = greeting
         }
         await loadRoomFacts(room)
+        deliveredChanges = NotificationCenter.default.publisher(for: DeliveredLog.changed)
+            .compactMap { $0.userInfo?["roomId"] as? String }
+            .filter { [roomId] in $0 == roomId }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.rebuild() }
         // Action appear of spec composer: a saved newMessage draft fills the field.
-        if draft.isEmpty, let saved = await room.newMessageDraft() {
+        if draft.isEmpty, let saved = await room.newMessageDraft(threadRoot: threadRoot) {
             draft = saved
         }
         if !facts.isDm {
@@ -307,12 +375,17 @@ final class ChatTimelineModel: ObservableObject {
         let stream = TimelineDiffStream()
         handle = await timeline.addListener(listener: stream)
         Task { [weak self] in await self?.loadHistory() }
-        for await diffs in stream.updates {
-            for diff in diffs {
-                items.apply(diff.vectorDiff)
+        diffsTask = Task { [weak self] in
+            for await diffs in stream.updates {
+                guard let self else { return }
+                for diff in diffs {
+                    self.items.apply(diff.vectorDiff)
+                }
+                // The rows follow the SDK at once. The room facts can wait on the network (a DM peer's @handle,
+                // the peer's membership), so they load after and build the rows again.
+                self.rebuild()
+                self.refreshRoomFacts(room)
             }
-            await loadRoomFacts(room)
-            rebuild()
         }
     }
 
@@ -323,6 +396,7 @@ final class ChatTimelineModel: ObservableObject {
         acceptsMenuActions = false
         actionsRowId = nil
         pickerOpenFor = nil
+        cancelSelection()
         sendTyping(false)
         leave()
     }
@@ -331,7 +405,7 @@ final class ChatTimelineModel: ObservableObject {
     func leave() {
         guard let room, editing == nil else { return }
         let text = draft
-        Task { await room.keepDraft(text) }
+        Task { [threadRoot] in await room.keepDraft(text, threadRoot: threadRoot) }
     }
 
     /// The room, for spec call.
@@ -350,18 +424,49 @@ final class ChatTimelineModel: ObservableObject {
         return eventId
     }
 
+    /// Loads the room facts off the timeline update path, then builds the rows again. One load at a time;
+    /// a change during a load runs one more.
+    private func refreshRoomFacts(_ room: Room) {
+        factsStale = true
+        guard factsTask == nil else { return }
+        factsTask = Task { [weak self] in
+            while let self, self.factsStale {
+                self.factsStale = false
+                await self.loadRoomFacts(room)
+                self.rebuild()
+            }
+            self?.factsTask = nil
+        }
+    }
+
     private func loadRoomFacts(_ room: Room) async {
+        var creators: [String] = []
         if let info = try? await room.roomInfo() {
+            creators = info.creators ?? []
             facts.isDm = info.isDm
             facts.joinedMembers = Int(info.joinedMembersCount)
             isGroup = !info.isDm && !info.isSpace
             let peer = info.isDm ? info.heroes.first(where: { $0.userId != session.userId }) : nil
-            let peerName = peer?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let name = peerName.flatMap { $0.isEmpty ? nil : $0 } ?? peer.map { Person.localpart(of: $0.userId) } ?? BipeStrings.dmNoName
-            roomName = info.isDm ? name : (info.displayName ?? info.id)
+            var peerHandle: String?
+            if let peer, BipeChatRowName.realName(peer.displayName, userID: peer.userId) == nil {
+                peerHandle = await handles?.resolve(peer.userId)
+            }
+            isNewsRoom = NewsRoomMark.roomId(for: session.userId) == info.id
+            roomName = isNewsRoom ? BipeStrings.newsRoomName
+                : BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName, peerName: peer?.displayName,
+                                          peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
+                                          dmRoomName: info.isDm ? info.rawName : nil, peerHandle: peerHandle,
+                                          groupHeroes: Self.groupHeroes(of: info, ownUserId: session.userId))
             roomAvatarUrl = info.isDm ? peer?.avatarUrl : info.avatarUrl
             peerUserId = peer?.userId
+            avatarMembers = Person.groupAvatarMembers(of: info, ownUserId: session.userId)
             hasCall = info.hasRoomCall
+            successorRoomId = info.successorRoom?.roomId
+            if let old = room.predecessorRoom()?.roomId, predecessor?.roomId != old {
+                let name = (try? session.client.getRoom(roomId: old))?.displayName()?.nilIfBlank
+                predecessor = (old, name ?? BipeStrings.groupCommonNoRoomName)
+            }
+            pinnedEventIds = Set(info.pinnedEventIds)
             await loadPeerAway(room, peer: peer?.userId)
         }
         if let state = try? await room.latestEncryptionState() {
@@ -371,7 +476,9 @@ final class ChatTimelineModel: ObservableObject {
             facts.canRedactOwn = powerLevels.canOwnUserRedactOwn()
             facts.canRedactOther = powerLevels.canOwnUserRedactOther()
             canPost = powerLevels.canOwnUserSendMessage(message: .roomMessage)
-            canPoll = powerLevels.canOwnUserSendMessage(message: .pollStart)
+            canPoll = !facts.isDm && powerLevels.canOwnUserSendMessage(message: .pollStart)
+            canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
+            facts.roles = facts.isDm ? [:] : GroupPeople.staffRoles(levels: powerLevels.userPowerLevels(), creators: creators)
         }
         isDm = facts.isDm
         isEncrypted = facts.isEncrypted
@@ -381,14 +488,20 @@ final class ChatTimelineModel: ObservableObject {
     // MARK: chat-timeline
 
     /// Action loadHistory: back-paginates 20 events at a time until the rows have historyFill more messages,
-    /// at most maxPages pages. A failed page is tried again. Does nothing at the start or while a load runs.
+    /// at most maxPages pages. A failed page is tried again. After a failed load it waits historyRetry, then
+    /// changes historyLoads so the top of the list tries again. Does nothing at the start or while a load runs.
     func loadHistory(maxPages: Int = ChatTimelineModel.historyPagesPerLoad) async {
         guard let timeline, !reachedStart, !isLoadingHistory else { return }
         isLoadingHistory = true
         defer { isLoadingHistory = false }
         let before = messages.count
         for _ in 0..<maxPages {
-            guard let hitStart = await paginateBackwards(timeline) else { return }
+            guard let hitStart = await paginateBackwards(timeline) else {
+                // Without a new historyLoads the header task keeps its id and history stops loading.
+                try? await Task.sleep(for: Self.historyRetry)
+                if !Task.isCancelled { historyLoads += 1 }
+                return
+            }
             if hitStart {
                 reachedStart = true
                 break
@@ -419,7 +532,7 @@ final class ChatTimelineModel: ObservableObject {
         // Spec composer editText: pills that left the text go; an @word in a group filters the members.
         mentions = ComposerMarkdown.mentions(mentions, in: text)
         if !isDm, let query = ComposerMarkdown.mentionQuery(text) {
-            suggestions = mentionDirectory.suggestions(query, everyoneLabel: BipeStrings.appComposerMentionEveryone)
+            suggestions = mentionDirectory.suggestions(query, everyoneLabel: BipeStrings.appComposerMentionEveryone, handles: handles)
         } else {
             suggestions = []
         }
@@ -444,7 +557,7 @@ final class ChatTimelineModel: ObservableObject {
         draft = ""
         mentions = []
         suggestions = []
-        if let room { Task { try? await room.clearComposerDraft(threadRoot: nil) } }
+        if let room { Task { [threadRoot] in try? await room.clearComposerDraft(threadRoot: threadRoot) } }
         sendTyping(false)
         BipeHaptics.play(.tap)
         if let replyingTo {
@@ -478,10 +591,18 @@ final class ChatTimelineModel: ObservableObject {
         _ = try? await timeline.send(msg: content)
     }
 
-    /// Action retrySend: sends a failed own message again.
+    /// Action retrySend: sends a failed own message again. A message held for an identity change is sent anyway
+    /// (spec identity-change sendAnyway).
     func retrySend(id: String) async {
         guard let handle = item(id)?.asEvent()?.lazyProvider.getSendHandle() else { return }
-        try? await handle.tryResend()
+        switch row(id)?.message?.sendFailure {
+        case .identity(let users)?:
+            try? await room?.withdrawVerificationAndResend(userIds: users, sendHandle: handle)
+        case .devices(let devices)?:
+            try? await room?.ignoreDeviceTrustAndResend(devices: devices, sendHandle: handle)
+        case nil:
+            try? await handle.tryResend()
+        }
     }
 
     /// Action cancelUpload of spec timeline-media: cancels the send of own media and removes the row.
@@ -492,12 +613,13 @@ final class ChatTimelineModel: ObservableObject {
 
     // MARK: timeline-rows
 
-    /// Action markAsRead: a public read receipt (ADR 0050) for the newest event, while the newest rows are on screen.
+    /// Action markAsRead: a read receipt for the newest event, while the newest rows are on screen. Public, except in a
+    /// DM while the read receipts switch is off (ADR 0222).
     func markAsRead() async {
         guard let timeline, UIApplication.shared.applicationState == .active,
               let newest = await timeline.latestEventId(), newest != lastReadEventId else { return }
         lastReadEventId = newest
-        try? await timeline.markAsRead(receiptType: .read)
+        try? await timeline.markAsRead(receiptType: ReadReceiptSetting.receiptType(isDm: facts.isDm))
     }
 
     // MARK: message-actions
@@ -524,9 +646,25 @@ final class ChatTimelineModel: ObservableObject {
         return MessageAction.allCases.filter { action in
             switch action {
             case .reply: details.canReply && isSent
+            // Spec threads: groups only, not inside a thread view, not a reply that is in a thread already.
+            case .replyInThread: !isDm && threadRoot == nil && isSent && !details.inThread
             case .edit: details.canEdit
+            // Spec message-edit removeCaption (bipe#668).
+            case .removeCaption: details.canEdit && message.media?.caption?.nilIfBlank != nil
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
             case .copy: message.kind == .text || message.media?.caption?.nilIfBlank != nil || message.voice?.transcript != nil
+            // Spec message-actions notes (bipe-chat/bipe#666): sent messages in a group, never in a DM (ADR 0141).
+            case .copyLink: isGroup && isSent
+            // Spec message-pins: groups only, sent messages.
+            case .pin: canPin && isSent && !pinnedEventIds.contains(details.eventId ?? "")
+            case .unpin: canPin && isSent && pinnedEventIds.contains(details.eventId ?? "")
+            // Spec message-forward notes: sent messages of kind message; no stickers or polls.
+            case .forward: isSent && forwardContent(rowId: row.id) != nil
+            case .select: canSelect(row)
+            // Spec message-actions notes (bipe#670): every sent sticker.
+            case .saveSticker: isSent && message.media?.kind == .sticker
+            // A sent sticker with stickerPackField (spec message-actions notes, ADR 0205).
+            case .viewStickerPack: isSent && message.media?.stickerPack != nil
             // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
             case .keepAudio: keepable(message, isSent: isSent) && voiceMedia.kept[message.voice!.source.url] == nil
             case .unkeepAudio: message.voice.map { voiceMedia.kept[$0.source.url] != nil } ?? false
@@ -562,6 +700,10 @@ final class ChatTimelineModel: ObservableObject {
 
     /// The menu title of an action: the countdown for a paused copy.
     func menuTitle(_ action: MessageAction, rowId: String) -> String {
+        if action == .edit, let media = row(rowId)?.message?.media {
+            return media.caption?.nilIfBlank == nil ? BipeStrings.captionAdd : BipeStrings.captionEdit
+        }
+        if action == .retry, row(rowId)?.message?.sendFailure != nil { return BipeStrings.identityChangeSendAnyway }
         let left = action == .copy ? pauseSecondsLeft(rowId: rowId) : 0
         return left > 0 ? BipeStrings.pauseCountdown(String(left)) : action.menuTitle
     }
@@ -572,12 +714,23 @@ final class ChatTimelineModel: ObservableObject {
         guard acceptsMenuActions, let current = row(rowId), actions(for: current).contains(action) else { return }
         switch action {
         case .reply: startReply(rowId: rowId)
+        case .replyInThread: openThreadRoot = current.details?.eventId
         case .edit: startEdit(rowId: rowId)
+        case .removeCaption: Task { await removeCaption(rowId: rowId) }
         case .copy:
             guard pauseSecondsLeft(rowId: rowId) == 0 else { return }
             UIPasteboard.general.string = row(rowId)?.message?.body
             BipeHaptics.play(.tap)
             show(.copied)
+        case .copyLink:
+            guard let room, let eventId = current.details?.eventId else { return }
+            Task {
+                // A link that the SDK cannot make shows nothing (spec message-actions notes).
+                guard let link = try? await room.matrixToEventPermalink(eventId: eventId) else { return }
+                UIPasteboard.general.string = link
+                BipeHaptics.play(.tap)
+                show(.copied)
+            }
         case .keepAudio, .unkeepAudio:
             guard let url = current.message?.voice?.source.url else { return }
             let store = voiceMedia
@@ -592,6 +745,35 @@ final class ChatTimelineModel: ObservableObject {
                 case .failed: self.show(.keepFailed)
                 }
             }
+        case .forward: forwardingRowIds = [rowId]
+        case .select: startSelection(rowId: rowId)
+        case .pin, .unpin:
+            guard let timeline, let eventId = current.details?.eventId else { return }
+            Task {
+                do {
+                    if action == .pin {
+                        _ = try await timeline.pinEvent(eventId: eventId)
+                    } else {
+                        _ = try await timeline.unpinEvent(eventId: eventId)
+                    }
+                    BipeHaptics.play(.tap)
+                } catch {
+                    show(.pinFailed)
+                }
+            }
+        case .saveSticker:
+            guard let sticker = current.message?.media, let packClient = StickerPickerModel.packClient(client) else { return }
+            Task {
+                do {
+                    _ = try await packClient.saveToUserPack(url: sticker.source.url, width: sticker.width, height: sticker.height,
+                                                            mimeType: sticker.mimeType, size: nil)
+                    BipeHaptics.play(.tap)
+                    show(.stickerSaved)
+                } catch {
+                    show(.stickerSaveFailed)
+                }
+            }
+        case .viewStickerPack: openingStickerPack = current.message?.media?.stickerPack
         case .retry: Task { await retrySend(id: rowId) }
         case .delete: askDelete(rowId: rowId)
         case .report: openReport(rowId: rowId)
@@ -609,6 +791,29 @@ final class ChatTimelineModel: ObservableObject {
                                   senderName: message.isOwn ? BipeStrings.appYou : message.senderName,
                                   preview: message.body)
         replyingToRowId = rowId
+    }
+
+    /// Spec drafts edit: an assistant draft becomes the composer text, with message-reply for its replyTo.
+    func takeAssistantDraft(body: String, replyTo: String?) async {
+        if editing != nil { cancelEdit() }
+        editDraft(body)
+        guard let replyTo else { return }
+        if let row = rows.first(where: { $0.details?.eventId == replyTo }), let message = row.message {
+            replyingTo = MessageReply(eventId: replyTo, state: .ready,
+                                      senderName: message.isOwn ? BipeStrings.appYou : message.senderName,
+                                      preview: message.body)
+            replyingToRowId = row.id
+        } else if let event = try? await timeline?.getEventTimelineItemByEventId(eventId: replyTo) {
+            var preview: String?
+            if case .msgLike(let content) = event.content, case .message(let message) = content.kind { preview = message.body }
+            replyingTo = MessageReply(eventId: replyTo, state: .ready,
+                                      senderName: event.isOwn ? BipeStrings.appYou : event.senderProfile.displayName(or: event.sender),
+                                      preview: preview)
+            replyingToRowId = nil
+        } else {
+            replyingTo = MessageReply(eventId: replyTo, state: .unavailable)
+            replyingToRowId = nil
+        }
     }
 
     /// Action cancelReply: the draft stays.
@@ -691,7 +896,8 @@ final class ChatTimelineModel: ObservableObject {
 
     /// Action startEdit: the message text goes into the composer, the unsent draft is kept aside. Ends a reply first.
     func startEdit(rowId: String) {
-        guard let row = self.row(rowId), row.details?.canEdit == true, let body = row.message?.body else { return }
+        guard let row = self.row(rowId), row.details?.canEdit == true, let message = row.message,
+              let body = message.media.map({ $0.caption ?? "" }) ?? message.body else { return }
         cancelReply()
         if editing == nil { keptDraft = draft }
         sendTyping(false)
@@ -709,13 +915,31 @@ final class ChatTimelineModel: ObservableObject {
     /// Action saveEdit.
     func saveEdit() async {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let editing, let timeline, canSend, let event = item(editing.rowId)?.asEvent(),
-              let content = try? messageEventContentNew(msgtype: .text(content: TextMessageContent(body: text, formatted: nil))) else { return }
+        guard let editing, let timeline, canSend, let event = item(editing.rowId)?.asEvent() else { return }
+        let newContent: EditedContent
+        if row(editing.rowId)?.message?.media != nil {
+            // A caption (bipe#668).
+            newContent = .mediaCaption(caption: text, formattedCaption: nil, mentions: nil)
+        } else {
+            guard let content = try? messageEventContentNew(msgtype: .text(content: TextMessageContent(body: text, formatted: nil))) else { return }
+            newContent = .roomMessage(content: content)
+        }
         isSavingEdit = true
         defer { isSavingEdit = false }
         do {
-            try await timeline.edit(eventOrTransactionId: event.eventOrTransactionId, newContent: .roomMessage(content: content))
+            try await timeline.edit(eventOrTransactionId: event.eventOrTransactionId, newContent: newContent)
             cancelEdit()
+        } catch {
+            show(.editFailed)
+        }
+    }
+
+    /// Action removeCaption of spec message-edit: no question.
+    func removeCaption(rowId: String) async {
+        guard let timeline, let event = item(rowId)?.asEvent() else { return }
+        do {
+            try await timeline.edit(eventOrTransactionId: event.eventOrTransactionId,
+                                    newContent: .mediaCaption(caption: nil, formattedCaption: nil, mentions: nil))
         } catch {
             show(.editFailed)
         }
@@ -795,7 +1019,7 @@ final class ChatTimelineModel: ObservableObject {
             return
         }
         typingUserIds = userIds.filter { $0 != session.userId }
-        typingNames = typingUserIds.map { facts.members[$0]?.name ?? $0 }
+        typingNames = typingUserIds.map { facts.members[$0]?.name ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) }
         loadMembers(Set(typingUserIds).subtracting(facts.members.keys))
     }
 
@@ -814,6 +1038,128 @@ final class ChatTimelineModel: ObservableObject {
 
     private func item(_ rowId: String) -> TimelineItem? {
         items.first { $0.uniqueId().id == rowId }
+    }
+
+    // MARK: message-forward
+
+    /// The content JSON a forward of a row sends (spec message-forward send, bipe-chat/bipe#83): the original content with
+    /// the forward mark. nil without the event JSON (a local echo), so that no copy goes out without its mark.
+    func forwardContent(rowId: String) -> String? {
+        guard let event = item(rowId)?.asEvent(),
+              case .msgLike(let content) = event.content,
+              case .message = content.kind else { return nil }
+        let debugInfo = event.lazyProvider.debugInfo()
+        return BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson)
+    }
+
+    /// The forward contents of rows, in timeline order (spec message-forward send).
+    func forwardContents(rowIds: [String]) -> [String] {
+        let wanted = Set(rowIds)
+        return rows.filter { wanted.contains($0.id) }.compactMap { forwardContent(rowId: $0.id) }
+    }
+
+    /// The picker closed: nil when cancelled, else the names of the chats that failed.
+    func forwardClosed(failed: [String]?) {
+        let count = forwardingRowIds?.count ?? 0
+        forwardingRowIds = nil
+        guard let failed else { return }
+        // A sent forward ends selection mode; a cancelled picker keeps it.
+        cancelSelection()
+        if failed.isEmpty {
+            BipeHaptics.play(.tap)
+            show(count > 1 ? .selectionForwarded : .forwarded)
+        } else {
+            show(.forwardFailed(failed.joined(separator: ", ")))
+        }
+    }
+
+    // MARK: message-forward selection (bipe#860)
+
+    /// A selectable row: a sent message that can be forwarded, or an own message the account can delete.
+    func canSelect(_ row: TimelineRow) -> Bool {
+        guard row.kind == .message, let message = row.message, message.sendState == .sent,
+              row.details?.eventId != nil else { return false }
+        return forwardContent(rowId: row.id) != nil || deletesInSelection(row)
+    }
+
+    private func deletesInSelection(_ row: TimelineRow) -> Bool {
+        row.message?.isOwn == true && row.message?.sendState == .sent && row.details?.canDelete == true
+    }
+
+    /// The picked rows that are still in the timeline and selectable, in timeline order.
+    private var selectedRows: [TimelineRow] {
+        guard let selection else { return [] }
+        let picked = Set(selection)
+        return rows.filter { picked.contains($0.id) && canSelect($0) }
+    }
+
+    /// Action startSelection: the mode starts with the long-pressed message picked.
+    func startSelection(rowId: String) {
+        guard acceptsMenuActions, let row = row(rowId), canSelect(row) else { return }
+        actionsRowId = nil
+        selection = [rowId]
+    }
+
+    /// Action toggleSelection: an 11th message shows the limit; removing the last one ends the mode.
+    func toggleSelection(rowId: String) {
+        guard var picked = selection else { return }
+        if let index = picked.firstIndex(of: rowId) {
+            picked.remove(at: index)
+        } else if picked.count >= Self.selectionLimit {
+            show(.selectionLimit)
+            return
+        } else if let row = row(rowId), canSelect(row) {
+            picked.append(rowId)
+        } else {
+            return
+        }
+        BipeHaptics.play(.tick)
+        selection = picked.isEmpty ? nil : picked
+    }
+
+    /// Action cancelSelection.
+    func cancelSelection() {
+        selection = nil
+        confirmsDeleteSelection = false
+    }
+
+    /// bipe_forward_action of the bar: on only when every picked message can be forwarded.
+    var canForwardSelection: Bool {
+        let picked = selectedRows
+        return !picked.isEmpty && picked.allSatisfy { forwardContent(rowId: $0.id) != nil }
+    }
+
+    /// bipe_app_message_action_delete of the bar: on when one picked message is own and can be deleted.
+    var canDeleteSelection: Bool {
+        selectedRows.contains { deletesInSelection($0) }
+    }
+
+    /// Action forwardSelection: the picker opens with the picked messages.
+    func forwardSelection() {
+        guard canForwardSelection else { return }
+        forwardingRowIds = selectedRows.map(\.id)
+    }
+
+    /// Action deleteSelection: one dialog for all own picked messages.
+    func askDeleteSelection() {
+        guard canDeleteSelection else { return }
+        confirmsDeleteSelection = true
+    }
+
+    /// The dialog of deleteSelection confirmed: deletes each own picked message for everyone, without a reason.
+    func confirmDeleteSelection() async {
+        let targets = selectedRows.filter { deletesInSelection($0) }.compactMap { item($0.id)?.asEvent()?.eventOrTransactionId }
+        cancelSelection()
+        guard let timeline, !targets.isEmpty else { return }
+        var failed = false
+        for target in targets {
+            do {
+                try await timeline.redactEvent(eventOrTransactionId: target, reason: nil)
+            } catch {
+                failed = true
+            }
+        }
+        if failed { show(.selectionDeleteFailed) }
     }
 
     // MARK: theftMark
@@ -856,8 +1202,11 @@ final class ChatTimelineModel: ObservableObject {
         guard let members = await GroupPeople.members(of: room, cachedOnly: true) else { return }
         let joined = members.filter { $0.membership == .join }
         facts.roomMembers = Set(joined.map(\.userId))
-        for member in joined where facts.members[member.userId] == nil {
-            facts.members[member.userId] = (member.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? member.userId, member.avatarUrl)
+        let newMembers = joined.filter { facts.members[$0.userId] == nil }
+        let found = await resolveHandles(of: newMembers.filter { BipeChatRowName.realName($0.displayName, userID: $0.userId) == nil }.map(\.userId))
+        for member in newMembers where facts.members[member.userId] == nil {
+            facts.members[member.userId] = (BipeChatRowName.person(userID: member.userId, displayName: member.displayName,
+                                                                   handle: found[member.userId]), member.avatarUrl)
         }
         facts.handleChanges = store.changes(for: facts.roomMembers)
         handleChangesTask = Task { [weak self] in
@@ -872,6 +1221,9 @@ final class ChatTimelineModel: ObservableObject {
     }
 
     private func rebuild() {
+        // Spec read-receipts: delivered acks and the read receipts switch count in a DM only.
+        facts.deliveredEventIds = facts.isDm ? Set(DeliveredLog.eventIds(userId: session.userId, roomId: roomId)) : []
+        facts.showsOthersRead = !facts.isDm || ReadReceiptSetting.isOn
         let built = TimelineRowBuilder.rows(items: items, facts: facts)
         rows = built.rows
         if built.hitStart {
@@ -895,14 +1247,41 @@ final class ChatTimelineModel: ObservableObject {
         guard let room, !missing.isEmpty else { return }
         membersLoading.formUnion(missing)
         Task {
+            var loaded: [String: (name: String?, avatarUrl: String?)] = [:]
             for userId in missing {
                 let name = (try? await room.memberDisplayName(userId: userId)) ?? nil
                 let avatarUrl = (try? await room.memberAvatarUrl(userId: userId)) ?? nil
-                facts.members[userId] = (name.flatMap { $0.isEmpty ? nil : $0 } ?? userId, avatarUrl)
+                loaded[userId] = (name, avatarUrl)
             }
-            typingNames = typingUserIds.map { facts.members[$0]?.name ?? $0 }
+            let found = await resolveHandles(of: loaded.filter { BipeChatRowName.realName($0.value.name, userID: $0.key) == nil }.map(\.key))
+            for (userId, member) in loaded {
+                facts.members[userId] = (BipeChatRowName.person(userID: userId, displayName: member.name, handle: found[userId]),
+                                         member.avatarUrl)
+            }
+            typingNames = typingUserIds.map { facts.members[$0]?.name ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) }
             rebuild()
         }
+    }
+
+    /// People names: the @handles of members without a real name, through the resolver's batched lookup.
+    private func resolveHandles(of userIds: [String]) async -> [String: String] {
+        guard let handles, !userIds.isEmpty else { return [:] }
+        return await withTaskGroup(of: (String, String?).self) { group in
+            for userId in userIds {
+                group.addTask { (userId, await handles.resolve(userId)) }
+            }
+            var found: [String: String] = [:]
+            for await (userId, handle) in group {
+                if let handle { found[userId] = handle }
+            }
+            return found
+        }
+    }
+
+    /// The heroes of a group without m.room.name, for BipeChatRowName.resolve. nil for a DM or a named group.
+    nonisolated static func groupHeroes(of info: RoomInfo, ownUserId: String) -> [(userID: String, displayName: String?)]? {
+        guard !info.isDm, (info.rawName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return info.heroes.filter { $0.userId != ownUserId }.map { ($0.userId, $0.displayName) }
     }
 
     /// peerAway: Room.member of the DM's other person; a leave or ban is left, and a profile that is not found

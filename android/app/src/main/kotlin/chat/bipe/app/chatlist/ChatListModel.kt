@@ -5,7 +5,9 @@
 package chat.bipe.app.chatlist
 
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.notifications.NewsRoomMark
 import chat.bipe.app.groups.ClearedChatsStore
+import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.displayName
 import chat.bipe.app.common.previewText
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Room
+import org.matrix.rustcomponents.sdk.RoomHistoryVisibility
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 import org.matrix.rustcomponents.sdk.RoomListEntriesListener
 import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
@@ -36,6 +39,7 @@ import org.matrix.rustcomponents.sdk.RoomNotificationMode
 import org.matrix.rustcomponents.sdk.TaskHandle
 import chat.bipe.app.voce.NotesRoom
 import chat.bipe.shared.BipeChatRowName
+import chat.bipe.shared.BipeFavouritesOrder
 import java.util.UUID
 
 /** Type ChatSummary of spec chat-list. */
@@ -53,6 +57,8 @@ data class ChatSummary(
     val mentionCount: Int,
     /** The other member of a DM, for the avatar account-type lookup. */
     val peerUserId: String? = null,
+    /** Spec chat-list notes, Group avatar: members shown when a group has no photo. */
+    val avatarMembers: List<chat.bipe.app.people.Person> = emptyList(),
     /** RoomInfo.isDm, the one DM test (ADR 0141). */
     val isDm: Boolean = false,
     val isMuted: Boolean = false,
@@ -61,6 +67,8 @@ data class ChatSummary(
     /** RoomInfo.isFavourite (m.favourite): the chat shows in the favourites row (spec chat-list). */
     val isFavourite: Boolean = false,
     val latestIncomingMs: Long? = null,
+    /** The account's news room (NewsRoomMark, bipe-chat/bipe#978). */
+    val isNewsRoom: Boolean = false,
 ) {
     val isUnread: Boolean get() = unreadCount > 0 || isMarkedUnread
 
@@ -68,9 +76,9 @@ data class ChatSummary(
     val scope: ChatScope
         get() = if (isDm) ChatScope.CONVERSAS else ChatScope.GRUPOS
 
-    /** Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only. */
+    /** Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only, or the news room. */
     val isOfficial: Boolean
-        get() = isDm && BipeOfficialAccounts.isOfficial(peerUserId)
+        get() = isNewsRoom || (isDm && BipeOfficialAccounts.isOfficial(peerUserId))
 }
 
 /** State scope of spec chat-list. TODAS: the Conversas tab of a company account, DMs and groups together (spec app-tabs). */
@@ -110,7 +118,10 @@ class ChatListModel(
     /** One model belongs to one account session; absent previews must not erase a known time or text. */
     private val knownRows = mutableMapOf<String, BipeRowActivity.Row>()
     /** Rows take a newer message of the local timeline as their date and text (bipe-chat/bipe#592). */
-    private val rowActivity = RowActivityScanner(session.client, scope, ::rowPreview) { refreshSummaries() }
+    private val rowActivity = RowActivityScanner(session.client, scope, ::rowPreview) { refreshSummaries() }.also { scanner ->
+        // Spec read-receipts, ack send: the newest event from the other person of a DM, once per room list change.
+        scanner.onDmIncoming = { room, eventId, sender -> session.delivered.send(room, eventId, sender) }
+    }
     private val extraRoomIds = mutableSetOf<String>()
     private var listLoaded = false
     private var entries: RoomListEntriesWithDynamicAdaptersResult? = null
@@ -122,6 +133,11 @@ class ChatListModel(
     val readActionFailed = _readActionFailed.asStateFlow()
     private val _favouriteFailed = MutableStateFlow(false)
     val favouriteFailed = _favouriteFailed.asStateFlow()
+    /** The favourites order of spec chat-list (registries/chat-favourites.json): room IDs, first first. */
+    private val _favouritesOrder = MutableStateFlow<List<String>>(emptyList())
+    val favouritesOrder = _favouritesOrder.asStateFlow()
+    /** A local order that is not on the server yet: a read must not replace it. */
+    private var favouritesOrderUnsaved = false
     /** A local read found an undecryptable message: feeds encryption-status noteUndecryptable (bipe-chat/bipe#853). */
     private val _hasUndecryptable = MutableStateFlow(false)
     val hasUndecryptable = _hasUndecryptable.asStateFlow()
@@ -130,6 +146,10 @@ class ChatListModel(
     private val clearChanges = scope.launch {
         ClearedChatsStore.revision.collect { refreshSummaries() }
     }
+    /** Spec drafts notes: the drafts room never shows in the list, its badges or the share targets. */
+    private val draftsChanges = scope.launch {
+        AssistantDraftsStore.revision.collect { refreshSummaries() }
+    }
 
     /** Subscribes to the room list service: joined chats, newest activity first. */
     fun start() {
@@ -137,6 +157,8 @@ class ChatListModel(
         started = true
         scope.launch {
             refreshNotes()
+            AssistantDraftsStore.learnRoomId(null, session)
+            session.delivered.start()
             val roomList = runCatching { session.syncService.roomListService().allRooms() }.getOrNull() ?: return@launch
             val loading = Channel<RoomListLoadingState>(Channel.UNLIMITED)
             runCatching {
@@ -166,7 +188,8 @@ class ChatListModel(
                 archiveEntries = entries
                 archiveJob = job
             }
-            tagStream(roomList, RoomListEntriesDynamicFilterKind.Favourite, favouriteRooms).let { (entries, job) ->
+            loadFavouritesOrder()
+            tagStream(roomList, RoomListEntriesDynamicFilterKind.Favourite, favouriteRooms, ::loadFavouritesOrder).let { (entries, job) ->
                 favouriteEntries = entries
                 favouriteJob = job
             }
@@ -188,6 +211,8 @@ class ChatListModel(
                 refreshSummaries()
                 // Publish cached rows first; subscription enables SDK latest-event calculation and online catchup.
                 updateSubscriptions()
+                // A first DM can come after start: the ack receiver binds to it (no work while one runs).
+                session.delivered.start()
             }
         }
     }
@@ -195,6 +220,7 @@ class ChatListModel(
     /** A room list stream of joined rooms with one tag (m.lowpriority or m.favourite), applied to [target]. */
     private fun CoroutineScope.tagStream(
         roomList: org.matrix.rustcomponents.sdk.RoomList, tag: RoomListEntriesDynamicFilterKind, target: MutableList<Room>,
+        onUpdate: (suspend () -> Unit)? = null,
     ): Pair<RoomListEntriesWithDynamicAdaptersResult, Job> {
         val updates = Channel<List<RoomListEntriesUpdate>>(Channel.UNLIMITED)
         val entries = roomList.entriesWithDynamicAdapters(PAGE_SIZE, object : RoomListEntriesListener {
@@ -217,6 +243,7 @@ class ChatListModel(
                     }
                     target.applyDiff(update.toVectorDiff())
                 }
+                onUpdate?.invoke()
                 refreshSummaries()
                 updateSubscriptions()
             }
@@ -265,7 +292,7 @@ class ChatListModel(
                 val room = session.client.getRoom(roomId) ?: error("room unavailable")
                 val info = room.roomInfo()
                 check(info.membership == org.matrix.rustcomponents.sdk.Membership.JOINED && !info.isSpace)
-                if (!unread) room.markAsRead(org.matrix.rustcomponents.sdk.ReceiptType.READ)
+                if (!unread) room.markAsRead(chat.bipe.app.timeline.ReadReceiptSetting.receiptType(info.isDm))
                 room.setUnreadFlag(unread)
                 failedReadIntent = null
                 refreshSummaries()
@@ -288,6 +315,9 @@ class ChatListModel(
                 val info = room.roomInfo()
                 check(info.membership == org.matrix.rustcomponents.sdk.Membership.JOINED && !info.isSpace)
                 room.setIsFavourite(favourite, null)
+                // Spec chat-list favourites order: a new favourite goes last, a removed one leaves the order.
+                val order = _favouritesOrder.value
+                saveFavouritesOrder(if (favourite) BipeFavouritesOrder.adding(roomId, order) else BipeFavouritesOrder.removing(roomId, order))
                 refreshSummaries()
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
@@ -295,6 +325,27 @@ class ChatListModel(
                 _favouriteFailed.value = true
             }
         }
+    }
+
+    /** Action moveFavourite of spec chat-list: moves a favourite among the [shown] favourites of its scope and writes the order. */
+    fun moveFavourite(roomId: String, index: Int, shown: List<String>) {
+        scope.launch { saveFavouritesOrder(BipeFavouritesOrder.moving(roomId, index, shown, _favouritesOrder.value)) }
+    }
+
+    /** Reads the favourites order from the account data, unless this phone has an order it could not write yet. */
+    private suspend fun loadFavouritesOrder() {
+        if (favouritesOrderUnsaved) return
+        val json = runCatching { session.client.accountData(BipeFavouritesOrder.EVENT_TYPE) }.getOrNull() ?: return
+        _favouritesOrder.value = BipeFavouritesOrder.parse(json)
+    }
+
+    /** Shows the order at once and writes it. A failed write keeps it on this phone; the next change writes it again. */
+    private suspend fun saveFavouritesOrder(order: List<String>) {
+        _favouritesOrder.value = order
+        favouritesOrderUnsaved = true
+        val saved = runCatching { session.client.setAccountData(BipeFavouritesOrder.EVENT_TYPE, BipeFavouritesOrder.content(order)) }
+            .isSuccess
+        if (saved && _favouritesOrder.value == order) favouritesOrderUnsaved = false
     }
 
     fun retryReadAction() { failedReadIntent?.let { (roomId, unread) -> setUnread(roomId, unread) } }
@@ -308,6 +359,7 @@ class ChatListModel(
 
     fun close() {
         clearChanges.cancel()
+        draftsChanges.cancel()
         rowActivity.close()
         handles.forEach { it.cancel() }
         summaryJob?.cancel()
@@ -338,7 +390,8 @@ class ChatListModel(
         for (id in (extraRoomIds - loadedIds).sorted()) runCatching { session.client.getRoom(id) }.getOrNull()?.let { snapshot += it }
         summaryJob?.cancel()
         summaryJob = scope.launch {
-            val summaries = snapshot.filter { it.id() != notes.roomId }.mapNotNull { summary(it) }
+            val draftsRoomId = AssistantDraftsStore.roomId(session.userId)
+            val summaries = snapshot.filter { it.id() != notes.roomId && it.id() != draftsRoomId }.mapNotNull { summary(it) }
             val visible = retainingKnownActivity(NativeDmSelection.visible(summaries, session))
             archive.reconcile(visible)
             // SDK order includes server recency stamps and local echoes, even when previews have no timestamp.
@@ -383,7 +436,7 @@ class ChatListModel(
         return when (content) {
             is TimelineItemContent.RoomMembership -> {
                 val own = content.userId == session.userId
-                val name = content.userDisplayName?.takeIf { it.isNotEmpty() } ?: content.userId
+                val name = chat.bipe.app.people.Person.name(content.userId, content.userDisplayName)
                 when (content.change) {
                     MembershipChange.JOINED, MembershipChange.INVITATION_ACCEPTED, MembershipChange.KNOCK_ACCEPTED ->
                         if (own) line(R.string.bipe_dm_joined_by_you, R.string.bipe_group_state_event_room_join_by_you, null)
@@ -421,11 +474,16 @@ class ChatListModel(
                 lastActivity = latest.timestamp.toLong()
             }
             is LatestEventValue.RemoteInvite -> lastActivity = latest.timestamp.toLong()
-            LatestEventValue.None -> Unit
+            // A sticker pack room has no messages (spec sticker-picker notes, Pack room): the chat list hides it.
+            LatestEventValue.None -> if (info.isPublic == true && info.historyVisibility is RoomHistoryVisibility.WorldReadable) return null
         }
         val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
-        val name = BipeChatRowName.resolve(info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText,
-            dmRoomName = if (info.isDm) info.rawName else null)
+        // Spec chat-list news room mark: the app-language name, not the room's Portuguese m.room.name.
+        val isNewsRoom = NewsRoomMark.roomId(session.userId) == info.id
+        val name = if (isNewsRoom) label(chat.bipe.shared.R.string.bipe_news_room_name)
+            else BipeChatRowName.resolve(info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText,
+                dmRoomName = if (info.isDm) info.rawName else null,
+                groupHeroes = chat.bipe.app.timeline.groupHeroes(info, session.userId), noName = chat.bipe.app.people.Person.noName())
         return ChatSummary(
             roomId = info.id,
             name = name,
@@ -438,12 +496,14 @@ class ChatListModel(
             memberCount = info.activeMembersCount.toInt(),
             mentionCount = info.numUnreadMentions.toInt(),
             peerUserId = peer?.userId,
+            avatarMembers = chat.bipe.app.common.groupAvatarMembers(info, session.userId),
             isDm = info.isDm,
             isMuted = info.cachedUserDefinedNotificationMode == RoomNotificationMode.MUTE,
             isMarkedUnread = info.isMarkedUnread,
             isLowPriority = info.isLowPriority,
             isFavourite = info.isFavourite,
             latestIncomingMs = latestIncomingMs,
+            isNewsRoom = isNewsRoom,
         )
     }
 

@@ -19,11 +19,21 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.matrix.rustcomponents.sdk.MediaFileHandle
+import org.matrix.rustcomponents.sdk.MediaSource
 import java.io.File
 import java.nio.ByteBuffer
 
-/** A decoded image; animated is set for an animated sticker on Android 9 and later. */
-class LoadedImage(val bitmap: ImageBitmap, val animated: Drawable? = null)
+/**
+ * A decoded image; animated is set for an animated sticker on Android 9 and later. bitmap is the first frame.
+ * animatedFile keeps the file of an animated image, so that each view gets its own drawable: an
+ * AnimatedImageDrawable draws into one view only, and one sticker can show many times in a chat.
+ */
+class LoadedImage(val bitmap: ImageBitmap, val animated: Drawable? = null, private val animatedFile: ByteArray? = null) {
+    val isAnimated: Boolean get() = animated != null
+
+    /** A new drawable of the animated image for one view; null for a still. */
+    suspend fun newAnimatedDrawable(): Drawable? = animatedFile?.let { decodeAnimated(it) } ?: animated
+}
 
 /**
  * Media of chat messages through the SDK media cache. Encrypted media: the event's MediaSource
@@ -36,19 +46,34 @@ private object MediaCache {
     val filesLock = Mutex()
 }
 
-/** The row image: the event thumbnail when there is one, else the media itself, at most maxPixel on the long side. */
+/**
+ * The row image: the event thumbnail when there is one, else the media itself, at most maxPixel on the long side.
+ * A sticker always loads the media itself: an animated WebP plays only from the file (ADR 0205).
+ */
 suspend fun MediaLoader.previewImage(media: MediaMessage, maxPixel: Int): LoadedImage? {
-    val key = "${media.thumbnailSource?.url ?: media.source.url}#$maxPixel"
+    val thumbnailSource = media.thumbnailSource.takeIf { media.kind != MediaMessage.Kind.STICKER }
+    val key = "${thumbnailSource?.url ?: media.source.url}#$maxPixel"
     MediaCache.images.get(key)?.let { return it }
     val bytes = runCatching {
         when {
-            media.thumbnailSource != null -> client.getMediaContent(media.thumbnailSource.source)
+            thumbnailSource != null -> client.getMediaContent(thumbnailSource.source)
             media.kind == MediaMessage.Kind.IMAGE || media.kind == MediaMessage.Kind.STICKER -> client.getMediaContent(media.source.source)
             else -> null
         }
     }.getOrNull() ?: return null
-    DataUseMeter.recordReceived(bytes.size.toLong(), media.thumbnailSource?.url ?: media.source.url)
-    val image = decodeImage(bytes, maxPixel, animated = media.isAnimated && media.thumbnailSource == null) ?: return null
+    DataUseMeter.recordReceived(bytes.size.toLong(), thumbnailSource?.url ?: media.source.url)
+    val image = decodeImage(bytes, maxPixel, animated = (media.isAnimated || media.mayBeAnimated) && thumbnailSource == null) ?: return null
+    MediaCache.images.put(key, image)
+    return image
+}
+
+/** A pack sticker for the picker, from its file: an animated WebP comes back animated (ADR 0205). */
+suspend fun MediaLoader.stickerImage(mxcUrl: String, maxPixel: Int): LoadedImage? {
+    val key = "$mxcUrl#sticker#$maxPixel"
+    MediaCache.images.get(key)?.let { return it }
+    val bytes = runCatching { client.getMediaContent(MediaSource.fromUrl(mxcUrl)) }.getOrNull() ?: return null
+    DataUseMeter.recordReceived(bytes.size.toLong(), mxcUrl)
+    val image = decodeImage(bytes, maxPixel, animated = true) ?: return null
     MediaCache.images.put(key, image)
     return image
 }
@@ -86,11 +111,13 @@ private suspend fun decodeImage(bytes: ByteArray, maxPixel: Int, animated: Boole
     while (bounds.outWidth / (sample * 2) >= maxPixel || bounds.outHeight / (sample * 2) >= maxPixel) sample *= 2
     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
         ?: return@withContext null
-    val drawable = if (animated && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        runCatching { ImageDecoder.decodeDrawable(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) }.getOrNull()
-            ?.takeIf { it is AnimatedImageDrawable }
-    } else {
-        null
-    }
-    LoadedImage(bitmap.asImageBitmap(), drawable)
+    val drawable = if (animated) decodeAnimated(bytes) else null
+    LoadedImage(bitmap.asImageBitmap(), drawable, bytes.takeIf { drawable != null })
+}
+
+/** An AnimatedImageDrawable on Android 9 and later; null for a still or an older Android. */
+private suspend fun decodeAnimated(bytes: ByteArray): Drawable? = withContext(Dispatchers.Default) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return@withContext null
+    runCatching { ImageDecoder.decodeDrawable(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) }.getOrNull()
+        ?.takeIf { it is AnimatedImageDrawable }
 }

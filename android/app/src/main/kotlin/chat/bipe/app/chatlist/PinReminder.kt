@@ -87,35 +87,15 @@ class PinReminderModel(context: Context, userId: String) {
 /** The card (registries/onboarding.json prompts.pinReminder). Same shape as the recovery reminder card. */
 @Composable
 fun PinReminderCard(model: PinReminderModel, open: () -> Unit) {
-    val colors = BipeTheme.colors
     val prompt = BipeOnboardingPrompt.PIN_REMINDER
     LaunchedEffect(Unit) { model.shown() }
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(BipeScreen.PIN_REMINDER.id)
-            .background(colors.accentWash, RoundedCornerShape(14.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(stringResource(prompt.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-        Text(stringResource(R.string.bipe_pin_reminder_body, BipeRegistries.PIN_LENGTH.toString()),
-            style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(prompt.primary.title),
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.inkOnAccent,
-                modifier = Modifier.bipeTapTarget().background(colors.accentFill, RoundedCornerShape(50)).clickable(role = Role.Button, onClick = open)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-            prompt.text.forEach {
-                Text(
-                    stringResource(it.title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.accentInk,
-                    modifier = Modifier.bipeTapTarget().clickable(role = Role.Button) { model.checked(BipeOnboardingSchedule.PinResult.LATER) },
-                )
-            }
-        }
-    }
+    PromptCard(
+        title = stringResource(prompt.title),
+        body = stringResource(R.string.bipe_pin_reminder_body, BipeRegistries.PIN_LENGTH.toString()),
+        primary = PromptAction(stringResource(prompt.primary.title), open),
+        texts = prompt.text.map { PromptAction(stringResource(it.title)) { model.checked(BipeOnboardingSchedule.PinResult.LATER) } },
+        modifier = Modifier.testTag(BipeScreen.PIN_REMINDER.id),
+    )
 }
 
 private enum class PinReminderPhase { EDITING, CHECKING, RIGHT, WRONG, BLOCKED, FAILED }

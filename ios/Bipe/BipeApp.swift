@@ -8,6 +8,8 @@ import SwiftUI
 struct BipeApp: App {
     /// Push token and notification taps (spec notification-service).
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    /// Settings chats.appearance (bipe#676).
+    @AppStorage(Appearance.key) private var appearance = Appearance.system.rawValue
 
     init() {
         // Before any keychain read: the items move into the app-group group (bipe-chat/bipe#531).
@@ -22,6 +24,7 @@ struct BipeApp: App {
             AccountStartView()
                 .modifier(AppLockGate())
                 .bipeRoundedType()
+                .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
         }
     }
 }

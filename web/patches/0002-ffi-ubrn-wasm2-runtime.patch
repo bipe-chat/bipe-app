@@ -1,0 +1,28 @@
+diff --git a/bindings/matrix-sdk-ffi/Cargo.toml b/bindings/matrix-sdk-ffi/Cargo.toml
+index 5edc9c9..0a89c01 100644
+--- a/bindings/matrix-sdk-ffi/Cargo.toml
++++ b/bindings/matrix-sdk-ffi/Cargo.toml
+@@ -124,6 +124,8 @@ console_error_panic_hook = { version = "0.1.7", default-features = false }
+ tokio = { workspace = true, features = ["sync", "macros"] }
+ uniffi = { workspace = true, features = ["wasm-unstable-single-threaded"] }
+ futures-executor.workspace = true
++# Bipe web spike: allocator and panic hook for the ubrn wasm2 player.
++uniffi-runtime-wasm = "=0.31.0-6"
+ 
+ [target.'cfg(not(target_family = "wasm"))'.dependencies]
+ async-compat.workspace = true
+diff --git a/bindings/matrix-sdk-ffi/src/lib.rs b/bindings/matrix-sdk-ffi/src/lib.rs
+index 06bd1af..80b7b02 100644
+--- a/bindings/matrix-sdk-ffi/src/lib.rs
++++ b/bindings/matrix-sdk-ffi/src/lib.rs
+@@ -52,6 +52,10 @@ use self::{
+ 
+ uniffi::include_scaffolding!("api");
+ 
++// Bipe web spike: link the ubrn wasm2 runtime (alloc, free, panic hook).
++#[cfg(target_arch = "wasm32")]
++extern crate uniffi_runtime_wasm as _;
++
+ #[matrix_sdk_ffi_macros::export]
+ fn sdk_git_sha() -> String {
+     env!("VERGEN_GIT_SHA").to_owned()

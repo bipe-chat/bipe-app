@@ -4,6 +4,7 @@
 
 package chat.bipe.app.settings
 
+import chat.bipe.shared.drafts.BipeAssistantSend
 import android.content.Context
 import androidx.core.app.NotificationManagerCompat
 import chat.bipe.app.account.AccountSession
@@ -25,6 +26,7 @@ import chat.bipe.shared.settings.whoCanMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import chat.bipe.app.common.appVersionWithBuild
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.RecoveryState
@@ -54,6 +56,8 @@ class SettingsModel(
         val deletion: BipeAccountDeletion? = null,
         /** ADR 0087: a company account (account-delete shows bipe_deletion_point_company). */
         val isCompany: Boolean = false,
+        /** The assistant send switch (ADR 0210): global account data chat.bipe.assistant_send. Null until it is read. */
+        val assistantSend: Boolean? = null,
     ) {
         /** Null until GET /v1/me/account answers. */
         val waysBack: BipeWaysBack?
@@ -68,8 +72,20 @@ class SettingsModel(
             }
     }
 
-    private val _state = MutableStateFlow(State())
+    private val _state = MutableStateFlow(lastStates[session.userId] ?: State())
     val state: StateFlow<State> = _state
+
+    init {
+        scope.launch { _state.collect { lastStates[session.userId] = it } }
+    }
+
+    companion object {
+        /**
+         * The last values read, per account, for this app run. A new model starts from them, so settings opens with its
+         * subtitles and switches filled and load() only refreshes them. Memory only: nothing goes to disk.
+         */
+        private val lastStates = java.util.concurrent.ConcurrentHashMap<String, State>()
+    }
 
     /** Spec settings-root, action appear: reads the summaries. Each fills in when it arrives. */
     fun load() {
@@ -79,6 +95,11 @@ class SettingsModel(
                     .getOrDefault(false),
                 notificationsOn = NotificationManagerCompat.from(context).areNotificationsEnabled(),
             )
+        }
+        scope.launch {
+            // assistantSendAllowed: off when the account data is absent. A read error keeps the switch off and disabled.
+            runCatching { session.client.accountData(BipeAssistantSend.ACCOUNT_DATA_TYPE) }
+                .onSuccess { json -> _state.update { it.copy(assistantSend = BipeAssistantSend.allowed(json)) } }
         }
         scope.launch {
             runCatching { authorized { api.whoCanMessage(it) } }.onSuccess { value -> _state.update { it.copy(whoCanMessage = value) } }
@@ -125,6 +146,15 @@ class SettingsModel(
     }
 
     /** The discovery switch: PUT /v1/me/discovery. False when the save failed; the value stays as it was. */
+    /** The assistant send switch: Client.setAccountData chat.bipe.assistant_send. False when the save failed; the value stays. */
+    suspend fun setAssistantSend(value: Boolean): Boolean {
+        val old = _state.value.assistantSend
+        _state.update { it.copy(assistantSend = value) }
+        val saved = runCatching { session.client.setAccountData(BipeAssistantSend.ACCOUNT_DATA_TYPE, BipeAssistantSend.json(value)) }.isSuccess
+        if (!saved) _state.update { it.copy(assistantSend = old) }
+        return saved
+    }
+
     suspend fun setDiscoverableByPhone(value: Boolean): Boolean {
         val old = _state.value.discoverableByPhone
         _state.update { it.copy(discoverableByPhone = value) }
@@ -143,7 +173,9 @@ class SettingsModel(
         BipeSettingsGroup.NOTIFICATIONS -> state.notificationsOn?.let {
             context.getString(if (it) R.string.bipe_settings_notifications_on else R.string.bipe_settings_notifications_off)
         }
-        BipeSettingsGroup.PROFILE, BipeSettingsGroup.CHATS, BipeSettingsGroup.HELP -> null
+        BipeSettingsGroup.HELP -> context.getString(R.string.bipe_help_version, appVersionWithBuild(context))
+        // chats: SettingsRootSection reads the theme and palette from AppTheme state.
+        BipeSettingsGroup.PROFILE, BipeSettingsGroup.CHATS -> null
     }
 
     fun needsAttention(state: State, group: BipeSettingsGroup): Boolean =

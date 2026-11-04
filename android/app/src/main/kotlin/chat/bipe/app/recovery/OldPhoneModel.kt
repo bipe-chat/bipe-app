@@ -5,6 +5,7 @@
 package chat.bipe.app.recovery
 
 import android.content.Context
+import android.util.Log
 import android.util.Base64
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.QrLogin
@@ -13,12 +14,14 @@ import chat.bipe.app.linkcomputer.canCopyQrCode
 import chat.bipe.shared.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.matrix.rustcomponents.sdk.HumanQrLoginException
 import org.matrix.rustcomponents.sdk.QrCodeData
 import org.matrix.rustcomponents.sdk.QrLoginProgress
@@ -91,7 +94,9 @@ class OldPhoneModel(
         }
         job = scope.launch {
             try {
-                val session = login(data, listener)
+                // Off the main thread: on Android the TLS check of a new host (account.bipe.net.br) fetches CRLs,
+                // and on the main thread that throws NetworkOnMainThreadException, so registration never left the phone.
+                val session = withContext(Dispatchers.IO) { login(data, listener) }
                 // The login client is gone here: the store can move.
                 val account = QrLogin.adopt(context, session, sessionStore)
                 job = null
@@ -153,6 +158,7 @@ class OldPhoneModel(
     /** Action taskFailed: maps the SDK error to a string. */
     private fun taskFailed(error: Exception) {
         job = null
+        Log.w("OldPhoneModel", "QR login failed: ${error::class.simpleName}: ${error.message}")
         fail(
             when (error) {
                 is HumanQrLoginException.NotFound, is HumanQrLoginException.Expired -> Failure.EXPIRED

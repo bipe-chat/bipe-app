@@ -25,6 +25,8 @@ struct PickedMedia: Identifiable, Equatable {
     var size: UInt64
     /// image only: the sender's description for screen readers (bipe-chat/bipe#501).
     var description = ""
+    /// true when send could not prepare the file or hand it to the send queue.
+    var sendFailed = false
 
     /// The kind from the file type: images and videos go as such, everything else as a file.
     static func kind(of url: URL) -> Kind {
@@ -50,7 +52,7 @@ final class UploadPreviewModel: ObservableObject {
     @Published private(set) var didSend = false
 
     let quality = MediaQuality.current
-    let replyToEventId: String?
+    private(set) var replyToEventId: String?
     private let client: Client
     private let timeline: Timeline
 
@@ -109,38 +111,54 @@ final class UploadPreviewModel: ObservableObject {
 
     /// Action send: each item as an attachment with its thumbnail and info, the caption on the first
     /// item, an image's description in its content (bipe-chat/bipe#501), as a reply when replyToEventId is set,
-    /// then closes. The send queue keeps the uploads.
+    /// then closes. The send queue keeps the uploads. An item that cannot be prepared or handed to the send
+    /// queue stays with sendFailed and the screen stays open; Send again sends the rest.
     func send() async {
         guard canSend else { return }
         isPreparing = true
-        let caption = caption.nilIfBlank
-        var prepared: [(media: PreparedMedia, description: String?)] = []
+        var prepared: [(item: PickedMedia, media: PreparedMedia)] = []
+        var failed: Set<UUID> = []
         for item in items {
             if let media = try? await MediaPreparation.prepare(item.localURL, kind: item.kind, quality: quality) {
-                prepared.append((media, item.kind == .image ? item.description : nil))
+                prepared.append((item, media))
+            } else {
+                failed.insert(item.id)
             }
         }
         isPreparing = false
-        for (index, (media, description)) in prepared.enumerated() {
+        for (item, media) in prepared {
+            // The caption and the reply go with the first item that gets through.
             let params = UploadParameters(source: .file(filename: media.file.path),
-                                          caption: index == 0 ? caption : nil,
+                                          caption: caption.nilIfBlank,
                                           formattedCaption: nil,
                                           mentions: nil,
-                                          inReplyTo: index == 0 ? replyToEventId : nil,
-                                          extraContentJson: BipeImageDescription.extraContentJson(description))
+                                          inReplyTo: replyToEventId,
+                                          extraContentJson: BipeImageDescription.extraContentJson(item.kind == .image ? item.description : nil))
             let thumbnail = media.thumbnail.map { UploadSource.file(filename: $0.path) }
+            do {
+                switch media.info {
+                case .image(let info):
+                    _ = try timeline.sendImage(params: params, thumbnailSource: thumbnail, imageInfo: info)
+                case .video(let info):
+                    _ = try timeline.sendVideo(params: params, thumbnailSource: thumbnail, videoInfo: info)
+                case .file(let info):
+                    _ = try timeline.sendFile(params: params, fileInfo: info)
+                }
+            } catch {
+                failed.insert(item.id)
+                continue
+            }
             // Spec data-use: the upload counts on the network in use now.
             DataUseMeter.shared.recordSent(Int64(MediaPreparation.fileSize(media.file) + (media.thumbnail.map(MediaPreparation.fileSize) ?? 0)))
-            switch media.info {
-            case .image(let info):
-                _ = try? timeline.sendImage(params: params, thumbnailSource: thumbnail, imageInfo: info)
-            case .video(let info):
-                _ = try? timeline.sendVideo(params: params, thumbnailSource: thumbnail, videoInfo: info)
-            case .file(let info):
-                _ = try? timeline.sendFile(params: params, fileInfo: info)
-            }
+            caption = ""
+            replyToEventId = nil
+            didSend = true
         }
-        didSend = true
-        isClosed = true
+        items = items.filter { failed.contains($0.id) }.map { item in
+            var item = item
+            item.sendFailed = true
+            return item
+        }
+        if items.isEmpty { isClosed = true }
     }
 }

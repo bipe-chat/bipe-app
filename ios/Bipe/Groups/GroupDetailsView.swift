@@ -11,8 +11,14 @@ import SwiftUI
 struct GroupDetailsView: View {
     @StateObject private var model: GroupDetailsModel
     @State private var pickedPhoto: PhotosPickerItem?
+    @State private var askingEmoji = false
+    @State private var emojiText = ""
     @State private var leaving = false
     @State private var openMembers = false
+    @State private var showsGallery = false
+    /// The icon of the chat-media-gallery row.
+    private static let galleryIcon = PhosphorIcon.image
+    @State private var reporting = false
     @State private var toast: String?
     private let media: MediaLoader
 
@@ -42,6 +48,16 @@ struct GroupDetailsView: View {
         .alert(BipeStrings.appSaveError, isPresented: $model.showsSaveError) {
             Button(BipeStrings.appClose, role: .cancel) {}
         }
+        .alert(BipeStrings.appGroupPhotoEmoji, isPresented: $askingEmoji) {
+            TextField(BipeStrings.appGroupPhotoEmojiHint, text: $emojiText)
+            Button(BipeStrings.appGroupPhotoEmoji) {
+                if let emoji = GroupDetailsModel.singleEmoji(emojiText) {
+                    model.editPhoto = .emoji(GroupDetailsModel.emojiPhoto(emoji))
+                }
+            }
+            .disabled(GroupDetailsModel.singleEmoji(emojiText) == nil)
+            Button(BipeStrings.appCancel, role: .cancel) {}
+        }
         .sheet(isPresented: $leaving) {
             GroupLeaveView(session: model.session, roomId: model.roomId) {
                 leaving = false
@@ -65,7 +81,7 @@ struct GroupDetailsView: View {
     private var header: some View {
         VStack(spacing: 12) {
             Group {
-                if case .new(let image) = model.editPhoto, model.phase != .viewing {
+                if let image = editedImage, model.phase != .viewing {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -73,7 +89,8 @@ struct GroupDetailsView: View {
                         .clipShape(Circle())
                 } else {
                     let removed = model.editPhoto == .removed && model.phase != .viewing
-                    AvatarView(name: model.name, mxcUrl: removed ? nil : model.avatarUrl, loader: media, size: 96)
+                    AvatarView(name: model.name, mxcUrl: removed ? nil : model.avatarUrl, loader: media, size: 96,
+                               members: model.avatarMembers)
                 }
             }
             if model.phase == .viewing {
@@ -84,9 +101,13 @@ struct GroupDetailsView: View {
                 Text(BipeStrings.appGroupDetailsPeople(model.memberCount.formatted()))
                     .font(.subheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
-            } else {
+            } else if model.canEditPhoto {
                 PhotosPicker(selection: $pickedPhoto, matching: .images) {
                     Text(BipeStrings.appGroupPhotoChoose)
+                }
+                Button(BipeStrings.appGroupPhotoEmoji) {
+                    emojiText = ""
+                    askingEmoji = true
                 }
                 if model.editPhoto != .removed && (model.avatarUrl != nil || model.editPhoto != .unchanged) {
                     Button(BipeStrings.appGroupPhotoRemove, role: .destructive) {
@@ -97,6 +118,14 @@ struct GroupDetailsView: View {
         }
         .buttonStyle(.borderless)
         .frame(maxWidth: .infinity)
+    }
+
+    /// The new photo or the rendered emoji in the edit form.
+    private var editedImage: UIImage? {
+        switch model.editPhoto {
+        case .new(let image), .emoji(let image): image
+        case .unchanged, .removed: nil
+        }
     }
 
     @ViewBuilder
@@ -131,6 +160,37 @@ struct GroupDetailsView: View {
                     row(icon: .userPlus, title: BipeStrings.appGroupAddPeople, chevron: false)
                 }
             }
+            if model.canChangePrivacy {
+                // Spec group-privacy (bipe#772).
+                NavigationLink {
+                    GroupPrivacyView(session: model.session, media: media, roomId: model.roomId)
+                } label: {
+                    row(icon: .lockSimple, title: BipeStrings.groupPrivacyTitle, chevron: false)
+                }
+            }
+            if model.canMakeGroupLink {
+                // Spec group-link (ADR 0184, bipe-chat/bipe#744).
+                NavigationLink {
+                    GroupLinkView(session: model.session, roomId: model.roomId)
+                } label: {
+                    row(icon: .link, title: BipeStrings.groupLinkTitle, chevron: false)
+                }
+            }
+            // Spec chat-media-gallery (bipe#672).
+            Button {
+                showsGallery = true
+            } label: {
+                row(icon: Self.galleryIcon, title: BipeStrings.galleryTitle)
+            }
+            .sheet(isPresented: $showsGallery) {
+                ChatMediaGalleryView(session: model.session, media: media, roomId: model.roomId)
+            }
+            // Spec poll-history (bipe#669).
+            NavigationLink {
+                PollHistoryView(session: model.session, roomId: model.roomId)
+            } label: {
+                row(icon: .chartBar, title: BipeStrings.pollHistory, chevron: false)
+            }
             NavigationLink {
                 ChatNotificationsView(session: model.session, roomId: model.roomId)
             } label: {
@@ -146,6 +206,20 @@ struct GroupDetailsView: View {
         }
 
         Section {
+            // Spec group-details notes, report (bipe#674).
+            Button(role: .destructive) {
+                reporting = true
+            } label: {
+                Label {
+                    Text(BipeStrings.appReportGroup)
+                } icon: {
+                    PhosphorIcon.flag.image.resizable().frame(width: 20, height: 20)
+                }
+                .foregroundStyle(BipeColor.trustDangerInk)
+            }
+            .sheet(isPresented: $reporting) {
+                ReportChatView(session: model.session, groupRoomId: model.roomId) { toast = $0 }
+            }
             Button(role: .destructive) {
                 leaving = true
             } label: {

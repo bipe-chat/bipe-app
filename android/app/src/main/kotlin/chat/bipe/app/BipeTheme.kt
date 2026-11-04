@@ -47,7 +47,12 @@ object BipeTheme {
  */
 @Composable
 fun BipeTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+    // Settings chats.appearance (bipe-chat/bipe#676).
+    val dark = when (AppTheme.appearance) {
+        AppTheme.Appearance.SYSTEM -> isSystemInDarkTheme()
+        AppTheme.Appearance.LIGHT -> false
+        AppTheme.Appearance.DARK -> true
+    }
     val highContrast = rememberHighContrast()
     val colors = bipeColors(AppTheme.palette, dark, highContrast)
     val scheme = if (dark) {
@@ -124,7 +129,7 @@ private fun rememberHighContrast(): Boolean {
     return high
 }
 
-private fun highContrast(context: Context): Boolean {
+internal fun highContrast(context: Context): Boolean {
     // Settings.Secure "high_text_contrast_enabled": the system's High contrast text switch.
     val highText = Settings.Secure.getInt(context.contentResolver, "high_text_contrast_enabled", 0) == 1
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return highText

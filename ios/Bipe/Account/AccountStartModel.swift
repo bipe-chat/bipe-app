@@ -10,6 +10,8 @@ import MatrixRustSDK
 struct SignupOutcome: Equatable {
     var inviterUserId: String?
     var inviterHandle: String?
+    /// A sign-up with a group link code (ADR 0184): the group the account was invited into.
+    var groupRoomId: String?
 }
 
 private struct AccountStartupSnapshot: Sendable {
@@ -84,6 +86,8 @@ final class AccountStartModel: ObservableObject {
 
     /// Routes a recovery link to the recovery flow. A signed-in phone ignores it: noAccount alone shows the flow.
     func openLink(_ url: URL) {
+        // A claim link waits for the account, through sign-up (ADR 0195 point 7).
+        if ShopClaim.keep(url) { return }
         guard BipeRecoveryLink.token(from: url) != nil else { return }
         recoveryLink = url
         showsRecovery = true
@@ -167,6 +171,7 @@ final class AccountStartModel: ObservableObject {
                 await authError(session, isSoftLogout: true)
             } else {
                 await session.syncService.start()
+                await session.resumeSending()
             }
         }
         await PushRegistration.shared.appBecameActive()
@@ -189,6 +194,8 @@ final class AccountStartModel: ObservableObject {
             BipeInviteStore(userID: session.userId)
                 .setInviterGreeting(BipeInviterGreeting(userID: inviterUserId, handle: outcome.inviterHandle))
         }
+        // Spec bring-people: the first sheet shows only on the phone that made the account.
+        BipeBringPeopleMemory(userID: session.userId).markSignedUp()
         _ = AccountList.merge(found: [session.userId])
         signupOutcome = outcome
         show(session)
@@ -344,7 +351,8 @@ final class AccountStartModel: ObservableObject {
         }
     }
 
-    private static func name(of userId: String) -> String {
+    /// The account's remembered name, else Você.
+    static func name(of userId: String) -> String {
         let label = BipeAccountLabels.label(for: userId)
         return label == userId ? BipeStrings.tabYou : label
     }

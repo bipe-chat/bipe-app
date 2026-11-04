@@ -80,6 +80,7 @@ class StickerPackClient(
                         put("h", candidate.height)
                         put("mimetype", candidate.mimeType)
                         put("size", candidate.bytes.size)
+                        if (candidate.isAnimated) put("is_animated", true)
                     }
                 }
                 added++
@@ -114,6 +115,33 @@ class StickerPackClient(
         put(path, JsonObject(content + ("images" to JsonObject(images + (shortcode to updated)))).toString(), token)
     }
 
+    /**
+     * Adds a sticker someone sent to the user's pack by its mxc:// URL, with no upload (bipe-chat/bipe#670).
+     * Returns false when the pack already has that image.
+     */
+    suspend fun saveToUserPack(url: String, width: Int?, height: Int?, mimeType: String?, size: Long?): Boolean = withTokenRetry { token ->
+        val path = listOf("user", userId, "account_data", StickerPackEventType.USER_PACK)
+        val content = get(path, token)
+            ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?: JsonObject(emptyMap())
+        val images = (content["images"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+        val known = images.values.any { ((it as? JsonObject)?.get("url") as? JsonPrimitive)?.content == url }
+        if (known) return@withTokenRetry false
+        images[StickerImporter.shortcode(url.toByteArray())] = buildJsonObject {
+            put("url", url)
+            put("body", "Sticker")
+            putJsonArray("usage") { add("sticker") }
+            putJsonObject("info") {
+                width?.let { put("w", it) }
+                height?.let { put("h", it) }
+                mimeType?.let { put("mimetype", it) }
+                size?.let { put("size", it) }
+            }
+        }
+        put(path, JsonObject(content + ("images" to JsonObject(images))).toString(), token)
+        true
+    }
+
     /** A sticker list in global account data ([StickerShortlist]): recents or favourites. Empty when unset. */
     suspend fun shortlist(eventType: String): List<StickerRef> = withTokenRetry { token ->
         get(listOf("user", userId, "account_data", eventType), token)?.let(StickerShortlist::parse).orEmpty()
@@ -122,6 +150,48 @@ class StickerPackClient(
     /** Writes the whole list, so a later write also carries changes from a failed one. */
     suspend fun setShortlist(eventType: String, refs: List<StickerRef>) = withTokenRetry { token ->
         put(listOf("user", userId, "account_data", eventType), StickerShortlist.content(refs), token)
+    }
+
+    /**
+     * Spec sticker-pack appear: the pack at ref, the room creator and the room name, from the room state. A public
+     * world_readable room is read without joining. Null when the room has no pack at ref.stateKey.
+     */
+    suspend fun preview(ref: StickerPackRef): StickerPackPreview? = withTokenRetry { token ->
+        get(listOf("rooms", ref.roomId, "state"), token)?.let { StickerPackPreview.parse(it, ref) }
+    }
+
+    /** Whether ref is in im.ponies.emote_rooms (spec sticker-pack, phase added). */
+    suspend fun isEnabled(ref: StickerPackRef): Boolean = withTokenRetry { token ->
+        val content = get(listOf("user", userId, "account_data", StickerPackEventType.ENABLED_ROOMS), token) ?: return@withTokenRetry false
+        StickerPack.parseEnabledRooms(content).any { it.first == ref.roomId && it.second == ref.stateKey }
+    }
+
+    /** Spec sticker-pack add: puts ref in im.ponies.emote_rooms with a read-merge-write on the server copy. The caller joins first. */
+    suspend fun enable(ref: StickerPackRef) = withTokenRetry { token ->
+        val path = listOf("user", userId, "account_data", StickerPackEventType.ENABLED_ROOMS)
+        val content = get(path, token)?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?: JsonObject(emptyMap())
+        put(path, StickerPackRoom.enabling(ref, content).toString(), token)
+    }
+
+    /** StickerPackView.canShare of a room pack: this user may write the pack state. False when the state is unreadable. */
+    suspend fun canWritePack(roomId: String): Boolean = runCatching {
+        withTokenRetry { token -> get(listOf("rooms", roomId, "state"), token) }
+    }.getOrNull()?.let { StickerPackPreview.canWrite(it, userId) } ?: false
+
+    /**
+     * Spec sticker-picker sharePack for the user's own pack: a new pack room with a copy of the pack ([StickerPackRoom]).
+     * Later edits of the user's pack do not change the copy.
+     */
+    suspend fun createPackRoom(displayName: String): StickerPackRef = withTokenRetry { token ->
+        val pack = get(listOf("user", userId, "account_data", StickerPackEventType.USER_PACK), token)
+            ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?: throw IOException("No sticker pack")
+        val body = StickerPackRoom.createBody(pack, displayName).toString().toByteArray()
+        val response = perform("POST", clientUrl(listOf("createRoom")), token, body, "application/json") ?: throw IOException("createRoom returned 404")
+        val roomId = ((Json.parseToJsonElement(response) as? JsonObject)?.get("room_id") as? JsonPrimitive)?.content
+            ?: throw IOException("createRoom returned no room_id")
+        StickerPackRef(roomId, "")
     }
 
     private suspend fun roomPacks(roomId: String, token: String): List<StickerPack> {

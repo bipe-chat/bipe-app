@@ -24,6 +24,39 @@ final class VoicePlayer: NSObject, ObservableObject {
     /// Played part of the current row, 0 to 1.
     @Published private(set) var progress = 0.0
     @Published private(set) var failedRows: Set<String> = []
+    /// speed of spec voice-message: one speed for every row on this phone (bipe#824).
+    @Published private(set) var speed = Speed(rawValue: UserDefaults.standard.string(forKey: Speed.key) ?? "") ?? .normal
+
+    /// State speed of spec voice-message.
+    enum Speed: String, CaseIterable {
+        case normal
+        case oneAndHalf
+        case double
+
+        static let key = "voicePlaybackSpeed"
+
+        var rate: Float {
+            switch self {
+            case .normal: 1
+            case .oneAndHalf: 1.5
+            case .double: 2
+            }
+        }
+
+        /// Action cycleSpeed: normal, oneAndHalf, double, then normal again.
+        var next: Speed {
+            let all = Self.allCases
+            return all[(all.firstIndex(of: self)! + 1) % all.count]
+        }
+
+        /// The number with the phone's decimal sign ("1,5" in pt-BR), for bipe_voice_speed.
+        var label: String {
+            let formatter = NumberFormatter()
+            formatter.minimumFractionDigits = 0
+            formatter.maximumFractionDigits = 1
+            return formatter.string(from: NSNumber(value: rate)) ?? String(rate)
+        }
+    }
 
     private var player: AVAudioPlayer?
     private var ticker: AnyCancellable?
@@ -77,6 +110,7 @@ final class VoicePlayer: NSObject, ObservableObject {
                 guard rowId == id else { return }
                 let player = try AVAudioPlayer(contentsOf: url)
                 player.delegate = self
+                player.enableRate = true
                 player.prepareToPlay()
                 if let position = positions[id] {
                     player.currentTime = position.time
@@ -90,6 +124,13 @@ final class VoicePlayer: NSObject, ObservableObject {
                 playback = .failed
             }
         }
+    }
+
+    /// Action cycleSpeed. A playing row changes speed at once; AVAudioPlayer keeps the pitch.
+    func cycleSpeed() {
+        speed = speed.next
+        UserDefaults.standard.set(speed.rawValue, forKey: Speed.key)
+        player?.rate = speed.rate
     }
 
     /// Action seek.
@@ -126,6 +167,7 @@ final class VoicePlayer: NSObject, ObservableObject {
         try? session.setCategory(.playback, mode: .spokenAudio)
         try? session.setActive(true)
         UIDevice.current.isProximityMonitoringEnabled = true
+        player.rate = speed.rate
         player.play()
         playback = .playing
         ticker = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect().sink { [weak self] _ in

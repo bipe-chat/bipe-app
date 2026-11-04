@@ -4,6 +4,7 @@
 
 package chat.bipe.app.invites
 
+import chat.bipe.app.common.BipeToasts
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -65,8 +66,10 @@ import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeInvite
 import chat.bipe.shared.generated.BipeScreen
 import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.time.Instant
 import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 /** One invite as the card shows it: a new one from create, or a pending one from the list. */
@@ -121,8 +124,11 @@ fun InvitesScreen(model: InvitesModel, people: PeopleService, onBack: () -> Unit
         state.pending.forEach { invite ->
             val link = state.links[invite.id]
             PendingInviteRow(invite, link,
-                onShare = { url -> shareInvite(context, url) },
-                onCopy = { url -> context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(null, url)) },
+                onShare = { url -> shareInvite(context, InviteShare(url, invite.expiresAt)) },
+                onCopy = { url ->
+                    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(null, url))
+                    BipeToasts.copied(context)
+                },
                 onRename = { name = invite.name.orEmpty(); renaming = invite },
                 onRevoke = { revoking = invite },
             ) { card = InviteCard(invite.id, link, invite.expiresAt) }
@@ -201,8 +207,20 @@ private fun JoinedInviteRow(invite: BipeInvite, people: PeopleService, openChat:
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Avatar(person?.displayName.orEmpty(), person?.avatarUrl, people.media, size = 40.dp, userId = invite.joinedUserId)
         Spacer(Modifier.width(12.dp))
-        Text(person?.displayName ?: stringResource(R.string.bipe_invites_status_used), modifier = Modifier.weight(1f))
-        TextButton(enabled = !busy, onClick = {
+        // The name the user gave the invite first, then the name the person chose under it.
+        val savedName = invite.name?.takeIf { it.isNotBlank() }
+        val displayName = person?.displayName
+        Column(Modifier.weight(1f)) {
+            Text(savedName ?: displayName ?: stringResource(R.string.bipe_invites_status_used))
+            val caption = when {
+                invite.joinedUserId == null -> savedName?.let { stringResource(R.string.bipe_invites_status_used) }
+                savedName != null && displayName != null && displayName != savedName -> displayName
+                else -> null
+            }
+            if (caption != null) Text(caption, style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary)
+        }
+        // No joined account (a company sign-up, a deleted account): no chat to open.
+        if (invite.joinedUserId != null) TextButton(enabled = !busy, onClick = {
             val userId = invite.joinedUserId ?: return@TextButton
             busy = true
             scope.launch {
@@ -272,7 +290,7 @@ private fun InviteCardScreen(model: InvitesModel, card: InviteCard, onBack: () -
                     }
                 }
                 Text(stringResource(R.string.bipe_invites_expires, dateLabel(card.expiresAt)), color = BipeTheme.colors.inkSecondary)
-                BipeButton(onClick = { shareInvite(context, url) }, modifier = Modifier.fillMaxWidth()) {
+                BipeButton(onClick = { shareInvite(context, InviteShare(url, card.expiresAt)) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(painterResource(PhosphorIcon.SHARE_NETWORK.drawable), contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.bipe_app_share))
@@ -317,11 +335,22 @@ private fun InviteCardScreen(model: InvitesModel, card: InviteCard, onBack: () -
     }
 }
 
-private fun shareInvite(context: Context, link: String) {
-    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, context.getString(R.string.bipe_invites_share_message, link))
+/** An invite link to share and the moment it stops working (Invite.expires_at). */
+data class InviteShare(val url: String, val expiresAt: String)
+
+/** The system share sheet with bipe_invites_share_message: the link and its expiry date. Specs invite-qr and bring-people. */
+internal fun shareInvite(context: Context, share: InviteShare) {
+    val text = context.getString(R.string.bipe_invites_share_message, share.url, shareDateLabel(share.expiresAt))
+    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
     context.startActivity(Intent.createChooser(send, null))
 }
 
-private fun dateLabel(raw: String): String = runCatching {
+/** Day and month in words, no year ("9 de novembro"), for the share text. */
+private fun shareDateLabel(raw: String): String = runCatching {
+    val locale = Locale.getDefault()
+    SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "dMMMM"), locale).format(Date.from(Instant.parse(raw)))
+}.getOrDefault(dateLabel(raw))
+
+internal fun dateLabel(raw: String): String = runCatching {
     DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date.from(Instant.parse(raw)))
 }.getOrDefault(raw)

@@ -12,8 +12,21 @@ import UIKit
 struct ChatTimelineView: View {
     @StateObject private var model: ChatTimelineModel
     @Environment(\.scenePhase) private var scenePhase
-    @State private var deletingDm = false
+    /// The account's call focus, for the call rows of the DM chat menu.
+    @State private var callFocus: String?
+    /// The DM chat menu's chat-notifications and chat-media-gallery rows.
+    @State private var showsNotifications = false
+    @State private var showsGallery = false
+    @State private var toast: String?
+    /// The list keeps to the newest message until the person scrolls (chat-timeline opens at the bottom).
+    @State private var followsNewest = true
+    /// Spec chat-timeline searchInChat (bipe-chat/bipe#861).
+    @State private var searchingChat = false
+    /// The group menu's group-details row.
+    @State private var showsGroupDetails = false
     @ObservedObject private var cleared = ClearedChatsStore.shared
+    /// Spec drafts (bipe-chat/bipe#866): the assistant draft banner above the composer.
+    @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
     @Environment(\.closeChat) private var closeChat
     @Environment(\.openOtherChat) private var openOtherChat
     @State private var creatingPoll = false
@@ -21,9 +34,13 @@ struct ChatTimelineView: View {
     @StateObject private var voicePlayer = VoicePlayer()
     /// Spec business-chat-bar: the tools and booking cards of a DM with a company, or of its customer.
     @StateObject private var business: BusinessChatModel
+    /// Spec message-pins (bipe#665).
+    @StateObject private var pinned: PinnedMessagesModel
+    /// Spec identity-change (bipe#770).
+    @StateObject private var identity: IdentityChangeModel
     @State private var viewerRowId: String?
     // composer
-    @State private var attaching = false
+    @State private var attaching: AttachmentChoice?
     @State private var upload: PickedUpload?
     @State private var showsStickers = false
     /// Spec location-send, with the reply target taken when it opened.
@@ -31,16 +48,30 @@ struct ChatTimelineView: View {
     private let media: MediaLoader
     /// Opens the chat's info: person-profile for a DM.
     private let openInfo: (() -> Void)?
+    /// Spec chat-archive from the DM chat menu. nil: no archive row.
+    private let archive: ChatArchiveToggle?
     private let session: AccountSession
     private let roomId: String
+    /// Spec chat-search openMessage: the message to scroll to after the chat opens.
+    private let focusEventId: String?
+    /// Spec chat-row-actions sendMedia: the attachment choice to open once the chat shows.
+    private let startAttachment: AttachmentChoice?
     /// The account's people service, for the blocked bar of a DM (block-person). nil: no bar.
     private let people: PeopleService?
 
-    init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil, openInfo: (() -> Void)? = nil) {
-        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId))
+    /// threadRoot: the thread view of spec threads (bipe#667); nil for the main timeline.
+    init(session: AccountSession, media: MediaLoader, roomId: String, people: PeopleService? = nil,
+         focusEventId: String? = nil, threadRoot: String? = nil, openInfo: (() -> Void)? = nil,
+         archive: ChatArchiveToggle? = nil, startAttachment: AttachmentChoice? = nil) {
+        self.focusEventId = focusEventId
+        self.startAttachment = startAttachment
+        _model = StateObject(wrappedValue: ChatTimelineModel(session: session, roomId: roomId, threadRoot: threadRoot))
         _business = StateObject(wrappedValue: BusinessChatModel(session: session, media: media))
+        _pinned = StateObject(wrappedValue: PinnedMessagesModel(session: session, roomId: roomId))
+        _identity = StateObject(wrappedValue: IdentityChangeModel(session: session, roomId: roomId))
         self.media = media
         self.openInfo = openInfo
+        self.archive = archive
         self.session = session
         self.roomId = roomId
         self.people = people
@@ -48,15 +79,25 @@ struct ChatTimelineView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            OngoingCallBar(model: model, session: session)
-            LiveLocationChatBar(roomId: roomId, userId: session.userId)
-            if model.isDm, let people, let peer = model.peerUserId {
-                CvmStopOrderCard(seals: people.seals, userId: peer)
+            // Spec threads notes: the thread view shows none of the chat bars.
+            if model.threadRoot == nil {
+                OngoingCallBar(model: model, session: session)
+                if let predecessor = model.predecessor {
+                    PredecessorLine(name: predecessor.name) { openOtherChat(predecessor.roomId) }
+                }
+                if model.isGroup {
+                    PinnedBanner(model: pinned) { eventId in Task { await model.openOriginal(eventId: eventId) } }
+                }
+                LiveLocationChatBar(roomId: roomId, userId: session.userId)
+                if model.isDm, let people, let peer = model.peerUserId {
+                    CvmStopOrderCard(seals: people.seals, userId: peer)
+                }
+                // The open bookings with the business, pinned above the timeline (ADR 0102).
+                BookingCardStack(model: business)
             }
-            // The open bookings with the business, pinned above the timeline (ADR 0102).
-            BookingCardStack(model: business)
             rowList
                 .environment(\.bipeCompanySeals, people?.seals)
+                .environment(\.bipeHandles, people?.handles)
             if let hint = model.inviterHint {
                 InviterHintRow(hint: hint, inviterName: model.roomName) {
                     Task { await model.sendGreeting() }
@@ -70,23 +111,30 @@ struct ChatTimelineView: View {
             if model.isDm, model.theftMark != nil {
                 TheftMarkBanner(name: model.roomName)
             }
-            if model.isDm, let people, let peer = model.peerUserId {
-                DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
-                    leftBar
-                    composerBar
+            if model.threadRoot == nil {
+                IdentityChangeBar(model: identity)
+            }
+            if model.threadRoot == nil, model.selection == nil, model.successorRoomId == nil {
+                AssistantDraftBanner(store: assistantDrafts, roomId: roomId, userId: session.userId) { draft in
+                    if draft.threadRoot != nil {
+                        // The thread view loads the thread's composer draft when it opens.
+                        await assistantDrafts.keepAsThreadDraft(draft)
+                        model.openThreadRoot = draft.threadRoot
+                    } else {
+                        await model.takeAssistantDraft(body: draft.body, replyTo: draft.replyTo)
+                    }
                 }
-            } else {
-                leftBar
-                composerBar
             }
         }
+        // Spec composer: the composer floats at the bottom of the screen, over the scrolling messages.
+        .safeAreaInset(edge: .bottom, spacing: 0) { VStack(spacing: 0) { bottomBar } }
         .frame(maxWidth: 760)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .attachmentPicker(isPresented: $attaching,
+        .attachmentPicker(choice: $attaching,
                           onPicked: { urls in upload = PickedUpload(urls: urls, replyToEventId: model.takeReplyEventId()) },
                           onStickers: { showsStickers = true },
                           onLocation: { locationSend = LocationSendRequest(replyToEventId: model.takeReplyEventId()) },
-                          onPoll: model.canPoll ? { creatingPoll = true } : nil)
+                          onPoll: { creatingPoll = true })
         .fullScreenCover(item: $locationSend) { request in
             LocationSendView(timeline: model, session: session, replyToEventId: request.replyToEventId, close: { locationSend = nil })
         }
@@ -101,22 +149,47 @@ struct ChatTimelineView: View {
             StickerPickerView(model: StickerPickerModel(client: model.client, roomId: roomId), loader: media,
                               close: { showsStickers = false })
         }
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
-        .overlay(alignment: .bottom) { noticeView }
-        .navigationTitle(model.roomName)
+        // message-actions viewStickerPack (spec sticker-pack).
+        .sheet(item: $model.openingStickerPack) { pack in
+            StickerPackView(model: StickerPackModel(ref: pack, client: model.client, handles: people?.handles), loader: media) {
+                model.openingStickerPack = nil
+            }
+        }
+        // Spec app-colors, ADR 0213: the chat background, still behind the scrolling messages.
+        .background(ChatBackgroundView().ignoresSafeArea())
+        // The composer sits at the bottom: the toast goes above it.
+        .toast($toast, bottom: 96)
+        .onChange(of: model.notice) { _, notice in
+            if let notice { toast = notice.text }
+        }
+        .navigationTitle(model.threadRoot == nil ? model.roomName : BipeStrings.threadTitle)
         .navigationBarTitleDisplayMode(.inline)
+        // Spec app-tabs: the tab bar hides while a chat or thread is open.
+        .toolbar(.hidden, for: .tabBar)
+        // Spec threads openThread: the thread view as a sheet over the main timeline.
+        .sheet(item: Binding(get: { model.openThreadRoot.map(ThreadSheetId.init) }, set: { model.openThreadRoot = $0?.id })) { thread in
+            NavigationStack {
+                ChatTimelineView(session: session, media: media, roomId: roomId, people: people, threadRoot: thread.id)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button(BipeStrings.appClose) { model.openThreadRoot = nil }
+                        }
+                    }
+            }
+        }
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
-                else { chatTitle }
+            if model.threadRoot == nil {
+                ToolbarItem(placement: .principal) {
+                    if model.isDm, let openInfo { Button(action: openInfo) { chatTitle } }
+                    else { chatTitle }
+                }
             }
-            ToolbarItem(placement: .primaryAction) {
-                CallHeaderButtons(model: model, session: session)
-            }
-            if model.isGroup {
+            if model.isGroup, model.threadRoot == nil {
                 ToolbarItem(placement: .primaryAction) {
-                    NavigationLink {
-                        GroupDetailsView(session: session, media: media, roomId: roomId)
+                    // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
+                    Menu {
+                        Button { showsGroupDetails = true } label: { Label(BipeStrings.appGroupDetailsTitle, systemImage: "info.circle") }
+                        Button { searchingChat = true } label: { Label(BipeStrings.searchInChat, systemImage: "magnifyingglass") }
                     } label: {
                         Label {
                             Text(BipeStrings.appGroupDetailsTitle)
@@ -127,26 +200,54 @@ struct ChatTimelineView: View {
                     .labelStyle(.iconOnly)
                 }
             }
-            if model.isDm {
+            if model.isDm, model.threadRoot == nil {
                 ToolbarItem(placement: .primaryAction) {
+                    // Spec chat-timeline notes: the DM chat menu is the one button on the right. Archive, never delete.
                     Menu {
+                        Button { searchingChat = true } label: { Label(BipeStrings.searchInChat, systemImage: "magnifyingglass") }
+                        if let openInfo {
+                            Button(action: openInfo) { Label(BipeStrings.dmDetailsTitle, systemImage: "info.circle") }
+                        }
+                        Button { showsNotifications = true } label: { Label(BipeStrings.settingsNotifications, systemImage: "bell") }
+                        Button { showsGallery = true } label: { Label(BipeStrings.galleryTitle, systemImage: "photo.on.rectangle") }
+                        CallMenuItems(model: model, session: session, focus: callFocus)
                         BusinessMenuItems(model: business)
-                        Button(BipeStrings.dmDeleteAction, role: .destructive) {
-                            deletingDm = true
+                        if let archive {
+                            let archived = archive.isArchived()
+                            Button {
+                                archive.set(!archived)
+                                if !archived { closeChat() }
+                            } label: {
+                                Label(archived ? BipeStrings.unarchiveAction : BipeStrings.archiveAction,
+                                      systemImage: archived ? "tray.and.arrow.up" : "archivebox")
+                            }
                         }
                     } label: {
                         Label {
-                            Text(BipeStrings.dmDetailsTitle)
+                            Text(BipeStrings.chatActions)
                         } icon: {
-                            PhosphorIcon.info.toolbarImage(size: 22)
+                            PhosphorIcon.dotsThree.toolbarImage(size: 22)
                         }
                     }
                     .labelStyle(.iconOnly)
+                    .task(id: session.userId) { callFocus = await CallCenter.shared.focusUrl(for: session) }
                 }
             }
         }
-        .sheet(isPresented: $deletingDm) {
-            DmDeleteView(session: session, roomId: roomId) { closeChat() }
+        .sheet(isPresented: $showsNotifications) {
+            NavigationStack { ChatNotificationsView(session: session, roomId: roomId) }
+        }
+        .sheet(isPresented: $showsGallery) {
+            ChatMediaGalleryView(session: session, media: media, roomId: roomId)
+        }
+        .navigationDestination(isPresented: $showsGroupDetails) {
+            GroupDetailsView(session: session, media: media, roomId: roomId)
+        }
+        // Spec chat-search with roomId: a message hit scrolls this chat to it.
+        .sheet(isPresented: $searchingChat) {
+            ChatMessageSearchView(session: session, roomId: roomId) { eventId in
+                Task { await model.openOriginal(eventId: eventId) }
+            }
         }
         .sheet(isPresented: $creatingPoll) {
             PollCreateView(timeline: model)
@@ -155,7 +256,21 @@ struct ChatTimelineView: View {
             PollDetailView(timeline: model, session: session, eventId: poll.id)
         }
         .accessibilityIdentifier(BipeScreen.chatTimeline.rawValue)
-        .task { await model.start() }
+        .task {
+            model.handles = people?.handles
+            await model.start()
+        }
+        .task(id: model.isGroup) { if model.isGroup { await pinned.observe() } }
+        .task(id: startAttachment) { if let startAttachment { attaching = startAttachment } }
+        // Spec chat-search openMessage (bipe#671): scroll to the message once the first rows are in.
+        .task(id: focusEventId) {
+            guard let focusEventId else { return }
+            for _ in 0..<20 where model.rows.isEmpty {
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            await model.openOriginal(eventId: focusEventId)
+        }
+        .task { await identity.observe() }
         .businessChatTools(business)
         .task(id: "\(model.isDm)|\(model.peerUserId ?? "")|\(model.roomName)") {
             await business.load(peerUserId: model.isDm ? model.peerUserId : nil, peerName: model.roomName)
@@ -188,6 +303,11 @@ struct ChatTimelineView: View {
                 MessageActionsSheet(model: model, row: row)
             }
         }
+        .sheet(isPresented: presence(\.forwardingRowIds)) {
+            if let rowIds = model.forwardingRowIds, case let contentJsons = model.forwardContents(rowIds: rowIds), !contentJsons.isEmpty {
+                MessageForwardSheet(client: model.client, contentJsons: contentJsons, media: media) { model.forwardClosed(failed: $0) }
+            }
+        }
         .sheet(isPresented: presence(\.pickerOpenFor)) {
             EmojiPickerSheet { model.pickEmoji($0) }
         }
@@ -198,7 +318,7 @@ struct ChatTimelineView: View {
         }
         .sheet(isPresented: presence(\.readersSheet)) {
             if let readers = model.readersSheet {
-                ReadersSheet(readers: readers, media: media)
+                ReadersSheet(readers: readers, media: media, handles: people?.handles)
             }
         }
         .sheet(isPresented: presence(\.report)) {
@@ -214,13 +334,22 @@ struct ChatTimelineView: View {
         } message: {
             Text(BipeStrings.appMessageDeleteBody)
         }
+        // Spec message-forward deleteSelection: one dialog for all own picked messages.
+        .alert(BipeStrings.selectDeleteTitle, isPresented: $model.confirmsDeleteSelection) {
+            Button(BipeStrings.appMessageActionDelete, role: .destructive) {
+                Task { await model.confirmDeleteSelection() }
+            }
+            Button(BipeStrings.appCancel, role: .cancel) {}
+        } message: {
+            Text(BipeStrings.selectDeleteBody)
+        }
         // Spec notification-service: an open chat has no notifications.
         .onAppear { model.resumeMenuActions(); MissedCalls.clear(accountUserId: session.userId, roomId: model.roomId); NotificationActions.shared.chatOpened(BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)) }
         .onDisappear {
             let target = BipeNotificationTarget(accountUserId: session.userId, roomId: model.roomId)
             if NotificationActions.shared.visibleRoom == target { NotificationActions.shared.chatOpened(nil) }
         }
-        .notificationsPrompt(session: session, roomId: model.roomId, messages: model.rows.compactMap(\.message))
+        .notificationsPromptTrigger(userID: session.userId, messages: model.rows.compactMap(\.message))
     }
 
     /// Spec dm-delete: events at or below the marker of a cleared DM are gone.
@@ -240,20 +369,22 @@ struct ChatTimelineView: View {
                 LazyVStack(spacing: 6) {
                     historyHeader
                     ForEach(shownRows) { row in
-                        TimelineRowView(row: row,
-                                        isDm: model.isDm,
-                                        isHighlighted: model.highlightedRowId == row.id,
-                                        model: model,
-                                        media: media,
-                                        voicePlayer: voicePlayer,
-                                        openPoll: { openPollId = $0 },
-                                        openViewer: { viewerRowId = $0 })
-                            .id(row.id)
-                            .onAppear {
-                                if row.id == model.rows.last?.id {
-                                    Task { await model.markAsRead() }
-                                }
+                        SelectableTimelineRow(model: model, row: row) {
+                            TimelineRowView(row: row,
+                                            isDm: model.isDm,
+                                            isHighlighted: model.highlightedRowId == row.id,
+                                            model: model,
+                                            media: media,
+                                            voicePlayer: voicePlayer,
+                                            openPoll: { openPollId = $0 },
+                                            openViewer: { viewerRowId = $0 })
+                        }
+                        .id(row.id)
+                        .onAppear {
+                            if row.id == model.rows.last?.id {
+                                Task { await model.markAsRead() }
                             }
+                        }
                     }
                 }
                 .padding(.horizontal, 12)
@@ -261,6 +392,22 @@ struct ChatTimelineView: View {
             }
             .defaultScrollAnchor(.bottom)
             .scrollDismissesKeyboard(.interactively)
+            // The chat opens at the newest message. The first rows and the history pages come in batches,
+            // and the lazy stack guesses row heights, so the bottom anchor alone can land higher up.
+            // Until the person scrolls, each batch scrolls to the newest message again.
+            .onScrollPhaseChange { _, phase in
+                if phase == .interacting { followsNewest = false }
+            }
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 40
+            } action: { _, atBottom in
+                if atBottom { followsNewest = true }
+            }
+            .onChange(of: model.rows.count) {
+                if followsNewest, let lastId = model.rows.last?.id {
+                    proxy.scrollTo(lastId, anchor: .bottom)
+                }
+            }
             .onChange(of: model.rows.last?.id) { _, lastId in
                 if let lastId {
                     withBipeAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
@@ -268,6 +415,7 @@ struct ChatTimelineView: View {
             }
             .onChange(of: model.scrollTarget) { _, target in
                 guard let target else { return }
+                followsNewest = false
                 withBipeAnimation { proxy.scrollTo(target, anchor: .center) }
                 model.scrolledToTarget()
             }
@@ -292,18 +440,45 @@ struct ChatTimelineView: View {
         }
     }
 
+    @ViewBuilder
+    private var bottomBar: some View {
+        if model.selection != nil {
+            // Spec message-forward selection: the bar takes the place of the composer.
+            MessageSelectionBar(model: model)
+        } else if model.successorRoomId != nil {
+            RoomUpgradeBar(model: model) { openOtherChat($0) }
+        } else if model.isDm, let people, let peer = model.peerUserId {
+            DmComposerSlot(people: people, peerUserId: peer, name: model.roomName) {
+                leftBar
+                composerBar
+            }
+        } else {
+            leftBar
+            composerBar
+        }
+    }
+
     private var composerBar: some View {
-        ComposerBar(model: model, media: media, openAttachments: { attaching = true }, openStickers: { showsStickers = true })
+        ComposerBar(model: model, media: media, openAttachments: { attaching = $0 }, openStickers: { showsStickers = true })
+            // Spec identity-change blocksSending: until the person taps Entendi.
+            .disabled(identity.blocksSending)
+            // Spec composer nameAmbiguous: the @ in the suggestion rows.
+            .environment(\.bipeHandles, people?.handles)
     }
 
     private var chatTitle: some View {
         HStack(spacing: 8) {
-            AvatarView(name: model.roomName, mxcUrl: model.roomAvatarUrl, loader: media, size: 32, userId: model.peerUserId)
+            AvatarView(name: model.roomName, mxcUrl: model.roomAvatarUrl, loader: media, size: 32, userId: model.peerUserId,
+                       members: model.avatarMembers)
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Text(model.roomName).font(.headline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
-                    if model.isDm, BipeOfficialAccounts.isOfficial(model.peerUserId) {
+                    if model.isNewsRoom || (model.isDm && BipeOfficialAccounts.isOfficial(model.peerUserId)) {
                         OfficialBadge()
+                    }
+                    if model.isDm {
+                        SealMark(userId: model.peerUserId)
+                            .environment(\.bipeCompanySeals, people?.seals)
                     }
                 }
                 // Spec brand-mark: a reseller's mark under the title, never instead of the name.
@@ -327,27 +502,12 @@ struct ChatTimelineView: View {
         .foregroundStyle(BipeColor.inkSecondary)
         .padding(.vertical, 8)
         // Runs while the top of the list is on screen, again after each load and each change of the rows
-        // (action loadHistory). After a failed load, the next change of the rows tries again.
+        // (action loadHistory). After a failed load, the model changes historyLoads after a pause.
         .task(id: "\(model.rows.count)-\(model.historyLoads)") {
             await model.loadHistory()
         }
     }
 
-    @ViewBuilder
-    private var noticeView: some View {
-        if let notice = model.notice {
-            Text(notice.text)
-                .font(.subheadline)
-                .foregroundStyle(BipeColor.inkPrimary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Capsule().fill(BipeColor.surfaceRaised))
-                .overlay(Capsule().stroke(BipeColor.lineSubtle))
-                .padding(.bottom, 96)
-                .transition(.opacity)
-                .accessibilityAddTraits(.updatesFrequently)
-        }
-    }
 }
 
 /// Spec typing-indicator: who is typing, above the composer.
@@ -428,9 +588,10 @@ private struct LocationSendRequest: Identifiable {
 private struct ComposerBar: View {
     @ObservedObject var model: ChatTimelineModel
     let media: MediaLoader
-    let openAttachments: () -> Void
+    let openAttachments: (AttachmentChoice) -> Void
     let openStickers: () -> Void
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.bipeHandles) private var handles
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -442,13 +603,15 @@ private struct ComposerBar: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .padding(16)
+                    .background(BipeColor.surfaceRaised.ignoresSafeArea(edges: .bottom))
             } else if let recording = model.recording {
                 VoiceRecordingView(model: recording) { model.recording = nil }
+                    .background(BipeColor.surfaceRaised.ignoresSafeArea(edges: .bottom))
             } else {
+                // Spec composer: Liquid Glass controls over the scrolling messages; the bars that replace them stay solid.
                 composer
             }
         }
-        .background(BipeColor.surfaceRaised.ignoresSafeArea(edges: .bottom))
         .accessibilityIdentifier(BipeScreen.composer.rawValue)
         .onChange(of: model.replyingToRowId) { _, rowId in
             if rowId != nil { focused = true }
@@ -460,31 +623,50 @@ private struct ComposerBar: View {
 
     @ViewBuilder
     private var composer: some View {
-        if !model.suggestions.isEmpty {
-            suggestionList
-        }
-        if let reply = model.replyingTo {
-            bar(icon: .arrowBendUpLeft,
-                title: BipeStrings.appMessageReplyingTo(reply.senderName ?? ""),
-                preview: reply.preview,
-                onClose: model.cancelReply)
-        } else if let editing = model.editing {
-            bar(icon: .pencilSimple,
-                title: BipeStrings.appMessageEditing,
-                preview: editing.originalText,
-                onClose: model.cancelEdit)
+        if !model.suggestions.isEmpty || model.replyingTo != nil || model.editing != nil {
+            VStack(spacing: 0) {
+                if !model.suggestions.isEmpty {
+                    suggestionList
+                }
+                if let reply = model.replyingTo {
+                    bar(icon: .arrowBendUpLeft,
+                        title: BipeStrings.appMessageReplyingTo(reply.senderName ?? ""),
+                        preview: reply.preview,
+                        onClose: model.cancelReply)
+                } else if let editing = model.editing {
+                    bar(icon: .pencilSimple,
+                        title: BipeStrings.appMessageEditing,
+                        preview: editing.originalText,
+                        onClose: model.cancelEdit)
+                }
+            }
+            .padding(.bottom, 8)
+            .bipeGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
         }
         HStack(alignment: .bottom, spacing: 8) {
             if model.editing == nil {
-                iconButton(.paperclip, label: BipeStrings.appComposerAttach, action: openAttachments)
+                AttachmentMenu(canPoll: model.canPoll, choose: openAttachments) {
+                    iconImage(.plus)
+                }
+                .accessibilityLabel(BipeStrings.appComposerAttach)
             }
             HStack(alignment: .bottom, spacing: 4) {
                 TextField(BipeStrings.appTimelineComposerPlaceholder,
                           text: Binding(get: { model.draft }, set: { model.editDraft($0) }),
                           axis: .vertical)
                     .focused($focused)
+                    // A hardware keyboard: Return sends, Shift+Return makes a new line (bipe-chat/bipe#832). The
+                    // on-screen keyboard does not send key presses, so its return key keeps making a new line.
+                    .onKeyPress(.return, phases: .down) { press in
+                        guard !press.modifiers.contains(.shift) else { return .ignored }
+                        if model.canSend { Task { await model.send() } }
+                        return .handled
+                    }
                     .lineLimit(1...(verticalSizeClass == .compact ? 3 : 5))
-                    .padding(.vertical, 8)
+                    // 22 pt line + 2 x 11 = 44 pt, the sticker button's height, so one line sits in the middle.
+                    .padding(.vertical, 11)
                     .foregroundStyle(BipeColor.inkPrimary)
                 if model.editing == nil {
                     Button(action: openStickers) {
@@ -498,8 +680,9 @@ private struct ComposerBar: View {
                     .accessibilityLabel(BipeStrings.actionStickers)
                 }
             }
-            .padding(.horizontal, 12)
-            .background(RoundedRectangle(cornerRadius: 20).fill(BipeColor.surfaceSunken))
+            .padding(.leading, 16)
+            .padding(.trailing, 4)
+            .bipeGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             // The send button and the record button share one place (spec composer notes).
             if model.canSend || model.editing != nil {
                 Button {
@@ -508,10 +691,10 @@ private struct ComposerBar: View {
                     (model.editing == nil ? PhosphorIcon.paperPlaneRight : PhosphorIcon.check).image
                         .resizable()
                         .frame(width: 22, height: 22)
-                        .padding(9)
+                        .padding(11)
                         .foregroundStyle(model.canSend ? BipeColor.inkOnAccent : BipeColor.inkDisabled)
-                        .background(Circle().fill(model.canSend ? BipeColor.accentFill : BipeColor.surfaceSunken))
                         .bipeTapTarget()
+                        .bipeGlass(in: Circle(), tint: model.canSend ? BipeColor.accentFill : nil)
                 }
                 .disabled(!model.canSend)
                 .accessibilityLabel(model.editing == nil ? BipeStrings.appTimelineSend : BipeStrings.appMessageSaveEdit)
@@ -523,10 +706,10 @@ private struct ComposerBar: View {
                     PhosphorIcon.microphone.image
                         .resizable()
                         .frame(width: 22, height: 22)
-                        .padding(9)
-                        .foregroundStyle(BipeColor.inkOnAccent)
-                        .background(Circle().fill(BipeColor.accentFill))
+                        .padding(11)
+                        .foregroundStyle(BipeColor.glyphPrimary)
                         .bipeTapTarget()
+                        .bipeGlass(in: Circle())
                 }
                 .accessibilityLabel(BipeStrings.appComposerRecord)
             }
@@ -546,7 +729,10 @@ private struct ComposerBar: View {
                         HStack(spacing: 10) {
                             AvatarView(name: suggestion.name, mxcUrl: suggestion.avatarUrl, loader: media, size: 32)
                             VStack(alignment: .leading, spacing: 0) {
-                                Text(suggestion.name)
+                                // Spec composer nameAmbiguous: the @ follows a name another member also has.
+                                Text(suggestion.nameAmbiguous && suggestion.userId != nil && suggestion.handle == nil
+                                     ? MemberNames.label(name: suggestion.name, userId: suggestion.userId ?? "", handles: handles)
+                                     : suggestion.name)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 if let handle = suggestion.handle {
                                     Text(handle)
@@ -568,16 +754,14 @@ private struct ComposerBar: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func iconButton(_ icon: PhosphorIcon, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            icon.image
-                .resizable()
-                .frame(width: 22, height: 22)
-                .padding(9)
-                .foregroundStyle(BipeColor.glyphPrimary)
-                .bipeTapTarget()
-        }
-        .accessibilityLabel(label)
+    private func iconImage(_ icon: PhosphorIcon) -> some View {
+        icon.image
+            .resizable()
+            .frame(width: 22, height: 22)
+            .padding(11)
+            .foregroundStyle(BipeColor.glyphPrimary)
+            .bipeTapTarget()
+            .bipeGlass(in: Circle())
     }
 
     private func bar(icon: PhosphorIcon, title: String, preview: String?, onClose: @escaping () -> Void) -> some View {
@@ -675,4 +859,15 @@ private struct CvmStopOrderCard: View {
             .accessibilityElement(children: .combine)
         }
     }
+}
+
+/// The sheet item of spec threads openThread: the root event ID.
+private struct ThreadSheetId: Identifiable {
+    let id: String
+}
+
+/// Spec chat-archive from the DM chat menu: reads and sets the chat's archived state in the account's archive.
+struct ChatArchiveToggle {
+    let isArchived: @MainActor () -> Bool
+    let set: @MainActor (Bool) -> Void
 }

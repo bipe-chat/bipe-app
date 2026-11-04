@@ -15,13 +15,15 @@ extension MediaLoader {
     private static let files = MediaFileHandles()
 
     /// The row image: the event thumbnail when there is one, else the media itself, at most maxPixel on the long side.
+    /// A sticker always loads the media itself: an animated WebP plays only from the file (ADR 0205).
     func previewImage(_ media: MediaMessage, maxPixel: Int) async -> UIImage? {
-        let key = "\(media.thumbnailSource?.url ?? media.source.url)#\(maxPixel)" as NSString
+        let thumbnailSource = media.kind == .sticker ? nil : media.thumbnailSource
+        let key = "\(thumbnailSource?.url ?? media.source.url)#\(maxPixel)" as NSString
         if let cached = Self.images.object(forKey: key) {
             return cached
         }
         let data: Data?
-        if let thumbnail = media.thumbnailSource {
+        if let thumbnail = thumbnailSource {
             data = try? await client.getMediaContent(mediaSource: thumbnail.source)
         } else if media.kind == .image || media.kind == .sticker {
             data = try? await client.getMediaContent(mediaSource: media.source.source)
@@ -29,8 +31,22 @@ extension MediaLoader {
             data = nil
         }
         guard let data else { return nil }
-        DataUseMeter.shared.recordReceived(Int64(data.count), url: media.thumbnailSource?.url ?? media.source.url)
-        guard let image = Self.decode(data, maxPixel: maxPixel, animated: media.isAnimated) else { return nil }
+        DataUseMeter.shared.recordReceived(Int64(data.count), url: thumbnailSource?.url ?? media.source.url)
+        guard let image = Self.decode(data, maxPixel: maxPixel, animated: media.isAnimated || media.mayBeAnimated) else { return nil }
+        Self.images.setObject(image, forKey: key)
+        return image
+    }
+
+    /// A pack sticker for the picker, from its file: an animated WebP comes back with its frames (ADR 0205).
+    func stickerImage(mxcUrl: String, maxPixel: Int) async -> UIImage? {
+        let key = "\(mxcUrl)#sticker#\(maxPixel)" as NSString
+        if let cached = Self.images.object(forKey: key) {
+            return cached
+        }
+        guard let source = try? MediaSource.fromUrl(url: mxcUrl),
+              let data = try? await client.getMediaContent(mediaSource: source) else { return nil }
+        DataUseMeter.shared.recordReceived(Int64(data.count), url: mxcUrl)
+        guard let image = Self.decode(data, maxPixel: maxPixel, animated: true) else { return nil }
         Self.images.setObject(image, forKey: key)
         return image
     }

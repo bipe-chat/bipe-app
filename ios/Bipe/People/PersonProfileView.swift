@@ -14,8 +14,6 @@ struct PersonProfileRoutes {
     var newGroup: ((String) -> Void)?
     /// fromDm: opens chat-notifications for the DM.
     var notifications: ((String) -> Void)?
-    /// fromDm: opens dm-delete for the DM.
-    var deleteChat: ((String) -> Void)?
 }
 
 /// Spec person-profile. From a DM header it is also the DM's info screen (ADR 0141).
@@ -25,6 +23,7 @@ struct PersonProfileView: View {
     private let routes: PersonProfileRoutes
 
     @State private var showsBlock = false
+    @State private var showsGallery = false
     @State private var showsReport = false
     @State private var showsSeal = false
     @State private var inviteTargets: [InviteTarget]?
@@ -96,6 +95,7 @@ struct PersonProfileView: View {
                     header
                 }
                 .listRowBackground(Color.clear)
+                socials
                 savedNumbers
                 actions
                 if model.fromDm, let roomId = model.dmRoomId {
@@ -119,7 +119,11 @@ struct PersonProfileView: View {
                 if model.isOfficial {
                     OfficialBadge(font: .footnote)
                 }
-                if model.facts.identity == "verified" {
+                if model.facts.identity == "verified", !model.seal.isVerified {
+                    // Spec person-profile: a person's seal has no sheet. The verified-name line says what it means.
+                    SealMark(userId: model.userId, size: 22)
+                        .environment(\.bipeCompanySeals, people.seals)
+                } else if model.facts.identity == "verified" {
                     Button {
                         showsSeal = true
                     } label: {
@@ -174,6 +178,39 @@ struct PersonProfileView: View {
         .padding(.vertical, 8)
     }
 
+    /// Spec socials (ADR 0228): under the bio, one row per network. A tap opens the link in the system browser,
+    /// which hands off to the network's app; never an in-app web view, never a link preview.
+    @ViewBuilder
+    private var socials: some View {
+        if !model.socials.isEmpty {
+            Section {
+                ForEach(model.socials) { link in
+                    Button {
+                        // Action openSocial. Not the openURL environment: the app routes Bipe links through it.
+                        UIApplication.shared.open(link.url)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text("\(link.platform.name) · @\(link.handle)")
+                                .foregroundStyle(BipeColor.inkPrimary)
+                            Spacer(minLength: 8)
+                            PhosphorIcon.link.image
+                                .resizable()
+                                .frame(width: 16, height: 16)
+                                .foregroundStyle(BipeColor.inkSecondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .accessibilityAddTraits(.isLink)
+                }
+            } header: {
+                Text(BipeStrings.publicProfileSocials)
+            } footer: {
+                Text(BipeStrings.publicProfileSocialsNotVerified)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+        }
+    }
+
     /// Spec savedNumbers (ADR 0191, bipe-chat/bipe#788): only from the user's own address book. Empty: no row.
     @ViewBuilder
     private var savedNumbers: some View {
@@ -214,6 +251,9 @@ struct PersonProfileView: View {
         let facts = model.facts
         if facts.identity == "verified" {
             FactCaption(text: BipeStrings.trustIdentityBody)
+        }
+        if model.personSeal == .suspended {
+            FactCaption(text: BipeStrings.badgeSuspendedBody)
         }
         if facts.contact == "confirmed" {
             FactCaption(text: BipeStrings.trustContactBody)
@@ -283,21 +323,24 @@ struct PersonProfileView: View {
 
     @ViewBuilder
     private func dmRows(roomId: String) -> some View {
-        if routes.notifications != nil || routes.deleteChat != nil {
+        Section {
+            // Spec chat-media-gallery (bipe#672).
+            Button {
+                showsGallery = true
+            } label: {
+                IconLabel(icon: .image, text: BipeStrings.galleryTitle)
+            }
+            .sheet(isPresented: $showsGallery) {
+                ChatMediaGalleryView(session: people.session, media: people.media, roomId: roomId)
+            }
+        }
+        // Spec person-profile notes: a DM is archived from the chat menu, never deleted here.
+        if let notifications = routes.notifications {
             Section {
-                if let notifications = routes.notifications {
-                    Button {
-                        notifications(roomId)
-                    } label: {
-                        IconLabel(icon: .bell, text: BipeStrings.settingsNotifications)
-                    }
-                }
-                if let deleteChat = routes.deleteChat {
-                    Button {
-                        deleteChat(roomId)
-                    } label: {
-                        IconLabel(icon: .trash, text: BipeStrings.dmDeleteAction, tint: BipeColor.trustDangerInk)
-                    }
+                Button {
+                    notifications(roomId)
+                } label: {
+                    IconLabel(icon: .bell, text: BipeStrings.settingsNotifications)
                 }
             }
         }

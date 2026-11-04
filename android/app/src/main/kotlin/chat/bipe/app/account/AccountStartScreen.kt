@@ -4,7 +4,7 @@
 
 package chat.bipe.app.account
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -84,7 +84,7 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
     val context = LocalContext.current
     LaunchedEffect(notice) {
         notice?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            BipeToasts.show(it)
             model.noticeShown()
         }
     }

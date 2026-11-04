@@ -12,20 +12,25 @@ import UIKit
 /// Mode phone: link-phone-show, then link-phone-approve; the only way in is Você > Conectar outro aparelho (ADR 0059).
 struct LinkComputerView: View {
     @StateObject private var model: LinkComputerModel
+    /// The accounts on this phone, for the account row (bipe-chat/bipe#985). nil in mode phone.
+    private let tabs: AppTabsModel?
     @Environment(\.dismiss) private var dismiss
+    /// Action approvePhone opens its sheet once this full-screen flow has gone.
+    @Environment(\.encryptionStatus) private var encryption
 
-    init(settings: SettingsModel, mode: LinkComputerModel.Mode = .computer) {
+    init(settings: SettingsModel, mode: LinkComputerModel.Mode = .computer, tabs: AppTabsModel? = nil) {
         _model = StateObject(wrappedValue: LinkComputerModel(settings: settings, mode: mode))
+        self.tabs = mode == .computer ? tabs : nil
     }
 
     var body: some View {
         NavigationStack {
             Group {
                 switch model.step {
-                case .scan: LinkComputerScanView(model: model)
+                case .scan: LinkComputerScanView(model: model, tabs: tabs)
                 case .show: LinkPhoneShowView(model: model)
                 case .warning: LinkComputerWarningView(model: model)
-                case .approve: LinkComputerApproveView(model: model)
+                case .approve: LinkComputerApproveView(model: model, tabs: tabs)
                 }
             }
             .background(BipeColor.surfaceBase.ignoresSafeArea())
@@ -42,9 +47,18 @@ struct LinkComputerView: View {
         }
         .tint(BipeColor.accentFill)
         .interactiveDismissDisabled()
+        .accountPinPrompt(model.pinPrompt)
         .task { await model.open() }
         .onChange(of: model.isClosed) { _, isClosed in
-            if isClosed { dismiss() }
+            guard isClosed else { return }
+            dismiss()
+            if model.opensApproval, let encryption {
+                // A sheet cannot open while the full-screen cover is still on screen.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(600))
+                    encryption.openSheet()
+                }
+            }
         }
     }
 }
@@ -52,6 +66,7 @@ struct LinkComputerView: View {
 /// Spec link-computer-scan.
 private struct LinkComputerScanView: View {
     @ObservedObject var model: LinkComputerModel
+    let tabs: AppTabsModel?
     /// Grows with the system text size (bipe-chat/bipe#498).
     @ScaledMetric(relativeTo: .largeTitle) private var codeSize: CGFloat = 64
 
@@ -79,6 +94,13 @@ private struct LinkComputerScanView: View {
             .font(.title2.bold())
             .foregroundStyle(BipeColor.inkPrimary)
             .multilineTextAlignment(.center)
+        if let tabs, model.scanPhase != .connecting, model.scanPhase != .showCheckCode {
+            LinkComputerAccountRow(tabs: tabs) { userId in
+                // Action switchAccount: no computer signs in; Linked devices is a setting of the chosen account.
+                model.cancel()
+                tabs.switchAccount(to: userId)
+            }
+        }
         switch model.scanPhase {
         case .cameraDenied:
             message(BipeStrings.cameraPermissionBody)
@@ -136,12 +158,20 @@ private struct LinkComputerScanView: View {
             Text(error.message(model.mode))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
-            Button {
-                model.scanAgain()
-            } label: {
-                Text(BipeStrings.appLinkComputerScanAgain)
+            LinkFailureCode(code: model.errorCode)
+            if error == .needsApproval {
+                Button(action: model.approvePhone) {
+                    Text(BipeStrings.appLinkApprovePhone)
+                }
+                .buttonStyle(.bipeProminent)
+            } else {
+                Button {
+                    model.scanAgain()
+                } label: {
+                    Text(BipeStrings.appLinkComputerScanAgain)
+                }
+                .buttonStyle(.bipeBordered)
             }
-            .buttonStyle(.bipeBordered)
         }
     }
 
@@ -151,6 +181,66 @@ private struct LinkComputerScanView: View {
             .foregroundStyle(BipeColor.inkPrimary)
             .multilineTextAlignment(.center)
             .frame(maxHeight: .infinity)
+    }
+}
+
+/// State account and otherAccounts of link-computer-scan (bipe-chat/bipe#985, ADR 0225): the account the computer gets.
+/// Only on a phone with more than one account. Read only when onSwitch is nil (the consent screen).
+private struct LinkComputerAccountRow: View {
+    @ObservedObject var tabs: AppTabsModel
+    var onSwitch: ((String) -> Void)?
+
+    var body: some View {
+        if tabs.accounts.count > 1, let account = tabs.accounts.first(where: \.isCurrent),
+           let media = tabs.media(for: account.userId) {
+            HStack(spacing: 12) {
+                AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: 40,
+                           userId: account.userId, isCompany: account.isCompany)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(BipeStrings.appLinkComputerAccount)
+                        .font(.footnote)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                    Text(account.displayName)
+                        .font(.body.bold())
+                        .foregroundStyle(BipeColor.inkPrimary)
+                        .lineLimit(1)
+                    if let handle = account.handleLine {
+                        Text(verbatim: handle)
+                            .font(.footnote)
+                            .foregroundStyle(BipeColor.inkSecondary)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 8)
+                if let onSwitch {
+                    Menu {
+                        ForEach(tabs.accounts.filter { !$0.isCurrent }) { other in
+                            Button(other.displayName) { onSwitch(other.userId) }
+                        }
+                    } label: {
+                        Text(BipeStrings.appLinkComputerSwitchAccount)
+                    }
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceRaised))
+            .accessibilityElement(children: .contain)
+        }
+    }
+}
+
+/// State errorCode of link-computer-scan and link-phone-show: a short code for support under the error.
+struct LinkFailureCode: View {
+    let code: String?
+
+    var body: some View {
+        if let code, !code.isEmpty {
+            Text(BipeStrings.appErrorCode(code))
+                .font(.footnote.monospaced())
+                .foregroundStyle(BipeColor.inkSecondary)
+                .textSelection(.enabled)
+        }
     }
 }
 
@@ -206,9 +296,10 @@ private struct LinkComputerWarningView: View {
     }
 }
 
-/// Spec link-computer-approve: the owner check, then the MAS consent page in a private web view.
+/// Spec link-computer-approve: the owner check, then the native consent screen (ADR 0224).
 private struct LinkComputerApproveView: View {
     @ObservedObject var model: LinkComputerModel
+    let tabs: AppTabsModel?
 
     var body: some View {
         VStack(spacing: 12) {
@@ -217,18 +308,13 @@ private struct LinkComputerApproveView: View {
                 ProgressView()
                     .frame(maxHeight: .infinity)
                     .task { await model.confirmIdentity() }
-            case .loading, .consent:
-                if model.approvePhase == .consent {
-                    placeHeader
-                } else {
-                    Text(BipeStrings.linkComputerLoading)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                }
-                if model.masHost != nil {
-                    MASWebView(model: model)
-                        // The user never sees the MAS login form.
-                        .opacity(model.approvePhase == .consent ? 1 : 0)
-                }
+            case .loading:
+                ProgressView()
+                Text(BipeStrings.linkComputerLoading)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                    .frame(maxHeight: .infinity)
+            case .consent:
+                consent
             case .finishing:
                 ProgressView()
                 Text(model.mode == .computer ? BipeStrings.appLinkComputerFinishing : BipeStrings.appLinkPhoneFinishing)
@@ -252,6 +338,7 @@ private struct LinkComputerApproveView: View {
                 Text(model.approveError?.message(model.mode) ?? BipeStrings.errorGeneric)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
+                LinkFailureCode(code: model.errorCode)
                 Button {
                     model.retry()
                 } label: {
@@ -265,19 +352,47 @@ private struct LinkComputerApproveView: View {
         .accessibilityIdentifier(model.mode == .computer ? BipeScreen.linkComputerApprove.rawValue : BipeScreen.linkPhoneApprove.rawValue)
     }
 
-    private var placeHeader: some View {
-        VStack(alignment: .leading, spacing: 4) {
+    /// The device, the IP and the place of the MAS consent page, then Connect and Cancel.
+    private var consent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let tabs {
+                LinkComputerAccountRow(tabs: tabs)
+            }
             Text(model.mode == .computer ? BipeStrings.linkComputerConsentHint : BipeStrings.appLinkPhoneConsentHint)
                 .font(.subheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
-            if model.placeKnown {
-                Text(model.place.map(BipeStrings.linkComputerPlace) ?? BipeStrings.linkComputerPlaceUnknown)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(model.device.map(BipeStrings.linkComputerDevice) ?? BipeStrings.linkComputerDeviceUnknown)
                     .font(.subheadline.bold())
-                    .foregroundStyle(BipeColor.inkPrimary)
-                Text(BipeStrings.linkComputerPlaceSource)
-                    .font(.caption)
-                    .foregroundStyle(BipeColor.inkSecondary)
+                if let ip = model.ip {
+                    Text(BipeStrings.linkComputerIp(ip))
+                        .font(.subheadline)
+                }
+                if model.placeKnown {
+                    Text(model.place.map(BipeStrings.linkComputerPlace) ?? BipeStrings.linkComputerPlaceUnknown)
+                        .font(.subheadline.bold())
+                    Text(BipeStrings.linkComputerPlaceSource)
+                        .font(.caption)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                }
             }
+            .foregroundStyle(BipeColor.inkPrimary)
+            Spacer()
+            Button {
+                model.approve()
+            } label: {
+                Text(BipeStrings.linkComputerApprove)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bipeProminent)
+            .disabled(!model.placeKnown)
+            Button {
+                model.reject()
+            } label: {
+                Text(BipeStrings.appCancel)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bipeBordered)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

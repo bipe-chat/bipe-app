@@ -74,8 +74,12 @@ class AccountList(context: Context) {
         return name(owner)
     }
 
-    /** The name the account showed last, else `null`; never the Matrix ID. */
-    fun name(userId: String): String? = prefs.getString(NAME + userId, null)
+    /**
+     * The name the account showed last when it is a real name, else the cached @handle, else `null`; never the Matrix ID
+     * or its localpart (People names).
+     */
+    fun name(userId: String): String? =
+        chat.bipe.shared.BipeChatRowName.person(userId, null, prefs.getString(NAME + userId, null), null, "").ifEmpty { null }
 
     private companion object {
         const val ORDER = "order"

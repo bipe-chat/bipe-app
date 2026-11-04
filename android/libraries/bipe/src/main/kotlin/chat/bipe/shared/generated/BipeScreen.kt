@@ -13,6 +13,9 @@ package chat.bipe.shared.generated
 
 /** Screen ids of Bipe's own client. iOS and Android use the same ids. */
 enum class BipeScreen(val id: String) {
+    /** Accessibility (flow settings). Spec: bipe-shared/product/screens/accessibility-settings.json */
+    ACCESSIBILITY_SETTINGS("accessibility-settings"),
+
     /** Delete the account (flow settings). Spec: bipe-shared/product/screens/account-delete.json */
     ACCOUNT_DELETE("account-delete"),
 
@@ -54,6 +57,9 @@ enum class BipeScreen(val id: String) {
 
     /** Tab bar (flow home). Spec: bipe-shared/product/screens/app-tabs.json */
     APP_TABS("app-tabs"),
+
+    /** Tester APK update (flow home). Spec: bipe-shared/product/screens/app-update.json */
+    APP_UPDATE("app-update"),
 
     /** Attach (flow chat). Spec: bipe-shared/product/screens/attachment-picker.json */
     ATTACHMENT_PICKER("attachment-picker"),
@@ -106,8 +112,14 @@ enum class BipeScreen(val id: String) {
     /** Chat list tabs, filters and empty states (flow home). Spec: bipe-shared/product/screens/chat-list-filters.json */
     CHAT_LIST_FILTERS("chat-list-filters"),
 
+    /** Chat list prompt (flow home). Spec: bipe-shared/product/screens/chat-list-prompt.json */
+    CHAT_LIST_PROMPT("chat-list-prompt"),
+
     /** Chat list (flow home). Spec: bipe-shared/product/screens/chat-list.json */
     CHAT_LIST("chat-list"),
+
+    /** Media and files of a chat (flow chat). Spec: bipe-shared/product/screens/chat-media-gallery.json */
+    CHAT_MEDIA_GALLERY("chat-media-gallery"),
 
     /** Notifications of one chat (flow chat). Spec: bipe-shared/product/screens/chat-notifications.json */
     CHAT_NOTIFICATIONS("chat-notifications"),
@@ -151,8 +163,14 @@ enum class BipeScreen(val id: String) {
     /** Delete a DM (Apagar conversa) (flow chat). Spec: bipe-shared/product/screens/dm-delete.json */
     DM_DELETE("dm-delete"),
 
+    /** Assistant drafts (flow chat). Spec: bipe-shared/product/screens/drafts.json */
+    DRAFTS("drafts"),
+
     /** Messages on this phone (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
     ENCRYPTION_STATUS("encryption-status"),
+
+    /** Verificar com gov.br (trust step 5) (flow voce). Spec: bipe-shared/product/screens/govbr-verify.json */
+    GOVBR_VERIFY("govbr-verify"),
 
     /** Create a group (flow groups). Spec: bipe-shared/product/screens/group-create.json */
     GROUP_CREATE("group-create"),
@@ -166,14 +184,26 @@ enum class BipeScreen(val id: String) {
     /** Leave a group (flow groups). Spec: bipe-shared/product/screens/group-leave.json */
     GROUP_LEAVE("group-leave"),
 
+    /** Open a group link (flow groups). Spec: bipe-shared/product/screens/group-link-open.json */
+    GROUP_LINK_OPEN("group-link-open"),
+
+    /** Group link (flow groups). Spec: bipe-shared/product/screens/group-link.json */
+    GROUP_LINK("group-link"),
+
     /** People in a group (flow groups). Spec: bipe-shared/product/screens/group-members.json */
     GROUP_MEMBERS("group-members"),
+
+    /** Group privacy (flow groups). Spec: bipe-shared/product/screens/group-privacy.json */
+    GROUP_PRIVACY("group-privacy"),
 
     /** Handle change line (flow chat). Spec: bipe-shared/product/screens/handle-change-line.json */
     HANDLE_CHANGE_LINE("handle-change-line"),
 
     /** Pick your @ (flow signup). Spec: bipe-shared/product/screens/handle-pick.json */
     HANDLE_PICK("handle-pick"),
+
+    /** Identity change warning (flow chat). Spec: bipe-shared/product/screens/identity-change.json */
+    IDENTITY_CHANGE("identity-change"),
 
     /** Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json */
     INCOMING_CALL("incoming-call"),
@@ -190,7 +220,7 @@ enum class BipeScreen(val id: String) {
     /** Invite people to Bipe (flow invites). Spec: bipe-shared/product/screens/invites.json */
     INVITES("invites"),
 
-    /** Link a computer: approve on the MAS page (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json */
+    /** Link a computer: approve natively (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json */
     LINK_COMPUTER_APPROVE("link-computer-approve"),
 
     /** Link a computer: scan the code (flow devices). Spec: bipe-shared/product/screens/link-computer-scan.json */
@@ -220,6 +250,9 @@ enum class BipeScreen(val id: String) {
     /** Location (flow chat). Spec: bipe-shared/product/screens/location-view.json */
     LOCATION_VIEW("location-view"),
 
+    /** Shop on the web (flow business). Spec: bipe-shared/product/screens/loja-web.json */
+    LOJA_WEB("loja-web"),
+
     /** Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json */
     MEDIA_VIEWER("media-viewer"),
 
@@ -232,6 +265,12 @@ enum class BipeScreen(val id: String) {
     /** Edit a message (flow chat). Spec: bipe-shared/product/screens/message-edit.json */
     MESSAGE_EDIT("message-edit"),
 
+    /** Forward a message (flow chat). Spec: bipe-shared/product/screens/message-forward.json */
+    MESSAGE_FORWARD("message-forward"),
+
+    /** Pinned messages (flow chat). Spec: bipe-shared/product/screens/message-pins.json */
+    MESSAGE_PINS("message-pins"),
+
     /** Reactions (flow chat). Spec: bipe-shared/product/screens/message-reactions.json */
     MESSAGE_REACTIONS("message-reactions"),
 
@@ -243,6 +282,9 @@ enum class BipeScreen(val id: String) {
 
     /** Message that can't be read yet (flow chat). Spec: bipe-shared/product/screens/message-undecryptable.json */
     MESSAGE_UNDECRYPTABLE("message-undecryptable"),
+
+    /** Notification checkup (flow settings). Spec: bipe-shared/product/screens/notification-checkup.json */
+    NOTIFICATION_CHECKUP("notification-checkup"),
 
     /** Notification on the phone (flow notifications). Spec: bipe-shared/product/screens/notification-service.json */
     NOTIFICATION_SERVICE("notification-service"),
@@ -289,10 +331,13 @@ enum class BipeScreen(val id: String) {
     /** Poll (flow chat). Spec: bipe-shared/product/screens/poll-detail.json */
     POLL_DETAIL("poll-detail"),
 
+    /** Polls of a group (flow groups). Spec: bipe-shared/product/screens/poll-history.json */
+    POLL_HISTORY("poll-history"),
+
     /** Report a problem (flow settings). Spec: bipe-shared/product/screens/problem-report.json */
     PROBLEM_REPORT("problem-report"),
 
-    /** Your name and photo (flow profile). Spec: bipe-shared/product/screens/profile-edit.json */
+    /** Seu perfil (flow profile). Spec: bipe-shared/product/screens/profile-edit.json */
     PROFILE_EDIT("profile-edit"),
 
     /** Open a profile link (flow people). Spec: bipe-shared/product/screens/profile-link-open.json */
@@ -300,9 +345,6 @@ enum class BipeScreen(val id: String) {
 
     /** Your link and QR code (flow profile). Spec: bipe-shared/product/screens/profile-link.json */
     PROFILE_LINK("profile-link"),
-
-    /** Public profile (flow profile). Spec: bipe-shared/product/screens/public-profile-edit.json */
-    PUBLIC_PROFILE_EDIT("public-profile-edit"),
 
     /** Push registration (flow notifications). Spec: bipe-shared/product/screens/push-registration.json */
     PUSH_REGISTRATION("push-registration"),
@@ -364,6 +406,9 @@ enum class BipeScreen(val id: String) {
     /** Report a chat (flow people). Spec: bipe-shared/product/screens/report-chat.json */
     REPORT_CHAT("report-chat"),
 
+    /** Open a group link (flow groups). Spec: bipe-shared/product/screens/room-link-open.json */
+    ROOM_LINK_OPEN("room-link-open"),
+
     /** Scam warning on a message (flow chat). Spec: bipe-shared/product/screens/scam-warning.json */
     SCAM_WARNING("scam-warning"),
 
@@ -424,6 +469,9 @@ enum class BipeScreen(val id: String) {
     /** Theft protection (flow settings). Spec: bipe-shared/product/screens/theft-protection.json */
     THEFT_PROTECTION("theft-protection"),
 
+    /** Threads in groups (flow chat). Spec: bipe-shared/product/screens/threads.json */
+    THREADS("threads"),
+
     /** Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json */
     TIMELINE_MEDIA("timeline-media"),
 
@@ -442,6 +490,9 @@ enum class BipeScreen(val id: String) {
     /** Upload preview (flow chat). Spec: bipe-shared/product/screens/upload-preview.json */
     UPLOAD_PREVIEW("upload-preview"),
 
+    /** Version history (flow settings). Spec: bipe-shared/product/screens/version-history.json */
+    VERSION_HISTORY("version-history"),
+
     /** Você (flow voce). Spec: bipe-shared/product/screens/voce.json */
     VOCE("voce"),
 
@@ -456,4 +507,13 @@ enum class BipeScreen(val id: String) {
 
     /** Opening hours of a work account (flow settings). Spec: bipe-shared/product/screens/work-hours.json */
     WORK_HOURS("work-hours"),
+
+    /** What do you do? (flow business). Spec: bipe-shared/product/screens/work-sector.json */
+    WORK_SECTOR("work-sector"),
+
+    /** Set up your business (flow business). Spec: bipe-shared/product/screens/work-setup.json */
+    WORK_SETUP("work-setup"),
+
+    /** Suas estatísticas (flow voce). Spec: bipe-shared/product/screens/year-recap.json */
+    YEAR_RECAP("year-recap"),
 }

@@ -4,8 +4,8 @@
 
 package chat.bipe.app.settings
 
+import chat.bipe.app.common.BipeToasts
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -117,7 +117,7 @@ class LinkedAccountsModel(private val context: Context, private val model: Setti
             val ok = runCatching { model.authorized { model.api.unlink(provider, it) } }.isSuccess
             if (ok) {
                 dismissOwnEvents()
-                Toast.makeText(context, R.string.bipe_linked_account_unlinked, Toast.LENGTH_SHORT).show()
+                BipeToasts.show(context, R.string.bipe_linked_account_unlinked)
             }
             _state.update { it.copy(phase = Phase.SHOWN, error = if (ok) null else R.string.bipe_linked_account_unlink_error) }
             load()

@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.memberLabel
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeHaptic
@@ -118,7 +119,7 @@ fun MessageActionsSheet(model: ChatTimelineModel, row: TimelineRow, onCopy: (Str
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(enabled = !paused) {
-                                if (action == MessageAction.COPY) onHaptic(BipeHaptic.Tap)
+                                if (action == MessageAction.COPY || action == MessageAction.COPY_LINK) onHaptic(BipeHaptic.Tap)
                                 model.choose(action, row.id, onCopy)
                             }
                             .padding(vertical = 12.dp),
@@ -127,7 +128,7 @@ fun MessageActionsSheet(model: ChatTimelineModel, row: TimelineRow, onCopy: (Str
                     ) {
                         Icon(painterResource(actionIcon(action).drawable), contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
                         Text(
-                            if (paused) stringResource(R.string.bipe_pause_countdown, pauseLeft.toString()) else stringResource(actionTitle(action)),
+                            if (paused) stringResource(R.string.bipe_pause_countdown, pauseLeft.toString()) else stringResource(actionTitle(action, row.message)),
                             style = MaterialTheme.typography.bodyLarge,
                             color = tint,
                         )
@@ -143,8 +144,16 @@ internal val QUICK_REACTIONS = listOf("👍", "❤️", "😂", "😮", "😢", 
 
 internal fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
     MessageAction.REPLY -> PhosphorIcon.ARROW_BEND_UP_LEFT
+    MessageAction.REPLY_IN_THREAD -> PhosphorIcon.CHAT_TEXT
     MessageAction.EDIT -> PhosphorIcon.PENCIL_SIMPLE
+    MessageAction.REMOVE_CAPTION -> PhosphorIcon.X
     MessageAction.COPY -> PhosphorIcon.COPY
+    MessageAction.COPY_LINK -> PhosphorIcon.LINK
+    MessageAction.PIN, MessageAction.UNPIN -> PhosphorIcon.CHAT_TEXT
+    MessageAction.FORWARD -> PhosphorIcon.PAPER_PLANE_RIGHT
+    MessageAction.SELECT -> PhosphorIcon.CHECK_CIRCLE
+    MessageAction.SAVE_STICKER -> PhosphorIcon.STICKER
+    MessageAction.VIEW_STICKER_PACK -> PhosphorIcon.STICKER
     MessageAction.KEEP_AUDIO -> PhosphorIcon.DOWNLOAD_SIMPLE
     MessageAction.UNKEEP_AUDIO -> PhosphorIcon.X
     MessageAction.RETRY -> PhosphorIcon.ARROW_CLOCKWISE
@@ -152,13 +161,28 @@ internal fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
     MessageAction.REPORT -> PhosphorIcon.FLAG
 }
 
-internal fun actionTitle(action: MessageAction): Int = when (action) {
+/** [message] gives the caption titles of a photo, video or file (bipe-chat/bipe#668). */
+/** [message] lets retry say Enviar mesmo assim for a message held for an identity change (spec identity-change). */
+internal fun actionTitle(action: MessageAction, message: TimelineMessage? = null): Int = when (action) {
+    MessageAction.RETRY -> if (message?.sendFailure != null) R.string.bipe_identity_change_send_anyway else R.string.bipe_app_retry
     MessageAction.REPLY -> R.string.bipe_app_message_action_reply
-    MessageAction.EDIT -> R.string.bipe_app_message_action_edit
+    MessageAction.REPLY_IN_THREAD -> R.string.bipe_thread_reply_action
+    MessageAction.EDIT -> when {
+        message?.media == null -> R.string.bipe_app_message_action_edit
+        message.media.caption.isNullOrBlank() -> R.string.bipe_caption_add
+        else -> R.string.bipe_caption_edit
+    }
+    MessageAction.REMOVE_CAPTION -> R.string.bipe_caption_remove
     MessageAction.COPY -> R.string.bipe_app_copy
+    MessageAction.COPY_LINK -> R.string.bipe_app_message_action_copy_link
+    MessageAction.PIN -> R.string.bipe_pin_action
+    MessageAction.UNPIN -> R.string.bipe_unpin_action
+    MessageAction.FORWARD -> R.string.bipe_forward_action
+    MessageAction.SELECT -> R.string.bipe_select_action
+    MessageAction.SAVE_STICKER -> R.string.bipe_action_save_sticker
+    MessageAction.VIEW_STICKER_PACK -> R.string.bipe_action_view_sticker_pack
     MessageAction.KEEP_AUDIO -> R.string.bipe_voice_keep
     MessageAction.UNKEEP_AUDIO -> R.string.bipe_voice_unkeep
-    MessageAction.RETRY -> R.string.bipe_app_retry
     MessageAction.DELETE -> R.string.bipe_app_message_action_delete
     MessageAction.REPORT -> R.string.bipe_app_message_action_report
 }
@@ -257,7 +281,12 @@ fun ReadersSheet(readers: List<ReceiptReader>, media: MediaLoader, onDismiss: ()
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Avatar(reader.name, reader.avatarUrl, media, size = 32.dp, userId = reader.userId)
-                        Text(reader.name, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary, modifier = Modifier.weight(1f))
+                        Text(
+                            memberLabel(reader.name, reader.userId, reader.nameAmbiguous),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colors.inkPrimary,
+                            modifier = Modifier.weight(1f),
+                        )
                         reader.readAt?.let { Text(format.format(it), style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
                     }
                 }

@@ -4,6 +4,8 @@
 
 package chat.bipe.app.media
 
+import chat.bipe.app.common.BipeToastHost
+import chat.bipe.app.common.BipeToasts
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -101,7 +103,6 @@ fun MediaViewer(
     var rowId by remember { mutableStateOf(startRowId) }
     val pager = rememberPagerState(initialPage = items.indexOfFirst { it.id == startRowId }.coerceAtLeast(0)) { items.size }
     var chromeHidden by remember { mutableStateOf(false) }
-    var notice by remember { mutableStateOf<String?>(null) }
     var working by remember { mutableStateOf(false) }
     var askGalleryPermission by remember { mutableStateOf(false) }
     val current = items.firstOrNull { it.id == rowId }
@@ -121,13 +122,7 @@ fun MediaViewer(
 
     val savedText = stringResource(R.string.bipe_app_media_saved)
     val failedText = stringResource(R.string.bipe_app_media_save_failed)
-    fun show(text: String) {
-        notice = text
-        scope.launch {
-            delay(2000)
-            if (notice == text) notice = null
-        }
-    }
+    fun show(text: String) = BipeToasts.show(text)
 
     fun saveNow() {
         val media = current?.media ?: return
@@ -168,121 +163,112 @@ fun MediaViewer(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(colors.surfaceBase)
-                .testTag(BipeScreen.MEDIA_VIEWER.id)
-                .pointerInput(Unit) {
-                    // Swipe down closes (action close).
-                    var total = 0f
-                    detectVerticalDragGestures(
-                        onDragStart = { total = 0f },
-                        onDragEnd = { if (total > 300f) onClose() },
-                    ) { _, dragAmount -> total += dragAmount }
-                },
-        ) {
-            HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), key = { items[it].id }) { page ->
-                val media = items[page].media
-                if (media != null) {
-                    MediaPage(media, loader, onTap = { chromeHidden = !chromeHidden })
+        BipeToastHost(Modifier.fillMaxSize(), bottom = 96.dp, colors = colors) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(colors.surfaceBase)
+                    .testTag(BipeScreen.MEDIA_VIEWER.id)
+                    .pointerInput(Unit) {
+                        // Swipe down closes (action close).
+                        var total = 0f
+                        detectVerticalDragGestures(
+                            onDragStart = { total = 0f },
+                            onDragEnd = { if (total > 300f) onClose() },
+                        ) { _, dragAmount -> total += dragAmount }
+                    },
+            ) {
+                HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), key = { items[it].id }) { page ->
+                    val media = items[page].media
+                    if (media != null) {
+                        MediaPage(media, loader, onTap = { chromeHidden = !chromeHidden })
+                    }
                 }
-            }
-            AnimatedVisibility(visible = !chromeHidden, enter = fadeIn(), exit = fadeOut()) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .mediaScrim(RoundedCornerShape(0.dp))
-                            .safeDrawingPadding()
-                            .padding(horizontal = 4.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        IconButton(onClick = onClose) {
-                            Icon(painterResource(PhosphorIcon.X.drawable), contentDescription = stringResource(R.string.bipe_app_close), tint = colors.inkPrimary)
+                AnimatedVisibility(visible = !chromeHidden, enter = fadeIn(), exit = fadeOut()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .mediaScrim(RoundedCornerShape(0.dp))
+                                .safeDrawingPadding()
+                                .padding(horizontal = 4.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            IconButton(onClick = onClose) {
+                                Icon(painterResource(PhosphorIcon.X.drawable), contentDescription = stringResource(R.string.bipe_app_close), tint = colors.inkPrimary)
+                            }
+                            if (current != null) {
+                                Column {
+                                    Text(
+                                        current.senderName,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = colors.inkPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(current.sentAt)),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = colors.inkSecondary,
+                                    )
+                                }
+                            }
                         }
-                        if (current != null) {
-                            Column {
+                        Box(modifier = Modifier.weight(1f))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .mediaScrim(RoundedCornerShape(0.dp))
+                                .safeDrawingPadding()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            current?.media?.caption?.takeIf { it.isNotBlank() }?.let { caption ->
                                 Text(
-                                    current.senderName,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
+                                    caption,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = colors.inkPrimary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(current.sentAt)),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = colors.inkSecondary,
+                                    modifier = Modifier.heightIn(max = 120.dp).verticalScroll(rememberScrollState()),
                                 )
                             }
-                        }
-                    }
-                    Box(modifier = Modifier.weight(1f))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .mediaScrim(RoundedCornerShape(0.dp))
-                            .safeDrawingPadding()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        current?.media?.caption?.takeIf { it.isNotBlank() }?.let { caption ->
-                            Text(
-                                caption,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colors.inkPrimary,
-                                modifier = Modifier.heightIn(max = 120.dp).verticalScroll(rememberScrollState()),
-                            )
-                        }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally)) {
-                            IconButton(onClick = ::share, enabled = !working) {
-                                Icon(painterResource(PhosphorIcon.SHARE_NETWORK.drawable), contentDescription = stringResource(R.string.bipe_app_media_share), tint = colors.inkPrimary)
-                            }
-                            IconButton(onClick = ::save, enabled = !working) {
-                                Icon(painterResource(PhosphorIcon.DOWNLOAD_SIMPLE.drawable), contentDescription = stringResource(R.string.bipe_app_media_save), tint = colors.inkPrimary)
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally)) {
+                                IconButton(onClick = ::share, enabled = !working) {
+                                    Icon(painterResource(PhosphorIcon.SHARE_NETWORK.drawable), contentDescription = stringResource(R.string.bipe_app_media_share), tint = colors.inkPrimary)
+                                }
+                                IconButton(onClick = ::save, enabled = !working) {
+                                    Icon(painterResource(PhosphorIcon.DOWNLOAD_SIMPLE.drawable), contentDescription = stringResource(R.string.bipe_app_media_save), tint = colors.inkPrimary)
+                                }
                             }
                         }
                     }
                 }
             }
-            notice?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkPrimary,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .mediaScrim(RoundedCornerShape(50))
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+            if (askGalleryPermission) {
+                AlertDialog(
+                    onDismissRequest = { askGalleryPermission = false },
+                    text = { Text(stringResource(R.string.bipe_app_media_gallery_permission)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            askGalleryPermission = false
+                            context.startActivity(
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }) { Text(stringResource(R.string.bipe_contacts_open_settings_android)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { askGalleryPermission = false }) { Text(stringResource(R.string.bipe_app_cancel)) }
+                    },
                 )
             }
-        }
-        if (askGalleryPermission) {
-            AlertDialog(
-                onDismissRequest = { askGalleryPermission = false },
-                text = { Text(stringResource(R.string.bipe_app_media_gallery_permission)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        askGalleryPermission = false
-                        context.startActivity(
-                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }) { Text(stringResource(R.string.bipe_contacts_open_settings_android)) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { askGalleryPermission = false }) { Text(stringResource(R.string.bipe_app_cancel)) }
-                },
-            )
         }
     }
 }
 
-/** One photo or video of the viewer. */
+/** One photo or video of the viewer; the chat-media-gallery pager uses it too. */
 @Composable
-private fun MediaPage(media: MediaMessage, loader: MediaLoader, onTap: () -> Unit) {
+internal fun MediaPage(media: MediaMessage, loader: MediaLoader, onTap: () -> Unit) {
     val colors = BipeDarkColors
     val context = LocalContext.current
     var preview by remember(media.source) { mutableStateOf<LoadedImage?>(null) }

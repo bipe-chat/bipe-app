@@ -105,7 +105,7 @@ class BipeBrandMarks(
         val now = clock()
         val marks = mutableListOf<BipeBrandMark>()
         for (json in envelopes) {
-            val result = verifier.value.verify(envelopeJson = json, sender = userId, senderDevice = "", senderMasterKey = key, nowMillis = now)
+            val result = verifier.value.verify(envelopeJson = json, sender = userId, senderMasterKey = key, nowMillis = now)
             val payload = (result as? BadgeVerificationResult.Valid)?.payload ?: continue
             if (payload.lvl != BadgeLevel.BRAND_MARK) continue
             val id = payload.mark ?: continue

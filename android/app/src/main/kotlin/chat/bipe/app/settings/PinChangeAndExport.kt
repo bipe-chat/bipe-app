@@ -50,6 +50,7 @@ import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.settings.checkPin
 import chat.bipe.shared.settings.exportMyData
 import chat.bipe.shared.settings.setPin
 import java.io.File
@@ -58,10 +59,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Spec pin-change, phase. PIN_CHECK: the app lock PIN on a phone with no screen lock. */
+/** Spec pin-change, phase. PIN_CHECK: the Bipe PIN, checked by the server, on a phone with no strong biometrics. */
 enum class PinChangePhase { CONFIRM_IDENTITY, PIN_CHECK, ENTERING, SAVING, FAILED, DONE }
 
-/** Spec pin-change: changes the account PIN after the owner check. No old PIN is needed (ADR 0057). */
+/** Spec pin-change: changes the account PIN after the current PIN, which the server checks (bipe-chat/bipe#908). */
 @Composable
 fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
     val context = LocalContext.current
@@ -72,7 +73,8 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
     var phase by remember { mutableStateOf(PinChangePhase.CONFIRM_IDENTITY) }
     var error by remember { mutableStateOf<Int?>(null) }
     var savedPin by remember { mutableStateOf<String?>(null) }
-    val reason = stringResource(R.string.bipe_pin_change_biometric_reason)
+    // The current PIN from PIN_CHECK, sent once with the new PIN. Held only while the screen is open.
+    var oldPin by remember { mutableStateOf<String?>(null) }
     BackHandler(enabled = phase != PinChangePhase.SAVING, onBack = onClose)
 
     fun save(pin: String) {
@@ -80,7 +82,9 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
         phase = PinChangePhase.SAVING
         scope.launch {
             try {
-                model.authorized { model.api.setPin(pin, it) }
+                val current = oldPin
+                model.authorized { model.api.setPin(pin, current, it) }
+                oldPin = null
                 // One account on the phone and the lock on: the new account PIN is the app lock PIN too (ADR 0086).
                 if (lock.store.isOn) withContext(Dispatchers.Default) { lock.store.setPin(pin) }
                 view.bipeHaptic(BipeHaptic.Success)
@@ -101,20 +105,25 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
         }
     }
 
-    // Action confirmIdentity. A phone with no screen lock uses the app lock PIN when the lock is on; else the screen
-    // closes (fail closed, as in data-export).
+    // Action confirmIdentity (rule 14 tier 3, bipe-chat/bipe#785, bipe-chat/bipe#908): the current Bipe PIN, checked by
+    // the server, never the screen lock. The server needs it again with the new PIN, so biometrics alone are not enough.
+    // A phone with no screen lock cannot change the PIN; the screen closes (fail closed).
     LaunchedEffect(Unit) {
-        when {
-            OwnerCheck.canCheckOwner(context) -> if (OwnerCheck.owner(context, reason)) phase = PinChangePhase.ENTERING else onClose()
-            lock.store.isOn -> phase = PinChangePhase.PIN_CHECK
-            else -> onClose()
-        }
+        if (OwnerCheck.approvalMethod(context) == OwnerCheck.ApprovalMethod.NONE) onClose() else phase = PinChangePhase.PIN_CHECK
     }
 
     val colors = BipeTheme.colors
     when (phase) {
         PinChangePhase.CONFIRM_IDENTITY -> Surface(Modifier.fillMaxSize().testTag(BipeScreen.PIN_CHANGE.id), color = colors.surfaceBase) {}
-        PinChangePhase.PIN_CHECK -> AppLockPinCheck(stringResource(R.string.bipe_pin_change_title), onPass = { phase = PinChangePhase.ENTERING }, onCancel = onClose)
+        PinChangePhase.PIN_CHECK -> AccountPinCheck(
+            title = stringResource(R.string.bipe_pin_change_title),
+            check = { pin ->
+                model.authorized { model.api.checkPin(pin, it) }
+                oldPin = pin
+            },
+            onPass = { phase = PinChangePhase.ENTERING },
+            onCancel = onClose,
+        )
         PinChangePhase.ENTERING, PinChangePhase.SAVING -> PinPad(
             title = setup.title(context),
             pin = setup.pin,

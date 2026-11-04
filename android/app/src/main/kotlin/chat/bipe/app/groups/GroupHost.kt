@@ -4,8 +4,8 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.app.common.BipeToasts
 import androidx.activity.compose.BackHandler
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -82,6 +82,8 @@ fun GroupHost(
     val invitesFailed = stringResource(R.string.bipe_app_group_create_invites_failed)
     LaunchedEffect(session) { QuietGroups.applyOnce(context, session) }
     LaunchedEffect(session, foregroundCount) { ClearedChatsStore.refresh(session.client) }
+    // Spec drafts appear: the drafts room of the account, at start and on each return to the foreground.
+    LaunchedEffect(session, foregroundCount) { chat.bipe.app.timeline.AssistantDraftsStore.refresh(context, session) }
     LaunchedEffect(session, foregroundCount) { NewsRoomCleanup.applyOnce(context, session, api) }
 
     deletingDm?.let { dm ->
@@ -116,7 +118,7 @@ fun GroupHost(
                     creating = false
                     creatingWith = emptyList()
                     onOpenRoom(newRoomId)
-                    if (!allInvited) Toast.makeText(context, invitesFailed, Toast.LENGTH_LONG).show()
+                    if (!allInvited) BipeToasts.show(invitesFailed)
                 },
                 people = creatingWith,
             )

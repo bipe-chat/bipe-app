@@ -73,8 +73,14 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
     val phoneEnabled by model.phoneEnabled.collectAsState(initial = true)
     val permission by app.push.permission.collectAsState()
     val colors = BipeTheme.colors
-    val accountName = remember(session) { AccountList(context).name(session.userId) ?: session.userId }
+    val accountName = remember(session) { AccountList(context).name(session.userId) ?: context.getString(R.string.bipe_tab_you) }
     var showsWorkHours by rememberSaveable { mutableStateOf(false) }
+    var showsCheckup by rememberSaveable { mutableStateOf(false) }
+    if (showsCheckup) {
+        BackHandler { showsCheckup = false }
+        NotificationCheckupScreen(session.userId, onBack = { showsCheckup = false })
+        return
+    }
     if (showsWorkHours) {
         BackHandler { showsWorkHours = false }
         WorkHoursScreen(session, api, app.notifications, onSaved = model::workHoursSaved, onBack = { showsWorkHours = false })
@@ -106,20 +112,27 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
                     }
                 }
             }
+            // Spec notification-checkup (bipe-chat/bipe#823): Android only, under the phone card.
+            Text(
+                stringResource(R.string.bipe_app_notification_checkup_title),
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.inkPrimary,
+                modifier = Modifier.fillMaxWidth().clickable { showsCheckup = true }.padding(horizontal = 16.dp, vertical = 12.dp),
+            )
             SectionTitle(stringResource(R.string.bipe_notifications_notify_about))
             // ADR 0141: no mentions mode in a DM. An older mentions rule still shows until changed.
             val chatOptions = if (state.chatsMode == NotificationMode.MENTIONS) NotificationMode.entries else listOf(NotificationMode.ALL, NotificationMode.OFF)
             ChoiceRow(
                 stringResource(R.string.bipe_notifications_chats),
-                stringResource(state.chatsMode.label),
-                chatOptions.map { stringResource(it.label) to it },
+                stringResource(state.chatsMode.label(isDm = true)),
+                chatOptions.map { stringResource(it.label(isDm = true)) to it },
                 enabled = state.isLoaded,
                 onSelect = model::setChatsMode,
             )
             ChoiceRow(
                 stringResource(R.string.bipe_notifications_groups),
-                stringResource(state.groupsMode.label),
-                NotificationMode.entries.map { stringResource(it.label) to it },
+                stringResource(state.groupsMode.label(isDm = false)),
+                NotificationMode.entries.map { stringResource(it.label(isDm = false)) to it },
                 enabled = state.isLoaded,
                 onSelect = model::setGroupsMode,
             )
@@ -177,6 +190,18 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
                 }
                 Text(
                     stringResource(R.string.bipe_work_hours_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.inkSecondary,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+
+            // Join pushes (bipe-chat/bipe#967): account settings on the server, hidden until read.
+            state.joinPrefs?.let { prefs ->
+                SwitchRow(stringResource(R.string.bipe_notifications_invite_joined), prefs.inviteJoined, true, model::setInviteJoined)
+                SwitchRow(stringResource(R.string.bipe_notifications_group_link_joined), prefs.groupLinkJoined, true, model::setGroupLinkJoined)
+                Text(
+                    stringResource(R.string.bipe_notifications_joins_footer),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.inkSecondary,
                     modifier = Modifier.padding(horizontal = 16.dp),

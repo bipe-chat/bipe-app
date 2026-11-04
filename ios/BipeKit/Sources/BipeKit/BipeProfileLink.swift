@@ -38,6 +38,17 @@ public nonisolated enum BipeProfileLink {
         return components.url
     }
 
+    /// The shop and token in a claim link of the shop on the web (ADR 0195 point 7):
+    /// `https://www.bipe.chat/@handle#claim=<token>`. The token sits in the fragment, so no server receives it.
+    public static func shopClaim(from url: URL) -> (handle: String, token: String)? {
+        guard let handle = handle(from: url),
+              let fragment = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedFragment,
+              fragment.hasPrefix("claim="),
+              let token = String(fragment.dropFirst("claim=".count)).removingPercentEncoding,
+              !token.isEmpty else { return nil }
+        return (handle, token)
+    }
+
     /// The handle in a queue link (a profile link with the `fila` query item), or `nil` when the URL is not one.
     public static func queueHandle(from url: URL) -> String? {
         guard let handle = handle(from: url),

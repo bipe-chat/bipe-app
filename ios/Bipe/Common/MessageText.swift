@@ -53,11 +53,47 @@ extension TimelineItemContent {
 }
 
 extension ProfileDetails {
-    func displayName(or userId: String) -> String {
-        if case .ready(let displayName, _, _, _, _) = self, let displayName, !displayName.isEmpty {
-            return displayName
+    /// People names for the sender `userId`: the real display name, else the @handle, else bipe_person_no_name.
+    /// Never the Matrix ID or its localpart.
+    func displayName(or userId: String, handle: String? = nil) -> String {
+        if case .ready(let displayName, _, _, _, _) = self {
+            return BipeChatRowName.person(userID: userId, displayName: displayName, handle: handle)
         }
-        return userId
+        return BipeChatRowName.person(userID: userId, displayName: nil, handle: handle)
+    }
+
+    /// The display name when it is a real name (People names), else nil.
+    func realName(of userId: String) -> String? {
+        if case .ready(let displayName, _, _, _, _) = self { return BipeChatRowName.realName(displayName, userID: userId) }
+        return nil
+    }
+
+    /// The SDK's flag: another member of the room has the same display name.
+    var isNameAmbiguous: Bool {
+        if case .ready(_, let ambiguous, _, _, _) = self { return ambiguous }
+        return false
+    }
+}
+
+/// Spec timeline-rows and group-members nameAmbiguous (bipe-chat/bipe#825): members whose names look the same.
+enum MemberNames {
+    /// The user IDs whose name, after `NameNormalizer` (security rule 8), another member also has.
+    /// A look-alike "Mãe" with a Cyrillic "а" counts as the same name.
+    static func ambiguous(_ names: [String: String]) -> Set<String> {
+        var byName: [String: [String]] = [:]
+        for (userId, name) in names {
+            let key = NameNormalizer.normalize(name)
+            guard !key.isEmpty else { continue }
+            byName[key, default: []].append(userId)
+        }
+        return Set(byName.values.filter { $0.count > 1 }.joined())
+    }
+
+    /// The name with what tells the member apart: "Maria @maria1" for a Bipe user once the @ is known, the name alone
+    /// while the @ loads and for a user of another server. Never the Matrix ID (People names).
+    @MainActor static func label(name: String, userId: String, handles: BipeHandleResolver?) -> String {
+        guard let handle = handles?.handle(for: userId), name != "@" + handle else { return name }
+        return name + " @" + handle
     }
 }
 

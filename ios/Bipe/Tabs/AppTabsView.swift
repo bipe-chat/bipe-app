@@ -22,6 +22,8 @@ struct AppTabsView: View {
     /// Spec encryption-status: one model for the account. The chat list banner, the undecryptable message help and
     /// the oldMessages settings row all open its one sheet, presented here (bipe-chat/bipe#793).
     @StateObject private var encryption: EncryptionStatusModel
+    /// Spec govbr-verify, action receiveDocument: a signed PDF from the share sheet or open with.
+    @ObservedObject private var govbr = GovbrInbox.shared
     private struct InviteCode: Identifiable {
         let code: String
         var id: String { code }
@@ -40,6 +42,25 @@ struct AppTabsView: View {
             return .prominent
         }
         return .search
+    }
+
+    @State private var shopClaimNotice: String?
+
+    /// ADR 0195 point 7: the records of a shop token move to this account, then the chat with the shop opens.
+    private func runShopClaim(chatList: ChatListModel) async {
+        guard let claim = ShopClaim.pending() else { return }
+        guard let records = try? await session.business(api).claimWebRecords(business: claim.handle, token: claim.token) else {
+            ShopClaim.clear()
+            return
+        }
+        ShopClaim.clear()
+        shopClaimNotice = BipeStrings.lojaClaimed("@\(claim.handle)")
+        guard let businessId = records.bookings.first?.businessId ?? records.orders.first?.businessId else { return }
+        let people = PeopleService(session: session, api: api, media: chatList.media)
+        if let roomId = try? await people.openOrCreateDM(with: businessId) {
+            model.selectTab(.conversas)
+            TabsLinks.shared.link = .chat(roomId)
+        }
     }
 
     var body: some View {
@@ -76,7 +97,16 @@ struct AppTabsView: View {
             Tab(value: AppTabsModel.Tab.voce) {
                 VoceView(model: model, chatList: chatList, api: api, onNewAccount: { showsNewAccount = true })
             } label: {
-                Label(BipeStrings.tabYou, systemImage: "person.crop.circle")
+                // The current account's photo or initial (MZ, 2 Nov 2026); the generic person until it loads.
+                Label {
+                    Text(BipeStrings.tabYou)
+                } icon: {
+                    if let icon = model.voceIcon {
+                        Image(uiImage: icon).renderingMode(.original)
+                    } else {
+                        Image(systemName: "person.crop.circle")
+                    }
+                }
             }
             // The other-account dot (ADR 0135), as the system tab badge.
             .badge(model.otherAccountUnread ? Text("•") : nil)
@@ -94,12 +124,19 @@ struct AppTabsView: View {
                 invitedCode = InviteCode(code: code)
                 return .handled
             }
+            if let code = BipeInviteLink.groupCode(from: url) {
+                model.selectTab(.conversas)
+                TabsLinks.shared.link = .groupLink(GroupLinkCode(code: code))
+                return .handled
+            }
             let link: TabsLink
             switch PeopleLink(url: url) {
             case .handle(let handle): link = .profile(handle)
             case .userId(let userId): link = .person(userId)
             case .queue(let handle): link = .queue(handle)
-            case nil: return .systemAction
+            case nil:
+                guard let room = RoomLink(url: url) else { return .systemAction }
+                link = .room(room)
             }
             model.selectTab(.conversas)
             TabsLinks.shared.link = link
@@ -112,15 +149,19 @@ struct AppTabsView: View {
             EncryptionSheet(route: route, model: encryption, session: session)
         }
         .task { await encryption.observe() }
+        // Settings opens with its subtitles and switches filled (SettingsModel keeps the last values per account).
+        .task(id: session.userId) { await SettingsModel.prefetch(session: session, api: api) }
         .modifier(CallScreenCover())
         .modifier(IncomingCallCover(session: session))
         .background(TabBarGestures(voceLabel: BipeStrings.tabYou,
                                    onDoubleTap: { model.doubleTapVoce() },
-                                   menu: { AccountMenu.make(model: model) { showsNewAccount = true } },
-                                   switcher: { AnyView(AccountSwitcherPopover(model: model, fallbackMedia: chatList.media) {
-                                       showsNewAccount = true
-                                   }) },
-                                   showsSwitchAction: model.accounts.count > 1))
+                                   switcher: { bottomInset, close in
+                                       AnyView(AccountSwitcherPanel(model: model, fallbackMedia: chatList.media,
+                                                                    bottomInset: bottomInset,
+                                                                    onNewAccount: { showsNewAccount = true }, close: close))
+                                   },
+                                   showsSwitchAction: model.accounts.count > 1,
+                                   switcherRequests: model.accountSwitcherRequests))
         .accessibilityIdentifier(BipeScreen.appTabs.rawValue)
         .pixHandoff(chatList: chatList)
         .shareToChat(chatList: chatList, openChat: { roomId in
@@ -131,10 +172,26 @@ struct AppTabsView: View {
         .sheet(isPresented: $showsNewAccount, onDismiss: { newAccountStart = nil }) {
             AccountNewView(tabs: model, session: session, api: api, preset: newAccountStart) { showsNewAccount = false }
         }
+        .task(id: session.userId) { await runShopClaim(chatList: chatList) }
+        .toast($shopClaimNotice, bottom: 72)
         .onOpenURL { url in
+            if ShopClaim.keep(url) {
+                Task { await runShopClaim(chatList: chatList) }
+                return
+            }
+            if govbr.open(url) { return }
+            if let code = BipeInviteLink.groupCode(from: url) {
+                model.selectTab(.conversas)
+                TabsLinks.shared.link = .groupLink(GroupLinkCode(code: code))
+                return
+            }
             guard let code = BipeInviteLink.code(from: url) else { return }
             invitedCode = InviteCode(code: code)
         }
+        // A result with no choice to make: a toast, as on Android (bipe/docs/design/toasts.md). Above the tab bar.
+        .toast(Binding(get: { govbr.showsNoOpenVerification ? BipeStrings.govbrNoOpenVerification : nil },
+                       set: { if $0 == nil { govbr.showsNoOpenVerification = false } }),
+               bottom: 72)
         .sheet(item: $invitedCode) { invite in
             InviteSignedInView(code: invite.code, session: session, api: api, accountsOnPhone: model.accounts.map(\.userId),
                                close: { invitedCode = nil },

@@ -9,6 +9,33 @@ import Testing
 /// Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). Android runs the same files.
 struct SharedVectorTests {
     @Test
+    func govbrVerify() throws {
+        let file = try SharedVectors.object("govbr-verify.json")
+        #expect((file["maxDocumentBytes"] as? NSNumber)?.intValue == BipeRegistries.govbrMaxDocumentBytes)
+        let incoming = try SharedVectors.array("govbr-verify.json", key: "incoming")
+        #expect(!incoming.isEmpty)
+        for vector in incoming {
+            let phase = try #require(vector["phase"] as? String)
+            let bytes = try #require((vector["byteCount"] as? NSNumber)?.intValue)
+            #expect(BipeGovbrRules.incoming(phase: phase, byteCount: bytes).rawValue == vector["expected"] as? String,
+                    "govbr incoming \(vector["name"] ?? "")")
+        }
+        let results = try SharedVectors.array("govbr-verify.json", key: "results")
+        #expect(!results.isEmpty)
+        for vector in results {
+            let state = try #require(vector["state"] as? String)
+            let expected = try #require(vector["expected"] as? [String: Any])
+            let actual: (phase: String, reason: String?) = switch BipeGovbrRules.outcome(state: state, reason: vector["reason"] as? String) {
+            case .verified: ("verified", nil)
+            case .rejected(let value): ("rejected", value.rawValue)
+            case .failed: ("failed", nil)
+            }
+            #expect(actual.phase == expected["phase"] as? String, "govbr result \(vector["name"] ?? "")")
+            #expect(actual.reason == expected["reason"] as? String, "govbr result reason \(vector["name"] ?? "")")
+        }
+    }
+
+    @Test
     func photoMatch() throws {
         let cases = try SharedVectors.array("photo-match.json", key: "cases")
         #expect(!cases.isEmpty)
@@ -22,6 +49,60 @@ struct SharedVectorTests {
             #expect(hashB == vector["hashB"] as? String, "photo match \(name)")
             #expect(BipePhotoMatch.distance(hashA, hashB) == (vector["distance"] as? NSNumber)?.intValue, "photo match \(name)")
             #expect(BipePhotoMatch.matches(hashA, hashB) == vector["matches"] as? Bool, "photo match \(name)")
+        }
+    }
+
+    @Test
+    func assistantDrafts() throws {
+        let file = try SharedVectors.object("drafts.json")
+        let context = try #require(file["context"] as? [String: Any])
+        let ownUserId = try #require(context["ownUserId"] as? String)
+        let joined = Set(try #require(context["joinedRoomIds"] as? [String]))
+        let cases = try SharedVectors.array("drafts.json", key: "cases")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let name = vector["name"] as? String ?? ""
+            let event = try #require(vector["event"] as? [String: Any])
+            let expected = try #require(vector["expected"] as? [String: Any])
+            let result = BipeAssistantDrafts.fromEvent(event, ownUserId: ownUserId, joinedRoomIds: joined)
+            if expected["show"] as? Bool == true {
+                let draft = try #require(expected["draft"] as? [String: Any])
+                #expect(result == .show(BipeAssistantDrafts.Draft(
+                    roomId: try #require(draft["roomId"] as? String), body: try #require(draft["body"] as? String),
+                    replyTo: draft["replyTo"] as? String, threadRoot: draft["threadRoot"] as? String,
+                    client: try #require(draft["client"] as? String))), "draft \(name)")
+            } else {
+                #expect(result == .hide(reason: try #require(expected["reason"] as? String)), "draft \(name)")
+            }
+            // The same event as raw JSON, the way the app reads it from the timeline.
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: event), as: UTF8.self)
+            #expect(BipeAssistantDrafts.fromEventJson(json, ownUserId: ownUserId, joinedRoomIds: joined) == result,
+                    "draft json \(name)")
+        }
+        #expect(BipeAssistantDrafts.roomId(accountDataJson: #"{"room_id":"!drafts:bipe.net.br"}"#) == "!drafts:bipe.net.br")
+        #expect(BipeAssistantDrafts.roomId(accountDataJson: #"{"room_id":"drafts"}"#) == nil)
+        #expect(BipeAssistantDrafts.roomId(accountDataJson: nil) == nil)
+    }
+
+    @Test
+    func assistantSend() throws {
+        let switches = try SharedVectors.array("assistant-send.json", key: "switch")
+        #expect(!switches.isEmpty)
+        for vector in switches {
+            let content = vector["content"] is NSNull ? nil : vector["content"]
+            #expect(BipeAssistantSend.allowed(content: content) == vector["expected"] as? Bool, "switch \(vector["name"] ?? "")")
+            let json = try content.map { String(decoding: try JSONSerialization.data(withJSONObject: $0), as: UTF8.self) }
+            #expect(BipeAssistantSend.allowed(json: json) == vector["expected"] as? Bool, "switch json \(vector["name"] ?? "")")
+        }
+        #expect(BipeAssistantSend.allowed(json: BipeAssistantSend.json(enabled: true)))
+        #expect(!BipeAssistantSend.allowed(json: BipeAssistantSend.json(enabled: false)))
+        let labels = try SharedVectors.array("assistant-send.json", key: "label")
+        #expect(!labels.isEmpty)
+        for vector in labels {
+            let content = vector["content"] as? [String: Any]
+            #expect(BipeAssistantSend.sender(content: content) == vector["expected"] as? String, "label \(vector["name"] ?? "")")
+            let json = String(decoding: try JSONSerialization.data(withJSONObject: ["type": "m.room.message", "content": content ?? [:]]), as: UTF8.self)
+            #expect(BipeAssistantSend.sender(eventId: nil, json: { json }) == vector["expected"] as? String, "label json \(vector["name"] ?? "")")
         }
     }
 
@@ -165,6 +246,25 @@ struct SharedVectorTests {
         }
     }
 
+    /// Social handles on a public profile (ADR 0228): clean, problem and url for every case.
+    @Test
+    func socialHandles() throws {
+        let cases = try SharedVectors.array("social-handles.json", key: "cases")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let id = try #require(vector["platform"] as? String)
+            let platform = try #require(BipeSocialHandles.platform(id), "platform \(id)")
+            let input = try #require(vector["input"] as? String)
+            let label = "\(id) \(input.debugDescription)"
+            let problem = BipeSocialHandles.problem(platform, input: input, ownHandle: vector["ownHandle"] as? String)
+            #expect(BipeSocialHandles.clean(input) == vector["handle"] as? String, "handle \(label)")
+            #expect(problem?.rawValue == vector["problem"] as? String, "problem \(label)")
+            if let url = vector["url"] as? String {
+                #expect(BipeSocialHandles.url(platform, input: input) == url, "url \(label)")
+            }
+        }
+    }
+
     @Test
     func pinReminderSchedule() throws {
         for vector in try SharedVectors.array("onboarding-schedule.json", key: "pinReminder") {
@@ -173,6 +273,43 @@ struct SharedVectorTests {
             let next = BipeOnboardingSchedule.pinReminderNext(step: step, result: result)
             #expect(next.step == vector["nextStep"] as? Int, "pinReminderNext(\(step), \(result)) step")
             #expect(next.gapDays == vector["gapDays"] as? Int, "pinReminderNext(\(step), \(result)) gapDays")
+        }
+    }
+
+    @Test
+    func bringPeopleReminder() throws {
+        let cases = try SharedVectors.array("onboarding-schedule.json", key: "bringPeopleReminder")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let name = vector["name"] as? String ?? ""
+            let nowMs = try #require((vector["nowMs"] as? NSNumber)?.doubleValue)
+            let now = Date(timeIntervalSince1970: nowMs / 1000)
+            let state = try #require(vector["state"] as? [String: Any])
+            let lastAskAt = (state["lastAskAt"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue / 1000) }
+            let slots = try #require(state["slots"] as? [[String: Any]]).map { slot in
+                BipeBringPeople.RuleSlot(status: slot["status"] as? String ?? "",
+                                         sentAt: Date(timeIntervalSince1970: ((slot["sentAt"] as? NSNumber)?.doubleValue ?? 0) / 1000))
+            }
+            let got = BipeBringPeople.reminder(declines: state["declines"] as? Int ?? 0, lastAskAt: lastAskAt, slots: slots, now: now)
+            let expected = vector["expected"] as? [String: Any]
+            #expect(got?.slot == expected?["slot"] as? Int, "bringPeopleReminder \(name) slot")
+            #expect(got?.kind.rawValue == expected?["kind"] as? String, "bringPeopleReminder \(name) kind")
+        }
+    }
+
+    @Test
+    func chatListPrompt() throws {
+        let cases = try SharedVectors.array("onboarding-schedule.json", key: "chatListPrompt")
+        #expect(!cases.isEmpty)
+        for vector in cases {
+            let name = vector["name"] as? String ?? ""
+            let nowMs = try #require((vector["nowMs"] as? NSNumber)?.doubleValue)
+            let eligible = try #require(vector["eligible"] as? [String]).map { try #require(BipeChatListPrompt(rawValue: $0)) }
+            let slot = vector["slot"] as? [String: Any]
+            let since = (slot?["sinceMs"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue / 1000) }
+            let got = BipePromptSlot.chatListCard(eligible: Set(eligible), holder: slot?["holder"] as? String, since: since,
+                                                  now: Date(timeIntervalSince1970: nowMs / 1000))
+            #expect(got?.rawValue == vector["expected"] as? String, "chatListPrompt \(name)")
         }
     }
 
@@ -216,7 +353,6 @@ struct SharedVectorTests {
             let envelope = try JSONSerialization.data(withJSONObject: #require(vector["envelope"]))
             let result = try verifier.verify(envelopeJSON: envelope,
                                              sender: #require(vector["sender"] as? String),
-                                             senderDevice: #require(vector["senderDevice"] as? String),
                                              senderMasterKey: vector["senderMasterKey"] as? String,
                                              now: now)
             let outcome = switch result {
@@ -275,6 +411,48 @@ struct SharedVectorTests {
             case .invalid(let failure):
                 #expect(failure.rawValue == expected["error"] as? String, "theft mark \(name)")
             }
+        }
+    }
+
+    @Test
+    func forwardMarks() throws {
+        let file = try SharedVectors.object("forward-marks.json")
+        #expect(file["forwardKey"] as? String == BipeRegistries.forwardKey)
+        #expect((file["forwardedManyTimes"] as? NSNumber)?.intValue == BipeRegistries.forwardedManyTimes)
+        let counts = try #require(file["count"] as? [[String: Any]])
+        #expect(!counts.isEmpty)
+        for vector in counts {
+            let content = try #require(vector["content"] as? [String: Any])
+            #expect(BipeForwardMark.count(content: content) == (vector["expected"] as? NSNumber)?.intValue, "count \(vector["name"] ?? "")")
+        }
+        let forwards = try #require(file["forward"] as? [[String: Any]])
+        #expect(!forwards.isEmpty)
+        for vector in forwards {
+            let content = try #require(vector["content"] as? [String: Any])
+            let sent = BipeForwardMark.forwardedContent(original: content, newContent: vector["newContent"] as? [String: Any])
+            let expected = try #require(vector["expected"] as? [String: Any])
+            #expect(NSDictionary(dictionary: sent).isEqual(to: expected), "forward \(vector["name"] ?? "")")
+        }
+        let sources = try #require(file["source"] as? [[String: Any]])
+        #expect(!sources.isEmpty)
+        for vector in sources {
+            let isVoice = try #require(vector["isVoice"] as? Bool)
+            let count = try #require((vector["count"] as? NSNumber)?.intValue)
+            #expect(BipeForwardMark.source(isVoice: isVoice, count: count).rawValue == vector["expected"] as? String, "source \(isVoice) \(count)")
+        }
+        #expect((file["forwardChats"] as? NSNumber)?.intValue == BipeRegistries.forwardChats)
+        #expect((file["forwardChatsManyTimes"] as? NSNumber)?.intValue == BipeRegistries.forwardChatsManyTimes)
+        let lines = try #require(file["line"] as? [[String: Any]])
+        #expect(!lines.isEmpty)
+        for vector in lines {
+            let count = try #require((vector["count"] as? NSNumber)?.intValue)
+            #expect(BipeForwardMark.line(count: count)?.rawValue == vector["expected"] as? String, "line \(count)")
+        }
+        let limits = try #require(file["chatLimit"] as? [[String: Any]])
+        #expect(!limits.isEmpty)
+        for vector in limits {
+            let counts = try #require(vector["counts"] as? [NSNumber]).map(\.intValue)
+            #expect(BipeForwardMark.chatLimit(sentCounts: counts) == (vector["expected"] as? NSNumber)?.intValue, "chatLimit \(vector["name"] ?? "")")
         }
     }
 

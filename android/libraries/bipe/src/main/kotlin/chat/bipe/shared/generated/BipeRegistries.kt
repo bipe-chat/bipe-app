@@ -19,6 +19,9 @@ enum class ReservedNameCategory(val id: String) {
 
 data class ScamPattern(val id: String, val regex: String)
 
+/** A network a public profile may link to (ADR 0228). [url] holds {handle} once. */
+data class SocialPlatform(val id: String, val name: String, val pattern: String, val url: String)
+
 object BipeRegistries {
     /** Normalised reserved display names and their category. */
     val reservedNames: Map<String, ReservedNameCategory> = mapOf(
@@ -30,6 +33,8 @@ object BipeRegistries {
         "seguranca bipe" to ReservedNameCategory.BIPE,
         "novidades do bipe" to ReservedNameCategory.BIPE,
         "novidades bipe" to ReservedNameCategory.BIPE,
+        "bipe grupos" to ReservedNameCategory.BIPE,
+        "grupos bipe" to ReservedNameCategory.BIPE,
         "banco do brasil" to ReservedNameCategory.BANK,
         "caixa" to ReservedNameCategory.BANK,
         "caixa economica federal" to ReservedNameCategory.BANK,
@@ -70,6 +75,26 @@ object BipeRegistries {
         "caixa tem" to ReservedNameCategory.GOVERNMENT,
         "serasa" to ReservedNameCategory.GOVERNMENT,
         "procon" to ReservedNameCategory.GOVERNMENT,
+        "pe de meia" to ReservedNameCategory.GOVERNMENT,
+        "pe-de-meia" to ReservedNameCategory.GOVERNMENT,
+        "pe de meia oficial" to ReservedNameCategory.GOVERNMENT,
+        "pe-de-meia oficial" to ReservedNameCategory.GOVERNMENT,
+        "pe de meia universitario" to ReservedNameCategory.GOVERNMENT,
+        "pe-de-meia universitario" to ReservedNameCategory.GOVERNMENT,
+        "bolsa familia" to ReservedNameCategory.GOVERNMENT,
+        "bolsa familia oficial" to ReservedNameCategory.GOVERNMENT,
+        "meu inss" to ReservedNameCategory.GOVERNMENT,
+        "cadunico" to ReservedNameCategory.GOVERNMENT,
+        "cad unico" to ReservedNameCategory.GOVERNMENT,
+        "cadastro unico" to ReservedNameCategory.GOVERNMENT,
+        "farmacia popular" to ReservedNameCategory.GOVERNMENT,
+        "minha casa minha vida" to ReservedNameCategory.GOVERNMENT,
+        "auxilio gas" to ReservedNameCategory.GOVERNMENT,
+        "desenrola" to ReservedNameCategory.GOVERNMENT,
+        "desenrola brasil" to ReservedNameCategory.GOVERNMENT,
+        "valores a receber" to ReservedNameCategory.GOVERNMENT,
+        "beneficio de prestacao continuada" to ReservedNameCategory.GOVERNMENT,
+        "bpc" to ReservedNameCategory.GOVERNMENT,
     )
 
     /** Normalised relationship terms that trigger the name-mismatch check. */
@@ -601,6 +626,9 @@ object BipeRegistries {
     const val THEFT_STATEMENT_LIFE_HOURS = 24
     const val THEFT_CHECK_MINUTES = 15
 
+    /** Age signals (ADR 0229, registries/age-signals.json). The server maps the range to a band; the app only reads and sends it. */
+    const val AGE_SIGNAL_RECHECK_DAYS = 7
+
     /** Username (handle) rules. The server is the authority; clients check early for feedback. */
     const val HANDLE_MIN_LENGTH = 3
     const val HANDLE_MAX_LENGTH = 30
@@ -608,6 +636,8 @@ object BipeRegistries {
     const val HANDLE_SUGGESTIONS_SHOWN = 3
     const val HANDLE_SUGGESTION_CANDIDATES = 8
     const val HANDLE_PATTERN = "^[a-z0-9](?:[a-z0-9_]|\\.(?!\\.))*[a-z0-9_]\$"
+    /** Characters handleSkeleton() removes after normalize() (a regex character class). */
+    const val HANDLE_SKELETON_STRIP = "[._]"
 
     /** Owned handles (ADR 0065): only these may be shorter than [HANDLE_MIN_LENGTH], down to [HANDLE_OWNER_MIN_LENGTH]. */
     const val HANDLE_OWNER_MIN_LENGTH = 2
@@ -616,6 +646,7 @@ object BipeRegistries {
         "bipe",
         "suporte",
         "bipechat",
+        "grupos",
     )
 
     /** Bipe homeservers (registries/bipe-servers.json, ADR 0168). Use [chat.bipe.shared.BipeServers.isBipeUserId], never a suffix check. */
@@ -628,7 +659,11 @@ object BipeRegistries {
         "@suporte:bipe.net.br",
         "@bipe:bipe.net.br",
         "@r2vrihsgkqd5:bipe.net.br",
+        "@grupos:bipe.net.br",
     )
+
+    /** The groups service account (ADR 0184): the admin invites it before making a group link. */
+    val groupsAccountId = "@grupos:bipe.net.br"
 
     /** Public profile rules (ADR 0041). Lengths count code points. The server is the authority. */
     const val PROFILE_NAME_MAX_LENGTH = 50
@@ -646,6 +681,16 @@ object BipeRegistries {
         "✔",
         "✓",
         "🔰",
+    )
+    /** Social handles on a public profile (ADR 0228), in display order. */
+    val profileSocials: List<SocialPlatform> = listOf(
+        SocialPlatform("instagram", "Instagram", "^[A-Za-z0-9._]{1,30}\$", "https://www.instagram.com/{handle}"),
+        SocialPlatform("linkedin", "LinkedIn", "^[A-Za-z0-9-]{3,100}\$", "https://www.linkedin.com/in/{handle}"),
+        SocialPlatform("tiktok", "TikTok", "^[A-Za-z0-9._]{2,24}\$", "https://www.tiktok.com/@{handle}"),
+        SocialPlatform("youtube", "YouTube", "^[A-Za-z0-9._-]{3,30}\$", "https://www.youtube.com/@{handle}"),
+        SocialPlatform("facebook", "Facebook", "^[A-Za-z0-9.]{5,50}\$", "https://www.facebook.com/{handle}"),
+        SocialPlatform("x", "X", "^[A-Za-z0-9_]{1,15}\$", "https://x.com/{handle}"),
+        SocialPlatform("github", "GitHub", "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\$", "https://github.com/{handle}"),
     )
 
     /** Invite codes: the code inside anything a user pastes (registries/invite-codes.json). */
@@ -816,6 +861,10 @@ object BipeRegistries {
     /** Cleared DMs (bipe-chat/bipe#464; registries/cleared-chats.json): the global account data event with the markers. */
     const val CLEARED_CHATS_EVENT_TYPE = "chat.bipe.cleared_chats"
 
+    /** Favourites order (spec chat-list; registries/chat-favourites.json): the global account data event with the room IDs in order. */
+    const val CHAT_FAVOURITES_ORDER_EVENT_TYPE = "chat.bipe.favourites_order"
+    const val CHAT_FAVOURITES_ORDER_MAX = 200
+
     /** Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit. */
     const val IMAGE_DESCRIPTION_FIELD = "chat.bipe.image_description"
     const val IMAGE_DESCRIPTION_MAX_LENGTH = 1000
@@ -835,10 +884,34 @@ object BipeRegistries {
     const val BRAND_MARK_MAX_PER_ACCOUNT = 3
     const val BRAND_MARK_RECHECK_MINUTES = 10
 
+    /** Business tools, steps and sectors (registries/business-tools.json, ADR 0194). The titles are strings by ID. */
+    val BUSINESS_TOOL_IDS: List<String> = listOf("catalog", "agenda", "orders", "quotes", "queue")
+    val BUSINESS_SECTOR_IDS: List<String> = listOf("beauty", "food", "repair", "health", "resale", "home_services", "other")
+    const val BUSINESS_RESALE_SECTOR = "resale"
+    const val BUSINESS_CATALOG_MIN_ITEMS = 3
+
     /** Voice message audio expiry (ADR 0164, bipe-chat/bipe#622; registries/voice-media.json). */
     const val VOICE_MEDIA_TRANSCRIPT_DAYS = 30
     const val VOICE_MEDIA_NO_TRANSCRIPT_DAYS = 90
     const val VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT = 200
+    /** Forward marks (bipe-chat/bipe#83; registries/voice-media.json): the content field and the many-times threshold. Rules: BipeForwardMark, test-vectors/forward-marks.json. */
+    const val FORWARD_KEY = "chat.bipe.forward"
+    const val FORWARDED_MANY_TIMES = 5
+    /** The most chats one forward goes to, and the most when a sent content reaches FORWARDED_MANY_TIMES (bipe-chat/bipe#933). */
+    const val FORWARD_CHATS = 5
+    const val FORWARD_CHATS_MANY_TIMES = 1
+
+    /** Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, docs/drafts-room.md). Rules: test-vectors/drafts.json. */
+    const val DRAFTS_ROOM_TYPE = "chat.bipe.drafts"
+    const val DRAFTS_ACCOUNT_DATA_TYPE = "chat.bipe.drafts_room"
+    const val DRAFT_FIELD = "chat.bipe.draft"
+    const val DRAFT_BODY_MAX_LENGTH = 8000
+    const val DRAFT_CLIENT_MAX_LENGTH = 64
+
+    /** Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json. */
+    const val ASSISTANT_SEND_ACCOUNT_DATA_TYPE = "chat.bipe.assistant_send"
+    const val ASSISTANT_MARKER_FIELD = "chat.bipe.assistant"
+    const val ASSISTANT_CLIENT_MAX_LENGTH = 64
 
     /** Stickers (bipe ADR 0205, bipe-chat/bipe#837; registries/stickers.json). Search rules: test-vectors/sticker-search.json. */
     const val STICKER_IMPORT_MAX_BYTES = 1000000
@@ -1017,6 +1090,12 @@ object BipeRegistries {
     const val MAPS_LIVE_DEFAULT_DISTANCE_METRES = 50
     const val MAPS_LIVE_MIN_INTERVAL_SECONDS = 10
     const val MAPS_LIVE_MAX_INTERVAL_SECONDS = 120
+
+    /** Verificar com gov.br (bipe-chat/bipe#544; registries/govbr.json). Rules: BipeGovbrFlow, test-vectors/govbr-verify.json. */
+    const val GOVBR_FILE_NAME = "bipe-verificacao.pdf"
+    const val GOVBR_MAX_DOCUMENT_BYTES = 5242880
+    const val GOVBR_ANDROID_PACKAGE = "br.gov.meugovbr"
+    const val GOVBR_ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=br.gov.meugovbr"
 
     /** Voice transcript paragraphs (registries/voice-transcript.json). Rule: product/screens/voice-recording.json notes. */
     const val VOICE_TRANSCRIPT_PAUSE_SECONDS: Double = 1.2

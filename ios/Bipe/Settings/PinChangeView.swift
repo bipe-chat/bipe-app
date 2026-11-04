@@ -5,7 +5,7 @@
 import BipeKit
 import SwiftUI
 
-/// Spec pin-change: changes the account PIN after the owner check. No old PIN is needed (ADR 0057).
+/// Spec pin-change: changes the account PIN after the current PIN, which the server checks (bipe-chat/bipe#908).
 struct PinChangeView: View {
     enum Phase: Equatable {
         case confirmIdentity
@@ -19,7 +19,10 @@ struct PinChangeView: View {
     @StateObject private var setup = PinSetupModel()
     @State private var phase: Phase = .confirmIdentity
     @State private var savedPIN: String?
-    @State private var pinCheck: PinCheckRequest?
+    /// The current PIN from confirmIdentity, sent once with the new PIN. Held only while the screen is open.
+    @State private var oldPIN: String?
+    /// The Bipe PIN sheet of confirmIdentity.
+    @StateObject private var pinPrompt = AccountPinPrompt()
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -77,25 +80,28 @@ struct PinChangeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.pinChange.rawValue)
         .task { await confirmIdentity() }
-        .sheet(item: $pinCheck, onDismiss: {
-            if phase == .confirmIdentity { dismiss() }
-        }) { request in
-            AppLockPinCheckView(title: request.title, onPass: request.onPass)
-        }
+        .accountPinPrompt(pinPrompt)
     }
 
-    /// Action confirmIdentity. A phone with no passcode uses the app lock PIN when the lock is on; else the screen
-    /// closes (fail closed, as in data-export).
+    /// Action confirmIdentity (rule 14 tier 3, bipe-chat/bipe#785, bipe-chat/bipe#908): the current Bipe PIN, checked by
+    /// the server, never the phone's passcode. The server needs it again with the new PIN, so biometrics alone are not
+    /// enough. A phone with no screen lock cannot change the PIN; the screen closes (fail closed).
     private func confirmIdentity() async {
         guard phase == .confirmIdentity else { return }
-        if OwnerCheck.canCheckOwner {
-            if await OwnerCheck.owner(reason: BipeStrings.pinChangeBiometricReason) {
-                phase = .entering
-            } else {
-                dismiss()
+        guard OwnerCheck.canCheckOwner else {
+            dismiss()
+            return
+        }
+        let api = model.api
+        let model = model
+        let passed = await pinPrompt.ask(title: BipeStrings.pinChangeTitle) { (pin: String) async throws(BipeAPIError) in
+            try await model.authorized { (token: String) async throws(BipeAPIError) in
+                try await api.checkPIN(pin, accessToken: token)
             }
-        } else if AppLockModel.shared.store.isOn {
-            pinCheck = PinCheckRequest(title: BipeStrings.pinChangeTitle) { phase = .entering }
+            oldPIN = pin
+        }
+        if passed {
+            phase = .entering
         } else {
             dismiss()
         }
@@ -106,14 +112,16 @@ struct PinChangeView: View {
         savedPIN = pin
         phase = .saving
         let api = model.api
+        let previousPIN = oldPIN
         do {
             try await model.authorized { (token: String) async throws(BipeAPIError) in
-                try await api.setPIN(pin, accessToken: token)
+                try await api.setPIN(pin, oldPIN: previousPIN, accessToken: token)
             }
             // One account on the phone and the lock on: the new account PIN is the app lock PIN too (ADR 0086).
             if AppLockModel.shared.store.isOn {
                 AppLockModel.shared.store.setPIN(pin)
             }
+            oldPIN = nil
             BipeHaptics.play(.success)
             phase = .done
         } catch {

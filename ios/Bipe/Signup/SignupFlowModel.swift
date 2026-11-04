@@ -222,10 +222,19 @@ final class SignupFlowModel: ObservableObject {
         updateVariant()
     }
 
-    /// Action openInviteLink: a bipe.chat/convite/<code> link the app was opened with.
+    /// Action openInviteLink: a bipe.chat/convite/<code> or bipe.chat/g/<code> link the app was opened with.
     func openInviteLink(_ url: URL) async {
-        guard let code = BipeInviteLink.code(from: url) else { return }
+        guard let code = BipeInviteLink.code(from: url) ?? BipeInviteLink.groupCode(from: url) else { return }
         await preview(code)
+    }
+
+    /// An invite code, else a group link code that signs people up (ADR 0184, spec group-link-open). Only a personal
+    /// invite has an inviter handle.
+    private func checkCode(_ code: String) async throws(BipeAPIError) -> (valid: Bool, inviterHandle: String?) {
+        let invite = try await api.invitePreview(code: code)
+        if invite.valid { return (true, invite.inviterHandle) }
+        let group = try await api.groupLinkPreview(code: code)
+        return (group.valid && group.signsUp == true, nil)
     }
 
 
@@ -236,7 +245,7 @@ final class SignupFlowModel: ObservableObject {
         case .invited, .open:
             checkingInvite = true
             defer { checkingInvite = false }
-            if let pending = invite, pending.isValid, let preview = try? await api.invitePreview(code: pending.code), !preview.valid {
+            if let pending = invite, pending.isValid, let preview = try? await checkCode(pending.code), !preview.valid {
                 invite = nil
                 code = pending.code
                 inviteCodePhase = .invalid
@@ -263,7 +272,7 @@ final class SignupFlowModel: ObservableObject {
     }
 
     private func preview(_ code: String) async {
-        let preview = try? await api.invitePreview(code: code)
+        let preview = try? await checkCode(code)
         invite = PendingInvite(code: code, inviterHandle: preview?.inviterHandle, isValid: preview?.valid ?? false)
         if invite?.isValid == true {
             self.code = code
@@ -304,7 +313,7 @@ final class SignupFlowModel: ObservableObject {
         }
         inviteCodePhase = .checking
         do {
-            let preview = try await api.invitePreview(code: normalized)
+            let preview = try await checkCode(normalized)
             if preview.valid {
                 invite = PendingInvite(code: normalized, inviterHandle: preview.inviterHandle, isValid: true)
                 inviteCodePhase = .editing
@@ -537,6 +546,7 @@ final class SignupFlowModel: ObservableObject {
         }
         storedCredentials = credentials
         inviterUserId = response.inviterUserId
+        groupRoomId = response.groupRoomId
         await signIn(credentials)
     }
 
@@ -574,6 +584,7 @@ final class SignupFlowModel: ObservableObject {
     }
 
     private var inviterUserId: String?
+    private var groupRoomId: String?
 
     private func signIn(_ credentials: BipeCredentials) async {
         createPhase = .signingIn
@@ -589,7 +600,7 @@ final class SignupFlowModel: ObservableObject {
             formPin = ""
             // A sign-up from account-new has no inviter chat and no greeting: the inviter is an account on this phone.
             let outcome = start?.isOwnInvite == true ? SignupOutcome()
-                : SignupOutcome(inviterUserId: inviterUserId, inviterHandle: invite?.inviterHandle)
+                : SignupOutcome(inviterUserId: inviterUserId, inviterHandle: invite?.inviterHandle, groupRoomId: groupRoomId)
             onSignedUp(session, outcome)
         } catch {
             createPhase = .failed

@@ -58,6 +58,18 @@ public nonisolated enum BipeHandle {
         return nil
     }
 
+    /// Port of `handleSkeleton()`: normalize, then the separators and the spaces removed.
+    /// Two handles with the same skeleton cannot both exist.
+    public static func skeleton(_ handle: String) -> String {
+        // normalize() turns every JS whitespace run into one " ", so removing " " is JS `\s+`.
+        NameNormalizer.normalize(handle)
+            .replacingOccurrences(of: BipeRegistries.handleSkeletonStrip, with: "", options: .regularExpression)
+            .replacingOccurrences(of: " ", with: "")
+    }
+
+    /// The skeletons of the reserved names (`reservedHandleSkeletons()`). The names are already normalised.
+    public static let reservedSkeletons: Set<String> = Set(BipeRegistries.reservedNames.keys.map { $0.replacingOccurrences(of: " ", with: "") })
+
     /// Escolha seu @ (bipe-chat/bipe#200): port of `handleSuggestions()` in bipe-shared tools/lib/registries.mjs.
     /// Must match test-vectors/handle-suggestions.json. The caller checks availability in this order.
     public static func suggestions(for displayName: String) -> [String] {

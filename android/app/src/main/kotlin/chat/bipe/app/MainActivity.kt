@@ -4,11 +4,14 @@
 
 package chat.bipe.app
 
+import chat.bipe.app.common.BipeToastHost
+import chat.bipe.app.common.BipeToasts
+import chat.bipe.app.business.ShopClaims
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.Bundle
-import android.widget.Toast
 import chat.bipe.app.share.ShareIntake
+import chat.bipe.app.voce.GovbrInbox
 import chat.bipe.shared.R
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -23,6 +26,7 @@ import chat.bipe.app.account.AccountStartScreen
 import chat.bipe.app.notifications.PhoneNotifications
 import chat.bipe.shared.BipeNotificationDestination
 import chat.bipe.shared.BipeNotificationOpen
+import chat.bipe.shared.BipeNotificationTarget
 import chat.bipe.app.settings.AppLockGate
 import chat.bipe.app.settings.AppLockModel
 
@@ -33,6 +37,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // A recreated activity keeps its intent: read a signed PDF only once. It clears the action, so the link and share
+        // readers below skip it.
+        if (savedInstanceState == null) readGovbrDocument(intent)
         readInviteLink(intent)
         readDevAccount(intent)
         readOpenChat(intent)
@@ -43,8 +50,10 @@ class MainActivity : ComponentActivity() {
         accountStart.start()
         setContent {
             BipeTheme {
-                AppLockGate {
-                    AccountStartScreen(accountStart, (application as BipeApplication).appTabs)
+                BipeToastHost {
+                    AppLockGate {
+                        AccountStartScreen(accountStart, (application as BipeApplication).appTabs)
+                    }
                 }
             }
         }
@@ -52,6 +61,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        readGovbrDocument(intent)
         readInviteLink(intent)
         readDevAccount(intent)
         readOpenChat(intent)
@@ -69,7 +79,7 @@ class MainActivity : ComponentActivity() {
         app.scope.launch {
             val share = ShareIntake.read(applicationContext, shared)
             if (share == null) {
-                Toast.makeText(applicationContext, R.string.bipe_share_nothing, Toast.LENGTH_LONG).show()
+                BipeToasts.show(applicationContext, R.string.bipe_share_nothing)
                 return@launch
             }
             accountStart.start()
@@ -77,11 +87,26 @@ class MainActivity : ComponentActivity() {
             // FAILED keeps the share: the account is on the phone, and the share expires by itself.
             if (phase == AccountStartModel.Phase.NO_ACCOUNT) {
                 share.delete()
-                Toast.makeText(applicationContext, R.string.bipe_share_signed_out, Toast.LENGTH_LONG).show()
+                BipeToasts.show(applicationContext, R.string.bipe_share_signed_out)
                 return@launch
             }
             app.pendingShare.value?.delete()
             app.pendingShare.value = share
+        }
+    }
+
+    /**
+     * Spec govbr-verify, action receiveDocument: a PDF shared or opened with the alias `.GovbrDocument` (build flag on only).
+     * It goes to the open gov.br check and never to share-to-chat. The action is cleared after reading.
+     */
+    private fun readGovbrDocument(intent: Intent?) {
+        if (intent == null || !GovbrInbox.isDocumentIntent(intent)) return
+        val uri = GovbrInbox.documentUri(intent)
+        intent.action = null
+        val app = application as BipeApplication
+        app.scope.launch {
+            val pdf = uri?.let { GovbrInbox.read(applicationContext, it) } ?: ByteArray(0)
+            app.govbr.receive(applicationContext, pdf)
         }
     }
 
@@ -94,8 +119,24 @@ class MainActivity : ComponentActivity() {
     private fun readOpenChat(intent: Intent?) {
         if (intent?.action != PhoneNotifications.ACTION_OPEN_CHAT) return
         val app = application as BipeApplication
-        if (intent.getStringExtra(PhoneNotifications.EXTRA_KIND) == PhoneNotifications.KIND_DEVICE_APPROVAL) {
-            app.notifications.approvalAccount(intent)?.let { app.accountToOpen.value = it }
+        val kind = intent.getStringExtra(PhoneNotifications.EXTRA_KIND)
+        if (kind in PhoneNotifications.ACCOUNT_NOTICE_KINDS) {
+            app.notifications.noticeOwner(intent)?.let {
+                val group = if (kind == PhoneNotifications.KIND_GROUP_LINK_JOINED) {
+                    BipeNotificationTarget.create(it, intent.getStringExtra(PhoneNotifications.EXTRA_ROOM_ID))
+                } else {
+                    null
+                }
+                // groupLinkJoined (bipe-chat/bipe#967): the group opens; else the owner's conversation list.
+                if (group != null) {
+                    app.roomToOpen.value = BipeNotificationOpen(group, BipeNotificationDestination.CHAT)
+                } else {
+                    app.accountToOpen.value = it
+                }
+                if (kind == PhoneNotifications.KIND_RECOVERY) app.recoveryToCheck.value = it
+                if (kind == PhoneNotifications.KIND_INVITE_JOINED) app.invitesToRefresh.value = it
+            }
+            intent.removeExtra(PhoneNotifications.EXTRA_ROOM_ID)
             intent.removeExtra(PhoneNotifications.EXTRA_KIND)
             intent.removeExtra(PhoneNotifications.EXTRA_ACCOUNT_ROUTE)
             intent.removeExtra(PhoneNotifications.EXTRA_ACCOUNT_USER_ID)
@@ -111,12 +152,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        (application as BipeApplication).activityVisible = true
         accountStart.resume()
         LinkWebFlow.appResumed()
     }
 
     override fun onStop() {
         super.onStop()
+        (application as BipeApplication).activityVisible = false
         // Spec app-lock, action lock: covers the app at once when it goes to the background.
         AppLockModel.get(this).onBackground()
     }
@@ -125,8 +168,12 @@ class MainActivity : ComponentActivity() {
     private fun readInviteLink(intent: Intent?) {
         if (intent?.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
+        // A claim link waits for the account, through sign-up (ADR 0195 point 7).
+        if (ShopClaims.keep(applicationContext, uri.toString())) return
         // A profile link waits in PeopleLinks until the home screen shows (spec profile-link-open).
         if (PeopleLinks.offer(uri)) return
+        // A group link opens group-link-open on a signed-in phone; else onboarding takes its code (spec group-link-open).
+        if (accountStart.phase.value == AccountStartModel.Phase.READY && PeopleLinks.offerGroupLink(uri)) return
         accountStart.openLink(uri)
     }
 

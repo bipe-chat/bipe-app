@@ -34,7 +34,7 @@ public nonisolated struct BadgeVerifier: Sendable {
     
     /// Decodes and verifies envelope JSON. Undecodable JSON is `malformed`.
     /// - Parameter senderMasterKey: the sender's cross-signing master key from the SDK (`UserIdentity.masterKey()`), nil when unknown.
-    public func verify(envelopeJSON: Data, sender: String, senderDevice: String, senderMasterKey: String?, now: Date = .now) -> BadgeVerificationResult {
+    public func verify(envelopeJSON: Data, sender: String, senderMasterKey: String?, now: Date = .now) -> BadgeVerificationResult {
         // Check `v` before the full shape: a future version may have other fields.
         guard let probe = try? JSONDecoder().decode(VersionProbe.self, from: envelopeJSON) else {
             return .invalid(.malformed)
@@ -45,11 +45,11 @@ public nonisolated struct BadgeVerifier: Sendable {
         guard let envelope = try? JSONDecoder().decode(BadgeEnvelope.self, from: envelopeJSON) else {
             return .invalid(.malformed)
         }
-        return verify(envelope, sender: sender, senderDevice: senderDevice, senderMasterKey: senderMasterKey, now: now)
+        return verify(envelope, sender: sender, senderMasterKey: senderMasterKey, now: now)
     }
     
     /// Runs the documented checks in order and returns the first failure.
-    public func verify(_ envelope: BadgeEnvelope, sender: String, senderDevice: String, senderMasterKey: String?, now: Date = .now) -> BadgeVerificationResult {
+    public func verify(_ envelope: BadgeEnvelope, sender: String, senderMasterKey: String?, now: Date = .now) -> BadgeVerificationResult {
         guard envelope.v == BadgeEnvelope.supportedVersion else {
             return .invalid(.unsupportedVersion)
         }
@@ -80,16 +80,9 @@ public nonisolated struct BadgeVerifier: Sendable {
         guard payload.sub == sender else {
             return .invalid(.subjectMismatch)
         }
-        switch payload.binding {
-        case .masterKey(let msk):
-            // A company or institution badge binds to the account, so any of its devices may send. No known master key fails closed.
-            guard let senderMasterKey, msk == senderMasterKey else {
-                return .invalid(.masterKeyMismatch)
-            }
-        case .device(let dev):
-            guard dev == senderDevice else {
-                return .invalid(.deviceMismatch)
-            }
+        // Every badge binds to the account (ADR 0239), so any of its cross-signed devices may send. No known master key fails closed.
+        guard let senderMasterKey, payload.msk == senderMasterKey else {
+            return .invalid(.masterKeyMismatch)
         }
         return .valid(payload)
     }
@@ -130,14 +123,6 @@ public nonisolated enum BadgeCNPJMethod: String, Sendable, Codable {
     case staff
 }
 
-/// What a badge is bound to (badge-attestation.md, step 7).
-public nonisolated enum BadgeBinding: Sendable, Equatable {
-    /// Fingerprint of the device key (`dev`): `pix` and `govbr`.
-    case device(String)
-    /// The account's cross-signing master key (`msk`): `cnpj`, `institution` and `brand-mark`.
-    case masterKey(String)
-}
-
 /// The company fields of a `cnpj` badge.
 public nonisolated struct BadgeCompany: Sendable, Equatable {
     public let legalName: String
@@ -171,7 +156,8 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
     public let brandMark: BadgeBrandMark?
     /// `institution` only: the verified link domains (ADR 0036), lower case. Empty: no clickable link.
     public let domains: [String]
-    public let binding: BadgeBinding
+    /// The account's cross-signing master key the badge is bound to (`msk`, every level, ADR 0239).
+    public let msk: String
     /// `cnpj` only, optional: the CVM register line (ADR 0077). Read leniently: a bad value is no line, never a bad badge.
     public let cvm: BipeCvmField?
     /// Issued at, Unix seconds.
@@ -198,13 +184,16 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
         cnpj = try container.decodeIfPresent(String.self, forKey: .cnpj)
         iat = try container.decode(Int64.self, forKey: .iat)
         exp = try container.decode(Int64.self, forKey: .exp)
+        msk = try container.decode(String.self, forKey: .msk)
+        guard !msk.isEmpty else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "empty msk"))
+        }
         cvm = lvl == .cnpj ? ((try? container.decodeIfPresent(BipeCvmField.self, forKey: .cvm)) ?? nil) : nil
         switch lvl {
         case .cnpj:
-            let msk = try container.decode(String.self, forKey: .msk)
             let legalName = try container.decode(String.self, forKey: .legalName)
             let checkedMonth = try container.decode(String.self, forKey: .checkedMonth)
-            guard let cnpj, cnpj.wholeMatch(of: /[0-9A-Z]{12}[0-9]{2}/) != nil, !legalName.isEmpty, !msk.isEmpty,
+            guard let cnpj, cnpj.wholeMatch(of: /[0-9A-Z]{12}[0-9]{2}/) != nil, !legalName.isEmpty,
                   checkedMonth.wholeMatch(of: /[0-9]{4}-(0[1-9]|1[0-2])/) != nil else {
                 throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "malformed cnpj badge"))
             }
@@ -213,37 +202,31 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
                                        method: container.decode(BadgeCNPJMethod.self, forKey: .method),
                                        checkedMonth: checkedMonth)
             brandMark = nil
-            binding = .masterKey(msk)
             domains = []
         case .brandMark:
-            let msk = try container.decode(String.self, forKey: .msk)
             let mark = try container.decode(String.self, forKey: .mark)
             let brand = try container.decode(String.self, forKey: .brand)
             let label = try container.decode(String.self, forKey: .label)
-            guard let cnpj, cnpj.wholeMatch(of: /[0-9A-Z]{12}[0-9]{2}/) != nil, !msk.isEmpty, !mark.isEmpty, !brand.isEmpty,
-                  !name.isEmpty, BipeRegistries.brandMarkLabels.contains(label), !container.contains(.dev) else {
+            guard let cnpj, cnpj.wholeMatch(of: /[0-9A-Z]{12}[0-9]{2}/) != nil, !mark.isEmpty, !brand.isEmpty,
+                  !name.isEmpty, BipeRegistries.brandMarkLabels.contains(label) else {
                 throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "malformed brand-mark badge"))
             }
             company = nil
             brandMark = BadgeBrandMark(mark: mark, brand: brand, label: label)
-            binding = .masterKey(msk)
             domains = []
         case .institution:
-            let msk = try container.decode(String.self, forKey: .msk)
             let domains = try container.decodeIfPresent([String].self, forKey: .domains) ?? []
-            guard let cnpj, cnpj.wholeMatch(of: /[0-9A-Z]{12}[0-9]{2}/) != nil, !msk.isEmpty,
+            guard let cnpj, cnpj.wholeMatch(of: /[0-9A-Z]{12}[0-9]{2}/) != nil,
                   domains.allSatisfy(BipeNoticeLinks.isDomain) else {
                 throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "malformed institution badge"))
             }
             company = nil
             brandMark = nil
             self.domains = domains
-            binding = .masterKey(msk)
         case .pix, .govbr:
             company = nil
             brandMark = nil
             domains = []
-            binding = try .device(container.decode(String.self, forKey: .dev))
         }
     }
 }
@@ -262,7 +245,6 @@ public nonisolated enum BadgeVerificationFailure: String, Sendable, Equatable, E
     case expired
     case notYetValid = "not_yet_valid"
     case subjectMismatch = "subject_mismatch"
-    case deviceMismatch = "device_mismatch"
     case masterKeyMismatch = "master_key_mismatch"
 }
 

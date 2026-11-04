@@ -69,7 +69,7 @@ public struct StickerPackClient: Sendable {
                         "url": url,
                         "body": "Sticker",
                         "usage": ["sticker"],
-                        "info": ["w": candidate.width, "h": candidate.height, "mimetype": candidate.mimeType, "size": candidate.data.count],
+                        "info": candidate.info,
                     ]
                     if !candidate.tags.isEmpty { image[BipeRegistries.stickerTagsField] = candidate.tags }
                     images[candidate.shortcode] = image
@@ -106,6 +106,35 @@ public struct StickerPackClient: Sendable {
         }
     }
 
+    /// Adds a sticker someone sent to the user's pack by its mxc:// URL, with no upload (bipe-chat/bipe#670).
+    /// Returns false when the pack already has that image.
+    public func saveToUserPack(url: String, width: Int?, height: Int?, mimeType: String?, size: Int?) async throws -> Bool {
+        try await withTokenRetry { token in
+            let path = ["user", userId, "account_data", StickerPackEventType.userPack]
+            var content: [String: Any] = [:]
+            if let data = try await get(path, token: token), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                content = object
+            }
+            var images = content["images"] as? [String: Any] ?? [:]
+            if images.values.contains(where: { ($0 as? [String: Any])?["url"] as? String == url }) { return false }
+            var info: [String: Any] = [:]
+            if let width { info["w"] = width }
+            if let height { info["h"] = height }
+            if let mimeType { info["mimetype"] = mimeType }
+            if let size { info["size"] = size }
+            images[StickerImporter.shortcode(for: Data(url.utf8))] = [
+                "url": url,
+                "body": "Sticker",
+                "usage": ["sticker"],
+                "info": info,
+            ] as [String: Any]
+            content["images"] = images
+            let body = try JSONSerialization.data(withJSONObject: content)
+            _ = try await perform("PUT", clientURL(path), token: token, body: body, contentType: "application/json")
+            return true
+        }
+    }
+
     /// A sticker list in global account data (StickerShortlist): recents or favourites. Empty when unset.
     public func shortlist(_ eventType: String) async throws -> [StickerRef] {
         try await withTokenRetry { token in
@@ -118,6 +147,56 @@ public struct StickerPackClient: Sendable {
         try await withTokenRetry { token in
             _ = try await perform("PUT", clientURL(["user", userId, "account_data", eventType]), token: token,
                                   body: StickerShortlist.content(refs), contentType: "application/json")
+        }
+    }
+
+    /// Spec sticker-pack appear: the pack at ref, the room creator and the room name, from the room state. A public
+    /// world_readable room is read without joining. nil when the room has no pack at ref.stateKey.
+    public func preview(_ ref: StickerPackRef) async throws -> StickerPackPreview? {
+        try await withTokenRetry { token in
+            try await get(["rooms", ref.roomId, "state"], token: token).flatMap { StickerPackPreview.parse(state: $0, ref: ref) }
+        }
+    }
+
+    /// Whether ref is in im.ponies.emote_rooms (spec sticker-pack, phase added).
+    public func isEnabled(_ ref: StickerPackRef) async throws -> Bool {
+        try await withTokenRetry { token in
+            guard let data = try await get(["user", userId, "account_data", StickerPackEventType.enabledRooms], token: token) else { return false }
+            return StickerPack.parseEnabledRooms(data).contains { $0.roomId == ref.roomId && $0.stateKey == ref.stateKey }
+        }
+    }
+
+    /// Spec sticker-pack add: puts ref in im.ponies.emote_rooms with a read-merge-write on the server copy.
+    /// The caller joins the room first.
+    public func enable(_ ref: StickerPackRef) async throws {
+        try await withTokenRetry { token in
+            let path = ["user", userId, "account_data", StickerPackEventType.enabledRooms]
+            var content: [String: Any] = [:]
+            if let data = try await get(path, token: token), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                content = object
+            }
+            let body = try JSONSerialization.data(withJSONObject: StickerPackRoom.enabling(ref, in: content))
+            _ = try await perform("PUT", clientURL(path), token: token, body: body, contentType: "application/json")
+        }
+    }
+
+    /// StickerPackView.canShare of a room pack: this user may write the pack state. false when the state is unreadable.
+    public func canWritePack(roomId: String) async -> Bool {
+        guard let state = try? await withTokenRetry({ token in try await get(["rooms", roomId, "state"], token: token) }) else { return false }
+        return StickerPackPreview.canWrite(state: state, roomId: roomId, userId: userId)
+    }
+
+    /// Spec sticker-picker sharePack for the user's own pack: a new pack room with a copy of the pack (StickerPackRoom).
+    /// Later edits of the user's pack do not change the copy.
+    public func createPackRoom(displayName: String) async throws -> StickerPackRef {
+        try await withTokenRetry { token in
+            guard let data = try await get(["user", userId, "account_data", StickerPackEventType.userPack], token: token),
+                  let pack = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ClientError.http(404) }
+            let body = try JSONSerialization.data(withJSONObject: StickerPackRoom.createBody(userPack: pack, displayName: displayName))
+            guard let response = try await perform("POST", clientURL(["createRoom"]), token: token, body: body, contentType: "application/json"),
+                  let object = try? JSONSerialization.jsonObject(with: response) as? [String: Any],
+                  let roomId = object["room_id"] as? String else { throw ClientError.http(404) }
+            return StickerPackRef(roomId: roomId, stateKey: "")
         }
     }
 

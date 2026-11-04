@@ -4,6 +4,8 @@
 
 package chat.bipe.app.polls
 
+import org.matrix.rustcomponents.sdk.EditedContent
+import org.matrix.rustcomponents.sdk.EventOrTransactionId
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.PollKind
 import org.matrix.rustcomponents.sdk.Timeline
@@ -22,6 +24,10 @@ data class PollData(
     val isEnded: Boolean,
     val canEnd: Boolean,
     val yourVote: String?,
+    /** Spec poll-detail notes (bipe-chat/bipe#669): the creator, while the poll is open and has no vote, also undisclosed. */
+    val canEdit: Boolean = false,
+    /** PollKind undisclosed: results show only at the end. */
+    val hidesResults: Boolean = false,
     /** One choice with 2 to 10 options: the shape of a company's structured question (spec question-card, ADR 0081). */
     val isQuestionShape: Boolean = false,
 ) {
@@ -61,10 +67,25 @@ data class PollData(
                 isEnded = isEnded,
                 canEnd = isOwnPoll && !isEnded,
                 yourVote = yourVote,
+                canEdit = isOwnPoll && !isEnded && poll.votes.values.all { it.isEmpty() },
+                hidesResults = poll.kind == PollKind.UNDISCLOSED,
                 isQuestionShape = poll.maxSelections == 1uL && poll.answers.size in 2..10,
             )
         }
     }
+}
+
+/** Spec poll-create edit (bipe-chat/bipe#669): the options of the poll in edit mode, else two empty ones. */
+fun PollData?.draftOptions(): List<String> = this?.options?.map { it.text } ?: listOf("", "")
+
+/**
+ * Spec poll-create, action send. With [editEventId] (an open poll with no vote, bipe-chat/bipe#669)
+ * the whole poll goes again as an edit.
+ */
+suspend fun Timeline.sendBipePoll(editEventId: String?, question: String, answers: List<String>, hideResults: Boolean) {
+    if (editEventId == null) return createBipePoll(question, answers, hideResults)
+    val poll = org.matrix.rustcomponents.sdk.PollData(question, answers, 1u, if (hideResults) PollKind.UNDISCLOSED else PollKind.DISCLOSED)
+    edit(EventOrTransactionId.EventId(editEventId), EditedContent.PollStart(poll))
 }
 
 /** Spec poll-create, action send. */

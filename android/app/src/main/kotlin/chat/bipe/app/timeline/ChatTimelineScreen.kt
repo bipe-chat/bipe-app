@@ -4,11 +4,13 @@
 
 package chat.bipe.app.timeline
 
+import chat.bipe.app.common.BipeToasts
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
@@ -38,6 +40,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -63,6 +71,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import chat.bipe.app.tabs.HidesTabBar
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -79,13 +91,18 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.business.rememberBusinessChatTools
+import chat.bipe.app.chatlist.ChatMessageSearchSheet
+import chat.bipe.app.common.AppTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.LocalReduceMotion
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.memberLabel
 import chat.bipe.app.common.bipeTapTarget
+import chat.bipe.app.common.chatBackground
+import chat.bipe.app.common.floatingSurface
 import chat.bipe.app.composer.MentionSuggestion
-import chat.bipe.app.notifications.NotificationsPrompt
+import chat.bipe.app.notifications.NotificationsPromptTrigger
 import chat.bipe.app.people.BrandMarkHeaderLine
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.ProfileNoticeBar
@@ -95,14 +112,18 @@ import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.app.common.OfficialBadge
+import chat.bipe.app.common.SealMark
 import chat.bipe.app.groups.ClearedChatsStore
-import chat.bipe.app.groups.DmDeleteSheet
-import chat.bipe.app.calls.CallHeaderButtons
+import chat.bipe.app.calls.CallMenuItems
+import chat.bipe.app.calls.rememberCallStart
+import chat.bipe.app.groups.ChatNotificationsScreen
+import chat.bipe.app.media.ChatMediaGalleryScreen
 import chat.bipe.app.calls.OngoingCallBar
 import chat.bipe.app.media.MediaViewer
 import chat.bipe.app.media.VoicePlayer
 import chat.bipe.app.media.stickers.StickerPicker
-import chat.bipe.app.media.upload.AttachmentPicker
+import chat.bipe.app.media.stickers.StickerPackScreen
+import chat.bipe.app.media.upload.AttachmentMenu
 import chat.bipe.app.media.upload.UploadPreviewScreen
 import chat.bipe.app.media.voice.MicrophoneDeniedBar
 import chat.bipe.app.media.voice.VoiceRecordingBar
@@ -111,6 +132,7 @@ import chat.bipe.app.location.LiveLocationChatBar
 import chat.bipe.app.location.LocationFullScreen
 import chat.bipe.app.location.LocationSendScreen
 import chat.bipe.app.polls.PollCreateScreen
+import chat.bipe.app.polls.PollData
 import chat.bipe.app.polls.PollDetailScreen
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.phosphor.PhosphorIcon
@@ -129,14 +151,24 @@ fun ChatTimelineScreen(
     onBack: () -> Unit,
     onOpenGroupDetails: (() -> Unit)? = null,
     onHistoryHelp: () -> Unit = {},
-    onDmDeleted: () -> Unit = onBack,
     /** Opens the chat's info: person-profile for a DM. */
     onOpenInfo: (() -> Unit)? = null,
+    /** Spec chat-archive from the DM chat menu. null: no archive row. */
+    archive: ChatArchiveToggle? = null,
     /** The account's people service, for the blocked bar of a DM (block-person). null: no bar. */
     people: PeopleService? = null,
     /** Opens another chat in place of this one (a new DM from inviteAgain). */
     onOpenChat: (String) -> Unit = {},
+    /** Spec threads (bipe-chat/bipe#667): the root event of the thread view; null for the main timeline. */
+    threadRoot: String? = null,
+    /** Spec chat-search openMessage (bipe-chat/bipe#671): the message to scroll to after the chat opens. */
+    focusEventId: String? = null,
+    /** Spec chat-row-actions sendMedia: open the photo picker once the chat shows. */
+    startPhotos: Boolean = false,
+    onStartPhotosUsed: () -> Unit = {},
 ) {
+    // Spec app-tabs: the tab bar hides while a chat or thread is open.
+    HidesTabBar()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
@@ -147,14 +179,40 @@ fun ChatTimelineScreen(
         undecryptable = stringResource(R.string.bipe_app_timeline_undecryptable),
         label = { context.getString(it) },
         format = { id, arg -> context.getString(id, arg) },
+        formatArgs = { id, args -> context.getString(id, *args.toTypedArray()) },
     )
-    val model = remember(session, roomId) {
+    val model = remember(session, roomId, threadRoot) {
         ChatTimelineModel(
             session, roomId, scope, InviterGreetings(context, session.userId), strings, context.getString(R.string.bipe_dm_no_name),
             sharesTyping = { sharesTyping(context) },
             handleChanges = HandleChangeStores.store(context, session),
             voiceMedia = VoiceMediaStore.store(context, session),
+            threadRoot = threadRoot,
+            handles = people?.handles,
         )
+    }
+    // Spec threads openThread: the thread view over the main timeline.
+    val openThreadRoot by model.openThreadRoot.collectAsState()
+    openThreadRoot?.let { root ->
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { model.openThread(null) },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            ChatTimelineScreen(session, media, roomId, onBack = { model.openThread(null) }, people = people, threadRoot = root)
+        }
+    }
+    // Spec chat-search openMessage (bipe-chat/bipe#671): scroll to the message once the first rows are in.
+    LaunchedEffect(model, focusEventId) {
+        val target = focusEventId ?: return@LaunchedEffect
+        repeat(20) { if (model.rows.value.isEmpty()) kotlinx.coroutines.delay(250) }
+        model.openOriginal(target)
+    }
+    // Spec identity-change (bipe-chat/bipe#770).
+    val identity = remember(session, roomId) { IdentityChangeModel(session, roomId, scope) }
+    val identityState by identity.state.collectAsState()
+    DisposableEffect(identity) {
+        identity.start()
+        onDispose { identity.close() }
     }
     DisposableEffect(model) {
         // Spec incoming-call: an opened chat shows its call kind again in the chat list.
@@ -166,7 +224,10 @@ fun ChatTimelineScreen(
     val roomName by model.roomName.collectAsState()
     val roomAvatarUrl by model.roomAvatarUrl.collectAsState()
     val peerUserId by model.peerUserId.collectAsState()
+    val avatarMembers by model.avatarMembers.collectAsState()
     val isGroup by model.isGroup.collectAsState()
+    val successorRoomId by model.successorRoomId.collectAsState()
+    val predecessor by model.predecessor.collectAsState()
     val allRows by model.rows.collectAsState()
     val markers by ClearedChatsStore.markers.collectAsState()
     // Spec dm-delete: events at or below the marker of a cleared DM are gone.
@@ -193,26 +254,37 @@ fun ChatTimelineScreen(
     var viewerRowId by rememberSaveable(session.userId, roomId) { mutableStateOf<String?>(null) }
     // composer
     val composer by model.composer.collectAsState()
-    var attaching by remember { mutableStateOf(false) }
     var upload by remember { mutableStateOf<PickedUpload?>(null) }
     var showsStickers by remember { mutableStateOf(false) }
-    NotificationsPrompt(session, roomId, messages)
+    NotificationsPromptTrigger(session, roomId, messages)
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     var dmMenu by remember { mutableStateOf(false) }
+    var groupMenu by remember { mutableStateOf(false) }
+    // Spec chat-timeline searchInChat (bipe-chat/bipe#861): a message hit scrolls this chat to it.
+    var searchingChat by rememberSaveable { mutableStateOf(false) }
+    if (searchingChat) {
+        ChatMessageSearchSheet(session, roomId, onOpenMessage = model::openOriginal, onClose = { searchingChat = false })
+    }
     // Spec business-chat-bar: the tools and booking cards of a DM with a company (or, on a company, with a customer).
     val business = rememberBusinessChatTools(session, media, peerUserId.takeIf { isDm })
-    var deletingDm by rememberSaveable { mutableStateOf(false) }
-    if (deletingDm) {
-        DmDeleteSheet(session, roomId, onDismiss = { deletingDm = false }, onDeleted = {
-            deletingDm = false
-            onDmDeleted()
-        })
-    }
     var creatingPoll by rememberSaveable { mutableStateOf(false) }
     var openPollId by rememberSaveable { mutableStateOf<String?>(null) }
     if (creatingPoll) {
         PollCreateScreen(model) { creatingPoll = false }
+        return
+    }
+    // Spec chat-timeline notes: chat-notifications and chat-media-gallery from the DM chat menu.
+    var showsNotifications by rememberSaveable { mutableStateOf(false) }
+    if (showsNotifications) {
+        BackHandler { showsNotifications = false }
+        ChatNotificationsScreen(session, roomId, onBack = { showsNotifications = false })
+        return
+    }
+    var showsGallery by rememberSaveable { mutableStateOf(false) }
+    if (showsGallery) {
+        BackHandler { showsGallery = false }
+        ChatMediaGalleryScreen(session, media, roomId, onClose = { showsGallery = false })
         return
     }
     // Spec location-send, with the reply target taken when it opened.
@@ -221,8 +293,14 @@ fun ChatTimelineScreen(
         LocationSendScreen(model, session, request.replyToEventId) { locationSend = null }
         return
     }
+    // Poll edit (bipe-chat/bipe#669): over the poll detail, which shows again on close.
+    var editingPoll by remember { mutableStateOf<PollData?>(null) }
+    editingPoll?.let { poll ->
+        PollCreateScreen(model, poll) { editingPoll = null }
+        return
+    }
     openPollId?.let { eventId ->
-        PollDetailScreen(session, model, eventId) { openPollId = null }
+        PollDetailScreen(session, model, eventId, onEdit = { editingPoll = it }) { openPollId = null }
         return
     }
 
@@ -260,70 +338,138 @@ fun ChatTimelineScreen(
                         modifier = Modifier.weight(1f).then(if (isDm && onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId)
+                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId, members = avatarMembers)
                         Spacer(Modifier.size(8.dp))
                         Column(modifier = Modifier.weight(1f, fill = false)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    roomName,
+                                    when {
+                                        threadRoot != null -> stringResource(R.string.bipe_thread_title)
+                                        model.isNewsRoom -> stringResource(R.string.bipe_news_room_name)
+                                        else -> roomName
+                                    },
                                     style = MaterialTheme.typography.titleMedium,
                                     color = colors.inkPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f, fill = false),
                                 )
-                                if (isDm && BipeOfficialAccounts.isOfficial(peerUserId)) {
+                                if (model.isNewsRoom || (isDm && BipeOfficialAccounts.isOfficial(peerUserId))) {
                                     Spacer(Modifier.size(6.dp))
                                     OfficialBadge()
                                 }
+                                if (isDm) SealMark(peerUserId, Modifier.padding(start = 6.dp), seals = people?.seals)
                             }
                             // Spec brand-mark: a reseller's mark under the title, never instead of the name.
                             if (isDm) BrandMarkHeaderLine(peerUserId, people?.brandMarks)
                         }
                     }
-                    CallHeaderButtons(model, session, roomName)
-                    if (isGroup && onOpenGroupDetails != null) {
-                        IconButton(onClick = onOpenGroupDetails) {
-                            Icon(
-                                painterResource(PhosphorIcon.INFO.drawable),
-                                contentDescription = stringResource(R.string.bipe_app_group_details_title),
-                                tint = colors.glyphPrimary,
-                            )
-                        }
-                    }
-                    if (isDm) {
+                    if (isGroup && onOpenGroupDetails != null && threadRoot == null) {
+                        // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
                         Box {
-                            IconButton(onClick = { dmMenu = true }) {
+                            IconButton(onClick = { groupMenu = true }) {
                                 Icon(
                                     painterResource(PhosphorIcon.INFO.drawable),
-                                    contentDescription = stringResource(R.string.bipe_dm_details_title),
+                                    contentDescription = stringResource(R.string.bipe_app_group_details_title),
                                     tint = colors.glyphPrimary,
                                 )
                             }
-                            DropdownMenu(expanded = dmMenu, onDismissRequest = { dmMenu = false }) {
-                                business?.MenuItems(dismiss = { dmMenu = false })
+                            DropdownMenu(expanded = groupMenu, onDismissRequest = { groupMenu = false }) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) },
+                                    text = { Text(stringResource(R.string.bipe_app_group_details_title)) },
                                     onClick = {
-                                        dmMenu = false
-                                        deletingDm = true
+                                        groupMenu = false
+                                        onOpenGroupDetails()
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_search_in_chat)) },
+                                    onClick = {
+                                        groupMenu = false
+                                        searchingChat = true
                                     },
                                 )
                             }
                         }
                     }
+                    if (isDm && threadRoot == null) {
+                        // Spec chat-timeline notes: the DM chat menu is the one button on the right. Archive, never delete.
+                        val startCall = rememberCallStart(model, session, roomName)
+                        Box {
+                            IconButton(onClick = { dmMenu = true }) {
+                                Icon(
+                                    painterResource(PhosphorIcon.DOTS_THREE.drawable),
+                                    contentDescription = stringResource(R.string.bipe_chat_actions),
+                                    tint = colors.glyphPrimary,
+                                )
+                            }
+                            DropdownMenu(expanded = dmMenu, onDismissRequest = { dmMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_search_in_chat)) },
+                                    onClick = {
+                                        dmMenu = false
+                                        searchingChat = true
+                                    },
+                                )
+                                onOpenInfo?.let { open ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.bipe_dm_details_title)) },
+                                        onClick = {
+                                            dmMenu = false
+                                            open()
+                                        },
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_settings_notifications)) },
+                                    onClick = {
+                                        dmMenu = false
+                                        showsNotifications = true
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_gallery_title)) },
+                                    onClick = {
+                                        dmMenu = false
+                                        showsGallery = true
+                                    },
+                                )
+                                CallMenuItems(startCall, dismiss = { dmMenu = false })
+                                business?.MenuItems(dismiss = { dmMenu = false })
+                                archive?.let { toggle ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(if (toggle.archived) R.string.bipe_unarchive_action else R.string.bipe_archive_action)) },
+                                        onClick = {
+                                            dmMenu = false
+                                            toggle.set(!toggle.archived)
+                                            if (!toggle.archived) onBack()
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-                OngoingCallBar(model, session, roomName)
-                LiveLocationChatBar(roomId, session.userId)
+                // Spec threads notes: the thread view shows none of the chat bars.
+                if (threadRoot == null) {
+                    OngoingCallBar(model, session, roomName)
+                    predecessor?.let { (old, name) ->
+                        PredecessorLine(name ?: stringResource(R.string.bipe_group_common_no_room_name)) { onOpenChat(old) }
+                    }
+                    // Spec message-pins (bipe-chat/bipe#665): groups only.
+                    if (isGroup) PinnedBanner(session, roomId) { model.openOriginal(it) }
+                    LiveLocationChatBar(roomId, session.userId)
+                }
                 val sealInstitutions = people?.seals?.institutions?.collectAsState()
                 val cvmPeer = peerUserId
                 if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
                 // Booking cards pinned above the timeline (agenda-booking-card); they are not room events (ADR 0102).
-                business?.Cards()
+                if (threadRoot == null) business?.Cards()
                 LazyColumn(
                     state = listState,
                     reverseLayout = true,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    // Spec app-colors, ADR 0213: the chat background, still behind the scrolling messages.
+                    modifier = Modifier.weight(1f).fillMaxWidth().chatBackground(AppTheme.chatBackground, colors),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -333,27 +479,39 @@ fun ChatTimelineScreen(
                         row.message?.takeUnless { it.isOwn }?.let { message -> people?.seals?.institution(message.senderId) }
                     }
                     items(newestFirst, key = { it.id }) { row ->
-                        TimelineRowItem(
-                            row = row,
-                            isDm = isDm,
-                            isHighlighted = ui.highlightedRowId == row.id,
-                            model = model,
-                            media = media,
-                            onLongPress = { if (model.openActions(row.id)) view.bipeHaptic(BipeHaptic.Hold) },
-                            onHistoryHelp = onHistoryHelp,
-                            onOpenPoll = { openPollId = it },
-                            isPrivateRoom = isPrivateRoom,
-                            voiceState = voiceState,
-                            onTogglePlay = voicePlayer::togglePlay,
-                            onSeek = voicePlayer::seek,
-                            onOpenViewer = { viewerRowId = it },
-                            seals = people?.seals,
-                            institution = institutionOf(row),
-                        )
+                        // Spec message-forward selection (bipe-chat/bipe#860).
+                        SelectableTimelineRow(
+                            selection = ui.selection,
+                            rowId = row.id,
+                            selectable = ui.selection != null && model.canSelect(row),
+                            onToggle = {
+                                view.bipeHaptic(BipeHaptic.Tick)
+                                model.toggleSelection(row.id)
+                            },
+                        ) {
+                            TimelineRowItem(
+                                row = row,
+                                isDm = isDm,
+                                isHighlighted = ui.highlightedRowId == row.id,
+                                model = model,
+                                media = media,
+                                onLongPress = { if (model.openActions(row.id)) view.bipeHaptic(BipeHaptic.Hold) },
+                                onHistoryHelp = onHistoryHelp,
+                                onOpenPoll = { openPollId = it },
+                                isPrivateRoom = isPrivateRoom,
+                                voiceState = voiceState,
+                                onTogglePlay = voicePlayer::togglePlay,
+                                onSeek = voicePlayer::seek,
+                                onCycleSpeed = voicePlayer::cycleSpeed,
+                                onOpenViewer = { viewerRowId = it },
+                                seals = people?.seals,
+                                institution = institutionOf(row),
+                            )
+                        }
                     }
                     item(key = "history") {
                         // Composed while the top of the list is on screen, again after each load and each change of the rows
-                        // (action loadHistory). After a failed load, the next change of the rows tries again.
+                        // (action loadHistory). After a failed load, the model changes historyLoads after a pause.
                         LaunchedEffect(rows.size, historyLoads) { model.loadHistory() }
                         if (isLoadingHistory && !reachedStart) {
                             Text(
@@ -376,6 +534,20 @@ fun ChatTimelineScreen(
                     ProfileNoticeBar(people, noticePeer, roomName)
                 }
                 if (isDm && theftMark != null) TheftMarkBanner(roomName)
+                if (threadRoot == null) IdentityChangeBar(identity)
+                // Spec drafts (bipe-chat/bipe#866): the assistant draft banner above the composer.
+                if (threadRoot == null && ui.selection == null && successorRoomId == null) {
+                    AssistantDraftBanner(session, roomId) { draft ->
+                        val root = draft.threadRoot
+                        if (root != null) {
+                            // The thread view loads the thread's composer draft when it opens.
+                            AssistantDraftsStore.keepAsThreadDraft(draft)
+                            model.openThread(root)
+                        } else {
+                            model.takeAssistantDraft(draft.body, draft.replyTo)
+                        }
+                    }
+                }
                 val composerBar: @Composable () -> Unit = {
                     // The other person left the DM: the bar stays above the composer, which stays on (ADR 0141).
                     if (peerAway != PeerAway.NONE) {
@@ -388,7 +560,7 @@ fun ChatTimelineScreen(
                             }
                         }
                     }
-                    ComposerBar(
+                    IdentityComposerGate(identityState.blocksSending) { ComposerBar(
                         draft = draft,
                         canSend = model.canSend,
                         ui = ui,
@@ -402,31 +574,53 @@ fun ChatTimelineScreen(
                         onCancelReply = model::cancelReply,
                         onCancelEdit = model::cancelEdit,
                         onPickSuggestion = model::pickSuggestion,
-                        onAttach = { attaching = true },
+                        attachMenu = { expanded, onDismiss ->
+                            AttachmentMenu(
+                                expanded = expanded,
+                                openPhotos = startPhotos,
+                                onPhotosOpened = onStartPhotosUsed,
+                                onDismiss = onDismiss,
+                                onPicked = { files -> upload = PickedUpload(files, model.takeReplyEventId()) },
+                                onStickers = { showsStickers = true },
+                                onLocation = { locationSend = LocationSendRequest(model.takeReplyEventId()) },
+                                onPoll = if (composer.canPoll) ({ creatingPoll = true }) else null,
+                            )
+                        },
                         onStickers = { showsStickers = true },
                         onRecord = { model.startRecording(context.applicationContext) },
                         onEndRecording = model::endRecording,
-                    )
+                    ) }
                 }
                 val peer = peerUserId
-                if (isDm && people != null && peer != null) DmComposerSlot(people, peer, roomName, composerBar) else composerBar()
+                val selection = ui.selection
+                when {
+                    // Spec message-forward selection: the bar takes the place of the composer.
+                    selection != null -> MessageSelectionBar(
+                        count = selection.size,
+                        canForward = model.canForwardSelection(),
+                        canDelete = model.canDeleteSelection(),
+                        onCancel = model::cancelSelection,
+                        onForward = model::forwardSelection,
+                        onDelete = model::askDeleteSelection,
+                    )
+                    // Spec chat-timeline notes, upgraded groups (bipe-chat/bipe#773).
+                    successorRoomId != null -> RoomUpgradeBar(model, onOpenChat)
+                    isDm && people != null && peer != null -> DmComposerSlot(people, peer, roomName, composerBar)
+                    else -> composerBar()
+                }
             }
-            ui.notice?.let { notice ->
-                Text(
-                    noticeText(notice),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkPrimary,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 110.dp)
-                        .background(colors.surfaceRaised, CircleShape)
-                        .border(1.dp, colors.lineSubtle, CircleShape)
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                )
+            val noticeShown = ui.notice?.let { noticeText(it, ui.noticeArg) }
+            LaunchedEffect(ui.notice, ui.noticeArg) {
+                when {
+                    ui.notice == TimelineNotice.COPIED -> BipeToasts.copied(context)
+                    noticeShown != null -> BipeToasts.show(noticeShown)
+                }
             }
         }
     }
     business?.Sheets()
+    // Spec message-forward cancelSelection: Android back ends selection mode first.
+    BackHandler(enabled = ui.selection != null) { model.cancelSelection() }
 
     model.row(ui.actionsRowId)?.let { row ->
         MessageActionsSheet(
@@ -446,6 +640,9 @@ fun ChatTimelineScreen(
         )
     }
     ui.reactionSheet?.let { ReactionSendersSheet(it, onDismiss = model::closeSenders) }
+    ui.forwardingRowIds?.let(model::forwardContents)?.takeIf { it.isNotEmpty() }?.let { contentJsons ->
+        MessageForwardSheet(session.client, contentJsons, media, onClose = model::forwardClosed)
+    }
     ui.readersSheet?.let { ReadersSheet(it, media, onDismiss = model::closeReaders) }
     ui.report?.let { report ->
         MessageReportSheet(
@@ -474,16 +671,23 @@ fun ChatTimelineScreen(
             textContentColor = colors.inkSecondary,
         )
     }
-    if (attaching) {
-        AttachmentPicker(
-            onPicked = { files ->
-                attaching = false
-                upload = PickedUpload(files, model.takeReplyEventId())
+    // Spec message-forward deleteSelection: one dialog for all own picked messages.
+    if (ui.confirmsDeleteSelection) {
+        AlertDialog(
+            onDismissRequest = model::dismissDeleteSelection,
+            title = { Text(stringResource(R.string.bipe_select_delete_title)) },
+            text = { Text(stringResource(R.string.bipe_select_delete_body)) },
+            confirmButton = {
+                TextButton(onClick = model::confirmDeleteSelection) {
+                    Text(stringResource(R.string.bipe_app_message_action_delete), color = colors.trustDangerInk)
+                }
             },
-            onStickers = { showsStickers = true },
-            onLocation = { locationSend = LocationSendRequest(model.takeReplyEventId()) },
-            onPoll = if (composer.canPoll) ({ creatingPoll = true }) else null,
-            onDismiss = { attaching = false },
+            dismissButton = {
+                TextButton(onClick = model::dismissDeleteSelection) { Text(stringResource(R.string.bipe_app_cancel)) }
+            },
+            containerColor = colors.surfaceRaised,
+            titleContentColor = colors.inkPrimary,
+            textContentColor = colors.inkSecondary,
         )
     }
     upload?.let { picked ->
@@ -494,6 +698,10 @@ fun ChatTimelineScreen(
     }
     if (showsStickers) {
         StickerPicker(model.client, roomId, media, onClose = { showsStickers = false })
+    }
+    // message-actions viewStickerPack (spec sticker-pack).
+    ui.openingStickerPack?.let { pack ->
+        StickerPackScreen(model.client, pack, media, people?.handles, onClose = model::closeStickerPack)
     }
     val viewerMessage = viewerRowId?.let { id -> messages.firstOrNull { it.id == id } }
     val viewerLocation = viewerMessage?.takeIf { it.location != null }
@@ -527,7 +735,12 @@ internal fun copyToClipboard(context: Context, text: String) {
 }
 
 @Composable
-private fun noticeText(notice: TimelineNotice): String = when (notice) {
+private fun noticeText(notice: TimelineNotice, arg: String?): String = when (notice) {
+    TimelineNotice.PIN_FAILED -> stringResource(R.string.bipe_error_generic)
+    TimelineNotice.FORWARDED -> stringResource(R.string.bipe_forward_done)
+    TimelineNotice.FORWARD_FAILED -> stringResource(R.string.bipe_forward_failed, arg.orEmpty())
+    TimelineNotice.STICKER_SAVED -> stringResource(R.string.bipe_sticker_saved)
+    TimelineNotice.STICKER_SAVE_FAILED -> stringResource(R.string.bipe_sticker_save_failed)
     TimelineNotice.COPIED -> stringResource(R.string.bipe_app_copied)
     TimelineNotice.REACTION_FAILED -> stringResource(R.string.bipe_app_reaction_failed)
     TimelineNotice.EDIT_FAILED -> stringResource(R.string.bipe_app_message_edit_failed)
@@ -536,6 +749,9 @@ private fun noticeText(notice: TimelineNotice): String = when (notice) {
     TimelineNotice.INVITE_AGAIN_FAILED -> stringResource(R.string.bipe_dm_invite_again_failed)
     TimelineNotice.KEEP_LIMIT -> stringResource(R.string.bipe_voice_keep_limit, BipeRegistries.VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT.toString())
     TimelineNotice.KEEP_FAILED -> stringResource(R.string.bipe_error_generic)
+    TimelineNotice.SELECTION_FORWARDED -> stringResource(R.string.bipe_select_forward_done)
+    TimelineNotice.SELECTION_LIMIT -> stringResource(R.string.bipe_select_limit, MESSAGE_SELECTION_LIMIT.toString())
+    TimelineNotice.SELECTION_DELETE_FAILED -> stringResource(R.string.bipe_select_delete_failed)
 }
 
 /** Spec typing-indicator: who is typing, above the composer. */
@@ -593,7 +809,8 @@ private fun ComposerBar(
     onCancelReply: () -> Unit,
     onCancelEdit: () -> Unit,
     onPickSuggestion: (MentionSuggestion) -> Unit,
-    onAttach: () -> Unit,
+    /** Spec attachment-picker: the menu of the + button, anchored to it. */
+    attachMenu: @Composable (expanded: Boolean, onDismiss: () -> Unit) -> Unit,
     onStickers: () -> Unit,
     onRecord: () -> Unit,
     onEndRecording: () -> Unit,
@@ -608,7 +825,13 @@ private fun ComposerBar(
         if (ui.replyingToRowId != null || ui.editing != null) runCatching { focus.requestFocus() }
     }
     val recording = composer.recording
-    Column(modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised).testTag(BipeScreen.COMPOSER.id)) {
+    // Spec composer: the input and its buttons float over the chat background; the bars that replace them stay solid.
+    val floats = composer.canPost && !microphoneDenied && !(recording != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (floats) Modifier else Modifier.background(colors.surfaceRaised))
+            .testTag(BipeScreen.COMPOSER.id),
+    ) {
         if (!composer.canPost) {
             Text(
                 stringResource(R.string.bipe_dm_no_permission_to_post),
@@ -627,39 +850,52 @@ private fun ComposerBar(
             VoiceRecordingBar(recording, onClose = onEndRecording)
             return@Column
         }
-        if (composer.suggestions.isNotEmpty()) {
-            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
-                items(composer.suggestions, key = { it.userId ?: "@room" }) { suggestion ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onPickSuggestion(suggestion) }.padding(horizontal = 16.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Avatar(suggestion.name, suggestion.avatarUrl, media, size = 32.dp)
-                        Column {
-                            Text(suggestion.name, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
-                            suggestion.handle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
+        val reply = ui.replyingTo
+        val editing = ui.editing
+        if (composer.suggestions.isNotEmpty() || reply != null || editing != null) {
+            Column(
+                modifier = Modifier
+                    .padding(start = 12.dp, end = 12.dp, top = 8.dp)
+                    .fillMaxWidth()
+                    .floatingSurface(RoundedCornerShape(20.dp), colors.surfaceRaised, colors.lineSubtle)
+                    .clip(RoundedCornerShape(20.dp)),
+            ) {
+                if (composer.suggestions.isNotEmpty()) {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
+                        items(composer.suggestions, key = { it.userId ?: "@room" }) { suggestion ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable { onPickSuggestion(suggestion) }.padding(horizontal = 16.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Avatar(suggestion.name, suggestion.avatarUrl, media, size = 32.dp)
+                                Column {
+                                    // Spec composer nameAmbiguous: a member with no handle line shows the Matrix ID after a shared name.
+                                    val label = suggestion.userId?.takeIf { suggestion.handle == null }
+                                        ?.let { memberLabel(suggestion.name, it, suggestion.nameAmbiguous) } ?: suggestion.name
+                                    Text(label, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                                    suggestion.handle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
+                                }
+                            }
                         }
                     }
                 }
+                if (reply != null) {
+                    ComposerContextBar(
+                        icon = PhosphorIcon.ARROW_BEND_UP_LEFT,
+                        title = stringResource(R.string.bipe_app_message_replying_to, reply.senderName.orEmpty()),
+                        preview = reply.preview,
+                        onClose = onCancelReply,
+                    )
+                } else if (editing != null) {
+                    ComposerContextBar(
+                        icon = PhosphorIcon.PENCIL_SIMPLE,
+                        title = stringResource(R.string.bipe_app_message_editing),
+                        preview = editing.originalText,
+                        onClose = onCancelEdit,
+                    )
+                }
             }
-        }
-        val reply = ui.replyingTo
-        val editing = ui.editing
-        if (reply != null) {
-            ComposerContextBar(
-                icon = PhosphorIcon.ARROW_BEND_UP_LEFT,
-                title = stringResource(R.string.bipe_app_message_replying_to, reply.senderName.orEmpty()),
-                preview = reply.preview,
-                onClose = onCancelReply,
-            )
-        } else if (editing != null) {
-            ComposerContextBar(
-                icon = PhosphorIcon.PENCIL_SIMPLE,
-                title = stringResource(R.string.bipe_app_message_editing),
-                preview = editing.originalText,
-                onClose = onCancelEdit,
-            )
         }
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -667,20 +903,24 @@ private fun ComposerBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (editing == null) {
-                IconButton(onClick = onAttach) {
-                    Icon(
-                        painterResource(PhosphorIcon.PAPERCLIP.drawable),
-                        contentDescription = stringResource(R.string.bipe_app_composer_attach),
-                        tint = colors.glyphPrimary,
-                    )
+                var attaching by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { attaching = true }, modifier = Modifier.floatingSurface(CircleShape, colors.surfaceRaised, colors.lineSubtle)) {
+                        Icon(
+                            painterResource(PhosphorIcon.PLUS.drawable),
+                            contentDescription = stringResource(R.string.bipe_app_composer_attach),
+                            tint = colors.glyphPrimary,
+                        )
+                    }
+                    attachMenu(attaching) { attaching = false }
                 }
             }
             val placeholder = stringResource(R.string.bipe_app_timeline_composer_placeholder)
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .background(colors.surfaceSunken, RoundedCornerShape(20.dp))
-                    .padding(start = 14.dp, end = 6.dp),
+                    .floatingSurface(RoundedCornerShape(24.dp), colors.surfaceRaised, colors.lineSubtle)
+                    .padding(start = 16.dp, end = 6.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 BasicTextField(
@@ -692,7 +932,18 @@ private fun ComposerBar(
                     modifier = Modifier
                         .weight(1f)
                         .focusRequester(focus)
-                        .padding(vertical = 10.dp),
+                        // A hardware keyboard: Enter sends, Shift+Enter makes a new line (bipe-chat/bipe#832). Enter
+                        // from the on-screen keyboard (a virtual device) keeps making a new line.
+                        .onPreviewKeyEvent { event ->
+                            val hardware = event.nativeKeyEvent.device?.isVirtual == false
+                            if (!hardware || event.isShiftPressed || (event.key != Key.Enter && event.key != Key.NumPadEnter)) {
+                                return@onPreviewKeyEvent false
+                            }
+                            if (event.type == KeyEventType.KeyDown && canSend) onSend()
+                            true
+                        }
+                        // 22 dp line + 2 x 13 = 48 dp, the sticker button's height, so one line sits in the middle.
+                        .padding(vertical = 13.dp),
                     decorationBox = { inner ->
                         Box {
                             if (draft.isEmpty()) {
@@ -722,19 +973,19 @@ private fun ComposerBar(
             if (showsRecord) {
                 IconButton(
                     onClick = { microphone.launch(Manifest.permission.RECORD_AUDIO) },
-                    modifier = Modifier.background(colors.accentFill, CircleShape),
+                    modifier = Modifier.floatingSurface(CircleShape, colors.surfaceRaised, colors.lineSubtle),
                 ) {
                     Icon(
                         painterResource(PhosphorIcon.MICROPHONE.drawable),
                         contentDescription = stringResource(R.string.bipe_app_composer_record),
-                        tint = colors.inkOnAccent,
+                        tint = colors.glyphPrimary,
                     )
                 }
             } else {
                 IconButton(
                     onClick = onSend,
                     enabled = canSend,
-                    modifier = Modifier.background(if (canSend) colors.accentFill else colors.surfaceSunken, CircleShape),
+                    modifier = Modifier.floatingSurface(CircleShape, if (canSend) colors.accentFill else colors.surfaceRaised, colors.lineSubtle),
                 ) {
                     Icon(
                         painterResource(if (editing == null) PhosphorIcon.PAPER_PLANE_RIGHT.drawable else PhosphorIcon.CHECK.drawable),
@@ -823,3 +1074,6 @@ private fun CvmStopOrderCard(people: PeopleService, userId: String) {
         Text(stringResource(R.string.bipe_cvm_stop_order_card, date), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = colors.trustDangerInk)
     }
 }
+
+/** Spec chat-archive from the DM chat menu: the chat's archived state in the account's archive, and its setter. */
+class ChatArchiveToggle(val archived: Boolean, val set: (Boolean) -> Unit)

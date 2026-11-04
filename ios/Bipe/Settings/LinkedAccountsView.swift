@@ -203,14 +203,6 @@ struct LinkedAccountsView: View {
         } message: { _ in
             Text(BipeStrings.linkedAccountUnlinkBody)
         }
-        .overlay(alignment: .bottom) {
-            if let notice = model.notice {
-                NoticeView(text: notice)
-                    .task {
-                        try? await Task.sleep(for: .seconds(2))
-                        model.notice = nil
-                    }
-            }
-        }
+        .toast($model.notice)
     }
 }

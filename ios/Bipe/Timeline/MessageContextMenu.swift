@@ -14,12 +14,17 @@ struct MessageContextActions: View {
     var body: some View {
         if let row = model.row(rowId) {
             if model.showsReactions(row) {
-                Menu {
+                // The quick reactions are one row of emoji at the top of the menu, not a submenu of rows.
+                Picker(BipeStrings.a11yReact, selection: Binding<String?>(get: { nil }, set: { key in
+                    if let key { model.react(rowId: rowId, key: key) }
+                })) {
                     ForEach(ChatTimelineModel.quickReactions, id: \.self) { key in
-                        Button(key) { model.react(rowId: rowId, key: key) }
+                        Text(verbatim: key).tag(String?.some(key))
                     }
-                    Button(BipeStrings.appMessageActionMoreReactions) { model.moreReactions(rowId: rowId) }
-                } label: {
+                }
+                .pickerStyle(.palette)
+                .paletteSelectionEffect(.custom)
+                Button { model.moreReactions(rowId: rowId) } label: {
                     Label(BipeStrings.appMessageActionMoreReactions, systemImage: "face.smiling")
                 }
             }
@@ -37,8 +42,17 @@ extension MessageAction {
     var menuTitle: String {
         switch self {
         case .reply: BipeStrings.appMessageActionReply
+        case .replyInThread: BipeStrings.threadReplyAction
         case .edit: BipeStrings.appMessageActionEdit
+        case .removeCaption: BipeStrings.captionRemove
         case .copy: BipeStrings.appCopy
+        case .copyLink: BipeStrings.appMessageActionCopyLink
+        case .pin: BipeStrings.pinAction
+        case .unpin: BipeStrings.unpinAction
+        case .forward: BipeStrings.forwardAction
+        case .select: BipeStrings.selectAction
+        case .saveSticker: BipeStrings.actionSaveSticker
+        case .viewStickerPack: BipeStrings.actionViewStickerPack
         case .keepAudio: BipeStrings.voiceKeep
         case .unkeepAudio: BipeStrings.voiceUnkeep
         case .retry: BipeStrings.appRetry
@@ -50,8 +64,16 @@ extension MessageAction {
     var menuIcon: PhosphorIcon {
         switch self {
         case .reply: .arrowBendUpLeft
+        case .replyInThread: .chatText
         case .edit: .pencilSimple
+        case .removeCaption: .x
         case .copy: .copy
+        case .copyLink: .link
+        case .pin, .unpin: .chatText
+        case .forward: .paperPlaneRight
+        case .select: .checkCircle
+        case .saveSticker: .sticker
+        case .viewStickerPack: .sticker
         case .keepAudio: .downloadSimple
         case .unkeepAudio: .x
         case .retry: .arrowClockwise
@@ -64,8 +86,17 @@ extension MessageAction {
     var menuSymbol: String {
         switch self {
         case .reply: "arrowshape.turn.up.left"
+        case .replyInThread: "bubble.left.and.text.bubble.right"
         case .edit: "pencil"
+        case .removeCaption: "text.badge.minus"
         case .copy: "doc.on.doc"
+        case .copyLink: "link"
+        case .pin: "pin"
+        case .unpin: "pin.slash"
+        case .forward: "arrowshape.turn.up.right"
+        case .select: "checkmark.circle"
+        case .saveSticker: "square.and.arrow.down"
+        case .viewStickerPack: "square.on.square"
         case .keepAudio: "bookmark"
         case .unkeepAudio: "bookmark.slash"
         case .retry: "arrow.clockwise"

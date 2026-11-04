@@ -16,12 +16,33 @@ struct ReportChatView: View {
         case failed
     }
 
-    let people: PeopleService
+    let session: AccountSession
+    /// DM only: block and the dm-delete write.
+    let people: PeopleService?
     let roomId: String
     let isDm: Bool
     let otherUserId: String?
     /// Shows the toast of a sent report on the screen underneath.
     let onSent: (String) -> Void
+
+    init(people: PeopleService, roomId: String, isDm: Bool, otherUserId: String?, onSent: @escaping (String) -> Void) {
+        session = people.session
+        self.people = people
+        self.roomId = roomId
+        self.isDm = isDm
+        self.otherUserId = otherUserId
+        self.onSent = onSent
+    }
+
+    /// A group, from group-details (bipe#674).
+    init(session: AccountSession, groupRoomId: String, onSent: @escaping (String) -> Void) {
+        self.session = session
+        people = nil
+        roomId = groupRoomId
+        isDm = false
+        otherUserId = nil
+        self.onSent = onSent
+    }
 
     @State private var reason = ""
     @State private var alsoBlock = true
@@ -96,7 +117,7 @@ struct ReportChatView: View {
     /// Action send: Room.reportRoom, then in order block, the dm-delete write and leave.
     /// A failed follow-up step does not undo the report.
     private func send() async {
-        guard let room = try? people.session.client.getRoom(roomId: roomId) else {
+        guard let room = try? session.client.getRoom(roomId: roomId) else {
             phase = .failed
             return
         }
@@ -110,10 +131,10 @@ struct ReportChatView: View {
         phase = .sent
         if isDm {
             if alsoBlock, let otherUserId {
-                try? await people.block(otherUserId)
+                try? await people?.block(otherUserId)
             }
             if alsoDelete {
-                try? await people.clearDm(roomId)
+                try? await people?.clearDm(roomId)
             }
         } else if alsoLeave {
             do {

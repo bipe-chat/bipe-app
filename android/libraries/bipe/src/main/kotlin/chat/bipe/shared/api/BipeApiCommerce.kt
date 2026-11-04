@@ -435,6 +435,8 @@ data class BipeOrder(
     @SerialName("status") val status: String,
     @SerialName("refuse_reason") val refuseReason: String? = null,
     @SerialName("quote_id") val quoteId: String? = null,
+    /** Made on the web with a first name (ADR 0195). No chat. */
+    @SerialName("web") val web: Boolean = false,
 ) {
     val orderStatus: BipeOrderStatus get() = BipeOrderStatus.fromId(status)
     val reason: BipeOrderRefuseReason? get() = refuseReason?.let(BipeOrderRefuseReason::fromId)

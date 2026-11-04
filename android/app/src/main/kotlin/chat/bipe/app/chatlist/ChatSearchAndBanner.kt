@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -27,7 +28,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -35,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
@@ -44,6 +48,7 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.settings.openPage
+import chat.bipe.app.timeline.AssistantDraftsStore
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
@@ -62,7 +67,7 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 
 /** Spec chat-search: finds a chat or group by name among the person's own chats. Bipe has no directory. */
-class ChatSearchModel(private val session: AccountSession, private val list: ChatListModel, private val scope: CoroutineScope) {
+class ChatSearchModel(private val session: AccountSession, private val list: ChatListModel, private val scope: CoroutineScope, context: Context) {
     data class State(val query: String = "", val results: List<ChatSummary> = emptyList(), val isSearching: Boolean = false) {
         /** findByHandle is offered when the query starts with @ and nothing matched. */
         val offersHandleLookup: Boolean get() = query.startsWith("@") && results.isEmpty() && !isSearching
@@ -73,12 +78,17 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
     private val rooms = FilteredRoomList(scope) { found ->
         if (_state.value.query.isNotBlank()) {
             val query = _state.value.query
-            val summaries = found.filter { it.id() != list.notes.roomId }.mapNotNull { list.summary(it) }
+            val draftsRoomId = AssistantDraftsStore.roomId(session.userId)
+            val summaries = found.filter { it.id() != list.notes.roomId && it.id() != draftsRoomId }.mapNotNull { list.summary(it) }
             val visible = NativeDmSelection.visible(summaries, session)
             if (_state.value.query == query) _state.value = _state.value.copy(results = visible, isSearching = false)
         }
     }
     private var debounce: Job? = null
+    /** State messages (bipe-chat/bipe#671). */
+    val messages = MessageSearchModel(session, scope, context.getString(R.string.bipe_app_you), context.getString(R.string.bipe_dm_no_name))
+    /** State recent. */
+    val recent = RecentSearches(context, session.userId)
     private val clearChanges = scope.launch { ClearedChatsStore.revision.collect { rooms.refresh() } }
 
     /** Action editQuery: sets the name filter, at most every 150 ms. */
@@ -86,9 +96,13 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
         debounce?.cancel()
         val pattern = text.trim()
         _state.value = State(query = text, results = if (pattern.isEmpty()) emptyList() else _state.value.results, isSearching = pattern.isNotEmpty())
-        if (pattern.isEmpty()) return
+        if (pattern.isEmpty()) {
+            scope.launch { messages.search("") }
+            return
+        }
         debounce = scope.launch {
             delay(150)
+            launch { messages.search(pattern) }
             // Both tabs together; requests (invites) are left out by Joined.
             rooms.start(
                 session,
@@ -107,7 +121,7 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
     /** Action close. */
     fun close() = edit("")
 
-    fun dispose() { clearChanges.cancel(); rooms.close() }
+    fun dispose() { clearChanges.cancel(); rooms.close(); messages.close() }
 }
 
 /** The search field of chat-list: the top bar on Android (ADR 0053). */
@@ -130,18 +144,42 @@ fun ChatSearchField(model: ChatSearchModel) {
 
 /** The results under the search field. */
 @Composable
-fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (String) -> Unit, onFindHandle: (String) -> Unit = {}) {
+fun ChatSearchResults(
+    model: ChatSearchModel,
+    media: MediaLoader,
+    onOpenChat: (String) -> Unit,
+    onFindHandle: (String) -> Unit = {},
+    /** Action openMessage (bipe-chat/bipe#671): room ID, event ID. */
+    onOpenMessage: (String, String) -> Unit = { _, _ -> },
+) {
     val colors = BipeTheme.colors
     val state by model.state.collectAsState()
+    val hits by model.messages.hits.collectAsState()
+    val recent by model.recent.queries.collectAsState()
     LazyColumn(Modifier.fillMaxSize().testTag(BipeScreen.CHAT_SEARCH.id)) {
         when {
-            state.query.isBlank() -> Unit
-            state.isSearching && state.results.isEmpty() -> item(key = "searching") {
+            state.query.isBlank() -> if (recent.isNotEmpty()) {
+                // State recent, while the query is blank.
+                item(key = "recent-header") {
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.bipe_search_recent), style = MaterialTheme.typography.labelLarge, color = colors.accentInk, modifier = Modifier.weight(1f))
+                        TextButton(onClick = model.recent::clear) { Text(stringResource(R.string.bipe_search_recent_clear)) }
+                    }
+                }
+                items(recent, key = { "recent-$it" }) { query ->
+                    Text(
+                        query,
+                        color = colors.inkPrimary,
+                        modifier = Modifier.fillMaxWidth().clickable { model.edit(query) }.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+            }
+            state.isSearching && state.results.isEmpty() && hits.isEmpty() -> item(key = "searching") {
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = colors.accentFill)
                 }
             }
-            state.results.isEmpty() -> item(key = "none") {
+            state.results.isEmpty() && hits.isEmpty() -> item(key = "none") {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.bipe_app_search_no_results, state.query), color = colors.inkSecondary)
                     if (state.offersHandleLookup) {
@@ -151,14 +189,15 @@ fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (S
                     }
                 }
             }
-            else -> items(state.results, key = { it.roomId }) { chat ->
+            else -> {
+            items(state.results, key = { it.roomId }) { chat ->
                 // Action openChat.
                 Row(
                     Modifier.fillMaxWidth().clickable { onOpenChat(chat.roomId) }.padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Avatar(chat.name, chat.avatarUrl, media, size = 40.dp, userId = chat.peerUserId)
+                    Avatar(chat.name, chat.avatarUrl, media, size = 40.dp, userId = chat.peerUserId, members = chat.avatarMembers)
                     Column {
                         Text(chat.name, color = colors.inkPrimary, maxLines = 1)
                         // Each result shows whether it is a chat or a group.
@@ -169,6 +208,25 @@ fun ChatSearchResults(model: ChatSearchModel, media: MediaLoader, onOpenChat: (S
                         )
                     }
                 }
+            }
+            // State messages, under the chats.
+            if (hits.isNotEmpty()) {
+                item(key = "messages-header") {
+                    Text(
+                        stringResource(R.string.bipe_search_messages),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = colors.accentInk,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+                    )
+                }
+                itemsIndexed(hits, key = { _, hit -> "message-${hit.roomId}-${hit.eventId}" }) { index, hit ->
+                    if (index == hits.lastIndex) LaunchedEffect(hit.eventId) { model.messages.loadMore() }
+                    MessageHitRow(hit) {
+                        model.recent.add(state.query)
+                        onOpenMessage(hit.roomId, hit.eventId)
+                    }
+                }
+            }
             }
         }
     }
@@ -239,40 +297,26 @@ class RemoteBannerModel(private val context: Context, private val api: BipeApiCl
     }
 }
 
+/** The remoteBanner entry of chat-list-prompt (bipe-chat/bipe#894) holds. */
+@Composable
+fun RemoteBannerModel.collectShows(): Boolean {
+    val current by state.collectAsState()
+    return current.state != BipeRemoteBanner.State.HIDDEN && current.banner != null
+}
+
+/** The remoteBanner card of chat-list-prompt. Title and text come from the server in pt-BR and show as they are. */
 @Composable
 fun RemoteBannerCard(model: RemoteBannerModel, context: Context) {
-    val colors = BipeTheme.colors
     val current by model.state.collectAsState()
     val banner = current.banner
     if (current.state == BipeRemoteBanner.State.HIDDEN || banner == null) return
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .background(colors.trustCautionWash, RoundedCornerShape(12.dp))
-            .clickable { model.open(context) }
-            .padding(12.dp)
-            .testTag(BipeScreen.REMOTE_BANNER.id),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustCautionInk, modifier = Modifier.size(22.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            // Title and text come from the server in pt-BR and show as they are.
-            Text(banner.title, fontWeight = FontWeight.Bold, color = colors.inkPrimary)
-            Text(banner.text, color = colors.inkPrimary)
-            if (current.state == BipeRemoteBanner.State.UPDATE) {
-                Text(stringResource(R.string.bipe_remote_banner_update), fontWeight = FontWeight.Bold, color = colors.accentInk)
-            }
-        }
-        if (current.state == BipeRemoteBanner.State.NOTICE) {
-            // Action dismiss.
-            IconButton(onClick = model::dismiss, modifier = Modifier.size(24.dp)) {
-                Icon(
-                    painterResource(PhosphorIcon.X.drawable),
-                    contentDescription = stringResource(R.string.bipe_remote_banner_dismiss),
-                    tint = colors.glyphSecondary,
-                )
-            }
-        }
-    }
+    val open = stringResource(R.string.bipe_remote_banner_update)
+    PromptCard(
+        title = banner.title,
+        body = banner.text,
+        primary = if (current.state == BipeRemoteBanner.State.UPDATE) PromptAction(open) { model.open(context) } else null,
+        texts = if (current.state == BipeRemoteBanner.State.NOTICE) listOf(PromptAction(stringResource(R.string.bipe_remote_banner_dismiss), model::dismiss)) else emptyList(),
+        // Action open: a notice opens its page from a tap on the card.
+        modifier = Modifier.clickable(role = Role.Button) { model.open(context) }.testTag(BipeScreen.REMOTE_BANNER.id),
+    )
 }
