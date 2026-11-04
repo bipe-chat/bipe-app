@@ -58,11 +58,11 @@ final class ChatRequestsModel: ObservableObject {
         self.people = people
     }
 
-    /// Only a signed company payload verified against the inviter's master key supplies a verified name.
+    /// Only a signed badge verified against the inviter's master key supplies a verified name.
     /// The observable seal store updates readers and suppresses expired/revoked/invalid badges.
     func trust(for request: ChatRequestSummary) -> ChatRequestSummary.Trust {
         if request.trust == .external { return .external }
-        guard let badge = people.seals.badge(for: request.inviterId),
+        guard let badge = people.seals.verifiedBadge(for: request.inviterId),
               !badge.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .unverified }
         return .verified(name: badge.name)
     }

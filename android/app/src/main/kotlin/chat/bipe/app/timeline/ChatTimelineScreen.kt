@@ -112,6 +112,7 @@ import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.app.common.OfficialBadge
+import chat.bipe.app.common.SealMark
 import chat.bipe.app.groups.ClearedChatsStore
 import chat.bipe.app.calls.CallMenuItems
 import chat.bipe.app.calls.rememberCallStart
@@ -357,6 +358,7 @@ fun ChatTimelineScreen(
                                     Spacer(Modifier.size(6.dp))
                                     OfficialBadge()
                                 }
+                                if (isDm) SealMark(peerUserId, Modifier.padding(start = 6.dp), seals = people?.seals)
                             }
                             // Spec brand-mark: a reseller's mark under the title, never instead of the name.
                             if (isDm) BrandMarkHeaderLine(peerUserId, people?.brandMarks)

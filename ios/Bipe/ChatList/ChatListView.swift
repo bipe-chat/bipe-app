@@ -176,6 +176,7 @@ struct ChatListView: View {
             }
         }
         .environment(\.bipeBrandMarks, people.brandMarks)
+        .environment(\.bipeCompanySeals, people.seals)
         .environment(\.bipeHandles, people.handles)
         .onAppear { people.start() }
         .sheet(isPresented: $showsDrafts) {
@@ -748,6 +749,9 @@ struct ChatRow: View {
                         .lineLimit(1)
                     if chat.isOfficial {
                         OfficialBadge()
+                    }
+                    if chat.isDm {
+                        SealMark(userId: chat.peerUserId)
                     }
                     Spacer(minLength: 8)
                     if let lastActivity = chat.lastActivity {
