@@ -122,6 +122,7 @@ suspend fun BipeApiClient.liveTools(business: String): List<String> =
 data class BipeWebSettings(
     @SerialName("web_booking") val webBooking: Boolean,
     @SerialName("web_orders") val webOrders: Boolean,
+    @SerialName("web_queue") val webQueue: Boolean,
 )
 
 /** Contract `WebRecords`: the records a claim moved to the account. */
