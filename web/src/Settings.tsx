@@ -11,6 +11,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { PALETTES, useSetting, writeSetting, type Appearance, type ChatBackgroundOption } from './appearance';
 import { useClient } from './media';
+import { useMuralEnabled, writeMural } from './mural-plan';
 import { caretRight, chatCircle, bell, check, info, lockSimple, userCircle } from './phosphor/icons';
 import { Spinner } from './ui/Spinner';
 import { settings } from './registries';
@@ -46,9 +47,11 @@ const LOCAL_SWITCHES: Record<string, string> = {
   preview: 'bipe.web.notifications.preview',
 };
 // Rows the web draws itself: Nome e foto, Tema (choice), Cores (link).
-const WEB_ROWS = new Set(['namePhoto', 'appearance', 'colors']);
+const WEB_ROWS = new Set(['namePhoto', 'appearance', 'colors', 'mural']);
 
 function webRow(row: SettingsRow): boolean {
+  // A planned: gate hides a row until the apps ship its handler (chats.mural, bipe-chat/bipe#1044).
+  if ('gate' in row && typeof row.gate === 'string' && row.gate.startsWith('planned:')) return false;
   return (
     row.kind === 'url' ||
     row.key === 'signOut' ||
@@ -77,6 +80,30 @@ export function readReceiptsOn(): boolean {
 function SwitchRow({ title, storageKey }: { title: string; storageKey: string }) {
   const [on, setOn] = useState(() => readSwitch(storageKey));
   return (
+    <SwitchControl
+      title={title}
+      on={on}
+      onChange={(next) => {
+        setOn(next);
+        try {
+          localStorage.setItem(storageKey, String(next));
+        } catch {
+          // Private windows can refuse storage; the switch then lasts for this page only.
+        }
+      }}
+    />
+  );
+}
+
+// Row chats.mural (spec chat-list, Mural setting): per account, in this browser, off by default, no sync.
+function MuralSwitchRow({ title }: { title: string }) {
+  const userId = useClient().userId();
+  const on = useMuralEnabled(userId);
+  return <SwitchControl title={title} on={on} onChange={(next) => writeMural(userId, next)} />;
+}
+
+function SwitchControl({ title, on, onChange }: { title: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
     <Row>
       <label className="flex min-w-0 flex-1 items-center gap-3 py-1">
         <span className="min-w-0 flex-1 text-body text-ink-primary">{title}</span>
@@ -85,14 +112,7 @@ function SwitchRow({ title, storageKey }: { title: string; storageKey: string })
           role="switch"
           className="peer sr-only"
           checked={on}
-          onChange={(e) => {
-            setOn(e.target.checked);
-            try {
-              localStorage.setItem(storageKey, String(e.target.checked));
-            } catch {
-              // Private windows can refuse storage; the switch then lasts for this page only.
-            }
-          }}
+          onChange={(e) => onChange(e.target.checked)}
         />
         {/* The iOS switch: 51 x 31 with a 27 px knob, accent.fill when on, surface.sunken when off. */}
         <span
@@ -253,6 +273,8 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
                     <Icon path={caretRight} size={16} className="text-glyph-secondary" />
                   </button>
                 </li>
+              ) : row.key === 'mural' ? (
+                <MuralSwitchRow key={row.key} title={s(key(row.title))} />
               ) : LOCAL_SWITCHES[row.key] ? (
                 <SwitchRow key={row.key} title={s(key(row.title))} storageKey={LOCAL_SWITCHES[row.key]} />
               ) : row.kind === 'url' ? (

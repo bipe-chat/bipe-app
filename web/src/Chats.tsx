@@ -11,7 +11,8 @@
 // Conversas (DMs, with the Pedidos row on top) and Grupos (other joined rooms, group invites on top).
 // The apps switch them with the tab bar; the web has a segmented control under the title. Archived chats
 // leave both lists and show under the Arquivadas row at the end of each scope. Favourites (m.favourite)
-// leave the list too and show as a grid of large avatars at its top.
+// leave the list too and show as a grid of large avatars at its top. An account can turn on Mural (ADR 0246,
+// spec chat-list): Conversas then shows DMs and groups as tiles (Mural.tsx), and the plain list one tap away.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { ChatArchive, useArchiveVersion } from './archive';
@@ -19,7 +20,6 @@ import { useChatSummaries, type ChatSummary } from './chat-model';
 import {
   RoomListEntriesDynamicFilterKind,
   RoomListEntriesUpdate,
-  RoomNotificationMode,
   type ClientLike as Client,
   type RoomLike as Room,
   type RoomListEntriesWithDynamicAdaptersResultLike as RoomListEntriesWithDynamicAdaptersResult,
@@ -30,11 +30,12 @@ import { AccountSwitcher } from './AccountSwitcher';
 import { DmDeleteAlert, NotifySheet } from './ChatActions';
 import { markRead, markUnread, useClearedChats } from './chat-actions';
 import { clearedChatHidden } from './bipe/generated/lib/registries.mjs';
+import { Mural } from './Mural';
+import { useMuralEnabled, useMuralTiles, useScreenAtRest } from './mural-plan';
 import { NewChat, NewGroup } from './NewChat';
 import {
   archive as archiveIcon,
   pencilSimple,
-  bellSlash,
   briefcase,
   caretLeft,
   gear,
@@ -63,6 +64,7 @@ import { WorkView } from './work/WorkView';
 import { RoomTimeline } from './Timeline';
 import { Avatar, useIsCompany } from './ui/Avatar';
 import { BipeMark } from './ui/BipeMark';
+import { ChatBadges } from './ui/ChatBadges';
 import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import { Spinner } from './ui/Spinner';
@@ -243,7 +245,11 @@ export function Chats({ client }: { client: Client }) {
   const openId = useRef<string>(undefined);
   openId.current = open?.id();
   const ownUserId = client.userId();
-  const inScope = (c: ChatSummary) => (scope === 'conversas' ? c.kind === 'dm' : c.kind === 'group');
+  // Spec chat-list, Mural scope: Conversas shows DMs and groups. Grupos does not change.
+  const muralOn = useMuralEnabled(ownUserId);
+  const muralScope = muralOn && scope === 'conversas';
+  const inScope = (c: ChatSummary) =>
+    scope === 'conversas' ? c.kind === 'dm' || (muralOn && c.kind === 'group') : c.kind === 'group';
   // Spec dm-delete: a cleared DM stays hidden until a message newer than its marker arrives.
   const cleared = (c: ChatSummary) =>
     c.kind === 'dm' && clearedChatHidden(clearedMarker(c.roomId), c.row.at ?? null);
@@ -257,6 +263,10 @@ export function Chats({ client }: { client: Client }) {
     (c) => inScope(c) && !isFavourite(c) && !archive.isArchived(c.roomId) && !cleared(c),
   );
   const archived = summaries.filter((c) => inScope(c) && archive.isArchived(c.roomId) && !cleared(c));
+  // A favourite adds to the score and has no row of its own in Mural, so these chats include favourites.
+  const muralChats = muralScope
+    ? summaries.filter((c) => inScope(c) && !archive.isArchived(c.roomId) && !cleared(c))
+    : [];
   const requests = summaries.filter((c) => c.kind === 'request');
   const groupInvites = summaries.filter((c) => c.kind === 'groupInvite');
   // Tab badges (chat-list-filters): unread DMs; mentions in groups. Archived chats keep their badges.
@@ -340,13 +350,27 @@ export function Chats({ client }: { client: Client }) {
   const [encryptionDismissed, setEncryptionDismissed] = useState(bannerDismissed);
   const searching = query.trim() !== '';
   const needle = normalize(query.trim());
+  // Action openMuralList of spec chat-list. The back row and a change of scope return to the tiles.
+  const [muralShowsList, setMuralShowsList] = useState(false);
+  const inMural = muralScope && !searching && !showingArchived;
+  const showsTiles = inMural && !muralShowsList;
+  const scroller = useRef<HTMLUListElement>(null);
+  const screenAtRest = useScreenAtRest(scroller, showsTiles);
+  const tiles = useMuralTiles({
+    client,
+    muralOn,
+    chats: muralChats,
+    showsTiles,
+    atRest: screenAtRest && menu === undefined,
+  });
+  const drawsTiles = tiles.length > 0;
   // Search covers both scopes and archived chats; it opens any of them.
   const found = summaries.filter(
     (c) => (c.kind === 'dm' || c.kind === 'group') && normalize(c.face.name).includes(needle),
   );
-  const rows = searching ? found : showingArchived ? archived : active;
-  const shownFavourites = searching || showingArchived ? [] : favourites;
-  listed.current = [...shownFavourites, ...rows];
+  const rows = searching ? found : showingArchived ? archived : inMural ? muralChats : active;
+  const shownFavourites = searching || showingArchived || inMural ? [] : favourites;
+  listed.current = drawsTiles ? tiles.map((t) => t.chat) : [...shownFavourites, ...rows];
 
   /** Action setFavourite of spec chat-list: the m.favourite tag, so it syncs to the account's other devices. */
   const setFavourite = (chat: ChatSummary, favourite: boolean) => {
@@ -454,10 +478,14 @@ export function Chats({ client }: { client: Client }) {
           {!searching && (
             <ScopePicker
               scope={scope}
-              badges={{ conversas: chatsBadge, grupos: groupsBadge }}
+              // Spec app-tabs: with Mural on, the Conversas badge adds the Grupos attention count.
+              badges={{ conversas: muralOn ? chatsBadge + groupsBadge : chatsBadge, grupos: groupsBadge }}
               // setScope goes to the list of that scope, out of Arquivadas too. A second navigate here would
               // read the old scope and go back.
-              onChange={setScope}
+              onChange={(next) => {
+                setMuralShowsList(false);
+                setScope(next);
+              }}
             />
           )}
           {permission === 'default' && !bannerClosed && (
@@ -501,6 +529,7 @@ export function Chats({ client }: { client: Client }) {
             </div>
           )}
           <ul
+            ref={scroller}
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
             onScroll={(e) => {
               // loadMore (spec chat-list): the next page when the end of the list is near.
@@ -532,16 +561,21 @@ export function Chats({ client }: { client: Client }) {
             {searching ? null : showingArchived ? (
               <EntryRow icon={caretLeft} title={scopeTitle} onOpen={() => setShowingArchived(false)} />
             ) : scope === 'conversas' ? (
-              requests.length > 0 && (
-                <EntryRow
-                  icon={userCircle}
-                  title={s('bipe_requests_title')}
-                  detail={s('bipe_requests_row_body')}
-                  count={requests.length}
-                  selected={detail?.kind === 'requests' || detail?.kind === 'request'}
-                  onOpen={() => setDetail({ kind: 'requests' })}
-                />
-              )
+              <>
+                {inMural && muralShowsList && (
+                  <EntryRow icon={caretLeft} title={scopeTitle} onOpen={() => setMuralShowsList(false)} />
+                )}
+                {requests.length > 0 && (
+                  <EntryRow
+                    icon={userCircle}
+                    title={s('bipe_requests_title')}
+                    detail={s('bipe_requests_row_body')}
+                    count={requests.length}
+                    selected={detail?.kind === 'requests' || detail?.kind === 'request'}
+                    onOpen={() => setDetail({ kind: 'requests' })}
+                  />
+                )}
+              </>
             ) : (
               groupInvites.map((invite) => <GroupInviteRow key={invite.roomId} invite={invite} onJoined={openChat} />)
             )}
@@ -561,19 +595,34 @@ export function Chats({ client }: { client: Client }) {
                       : s('bipe_app_groups_empty')}
               </li>
             )}
-            {rows.map((chat) => (
-              <ChatRow
-                key={chat.roomId}
-                chat={chat}
-                selected={open?.id() === chat.roomId}
-                onOpen={() => openChat(chat.room)}
-                onMenu={(e) => {
+            {drawsTiles ? (
+              <Mural
+                tiles={tiles}
+                openId={open?.id()}
+                onOpen={(chat) => openChat(chat.room)}
+                onMenu={(chat, e) => {
                   e.preventDefault();
                   setMenu({ chat, x: e.clientX, y: e.clientY });
                 }}
+                onViewList={() => setMuralShowsList(true)}
               />
-            ))}
-            {!searching && !showingArchived && sync.kind === 'ready' && (
+            ) : (
+              !showsTiles &&
+              rows.map((chat) => (
+                <ChatRow
+                  key={chat.roomId}
+                  chat={chat}
+                  selected={open?.id() === chat.roomId}
+                  onOpen={() => openChat(chat.room)}
+                  onMenu={(e) => {
+                    e.preventDefault();
+                    setMenu({ chat, x: e.clientX, y: e.clientY });
+                  }}
+                />
+              ))
+            )}
+            {/* In Mural the list link ends the screen, and the plain list has the Arquivadas row. */}
+            {!searching && !showingArchived && !drawsTiles && sync.kind === 'ready' && (
               <EntryRow icon={archiveIcon} title={s('bipe_archived_title')} onOpen={() => setShowingArchived(true)} />
             )}
           </ul>
@@ -913,10 +962,6 @@ function ChatRow({
 }) {
   const { name, avatarUrl } = chat.face;
   const info = chat.info;
-  const unread = Number(info?.numUnreadMessages ?? 0);
-  const mentions = Number(info?.numUnreadMentions ?? 0);
-  const muted = info?.cachedUserDefinedNotificationMode === RoomNotificationMode.Mute;
-  const count = unread.toLocaleString();
   return (
     <li>
       <button
@@ -943,44 +988,7 @@ function ChatRow({
             <span className="line-clamp-2 min-w-0 flex-1 text-subheadline break-words text-ink-secondary">
               {chat.row.preview ?? ''}
             </span>
-            {muted && (
-              <Icon
-                path={bellSlash}
-                size={16}
-                label={s('bipe_app_notification_mode_off')}
-                className="shrink-0 text-ink-secondary"
-              />
-            )}
-            {unread > 0 ? (
-              <>
-                {mentions > 0 && (
-                  <span
-                    aria-hidden
-                    className="grid size-5 shrink-0 place-items-center rounded-full bg-accent-fill text-caption font-bold text-ink-on-accent"
-                  >
-                    @
-                  </span>
-                )}
-                <span
-                  className="shrink-0 rounded-full bg-accent-fill px-[7px] py-0.5 text-caption font-bold text-ink-on-accent"
-                  aria-label={
-                    mentions > 0
-                      ? `${s('bipe_app_chat_list_unread', count)}, ${s('bipe_a11y_mention')}`
-                      : s('bipe_app_chat_list_unread', count)
-                  }
-                >
-                  {count}
-                </span>
-              </>
-            ) : (
-              info?.isMarkedUnread && (
-                <span
-                  role="img"
-                  aria-label={s('bipe_chat_unread_state')}
-                  className="size-2 shrink-0 rounded-full bg-accent-fill"
-                />
-              )
-            )}
+            <ChatBadges info={info} />
           </span>
         </span>
       </button>

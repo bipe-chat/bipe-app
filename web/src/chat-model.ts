@@ -18,7 +18,7 @@ import {
   type TimelineItemLike as TimelineItem,
 } from './generated/matrix_sdk_ffi';
 import { faceOf, type RoomFace } from './room-face';
-import { localEvents, resolveRow, RoomTimelines, type Row } from './row-activity';
+import { localEvents, resolveRow, RoomTimelines, type LocalEvent, type Row } from './row-activity';
 import { rowPreview } from './row-preview';
 
 export type Latest = {
@@ -39,6 +39,8 @@ export type ChatSummary = {
   /** The SDK latest event, for notifications. The list shows `row`. */
   latest?: Latest;
   row: Row;
+  /** The events of the local timeline, with no network and no pagination. Mural reads them (mural.ts). */
+  local: LocalEvent[];
   kind: ChatKind;
 };
 
@@ -86,7 +88,7 @@ export function useChatSummaries(rooms: Room[], ownUserId: string): ChatSummary[
   const [, setVersion] = useState(0);
   const [timelines] = useState(() => new RoomTimelines(() => mounted.current && setVersion((v) => v + 1)));
   // The last row of each room, from the inputs it came from: a row changes only when they do.
-  const rows = useRef(new Map<string, { entry?: Entry; items?: TimelineItem[]; row: Row }>());
+  const rows = useRef(new Map<string, { entry?: Entry; items?: TimelineItem[]; row: Row; local: LocalEvent[] }>());
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -120,7 +122,8 @@ export function useChatSummaries(rooms: Room[], ownUserId: string): ChatSummary[
       const isDm = entry?.info?.isDm ?? false;
       const latest = entry?.latest;
       const sdk = latest && { at: latest.at, isOwn: latest.isOwn, preview: rowPreview(latest, isDm, ownUserId) };
-      last = { entry, items, row: resolveRow(sdk, localEvents(items ?? [], isDm, ownUserId), last?.row) };
+      const local = localEvents(items ?? [], isDm, ownUserId);
+      last = { entry, items, row: resolveRow(sdk, local, last?.row), local };
       rows.current.set(id, last);
     }
     return {
@@ -130,6 +133,7 @@ export function useChatSummaries(rooms: Room[], ownUserId: string): ChatSummary[
       face: faceOf(room, entry?.info),
       latest: entry?.latest,
       row: last.row,
+      local: last.local,
       kind: kindOf(entry?.info),
     };
   });
