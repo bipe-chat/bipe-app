@@ -416,7 +416,8 @@ fun QueueOwnerScreen(business: BusinessApi, customers: List<Pair<String, String>
                         items(places, key = { it.id }) { place ->
                             PlaceRow(
                                 place = place,
-                                name = place.customer.userId?.let { names[it] } ?: place.customer.name.orEmpty(),
+                                name = place.customer.userId?.let { names[it] }
+                                    ?: (place.customer.name.orEmpty() + if (place.web) " · ${stringResource(R.string.bipe_web_record_mark)}" else ""),
                                 enabled = !working,
                                 onAction = { action -> perform { business.withToken { queuePlaceAction(place.id, action, it) } } },
                             )

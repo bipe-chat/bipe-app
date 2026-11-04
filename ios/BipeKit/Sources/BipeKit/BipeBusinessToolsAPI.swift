@@ -295,9 +295,11 @@ public struct BipeQueuePlace: Decodable, Sendable, Identifiable, Equatable {
     public let joinedAt: Date
     public let calledAt: Date?
     public let servedAt: Date?
+    /// Joined on the web with a first name (ADR 0185). No chat.
+    public let web: Bool
 
     private enum CodingKeys: String, CodingKey {
-        case id, queueId, businessId, customer, source, serviceId, status, joinedAt, calledAt, servedAt
+        case id, queueId, businessId, customer, source, serviceId, status, joinedAt, calledAt, servedAt, web
     }
 
     public init(from decoder: Decoder) throws {
@@ -313,6 +315,7 @@ public struct BipeQueuePlace: Decodable, Sendable, Identifiable, Equatable {
         joinedAt = try container.decode(Date.self, forKey: .joinedAt)
         calledAt = try container.decodeIfPresent(Date.self, forKey: .calledAt)
         servedAt = try container.decodeIfPresent(Date.self, forKey: .servedAt)
+        web = try container.decodeIfPresent(Bool.self, forKey: .web) ?? false
     }
 }
 

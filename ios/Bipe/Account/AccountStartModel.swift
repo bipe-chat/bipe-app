@@ -97,6 +97,8 @@ final class AccountStartModel: ObservableObject {
         guard attachedUserId != session.userId else { return }
         attachedUserId = session.userId
         PushRegistration.shared.attach(session)
+        // Spec timeline-media notes: show-media and invite photos follow the current account (MSC4278).
+        MediaPreviewSync.shared.attach(session)
     }
     private var attachedUserId: String?
 
@@ -337,6 +339,29 @@ final class AccountStartModel: ObservableObject {
         } else {
             didRecover(fresh)
         }
+    }
+
+    /// Spec data-use clearMediaCache (bipe-chat/bipe#826): stops the account's sync, clears the SDK caches and the
+    /// app's media folders, then builds the session again from the saved session, as after soft-logout. Keys and the
+    /// session stay. Throws when the session cannot be built again; the next start restores it.
+    func clearCaches(_ session: AccountSession) async throws {
+        guard sessions.contains(where: { $0 === session }) else { return }
+        let saved = try session.client.session()
+        let before = await StorageMeter.measure(client: session.client)
+        await session.pause()
+        do {
+            try await session.client.clearCaches(syncService: session.syncService)
+        } catch {
+            AccountStep.log.error("clear caches failed, building the session again")
+        }
+        await MediaLoader.forgetAll()
+        await StorageMeter.deleteAppMedia()
+        let fresh = try await AccountSession.restore(saved)
+        replace(session, with: fresh)
+        // freedBytes: the tabs build again for the new session, so the toast of the app says it.
+        let after = await StorageMeter.measure(client: fresh.client)
+        let freed = max(0, before.total - after.total)
+        notice = BipeStrings.storageCleared(ByteCountFormatter.string(fromByteCount: freed, countStyle: .file))
     }
 
     private func replace(_ old: AccountSession, with fresh: AccountSession) {
