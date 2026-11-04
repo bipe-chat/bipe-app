@@ -15,6 +15,9 @@ import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeDmCandidate
 import chat.bipe.shared.generated.BipeRelationshipNames
 import chat.bipe.shared.generated.BipeDmSelection
+import chat.bipe.shared.generated.BipeHomeChat
+import chat.bipe.shared.generated.BipeHomeChatKind
+import chat.bipe.shared.generated.BipeHomeScore
 import chat.bipe.shared.generated.BipeTrustFacts
 import chat.bipe.shared.generated.BipeTrustInput
 import kotlinx.serialization.json.Json
@@ -23,7 +26,9 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -508,6 +513,53 @@ class SharedVectorTest {
             assertWithMessage("clear ${vector.string("name")}").that(Json.parseToJsonElement(written)).isEqualTo(vector.getValue("expected"))
         }
     }
+
+    @Test
+    fun homeScore() {
+        val scores = vectors("home-score.json", "score")
+        assertWithMessage("home-score score vectors").that(scores).isNotEmpty()
+        for (vector in scores) {
+            val name = vector.string("name")
+            val chat = homeChat(vector.getValue("input").jsonObject)
+            val expected = vector.getValue("expected").jsonObject
+            val scored = BipeHomeScore.score(chat)
+            assertWithMessage("home score $name").that(scored.scorePercent).isEqualTo(homePercent(expected))
+            assertWithMessage("home reason $name").that(scored.reason?.name?.lowercase()).isEqualTo(expected.string("reason"))
+            assertWithMessage("home tier $name").that(BipeHomeScore.plan(listOf(chat)).single().tier)
+                .isEqualTo(expected.getValue("tier").jsonPrimitive.intOrNull)
+        }
+        val plans = vectors("home-score.json", "plan")
+        assertWithMessage("home-score plan vectors").that(plans).isNotEmpty()
+        for (vector in plans) {
+            val name = vector.string("name")
+            val plan = BipeHomeScore.plan((vector.getValue("input") as JsonArray).map { homeChat(it.jsonObject) })
+            val expected = (vector.getValue("expected") as JsonArray).map { it.jsonObject }
+            assertWithMessage("home plan order $name").that(plan.map { it.id }).isEqualTo(expected.map { it.string("id") })
+            plan.zip(expected).forEach { (tile, want) ->
+                assertWithMessage("home plan score $name ${tile.id}").that(tile.scorePercent).isEqualTo(homePercent(want))
+                assertWithMessage("home plan tier $name ${tile.id}").that(tile.tier).isEqualTo(want.getValue("tier").jsonPrimitive.intOrNull)
+            }
+        }
+    }
+
+    private fun homePercent(expected: JsonObject): Int = Math.round(expected.getValue("score").jsonPrimitive.double * 100).toInt()
+
+    private fun homeChat(input: JsonObject): BipeHomeChat = BipeHomeChat(
+        id = input.string("id")!!,
+        kind = BipeHomeChatKind.valueOf(input.string("kind")!!.uppercase()),
+        hasSeal = input.getValue("hasSeal").jsonPrimitive.boolean,
+        official = input.getValue("official").jsonPrimitive.boolean,
+        favourite = input.getValue("favourite").jsonPrimitive.boolean,
+        muted = input.getValue("muted").jsonPrimitive.boolean,
+        mentioned = input.getValue("mentioned").jsonPrimitive.boolean,
+        unreadCount = input.getValue("unreadCount").jsonPrimitive.int,
+        lastFromOther = input.getValue("lastFromOther").jsonPrimitive.boolean,
+        minutesSinceActivity = input.getValue("minutesSinceActivity").jsonPrimitive.intOrNull,
+        messagesPerWeek = input.getValue("messagesPerWeek").jsonPrimitive.int,
+        trustWarning = input.getValue("trustWarning").jsonPrimitive.boolean,
+        modelAttention = input.string("modelAttention"),
+        modelDue = input["modelDue"]?.jsonPrimitive?.boolean ?: false,
+    )
 
     private fun vectors(name: String, key: String): List<JsonObject> = (load(name).getValue(key) as JsonArray).map { it.jsonObject }
 

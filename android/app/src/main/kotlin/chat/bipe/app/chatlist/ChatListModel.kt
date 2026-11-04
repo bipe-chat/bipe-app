@@ -16,6 +16,9 @@ import org.matrix.rustcomponents.sdk.MembershipChange
 import org.matrix.rustcomponents.sdk.OtherState
 import org.matrix.rustcomponents.sdk.TimelineItemContent
 import chat.bipe.app.common.toVectorDiff
+import chat.bipe.app.composer.ComposerMarkdown
+import chat.bipe.app.composer.keepDraft
+import chat.bipe.app.composer.newMessageDraft
 import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.shared.BipeRowActivity
 import kotlinx.coroutines.CoroutineScope
@@ -40,6 +43,7 @@ import org.matrix.rustcomponents.sdk.TaskHandle
 import chat.bipe.app.voce.NotesRoom
 import chat.bipe.shared.BipeChatRowName
 import chat.bipe.shared.BipeFavouritesOrder
+import chat.bipe.shared.generated.BipeHomeScore
 import java.util.UUID
 
 /** Type ChatSummary of spec chat-list. */
@@ -69,6 +73,12 @@ data class ChatSummary(
     val latestIncomingMs: Long? = null,
     /** The account's news room (NewsRoomMark, bipe-chat/bipe#978). */
     val isNewsRoom: Boolean = false,
+    /** Spec chat-list, Mural tiles: the previews of the newest local messages, oldest first. */
+    val recentMessages: List<String> = emptyList(),
+    /** Spec chat-list, Mural inputs: the newest local message has another sender. */
+    val lastFromOther: Boolean = false,
+    /** Spec chat-list, messagesPerWeek: local message-like events of the window. Never asks the server. */
+    val messagesPerWeek: Int = 0,
 ) {
     val isUnread: Boolean get() = unreadCount > 0 || isMarkedUnread
 
@@ -332,6 +342,29 @@ class ChatListModel(
         scope.launch { saveFavouritesOrder(BipeFavouritesOrder.moving(roomId, index, shown, _favouritesOrder.value)) }
     }
 
+    /** Spec chat-list, Mural tiles: the saved composer draft of the room. */
+    suspend fun tileDraft(roomId: String): String? = runCatching { session.client.getRoom(roomId) }.getOrNull()?.newMessageDraft()
+
+    /** Spec composer leave, for the reply field of the first tile: keeps the text as the draft of the room, or clears it. */
+    fun keepTileDraft(roomId: String, text: String) {
+        scope.launch { runCatching { session.client.getRoom(roomId) }.getOrNull()?.keepDraft(text) }
+    }
+
+    /**
+     * Action replyFromTile of spec chat-list: the send rules of spec composer (Markdown, Timeline.send), then the draft
+     * goes. [onResult] gets false when the send failed. The SDK send queue keeps the message after the timeline goes.
+     */
+    fun replyFromTile(roomId: String, text: String, onResult: (Boolean) -> Unit) {
+        scope.launch {
+            val room = runCatching { session.client.getRoom(roomId) }.getOrNull()
+            val sent = runCatching {
+                room?.timeline()?.send(ComposerMarkdown.content(text.trim(), emptyList())) ?: error("room unavailable")
+            }.isSuccess
+            if (sent) runCatching { room?.clearComposerDraft(null) }
+            onResult(sent)
+        }
+    }
+
     /** Reads the favourites order from the account data, unless this phone has an order it could not write yet. */
     private suspend fun loadFavouritesOrder() {
         if (favouritesOrderUnsaved) return
@@ -406,14 +439,23 @@ class ChatListModel(
      * known earlier in this account session. The SDK keeps an older latest event when a message arrived before its room
      * key; the timeline decrypts it later.
      */
-    private fun retainingKnownActivity(summaries: List<ChatSummary>): List<ChatSummary> = summaries.map { summary ->
-        val sdk = summary.lastActivity?.let {
-            BipeRowActivity.SdkLatest(it, summary.lastMessage, isIncoming = summary.latestIncomingMs != null)
+    private fun retainingKnownActivity(summaries: List<ChatSummary>): List<ChatSummary> {
+        val windowStart = System.currentTimeMillis() - BipeHomeScore.MESSAGES_PER_WEEK_WINDOW_DAYS * MILLIS_PER_DAY
+        return summaries.map { summary ->
+            val sdk = summary.lastActivity?.let {
+                BipeRowActivity.SdkLatest(it, summary.lastMessage, isIncoming = summary.latestIncomingMs != null)
+            }
+            val local = rowActivity.localEvents(summary.roomId).orEmpty()
+            val row = BipeRowActivity.resolve(sdk, local, knownRows[summary.roomId])
+            if (row.timestampMs != null) knownRows[summary.roomId] = row
+            val messages = rowActivity.localMessages(summary.roomId)
+            summary.copy(
+                lastActivity = row.timestampMs, lastMessage = row.previewText, latestIncomingMs = row.latestIncomingMs,
+                recentMessages = messages?.recent.orEmpty(),
+                lastFromOther = messages?.lastFromOther == true,
+                messagesPerWeek = messages?.times?.count { it >= windowStart } ?: 0,
+            )
         }
-        val local = rowActivity.localEvents(summary.roomId).orEmpty()
-        val row = BipeRowActivity.resolve(sdk, local, knownRows[summary.roomId])
-        if (row.timestampMs != null) knownRows[summary.roomId] = row
-        summary.copy(lastActivity = row.timestampMs, lastMessage = row.previewText, latestIncomingMs = row.latestIncomingMs)
     }
 
     /**
@@ -509,5 +551,6 @@ class ChatListModel(
 
     private companion object {
         const val PAGE_SIZE = 50u
+        const val MILLIS_PER_DAY = 86_400_000L
     }
 }
