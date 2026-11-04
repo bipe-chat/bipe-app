@@ -55,6 +55,17 @@ object BipeHandle {
         }
     }
 
+    private val skeletonStrip = Regex(BipeRegistries.HANDLE_SKELETON_STRIP)
+
+    /**
+     * Port of `handleSkeleton()`: normalize, then the separators and the spaces removed. normalize() turns every JS
+     * whitespace run into one " ", so removing " " is JS `\s+`.
+     */
+    fun skeleton(handle: String): String = NameNormalizer.normalize(handle).replace(skeletonStrip, "").replace(" ", "")
+
+    /** The skeletons of the reserved names (`reservedHandleSkeletons()`). The names are already normalised. */
+    val reservedSkeletons: Set<String> by lazy { BipeRegistries.reservedNames.keys.mapTo(HashSet()) { it.replace(" ", "") } }
+
     /**
      * Escolha seu @ (bipe-chat/bipe#200): port of `handleSuggestions()` in bipe-shared tools/lib/registries.mjs. Must
      * match test-vectors/handle-suggestions.json. The caller checks availability in this order.
@@ -154,10 +165,15 @@ object BipeInviteLink {
     }
 
     /** The code of a `https://bipe.chat/convite/<code>` link. */
-    fun code(url: android.net.Uri): String? {
+    fun code(url: android.net.Uri): String? = code(url, "convite")
+
+    /** The code of a `https://bipe.chat/g/<code>` group link (ADR 0184). The same format; sign-up takes either code. */
+    fun groupCode(url: android.net.Uri): String? = code(url, "g")
+
+    private fun code(url: android.net.Uri, path: String): String? {
         if (url.scheme != "https" || url.host?.lowercase() !in hosts) return null
         val segments = url.pathSegments
-        if (segments.size != 2 || segments[0] != "convite") return null
+        if (segments.size != 2 || segments[0] != path) return null
         return normalizedCode(segments[1])
     }
 }

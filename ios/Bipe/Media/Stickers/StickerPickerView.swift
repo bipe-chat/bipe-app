@@ -24,6 +24,12 @@ final class StickerPickerModel: ObservableObject {
     @Published private(set) var phase = Phase.loading
     @Published private(set) var sendFailed = false
     @Published private(set) var isClosed = false
+    /// StickerPackView.canShare: the user's pack, and room packs the user may write.
+    @Published private(set) var shareablePackIds: Set<String> = []
+    @Published private(set) var isSharing = false
+    @Published private(set) var shareFailed = false
+    /// The link for the system share sheet (action sharePack).
+    @Published var shareLink: URL?
 
     let roomId: String
     let client: Client
@@ -52,6 +58,30 @@ final class StickerPickerModel: ObservableObject {
         // The lists are extras: a failed read shows the packs without them.
         favourites = (try? await packClient.shortlist(BipeRegistries.stickerFavouritesEventType)) ?? favourites
         recents = (try? await packClient.shortlist(BipeRegistries.stickerRecentsEventType)) ?? recents
+        var shareable = Set(loaded.filter { $0.source == .user }.map(\.id))
+        for pack in loaded {
+            if let ref = pack.ref, await packClient.canWritePack(roomId: ref.roomId) { shareable.insert(pack.id) }
+        }
+        shareablePackIds = shareable
+    }
+
+    /// Action sharePack: the user's pack becomes a pack room with a copy of it; a room pack shares its own room.
+    func share(_ pack: StickerPack) async {
+        guard let packClient, !isSharing else { return }
+        isSharing = true
+        shareFailed = false
+        defer { isSharing = false }
+        do {
+            let ref: StickerPackRef
+            if let roomRef = pack.ref {
+                ref = roomRef
+            } else {
+                ref = try await packClient.createPackRoom(displayName: BipeStrings.stickersPackPersonal)
+            }
+            shareLink = URL(string: ref.link)
+        } catch {
+            shareFailed = true
+        }
     }
 
     /// State favourites: the favourites that are in a loaded pack.
@@ -76,7 +106,7 @@ final class StickerPickerModel: ObservableObject {
         sendFailed = false
         do {
             guard let room = try client.getRoom(roomId: roomId) else { throw CocoaError(.featureUnsupported) }
-            try await room.sendRaw(eventType: "m.sticker", content: sticker.eventContentJSON())
+            try await room.sendRaw(eventType: "m.sticker", content: sticker.sendContentJSON())
             recents = StickerShortlist.pushRecent(StickerRef(sticker), into: recents)
             let list = recents
             Task { [packClient] in try? await packClient?.setShortlist(BipeRegistries.stickerRecentsEventType, list) }
@@ -114,6 +144,11 @@ struct StickerPickerView: View {
                                 .font(.footnote)
                                 .foregroundStyle(BipeColor.trustDangerInk)
                         }
+                        if model.shareFailed {
+                            Text(BipeStrings.stickersPackShareFailed)
+                                .font(.footnote)
+                                .foregroundStyle(BipeColor.trustDangerInk)
+                        }
                         HStack(spacing: 12) {
                             Button(BipeStrings.stickersFromPhoto) { showsFromPhoto = true }
                             Button(BipeStrings.stickersImportAction) { showsImport = true }
@@ -136,6 +171,9 @@ struct StickerPickerView: View {
         }
         .sheet(isPresented: $showsFromPhoto, onDismiss: { Task { await model.appear() } }) {
             StickerFromPhotoView(packClient: model.packClient) { showsFromPhoto = false }
+        }
+        .sheet(item: Binding(get: { model.shareLink.map(SharedPackLink.init) }, set: { model.shareLink = $0?.url })) { link in
+            ShareSheet(items: [link.url])
         }
     }
 
@@ -175,7 +213,7 @@ struct StickerPickerView: View {
                         section(BipeStrings.stickersRecents, recents)
                     }
                     ForEach(model.packs) { pack in
-                        section(title(pack), pack.stickers)
+                        section(title(pack), pack.stickers, share: model.shareablePackIds.contains(pack.id) ? { Task { await model.share(pack) } } : nil)
                     }
                 }
                 .padding(16)
@@ -184,16 +222,25 @@ struct StickerPickerView: View {
     }
 
     @ViewBuilder
-    private func section(_ title: String, _ stickers: [Sticker]) -> some View {
-        Text(title)
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(BipeColor.inkSecondary)
+    private func section(_ title: String, _ stickers: [Sticker], share: (() -> Void)? = nil) -> some View {
+        HStack {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(BipeColor.inkSecondary)
+            Spacer()
+            if let share {
+                Button(BipeStrings.stickersPackShare, action: share)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(BipeColor.accentInk)
+                    .disabled(model.isSharing)
+            }
+        }
         LazyVGrid(columns: columns, spacing: 8) {
             ForEach(stickers) { sticker in
                 Button {
                     Task { await model.send(sticker) }
                 } label: {
-                    StickerThumbnail(url: sticker.url, loader: loader)
+                    StickerThumbnail(url: sticker.url, mayBeAnimated: sticker.mayBeAnimated, loader: loader)
                         .frame(width: 76, height: 76)
                 }
                 .accessibilityLabel(BipeStrings.a11yStickerSend(sticker.body))
@@ -222,21 +269,49 @@ struct StickerPickerView: View {
     }
 }
 
+/// The link of action sharePack, for the share sheet.
+private struct SharedPackLink: Identifiable {
+    let url: URL
+    var id: URL { url }
+}
+
+/// One sticker of the picker. An animated WebP plays in a loop, except with the data saver on mobile data or
+/// Reduce Motion: then its first frame shows (spec sticker-picker notes).
 private struct StickerThumbnail: View {
     let url: String
+    let mayBeAnimated: Bool
     let loader: MediaLoader
 
     @State private var image: UIImage?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var plays: Bool { !reduceMotion && !DataUseMeter.shared.savesData }
 
     var body: some View {
         ZStack {
-            if let image {
-                Image(uiImage: image).resizable().scaledToFit()
+            if let image, image.isAnimatedImage, plays {
+                AnimatedImageView(image: image)
+            } else if let image {
+                Image(uiImage: image.firstFrame).resizable().scaledToFit()
             } else {
                 RoundedRectangle(cornerRadius: 10).fill(BipeColor.surfaceSunken)
             }
         }
-        .task(id: url) { image = await loader.thumbnail(mxcUrl: url, size: 228) }
+        .task(id: "\(url)#\(plays)") {
+            // Only a sticker that plays needs its file; the server's still is smaller.
+            if mayBeAnimated, plays, let animated = await loader.stickerImage(mxcUrl: url, maxPixel: 228) {
+                image = animated
+            } else if image == nil {
+                image = await loader.thumbnail(mxcUrl: url, size: 228)
+            }
+        }
+    }
+}
+
+extension Sticker {
+    /// An animated WebP as far as the pack says: is_animated, or a WebP whose info does not say (ADR 0205).
+    var mayBeAnimated: Bool {
+        isAnimated ?? (mimeType == nil || mimeType == "image/webp")
     }
 }
 

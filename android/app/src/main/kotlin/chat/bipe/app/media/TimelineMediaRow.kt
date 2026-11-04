@@ -4,6 +4,8 @@
 
 package chat.bipe.app.media
 
+import android.graphics.drawable.Animatable
+import android.graphics.drawable.Drawable
 import android.widget.ImageView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -29,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.LocalReduceMotion
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.timeline.TimelineMessage
 import chat.bipe.phosphor.PhosphorIcon
@@ -86,18 +90,38 @@ fun TimelineMediaRow(
     var image by remember(media.source) { mutableStateOf<LoadedImage?>(null) }
     var openingFile by remember { mutableStateOf(false) }
     var attempt by remember { mutableStateOf(0) }
+    // Action playAnimation: the person tapped play on an animated sticker.
+    var playTapped by rememberSaveable(message.id) { mutableStateOf(false) }
+    // Data saver on mobile data: the server's still of a sticker shows; its file loads on play.
+    var waitsForPlay by remember(media.source) { mutableStateOf(false) }
     val sending = media.uploadProgress != null && message.isOwn && message.sendState == TimelineMessage.SendState.SENDING
+    // Spec timeline-media notes: an animated sticker plays in a loop, except with the data saver on mobile data or
+    // animations off; then it waits for a tap. A tap to show the media counts as one.
+    val playsAnimation = playTapped || revealed || (!LocalReduceMotion.current && !DataUseMeter.savesData(context))
+    val showsPlayMark = media.kind == MediaMessage.Kind.STICKER && display == MediaDisplay.SHOWN &&
+        (waitsForPlay || (image?.isAnimated == true && !playsAnimation))
 
     // Action appear: loads the thumbnail (or the image) when display may show it.
     LaunchedEffect(media.source, revealed, attempt) {
         if (media.kind == MediaMessage.Kind.FILE) return@LaunchedEffect
         // Spec data-use: on mobile data with the data saver, photos and stickers wait for a tap.
         val savesData = (media.kind == MediaMessage.Kind.IMAGE || media.kind == MediaMessage.Kind.STICKER) && DataUseMeter.savesData(context)
-        if (!revealed && !message.isOwn && (!currentShowMedia(context).shows(isPrivateRoom) || savesData)) {
-            display = MediaDisplay.TAP_TO_SHOW
+        val shows = currentShowMedia(context).shows(isPrivateRoom)
+        if (!revealed && !message.isOwn && (!shows || savesData)) {
+            // An animated sticker shows the server's still of its first frame with a play mark instead
+            // (spec timeline-media notes). Without a still (an encrypted file), it waits as a photo does.
+            val still = if (media.mayBeAnimated && shows && display != MediaDisplay.SHOWN) loader.thumbnail(media.source.url, 480) else null
+            if (still != null) {
+                image = LoadedImage(still)
+                waitsForPlay = true
+                display = MediaDisplay.SHOWN
+            } else if (!waitsForPlay) {
+                display = MediaDisplay.TAP_TO_SHOW
+            }
             return@LaunchedEffect
         }
-        if (display == MediaDisplay.SHOWN) return@LaunchedEffect
+        if (display == MediaDisplay.SHOWN && !waitsForPlay) return@LaunchedEffect
+        waitsForPlay = false
         display = if (media.blurhash == null) MediaDisplay.LOADING else MediaDisplay.PLACEHOLDER
         val loaded = loader.previewImage(media, if (media.kind == MediaMessage.Kind.STICKER) 480 else 900)
         image = loaded
@@ -122,6 +146,11 @@ fun TimelineMediaRow(
     fun tap() {
         when {
             sending -> onCancelUpload()
+            // Action playAnimation: loads the file when only the still shows, then plays.
+            showsPlayMark -> {
+                playTapped = true
+                if (waitsForPlay) revealed = true
+            }
             // Action tapToShow.
             display == MediaDisplay.TAP_TO_SHOW -> revealed = true
             // Action retryDownload.
@@ -138,7 +167,7 @@ fun TimelineMediaRow(
         if (media.kind == MediaMessage.Kind.FILE) {
             FileCard(media, display, openingFile, if (sending) media.uploadProgress else null, ::tap)
         } else {
-            Visual(media, display, image, if (sending) media.uploadProgress else null, ::tap)
+            Visual(media, display, image, playsAnimation, showsPlayMark, if (sending) media.uploadProgress else null, ::tap)
         }
         val caption = media.caption?.takeIf { it.isNotBlank() }
         if (caption != null && media.kind != MediaMessage.Kind.STICKER) {
@@ -148,8 +177,17 @@ fun TimelineMediaRow(
 }
 
 @Composable
-private fun Visual(media: MediaMessage, display: MediaDisplay, image: LoadedImage?, uploadProgress: Int?, onTap: () -> Unit) {
+private fun Visual(
+    media: MediaMessage,
+    display: MediaDisplay,
+    image: LoadedImage?,
+    playsAnimation: Boolean,
+    showsPlayMark: Boolean,
+    uploadProgress: Int?,
+    onTap: () -> Unit,
+) {
     val colors = BipeTheme.colors
+    val playLabel = stringResource(R.string.bipe_a11y_sticker_play)
     val isSticker = media.kind == MediaMessage.Kind.STICKER
     val width = if (isSticker) STICKER_WIDTH else MAX_WIDTH
     val height = minOf(width / media.aspectRatio, width * 1.4f)
@@ -159,7 +197,7 @@ private fun Visual(media: MediaMessage, display: MediaDisplay, image: LoadedImag
             .size(width, height)
             .clip(if (isSticker) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp))
             .then(if (isSticker || display == MediaDisplay.SHOWN) Modifier else Modifier.background(colors.surfaceSunken))
-            .clickable(onClick = onTap)
+            .clickable(onClickLabel = if (showsPlayMark) playLabel else null, onClick = onTap)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
@@ -171,16 +209,8 @@ private fun Visual(media: MediaMessage, display: MediaDisplay, image: LoadedImag
             }
         }
         if (display == MediaDisplay.SHOWN && image != null) {
-            val animated = image.animated
-            if (animated != null) {
-                AndroidView(
-                    factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-                    update = { view ->
-                        view.setImageDrawable(animated)
-                        (animated as? android.graphics.drawable.Animatable)?.start()
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
+            if (image.isAnimated && playsAnimation) {
+                AnimatedImage(image, Modifier.fillMaxSize())
             } else {
                 Image(
                     image.bitmap,
@@ -191,7 +221,37 @@ private fun Visual(media: MediaMessage, display: MediaDisplay, image: LoadedImag
             }
         }
         Overlay(media, display, uploadProgress)
+        if (showsPlayMark && uploadProgress == null) {
+            Icon(
+                painterResource(PhosphorIcon.PLAY.drawable),
+                contentDescription = null,
+                tint = BipeDarkColors.inkPrimary,
+                modifier = Modifier.mediaScrim(CircleShape).padding(12.dp).size(22.dp),
+            )
+        }
     }
+}
+
+/**
+ * Plays an animated image (an animated WebP sticker, ADR 0205) in a loop, with a drawable of its own: one
+ * AnimatedImageDrawable draws into one view only. Callers show it only when the image may play.
+ */
+@Composable
+fun AnimatedImage(image: LoadedImage, modifier: Modifier = Modifier) {
+    val drawable by produceState<Drawable?>(null, image) { value = image.newAnimatedDrawable() }
+    val animated = drawable
+    if (animated == null) {
+        Image(image.bitmap, contentDescription = null, contentScale = ContentScale.Fit, modifier = modifier)
+        return
+    }
+    AndroidView(
+        factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
+        update = { view ->
+            if (view.drawable !== animated) view.setImageDrawable(animated)
+            (animated as? Animatable)?.start()
+        },
+        modifier = modifier,
+    )
 }
 
 @Composable

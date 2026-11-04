@@ -96,9 +96,13 @@ suspend fun BipeApiClient.setMyProfile(update: BipeProfileUpdate, accessToken: S
     response = BipeMyProfile.serializer(),
 )
 
-/** `PUT /v1/me/profile/photo` with a JPEG that fits registries/profiles.json. */
-suspend fun BipeApiClient.setMyProfilePhoto(jpeg: ByteArray, accessToken: String): BipeMyProfile {
-    val (status, text) = exchange("PUT", listOf("v1", "me", "profile", "photo"), jpeg, "image/jpeg", accessToken)
+/**
+ * `PUT /v1/me/profile/photo` with a JPEG that fits registries/profiles.json. [source]: the mxc URI of the Matrix avatar
+ * that [jpeg] copies (ADR 0041, amended 2 Nov 2026).
+ */
+suspend fun BipeApiClient.setMyProfilePhoto(jpeg: ByteArray, source: String?, accessToken: String): BipeMyProfile {
+    val query = source?.let { listOf("source" to it) }.orEmpty()
+    val (status, text) = exchange("PUT", listOf("v1", "me", "profile", "photo"), jpeg, "image/jpeg", accessToken, query)
     if (status !in 200..299) throw serverError(status, text)
     return decodePeople(BipeMyProfile.serializer(), text, status)
 }
@@ -132,9 +136,13 @@ internal suspend fun BipeApiClient.exchange(
     body: ByteArray? = null,
     contentType: String = "application/json",
     accessToken: String? = null,
+    query: List<Pair<String, String>> = emptyList(),
 ): Pair<Int, String> = withContext(Dispatchers.IO) {
     // Each segment is percent-encoded, so a handle cannot add path segments.
-    val url = URL(root + path.joinToString(separator = "/", prefix = "/") { URLEncoder.encode(it, "UTF-8").replace("+", "%20") })
+    val encodedQuery = query.joinToString(separator = "&", prefix = if (query.isEmpty()) "" else "?") { (name, value) ->
+        URLEncoder.encode(name, "UTF-8") + "=" + URLEncoder.encode(value, "UTF-8")
+    }
+    val url = URL(root + path.joinToString(separator = "/", prefix = "/") { URLEncoder.encode(it, "UTF-8").replace("+", "%20") } + encodedQuery)
     val connection = try {
         url.openConnection() as HttpURLConnection
     } catch (error: IOException) {
@@ -226,6 +234,12 @@ data class BipeMyProfile(
     @SerialName("has_photo") val hasPhoto: Boolean,
     @SerialName("handle") val handle: String? = null,
     @SerialName("photo_url") val photoUrl: String? = null,
+    /** The mxc URI of the Matrix avatar that the photo copies. Absent without a photo or for an older upload. */
+    @SerialName("photo_source") val photoSource: String? = null,
+    /** Social handles (ADR 0228), keyed by registries/profiles.json socials id. The contract sends `{}` when none. */
+    @SerialName("socials") val socials: Map<String, String> = emptyMap(),
+    /** When the account signed up (ISO 8601). Absent for an account without a sign-up row. */
+    @SerialName("member_since") val memberSince: String? = null,
 )
 
 /** Contract `ProfileUpdate`. */
@@ -234,6 +248,8 @@ data class BipeProfileUpdate(
     @SerialName("enabled") val enabled: Boolean,
     @SerialName("name") val name: String,
     @SerialName("bio") val bio: String,
+    /** Social handles (ADR 0228). null: the server keeps the stored handles. A value replaces them all. */
+    @SerialName("socials") val socials: Map<String, String>? = null,
 )
 
 /** Contract `PublicProfile`. Never carries the Matrix ID. */
@@ -243,6 +259,13 @@ data class BipePublicProfile(
     @SerialName("name") val name: String,
     @SerialName("bio") val bio: String? = null,
     @SerialName("photo_url") val photoUrl: String? = null,
+    /**
+     * Social handles (ADR 0228): registries/profiles.json socials id to handle without @. Absent when empty.
+     * The apps build each link with [chat.bipe.shared.BipeSocialHandles.url]; the server sends no URL.
+     */
+    @SerialName("socials") val socials: Map<String, String> = emptyMap(),
+    /** The same envelope as `GET /v1/badges/{userId}`. Absent when that call would not answer 200. */
+    @SerialName("badge") val badge: chat.bipe.shared.BadgeEnvelope? = null,
 )
 
 /** One match of `POST /v1/contacts/lookup`. */

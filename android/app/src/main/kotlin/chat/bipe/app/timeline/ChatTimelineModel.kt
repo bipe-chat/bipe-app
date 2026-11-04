@@ -27,12 +27,14 @@ import chat.bipe.app.media.MediaMessage
 import chat.bipe.app.media.VoiceMessage
 import chat.bipe.app.polls.PollData
 import chat.bipe.shared.R
+import chat.bipe.shared.media.BipeForwardMark
 import chat.bipe.app.groups.GroupPeople
 import chat.bipe.shared.BipeHandleChangeStore
 import chat.bipe.shared.BipeMoneyPause
 import chat.bipe.shared.BipeTheftStatement
 import chat.bipe.shared.ScamWarningKind
 import org.matrix.rustcomponents.sdk.MembershipState
+import chat.bipe.stickers.StickerPackRef
 import kotlinx.coroutines.CancellationException
 import org.matrix.rustcomponents.sdk.ErrorKind
 import org.matrix.rustcomponents.sdk.ClientException
@@ -40,6 +42,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,7 +55,8 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.DateDividerMode
 import org.matrix.rustcomponents.sdk.EditedContent
 import org.matrix.rustcomponents.sdk.MessageType
-import org.matrix.rustcomponents.sdk.ReceiptType
+import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.TimelineItemContent
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.TaskHandle
 import org.matrix.rustcomponents.sdk.TextMessageContent
@@ -78,6 +84,8 @@ data class TimelineMessage(
     val sentAt: Long,
     val sendState: SendState,
     val cause: UndecryptableCause?,
+    /** sendState FAILED only: the send queue held the message because of a member's identity (spec identity-change). */
+    val sendFailure: SendFailure? = null,
     /** Kind POLL: the data of spec poll-detail. */
     val poll: PollData? = null,
     /** Kind MEDIA: image, video, file or sticker (spec timeline-media). */
@@ -92,17 +100,34 @@ data class TimelineMessage(
     val isEmote: Boolean = false,
     /** Sanitized native text runs; body remains the original text for editing and copying. */
     val richText: chat.bipe.shared.BipeMessageText? = null,
+    /** Spec chat-timeline notes (ADR 0210): bipe_app_assistant_sent_label when the sender's assistant sent the message. */
+    val assistantLabel: String? = null,
+    /** Spec chat-timeline forwardCount (bipe-chat/bipe#933): the count of the forward mark, 0 without one. */
+    val forwardCount: Int = 0,
+    /** Spec timeline-rows nameAmbiguous: another member of the room shows the same name (bipe-chat/bipe#825). */
+    val senderNameAmbiguous: Boolean = false,
+    /** Spec chat-timeline senderRole: admin or moderator, groups only (bipe-chat/bipe#733). */
+    val senderRole: chat.bipe.app.groups.GroupRole? = null,
 ) {
     enum class Kind { TEXT, MEDIA, VOICE, UNDECRYPTABLE, POLL, LOCATION, LIVE_LOCATION, UNSUPPORTED }
 
     enum class SendState { SENT, SENDING, FAILED }
+
+    /** Spec identity-change sendAnyway. */
+    sealed interface SendFailure {
+        /** QueueWedgeError identityViolations: users that were verified and are not any more. */
+        data class Identity(val users: List<String>) : SendFailure
+
+        /** QueueWedgeError insecureDevices: user ID to device IDs. */
+        data class Devices(val devices: Map<String, List<String>>) : SendFailure
+    }
 
     /** Bipe's grouping of the SDK UtdCause (spec message-undecryptable). */
     enum class UndecryptableCause { WAITING, BEFORE_JOINED, HISTORY_NOT_ON_THIS_PHONE, NOT_SHARED_WITH_THIS_PHONE, UNAPPROVED_SENDER_DEVICE }
 }
 
 /** Type MessageAction of spec message-actions, in the order of the sheet. */
-enum class MessageAction { REPLY, EDIT, COPY, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
+enum class MessageAction { REPLY, REPLY_IN_THREAD, EDIT, REMOVE_CAPTION, COPY, COPY_LINK, PIN, UNPIN, FORWARD, SELECT, SAVE_STICKER, VIEW_STICKER_PACK, KEEP_AUDIO, UNKEEP_AUDIO, RETRY, DELETE, REPORT }
 
 /** Type MessageEdit of spec message-edit. */
 data class MessageEdit(val rowId: String, val originalText: String)
@@ -120,7 +145,7 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED }
+enum class TimelineNotice { PIN_FAILED, STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED, SELECTION_FORWARDED, SELECTION_LIMIT, SELECTION_DELETE_FAILED }
 
 /** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
 enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
@@ -144,11 +169,21 @@ data class TimelineInteractions(
     val confirmDeleteRowId: String? = null,
     // message-report
     val report: MessageReport? = null,
+    // message-actions viewStickerPack: opens sticker-pack.
+    val openingStickerPack: StickerPackRef? = null,
     // read-receipts
     val readersSheet: List<ReceiptReader>? = null,
     // typing-indicator
     val typingNames: List<String> = emptyList(),
     val notice: TimelineNotice? = null,
+    /** The placeholder of [notice]: the chat names of FORWARD_FAILED. */
+    val noticeArg: String? = null,
+    // message-forward: the messages the picker is open for.
+    val forwardingRowIds: List<String>? = null,
+    /** Spec message-forward selection (bipe-chat/bipe#860): the picked rows in tap order. null while the mode is off. */
+    val selection: List<String>? = null,
+    /** Spec message-forward deleteSelection: the dialog is open. */
+    val confirmsDeleteSelection: Boolean = false,
 )
 
 /** State of spec composer that the timeline does not hold already (text is the draft). */
@@ -182,13 +217,28 @@ class ChatTimelineModel(
     private val handleChanges: BipeHandleChangeStore? = null,
     /** Expiry and keep state of this account's voice messages (ADR 0164). */
     val voiceMedia: VoiceMediaStore? = null,
+    /** Spec threads (bipe-chat/bipe#667): the root event of the thread view; null for the main timeline. */
+    val threadRoot: String? = null,
+    /** The account's @ resolver (People names). null: names fall back to the cached @. */
+    private val handles: chat.bipe.shared.BipeHandleResolver? = null,
 ) {
+    private val _openThreadRoot = MutableStateFlow<String?>(null)
+    /** The thread the main timeline asks the screen to open (spec threads openThread). */
+    val openThreadRoot: StateFlow<String?> = _openThreadRoot.asStateFlow()
+
+    fun openThread(rootEventId: String?) {
+        _openThreadRoot.value = rootEventId
+    }
+
     private val _roomName = MutableStateFlow("")
     val roomName: StateFlow<String> = _roomName.asStateFlow()
     private val _roomAvatarUrl = MutableStateFlow<String?>(null)
     val roomAvatarUrl = _roomAvatarUrl.asStateFlow()
     private val _peerUserId = MutableStateFlow<String?>(null)
     val peerUserId = _peerUserId.asStateFlow()
+    /** Spec chat-list notes, Group avatar: members shown when a group has no photo. */
+    private val _avatarMembers = MutableStateFlow<List<chat.bipe.app.people.Person>>(emptyList())
+    val avatarMembers = _avatarMembers.asStateFlow()
     private val _peerAway = MutableStateFlow(PeerAway.NONE)
     val peerAway: StateFlow<PeerAway> = _peerAway.asStateFlow()
     private val _invitingAgain = MutableStateFlow(false)
@@ -221,9 +271,21 @@ class ChatTimelineModel(
     val inviterHint: StateFlow<InviterGreetings.Greeting?> = _inviterHint.asStateFlow()
     private val _isDm = MutableStateFlow(false)
     val isDm: StateFlow<Boolean> = _isDm.asStateFlow()
+    /** The account's news room (NewsRoomMark, bipe-chat/bipe#978): the header shows the Bipe badge and its name. */
+    val isNewsRoom: Boolean get() = chat.bipe.app.notifications.NewsRoomMark.roomId(session.userId) == roomId
     /** Spec call: the room is encrypted, and a call runs in it (RoomInfo.hasRoomCall). */
     private val _isEncrypted = MutableStateFlow(true)
     val isEncrypted: StateFlow<Boolean> = _isEncrypted.asStateFlow()
+    /** Spec chat-timeline notes, upgraded groups (bipe-chat/bipe#773): RoomInfo.successorRoom. */
+    private val _successorRoomId = MutableStateFlow<String?>(null)
+    val successorRoomId: StateFlow<String?> = _successorRoomId.asStateFlow()
+    /** RoomInfo.predecessorRoom with the old group's name (null name: no name). */
+    private val _predecessor = MutableStateFlow<Pair<String, String?>?>(null)
+    val predecessor: StateFlow<Pair<String, String?>?> = _predecessor.asStateFlow()
+    /** Spec message-pins (bipe-chat/bipe#665): RoomPowerLevels.canOwnUserPinUnpin, groups only. */
+    private var canPin = false
+    /** RoomInfo.pinnedEventIds. */
+    private var pinnedEventIds: Set<String> = emptySet()
     private val _hasCall = MutableStateFlow(false)
     val hasCall: StateFlow<Boolean> = _hasCall.asStateFlow()
     private val _isPrivateRoom = MutableStateFlow(true)
@@ -244,6 +306,8 @@ class ChatTimelineModel(
     private val items = mutableListOf<TimelineItem>()
     private var handle: TaskHandle? = null
     private var typingHandle: TaskHandle? = null
+    private var factsJob: Job? = null
+    private var factsStale = false
     private var started = false
     private var acceptsMenuActions = true
     private var facts = RoomFacts(ownUserId = session.userId)
@@ -266,7 +330,9 @@ class ChatTimelineModel(
                 if (runCatching { session.client.getDmRoom(greeting.userId) }.getOrNull()?.id() == roomId) _inviterHint.value = greeting
             }
             val configuration = TimelineConfiguration(
-                focus = TimelineFocus.Live(hideThreadedEvents = false),
+                // Spec threads notes: a group's main timeline hides thread replies; a DM shows them as plain messages.
+                focus = threadRoot?.let { TimelineFocus.Thread(it) }
+                    ?: TimelineFocus.Live(hideThreadedEvents = runCatching { room.roomInfo().isDm }.getOrNull() == false),
                 filter = TimelineFilter.All,
                 internalIdPrefix = null,
                 dateDividerMode = DateDividerMode.DAILY,
@@ -276,8 +342,10 @@ class ChatTimelineModel(
             val timeline = runCatching { room.timelineWithConfiguration(configuration) }.getOrNull() ?: return@launch
             this@ChatTimelineModel.timeline = timeline
             loadRoomFacts(room)
+            // Spec read-receipts: a new delivered ack for this room rebuilds the ticks.
+            launch { DeliveredLog.changes.collect { if (it == roomId) rebuild() } }
             // Action appear of spec composer: a saved newMessage draft fills the field.
-            if (_draft.value.isEmpty()) room.newMessageDraft()?.let { _draft.value = it }
+            if (_draft.value.isEmpty()) room.newMessageDraft(threadRoot)?.let { _draft.value = it }
             if (!facts.isDm) launch { mentionDirectory.load(room, session.userId) }
             loadHandleChanges(room)
             // The partner's theft mark when the chat opens, then every checkMinutes while it stays open.
@@ -303,8 +371,10 @@ class ChatTimelineModel(
             loadHistory()
             for (batch in diffs) {
                 batch.forEach { items.applyDiff(it.toVectorDiff()) }
-                loadRoomFacts(room)
+                // The rows follow the SDK at once. The room facts can wait on the network (a DM peer's @handle,
+                // the peer's membership), so they load after and build the rows again.
                 rebuild()
+                refreshRoomFacts(room)
             }
         }
     }
@@ -312,24 +382,53 @@ class ChatTimelineModel(
     /** Called when the screen goes away: typing off (spec typing-indicator draftChanged). */
     fun close() {
         acceptsMenuActions = false
-        _ui.update { it.copy(actionsRowId = null, pickerOpenFor = null) }
+        _ui.update { it.copy(actionsRowId = null, pickerOpenFor = null, selection = null, confirmsDeleteSelection = false) }
         sendTyping(false)
         leave()
         handle?.cancel()
         typingHandle?.cancel()
     }
 
+    /**
+     * Loads the room facts off the timeline update path, then builds the rows again. One load at a time;
+     * a change during a load runs one more.
+     */
+    private fun refreshRoomFacts(room: Room) {
+        factsStale = true
+        if (factsJob?.isActive == true) return
+        factsJob = scope.launch {
+            while (factsStale) {
+                factsStale = false
+                loadRoomFacts(room)
+                rebuild()
+            }
+        }
+    }
+
     private suspend fun loadRoomFacts(room: Room) {
+        var creators = emptyList<String>()
         runCatching { room.roomInfo() }.getOrNull()?.let { info ->
+            creators = info.creators.orEmpty()
             facts = facts.copy(isDm = info.isDm, joinedMembers = info.joinedMembersCount.toInt())
             _isGroup.value = !info.isDm && !info.isSpace
             val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
-            val peerName = peer?.displayName?.takeIf { it.isNotBlank() }
-                ?: peer?.userId?.let { chat.bipe.app.people.Person.localpart(it) } ?: unnamedChatText
-            _roomName.value = if (info.isDm) peerName else info.displayName ?: info.id
+            val peerHandle = peer?.takeIf { chat.bipe.shared.BipeChatRowName.realName(it.displayName, it.userId) == null }
+                ?.let { handles?.resolve(it.userId) }
+            _roomName.value = chat.bipe.shared.BipeChatRowName.resolve(
+                info.id, info.displayName, peer?.displayName, peer?.userId, unnamedChatText,
+                dmRoomName = if (info.isDm) info.rawName else null, peerHandle = peerHandle,
+                groupHeroes = groupHeroes(info, session.userId), noName = chat.bipe.app.people.Person.noName(),
+            )
             _roomAvatarUrl.value = if (info.isDm) peer?.avatarUrl else info.avatarUrl
             _peerUserId.value = peer?.userId
+            _avatarMembers.value = chat.bipe.app.common.groupAvatarMembers(info, session.userId)
             _hasCall.value = info.hasRoomCall
+            _successorRoomId.value = info.successorRoom?.roomId
+            room.predecessorRoom()?.roomId?.takeIf { it != _predecessor.value?.first }?.let { old ->
+                val name = runCatching { session.client.getRoom(old)?.displayName() }.getOrNull()?.takeIf { it.isNotBlank() }
+                _predecessor.value = old to name
+            }
+            pinnedEventIds = info.pinnedEventIds.toSet()
             loadPeerAway(room, peer?.userId)
         }
         runCatching { room.latestEncryptionState() }.getOrNull()?.let { state ->
@@ -337,6 +436,8 @@ class ChatTimelineModel(
         }
         runCatching { room.getPowerLevels() }.getOrNull()?.let { powerLevels ->
             facts = facts.copy(canRedactOwn = powerLevels.canOwnUserRedactOwn(), canRedactOther = powerLevels.canOwnUserRedactOther())
+            canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
+            facts = facts.copy(roles = if (facts.isDm) emptyMap() else GroupPeople.staffRoles(powerLevels.userPowerLevels(), creators))
             _composer.update {
                 it.copy(
                     canPost = powerLevels.canOwnUserSendMessage(MessageLikeEventType.RoomMessage),
@@ -378,7 +479,8 @@ class ChatTimelineModel(
 
     /**
      * Action loadHistory: back-paginates 20 events at a time until the rows have HISTORY_FILL more messages,
-     * at most HISTORY_PAGES_PER_LOAD pages. A failed page is tried again. Does nothing at the start or while a load runs.
+     * at most HISTORY_PAGES_PER_LOAD pages. A failed page is tried again. After a failed load it waits HISTORY_RETRY_MS,
+     * then changes historyLoads so the top of the list tries again. Does nothing at the start or while a load runs.
      */
     fun loadHistory() {
         scope.launch { paginate(HISTORY_PAGES_PER_LOAD) }
@@ -391,7 +493,12 @@ class ChatTimelineModel(
         try {
             val before = _messages.value.size
             for (page in 1..maxPages) {
-                val hitStart = paginateBackwards(timeline) ?: return
+                val hitStart = paginateBackwards(timeline) ?: run {
+                    // Without a new historyLoads the header effect keeps its keys and history stops loading.
+                    delay(HISTORY_RETRY_MS)
+                    _historyLoads.update { it + 1 }
+                    return
+                }
                 if (hitStart) {
                     _reachedStart.value = true
                     break
@@ -422,14 +529,14 @@ class ChatTimelineModel(
         draftSave?.cancel()
         draftSave = scope.launch {
             delay(DRAFT_SAVE_DELAY_MS)
-            room?.keepDraft(text)
+            room?.keepDraft(text, threadRoot)
         }
         // Spec composer editText: pills that left the text go; an @word in a group filters the members.
         val query = if (facts.isDm) null else ComposerMarkdown.mentionQuery(text)
         _composer.update {
             it.copy(
                 mentions = ComposerMarkdown.mentions(it.mentions, text),
-                suggestions = query?.let { q -> mentionDirectory.suggestions(q, strings.label(R.string.bipe_app_composer_mention_everyone)) } ?: emptyList(),
+                suggestions = query?.let { q -> mentionDirectory.suggestions(q, strings.label(R.string.bipe_app_composer_mention_everyone), handles) } ?: emptyList(),
             )
         }
         if (text.isBlank()) {
@@ -458,7 +565,7 @@ class ChatTimelineModel(
         _ui.update { it.copy(replyingTo = null, replyingToRowId = null) }
         val room = room
         scope.launch {
-            room?.let { runCatching { it.clearComposerDraft(null) } }
+            room?.let { runCatching { it.clearComposerDraft(threadRoot) } }
             runCatching {
                 val content = ComposerMarkdown.content(text, mentions)
                 if (replyingTo != null) timeline.sendReply(content, replyingTo.eventId) else timeline.send(content)
@@ -472,7 +579,7 @@ class ChatTimelineModel(
         if (_ui.value.editing != null) return
         val text = _draft.value
         // Runs also when the screen scope is gone (the chat closed).
-        CoroutineScope(Dispatchers.IO + NonCancellable).launch { room.keepDraft(text) }
+        CoroutineScope(Dispatchers.IO + NonCancellable).launch { room.keepDraft(text, threadRoot) }
     }
 
     /** Action pickSuggestion of spec composer: the @word becomes a pill. */
@@ -511,10 +618,30 @@ class ChatTimelineModel(
         scope.launch { runCatching { timeline.send(messageEventContentNew(MessageType.Text(TextMessageContent(greeting, null)))) } }
     }
 
-    /** Action retrySend: sends a failed own message again. */
+    /** Joins the successor group, via the server of the old room ID when it has one. null on failure. */
+    suspend fun joinSuccessor(): String? {
+        val successor = _successorRoomId.value ?: return null
+        val servers = roomId.split(":", limit = 2).drop(1)
+        return runCatching { session.client.joinRoomByIdOrAlias(successor, servers).id() }.getOrNull()
+    }
+
+    /**
+     * Action retrySend: sends a failed own message again. A message held for an identity change is sent anyway
+     * (spec identity-change sendAnyway).
+     */
     fun retrySend(id: String) {
         val sendHandle = item(id)?.asEvent()?.lazyProvider?.getSendHandle() ?: return
-        scope.launch { runCatching { sendHandle.tryResend() } }
+        val failure = row(id)?.message?.sendFailure
+        val room = room
+        scope.launch {
+            runCatching {
+                when (failure) {
+                    is TimelineMessage.SendFailure.Identity -> room?.withdrawVerificationAndResend(failure.users, sendHandle)
+                    is TimelineMessage.SendFailure.Devices -> room?.ignoreDeviceTrustAndResend(failure.devices, sendHandle)
+                    null -> sendHandle.tryResend()
+                }
+            }
+        }
     }
 
     /** Action cancelUpload of spec timeline-media: cancels the send of own media and removes the row. */
@@ -525,14 +652,17 @@ class ChatTimelineModel(
 
     // timeline-rows
 
-    /** Action markAsRead: a public read receipt (ADR 0050) for the newest event, while the newest rows are on screen. */
+    /**
+     * Action markAsRead: a read receipt for the newest event, while the newest rows are on screen. Public, except in a
+     * DM while the read receipts switch is off (ADR 0222).
+     */
     fun markAsRead() {
         val timeline = timeline ?: return
         scope.launch {
             val newest = timeline.latestEventId() ?: return@launch
             if (newest == lastReadEventId) return@launch
             lastReadEventId = newest
-            runCatching { timeline.markAsRead(ReceiptType.READ) }
+            runCatching { timeline.markAsRead(ReadReceiptSetting.receiptType(facts.isDm)) }
         }
     }
 
@@ -546,6 +676,11 @@ class ChatTimelineModel(
         if (!showsReactions(row) && actions(row).isEmpty()) return false
         _ui.update { it.copy(actionsRowId = rowId) }
         return true
+    }
+
+    /** Closes sticker-pack. */
+    fun closeStickerPack() {
+        _ui.update { it.copy(openingStickerPack = null) }
     }
 
     fun closeActions() {
@@ -567,9 +702,25 @@ class ChatTimelineModel(
         return MessageAction.entries.filter { action ->
             when (action) {
                 MessageAction.REPLY -> details.canReply && isSent
+                // Spec threads: groups only, not inside a thread view, not a reply that is in a thread already.
+                MessageAction.REPLY_IN_THREAD -> !facts.isDm && threadRoot == null && isSent && !details.inThread
                 MessageAction.EDIT -> details.canEdit
+                // Spec message-edit removeCaption (bipe-chat/bipe#668).
+                MessageAction.REMOVE_CAPTION -> details.canEdit && !message.media?.caption.isNullOrBlank()
                 // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
                 MessageAction.COPY -> !message.body.isNullOrBlank()
+                // Spec message-actions notes (bipe-chat/bipe#666): sent messages in a group, never in a DM (ADR 0141).
+                MessageAction.COPY_LINK -> _isGroup.value && isSent
+                // Spec message-pins: groups only, sent messages.
+                MessageAction.PIN -> canPin && isSent && details.eventId !in pinnedEventIds
+                MessageAction.UNPIN -> canPin && isSent && details.eventId in pinnedEventIds
+                // Spec message-forward notes: sent messages of kind message; no stickers or polls.
+                MessageAction.FORWARD -> isSent && forwardContent(row.id) != null
+                MessageAction.SELECT -> canSelect(row)
+                // Spec message-actions notes (bipe-chat/bipe#670): every sent sticker.
+                MessageAction.SAVE_STICKER -> isSent && message.media?.kind == chat.bipe.app.media.MediaMessage.Kind.STICKER
+                // A sent sticker with stickerPackField (spec message-actions notes, ADR 0205).
+                MessageAction.VIEW_STICKER_PACK -> isSent && message.media?.stickerPack != null
                 // Spec message-actions notes (ADR 0164): sent voice messages whose audio is still on the server.
                 MessageAction.KEEP_AUDIO -> keepable(message, isSent) && message.voice!!.source.url !in kept()
                 MessageAction.UNKEEP_AUDIO -> message.voice?.source?.url?.let { it in kept() } ?: false
@@ -613,10 +764,22 @@ class ChatTimelineModel(
         if (!acceptsMenuActions || action !in actions(current)) return
         when (action) {
             MessageAction.REPLY -> startReply(rowId)
+            MessageAction.REPLY_IN_THREAD -> openThread(current.details?.eventId)
             MessageAction.EDIT -> startEdit(rowId)
+            MessageAction.REMOVE_CAPTION -> removeCaption(rowId)
             MessageAction.COPY -> if (pauseSecondsLeft(rowId) == 0) row(rowId)?.message?.body?.let {
                 copy(it)
                 show(TimelineNotice.COPIED)
+            }
+            MessageAction.COPY_LINK -> {
+                val room = room ?: return
+                val eventId = current.details?.eventId ?: return
+                scope.launch {
+                    // A link that the SDK cannot make shows nothing (spec message-actions notes).
+                    val link = runCatching { room.matrixToEventPermalink(eventId) }.getOrNull() ?: return@launch
+                    copy(link)
+                    show(TimelineNotice.COPIED)
+                }
             }
             MessageAction.KEEP_AUDIO, MessageAction.UNKEEP_AUDIO -> {
                 val store = voiceMedia ?: return
@@ -633,6 +796,26 @@ class ChatTimelineModel(
                     }
                 }
             }
+            MessageAction.FORWARD -> _ui.update { it.copy(forwardingRowIds = listOf(rowId)) }
+            MessageAction.SELECT -> startSelection(rowId)
+            MessageAction.PIN, MessageAction.UNPIN -> {
+                val timeline = timeline ?: return
+                val eventId = current.details?.eventId ?: return
+                scope.launch {
+                    runCatching { if (action == MessageAction.PIN) timeline.pinEvent(eventId) else timeline.unpinEvent(eventId) }
+                        .onFailure { show(TimelineNotice.PIN_FAILED) }
+                }
+            }
+            MessageAction.SAVE_STICKER -> {
+                val sticker = current.message?.media ?: return
+                val packClient = chat.bipe.app.media.stickers.stickerPackClient(session.client) ?: return
+                scope.launch {
+                    runCatching { packClient.saveToUserPack(sticker.source.url, sticker.width, sticker.height, sticker.mimeType, sticker.size) }
+                        .onSuccess { show(TimelineNotice.STICKER_SAVED) }
+                        .onFailure { show(TimelineNotice.STICKER_SAVE_FAILED) }
+                }
+            }
+            MessageAction.VIEW_STICKER_PACK -> _ui.update { it.copy(openingStickerPack = current.message?.media?.stickerPack) }
             MessageAction.RETRY -> retrySend(rowId)
             MessageAction.DELETE -> askDelete(rowId)
             MessageAction.REPORT -> openReport(rowId)
@@ -651,6 +834,28 @@ class ChatTimelineModel(
         if (_ui.value.editing != null) cancelEdit()
         val reply = MessageReply(eventId, MessageReply.State.READY, if (message.isOwn) strings.you else message.senderName, message.body)
         _ui.update { it.copy(replyingTo = reply, replyingToRowId = rowId) }
+    }
+
+    /** Spec drafts edit: an assistant draft becomes the composer text, with message-reply for its replyTo. */
+    suspend fun takeAssistantDraft(body: String, replyTo: String?) {
+        if (_ui.value.editing != null) cancelEdit()
+        editDraft(body)
+        if (replyTo == null) return
+        val row = _rows.value.firstOrNull { it.details?.eventId == replyTo }
+        val message = row?.message
+        val reply = if (row != null && message != null) {
+            MessageReply(replyTo, MessageReply.State.READY, if (message.isOwn) strings.you else message.senderName, message.body)
+        } else {
+            val event = timeline?.let { runCatching { it.getEventTimelineItemByEventId(replyTo) }.getOrNull() }
+            if (event == null) {
+                MessageReply(replyTo, MessageReply.State.UNAVAILABLE)
+            } else {
+                val preview = ((event.content as? TimelineItemContent.MsgLike)?.content?.kind as? MsgLikeKind.Message)?.content?.body
+                MessageReply(replyTo, MessageReply.State.READY,
+                    if (event.isOwn) strings.you else event.senderProfile.displayName(event.sender), preview)
+            }
+        }
+        _ui.update { it.copy(replyingTo = reply, replyingToRowId = row?.id) }
     }
 
     /** Action cancelReply: the draft stays. */
@@ -749,7 +954,9 @@ class ChatTimelineModel(
     /** Action startEdit: the message text goes into the composer, the unsent draft is kept aside. Ends a reply first. */
     fun startEdit(rowId: String) {
         val row = row(rowId) ?: return
-        val body = row.message?.body ?: return
+        val message = row.message ?: return
+        // A photo, video or file edits its caption (bipe-chat/bipe#668).
+        val body = message.media?.let { it.caption.orEmpty() } ?: message.body ?: return
         if (row.details?.canEdit != true) return
         cancelReply()
         if (_ui.value.editing == null) keptDraft = _draft.value
@@ -775,8 +982,12 @@ class ChatTimelineModel(
         _ui.update { it.copy(isSavingEdit = true) }
         scope.launch {
             runCatching {
-                val content = messageEventContentNew(MessageType.Text(TextMessageContent(text, null)))
-                timeline.edit(event.eventOrTransactionId, EditedContent.RoomMessage(content))
+                val edited = if (row(editing.rowId)?.message?.media != null) {
+                    EditedContent.MediaCaption(text, null, null)
+                } else {
+                    EditedContent.RoomMessage(messageEventContentNew(MessageType.Text(TextMessageContent(text, null))))
+                }
+                timeline.edit(event.eventOrTransactionId, edited)
             }.onSuccess {
                 _ui.update { it.copy(isSavingEdit = false) }
                 cancelEdit()
@@ -784,6 +995,16 @@ class ChatTimelineModel(
                 _ui.update { it.copy(isSavingEdit = false) }
                 show(TimelineNotice.EDIT_FAILED)
             }
+        }
+    }
+
+    /** Action removeCaption of spec message-edit: no question. */
+    fun removeCaption(rowId: String) {
+        val timeline = timeline ?: return
+        val event = item(rowId)?.asEvent() ?: return
+        scope.launch {
+            runCatching { timeline.edit(event.eventOrTransactionId, EditedContent.MediaCaption(null, null, null)) }
+                .onFailure { show(TimelineNotice.EDIT_FAILED) }
         }
     }
 
@@ -890,7 +1111,7 @@ class ChatTimelineModel(
     }
 
     private fun updateTypingNames() {
-        _ui.update { state -> state.copy(typingNames = typingUserIds.map { facts.members[it]?.name ?: it }) }
+        _ui.update { state -> state.copy(typingNames = typingUserIds.map { facts.members[it]?.name ?: chat.bipe.app.people.Person.name(it, null) }) }
     }
 
     private fun sendTyping(isTyping: Boolean) {
@@ -919,8 +1140,10 @@ class ChatTimelineModel(
         val store = handleChanges ?: return
         val members = GroupPeople.members(room, cachedOnly = true) ?: return
         val joined = members.filter { it.membership is MembershipState.Join }
-        val names = joined.filter { it.userId !in facts.members }.associate { member ->
-            member.userId to MemberInfo(member.displayName?.takeIf { it.isNotEmpty() } ?: member.userId, member.avatarUrl)
+        val newMembers = joined.filter { it.userId !in facts.members }
+        val found = resolveHandles(newMembers.filter { chat.bipe.shared.BipeChatRowName.realName(it.displayName, it.userId) == null }.map { it.userId })
+        val names = newMembers.associate { member ->
+            member.userId to MemberInfo(chat.bipe.app.people.Person.name(member.userId, member.displayName, found[member.userId]), member.avatarUrl)
         }
         val roomMembers = joined.map { it.userId }.toSet()
         facts = facts.copy(roomMembers = roomMembers, members = facts.members + names, handleChanges = store.changes(roomMembers))
@@ -934,6 +1157,11 @@ class ChatTimelineModel(
     }
 
     private fun rebuild() {
+        // Spec read-receipts: delivered acks and the read receipts switch count in a DM only.
+        facts = facts.copy(
+            deliveredEventIds = if (facts.isDm) DeliveredLog.eventIds(session.userId, roomId).toSet() else emptySet(),
+            showsOthersRead = !facts.isDm || ReadReceiptSetting.isOn,
+        )
         val built = TimelineRowBuilder.rows(items, facts, strings)
         _rows.value = built.rows
         _messages.value = built.rows.mapNotNull { it.message }
@@ -950,6 +1178,15 @@ class ChatTimelineModel(
         loadMembers(built.unknownUsers)
     }
 
+    /** People names: the @handles of members without a real name, through the resolver's batched lookup. */
+    private suspend fun resolveHandles(userIds: List<String>): Map<String, String> {
+        val resolver = handles ?: return emptyMap()
+        if (userIds.isEmpty()) return emptyMap()
+        return coroutineScope {
+            userIds.map { userId -> async { userId to resolver.resolve(userId) } }.awaitAll()
+        }.mapNotNull { (userId, handle) -> handle?.let { userId to it } }.toMap()
+    }
+
     /** Display names and avatars of members for receipts, reactions and typing. */
     private fun loadMembers(userIds: Set<String>) {
         val room = room ?: return
@@ -957,9 +1194,12 @@ class ChatTimelineModel(
         if (missing.isEmpty()) return
         membersLoading += missing
         scope.launch {
-            val loaded = missing.associateWith { userId ->
-                val name = runCatching { room.memberDisplayName(userId) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: userId
-                MemberInfo(name, runCatching { room.memberAvatarUrl(userId) }.getOrNull())
+            val raw = missing.associateWith { userId ->
+                runCatching { room.memberDisplayName(userId) }.getOrNull() to runCatching { room.memberAvatarUrl(userId) }.getOrNull()
+            }
+            val found = resolveHandles(raw.filter { chat.bipe.shared.BipeChatRowName.realName(it.value.first, it.key) == null }.keys.toList())
+            val loaded = raw.mapValues { (userId, member) ->
+                MemberInfo(chat.bipe.app.people.Person.name(userId, member.first, found[userId]), member.second)
             }
             facts = facts.copy(members = facts.members + loaded)
             updateTypingNames()
@@ -1027,8 +1267,122 @@ class ChatTimelineModel(
         }
     }
 
-    private fun show(notice: TimelineNotice) {
-        _ui.update { it.copy(notice = notice) }
+    // message-forward
+
+    /**
+     * The content JSON a forward of a row sends (spec message-forward send, bipe-chat/bipe#83): the original content with
+     * the forward mark. null without the event JSON (a local echo), so that no copy goes out without its mark.
+     */
+    fun forwardContent(rowId: String): String? {
+        val event = item(rowId)?.asEvent() ?: return null
+        val content = event.content as? TimelineItemContent.MsgLike ?: return null
+        if (content.content.kind !is MsgLikeKind.Message) return null
+        val debugInfo = runCatching { event.lazyProvider.debugInfo() }.getOrNull() ?: return null
+        return BipeForwardMark.forwardedContentJson(debugInfo.originalJson, debugInfo.latestEditJson)
+    }
+
+    /** The forward contents of rows, in timeline order (spec message-forward send). */
+    fun forwardContents(rowIds: List<String>): List<String> {
+        val wanted = rowIds.toSet()
+        return _rows.value.filter { it.id in wanted }.mapNotNull { forwardContent(it.id) }
+    }
+
+    /** The picker closed: null when cancelled, else the names of the chats that failed. */
+    fun forwardClosed(failed: List<String>?) {
+        val count = _ui.value.forwardingRowIds?.size ?: 0
+        _ui.update { it.copy(forwardingRowIds = null) }
+        // A sent forward ends selection mode; a cancelled picker keeps it.
+        if (failed != null) cancelSelection()
+        when {
+            failed == null -> Unit
+            failed.isEmpty() -> show(if (count > 1) TimelineNotice.SELECTION_FORWARDED else TimelineNotice.FORWARDED)
+            else -> show(TimelineNotice.FORWARD_FAILED, failed.joinToString(", "))
+        }
+    }
+
+    // message-forward selection (bipe-chat/bipe#860)
+
+    /** A selectable row: a sent message that can be forwarded, or an own message the account can delete. */
+    fun canSelect(row: TimelineRow): Boolean {
+        val message = row.message ?: return false
+        if (row.kind != TimelineRow.Kind.MESSAGE || message.sendState != TimelineMessage.SendState.SENT || row.details?.eventId == null) return false
+        return forwardContent(row.id) != null || deletesInSelection(row)
+    }
+
+    private fun deletesInSelection(row: TimelineRow): Boolean {
+        val message = row.message ?: return false
+        return message.isOwn && message.sendState == TimelineMessage.SendState.SENT && row.details?.canDelete == true
+    }
+
+    /** The picked rows that are still in the timeline and selectable, in timeline order. */
+    private fun selectedRows(): List<TimelineRow> {
+        val picked = _ui.value.selection?.toSet() ?: return emptyList()
+        return _rows.value.filter { it.id in picked && canSelect(it) }
+    }
+
+    /** Action startSelection: the mode starts with the long-pressed message picked. */
+    fun startSelection(rowId: String) {
+        val row = row(rowId) ?: return
+        if (!acceptsMenuActions || !canSelect(row)) return
+        _ui.update { it.copy(actionsRowId = null, selection = listOf(rowId)) }
+    }
+
+    /** Action toggleSelection: an 11th message shows the limit; removing the last one ends the mode. */
+    fun toggleSelection(rowId: String) {
+        val picked = _ui.value.selection ?: return
+        val next = when {
+            rowId in picked -> picked - rowId
+            picked.size >= MESSAGE_SELECTION_LIMIT -> return show(TimelineNotice.SELECTION_LIMIT)
+            row(rowId)?.let(::canSelect) == true -> picked + rowId
+            else -> return
+        }
+        _ui.update { it.copy(selection = next.ifEmpty { null }) }
+    }
+
+    /** Action cancelSelection. */
+    fun cancelSelection() {
+        _ui.update { it.copy(selection = null, confirmsDeleteSelection = false) }
+    }
+
+    /** bipe_forward_action of the bar: on only when every picked message can be forwarded. */
+    fun canForwardSelection(): Boolean {
+        val picked = selectedRows()
+        return picked.isNotEmpty() && picked.all { forwardContent(it.id) != null }
+    }
+
+    /** bipe_app_message_action_delete of the bar: on when one picked message is own and can be deleted. */
+    fun canDeleteSelection(): Boolean = selectedRows().any(::deletesInSelection)
+
+    /** Action forwardSelection: the picker opens with the picked messages. */
+    fun forwardSelection() {
+        if (!canForwardSelection()) return
+        val rowIds = selectedRows().map { it.id }
+        _ui.update { it.copy(forwardingRowIds = rowIds) }
+    }
+
+    /** Action deleteSelection: one dialog for all own picked messages. */
+    fun askDeleteSelection() {
+        if (canDeleteSelection()) _ui.update { it.copy(confirmsDeleteSelection = true) }
+    }
+
+    fun dismissDeleteSelection() {
+        _ui.update { it.copy(confirmsDeleteSelection = false) }
+    }
+
+    /** The dialog of deleteSelection confirmed: deletes each own picked message for everyone, without a reason. */
+    fun confirmDeleteSelection() {
+        val targets = selectedRows().filter(::deletesInSelection).mapNotNull { item(it.id)?.asEvent()?.eventOrTransactionId }
+        cancelSelection()
+        val timeline = timeline ?: return
+        if (targets.isEmpty()) return
+        scope.launch {
+            val failed = targets.count { target -> runCatching { timeline.redactEvent(target, null) }.isFailure }
+            if (failed > 0) show(TimelineNotice.SELECTION_DELETE_FAILED)
+        }
+    }
+
+    private fun show(notice: TimelineNotice, arg: String? = null) {
+        _ui.update { it.copy(notice = notice, noticeArg = arg) }
         noticeJob?.cancel()
         noticeJob = scope.launch {
             delay(2000)
@@ -1044,10 +1398,18 @@ class ChatTimelineModel(
         const val HISTORY_PAGES_PER_LOAD = 5
         /** The tries of one page before the load stops: a fresh login can fail the first pages during the first sync. */
         const val HISTORY_TRIES = 3
+        /** The pause after a failed load before the top of the list tries again. */
+        const val HISTORY_RETRY_MS = 10_000L
         /** Spec message-reply openOriginal: at most 5 pages back. */
         const val ORIGINAL_SEARCH_PAGES = 5
         /** Spec typing-indicator: typing on at most once every 4 seconds. */
         const val TYPING_INTERVAL_MS = 4000L
         const val DRAFT_SAVE_DELAY_MS = 1000L
     }
+}
+
+/** The heroes of a group without m.room.name, for BipeChatRowName.resolve. null for a DM or a named group. */
+internal fun groupHeroes(info: org.matrix.rustcomponents.sdk.RoomInfo, ownUserId: String): List<Pair<String, String?>>? {
+    if (info.isDm || !info.rawName.isNullOrBlank()) return null
+    return info.heroes.filter { it.userId != ownUserId }.map { it.userId to it.displayName }
 }

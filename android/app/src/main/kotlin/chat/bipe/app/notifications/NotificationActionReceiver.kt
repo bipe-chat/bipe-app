@@ -18,9 +18,9 @@ import chat.bipe.app.common.toVectorDiff
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import chat.bipe.app.timeline.ReadReceiptSetting
 import org.matrix.rustcomponents.sdk.EventSendState
 import org.matrix.rustcomponents.sdk.MessageType
-import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.TextMessageContent
 import org.matrix.rustcomponents.sdk.Timeline
 import org.matrix.rustcomponents.sdk.TimelineDiff
@@ -68,21 +68,24 @@ class NotificationActionReceiver : BroadcastReceiver() {
             timeline.sendReply(messageEventContentNew(MessageType.Text(TextMessageContent(text, null))), eventId)
             waitUntilSent(timeline)
             if (!app.notifications.owns(target, route) || app.accountStart.sessions.value.none { it === session }) return
-            runCatching { room.markAsRead(ReceiptType.READ) }
+            runCatching { room.markAsRead(ReadReceiptSetting.receiptType(info.isDm)) }
             if (app.notifications.owns(target, route) && app.accountStart.sessions.value.any { it === session }) app.notifications.clear(target)
         } catch (e: Exception) {
             if (owner != null && app.accountStart.sessions.value.any { it === owner }) app.notifications.replyFailed(target, route, isDm)
         }
     }
 
-    /** Action markAsRead: a public read receipt, then the chat's notifications go away. */
+    /**
+     * Action markAsRead: a read receipt (private in a DM while the read receipts switch is off, ADR 0222), then the
+     * chat's notifications go away.
+     */
     private suspend fun markAsRead(app: BipeApplication, target: BipeNotificationTarget, route: String) {
         val session = app.accountStart.awaitSession(target.accountUserId) ?: return
         val room = runCatching { session.client.getRoom(target.roomId) }.getOrNull() ?: return
         val info = runCatching { room.roomInfo() }.getOrNull() ?: return
         if (info.membership != org.matrix.rustcomponents.sdk.Membership.JOINED || info.isSpace) return
         if (!app.notifications.owns(target, route) || app.accountStart.sessions.value.none { it === session }) return
-        runCatching { room.markAsRead(ReceiptType.READ) }.onSuccess {
+        runCatching { room.markAsRead(ReadReceiptSetting.receiptType(info.isDm)) }.onSuccess {
             if (app.notifications.owns(target, route) && app.accountStart.sessions.value.any { it === session }) app.notifications.clear(target)
         }
     }

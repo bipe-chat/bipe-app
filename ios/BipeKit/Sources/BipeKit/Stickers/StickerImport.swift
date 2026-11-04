@@ -20,8 +20,8 @@ public struct StickerImportCandidate: Equatable, Sendable {
 /// Same limits as android/libraries/bipe stickers/StickerImport.kt.
 public enum StickerImporter {
     /// WhatsApp stickers are 512 by 512, static up to 100 KB, animated up to 500 KB. These limits leave room.
-    public static let maxFileSize = 1_000_000
-    public static let maxSide = 1024
+    public static let maxFileSize = BipeRegistries.stickerImportMaxBytes
+    public static let maxSide = BipeRegistries.stickerImportMaxPixels
     public static let stickerSide = 512
 
     /// Sticker files from one picked file: a ZIP gives its .webp entries; a WebP or PNG file gives itself.
@@ -38,15 +38,20 @@ public enum StickerImporter {
     }
 
     /// Checks the format by its magic bytes and the size with ImageIO. nil when the file is not a usable sticker.
+    /// Animated WebP passes; an animated PNG does not (ADR 0205: animated WebP is the one animated format).
     public static func candidate(_ data: Data) -> StickerImportCandidate? {
-        guard data.count <= maxFileSize, let mimeType = mimeType(data),
+        guard data.count <= maxFileSize, let mimeType = mimeType(data), !StickerFormat.isAnimatedPNG(data),
               let source = CGImageSourceCreateWithData(data as CFData, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int,
               (1...maxSide).contains(width), (1...maxSide).contains(height) else { return nil }
-        let digest = SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
-        return StickerImportCandidate(data: data, mimeType: mimeType, width: width, height: height, shortcode: "st_\(digest)")
+        return StickerImportCandidate(data: data, mimeType: mimeType, width: width, height: height, shortcode: shortcode(for: data))
+    }
+
+    /// st_ plus the first 8 bytes of the SHA-256 in hex. A saved received sticker hashes its mxc:// URL.
+    public static func shortcode(for data: Data) -> String {
+        "st_" + SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
     }
 
     private static func mimeType(_ data: Data) -> String? {

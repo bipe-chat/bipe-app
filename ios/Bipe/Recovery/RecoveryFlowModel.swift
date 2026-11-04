@@ -98,6 +98,8 @@ final class RecoveryFlowModel: ObservableObject {
     // beta sign-in (recovery-start action chooseBeta)
     @Published private(set) var betaEmail = ""
     @Published private(set) var betaPassword = ""
+    /// Optional: the account PIN that the move to device-first needs (bipe-chat/bipe#908). Never stored.
+    @Published private(set) var betaPIN = ""
     @Published private(set) var betaBusy = false
     @Published private(set) var betaError: String?
 
@@ -442,28 +444,43 @@ final class RecoveryFlowModel: ObservableObject {
         betaError = nil
     }
 
+    func editBetaPIN(_ text: String) {
+        betaPIN = String(BipePIN.sanitize(text).prefix(BipeRegistries.pinLength))
+    }
+
     var canSubmitBeta: Bool {
         !betaBusy && !betaEmail.trimmingCharacters(in: .whitespaces).isEmpty && !betaPassword.isEmpty
     }
 
-    /// Action chooseBeta: Client.login with the e-mail as user and the password, then the move to device-first
-    /// (POST /v1/me/device-first). The password is never stored; the move gives the hidden password and the token.
+    /// Action chooseBeta: an e-mail goes through POST /v1/beta/login for the Matrix ID (bipe-chat/bipe#627); a localpart
+    /// or a Matrix ID goes to Client.login as it is. Then the move to device-first (POST /v1/me/device-first). The
+    /// password is never stored; the move gives the hidden password and the token. Every failure shows the same text.
     func submitBeta() async {
         guard canSubmitBeta else { return }
         betaBusy = true
         defer { betaBusy = false }
-        let user = betaEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let input = betaEmail.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
+            let user = Self.isBetaEmail(input) ? try await api.betaLogin(email: input, password: betaPassword) : input
             let session = try await AccountSession.signIn(userId: user, password: betaPassword)
             betaPassword = ""
-            if let accessToken = try? session.client.session().accessToken,
-               let credentials = try? await api.moveToDeviceFirst(accessToken: accessToken) {
+            // bipe-chat/bipe#908: the move needs the account PIN; without one the account keeps its beta password.
+            let pin = betaPIN
+            betaPIN = ""
+            if pin.count == BipeRegistries.pinLength,
+               let accessToken = try? session.client.session().accessToken,
+               let credentials = try? await api.moveToDeviceFirst(pin: pin, accessToken: accessToken) {
                 store.save(credentials)
             }
             onSignedIn(session)
         } catch {
             betaError = BipeStrings.errorGeneric
         }
+    }
+
+    /// An e-mail has an @ inside; a Matrix ID (@localpart:server) starts with it.
+    static func isBetaEmail(_ input: String) -> Bool {
+        !input.hasPrefix("@") && input.contains("@")
     }
 
     // MARK: - recovery-waiting

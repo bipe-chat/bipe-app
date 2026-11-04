@@ -2,8 +2,10 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
+import SwiftUI
 import UIKit
 
 /// Spec group-details (bipe-shared product/screens/group-details.json).
@@ -19,6 +21,8 @@ final class GroupDetailsModel: ObservableObject {
     enum PhotoEdit: Equatable {
         case unchanged
         case new(UIImage)
+        /// An emoji rendered with emojiPhoto, sent as PNG (bipe-chat/bipe#1004).
+        case emoji(UIImage)
         case removed
     }
 
@@ -28,7 +32,15 @@ final class GroupDetailsModel: ObservableObject {
     @Published private(set) var memberCount = 0
     @Published private(set) var notificationMode: NotifyMode?
     @Published private(set) var canEdit = false
+    /// Spec group-details canEditPhoto: m.room.avatar.
+    @Published private(set) var canEditPhoto = false
+    /// Spec chat-list notes, Group avatar: members shown when the group has no photo.
+    @Published private(set) var avatarMembers: [Person] = []
     @Published private(set) var canInvite = false
+    /// Spec group-details notes, privacy (bipe#772): can change the join rule.
+    @Published private(set) var canChangePrivacy = false
+    /// Spec group-link: admins who can change power levels (the server checks level 50 again).
+    @Published private(set) var canMakeGroupLink = false
     @Published private(set) var phase = Phase.viewing
     @Published var showsSaveError = false
 
@@ -72,7 +84,11 @@ final class GroupDetailsModel: ObservableObject {
         guard let room else { return }
         if let levels = try? await room.getPowerLevels() {
             canEdit = levels.canOwnUserSendState(stateEvent: .roomName)
+            canEditPhoto = levels.canOwnUserSendState(stateEvent: .roomAvatar)
             canInvite = levels.canOwnUserInvite()
+            // A moderator opens group-privacy to answer requests to join (spec group-details, bipe-chat/bipe#733).
+            canChangePrivacy = levels.canOwnUserSendState(stateEvent: .roomJoinRules) || levels.canOwnUserKick()
+            canMakeGroupLink = levels.canOwnUserSendState(stateEvent: .roomPowerLevels)
         }
         notificationMode = await ChatNotificationsModel.currentMode(client: session.client, roomId: roomId)
     }
@@ -115,6 +131,10 @@ final class GroupDetailsModel: ObservableObject {
                 if let data = image.jpegData(compressionQuality: 0.85) {
                     try await room.uploadAvatar(mimeType: "image/jpeg", data: data, mediaInfo: nil)
                 }
+            case .emoji(let image):
+                if let data = image.pngData() {
+                    try await room.uploadAvatar(mimeType: "image/png", data: data, mediaInfo: nil)
+                }
             case .removed:
                 try await room.removeAvatar()
             }
@@ -126,9 +146,37 @@ final class GroupDetailsModel: ObservableObject {
     }
 
     private func apply(_ info: RoomInfo) {
-        name = info.displayName ?? info.id
+        name = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName, peerName: nil, peerID: nil,
+                                       unnamed: BipeStrings.groupCommonNoRoomName,
+                                       groupHeroes: ChatTimelineModel.groupHeroes(of: info, ownUserId: session.userId))
         avatarUrl = info.avatarUrl
+        avatarMembers = Person.groupAvatarMembers(of: info, ownUserId: session.userId)
         description = info.topic.flatMap { $0.isEmpty ? nil : $0 }
         memberCount = Int(info.joinedMembersCount)
+    }
+}
+
+extension GroupDetailsModel {
+    /// Spec group-details save params.emoji: one grapheme that is an emoji, else nil.
+    nonisolated static func singleEmoji(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count == 1, let character = trimmed.first, let first = character.unicodeScalars.first else { return nil }
+        let isEmoji = first.properties.isEmojiPresentation || (first.properties.isEmoji && character.unicodeScalars.count > 1)
+        return isEmoji ? trimmed : nil
+    }
+
+    /// Spec group-details save: the emoji centred on accentWash, at 60 % of a 512 px square.
+    static func emojiPhoto(_ emoji: String) -> UIImage {
+        let side: CGFloat = 512
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image { context in
+            UIColor(BipeColor.accentWash).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: side, height: side))
+            let text = emoji as NSString
+            let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: side * 0.6)]
+            let bounds = text.size(withAttributes: attributes)
+            text.draw(at: CGPoint(x: (side - bounds.width) / 2, y: (side - bounds.height) / 2), withAttributes: attributes)
+        }
     }
 }

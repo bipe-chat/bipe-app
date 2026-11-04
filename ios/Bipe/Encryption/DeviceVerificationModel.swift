@@ -4,7 +4,6 @@
 
 import BipeKit
 import Foundation
-import LocalAuthentication
 import MatrixRustSDK
 import UIKit
 
@@ -54,6 +53,14 @@ final class DeviceVerificationModel: ObservableObject {
     @Published private(set) var mismatch = false
     /// Action notifyAgain is open: newPhone waits and the last nudge is approvalNudgeAgainSeconds old.
     @Published private(set) var canNotifyAgain = false
+    /// approver: the cooldown before the approve button (rule 5, the same wait as the QR approval).
+    @Published private(set) var secondsLeft = 0
+    /// approver: the approximate place of the requesting device, from its last IP (rule 5). placeKnown: the
+    /// look-up ended; place nil then means unknown.
+    @Published private(set) var place: String?
+    @Published private(set) var placeKnown = false
+    /// The Bipe PIN sheet of the owner check, for a phone with no biometrics (bipe-chat/bipe#785).
+    let pinPrompt = AccountPinPrompt()
 
     /// Called when a request from another device of this account arrives (action receive).
     var onIncoming: (@MainActor () -> Void)?
@@ -61,6 +68,8 @@ final class DeviceVerificationModel: ObservableObject {
     private let session: AccountSession
     private let api = BipeAPIClient(baseURL: AppConfig.apiBaseURL)
     private var nudgeWait: Task<Void, Never>?
+    private var countdown: Task<Void, Never>?
+    private var placeLookUp: Task<Void, Never>?
     private let delegate = SessionVerificationStream()
     private var controller: SessionVerificationController?
     private var started = false
@@ -82,6 +91,14 @@ final class DeviceVerificationModel: ObservableObject {
     deinit {
         if let activeObserver { NotificationCenter.default.removeObserver(activeObserver) }
     }
+
+    /// When the current flow began. A new request replaces a flow that is older than the SDK's verification timeout
+    /// (bipe-chat/bipe#949).
+    private var flowStartedAt: Date?
+    /// When this model cancelled a stale flow to take a new request. The SDK reports that cancel later, without a flow ID.
+    private var replacedAt: Date?
+    /// The SDK cancels a verification request after 10 minutes (matrix-sdk-crypto VERIFICATION_TIMEOUT).
+    private static let flowTimeout: TimeInterval = 10 * 60
 
     /// The flow has ended or has not started; a new request may begin.
     var isFinished: Bool {
@@ -118,6 +135,7 @@ final class DeviceVerificationModel: ObservableObject {
         symbols = []
         mismatch = false
         canNotifyAgain = false
+        flowStartedAt = Date()
         phase = .requesting
         guard let controller = await readyController() else {
             phase = .failed
@@ -155,12 +173,31 @@ final class DeviceVerificationModel: ObservableObject {
         }
     }
 
-    /// Action accept: approver passes the device owner check, then accepts.
+    /// The approve button is on: the cooldown is over.
+    var canApprove: Bool { secondsLeft == 0 }
+
+    /// Action accept: approver waits through the cooldown, passes the owner check (ApprovalCheck: biometrics, else
+    /// the Bipe PIN; never the passcode), then accepts. A phone with no screen lock cannot approve.
     func accept() async {
-        guard role == .approver, phase == .incoming, let controller else { return }
+        guard role == .approver, phase == .incoming, canApprove, let controller else { return }
         phase = .confirmIdentity
-        guard await DeviceOwnerCheck.confirm() else {
+        let session = self.session
+        let api = self.api
+        let check = await ApprovalCheck.run(reason: BipeStrings.appVerifyBiometric, pinTitle: BipeStrings.appVerifyIncomingTitle,
+                                            prompt: pinPrompt) { (pin: String) async throws(BipeAPIError) in
+            try await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) in
+                try await api.checkPIN(pin, accessToken: token)
+            }
+        }
+        switch check {
+        case .passed:
+            break
+        case .failed:
             phase = .incoming
+            return
+        case .noScreenLock:
+            phase = .failed
+            try? await controller.cancelVerification()
             return
         }
         do {
@@ -232,7 +269,20 @@ final class DeviceVerificationModel: ObservableObject {
         switch event {
         case .receivedRequest(let details):
             // Action receive: only requests from this account's own devices (spec notes).
-            guard details.senderProfile.userId == session.userId, isFinished || phase == .incoming else { return }
+            guard details.senderProfile.userId == session.userId else { return }
+            // A flow that ended without a terminal SDK event must not drop every later request (bipe-chat/bipe#949).
+            // The new request replaces a flow that has not reached compare, or any flow past the SDK timeout.
+            if !isFinished {
+                let stale = flowStartedAt.map { Date().timeIntervalSince($0) > Self.flowTimeout } ?? true
+                let early: Set<Phase> = [.requesting, .waitingForOther, .incoming, .confirmIdentity]
+                guard stale || early.contains(phase) else {
+                    AccountStep.log.notice("verification: request \(details.flowId, privacy: .public) dropped, phase \(String(describing: self.phase), privacy: .public)")
+                    return
+                }
+                AccountStep.log.notice("verification: request \(details.flowId, privacy: .public) replaces a flow in phase \(String(describing: self.phase), privacy: .public)")
+                replacedAt = Date()
+                try? await controller?.cancelVerification()
+            }
             do {
                 try await controller?.acknowledgeVerificationRequest(senderId: details.senderProfile.userId, flowId: details.flowId)
             } catch {
@@ -244,7 +294,10 @@ final class DeviceVerificationModel: ObservableObject {
                                            firstSeenAt: Date(milliseconds: details.firstSeenTimestamp))
             symbols = []
             mismatch = false
+            flowStartedAt = Date()
             phase = .incoming
+            startCooldown()
+            lookUpPlace(deviceId: details.deviceId)
             onIncoming?()
         case .accepted:
             // The other device accepted the request of this new phone: start SAS.
@@ -264,13 +317,60 @@ final class DeviceVerificationModel: ObservableObject {
         case .finished:
             phase = .done
         case .cancelled:
+            guard !isEchoOfReplace else { return }
             if phase != .done {
                 phase = .cancelled
             }
         case .failed:
+            guard !isEchoOfReplace else { return }
             if phase != .done {
                 phase = .failed
             }
+        }
+    }
+
+    /// true for the cancel of the flow that a new incoming request just replaced: the SDK reports it a moment
+    /// later, and it must not end the new flow.
+    private var isEchoOfReplace: Bool {
+        guard phase == .incoming, let replacedAt, Date().timeIntervalSince(replacedAt) < 5 else { return false }
+        self.replacedAt = nil
+        return true
+    }
+
+    /// Rule 5: the approve button waits webLinkCooldownSeconds, as on the QR approval.
+    private func startCooldown() {
+        countdown?.cancel()
+        secondsLeft = BipeRegistries.webLinkCooldownSeconds
+        countdown = Task { [weak self] in
+            while let self, self.secondsLeft > 0 {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { return }
+                self.secondsLeft -= 1
+            }
+        }
+    }
+
+    /// Rule 5: the approximate place of the requesting device. Its last IP comes from GET /_matrix/client/v3/devices
+    /// (last_seen_ip); GET /v1/web-link/place turns it into a place, as on the QR approval. The IP goes to no outside
+    /// service.
+    private func lookUpPlace(deviceId: String) {
+        placeLookUp?.cancel()
+        place = nil
+        placeKnown = false
+        let session = self.session
+        let api = self.api
+        placeLookUp = Task { [weak self] in
+            var found: String?
+            if let homeserver = URL(string: session.client.homeserver()), let token = session.accessToken(),
+               let ip = try? await BipeMatrixAccountAPI(homeserver: homeserver).devices(accessToken: token)
+                   .first(where: { $0.deviceId == deviceId })?.lastSeenIp {
+                found = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeWebLinkPlace in
+                    try await api.webLinkPlace(ip: ip, accessToken: token)
+                }.label()
+            }
+            guard !Task.isCancelled, let self, self.otherDevice?.deviceId == deviceId else { return }
+            self.place = found
+            self.placeKnown = true
         }
     }
 
@@ -281,16 +381,5 @@ final class DeviceVerificationModel: ObservableObject {
         case .decimals(let values):
             values.enumerated().map { VerificationSymbol(id: $0.offset, symbol: String($0.element), label: "") }
         }
-    }
-}
-
-/// The biometric check (or the device passcode) before an approval (ADR 0059 QR approval rule).
-enum DeviceOwnerCheck {
-    static func confirm() async -> Bool {
-        let context = LAContext()
-        var error: NSError?
-        // A phone without a passcode has nothing to check.
-        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else { return true }
-        return (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: BipeStrings.appVerifyBiometric)) ?? false
     }
 }

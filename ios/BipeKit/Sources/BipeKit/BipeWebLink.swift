@@ -21,6 +21,30 @@ public enum BipeWebLink {
         url.scheme?.lowercased() == "https" && url.host()?.lowercased() == host.lowercased()
     }
 
+    /// The rendezvous URL of a scanned sign-in code (bipe-chat/bipe#785, ADR 0116). An MSC4108 code (`MATRIX`,
+    /// version 0x02) carries it after the intent byte and the 32-byte key, as a big-endian u16 length and UTF-8 text
+    /// (matrix-sdk-crypto qr_login msc_4108). An MSC4388 code carries the homeserver base URL instead
+    /// (QrCodeData.baseUrl). Nil when the code has neither.
+    public static func rendezvousURL(qrBytes: Data, baseURL: String?) -> URL? {
+        let bytes = [UInt8](qrBytes)
+        let prefix = Array("MATRIX".utf8)
+        guard bytes.starts(with: prefix) else { return baseURL.flatMap(URL.init(string:)) }
+        let start = prefix.count + 2 + 32
+        guard bytes.count >= start + 2, bytes[prefix.count] == 0x02 else { return nil }
+        let length = Int(bytes[start]) << 8 | Int(bytes[start + 1])
+        guard bytes.count >= start + 2 + length,
+              let text = String(bytes: bytes[(start + 2)..<(start + 2 + length)], encoding: .utf8) else { return nil }
+        return URL(string: text)
+    }
+
+    /// Link a computer approves only a code whose rendezvous is on the account's own homeserver, over https, so a
+    /// code shown by a client of another server never gets a session for this account.
+    public static func isOwnRendezvous(qrBytes: Data, baseURL: String?, homeserver: String) -> Bool {
+        guard let url = rendezvousURL(qrBytes: qrBytes, baseURL: baseURL), url.scheme?.lowercased() == "https",
+              let host = url.host()?.lowercased(), let own = URL(string: homeserver)?.host()?.lowercased() else { return false }
+        return host == own
+    }
+
     /// The MAS account page that ends one device's session (MSC2965 account management actions).
     public static func sessionEndURL(accountManagementURI: URL, deviceID: String) -> URL? {
         guard var components = URLComponents(url: accountManagementURI, resolvingAgainstBaseURL: false) else { return nil }
@@ -70,6 +94,8 @@ public struct BipeMatrixDevice: Decodable, Sendable, Equatable, Identifiable {
     public let deviceId: String
     public let displayName: String?
     public let lastSeenTs: Int64?
+    /// The IP of the device's last request, for its approximate place on the approval screen (rule 5).
+    public let lastSeenIp: String?
 
     public var id: String { deviceId }
 
@@ -135,16 +161,30 @@ public struct BipeMatrixAccountAPI: Sendable {
 }
 
 public extension BipeAPIClient {
-    /// `POST /v1/web-link/finish`: ends the MAS browser sessions that the private web view made (ADR 0118).
-    func finishWebLink(since: Date, accessToken: String) async throws(BipeAPIError) {
+    /// `POST /v1/web-link/finish`: ends the MAS browser sessions that the private web view made (ADR 0118). With kind
+    /// computer, bipe-api also records the web session that this phone approved (bipe-chat/bipe#398).
+    func finishWebLink(since: Date, kind: WebLinkKind? = nil, accessToken: String) async throws(BipeAPIError) {
         let _: NoContent = try await send(method: "POST", path: ["v1", "web-link", "finish"],
-                                          body: WebLinkFinish(since: since.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true))),
+                                          body: WebLinkFinish(since: since.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)),
+                                                              kind: kind?.rawValue),
                                           accessToken: accessToken)
     }
+
+    /// `POST /v1/web-link/sign-out`: signs out the web sessions that this phone approved (bipe-chat/bipe#398).
+    func signOutWebLinks(accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "POST", path: ["v1", "web-link", "sign-out"], body: Empty?.none, accessToken: accessToken)
+    }
+}
+
+/// What the phone approved: a web sign-in (link-computer) or a new phone (link-phone).
+public enum WebLinkKind: String, Sendable {
+    case computer
+    case phone
 }
 
 private struct WebLinkFinish: Encodable {
     let since: String
+    let kind: String?
 }
 
 // Link a computer (specs link-computer-scan and link-computer-approve, bipe-chat/bipe#574). Moved from bipe-ios

@@ -54,15 +54,9 @@ struct MediaViewer: View {
             if !chromeHidden {
                 chrome
             }
-            if let notice {
-                Text(notice)
-                    .font(.subheadline)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .mediaScrim(Capsule())
-                    .transition(.opacity)
-            }
         }
+        // Above the bottom chrome. The dark colour scheme below applies to the toast too.
+        .toast($notice, bottom: 96)
         .environment(\.colorScheme, .dark)
         .accessibilityIdentifier(BipeScreen.mediaViewer.rawValue)
         .onChange(of: rowId) { _, id in
@@ -193,16 +187,13 @@ struct MediaViewer: View {
     }
 
     private func show(_ text: String) {
-        withBipeAnimation { notice = text }
-        Task {
-            try? await Task.sleep(for: .seconds(2))
-            withBipeAnimation { if notice == text { notice = nil } }
-        }
+        notice = text
     }
 }
 
 /// One photo or video of the viewer.
-private struct MediaPage: View {
+/// One page of spec media-viewer; the chat-media-gallery pager uses it too.
+struct MediaPage: View {
     let media: MediaMessage
     let loader: MediaLoader
 

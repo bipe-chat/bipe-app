@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# Web client (bipe-chat/bipe#901): the bipe-shared test vectors against web/src/bipe/generated, like the BipeKit and
+# Android vector tests, and a type check of the generated TypeScript. No wasm build.
+name: web-vectors
+
+on:
+  pull_request:
+    paths:
+      - "web/src/bipe/**"
+      - "web/package.json"
+      - ".github/workflows/web-vectors.yml"
+  push:
+    branches: [main]
+    paths:
+      - "web/src/bipe/**"
+      - "web/package.json"
+      - ".github/workflows/web-vectors.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-vectors-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vectors:
+    name: web (vectors)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      # The bipe-shared branch of the same name when it exists, else main (bipe-shared AGENTS.md).
+      - name: bipe-shared branch
+        id: shared
+        run: |
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          if git ls-remote --exit-code --heads https://github.com/bipe-chat/bipe-shared "refs/heads/$branch" > /dev/null; then
+            echo "ref=$branch" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-shared
+          path: bipe-shared
+          ref: ${{ steps.shared.outputs.ref }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check the generated TypeScript
+        working-directory: web
+        run: >
+          pnpm exec tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler
+          --isolatedModules --skipLibCheck --ignoreConfig src/bipe/generated/strings.ts src/bipe/generated/screens.ts
+
+      - name: Vector tests
+        working-directory: web
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+        run: node --test "src/bipe/*.test.mjs"

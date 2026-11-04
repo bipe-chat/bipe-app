@@ -34,6 +34,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.chatlist.PromptAction
+import chat.bipe.app.chatlist.PromptCard
 import chat.bipe.app.common.edgeToEdge
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -52,36 +54,34 @@ fun EncryptionStatusModel.collectNeedsApproval(): Boolean {
     return needsApproval(verificationState, recoveryState, hasOtherDevices, seesUndecryptable)
 }
 
-/** Spec encryption-status: the quiet banner, the first row of the chat list. Shows nothing when it does not apply. */
+/** The approvePhone entry of chat-list-prompt (bipe-chat/bipe#894) holds, from the current state. */
 @Composable
-fun HistoryBanner(model: EncryptionStatusModel) {
-    val verificationState by model.verificationState.collectAsState()
+fun EncryptionStatusModel.collectShowsCard(): Boolean {
+    val verificationState by verificationState.collectAsState()
+    val recoveryState by recoveryState.collectAsState()
+    val hasOtherDevices by hasOtherDevices.collectAsState()
+    val seesUndecryptable by seesUndecryptable.collectAsState()
+    val bannerDismissed by bannerDismissed.collectAsState()
+    return showsBanner(verificationState, recoveryState, hasOtherDevices, seesUndecryptable, bannerDismissed)
+}
+
+/** The approvePhone card of chat-list-prompt. The primary is the one way this phone has. */
+@Composable
+fun ApprovePhoneCard(model: EncryptionStatusModel) {
     val recoveryState by model.recoveryState.collectAsState()
     val hasOtherDevices by model.hasOtherDevices.collectAsState()
-    val seesUndecryptable by model.seesUndecryptable.collectAsState()
-    val bannerDismissed by model.bannerDismissed.collectAsState()
-    if (!model.showsBanner(verificationState, recoveryState, hasOtherDevices, seesUndecryptable, bannerDismissed)) return
-    val colors = BipeTheme.colors
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(colors.surfaceRaised)
-            .testTag(BipeScreen.ENCRYPTION_STATUS.id)
-            .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            modifier = Modifier.weight(1f).clickable(onClick = model::openSheet).padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(painterResource(PhosphorIcon.LOCK_SIMPLE.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(18.dp))
-            Text(stringResource(R.string.bipe_app_history_banner), style = MaterialTheme.typography.bodyMedium, color = colors.inkPrimary)
-        }
-        TextButton(onClick = model::dismiss) {
-            Text(stringResource(R.string.bipe_fallback_skip), color = colors.accentInk)
-        }
-    }
+    val wayOut = model.hasWayOut(recoveryState, hasOtherDevices)
+    PromptCard(
+        title = stringResource(R.string.bipe_app_history_title),
+        body = stringResource(if (wayOut) R.string.bipe_app_history_banner else R.string.bipe_app_history_none),
+        primary = when {
+            hasOtherDevices -> PromptAction(stringResource(R.string.bipe_app_history_approve), model::approveWithDevice)
+            model.canUseRecoveryKey(recoveryState) -> PromptAction(stringResource(R.string.bipe_app_history_use_key), model::useRecoveryKey)
+            else -> null
+        },
+        texts = if (wayOut) emptyList() else listOf(PromptAction(stringResource(R.string.bipe_fallback_skip), model::dismiss)),
+        modifier = Modifier.testTag(BipeScreen.ENCRYPTION_STATUS.id),
+    )
 }
 
 /** The sheets of the encryption flow: encryption-status, device-verification and recovery-key-enter. */

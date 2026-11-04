@@ -11,6 +11,7 @@ import chat.bipe.shared.R
 import org.matrix.rustcomponents.sdk.EventSendState
 import org.matrix.rustcomponents.sdk.ImageInfo
 import org.matrix.rustcomponents.sdk.MediaSource
+import chat.bipe.stickers.StickerPackRef
 import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 
@@ -38,10 +39,14 @@ data class MediaMessage(
     /** Own media while sending: percent 0 to 100. */
     val uploadProgress: Int? = null,
     val isAnimated: Boolean = false,
+    /** info.is_animated as sent; null when the sender did not say. */
+    val animationHint: Boolean? = null,
     val source: MediaRef,
     val thumbnailSource: MediaRef? = null,
     /** image only: the sender's description for screen readers (bipe-chat/bipe#501, registries/image-descriptions.json). */
     val description: String? = null,
+    /** sticker only: the room pack of stickerPackField (message-actions viewStickerPack, ADR 0205). */
+    val stickerPack: StickerPackRef? = null,
 ) {
     enum class Kind { IMAGE, VIDEO, FILE, STICKER }
 
@@ -58,6 +63,10 @@ data class MediaMessage(
             Kind.FILE -> R.string.bipe_app_media_file
             Kind.STICKER -> R.string.bipe_app_media_sticker
         }
+
+    /** A sticker that can be an animated WebP (ADR 0205): said so by the sender, or a WebP that did not say. */
+    val mayBeAnimated: Boolean
+        get() = kind == Kind.STICKER && (animationHint ?: (mimeType == null || mimeType == "image/webp"))
 
     /** image, video and sticker open media-viewer; a file opens the system preview. */
     val opensInViewer: Boolean get() = kind != Kind.FILE
@@ -76,6 +85,8 @@ data class VoiceMessage(
     val transcript: String?,
     val mimeType: String?,
     val source: MediaRef,
+    /** The count of the forward mark in the event content (bipe-chat/bipe#83); 0 when it has none. */
+    val forwardCount: Int = 0,
 ) {
     val durationLabel: String get() = MediaFormat.duration(durationMillis)
 }
@@ -155,6 +166,7 @@ sealed interface MediaContent {
             height = info?.height?.toInt(),
             blurhash = info?.blurhash,
             isAnimated = info?.isAnimated ?: false,
+            animationHint = info?.isAnimated,
             source = MediaRef(source),
             thumbnailSource = info?.thumbnailSource?.let(::MediaRef),
         )

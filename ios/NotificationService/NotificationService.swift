@@ -13,6 +13,8 @@ import UserNotifications
 final class NotificationService: UNNotificationServiceExtension {
     /// Time for the fetch. iOS gives the extension about 30 seconds.
     private static let fetchTimeout: Duration = .seconds(25)
+    /// The notification waits at most this long for the delivered ack (spec read-receipts).
+    private static let ackWait: Duration = .seconds(4)
 
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var task: Task<Void, Never>?
@@ -26,9 +28,31 @@ final class NotificationService: UNNotificationServiceExtension {
     ) {
         self.contentHandler = contentHandler
         let userInfo = request.content.userInfo
-        if userInfo[NotificationKeys.pushKind] as? String == NotificationKeys.deviceApprovalPush {
-            deliver(Self.deviceApproval(route: userInfo[NotificationKeys.accountRoute] as? String))
+        let noticeRoute = userInfo[NotificationKeys.accountRoute] as? String
+        switch userInfo[NotificationKeys.pushKind] as? String {
+        case NotificationKeys.deviceApprovalPush:
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.deviceApprovalKind,
+                                       title: BipeStrings.appVerifyIncomingTitle, body: BipeStrings.appVerifyNudgeBody))
             return
+        case NotificationKeys.recoveryStartedPush:
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.recoveryKind,
+                                       title: BipeStrings.recoveryAlertTitle, body: BipeStrings.recoveryPushStartedBody))
+            return
+        case NotificationKeys.recoveryCompletedPush:
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.recoveryKind,
+                                       title: BipeStrings.appName, body: BipeStrings.recoveryPushCompletedBody))
+            return
+        case NotificationKeys.inviteJoinedPush:
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.inviteJoinedKind,
+                                       title: BipeStrings.inviteJoinedPushTitle, body: BipeStrings.inviteJoinedPushBody))
+            return
+        case NotificationKeys.groupLinkJoinedPush:
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.groupLinkJoinedKind,
+                                       title: BipeStrings.groupLinkJoinedPushTitle, body: BipeStrings.groupLinkJoinedPushBody,
+                                       roomId: userInfo[NotificationKeys.roomIdPush] as? String))
+            return
+        default:
+            break
         }
         guard let route = userInfo[NotificationKeys.accountRoute] as? String,
               let target = NotificationKeys.pushTarget(userInfo),
@@ -72,7 +96,11 @@ final class NotificationService: UNNotificationServiceExtension {
             }
             switch status {
             case .event(let item):
-                return content(item: item, target: target, route: route, eventId: eventId, unreadCount: unreadCount)
+                // Spec read-receipts, ack send: next to the notification, never in its way.
+                let ack = Task { await sendDeliveredAck(item: item, target: target, eventId: eventId) }
+                let shown = await eventContent(item: item, target: target, route: route, eventId: eventId, unreadCount: unreadCount)
+                await waitAtMost(ackWait, for: ack)
+                return shown
             case .eventFilteredOut, .eventRedacted, .eventNotFound:
                 // Shows nothing: an empty content replaces the gateway alert.
                 let empty = UNMutableNotificationContent()
@@ -85,14 +113,50 @@ final class NotificationService: UNNotificationServiceExtension {
         }
     }
 
+    private static func eventContent(item: NotificationItem, target: BipeNotificationTarget, route: String, eventId: String,
+                                     unreadCount: Int?) async -> UNNotificationContent {
+        let shown = content(item: item, target: target, route: route, eventId: eventId, unreadCount: unreadCount)
+        // Spec notification-service notes, sender photo (bipe-chat/bipe#771): messages only, with preview on.
+        guard case .timeline(let event) = item.event, shown.categoryIdentifier == NotificationKeys.messageCategory,
+              NotificationPrefs.preview(for: target.accountUserId), let text = messageText(event),
+              let mutable = shown.mutableCopy() as? UNMutableNotificationContent else { return shown }
+        let senderName = BipeChatRowName.person(userID: event.senderId(), displayName: item.senderInfo.displayName, handle: nil)
+        return await CommunicationNotification.updated(
+            mutable, text: text, senderId: event.senderId(), senderName: senderName,
+            senderAvatarUrl: item.senderInfo.avatarUrl, roomId: target.roomId,
+            groupName: item.roomInfo.isDm ? nil : item.roomInfo.displayName, groupAvatarUrl: item.roomInfo.avatarUrl,
+            ownUserId: target.accountUserId, client: await NotificationClients.shared.mediaClient(userId: target.accountUserId))
+    }
+
+    /// Spec read-receipts, ack send (ADR 0222): a DM event from the other person is delivered to this phone.
+    private static func sendDeliveredAck(item: NotificationItem, target: BipeNotificationTarget, eventId: String) async {
+        guard item.roomInfo.isDm, case .timeline(let event) = item.event, event.senderId() != target.accountUserId,
+              let delivered = await NotificationClients.shared.delivered(userId: target.accountUserId),
+              let room = try? await NotificationClients.shared.mediaClient(userId: target.accountUserId)?.getRoom(roomId: target.roomId)
+        else { return }
+        await delivered.send(room: room, eventId: eventId, sender: event.senderId())
+    }
+
+    /// Returns when the task ends or after `limit`, whichever comes first. The task keeps running.
+    private static func waitAtMost(_ limit: Duration, for task: Task<Void, Never>) async {
+        let done = AsyncStream<Void> { continuation in
+            Task { await task.value; continuation.finish() }
+            Task { try? await Task.sleep(for: limit); continuation.finish() }
+        }
+        for await _ in done {}
+    }
+
     private static func content(item: NotificationItem, target: BipeNotificationTarget, route: String, eventId: String, unreadCount: Int?) -> UNNotificationContent {
         let room = item.roomInfo
-        let senderName = item.senderInfo.displayName.flatMap { $0.isEmpty ? nil : $0 }
+        // People names: the real display name, else the @ the app cached in the app group, else bipe_person_no_name.
+        func senderName(_ userId: String) -> String {
+            BipeChatRowName.person(userID: userId, displayName: item.senderInfo.displayName, handle: nil)
+        }
         let content = UNMutableNotificationContent()
         var kind = "message"
         switch item.event {
         case .timeline(let event):
-            if room.isDm, let ring = ring(event: event, sender: senderName ?? event.senderId(), target: target, route: route, eventId: eventId) {
+            if room.isDm, let ring = ring(event: event, sender: senderName(event.senderId()), target: target, route: route, eventId: eventId) {
                 return ring
             }
             // Spec location-view notes: a live location update (MSC3672 beacon) never shows a notification.
@@ -104,7 +168,7 @@ final class NotificationService: UNNotificationServiceExtension {
             guard let text = messageText(event) else {
                 return fallback(target: target, route: route, eventId: eventId, unreadCount: unreadCount)
             }
-            let sender = senderName ?? event.senderId()
+            let sender = senderName(event.senderId())
             // ADR 0141: a DM shows the other person, never the room name.
             if room.isDm {
                 content.title = sender
@@ -116,7 +180,7 @@ final class NotificationService: UNNotificationServiceExtension {
             content.categoryIdentifier = NotificationKeys.messageCategory
         case .invite(let senderId):
             kind = room.isDm ? "chatRequest" : "groupInvite"
-            let sender = senderName ?? senderId
+            let sender = senderName(senderId)
             if room.isDm {
                 content.title = sender
                 content.body = BipeStrings.appNotificationChatRequest(sender)
@@ -199,18 +263,22 @@ final class NotificationService: UNNotificationServiceExtension {
         }
     }
 
-    /// Kind deviceApproval (bipe-chat/bipe#628): a new device of the account waits for approval. Nothing to fetch: the
-    /// app's sync brings the request. An unknown route, or an account no longer on this phone, shows nothing.
-    private static func deviceApproval(route: String?) -> UNNotificationContent {
+    /// A content-free push about the account, not a room: kind deviceApproval (bipe-chat/bipe#628, a new device waits
+    /// for approval; the app's sync brings the request) or kind recovery (bipe-chat/bipe#171, a recovery started or
+    /// completed; the app reads GET /v1/me/account). Nothing to fetch here. An unknown route, or an account no longer on
+    /// this phone, shows nothing.
+    private static func accountNotice(route: String?, kind: String, title: String, body: String, roomId: String? = nil) -> UNNotificationContent {
         guard let route, let userId = NotificationKeys.accountRoutes?.account(for: route),
               SessionStore.loadForPush(userId: userId) != nil else {
             return UNMutableNotificationContent()
         }
         let content = UNMutableNotificationContent()
-        content.title = BipeStrings.appVerifyIncomingTitle
-        content.body = BipeStrings.appVerifyNudgeBody
+        content.title = title
+        content.body = body
         content.userInfo = [NotificationKeys.accountUserId: userId, NotificationKeys.accountRoute: route,
-                            NotificationKeys.kind: NotificationKeys.deviceApprovalKind]
+                            NotificationKeys.kind: kind]
+        // group_link_joined (bipe-chat/bipe#967): the tap opens the group.
+        if let roomId { content.userInfo[NotificationKeys.roomId] = roomId }
         apply(sound: sound(isNoisy: true, userId: userId), to: content, userId: userId)
         return content
     }
@@ -248,8 +316,27 @@ private actor NotificationClients {
     static let shared = NotificationClients()
 
     private var notificationClient: NotificationClient?
+    /// The client behind it, for the sender photos (bipe-chat/bipe#771).
+    private var client: Client?
     private var owner: String?
     private var deviceId: String?
+
+    /// The cached client of [userId]; nil before the first notification of that account.
+    func mediaClient(userId: String) -> Client? {
+        owner == userId ? client : nil
+    }
+
+    /// Spec read-receipts: the ack sender of [userId], kept with its client. Acks that this process's sync takes go
+    /// into DeliveredLog for the app.
+    private var deliveredAcks: DeliveredAcks?
+
+    func delivered(userId: String) -> DeliveredAcks? {
+        guard owner == userId, let client else { return nil }
+        if let deliveredAcks { return deliveredAcks }
+        let made = DeliveredAcks(client: client, ownUserId: userId)
+        deliveredAcks = made
+        return made
+    }
 
     func client(userId: String) async throws -> NotificationClient {
         guard let session = SessionStore.loadForPush(userId: userId) else {
@@ -266,6 +353,8 @@ private actor NotificationClients {
         try await client.restoreSession(session: session)
         let notificationClient = try await client.notificationClient(processSetup: .multipleProcesses)
         self.notificationClient = notificationClient
+        self.client = client
+        deliveredAcks = nil
         owner = userId
         deviceId = session.deviceId
         return notificationClient

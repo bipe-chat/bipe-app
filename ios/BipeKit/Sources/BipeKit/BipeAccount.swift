@@ -56,6 +56,10 @@ public struct BipeAccountStatus: Decodable, Sendable, Equatable {
     public let independentRecovery: Bool?
     /// ADR 0140: the waiting account deletion. Absent when none.
     public let deletion: BipeAccountDeletion?
+    /// ADR 0229: the band from the last OS age signal (`unknown` when none). Absent from an older server.
+    public let ageBand: String?
+    /// ADR 0229: when the app last sent an age signal. Absent when never.
+    public let ageCheckedAt: Date?
 }
 
 /// Contract: `AccountDeletion` (ADR 0140).

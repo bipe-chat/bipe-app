@@ -4,10 +4,16 @@
 
 package chat.bipe.app.encryption
 
+import android.util.Log
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.account.AccountStep
 import chat.bipe.app.common.AppConfig
+import chat.bipe.app.settings.OwnerCheck
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeRegistries
+import chat.bipe.shared.settings.checkPin
+import chat.bipe.shared.weblink.BipeMatrixAccountApi
+import chat.bipe.shared.weblink.webLinkPlace
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -35,6 +41,13 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
     enum class Role { NEW_PHONE, APPROVER }
 
     enum class Phase { REQUESTING, WAITING_FOR_OTHER, INCOMING, CONFIRM_IDENTITY, COMPARE, WAITING_FOR_MATCH, DONE, CANCELLED, FAILED }
+
+    private companion object {
+        /** The SDK cancels a verification request after 10 minutes (matrix-sdk-crypto VERIFICATION_TIMEOUT). */
+        const val FLOW_TIMEOUT_MS = 10 * 60 * 1_000L
+        /** Phases before compare: a new request from the account's own device replaces them (bipe-chat/bipe#949). */
+        val EARLY_PHASES = setOf(Phase.REQUESTING, Phase.WAITING_FOR_OTHER, Phase.INCOMING, Phase.CONFIRM_IDENTITY)
+    }
 
     /** The calls of SessionVerificationControllerDelegate, as values. */
     private sealed interface Event {
@@ -66,8 +79,22 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
     private val _canNotifyAgain = MutableStateFlow(false)
     val canNotifyAgain: StateFlow<Boolean> = _canNotifyAgain.asStateFlow()
 
+    /** approver: seconds left of the cooldown before the approve button (rule 5, the same wait as the QR approval). */
+    private val _secondsLeft = MutableStateFlow(0)
+    val secondsLeft: StateFlow<Int> = _secondsLeft.asStateFlow()
+
+    /** approver: the approximate place of the requesting device, from its last IP (rule 5). Null while unknown. */
+    private val _place = MutableStateFlow<String?>(null)
+    val place: StateFlow<String?> = _place.asStateFlow()
+
+    /** The place look-up ended; [place] null then means unknown. */
+    private val _placeKnown = MutableStateFlow(false)
+    val placeKnown: StateFlow<Boolean> = _placeKnown.asStateFlow()
+
     private val api = BipeApiClient(AppConfig.API_BASE_URL)
     private var nudgeWait: Job? = null
+    private var countdown: Job? = null
+    private var placeLookUp: Job? = null
 
     /** Called when a request from another device of this account arrives (action receive). */
     var onIncoming: (() -> Unit)? = null
@@ -77,6 +104,11 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
     private var job: Job? = null
 
     /** The flow has ended or has not started; a new request may begin. */
+    /** When the current flow began, in ms. A new request replaces a flow past the SDK timeout (bipe-chat/bipe#949). */
+    private var flowStartedAt: Long? = null
+    /** When this model cancelled a stale flow to take a new request. The SDK reports that cancel later, with no flow ID. */
+    private var replacedAt: Long? = null
+
     val isFinished: Boolean
         get() = _phase.value in setOf(Phase.DONE, Phase.CANCELLED, Phase.FAILED)
 
@@ -113,6 +145,7 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
         _symbols.value = emptyList()
         _mismatch.value = false
         _canNotifyAgain.value = false
+        flowStartedAt = System.currentTimeMillis()
         _phase.value = Phase.REQUESTING
         scope.launch {
             val controller = readyController()
@@ -143,15 +176,31 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
         }
     }
 
-    /** Action accept: approver passes the device owner check, then accepts. */
-    fun accept(confirmOwner: suspend () -> Boolean) {
+    /** The server check of the Bipe PIN, for the owner check on a phone with no strong biometrics (bipe-chat/bipe#785). */
+    suspend fun checkAccountPin(pin: String) {
+        BipeApiClient.withTokenRetry({ session.accessToken() }) { api.checkPin(pin, it) }
+    }
+
+    /**
+     * Action accept: approver waits through the cooldown, passes the owner check ([OwnerCheck.approval]: strong
+     * biometrics, else the Bipe PIN; never the screen lock), then accepts. A phone with no screen lock cannot approve.
+     */
+    fun accept(confirmOwner: suspend () -> OwnerCheck.Approval) {
         val controller = controller ?: return
-        if (_role.value != Role.APPROVER || _phase.value != Phase.INCOMING) return
+        if (_role.value != Role.APPROVER || _phase.value != Phase.INCOMING || _secondsLeft.value > 0) return
         _phase.value = Phase.CONFIRM_IDENTITY
         scope.launch {
-            if (!confirmOwner()) {
-                _phase.value = Phase.INCOMING
-                return@launch
+            when (confirmOwner()) {
+                OwnerCheck.Approval.PASSED -> Unit
+                OwnerCheck.Approval.FAILED -> {
+                    _phase.value = Phase.INCOMING
+                    return@launch
+                }
+                OwnerCheck.Approval.NO_SCREEN_LOCK -> {
+                    _phase.value = Phase.FAILED
+                    runCatching { controller.cancelVerification() }
+                    return@launch
+                }
             }
             _phase.value = runCatching { controller.acceptVerificationRequest() }
                 .fold({ Phase.WAITING_FOR_OTHER }, { Phase.FAILED })
@@ -204,14 +253,29 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
                 // Action receive: only requests from this account's own devices (spec notes).
                 val details = event.details
                 if (details.senderProfile.userId != session.userId) return
-                if (!isFinished && _phase.value != Phase.INCOMING) return
+                // A flow that ended without a terminal SDK event must not drop every later request (bipe-chat/bipe#949).
+                // The new request replaces a flow that has not reached compare, or any flow past the SDK timeout.
+                if (!isFinished) {
+                    val phase = _phase.value
+                    val stale = flowStartedAt?.let { System.currentTimeMillis() - it > FLOW_TIMEOUT_MS } ?: true
+                    if (!stale && phase !in EARLY_PHASES) {
+                        Log.w(AccountStep.TAG, "verification: request ${details.flowId} dropped, phase $phase")
+                        return
+                    }
+                    Log.i(AccountStep.TAG, "verification: request ${details.flowId} replaces a flow in phase $phase")
+                    replacedAt = System.currentTimeMillis()
+                    runCatching { controller?.cancelVerification() }
+                }
                 runCatching { controller?.acknowledgeVerificationRequest(details.senderProfile.userId, details.flowId) }
                     .onFailure { return }
                 _role.value = Role.APPROVER
                 _otherDevice.value = RequestingDevice(details.deviceId, details.deviceDisplayName, details.firstSeenTimestamp.toLong())
                 _symbols.value = emptyList()
                 _mismatch.value = false
+                flowStartedAt = System.currentTimeMillis()
                 _phase.value = Phase.INCOMING
+                startCooldown()
+                lookUpPlace(details.deviceId)
                 onIncoming?.invoke()
             }
             // The other device accepted the request of this new phone: start SAS.
@@ -225,8 +289,53 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
                 _phase.value = Phase.COMPARE
             }
             Event.Finished -> _phase.value = Phase.DONE
-            Event.Cancelled -> if (_phase.value != Phase.DONE) _phase.value = Phase.CANCELLED
-            Event.Failed -> if (_phase.value != Phase.DONE) _phase.value = Phase.FAILED
+            Event.Cancelled -> if (!isEchoOfReplace() && _phase.value != Phase.DONE) _phase.value = Phase.CANCELLED
+            Event.Failed -> if (!isEchoOfReplace() && _phase.value != Phase.DONE) _phase.value = Phase.FAILED
+        }
+    }
+
+    /**
+     * true for the cancel of the flow that a new incoming request just replaced: the SDK reports it a moment later, and
+     * it must not end the new flow.
+     */
+    private fun isEchoOfReplace(): Boolean {
+        val at = replacedAt ?: return false
+        if (_phase.value != Phase.INCOMING || System.currentTimeMillis() - at >= 5_000) return false
+        replacedAt = null
+        return true
+    }
+
+    /** Rule 5: the approve button waits WEB_LINK_COOLDOWN_SECONDS, as on the QR approval. */
+    private fun startCooldown() {
+        countdown?.cancel()
+        _secondsLeft.value = BipeRegistries.WEB_LINK_COOLDOWN_SECONDS
+        countdown = scope.launch {
+            while (_secondsLeft.value > 0) {
+                delay(1_000)
+                _secondsLeft.value -= 1
+            }
+        }
+    }
+
+    /**
+     * Rule 5: the approximate place of the requesting device. Its last IP comes from GET /_matrix/client/v3/devices
+     * (last_seen_ip); GET /v1/web-link/place turns it into a place, as on the QR approval. The IP goes to no outside
+     * service.
+     */
+    private fun lookUpPlace(deviceId: String) {
+        placeLookUp?.cancel()
+        _place.value = null
+        _placeKnown.value = false
+        placeLookUp = scope.launch {
+            val found = runCatching {
+                val token = session.accessToken() ?: return@runCatching null
+                val ip = BipeMatrixAccountApi(session.client.homeserver()).devices(token)
+                    .firstOrNull { it.deviceId == deviceId }?.lastSeenIp ?: return@runCatching null
+                BipeApiClient.withTokenRetry({ session.accessToken() }) { api.webLinkPlace(ip, it) }.label()
+            }.getOrNull()
+            if (_otherDevice.value?.deviceId != deviceId) return@launch
+            _place.value = found
+            _placeKnown.value = true
         }
     }
 

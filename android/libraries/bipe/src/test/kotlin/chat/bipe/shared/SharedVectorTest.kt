@@ -8,6 +8,9 @@ import com.google.common.truth.Truth.assertWithMessage
 import chat.bipe.shared.account.BipePin
 import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.shared.clearedchats.ClearedChats
+import chat.bipe.shared.media.BipeForwardMark
+import chat.bipe.shared.drafts.BipeAssistantDrafts
+import chat.bipe.shared.drafts.BipeAssistantSend
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeDmCandidate
 import chat.bipe.shared.generated.BipeRelationshipNames
@@ -20,9 +23,13 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import chat.bipe.shared.onboarding.BipeBringPeople
+import chat.bipe.shared.onboarding.BipePromptSlot
+import chat.bipe.shared.generated.BipeChatListPrompt
 import chat.bipe.shared.onboarding.BipeOnboardingSchedule
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
@@ -31,6 +38,30 @@ import java.io.File
 
 /** Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). iOS runs the same files. */
 class SharedVectorTest {
+    @Test
+    fun govbrVerify() {
+        assertWithMessage("govbr limit").that(load("govbr-verify.json").string("maxDocumentBytes")?.toInt())
+            .isEqualTo(BipeRegistries.GOVBR_MAX_DOCUMENT_BYTES)
+        val incoming = vectors("govbr-verify.json", "incoming")
+        assertWithMessage("govbr incoming vectors").that(incoming).isNotEmpty()
+        for (vector in incoming) {
+            val result = BipeGovbrRules.incoming(vector.string("phase")!!, vector.string("byteCount")!!.toInt())
+            assertWithMessage("govbr incoming ${vector.string("name")}").that(result.id).isEqualTo(vector.string("expected"))
+        }
+        val results = vectors("govbr-verify.json", "results")
+        assertWithMessage("govbr result vectors").that(results).isNotEmpty()
+        for (vector in results) {
+            val expected = vector.getValue("expected").jsonObject
+            val (phase, reason) = when (val outcome = BipeGovbrRules.outcome(vector.string("state")!!, vector.string("reason"))) {
+                BipeGovbrRules.Outcome.Verified -> "verified" to null
+                is BipeGovbrRules.Outcome.Rejected -> "rejected" to outcome.reason.id
+                BipeGovbrRules.Outcome.Failed -> "failed" to null
+            }
+            assertWithMessage("govbr result ${vector.string("name")}").that(phase).isEqualTo(expected.string("phase"))
+            assertWithMessage("govbr result reason ${vector.string("name")}").that(reason).isEqualTo(expected.string("reason"))
+        }
+    }
+
     @Test
     fun photoMatch() {
         val cases = vectors("photo-match.json", "cases")
@@ -173,6 +204,26 @@ class SharedVectorTest {
         }
     }
 
+    /** Social handles on a public profile (ADR 0228): clean, problem and url for every case. */
+    @Test
+    fun socialHandles() {
+        val cases = vectors("social-handles.json", "cases")
+        assertWithMessage("social handle vectors").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val id = vector.string("platform")!!
+            val platform = BipeSocialHandles.platform(id)
+            assertWithMessage("platform $id").that(platform).isNotNull()
+            val input = vector.string("input")!!
+            val label = "$id \"$input\""
+            assertWithMessage("handle $label").that(BipeSocialHandles.clean(input)).isEqualTo(vector.string("handle"))
+            assertWithMessage("problem $label").that(BipeSocialHandles.problem(platform!!, input, vector.string("ownHandle"))?.id)
+                .isEqualTo(vector.string("problem"))
+            vector.string("url")?.let { url ->
+                assertWithMessage("url $label").that(BipeSocialHandles.url(platform, input)).isEqualTo(url)
+            }
+        }
+    }
+
     @Test
     fun pinReminderSchedule() {
         for (vector in vectors("onboarding-schedule.json", "pinReminder")) {
@@ -181,6 +232,39 @@ class SharedVectorTest {
             val next = BipeOnboardingSchedule.pinReminderNext(step, result)
             assertWithMessage("pinReminderNext($step, ${result.id}) step").that(next.step).isEqualTo(vector.string("nextStep")!!.toInt())
             assertWithMessage("pinReminderNext($step, ${result.id}) gapDays").that(next.gapDays).isEqualTo(vector.string("gapDays")!!.toInt())
+        }
+    }
+
+    @Test
+    fun bringPeopleReminder() {
+        val cases = vectors("onboarding-schedule.json", "bringPeopleReminder")
+        assertWithMessage("bringPeopleReminder is empty").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            val state = vector.getValue("state").jsonObject
+            val slots = state.getValue("slots").jsonArray.map {
+                val slot = it.jsonObject
+                BipeBringPeople.RuleSlot(slot.string("status")!!, slot.string("sentAt")!!.toLong())
+            }
+            val got = BipeBringPeople.reminder(state.string("declines")!!.toInt(), state.string("lastAskAt")?.toLong(), slots, vector.string("nowMs")!!.toLong())
+            val expected = vector["expected"]?.takeUnless { it is JsonNull }?.jsonObject
+            assertWithMessage("bringPeopleReminder($name) slot").that(got?.slot).isEqualTo(expected?.string("slot")?.toInt())
+            assertWithMessage("bringPeopleReminder($name) kind").that(got?.kind?.id).isEqualTo(expected?.string("kind"))
+        }
+    }
+
+    @Test
+    fun chatListPrompt() {
+        val cases = vectors("onboarding-schedule.json", "chatListPrompt")
+        assertWithMessage("chatListPrompt is empty").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            val eligible = vector.getValue("eligible").jsonArray.map { key ->
+                BipeChatListPrompt.entries.first { it.key == key.jsonPrimitive.content }
+            }.toSet()
+            val slot = vector["slot"]?.takeUnless { it is JsonNull }?.jsonObject
+            val got = BipePromptSlot.chatListCard(eligible, slot?.string("holder"), slot?.string("sinceMs")?.toLong() ?: 0L, vector.string("nowMs")!!.toLong())
+            assertWithMessage("chatListPrompt($name)").that(got?.key).isEqualTo(vector.string("expected"))
         }
     }
 
@@ -237,7 +321,6 @@ class SharedVectorTest {
             val result = verifier.verify(
                 envelopeJson = vector.getValue("envelope").toString(),
                 sender = vector.string("sender")!!,
-                senderDevice = vector.string("senderDevice")!!,
                 senderMasterKey = vector.string("senderMasterKey"),
                 nowMillis = nowMillis,
             )
@@ -285,6 +368,104 @@ class SharedVectorTest {
                 is BipeTheftMarkResult.Invalid -> assertWithMessage("theft mark $name").that(result.failure.code)
                     .isEqualTo(expected.string("error"))
             }
+        }
+    }
+
+    @Test
+    fun forwardMarks() {
+        val file = load("forward-marks.json")
+        assertWithMessage("forward key").that(file.string("forwardKey")).isEqualTo(BipeRegistries.FORWARD_KEY)
+        assertWithMessage("forwarded many times").that(file.getValue("forwardedManyTimes").jsonPrimitive.int)
+            .isEqualTo(BipeRegistries.FORWARDED_MANY_TIMES)
+        val counts = vectors("forward-marks.json", "count")
+        assertWithMessage("forward count vectors").that(counts).isNotEmpty()
+        for (vector in counts) {
+            assertWithMessage("count ${vector.string("name")}").that(BipeForwardMark.count(vector.getValue("content").jsonObject))
+                .isEqualTo(vector.getValue("expected").jsonPrimitive.int)
+        }
+        val forwards = vectors("forward-marks.json", "forward")
+        assertWithMessage("forward vectors").that(forwards).isNotEmpty()
+        for (vector in forwards) {
+            val newContent = vector["newContent"]?.takeUnless { it is JsonNull }?.jsonObject
+            assertWithMessage("forward ${vector.string("name")}")
+                .that(BipeForwardMark.forwardedContent(vector.getValue("content").jsonObject, newContent))
+                .isEqualTo(vector.getValue("expected"))
+        }
+        val sources = vectors("forward-marks.json", "source")
+        assertWithMessage("source vectors").that(sources).isNotEmpty()
+        for (vector in sources) {
+            val isVoice = vector.getValue("isVoice").jsonPrimitive.boolean
+            val count = vector.getValue("count").jsonPrimitive.int
+            assertWithMessage("source $isVoice $count").that(BipeForwardMark.source(isVoice, count).code).isEqualTo(vector.string("expected"))
+        }
+        assertWithMessage("forward chats").that(file.getValue("forwardChats").jsonPrimitive.int).isEqualTo(BipeRegistries.FORWARD_CHATS)
+        assertWithMessage("forward chats many times").that(file.getValue("forwardChatsManyTimes").jsonPrimitive.int)
+            .isEqualTo(BipeRegistries.FORWARD_CHATS_MANY_TIMES)
+        val lines = vectors("forward-marks.json", "line")
+        assertWithMessage("line vectors").that(lines).isNotEmpty()
+        for (vector in lines) {
+            val count = vector.getValue("count").jsonPrimitive.int
+            val expected = vector.getValue("expected").takeUnless { it is JsonNull }?.jsonPrimitive?.content
+            assertWithMessage("line $count").that(BipeForwardMark.line(count)?.code).isEqualTo(expected)
+        }
+        val limits = vectors("forward-marks.json", "chatLimit")
+        assertWithMessage("chat limit vectors").that(limits).isNotEmpty()
+        for (vector in limits) {
+            val counts = vector.getValue("counts").jsonArray.map { it.jsonPrimitive.int }
+            assertWithMessage("chatLimit ${vector.string("name")}").that(BipeForwardMark.chatLimit(counts))
+                .isEqualTo(vector.getValue("expected").jsonPrimitive.int)
+        }
+    }
+
+    @Test
+    fun assistantDrafts() {
+        val context = load("drafts.json").getValue("context").jsonObject
+        val ownUserId = context.string("ownUserId")!!
+        val joined = context.getValue("joinedRoomIds").jsonArray.map { it.jsonPrimitive.content }.toSet()
+        val cases = vectors("drafts.json", "cases")
+        assertWithMessage("drafts vectors").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            val event = vector.getValue("event").jsonObject
+            val expected = vector.getValue("expected").jsonObject
+            val result = BipeAssistantDrafts.fromEvent(event, ownUserId, joined)
+            val want = if (expected.getValue("show").jsonPrimitive.boolean) {
+                val draft = expected.getValue("draft").jsonObject
+                BipeAssistantDrafts.Result.Show(BipeAssistantDrafts.Draft(draft.string("roomId")!!, draft.string("body")!!,
+                    draft.string("replyTo"), draft.string("threadRoot"), draft.string("client")!!))
+            } else {
+                BipeAssistantDrafts.Result.Hide(expected.string("reason")!!)
+            }
+            assertWithMessage("draft $name").that(result).isEqualTo(want)
+            // The same event as raw JSON, the way the app reads it from the timeline.
+            assertWithMessage("draft json $name").that(BipeAssistantDrafts.fromEventJson(event.toString(), ownUserId = ownUserId, joinedRoomIds = joined))
+                .isEqualTo(want)
+        }
+        assertWithMessage("drafts room id").that(BipeAssistantDrafts.roomId("""{"room_id":"!drafts:bipe.net.br"}""")).isEqualTo("!drafts:bipe.net.br")
+        assertWithMessage("drafts room id without !").that(BipeAssistantDrafts.roomId("""{"room_id":"drafts"}""")).isNull()
+        assertWithMessage("no drafts room").that(BipeAssistantDrafts.roomId(null)).isNull()
+    }
+
+    @Test
+    fun assistantSend() {
+        val switches = vectors("assistant-send.json", "switch")
+        assertWithMessage("assistant-send switch vectors").that(switches).isNotEmpty()
+        for (vector in switches) {
+            val content = vector.getValue("content").takeUnless { it is JsonNull }
+            val expected = vector.getValue("expected").jsonPrimitive.boolean
+            assertWithMessage("switch ${vector.string("name")}").that(BipeAssistantSend.allowed(content)).isEqualTo(expected)
+            assertWithMessage("switch json ${vector.string("name")}").that(BipeAssistantSend.allowed(content?.toString())).isEqualTo(expected)
+        }
+        assertWithMessage("switch on").that(BipeAssistantSend.allowed(BipeAssistantSend.json(true))).isTrue()
+        assertWithMessage("switch off").that(BipeAssistantSend.allowed(BipeAssistantSend.json(false))).isFalse()
+        val labels = vectors("assistant-send.json", "label")
+        assertWithMessage("assistant-send label vectors").that(labels).isNotEmpty()
+        for (vector in labels) {
+            val content = vector.getValue("content").jsonObject
+            val expected = vector.string("expected")
+            assertWithMessage("label ${vector.string("name")}").that(BipeAssistantSend.sender(content)).isEqualTo(expected)
+            val event = """{"type":"m.room.message","content":$content}"""
+            assertWithMessage("label json ${vector.string("name")}").that(BipeAssistantSend.sender(null) { event }).isEqualTo(expected)
         }
     }
 

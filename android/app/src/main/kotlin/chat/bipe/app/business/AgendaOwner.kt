@@ -4,8 +4,8 @@
 
 package chat.bipe.app.business
 
+import chat.bipe.app.common.BipeToasts
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -356,7 +356,7 @@ fun AgendaOwnerScreen(session: AccountSession, chatList: ChatListModel, onOpenCh
                         val customers = model.closeToday()
                         sheet = when {
                             customers == null -> {
-                                Toast.makeText(context, context.getString(R.string.bipe_agenda_error_save), Toast.LENGTH_SHORT).show()
+                                BipeToasts.show(context.getString(R.string.bipe_agenda_error_save))
                                 null
                             }
                             customers.isEmpty() -> null
@@ -522,7 +522,7 @@ private fun CloseMessageDialog(model: AgendaOwnerModel, customers: List<String>,
                 sending = true
                 scope.launch {
                     val sent = model.sendToCustomers(customers, text.trim())
-                    Toast.makeText(context, context.getString(R.string.bipe_agenda_close_today_sent, sent.toString()), Toast.LENGTH_SHORT).show()
+                    BipeToasts.show(context.getString(R.string.bipe_agenda_close_today_sent, sent.toString()))
                     sending = false
                     onClose()
                 }

@@ -4,7 +4,7 @@
 
 package chat.bipe.app.groups
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -48,6 +48,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.memberLabel
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -66,7 +67,7 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     LaunchedEffect(model, inviting) { if (!inviting) model.appear() }
     if (inviting) {
         GroupInviteMembersScreen(session, media, GroupInviteMembersModel.Mode.Invite(roomId), onBack = { inviting = false }) {
-            Toast.makeText(context, sentText, Toast.LENGTH_SHORT).show()
+            BipeToasts.show(sentText)
             inviting = false
         }
         return
@@ -77,13 +78,15 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val query by model.query.collectAsState()
     val joined by model.joined.collectAsState()
     val invited by model.invited.collectAsState()
+    val banned by model.banned.collectAsState()
     val rights by model.rights.collectAsState()
     val loading by model.loading.collectAsState()
+    val customRoles by model.customRoles.collectAsState()
     val error by model.error.collectAsState()
     val errorText = stringResource(R.string.bipe_app_group_member_error)
     LaunchedEffect(error) {
         if (error) {
-            Toast.makeText(context, errorText, Toast.LENGTH_LONG).show()
+            BipeToasts.show(errorText)
             model.dismissError()
         }
     }
@@ -104,6 +107,16 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                         GroupRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_app_group_add_people)) { inviting = true }
                     }
                 }
+                if (customRoles) {
+                    item(key = "custom") {
+                        Text(
+                            stringResource(R.string.bipe_app_group_roles_custom),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.inkSecondary,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                }
                 if (loading) {
                     item(key = "loading") {
                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
@@ -122,6 +135,25 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     items(invited, key = { "i" + it.person.userId }) { member ->
                         MemberRow(member, media) { if (model.actions(member).isNotEmpty()) sheetMember = member }
                     }
+                }
+                if (banned.isNotEmpty()) {
+                    item(key = "banned") { GroupSectionHeader(stringResource(R.string.bipe_app_group_members_banned)) }
+                    items(banned, key = { "b" + it.person.userId }) { member ->
+                        MemberRow(member, media) { if (model.actions(member).isNotEmpty()) sheetMember = member }
+                    }
+                }
+                // Spec group-members notes: what each role does (bipe-chat/bipe#733).
+                item(key = "roles") {
+                    GroupSectionHeader(stringResource(R.string.bipe_app_group_roles_title))
+                    listOf(R.string.bipe_app_group_role_admin_body, R.string.bipe_app_group_role_moderator_body, R.string.bipe_app_group_role_member_body)
+                        .forEach { text ->
+                            Text(
+                                stringResource(text),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.inkSecondary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            )
+                        }
                 }
             }
         }
@@ -148,7 +180,9 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                             .fillMaxWidth()
                             .clickable {
                                 sheetMember = null
-                                if (action == GroupMembersModel.MemberAction.REMOVE || action == GroupMembersModel.MemberAction.BAN) {
+                                if (action == GroupMembersModel.MemberAction.REMOVE || action == GroupMembersModel.MemberAction.BAN ||
+                                    action == GroupMembersModel.MemberAction.UNBAN
+                                ) {
                                     confirm = action to member
                                 } else {
                                     model.perform(action, member)
@@ -172,10 +206,10 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
             onDismissRequest = { confirm = null },
             title = { Text(stringResource(actionTitle(action))) },
             text = {
-                val body = if (action == GroupMembersModel.MemberAction.BAN) {
-                    R.string.bipe_app_group_member_ban_body
-                } else {
-                    R.string.bipe_app_group_member_remove_body
+                val body = when (action) {
+                    GroupMembersModel.MemberAction.BAN -> R.string.bipe_app_group_member_ban_body
+                    GroupMembersModel.MemberAction.UNBAN -> R.string.bipe_app_group_member_unban_body
+                    else -> R.string.bipe_app_group_member_remove_body
                 }
                 Text(stringResource(body, member.person.displayName))
             },
@@ -184,7 +218,10 @@ fun GroupMembersScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     confirm = null
                     model.perform(action, member)
                 }) {
-                    Text(stringResource(actionTitle(action)), color = colors.trustDangerInk)
+                    Text(
+                        stringResource(actionTitle(action)),
+                        color = if (action == GroupMembersModel.MemberAction.UNBAN) colors.accentInk else colors.trustDangerInk,
+                    )
                 }
             },
             dismissButton = {
@@ -198,8 +235,11 @@ private fun actionTitle(action: GroupMembersModel.MemberAction): Int = when (act
     GroupMembersModel.MemberAction.VIEW_PROFILE -> R.string.bipe_app_group_member_profile
     GroupMembersModel.MemberAction.MAKE_ADMIN -> R.string.bipe_app_group_member_make_admin
     GroupMembersModel.MemberAction.REMOVE_ADMIN -> R.string.bipe_app_group_member_remove_admin
+    GroupMembersModel.MemberAction.MAKE_MODERATOR -> R.string.bipe_app_group_member_make_moderator
+    GroupMembersModel.MemberAction.REMOVE_MODERATOR -> R.string.bipe_app_group_member_remove_moderator
     GroupMembersModel.MemberAction.REMOVE -> R.string.bipe_app_group_member_remove
     GroupMembersModel.MemberAction.BAN -> R.string.bipe_app_group_member_ban
+    GroupMembersModel.MemberAction.UNBAN -> R.string.bipe_app_group_member_unban
     GroupMembersModel.MemberAction.CANCEL_INVITE -> R.string.bipe_app_group_member_cancel_invite
 }
 
@@ -213,7 +253,7 @@ private fun MemberRow(member: GroupMember, media: MediaLoader, onClick: () -> Un
         Avatar(member.person.displayName, member.person.avatarUrl, media, size = 40.dp, userId = member.person.userId)
         Spacer(Modifier.width(12.dp))
         Text(
-            member.person.displayName,
+            memberLabel(member.person.displayName, member.person.userId, member.nameAmbiguous),
             style = MaterialTheme.typography.bodyLarge,
             color = colors.inkPrimary,
             maxLines = 1,
@@ -223,6 +263,8 @@ private fun MemberRow(member: GroupMember, media: MediaLoader, onClick: () -> Un
         when {
             member.isYou -> Text(stringResource(R.string.bipe_app_you), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
             member.isAdmin -> Text(stringResource(R.string.bipe_app_group_admin), style = MaterialTheme.typography.bodySmall, color = colors.accentInk)
+            member.role == GroupRole.MODERATOR ->
+                Text(stringResource(R.string.bipe_app_group_moderator), style = MaterialTheme.typography.bodySmall, color = colors.accentInk)
         }
     }
 }

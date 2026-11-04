@@ -38,10 +38,14 @@ struct MediaMessage: Equatable {
     /// Own media while sending: percent 0 to 100.
     var uploadProgress: Int?
     var isAnimated = false
+    /// info.is_animated as sent; nil when the sender did not say.
+    var animationHint: Bool?
     var source: MediaRef
     var thumbnailSource: MediaRef?
     /// image only: the sender's description for screen readers (bipe-chat/bipe#501, registries/image-descriptions.json).
     var description: String?
+    /// sticker only: the room pack of stickerPackField (message-actions viewStickerPack, ADR 0205).
+    var stickerPack: StickerPackRef?
 
     /// Width over height for the row box. Without size: 4:3 (spec timeline-media notes).
     var aspectRatio: CGFloat {
@@ -65,6 +69,11 @@ struct MediaMessage: Equatable {
         return caption?.nilIfBlank.map { "\(base), \($0)" } ?? base
     }
 
+    /// A sticker that can be an animated WebP (ADR 0205): said so by the sender, or a WebP that did not say.
+    var mayBeAnimated: Bool {
+        kind == .sticker && (animationHint ?? (mimeType == nil || mimeType == "image/webp"))
+    }
+
     /// image, video and sticker open media-viewer; a file opens the system preview.
     var opensInViewer: Bool {
         kind != .file
@@ -82,6 +91,8 @@ struct VoiceMessage: Equatable {
     var transcript: String?
     var mimeType: String?
     var source: MediaRef
+    /// The count of the forward mark in the event content (bipe-chat/bipe#83); 0 when it has none.
+    var forwardCount = 0
 
     var durationLabel: String {
         MediaFormat.duration(duration)
@@ -161,6 +172,7 @@ extension MediaMessage {
                   height: info?.height.map { Int($0) },
                   blurhash: info?.blurhash,
                   isAnimated: info?.isAnimated ?? false,
+                  animationHint: info?.isAnimated,
                   source: MediaRef(source: source),
                   thumbnailSource: info?.thumbnailSource.map(MediaRef.init))
     }

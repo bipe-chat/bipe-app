@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: AGPL-3.0-only
+  Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+  Copyright 2026 Bipe contributors
+-->
+<!-- Spec app-update (ADR 0233): the tester APK only (-PbipeSelfUpdate=true). The Play build never has these. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <!-- The PackageInstaller session status of AppUpdate. -->
+        <receiver
+            android:name="chat.bipe.app.update.AppUpdateReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

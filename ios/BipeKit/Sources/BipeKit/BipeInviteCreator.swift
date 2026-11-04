@@ -49,6 +49,23 @@ public struct BipeInviteCreator {
     }
 }
 
+/// An invite link to share and the moment it stops working. The share text cites the date (specs invite-qr, bring-people).
+public struct BipeInviteShare: Identifiable, Sendable {
+    public let url: URL
+    public let expiresAt: Date
+    public var id: URL { url }
+
+    public init(url: URL, expiresAt: Date) {
+        self.url = url
+        self.expiresAt = expiresAt
+    }
+
+    /// bipe_invites_share_message with the date as day and month in words, no year ("9 de novembro").
+    public var message: String {
+        BipeStrings.invitesShareMessage(url.absoluteString, expiresAt.formatted(.dateTime.day().month(.wide)))
+    }
+}
+
 public enum BipeInviteQuota {
     /// The text under the invite buttons. `available` is `nil` while the count loads.
     public static func footer(available: Int?, nextAvailableAt: Date?) -> String {

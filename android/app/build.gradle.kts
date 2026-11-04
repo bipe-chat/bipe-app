@@ -8,9 +8,14 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // Store captures (bipe-chat/bipe#457): renders src/screenshotTest previews on the JVM, no emulator.
+    alias(libs.plugins.android.compose.screenshot)
 }
 
 // The Firebase project's client values (not secrets: they ship in every APK). BuildConfig field to Gradle property.
+// Spec app-update (ADR 0233): testflight.yml passes -PbipeSelfUpdate=true for the tester APK only. Never the store ID set.
+val selfUpdate = findProperty("bipeSelfUpdate") == "true" && findProperty("bipeIdSet") != "store"
+
 val firebaseValues = mapOf(
     "FIREBASE_APP_ID" to "bipeFirebaseAppId",
     "FIREBASE_PROJECT_ID" to "bipeFirebaseProjectId",
@@ -34,6 +39,13 @@ android {
         versionCode = (findProperty("bipeBuildNumber") as String?)?.toInt() ?: 1
         versionName = (findProperty("bipeVersionName") as String?) ?: "0.1.0"
         buildConfigField("String", "BIPE_COMMIT", "\"${(findProperty("bipeCommit") as String?).orEmpty()}\"")
+        // Trust step 5, Verificar com gov.br (spec govbr-verify, bipe-chat/bipe#544): a build value, never a stored or remote
+        // one. Off here and so in every release build; the debug build type turns it on for the tester ID set only, until
+        // bipe-chat/bipe#542 and bipe-chat/bipe#17 close. The manifest placeholder enables the PDF intake alias with it.
+        buildConfigField("boolean", "BIPE_GOVBR", "false")
+        manifestPlaceholders["bipeGovbrEnabled"] = "false"
+        // Spec app-update (ADR 0233): only the tester APK of testflight.yml updates itself from bipe.chat.
+        buildConfigField("boolean", "BIPE_SELF_UPDATE", "false")
     }
 
     // ADR 0150: the play flavour may use Google Block Store; foss has no Google Play services (the build without
@@ -70,13 +82,33 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            val govbr = (findProperty("bipeIdSet") != "store").toString()
+            buildConfigField("boolean", "BIPE_GOVBR", govbr)
+            manifestPlaceholders["bipeGovbrEnabled"] = govbr
         }
         release {
-            isMinifyEnabled = false
-            // Tester APK for side-loading (bipe-chat/bipe#575): debug signing is enough. The store release signs with
-            // the Play upload key when it is given; Play then signs again with the app signing key.
+            // APK size (bipe-app was 317 MB): R8 removes unused code and resources. proguard-rules.pro keeps what the
+            // Rust SDK, LiveKit and WebRTC reach through JNA and JNI.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // The tester APK (testflight.yml, bipe.chat/baixar) holds arm64 only: the four ABIs of the Rust SDK and
+            // WebRTC made 284 MB of the 317. The store AAB keeps every ABI; Play sends each phone only its own.
+            if (findProperty("bipeIdSet") != "store") {
+                ndk { abiFilters += "arm64-v8a" }
+            }
+            // The "upload" config holds the key given by the workflow: the Play upload key in store-release.yml, the
+            // fixed tester key in testflight.yml (one key for every tester APK, so installs update). Play signs the
+            // store build again with the app signing key. Local builds without a key use debug signing.
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("debug")
+            buildConfigField("boolean", "BIPE_SELF_UPDATE", selfUpdate.toString())
         }
+    }
+
+    // Spec app-update: REQUEST_INSTALL_PACKAGES and the installer status receiver go only into the tester APK.
+    // Google Play forbids an app that updates itself outside Play, so the Play build never has them.
+    if (selfUpdate) {
+        sourceSets.getByName("release").manifest.srcFile("src/selfUpdate/AndroidManifest.xml")
     }
 
     compileOptions {
@@ -95,6 +127,9 @@ android {
     androidResources {
         localeFilters += listOf("pt-rBR", "en")
     }
+
+    // Store captures (bipe-chat/bipe#457): the screenshotTest source set of the Compose Preview Screenshot Testing plugin.
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
 }
 
 kotlin {
@@ -138,4 +173,10 @@ dependencies {
     "playImplementation"(libs.firebase.messaging)
     // Deferred invite (ADR 0154): src/play/.../InstallReferrers.kt.
     "playImplementation"(libs.installreferrer)
+    // Age signal (ADR 0229): src/play/.../AgeSignalSources.kt.
+    "playImplementation"(libs.play.age.signals)
+    // Store captures (bipe-chat/bipe#457): src/screenshotTest, not in the APK.
+    screenshotTestImplementation(platform(libs.androidx.compose.bom))
+    screenshotTestImplementation(libs.screenshot.validation.api)
+    screenshotTestImplementation(libs.androidx.compose.ui.tooling)
 }

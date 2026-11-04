@@ -8,8 +8,9 @@
 -->
 <resources>
     <color name="bipe_app_icon_acai">#802F7C</color>
-    <color name="bipe_app_icon_pitanga">#C13F26</color>
-    <color name="bipe_app_icon_caju">#A05B00</color>
-    <color name="bipe_app_icon_jabuticaba">#614381</color>
+    <color name="bipe_app_icon_goiaba">#C52A7A</color>
+    <color name="bipe_app_icon_pitanga">#BC4500</color>
+    <color name="bipe_app_icon_maracuja">#7B6C00</color>
     <color name="bipe_app_icon_jenipapo">#005678</color>
+    <color name="bipe_app_icon_jabuticaba">#4E4694</color>
 </resources>

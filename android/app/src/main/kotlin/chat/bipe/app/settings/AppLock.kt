@@ -50,6 +50,7 @@ import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -127,6 +128,8 @@ private fun AppLockScreen(lock: AppLockModel) {
     var pin by remember { mutableStateOf("") }
     var wrong by remember { mutableStateOf(false) }
     var checking by remember { mutableStateOf(false) }
+    // Too many wrong PINs: digits are ignored until this time (bipe-chat/bipe#777).
+    var waitUntil by remember { mutableStateOf<Long?>(null) }
     val word = biometricWord(context)
     val reason = stringResource(R.string.bipe_app_lock_biometric, word)
     val cancel = stringResource(R.string.bipe_app_cancel)
@@ -135,22 +138,37 @@ private fun AppLockScreen(lock: AppLockModel) {
         scope.launch {
             if (OwnerCheck.biometrics(context, reason, cancel)) {
                 view.bipeHaptic(BipeHaptic.Success)
+                withContext(Dispatchers.Default) { lock.store.clearFailures() }
+                waitUntil = null
                 lock.unlock()
             }
         }
     }
     // When the app comes back: asks for biometrics at once when biometric unlock is on.
-    LaunchedEffect(Unit) { if (offersBiometrics) useBiometrics() }
+    LaunchedEffect(Unit) {
+        waitUntil = withContext(Dispatchers.Default) { lock.store.waitUntil() }
+        if (offersBiometrics) useBiometrics()
+    }
+    // Clears the wait when it ends.
+    LaunchedEffect(waitUntil) {
+        val until = waitUntil ?: return@LaunchedEffect
+        delay((until - System.currentTimeMillis()).coerceAtLeast(0))
+        waitUntil = withContext(Dispatchers.Default) { lock.store.waitUntil() }
+    }
     PinPad(
         title = stringResource(R.string.bipe_app_lock_title),
         pin = pin,
         modifier = Modifier.testTag(BipeScreen.APP_LOCK.id),
         message = stringResource(R.string.bipe_pin_enter_title),
-        error = if (wrong) stringResource(R.string.bipe_app_lock_wrong) else null,
+        error = when {
+            waitUntil != null -> stringResource(R.string.bipe_error_rate_limited)
+            wrong -> stringResource(R.string.bipe_app_lock_wrong)
+            else -> null
+        },
         isBusy = checking,
         onBiometrics = if (offersBiometrics) useBiometrics else null,
         onDigit = { digit ->
-            if (pin.length < BipeRegistries.PIN_LENGTH) {
+            if (waitUntil == null && pin.length < BipeRegistries.PIN_LENGTH) {
                 wrong = false
                 pin += digit
                 if (pin.length == BipeRegistries.PIN_LENGTH) {
@@ -158,14 +176,21 @@ private fun AppLockScreen(lock: AppLockModel) {
                     pin = ""
                     checking = true
                     scope.launch {
-                        val match = withContext(Dispatchers.Default) { lock.store.verifyPin(typed) }
+                        val check = withContext(Dispatchers.Default) { lock.store.checkPin(typed) }
                         checking = false
-                        if (match) {
-                            view.bipeHaptic(BipeHaptic.Success)
-                            lock.unlock()
-                        } else {
-                            view.bipeHaptic(BipeHaptic.Error)
-                            wrong = true
+                        when (check) {
+                            BipeAppLock.Check.Match -> {
+                                view.bipeHaptic(BipeHaptic.Success)
+                                lock.unlock()
+                            }
+                            BipeAppLock.Check.Wrong -> {
+                                view.bipeHaptic(BipeHaptic.Error)
+                                wrong = true
+                            }
+                            is BipeAppLock.Check.Wait -> {
+                                view.bipeHaptic(BipeHaptic.Error)
+                                waitUntil = check.until
+                            }
                         }
                     }
                 }
@@ -263,6 +288,7 @@ fun AppLockPinCheck(title: String, onPass: () -> Unit, onCancel: () -> Unit) {
     val lock = remember { AppLockModel.get(context) }
     var pin by remember { mutableStateOf("") }
     var wrong by remember { mutableStateOf(false) }
+    var waiting by remember { mutableStateOf(false) }
     var checking by remember { mutableStateOf(false) }
     BackHandler(onBack = onCancel)
     Box(Modifier.fillMaxSize()) {
@@ -270,24 +296,35 @@ fun AppLockPinCheck(title: String, onPass: () -> Unit, onCancel: () -> Unit) {
             title = title,
             pin = pin,
             message = stringResource(R.string.bipe_pin_enter_title),
-            error = if (wrong) stringResource(R.string.bipe_pin_mismatch) else null,
+            error = when {
+                waiting -> stringResource(R.string.bipe_error_rate_limited)
+                wrong -> stringResource(R.string.bipe_pin_mismatch)
+                else -> null
+            },
             isBusy = checking,
             onDigit = { digit ->
                 if (pin.length < BipeRegistries.PIN_LENGTH) {
                     wrong = false
+                    waiting = false
                     pin += digit
                     if (pin.length == BipeRegistries.PIN_LENGTH) {
                         val typed = pin
                         pin = ""
                         checking = true
                         scope.launch {
-                            val match = withContext(Dispatchers.Default) { lock.store.verifyPin(typed) }
+                            // The same try limit as the lock screen (bipe-chat/bipe#777).
+                            val check = withContext(Dispatchers.Default) { lock.store.checkPin(typed) }
                             checking = false
-                            if (match) {
-                                onPass()
-                            } else {
-                                view.bipeHaptic(BipeHaptic.Error)
-                                wrong = true
+                            when (check) {
+                                BipeAppLock.Check.Match -> onPass()
+                                BipeAppLock.Check.Wrong -> {
+                                    view.bipeHaptic(BipeHaptic.Error)
+                                    wrong = true
+                                }
+                                is BipeAppLock.Check.Wait -> {
+                                    view.bipeHaptic(BipeHaptic.Error)
+                                    waiting = true
+                                }
                             }
                         }
                     }

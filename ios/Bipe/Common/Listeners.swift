@@ -128,3 +128,21 @@ extension TimelineDiff {
         }
     }
 }
+
+extension SearchServiceResultsUpdate {
+    var vectorDiff: VectorDiff<SearchServiceResult> {
+        switch self {
+        case .append(let values): .append(values)
+        case .clear: .clear
+        case .pushFront(let value): .pushFront(value)
+        case .pushBack(let value): .pushBack(value)
+        case .popFront: .popFront
+        case .popBack: .popBack
+        case .insert(let index, let value): .insert(Int(index), value)
+        case .set(let index, let value): .set(Int(index), value)
+        case .remove(let index): .remove(Int(index))
+        case .truncate(let length): .truncate(Int(length))
+        case .reset(let values): .reset(values)
+        }
+    }
+}

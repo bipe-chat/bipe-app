@@ -82,6 +82,8 @@ class TheftProtectionModel(private val context: Context, private val model: Sett
         /** Set while the picker is open. */
         val picker: List<GuardianRow>? = null,
         val confirm: Pair<Confirm, GuardedRow>? = null,
+        /** A guardian list waiting for the current Bipe PIN (bipe-chat/bipe#908): the PIN pad shows while it is set. */
+        val pendingGuardians: List<String>? = null,
         val phase: Phase = Phase.LOADING,
         /** A string resource: bipe_theft_error or bipe_error_network. */
         val error: Int? = null,
@@ -179,15 +181,22 @@ class TheftProtectionModel(private val context: Context, private val model: Sett
         }
     }
 
+    /** Action save: asks for the current Bipe PIN first; savePin sends the list with it. */
     private fun save(userIds: List<String>) {
-        scope.launch {
-            _state.update { it.copy(phase = Phase.SAVING, error = null) }
-            try {
-                show(model.authorized { model.api.setGuardians(userIds, it) })
-            } catch (error: BipeApiException) {
-                fail(error)
-            }
-        }
+        _state.update { it.copy(pendingGuardians = userIds, error = null) }
+    }
+
+    /** PUT /v1/me/guardians with the PIN typed on the PIN pad. A wrong PIN throws, and the pad shows it. */
+    suspend fun savePin(pin: String) {
+        val userIds = _state.value.pendingGuardians ?: return
+        val result = model.authorized { model.api.setGuardians(userIds, pin, it) }
+        _state.update { it.copy(pendingGuardians = null) }
+        show(result)
+    }
+
+    /** Closes the PIN pad without a change. */
+    fun cancelPin() {
+        _state.update { it.copy(pendingGuardians = null) }
     }
 
     private fun fail(error: BipeApiException) {
@@ -216,7 +225,7 @@ class TheftProtectionModel(private val context: Context, private val model: Sett
         }
     }
 
-    /** The display name the app knows, else the @ (POST /v1/handles/resolve), else the localpart. Never the Matrix ID. */
+    /** The display name the app knows, else the @ (POST /v1/handles/resolve), else bipe_person_no_name. Never the Matrix ID. */
     private suspend fun loadNames(userIds: List<String>) {
         val missing = userIds.distinct().filter { it !in names }
         if (missing.isEmpty()) return
@@ -227,7 +236,7 @@ class TheftProtectionModel(private val context: Context, private val model: Sett
         }
     }
 
-    private fun name(userId: String): String = names[userId] ?: Person.localpart(userId)
+    private fun name(userId: String): String = names[userId] ?: Person.name(userId, null)
 
     fun formatDate(instant: Instant): String = DateUtils.formatDateTime(
         context,
@@ -259,7 +268,17 @@ fun TheftProtectionScreen(model: SettingsModel, onBack: () -> Unit) {
         lifecycle?.addObserver(observer)
         onDispose { lifecycle?.removeObserver(observer) }
     }
+    if (state.pendingGuardians != null) {
+        AccountPinCheck(
+            title = stringResource(R.string.bipe_theft_title),
+            check = theft::savePin,
+            onPass = {},
+            onCancel = theft::cancelPin,
+        )
+        return
+    }
     SettingsPage(stringResource(R.string.bipe_theft_title), BipeScreen.THEFT_PROTECTION.id, onBack) {
+        item(key = "os-protection") { OsTheftProtectionRow() }
         item(key = "intro") {
             Column(Modifier.padding(16.dp)) {
                 Text(stringResource(R.string.bipe_theft_intro), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)

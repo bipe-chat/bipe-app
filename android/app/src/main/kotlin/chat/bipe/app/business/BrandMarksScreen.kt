@@ -4,6 +4,7 @@
 
 package chat.bipe.app.business
 
+import chat.bipe.app.common.BipeToasts
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -241,7 +242,7 @@ fun BrandMarksScreen(business: BusinessApi, onClose: () -> Unit) {
                 granted.marks.forEach { mark ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(resellerNames[mark.reseller] ?: mark.reseller, color = colors.inkPrimary)
+                            Text(resellerNames[mark.reseller] ?: chat.bipe.app.people.Person.name(mark.reseller, null), color = colors.inkPrimary)
                             Text(brandMarkLine(context, mark.label, name.orEmpty()), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                         }
                         TextButton(onClick = { ending = mark }, enabled = !working) { Text(stringResource(R.string.bipe_brand_marks_end), color = colors.trustDangerInk) }
@@ -290,7 +291,7 @@ fun BrandMarksScreen(business: BusinessApi, onClose: () -> Unit) {
         }
     }
     ending?.let { mark ->
-        ConfirmDialog(stringResource(R.string.bipe_brand_marks_end_confirm, resellerNames[mark.reseller] ?: mark.reseller), stringResource(R.string.bipe_brand_marks_end), onCancel = { ending = null }) {
+        ConfirmDialog(stringResource(R.string.bipe_brand_marks_end_confirm, resellerNames[mark.reseller] ?: chat.bipe.app.people.Person.name(mark.reseller, null)), stringResource(R.string.bipe_brand_marks_end), onCancel = { ending = null }) {
             run { business.withToken { endBrandMark(mark.id, it) } }
         }
     }
@@ -312,6 +313,7 @@ private fun CreatedCode(context: Context, created: BipeCreatedBrandMarkInvite) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = {
                 context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(created.code, created.link))
+                BipeToasts.copied(context)
             }) { Text(stringResource(R.string.bipe_app_copy)) }
             TextButton(onClick = {
                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, created.link), null))

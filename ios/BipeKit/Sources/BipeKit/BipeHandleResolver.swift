@@ -51,7 +51,7 @@ public final class BipeHandleResolver {
         if (entry?.expiry ?? .distantPast) < .now {
             enqueue(userID)
         }
-        return entry?.handle
+        return entry.map(\.handle) ?? BipeHandleCache.handle(for: userID)
     }
     
     /// "@handle" for a Bipe user ID with a known handle, otherwise `text` unchanged.
@@ -75,6 +75,7 @@ public final class BipeHandleResolver {
     /// Stores a handle the app already knows, e.g. after the user changes their own.
     public func store(handle: String?, for userID: String) {
         entries[userID] = Entry(handle: handle, expiry: .now.addingTimeInterval(handle == nil ? Self.missingTTL : Self.foundTTL))
+        BipeHandleCache.store(handle: handle, for: userID)
     }
     
     /// The published profile (ADR 0041). `nil` without a handle, with the profile off, or when the lookup failed.
@@ -152,7 +153,40 @@ public final class BipeHandleResolver {
     }
 }
 
+/// The @handles the resolver found last, in the app group (Info.plist BipeAppGroup), so the notification service and
+/// code without a resolver name a person by the @ (People names) and never by the Matrix ID.
+public nonisolated enum BipeHandleCache {
+    private static var defaults: UserDefaults {
+        (Bundle.main.object(forInfoDictionaryKey: "BipeAppGroup") as? String).flatMap { UserDefaults(suiteName: $0) } ?? .standard
+    }
+
+    private static func key(_ userID: String) -> String {
+        "bipe.handles.\(userID)"
+    }
+
+    /// The last known handle (without "@") of a Bipe user ID, else `nil`.
+    public static func handle(for userID: String) -> String? {
+        guard BipeServers.isBipeUserID(userID) else { return nil }
+        return defaults.string(forKey: key(userID)).flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// A found handle replaces the old one; `nil` (the user has none) removes it.
+    public static func store(handle: String?, for userID: String) {
+        guard BipeServers.isBipeUserID(userID) else { return }
+        if let handle, !handle.isEmpty {
+            defaults.set(handle, forKey: key(userID))
+        } else {
+            defaults.removeObject(forKey: key(userID))
+        }
+    }
+}
+
 public extension EnvironmentValues {
     /// The session's handle resolver. `nil` outside a Bipe session: views keep upstream behaviour.
     @Entry var bipeHandleResolver: BipeHandleResolver?
+}
+
+public extension EnvironmentValues {
+    /// The session's handle resolver. `nil` outside a Bipe session: views show no @.
+    @Entry var bipeHandles: BipeHandleResolver?
 }

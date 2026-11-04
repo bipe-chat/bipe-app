@@ -18,10 +18,14 @@ final class AppLockModel: ObservableObject {
     @Published private(set) var isCovered = false
     @Published private(set) var pin = ""
     @Published private(set) var wrong = false
+    /// Too many wrong PINs: digits are ignored until this time (bipe-chat/bipe#777).
+    @Published private(set) var waitUntil: Date?
     private var asking = false
+    private var waitTask: Task<Void, Never>?
 
     private init() {
         isLocked = BipeAppLock().isOn
+        if isLocked { showWait(store.waitUntil()) }
     }
 
     func scenePhaseChanged(_ phase: ScenePhase) {
@@ -33,7 +37,10 @@ final class AppLockModel: ObservableObject {
             if store.isOn { isLocked = true }
         case .active:
             isCovered = false
-            if isLocked { Task { await useBiometricsIfOn() } }
+            if isLocked {
+                showWait(store.waitUntil())
+                Task { await useBiometricsIfOn() }
+            }
         @unknown default:
             break
         }
@@ -41,18 +48,34 @@ final class AppLockModel: ObservableObject {
 
     /// Action typeDigit, mode locked.
     func type(_ digit: String) {
-        guard pin.count < BipeRegistries.pinLength else { return }
+        guard waitUntil == nil, pin.count < BipeRegistries.pinLength else { return }
         wrong = false
         pin += digit
         guard pin.count == BipeRegistries.pinLength else { return }
         let typed = pin
         pin = ""
-        if store.verifyPIN(typed) {
+        switch store.checkPIN(typed) {
+        case .match:
             BipeHaptics.play(.success)
             isLocked = false
-        } else {
+        case .wrong:
             BipeHaptics.play(.error)
             wrong = true
+        case let .wait(until):
+            BipeHaptics.play(.error)
+            showWait(until)
+        }
+    }
+
+    /// Shows the wait and clears it when it ends.
+    private func showWait(_ until: Date?) {
+        waitTask?.cancel()
+        waitUntil = until
+        guard let until else { return }
+        waitTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(max(0, until.timeIntervalSinceNow)))
+            guard !Task.isCancelled, let self else { return }
+            self.showWait(self.store.waitUntil())
         }
     }
 
@@ -71,6 +94,8 @@ final class AppLockModel: ObservableObject {
         defer { asking = false }
         if await OwnerCheck.biometrics(reason: BipeStrings.appLockBiometric(OwnerCheck.biometricWord)) {
             BipeHaptics.play(.success)
+            store.clearFailures()
+            showWait(nil)
             isLocked = false
         }
     }
@@ -115,7 +140,8 @@ private struct AppLockScreen: View {
     var body: some View {
         PinPadView(title: BipeStrings.appLockTitle,
                    message: BipeStrings.pinEnterTitle,
-                   error: lock.wrong ? BipeStrings.appLockWrong : nil,
+                   error: lock.waitUntil != nil ? BipeStrings.errorRateLimited
+                       : lock.wrong ? BipeStrings.appLockWrong : nil,
                    pin: lock.pin,
                    onBiometrics: lock.offersBiometrics ? { Task { await lock.useBiometrics() } } : nil,
                    onDigit: lock.type,
@@ -219,13 +245,14 @@ struct AppLockPinCheckView: View {
     let onPass: () -> Void
     @State private var pin = ""
     @State private var wrong = false
+    @State private var waiting = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             PinPadView(title: title,
                        message: BipeStrings.pinEnterTitle,
-                       error: wrong ? BipeStrings.pinMismatch : nil,
+                       error: waiting ? BipeStrings.errorRateLimited : wrong ? BipeStrings.pinMismatch : nil,
                        pin: pin,
                        onDigit: type,
                        onDelete: { if !pin.isEmpty { pin.removeLast() } })
@@ -244,16 +271,22 @@ struct AppLockPinCheckView: View {
     private func type(_ digit: String) {
         guard pin.count < BipeRegistries.pinLength else { return }
         wrong = false
+        waiting = false
         pin += digit
         guard pin.count == BipeRegistries.pinLength else { return }
         let typed = pin
         pin = ""
-        if AppLockModel.shared.store.verifyPIN(typed) {
+        // The same try limit as the lock screen (bipe-chat/bipe#777).
+        switch AppLockModel.shared.store.checkPIN(typed) {
+        case .match:
             dismiss()
             onPass()
-        } else {
+        case .wrong:
             BipeHaptics.play(.error)
             wrong = true
+        case .wait:
+            BipeHaptics.play(.error)
+            waiting = true
         }
     }
 }
