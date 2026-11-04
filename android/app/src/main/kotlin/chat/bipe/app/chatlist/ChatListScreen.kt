@@ -74,7 +74,10 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.LocalBipeHandles
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.LocalBipeCompanySeals
 import chat.bipe.app.common.OfficialBadge
+import chat.bipe.app.common.SealMark
+import chat.bipe.app.common.sealMarkOf
 import chat.bipe.app.encryption.ApprovePhoneCard
 import chat.bipe.app.encryption.EncryptionSheet
 import chat.bipe.app.encryption.EncryptionStatusModel
@@ -327,7 +330,7 @@ fun HomeScreen(
     }
     // Spec brand-mark: chat list rows read the session's brand marks.
     // LocalEncryptionStatus: the oldMessages settings row opens the same EncryptionSheet (bipe-chat/bipe#793).
-    CompositionLocalProvider(LocalBipeBrandMarks provides people.brandMarks, LocalBipeHandles provides people.handles, LocalEncryptionStatus provides encryption) {
+    CompositionLocalProvider(LocalBipeCompanySeals provides people.seals, LocalBipeBrandMarks provides people.brandMarks, LocalBipeHandles provides people.handles, LocalEncryptionStatus provides encryption) {
         when {
             termsPhase != TermsReacceptModel.Phase.HIDDEN -> TermsReacceptScreen(terms, onSignOut)
             pendingPix != null -> PixSendScreen(pendingPix, model, media) {
@@ -759,19 +762,25 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = 
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val sealUserId = chat.peerUserId.takeIf { chat.isDm }
+                val hasSeal = sealMarkOf(sealUserId) != null
                 Text(
                     chat.name,
                     style = MaterialTheme.typography.titleMedium,
                     color = colors.inkPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = !chat.isOfficial),
+                    modifier = Modifier.weight(1f, fill = !chat.isOfficial && !hasSeal),
                 )
                 if (chat.isOfficial) {
                     Spacer(Modifier.width(6.dp))
                     OfficialBadge()
-                    Spacer(Modifier.weight(1f))
                 }
+                if (hasSeal) {
+                    Spacer(Modifier.width(6.dp))
+                    SealMark(sealUserId)
+                }
+                if (chat.isOfficial || hasSeal) Spacer(Modifier.weight(1f))
                 chat.lastActivity?.let { time ->
                     Text(
                         timeLabel(context, time),

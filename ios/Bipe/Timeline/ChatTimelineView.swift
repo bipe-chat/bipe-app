@@ -318,7 +318,7 @@ struct ChatTimelineView: View {
         }
         .sheet(isPresented: presence(\.readersSheet)) {
             if let readers = model.readersSheet {
-                ReadersSheet(readers: readers, media: media)
+                ReadersSheet(readers: readers, media: media, handles: people?.handles)
             }
         }
         .sheet(isPresented: presence(\.report)) {
@@ -462,6 +462,8 @@ struct ChatTimelineView: View {
         ComposerBar(model: model, media: media, openAttachments: { attaching = $0 }, openStickers: { showsStickers = true })
             // Spec identity-change blocksSending: until the person taps Entendi.
             .disabled(identity.blocksSending)
+            // Spec composer nameAmbiguous: the @ in the suggestion rows.
+            .environment(\.bipeHandles, people?.handles)
     }
 
     private var chatTitle: some View {
@@ -473,6 +475,10 @@ struct ChatTimelineView: View {
                     Text(model.roomName).font(.headline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
                     if model.isNewsRoom || (model.isDm && BipeOfficialAccounts.isOfficial(model.peerUserId)) {
                         OfficialBadge()
+                    }
+                    if model.isDm {
+                        SealMark(userId: model.peerUserId)
+                            .environment(\.bipeCompanySeals, people?.seals)
                     }
                 }
                 // Spec brand-mark: a reseller's mark under the title, never instead of the name.
@@ -585,6 +591,7 @@ private struct ComposerBar: View {
     let openAttachments: (AttachmentChoice) -> Void
     let openStickers: () -> Void
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.bipeHandles) private var handles
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -722,7 +729,10 @@ private struct ComposerBar: View {
                         HStack(spacing: 10) {
                             AvatarView(name: suggestion.name, mxcUrl: suggestion.avatarUrl, loader: media, size: 32)
                             VStack(alignment: .leading, spacing: 0) {
-                                Text(suggestion.name)
+                                // Spec composer nameAmbiguous: the @ follows a name another member also has.
+                                Text(suggestion.nameAmbiguous && suggestion.userId != nil && suggestion.handle == nil
+                                     ? MemberNames.label(name: suggestion.name, userId: suggestion.userId ?? "", handles: handles)
+                                     : suggestion.name)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 if let handle = suggestion.handle {
                                     Text(handle)

@@ -7,7 +7,7 @@
 // group-details (GroupDetailsView.swift): photo, name, the people count, the description and the people.
 // The header block is a 96 px avatar, the name in title2 bold, the subtitle in subheadline.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { MembershipState, type RoomLike as Room, type RoomMember } from './generated/matrix_sdk_ffi';
 import type { RoomFace } from './room-face';
 import { isOfficial } from './registries';
@@ -33,6 +33,7 @@ export function ChatInfo({
   face,
   chats,
   latestTs,
+  businessTools,
   onClose,
   onGone,
 }: {
@@ -42,6 +43,8 @@ export function ChatInfo({
   chats: ChatSummary[];
   /** The time of the chat's latest event, for the DM delete marker. */
   latestTs?: number;
+  /** Spec business-chat-bar: the tools of a company account, under its name. */
+  businessTools?: ReactNode;
   onClose: () => void;
   /** The chat left the list (deleted or left): back to the list. */
   onGone: () => void;
@@ -57,6 +60,7 @@ export function ChatInfo({
       />
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-6">
         {isDm ? <PersonInfo face={face} /> : <GroupDetails room={room} face={face} chats={chats} Header={Header} />}
+        {businessTools}
         <ChatActionRows room={room} face={face} isDm={isDm} latestTs={latestTs} onGone={onGone} />
       </div>
     </aside>

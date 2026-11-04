@@ -10,6 +10,7 @@ import chat.bipe.shared.BadgeLevel
 import chat.bipe.shared.BadgePayload
 import chat.bipe.shared.BadgeVerificationResult
 import chat.bipe.shared.BadgeVerifier
+import chat.bipe.shared.BipeTrustSources
 import chat.bipe.shared.BipeServers
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeBadgeGoneReason
@@ -40,8 +41,24 @@ sealed interface BipeCompanySealState {
     data object Suspended : BipeCompanySealState
 }
 
+/** A person's seal: a `pix` or `govbr` badge (bipe#596, ADR 0239). The iOS store has the same states. */
+@Immutable
+sealed interface BipePersonSealState {
+    /** No seal and no notice. */
+    data object None : BipePersonSealState
+
+    /** A verified name: a valid badge, bound to the user's current master key. */
+    data class Verified(val payload: BadgePayload) : BipePersonSealState
+
+    /** The user had a seal and its badge no longer verifies: a master key reset. */
+    data object Suspended : BipePersonSealState
+}
+
+/** The compact mark next to a name (spec person-profile notes). The same in every place. */
+enum class BipeSealMark { PERSON, COMPANY, PERSON_SUSPENDED, COMPANY_SUSPENDED }
+
 /**
- * Company seals for one user session.
+ * Company and person seals for one user session.
  *
  * Reads are synchronous like [chat.bipe.shared.BipeHandleResolver]: [seal] returns the cached state,
  * fetches `GET /v1/badges/{userId}` when the entry is stale, and [states] emits when the answer arrives.
@@ -57,7 +74,12 @@ class BipeCompanySeals(
     private val verifier: Lazy<BadgeVerifier> = lazy(BadgeVerifier::bipeTrusted),
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    private data class Entry(val state: BipeCompanySealState, val expiryMillis: Long, val institution: BadgePayload? = null)
+    private data class Entry(
+        val state: BipeCompanySealState,
+        val expiryMillis: Long,
+        val institution: BadgePayload? = null,
+        val person: BipePersonSealState = BipePersonSealState.None,
+    )
 
     private val entries = MutableStateFlow<Map<String, Entry>>(emptyMap())
 
@@ -68,6 +90,10 @@ class BipeCompanySeals(
     /** User ID to verified `institution` badge (bipe#245): its messages show as official notice cards. */
     val institutions: StateFlow<Map<String, BadgePayload>> get() = institutionsFlow.asStateFlow()
     private val institutionsFlow = MutableStateFlow<Map<String, BadgePayload>>(emptyMap())
+
+    /** User ID to person seal (bipe#596). Holds only users with a seal or a suspended seal. */
+    val personSeals: StateFlow<Map<String, BipePersonSealState>> get() = personSealsFlow.asStateFlow()
+    private val personSealsFlow = MutableStateFlow<Map<String, BipePersonSealState>>(emptyMap())
 
     private val lock = Any()
     private val inFlight = mutableSetOf<String>()
@@ -89,6 +115,28 @@ class BipeCompanySeals(
         return institutionsFlow.value[userId]?.takeIf { it.exp * 1000 > clock() }
     }
 
+    /** The person seal of [userId]. Queues a fetch like [seal]. An expired badge never shows. */
+    fun personSeal(userId: String): BipePersonSealState {
+        seal(userId)
+        val state = personSealsFlow.value[userId] ?: BipePersonSealState.None
+        return if (state is BipePersonSealState.Verified && state.payload.exp * 1000 <= clock()) BipePersonSealState.None else state
+    }
+
+    /** The verified badge of a company or a person, or null. */
+    fun verifiedBadge(userId: String): BadgePayload? =
+        (personSeal(userId) as? BipePersonSealState.Verified)?.payload ?: (seal(userId) as? BipeCompanySealState.Verified)?.payload
+
+    /** The compact mark next to a name, or null. A revoked company seal has no mark. */
+    fun mark(userId: String): BipeSealMark? = when (personSeal(userId)) {
+        is BipePersonSealState.Verified -> BipeSealMark.PERSON
+        BipePersonSealState.Suspended -> BipeSealMark.PERSON_SUSPENDED
+        BipePersonSealState.None -> when (seal(userId)) {
+            is BipeCompanySealState.Verified -> BipeSealMark.COMPANY
+            BipeCompanySealState.Suspended -> BipeSealMark.COMPANY_SUSPENDED
+            else -> null
+        }
+    }
+
     private fun fetch(userId: String) {
         synchronized(lock) {
             if (!inFlight.add(userId)) return
@@ -99,11 +147,13 @@ class BipeCompanySeals(
                     // Fail closed: drop a seal, keep a notice, and retry soon.
                     val old = entries.value[userId]?.state
                     val kept = if (old is BipeCompanySealState.Revoked || old is BipeCompanySealState.Suspended) old else BipeCompanySealState.None
-                    Entry(kept, clock() + ERROR_TTL_MILLIS)
+                    val person = personSealsFlow.value[userId] as? BipePersonSealState.Suspended ?: BipePersonSealState.None
+                    Entry(kept, clock() + ERROR_TTL_MILLIS, person = person)
                 }
                 entries.update { it + (userId to entry) }
                 statesFlow.update { it + (userId to entry.state) }
                 institutionsFlow.update { if (entry.institution != null) it + (userId to entry.institution) else it - userId }
+                personSealsFlow.update { if (entry.person != BipePersonSealState.None) it + (userId to entry.person) else it - userId }
             } finally {
                 synchronized(lock) { inFlight.remove(userId) }
             }
@@ -113,17 +163,23 @@ class BipeCompanySeals(
     private suspend fun load(userId: String): Entry {
         val lookup = apiClient.badge(userId)
         val now = clock()
+        val personKey = "person:$userId" // Shares the persisted set with company seals. A user ID starts with @, so the keys differ.
         val state = when (lookup) {
             BipeBadgeLookup.NoBadge -> {
                 seen.remove(userId)
+                seen.remove(personKey)
                 BipeCompanySealState.None
             }
-            is BipeBadgeLookup.Gone -> if (seen.contains(userId)) BipeCompanySealState.Revoked(lookup.reason) else BipeCompanySealState.None
+            is BipeBadgeLookup.Gone -> {
+                seen.remove(personKey)
+                if (seen.contains(userId)) BipeCompanySealState.Revoked(lookup.reason) else BipeCompanySealState.None
+            }
             is BipeBadgeLookup.Envelope -> {
+                val key = masterKey(userId)
                 val result = verifier.value.verify(
                     envelopeJson = lookup.json,
                     sender = userId,
-                    senderMasterKey = masterKey(userId),
+                    senderMasterKey = key,
                     nowMillis = now,
                 )
                 when {
@@ -133,7 +189,21 @@ class BipeCompanySeals(
                     }
                     result is BadgeVerificationResult.Valid && result.payload.lvl == BadgeLevel.INSTITUTION ->
                         return Entry(BipeCompanySealState.None, minOf(result.payload.exp * 1000, now + TTL_MILLIS), result.payload)
+                    result is BadgeVerificationResult.Valid && (result.payload.lvl == BadgeLevel.PIX || result.payload.lvl == BadgeLevel.GOVBR) -> {
+                        // The seal shows only when identityVerified holds (registries/trust-facts.json).
+                        val identity = BipeTrustSources.Identity(key, isVerified = false, hasVerificationViolation = false)
+                        val facts = BipeTrustSources.profileFacts(userId, identity, BipeTrustSources.Seal.Verified(result.payload.name))
+                        if (facts.identity != "verified") return Entry(BipeCompanySealState.None, now + TTL_MILLIS)
+                        seen.add(personKey)
+                        return Entry(
+                            BipeCompanySealState.None,
+                            minOf(result.payload.exp * 1000, now + TTL_MILLIS),
+                            person = BipePersonSealState.Verified(result.payload),
+                        )
+                    }
                     result is BadgeVerificationResult.Valid -> BipeCompanySealState.None
+                    // A badge that does not verify suspends only a seal this phone saw before.
+                    seen.contains(personKey) -> return Entry(BipeCompanySealState.None, now + TTL_MILLIS, person = BipePersonSealState.Suspended)
                     seen.contains(userId) -> BipeCompanySealState.Suspended
                     else -> BipeCompanySealState.None
                 }

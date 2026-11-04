@@ -29,6 +29,8 @@ import {
 } from './phosphor/icons';
 import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
 import { ChatInfo } from './ChatInfo';
+import { BusinessChatBar, BusinessChatSheets, BusinessToolButtons } from './work/chat/BusinessChat';
+import { useBusinessChat } from './work/chat/useBusinessChat';
 import { PinnedBanner, usePinnedMessages } from './Pins';
 import { useRoomFace } from './room-face';
 import { itemRow, markRead, TimelineRowView, withoutEmptyDays, type MessageRow, type RowHandlers } from './TimelineRows';
@@ -153,6 +155,7 @@ export function RoomTimeline({
   // Group rows show the sender's name; DM rows do not. Until RoomInfo comes, no names.
   const isDm = face.isDirect ?? true;
   const client = useClient();
+  const business = useBusinessChat(client, face.isDirect ? face.peer?.userId : undefined, face.name);
   const clearedMarker = useClearedChats(client);
   // Spec dm-delete: the timeline drops every event at or below the cleared marker of the DM.
   const marker = clearedMarker(room.id());
@@ -356,6 +359,7 @@ export function RoomTimeline({
           <div className="pointer-events-none absolute inset-2 z-30 rounded-2xl border-2 border-dashed border-accent-fill bg-accent-wash/60" />
         )}
         {pending && <UploadPreview files={pending} timeline={timeline.current} onClose={() => setPending(undefined)} />}
+        <BusinessChatSheets chat={business} />
         {/* The inline navigation bar: back on a narrow window, the chat title in the middle. */}
         <header className="bipe-bar relative grid h-[52px] shrink-0 grid-cols-[44px_1fr_44px] items-center px-2">
           <button
@@ -399,6 +403,7 @@ export function RoomTimeline({
             }}
           />
         )}
+        <BusinessChatBar chat={business} />
         {searching && (
           <ChatSearch
             rows={rows}
@@ -622,6 +627,7 @@ export function RoomTimeline({
           face={face}
           chats={chats}
           latestTs={newest?.kind === 'message' ? newest.at : undefined}
+          businessTools={<BusinessToolButtons chat={business} onPick={() => onInfo(false)} />}
           onClose={() => onInfo(false)}
           onGone={onBack}
         />

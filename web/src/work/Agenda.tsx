@@ -146,7 +146,7 @@ const rangesText = (ranges: TimeRange[]) => ranges.map((r) => `${r.start} – ${
 
 // ---- Bookings ---------------------------------------------------------------------------------------------------
 
-const STATUS: Record<BookingStatus, StringKey> = {
+export const STATUS: Record<BookingStatus, StringKey> = {
   held: 'bipe_agenda_status_held',
   requested: 'bipe_agenda_status_requested',
   confirmed: 'bipe_agenda_status_confirmed',
@@ -155,7 +155,7 @@ const STATUS: Record<BookingStatus, StringKey> = {
   no_show: 'bipe_agenda_status_no_show',
 };
 
-const STATUS_TINT: Record<BookingStatus, string> = {
+export const STATUS_TINT: Record<BookingStatus, string> = {
   held: 'text-trust-caution-ink',
   requested: 'text-trust-caution-ink',
   confirmed: 'text-trust-verified-ink',
@@ -629,7 +629,7 @@ function defaultClock(timeZone: string, date: string, step: number): string {
 
 // ---- agenda-owner-booking: one booking ---------------------------------------------------------------------------
 
-function BookingPanel({
+export function BookingPanel({
   client,
   state,
   booking,

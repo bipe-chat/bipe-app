@@ -20,12 +20,14 @@ import type {
   Availability,
   AvailabilityRules,
   Booking,
+  BookingHold,
   BookingMove,
   Catalog,
   CatalogItem,
   CatalogItemInput,
   Order,
   OrderPolicy,
+  OrderInput,
   OrderRefuseReason,
   Override,
   OverrideInput,
@@ -37,10 +39,13 @@ import type {
   QueuePlace,
   QueuePolicy,
   Quote,
+  QuoteAccept,
+  QueuePosition,
   QuoteRequest,
   QuoteVersionInput,
   Service,
   ServiceInput,
+  SlotDays,
 } from '../bipe/generated/business-api';
 
 export const API_BASE = 'https://api.bipe.net.br';
@@ -67,6 +72,11 @@ export type WorkHours = {
   /** ISO weekday (Monday 1 to Sunday 7) with its ranges; a missing day is closed. */
   days: { day: number; ranges: { start: string; end: string }[] }[];
 };
+
+/** HeldBrandMark: a mark this account holds. label is one id of the registry brandMarks.labels. */
+export type HeldBrandMark = { id: string; brand: string; brand_name: string; label: string; granted_at: string };
+/** GrantedBrandMark: an account that holds this brand's mark. */
+export type GrantedBrandMark = { id: string; reseller: string; label: string; granted_at: string };
 
 /** Bookings that start on these local dates (YYYY-MM-DD), every status but expired holds. */
 export type BookingsQuery = { date_from: string; date_to: string; agenda_id?: string };
@@ -209,6 +219,49 @@ export class BusinessClient {
     this.post<Order>(`/v1/me/business/orders/${enc(id)}/${action}`);
   refuseOrder = (id: string, reason: OrderRefuseReason) =>
     this.post<Order>(`/v1/me/business/orders/${enc(id)}/refuse`, { reason });
+
+  // ---- Selos de revenda, read only on the web (spec brand-marks, ADR 0226 point 2) ----
+
+  heldBrandMarks = () => this.get<{ marks: HeldBrandMark[] }>('/v1/me/brand-marks');
+  grantedBrandMarks = () => this.get<{ marks: GrantedBrandMark[] }>('/v1/me/brand-marks/granted');
+
+  // ---- The caller's records with every business: a person's own, or a company's as the business (ADR 0102) ----
+
+  myBookings = () => this.get<{ bookings: Booking[] }>('/v1/me/bookings');
+  myOrders = () => this.get<{ orders: Order[] }>('/v1/me/orders');
+  myQuotes = () => this.get<{ quotes: Quote[] }>('/v1/me/quotes');
+  myQueuePlaces = () => this.get<{ places: QueuePosition[] }>('/v1/me/queue-places');
+
+  // ---- Customer routes (specs agenda-book, catalog-view, order-customer, queue-customer, quote-card). ----
+  // business is the handle or, without one, the Matrix ID.
+
+  publicCatalog = (business: string) => this.get<Catalog>(`/v1/businesses/${enc(business)}/catalog`);
+  publicServices = (business: string) =>
+    this.get<{ services: Service[] }>(`/v1/businesses/${enc(business)}/agenda/services`);
+  publicAgendas = (business: string, serviceId?: string) =>
+    this.get<{ agendas: Agenda[] }>(`/v1/businesses/${enc(business)}/agenda/agendas${qs({ service_id: serviceId })}`);
+  slots = (business: string, q: { service_id: string; agenda_id?: string; date_from: string; date_to: string }) =>
+    this.get<SlotDays>(`/v1/businesses/${enc(business)}/agenda/slots${qs(q)}`);
+  hold = (business: string, h: BookingHold) => this.post<Booking>(`/v1/businesses/${enc(business)}/agenda/hold`, h);
+  confirmBooking = (business: string, id: string) =>
+    this.post<Booking>(`/v1/businesses/${enc(business)}/agenda/bookings/${enc(id)}/confirm`);
+  cancelBooking = (business: string, id: string) =>
+    this.post<Booking>(`/v1/businesses/${enc(business)}/agenda/bookings/${enc(id)}/cancel`);
+  rescheduleBooking = (business: string, id: string, m: BookingMove) =>
+    this.post<Booking>(`/v1/businesses/${enc(business)}/agenda/bookings/${enc(id)}/move`, m);
+  placeOrder = (business: string, o: OrderInput) => this.post<Order>(`/v1/businesses/${enc(business)}/orders`, o);
+  cancelMyOrder = (business: string, id: string) =>
+    this.post<Order>(`/v1/businesses/${enc(business)}/orders/${enc(id)}/cancel`);
+  publicQueue = (business: string) => this.get<Queue>(`/v1/businesses/${enc(business)}/queue`);
+  myPlace = (business: string) => this.get<QueuePosition>(`/v1/businesses/${enc(business)}/queue/me`);
+  joinQueue = (business: string) => this.post<QueuePosition>(`/v1/businesses/${enc(business)}/queue/join`);
+  leaveQueue = (business: string, placeId: string) =>
+    this.post<QueuePlace>(`/v1/businesses/${enc(business)}/queue/places/${enc(placeId)}/leave`);
+  requestQuote = (business: string) => this.post<QuoteRequest>(`/v1/businesses/${enc(business)}/quotes/requests`);
+  acceptQuote = (business: string, id: string, a: QuoteAccept) =>
+    this.post<Quote>(`/v1/businesses/${enc(business)}/quotes/${enc(id)}/accept`, a);
+  refuseQuote = (business: string, id: string, version: number) =>
+    this.post<Quote>(`/v1/businesses/${enc(business)}/quotes/${enc(id)}/refuse`, { version });
 }
 
 const clients = new WeakMap<Client, BusinessClient>();

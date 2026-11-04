@@ -139,6 +139,11 @@ final class PersonProfileModel: ObservableObject {
         people.seals.state(for: userId)
     }
 
+    /// The person seal from the seal store (bipe#596). Fail closed.
+    var personSeal: BipePersonSealState {
+        people.seals.personState(for: userId)
+    }
+
     /// Action retryFacts (and part of appear): reads the person's identity again.
     func readIdentity() async {
         trustIdentity = await people.trustIdentity(userId)
@@ -147,10 +152,10 @@ final class PersonProfileModel: ObservableObject {
 
     /// facts of the spec: identity proof, personal confirmation and changes, apart (ADR 0074, BipeTrustSources).
     var facts: BipeTrustFacts {
-        let sealSource: BipeTrustSources.Seal = switch seal {
-        case .verified(let payload): .verified(name: payload.name)
-        case .suspended: .suspended
-        case .none, .revoked: .none
+        let sealSource: BipeTrustSources.Seal = switch (personSeal, seal) {
+        case (.verified(let payload), _), (_, .verified(let payload)): .verified(name: payload.name)
+        case (.suspended, _), (_, .suspended): .suspended
+        default: .none
         }
         return BipeTrustSources.profileFacts(userId: userId, identity: trustIdentity, seal: sealSource)
     }
@@ -160,11 +165,17 @@ final class PersonProfileModel: ObservableObject {
         identityRead && facts.change == "unknown"
     }
 
-    /// marks of the spec: only marks that verify on this device. verifiedName and nameSuspended have no signer yet.
+    /// marks of the spec: only marks that verify on this device.
     var marks: [TrustMark] {
         var marks: [TrustMark] = []
         let facts = facts
-        if case .revoked = seal {
+        if case .verified = personSeal {
+            if let name = facts.verifiedName {
+                marks.append(TrustMark(kind: .verifiedName, text: BipeStrings.badgeVerifiedName(name)))
+            }
+        } else if case .suspended = personSeal {
+            marks.append(TrustMark(kind: .nameSuspended, text: BipeStrings.badgeSuspended))
+        } else if case .revoked = seal {
             marks.append(TrustMark(kind: .companyRevoked, text: seal.notice ?? BipeStrings.badgeCompanyRevoked))
         } else if facts.identity == "verified" {
             marks.append(TrustMark(kind: .company, text: BipeStrings.badgeCompany))

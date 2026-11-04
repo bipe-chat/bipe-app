@@ -51,6 +51,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.business.BusinessProfileButtons
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.OfficialBadge
+import chat.bipe.app.common.SealMark
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeOfficialAccounts
@@ -63,6 +64,7 @@ import chat.bipe.shared.api.publicProfile
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.SocialPlatform
 import chat.bipe.shared.company.BipeCompanySealState
+import chat.bipe.shared.company.BipePersonSealState
 import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.generated.BipeTrustFacts
 import kotlinx.coroutines.CoroutineScope
@@ -112,6 +114,8 @@ class PersonProfileModel(
         val isOfficial: Boolean = false,
         val marks: List<TrustMark> = emptyList(),
         val seal: BipeCompanySealState = BipeCompanySealState.None,
+        /** The person seal (bipe#596). */
+        val personSeal: BipePersonSealState = BipePersonSealState.None,
         /** The SDK's identity of the person (spec facts). null while not read, or when the SDK could not read it. */
         val trustIdentity: BipeTrustSources.Identity? = null,
         /** The identity read has run at least once: a null trustIdentity then means lifecycle unknown. */
@@ -148,6 +152,7 @@ class PersonProfileModel(
             readIdentityNow()
             // The seal store answers later and emits; it fails closed.
             scope.launch { people.seals.states.collect { applySeal(people.seals.seal(userId)) } }
+            scope.launch { people.seals.personSeals.collect { applySeal(people.seals.seal(userId)) } }
             val profile = person.handle?.let { handle -> runCatching { people.api.publicProfile(handle) }.getOrNull() }
             val bio = profile?.bio?.trim()
             _state.value = _state.value.copy(bio = bio?.takeIf { it.isNotEmpty() }, socials = SocialLink.links(profile?.socials.orEmpty()))
@@ -165,17 +170,22 @@ class PersonProfileModel(
         applySeal(people.seals.seal(userId))
     }
 
-    /** facts, marks and reservedNameWarning of the spec. verifiedName and nameSuspended have no signer yet. */
+    /** facts, marks and reservedNameWarning of the spec. */
     private fun applySeal(seal: BipeCompanySealState) {
         val current = _state.value
-        val sealSource = when (seal) {
-            is BipeCompanySealState.Verified -> BipeTrustSources.Seal.Verified(seal.payload.name)
-            BipeCompanySealState.Suspended -> BipeTrustSources.Seal.Suspended
+        val personSeal = people.seals.personSeal(userId)
+        val sealSource = when {
+            personSeal is BipePersonSealState.Verified -> BipeTrustSources.Seal.Verified(personSeal.payload.name)
+            seal is BipeCompanySealState.Verified -> BipeTrustSources.Seal.Verified(seal.payload.name)
+            personSeal == BipePersonSealState.Suspended || seal == BipeCompanySealState.Suspended -> BipeTrustSources.Seal.Suspended
             else -> BipeTrustSources.Seal.None
         }
         val facts = BipeTrustSources.profileFacts(userId, current.trustIdentity, sealSource)
         val marks = mutableListOf<TrustMark>()
         when {
+            personSeal is BipePersonSealState.Verified ->
+                facts.verifiedName?.let { marks += TrustMark(TrustMark.Kind.VERIFIED_NAME, context.getString(R.string.bipe_badge_verified_name, it)) }
+            personSeal == BipePersonSealState.Suspended -> marks += TrustMark(TrustMark.Kind.NAME_SUSPENDED, context.getString(R.string.bipe_badge_suspended))
             seal is BipeCompanySealState.Revoked -> marks += TrustMark(TrustMark.Kind.COMPANY_REVOKED, seal.notice(context).orEmpty())
             facts.identity == "verified" -> marks += TrustMark(TrustMark.Kind.COMPANY, context.getString(R.string.bipe_badge_company))
             facts.identity == "suspended" || seal == BipeCompanySealState.Suspended ->
@@ -187,7 +197,7 @@ class PersonProfileModel(
         // An official account, or a company whose verified seal names it, does not get the warning.
         val reserved = NameNormalizer.reservedCategory(current.person.displayName) != null &&
             !current.isOfficial && seal !is BipeCompanySealState.Verified
-        _state.value = current.copy(seal = seal, facts = facts, marks = marks, reservedNameWarning = reserved)
+        _state.value = current.copy(seal = seal, personSeal = personSeal, facts = facts, marks = marks, reservedNameWarning = reserved)
     }
 
     /** Action message: the DM, created when missing. */
@@ -382,7 +392,10 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
                 textAlign = TextAlign.Center,
             )
             if (state.isOfficial) OfficialBadge(style = MaterialTheme.typography.labelMedium)
-            if (state.facts.identity == "verified") {
+            if (state.facts.identity == "verified" && state.seal !is BipeCompanySealState.Verified) {
+                // Spec person-profile: a person's seal has no sheet. The verified-name line says what it means.
+                SealMark(state.person.userId, seals = model.people.seals, size = 22.dp)
+            } else if (state.facts.identity == "verified") {
                 Icon(
                     painterResource(PhosphorIcon.SEAL_CHECK.drawable),
                     contentDescription = stringResource(R.string.bipe_badge_company),
@@ -561,6 +574,7 @@ private fun FactLines(state: PersonProfileModel.State, onRetry: () -> Unit) {
     val colors = BipeTheme.colors
     val facts = state.facts
     if (facts.identity == "verified") FactCaption(stringResource(R.string.bipe_trust_identity_body))
+    if (state.personSeal == BipePersonSealState.Suspended) FactCaption(stringResource(R.string.bipe_badge_suspended_body))
     if (facts.contact == "confirmed") {
         FactCaption(stringResource(R.string.bipe_trust_contact_body))
     } else if (facts.change != "unknown") {
