@@ -211,8 +211,8 @@ final class AccountSession {
     }
 
     /// The key of the store in `paths` (bipe-chat/bipe#913). A new store gets the install's key and a marker file, so
-    /// it never opens without the key. A store from before the key stays plain until its next fresh sign-in; the SDK
-    /// cannot add a key to it. Throws when a keyed store's key cannot be read: the store stays, closed.
+    /// it never opens without the key. A store from before the key stays plain until its next fresh sign-in, with no
+    /// migration (MZ, 3 Nov 2026). Throws when a keyed store's key cannot be read: the store stays, closed.
     private static func storeKey(paths: (data: URL, cache: URL)) throws -> Data? {
         let fileManager = FileManager.default
         let marker = paths.data.appendingPathComponent("bipe-store-keyed", isDirectory: false)

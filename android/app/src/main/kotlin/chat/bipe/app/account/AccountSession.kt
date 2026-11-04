@@ -204,8 +204,8 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
 
         /**
          * The key of the store in [data] (bipe-chat/bipe#913). A new store gets the install's key and a marker file, so
-         * it never opens without the key. A store from before the key stays plain until its next fresh sign-in; the SDK
-         * cannot add a key to it. Throws when a keyed store's key cannot be read: the store stays, closed.
+         * it never opens without the key. A store from before the key stays plain until its next fresh sign-in, with no
+         * migration (MZ, 3 Nov 2026). Throws when a keyed store's key cannot be read: the store stays, closed.
          */
         private suspend fun storeKey(context: Context, data: File, cache: File): ByteArray? = withContext(Dispatchers.IO) {
             val marker = File(data, "bipe-store-keyed")
