@@ -52,10 +52,12 @@ public struct BipeBusinessToday: Decodable, Sendable, Equatable {
 public struct BipeWebSettings: Codable, Sendable, Equatable {
     public var webBooking: Bool
     public var webOrders: Bool
+    public var webQueue: Bool
 
-    public init(webBooking: Bool, webOrders: Bool) {
+    public init(webBooking: Bool, webOrders: Bool, webQueue: Bool) {
         self.webBooking = webBooking
         self.webOrders = webOrders
+        self.webQueue = webQueue
     }
 }
 

@@ -362,7 +362,7 @@ struct QueueOwnerView: View {
     private func row(_ place: BipeQueuePlace) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(BusinessText.customer(place.customer, names: names))
+                Text(place.web ? "\(BusinessText.customer(place.customer, names: names)) · \(BipeStrings.webRecordMark)" : BusinessText.customer(place.customer, names: names))
                     .font(.headline)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer(minLength: 8)
