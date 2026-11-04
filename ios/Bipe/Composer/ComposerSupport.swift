@@ -59,7 +59,9 @@ enum ComposerMarkdown {
 
     /// Replaces the @word at the end of the text with the pill label and a space.
     static func insert(_ suggestion: MentionSuggestion, into text: String, everyoneLabel: String) -> (text: String, mention: ComposerMention) {
-        let label = suggestion.userId == nil ? everyoneLabel : suggestion.name
+        var label = suggestion.userId == nil ? everyoneLabel : suggestion.name
+        // A person named by the @handle (People names) gets one @, not two.
+        if label.hasPrefix("@") { label.removeFirst() }
         var words = text.split(separator: " ", omittingEmptySubsequences: false).map(String.init)
         if !words.isEmpty { words.removeLast() }
         words.append("@\(label) ")
@@ -92,19 +94,26 @@ final class MentionDirectory {
         canMentionEveryone = (try? await room.getPowerLevels().canOwnUserTriggerRoomNotification()) ?? false
     }
 
-    /// Members whose name or user ID contains the query, the whole group first when allowed.
-    func suggestions(_ query: String, everyoneLabel: String) -> [MentionSuggestion] {
+    /// Members whose name or @handle contains the query, the whole group first when allowed. Never matched or labelled
+    /// by the Matrix ID (People names).
+    func suggestions(_ query: String, everyoneLabel: String, handles: BipeHandleResolver?) -> [MentionSuggestion] {
         let needle = query.lowercased()
         var result: [MentionSuggestion] = []
         if canMentionEveryone, needle.isEmpty || everyoneLabel.lowercased().contains(needle) {
             result.append(MentionSuggestion(userId: nil, name: everyoneLabel))
         }
-        let matches = members.filter { member in
-            needle.isEmpty || (member.displayName?.lowercased().contains(needle) ?? false) || member.userId.lowercased().contains(needle)
+        let named = members.map { member in
+            let handle = handles?.handle(for: member.userId)
+            return (member: member, name: BipeChatRowName.person(userID: member.userId, displayName: member.displayName, handle: handle),
+                    handle: handle)
         }
-        result += matches.prefix(8).map {
-            MentionSuggestion(userId: $0.userId, name: $0.displayName ?? $0.userId, avatarUrl: $0.avatarUrl,
-                              nameAmbiguous: ambiguous.contains($0.userId))
+        let matches = named.filter { entry in
+            needle.isEmpty || entry.name.lowercased().contains(needle) || (entry.handle?.lowercased().contains(needle) ?? false)
+        }
+        result += matches.prefix(8).map { entry in
+            let handleLine = entry.handle.map { "@" + $0 }.flatMap { $0 == entry.name ? nil : $0 }
+            return MentionSuggestion(userId: entry.member.userId, name: entry.name, handle: handleLine, avatarUrl: entry.member.avatarUrl,
+                                     nameAmbiguous: ambiguous.contains(entry.member.userId))
         }
         return result
     }

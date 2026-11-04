@@ -4,7 +4,7 @@
 
 package chat.bipe.app.business
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -222,7 +222,7 @@ fun MyBookingsScreen(session: AccountSession, onOpenChat: (String) -> Unit, onCl
                 onClose = { done ->
                     moving = null
                     if (done) {
-                        Toast.makeText(context, context.getString(R.string.bipe_agenda_booked), Toast.LENGTH_LONG).show()
+                        BipeToasts.show(context.getString(R.string.bipe_agenda_booked))
                         attempt++
                     }
                 },

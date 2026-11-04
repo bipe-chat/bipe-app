@@ -16,6 +16,14 @@ public struct ScamPattern: Sendable, Equatable {
     public let regex: String
 }
 
+/// A network a public profile may link to (ADR 0228). url holds {handle} once.
+public struct SocialPlatform: Sendable, Equatable {
+    public let id: String
+    public let name: String
+    public let pattern: String
+    public let url: String
+}
+
 public enum BipeRegistries {
     /// Normalised reserved display names and their category.
     public static let reservedNames: [String: ReservedNameCategory] = [
@@ -27,6 +35,8 @@ public enum BipeRegistries {
         "seguranca bipe": .bipe,
         "novidades do bipe": .bipe,
         "novidades bipe": .bipe,
+        "bipe grupos": .bipe,
+        "grupos bipe": .bipe,
         "banco do brasil": .bank,
         "caixa": .bank,
         "caixa economica federal": .bank,
@@ -614,10 +624,20 @@ public enum BipeRegistries {
     public static let theftStatementLifeHours = 24
     public static let theftCheckMinutes = 15
 
+    /// Age signals (ADR 0229, registries/age-signals.json). The server maps the range to a band; the app only reads and sends it.
+    public static let ageSignalAppleGates: [Int] = [
+        13,
+        16,
+        18,
+    ]
+    public static let ageSignalRecheckDays = 7
+
     /// Username (handle) rules. The server is the authority; clients check early for feedback.
     public static let handleMinLength = 3
     public static let handleMaxLength = 30
     public static let handlePattern = "^[a-z0-9](?:[a-z0-9_]|\\.(?!\\.))*[a-z0-9_]$"
+    /// Characters handleSkeleton() removes after normalize() (a regex character class).
+    public static let handleSkeletonStrip = "[._]"
     /// Owned handles (ADR 0065): only these may be shorter than `handleMinLength`, down to `handleOwnerMinLength`.
     public static let handleOwnerMinLength = 2
     /// Escolha seu @ (bipe-chat/bipe#200): how many free suggestions show, and how many candidates to check.
@@ -628,6 +648,7 @@ public enum BipeRegistries {
         "bipe",
         "suporte",
         "bipechat",
+        "grupos",
     ]
 
     /// Bipe homeservers (registries/bipe-servers.json, ADR 0168). Use ``BipeServers/isBipeUserID(_:)``, never a suffix check.
@@ -640,7 +661,11 @@ public enum BipeRegistries {
         "@suporte:bipe.net.br",
         "@bipe:bipe.net.br",
         "@r2vrihsgkqd5:bipe.net.br",
+        "@grupos:bipe.net.br",
     ]
+
+    /// The groups service account (ADR 0184): the admin invites it before making a group link.
+    public static let groupsAccountID = "@grupos:bipe.net.br"
 
     /// Public profile rules (ADR 0041). Lengths count Unicode scalars. The server is the authority.
     public static let profileNameMaxLength = 50
@@ -658,6 +683,16 @@ public enum BipeRegistries {
         "✔",
         "✓",
         "🔰",
+    ]
+    /// Social handles on a public profile (ADR 0228), in display order.
+    public static let profileSocials: [SocialPlatform] = [
+        SocialPlatform(id: "instagram", name: "Instagram", pattern: "^[A-Za-z0-9._]{1,30}$", url: "https://www.instagram.com/{handle}"),
+        SocialPlatform(id: "linkedin", name: "LinkedIn", pattern: "^[A-Za-z0-9-]{3,100}$", url: "https://www.linkedin.com/in/{handle}"),
+        SocialPlatform(id: "tiktok", name: "TikTok", pattern: "^[A-Za-z0-9._]{2,24}$", url: "https://www.tiktok.com/@{handle}"),
+        SocialPlatform(id: "youtube", name: "YouTube", pattern: "^[A-Za-z0-9._-]{3,30}$", url: "https://www.youtube.com/@{handle}"),
+        SocialPlatform(id: "facebook", name: "Facebook", pattern: "^[A-Za-z0-9.]{5,50}$", url: "https://www.facebook.com/{handle}"),
+        SocialPlatform(id: "x", name: "X", pattern: "^[A-Za-z0-9_]{1,15}$", url: "https://x.com/{handle}"),
+        SocialPlatform(id: "github", name: "GitHub", pattern: "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$", url: "https://github.com/{handle}"),
     ]
 
     /// Invite codes: the code inside anything a user pastes (registries/invite-codes.json).
@@ -829,6 +864,10 @@ public enum BipeRegistries {
     /// Cleared DMs (bipe-chat/bipe#464; registries/cleared-chats.json): the global account data event with the markers.
     public static let clearedChatsEventType = "chat.bipe.cleared_chats"
 
+    /// Favourites order (spec chat-list; registries/chat-favourites.json): the global account data event with the room IDs in order.
+    public static let chatFavouritesOrderEventType = "chat.bipe.favourites_order"
+    public static let chatFavouritesOrderMax = 200
+
     /// Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit.
     public static let imageDescriptionField = "chat.bipe.image_description"
     public static let imageDescriptionMaxLength = 1000
@@ -855,6 +894,9 @@ public enum BipeRegistries {
     /// Forward marks (bipe-chat/bipe#83; registries/voice-media.json): the content field and the many-times threshold. Rules: BipeForwardMark, test-vectors/forward-marks.json.
     public static let forwardKey = "chat.bipe.forward"
     public static let forwardedManyTimes = 5
+    /// The most chats one forward goes to, and the most when a sent content reaches forwardedManyTimes (bipe-chat/bipe#933).
+    public static let forwardChats = 5
+    public static let forwardChatsManyTimes = 1
 
     /// Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, docs/drafts-room.md). Rules: test-vectors/drafts.json.
     public static let draftsRoomType = "chat.bipe.drafts"
@@ -1053,6 +1095,11 @@ public enum BipeRegistries {
     public static let mapsLiveDefaultDistanceMetres = 50
     public static let mapsLiveMinIntervalSeconds = 10
     public static let mapsLiveMaxIntervalSeconds = 120
+
+    /// Verificar com gov.br (bipe-chat/bipe#544; registries/govbr.json). Rules: BipeGovbrFlow, test-vectors/govbr-verify.json.
+    public static let govbrFileName = "bipe-verificacao.pdf"
+    public static let govbrMaxDocumentBytes = 5242880
+    public static let govbrIosStoreUrl = "https://apps.apple.com/br/app/gov-br/id1506827551"
 
     /// Voice transcript paragraphs (registries/voice-transcript.json). Rule: product/screens/voice-recording.json notes.
     public static let voiceTranscriptPauseSeconds: Double = 1.2

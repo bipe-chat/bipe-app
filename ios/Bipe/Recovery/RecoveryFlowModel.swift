@@ -98,6 +98,8 @@ final class RecoveryFlowModel: ObservableObject {
     // beta sign-in (recovery-start action chooseBeta)
     @Published private(set) var betaEmail = ""
     @Published private(set) var betaPassword = ""
+    /// Optional: the account PIN that the move to device-first needs (bipe-chat/bipe#908). Never stored.
+    @Published private(set) var betaPIN = ""
     @Published private(set) var betaBusy = false
     @Published private(set) var betaError: String?
 
@@ -442,6 +444,10 @@ final class RecoveryFlowModel: ObservableObject {
         betaError = nil
     }
 
+    func editBetaPIN(_ text: String) {
+        betaPIN = String(BipePIN.sanitize(text).prefix(BipeRegistries.pinLength))
+    }
+
     var canSubmitBeta: Bool {
         !betaBusy && !betaEmail.trimmingCharacters(in: .whitespaces).isEmpty && !betaPassword.isEmpty
     }
@@ -458,8 +464,12 @@ final class RecoveryFlowModel: ObservableObject {
             let user = Self.isBetaEmail(input) ? try await api.betaLogin(email: input, password: betaPassword) : input
             let session = try await AccountSession.signIn(userId: user, password: betaPassword)
             betaPassword = ""
-            if let accessToken = try? session.client.session().accessToken,
-               let credentials = try? await api.moveToDeviceFirst(accessToken: accessToken) {
+            // bipe-chat/bipe#908: the move needs the account PIN; without one the account keeps its beta password.
+            let pin = betaPIN
+            betaPIN = ""
+            if pin.count == BipeRegistries.pinLength,
+               let accessToken = try? session.client.session().accessToken,
+               let credentials = try? await api.moveToDeviceFirst(pin: pin, accessToken: accessToken) {
                 store.save(credentials)
             }
             onSignedIn(session)

@@ -73,6 +73,8 @@ data class BipeSignupResponse(
     @SerialName("user_id") val userId: String,
     @SerialName("handle") val handle: String? = null,
     @SerialName("inviter_user_id") val inviterUserId: String? = null,
+    /** A group link code was used (ADR 0184): the account is invited there; join it after sign-in. */
+    @SerialName("group_room_id") val groupRoomId: String? = null,
     @SerialName("password") val password: String? = null,
     @SerialName("recovery_token") val recoveryToken: String? = null,
 ) {
@@ -98,6 +100,8 @@ data class BipeInvitePreview(
     @SerialName("valid") val valid: Boolean,
     /** Without @. */
     @SerialName("inviter_handle") val inviterHandle: String? = null,
+    /** Only for a valid invite: when it stops working. */
+    @SerialName("expires_at") val expiresAt: String? = null,
 )
 
 /** `HandleAvailability`. */
@@ -226,6 +230,10 @@ data class BipeAccountStatus(
     @SerialName("account_type") val accountType: String? = null,
     /** ADR 0140: the waiting account deletion. Absent when none. */
     @SerialName("deletion") val deletion: BipeAccountDeletion? = null,
+    /** ADR 0229: the band from the last OS age signal (`unknown` when none). Absent from an older server. */
+    @SerialName("age_band") val ageBand: String? = null,
+    /** ADR 0229: when the app last sent an age signal. Absent when never. */
+    @Serializable(with = InstantSerializer::class) @SerialName("age_checked_at") val ageCheckedAt: Instant? = null,
 )
 
 /** `AccountDeletion` (ADR 0140). */
@@ -260,6 +268,17 @@ internal data class BipeWaitlistRequest(
 
 @Serializable
 internal data class BipeTermsRequest(@SerialName("terms_version") val termsVersion: String)
+
+@Serializable
+internal data class BipeAgeSignalRequest(
+    @SerialName("source") val source: String,
+    @SerialName("lower") val lower: Int? = null,
+    @SerialName("upper") val upper: Int? = null,
+    @SerialName("method") val method: String? = null,
+)
+
+@Serializable
+internal data class BipeAgeSignalResponse(@SerialName("age_band") val ageBand: String)
 
 @Serializable
 internal data class BipeSetHandleRequest(@SerialName("handle") val handle: String)
@@ -321,6 +340,12 @@ data class BipeCnpjRegistryRecord(
 data class BipeReservedName(@SerialName("name") val name: String, @SerialName("approved") val approved: Boolean)
 
 // Recovery (ADR 0057, ADR 0059). Contract: bipe-shared/api/openapi.yaml, schemas RecoveryStarted and RecoveryClaim.
+
+/** The current PIN, for a call that a session alone may not make (bipe-chat/bipe#908). */
+@Serializable
+internal data class BipePinRequest(@SerialName("pin") val pin: String) {
+    override fun toString(): String = "BipePinRequest"
+}
 
 @Serializable
 internal data class BipeTokenRecoveryRequest(
@@ -427,3 +452,24 @@ data class BipeRecoveryClaim(
 
     override fun toString(): String = "BipeRecoveryClaim($state)"
 }
+
+/** `GovbrChallenge` (bipe-chat/bipe#544). [pdf] is the challenge PDF in base64. Keys are camelCase in this schema. */
+@Serializable
+data class BipeGovbrChallenge(
+    val verificationId: String,
+    val pdf: String,
+    val fileName: String,
+    val expiresAt: String,
+)
+
+/**
+ * `VerificationStatus`. [state] and [reason] stay as sent: a value this build does not know must not break the decoding
+ * (chat.bipe.shared.BipeGovbrRules.outcome fails closed on it).
+ */
+@Serializable
+data class BipeVerificationStatus(
+    val verificationId: String,
+    val state: String,
+    val badge: chat.bipe.shared.BadgeEnvelope? = null,
+    val reason: String? = null,
+)

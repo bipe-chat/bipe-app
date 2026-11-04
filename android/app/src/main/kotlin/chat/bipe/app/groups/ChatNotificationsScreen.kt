@@ -4,7 +4,7 @@
 
 package chat.bipe.app.groups
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,7 +56,7 @@ fun ChatNotificationsScreen(session: AccountSession, roomId: String, onBack: () 
     val errorText = stringResource(R.string.bipe_app_notify_error)
     LaunchedEffect(error) {
         if (error) {
-            Toast.makeText(context, errorText, Toast.LENGTH_LONG).show()
+            BipeToasts.show(errorText)
             model.dismissError()
         }
     }

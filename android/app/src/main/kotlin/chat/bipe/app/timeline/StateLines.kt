@@ -4,6 +4,7 @@
 
 package chat.bipe.app.timeline
 
+import chat.bipe.app.groups.GroupRole
 import chat.bipe.shared.R
 import org.matrix.rustcomponents.sdk.EventTimelineItem
 import org.matrix.rustcomponents.sdk.MembershipChange
@@ -21,7 +22,8 @@ data class StateLine(
     val newName: String? = null,
 ) {
     enum class Change {
-        JOINED, LEFT, INVITED, REMOVED, BANNED, RENAMED, NAME_REMOVED, PHOTO_CHANGED, PHOTO_REMOVED, DESCRIPTION_CHANGED, DESCRIPTION_REMOVED;
+        JOINED, LEFT, INVITED, REMOVED, BANNED, RENAMED, NAME_REMOVED, PHOTO_CHANGED, PHOTO_REMOVED, DESCRIPTION_CHANGED, DESCRIPTION_REMOVED,
+        MADE_ADMIN, MADE_MODERATOR, REMOVED_ADMIN, REMOVED_MODERATOR;
 
         val isMembership: Boolean get() = this in setOf(JOINED, LEFT, INVITED, REMOVED, BANNED)
     }
@@ -56,9 +58,33 @@ object StateLines {
                 event.sender,
                 emptyList(),
             )
+            is OtherState.RoomPowerLevels -> state.previousUsers?.let { previous ->
+                roleLine(state.users, previous, state.thresholds.usersDefault, event.sender)
+            }
             else -> null
         }
         else -> null
+    }
+
+    /**
+     * Spec timeline-rows StateLine.change MADE_ADMIN to REMOVED_MODERATOR: the first role change of one power levels
+     * event, with every person of that change (bipe-chat/bipe#733).
+     */
+    fun roleLine(users: Map<String, Long>, previous: Map<String, Long>, usersDefault: Long, actorId: String): StateLine? {
+        val changes = mutableMapOf<StateLine.Change, MutableList<String>>()
+        for (userId in (users.keys + previous.keys).sorted()) {
+            val old = GroupRole.of(previous[userId] ?: usersDefault)
+            val new = GroupRole.of(users[userId] ?: usersDefault)
+            if (old == new) continue
+            val change = when (new) {
+                GroupRole.ADMIN -> StateLine.Change.MADE_ADMIN
+                GroupRole.MODERATOR -> StateLine.Change.MADE_MODERATOR
+                GroupRole.MEMBER -> if (old == GroupRole.ADMIN) StateLine.Change.REMOVED_ADMIN else StateLine.Change.REMOVED_MODERATOR
+            }
+            changes.getOrPut(change) { mutableListOf() } += userId
+        }
+        return listOf(StateLine.Change.MADE_ADMIN, StateLine.Change.MADE_MODERATOR, StateLine.Change.REMOVED_ADMIN, StateLine.Change.REMOVED_MODERATOR)
+            .firstNotNullOfOrNull { change -> changes[change]?.let { StateLine(change, actorId, it) } }
     }
 
     /**
@@ -93,6 +119,10 @@ object StateLines {
             StateLine.Change.PHOTO_REMOVED -> format(R.string.bipe_app_state_photo_removed, listOf(actor))
             StateLine.Change.DESCRIPTION_CHANGED -> format(R.string.bipe_app_state_description_changed, listOf(actor))
             StateLine.Change.DESCRIPTION_REMOVED -> format(R.string.bipe_app_state_description_removed, listOf(actor))
+            StateLine.Change.MADE_ADMIN -> format(R.string.bipe_app_state_made_admin, listOf(actor, people))
+            StateLine.Change.MADE_MODERATOR -> format(R.string.bipe_app_state_made_moderator, listOf(actor, people))
+            StateLine.Change.REMOVED_ADMIN -> format(R.string.bipe_app_state_removed_admin, listOf(actor, people))
+            StateLine.Change.REMOVED_MODERATOR -> format(R.string.bipe_app_state_removed_moderator, listOf(actor, people))
         }
     }
 }

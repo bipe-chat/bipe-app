@@ -58,6 +58,9 @@ class BipeBringPeopleMemory(context: Context, userId: String) {
     /** Trigger firstChatListAfterSignup: signed up here, the sheet never showed, and asks did not stop. */
     val sheetDue: Boolean get() = prefs.getBoolean(signedUpKey, false) && !prefs.getBoolean(sheetShownKey, false) && !stopped
 
+    /** The sheet showed on this account (first time or from the first-list card). */
+    val sheetShown: Boolean get() = prefs.getBoolean(sheetShownKey, false)
+
     val declines: Int get() = prefs.getInt(declinesKey, 0)
 
     /** After BRING_PEOPLE_STOP_AFTER_DECLINES declines, no bring-people ask shows again on this account. */

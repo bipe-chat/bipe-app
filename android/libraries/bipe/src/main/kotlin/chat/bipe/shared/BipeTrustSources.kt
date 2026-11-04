@@ -56,7 +56,7 @@ object BipeTrustSources {
             identityChangedAt = if (identity.hasVerificationViolation) CHANGE_TIME else null,
             badgeStatus = when (seal) {
                 is Seal.Verified -> "valid"
-                Seal.Suspended -> "device_mismatch"
+                Seal.Suspended -> "master_key_mismatch"
                 Seal.None -> null
             },
             badgeAccountId = sealVerified?.let { userId },

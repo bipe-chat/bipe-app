@@ -65,7 +65,8 @@ object ComposerMarkdown {
 
     /** Replaces the @word at the end of the text with the pill label and a space. */
     fun insert(suggestion: MentionSuggestion, text: String, everyoneLabel: String): Pair<String, ComposerMention> {
-        val label = if (suggestion.userId == null) everyoneLabel else suggestion.name
+        // A person named by the @handle (People names) gets one @, not two.
+        val label = if (suggestion.userId == null) everyoneLabel else suggestion.name.removePrefix("@")
         val words = text.split(" ").dropLast(1) + "@$label "
         return words.joinToString(" ") to ComposerMention(suggestion.userId, label)
     }
@@ -99,17 +100,26 @@ class MentionDirectory {
         canMentionEveryone = runCatching { room.getPowerLevels().canOwnUserTriggerRoomNotification() }.getOrDefault(false)
     }
 
-    /** Members whose name or user ID contains the query, the whole group first when allowed. */
-    fun suggestions(query: String, everyoneLabel: String): List<MentionSuggestion> {
+    /**
+     * Members whose name or @handle contains the query, the whole group first when allowed. Never matched or labelled
+     * by the Matrix ID (People names).
+     */
+    fun suggestions(query: String, everyoneLabel: String, handles: chat.bipe.shared.BipeHandleResolver?): List<MentionSuggestion> {
         val needle = query.lowercase()
         val result = mutableListOf<MentionSuggestion>()
         if (canMentionEveryone && (needle.isEmpty() || everyoneLabel.lowercase().contains(needle))) {
             result += MentionSuggestion(null, everyoneLabel)
         }
         result += members
-            .filter { needle.isEmpty() || it.displayName?.lowercase()?.contains(needle) == true || it.userId.lowercase().contains(needle) }
+            .map { member ->
+                val handle = handles?.handle(member.userId)
+                Triple(member, chat.bipe.app.people.Person.name(member.userId, member.displayName, handle), handle)
+            }
+            .filter { (_, name, handle) -> needle.isEmpty() || name.lowercase().contains(needle) || handle?.lowercase()?.contains(needle) == true }
             .take(8)
-            .map { MentionSuggestion(it.userId, it.displayName ?: it.userId, avatarUrl = it.avatarUrl, nameAmbiguous = it.userId in ambiguous) }
+            .map { (member, name, handle) ->
+                MentionSuggestion(member.userId, name, handle = handle?.let { "@$it" }?.takeIf { it != name }, avatarUrl = member.avatarUrl, nameAmbiguous = member.userId in ambiguous)
+            }
         return result
     }
 }

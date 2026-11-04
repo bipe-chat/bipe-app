@@ -102,13 +102,21 @@ struct LinkPhoneShowView: View {
             Text((model.showError ?? .generic).message(model.mode))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
-            Button {
-                copied = false
-                model.newCode()
-            } label: {
-                Text(BipeStrings.appLinkPhoneNewCode)
+            LinkFailureCode(code: model.errorCode)
+            if model.showError == .needsApproval {
+                Button(action: model.approvePhone) {
+                    Text(BipeStrings.appLinkApprovePhone)
+                }
+                .buttonStyle(.bipeProminent)
+            } else {
+                Button {
+                    copied = false
+                    model.newCode()
+                } label: {
+                    Text(BipeStrings.appLinkPhoneNewCode)
+                }
+                .buttonStyle(.bipeProminent)
             }
-            .buttonStyle(.bipeProminent)
         }
     }
 

@@ -412,7 +412,7 @@ class CallSession(
             CallTile(
                 id = member.identity,
                 userId = member.userId,
-                name = known?.first ?: member.userId,
+                name = known?.first ?: chat.bipe.app.people.Person.name(member.userId, null),
                 avatarUrl = known?.second,
                 speaking = participant?.isSpeaking ?: false,
                 microphoneOn = participant?.isMicrophoneEnabled ?: true,
@@ -442,12 +442,12 @@ class CallSession(
     private fun loadNames(userIds: List<String>) {
         val missing = userIds.toSet().filter { it !in names }
         if (missing.isEmpty()) return
-        missing.forEach { names[it] = it to null }
+        missing.forEach { names[it] = chat.bipe.app.people.Person.name(it, null) to null }
         scope.launch {
             for (id in missing) {
                 val name = runCatching { room.memberDisplayName(id) }.getOrNull()
                 val avatar = runCatching { room.memberAvatarUrl(id) }.getOrNull()
-                names[id] = (name ?: id) to avatar
+                names[id] = chat.bipe.app.people.Person.name(id, name) to avatar
             }
             refresh()
         }

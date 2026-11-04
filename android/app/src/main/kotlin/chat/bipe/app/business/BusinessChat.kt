@@ -4,7 +4,7 @@
 
 package chat.bipe.app.business
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -426,7 +426,7 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
                     preselectedServiceId = open.serviceId ?: open.moving?.booking?.serviceId,
                     moving = open.moving?.booking,
                     onClose = { booked ->
-                        if (booked) Toast.makeText(context, context.getString(R.string.bipe_agenda_booked), Toast.LENGTH_LONG).show()
+                        if (booked) BipeToasts.show(context.getString(R.string.bipe_agenda_booked))
                         close(booked)
                     },
                 )
@@ -460,7 +460,7 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
                     onClose = { sent ->
                         if (sent) {
                             cart.clear()
-                            Toast.makeText(context, context.getString(R.string.bipe_order_sent), Toast.LENGTH_LONG).show()
+                            BipeToasts.show(context.getString(R.string.bipe_order_sent))
                         }
                         close(sent)
                     },
@@ -481,7 +481,7 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
                         model.business.withToken { acceptQuoteForBooking(route, quote.id, quote.currentVersion, serviceId, agendaId, start, it) }
                     },
                     onClose = { booked ->
-                        if (booked) Toast.makeText(context, context.getString(R.string.bipe_agenda_booked), Toast.LENGTH_LONG).show()
+                        if (booked) BipeToasts.show(context.getString(R.string.bipe_agenda_booked))
                         close(booked)
                     },
                 )

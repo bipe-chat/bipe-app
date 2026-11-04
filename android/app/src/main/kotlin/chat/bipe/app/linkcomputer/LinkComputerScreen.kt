@@ -5,18 +5,12 @@
 package chat.bipe.app.linkcomputer
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
-import android.webkit.CookieManager
-import android.webkit.WebResourceRequest
-import android.webkit.WebStorage
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,6 +28,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import chat.bipe.app.common.BipeOutlinedButton
@@ -45,11 +41,12 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -63,13 +60,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.Avatar
+import chat.bipe.app.tabs.AppTabsModel
 import chat.bipe.app.encryption.rememberApprovalCheck
 import chat.bipe.app.settings.OwnerCheck
 import chat.bipe.app.settings.SettingsModel
-import chat.bipe.shared.weblink.BipeWebLink
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeRegistries
@@ -78,7 +76,8 @@ import kotlinx.coroutines.launch
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import org.json.JSONObject
+import chat.bipe.app.encryption.LocalEncryptionStatus
+import androidx.compose.foundation.text.selection.SelectionContainer
 
 /**
  * The link-a-computer flow: link-computer-scan, then link-computer-warning, then link-computer-approve. The only way
@@ -98,7 +97,13 @@ fun LinkComputerScreen(settings: SettingsModel, onClose: () -> Unit, mode: LinkC
         // The old phone shows a code: no camera.
         if (!allowed && mode == LinkComputerModel.Mode.COMPUTER) cameraPermission.launch(Manifest.permission.CAMERA)
     }
-    LaunchedEffect(state.isClosed) { if (state.isClosed) onClose() }
+    // Action approvePhone opens the encryption-status sheet once this flow has gone.
+    val encryption = LocalEncryptionStatus.current
+    LaunchedEffect(state.isClosed) {
+        if (!state.isClosed) return@LaunchedEffect
+        onClose()
+        if (state.opensApproval) encryption?.openSheet()
+    }
     val closeOrCancel = { if (state.step == LinkComputerModel.Step.APPROVE) model.close() else model.cancel() }
     BackHandler(onBack = closeOrCancel)
     val colors = BipeTheme.colors
@@ -135,6 +140,15 @@ private fun ScanContent(state: LinkComputerModel.State, model: LinkComputerModel
             LinkComputerModel.Support.NOT_SUPPORTED -> Message(stringResource(R.string.bipe_link_computer_not_supported))
             LinkComputerModel.Support.SUPPORTED -> {
                 Text(stringResource(R.string.bipe_app_link_computer_scan_title), style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary, textAlign = TextAlign.Center)
+                if (model.mode == LinkComputerModel.Mode.COMPUTER && state.scanPhase != LinkComputerModel.ScanPhase.CONNECTING &&
+                    state.scanPhase != LinkComputerModel.ScanPhase.SHOW_CHECK_CODE) {
+                    val tabs = (context.applicationContext as BipeApplication).appTabs
+                    LinkComputerAccountRow(tabs) { userId ->
+                        // Action switchAccount: no computer signs in; Linked devices is a setting of the chosen account.
+                        model.cancel()
+                        tabs.switchAccount(userId)
+                    }
+                }
                 when (state.scanPhase) {
                     LinkComputerModel.ScanPhase.CAMERA_DENIED -> {
                         Message(stringResource(R.string.bipe_camera_permission_body))
@@ -150,7 +164,12 @@ private fun ScanContent(state: LinkComputerModel.State, model: LinkComputerModel
                         state.scanError?.let { error ->
                             Text(stringResource(R.string.bipe_link_computer_error_title), style = MaterialTheme.typography.titleMedium, color = colors.trustDangerInk)
                             Text(stringResource(error.message(model.mode)), color = colors.inkPrimary, textAlign = TextAlign.Center)
-                            BipeOutlinedButton(onClick = model::scanAgain) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
+                            LinkFailureCode(state.errorCode)
+                            if (error == LinkComputerModel.Failure.NEEDS_APPROVAL && LocalEncryptionStatus.current != null) {
+                                BipeButton(onClick = model::approvePhone) { Text(stringResource(R.string.bipe_app_link_approve_phone)) }
+                            } else {
+                                BipeOutlinedButton(onClick = model::scanAgain) { Text(stringResource(R.string.bipe_app_link_computer_scan_again)) }
+                            }
                         }
                     }
                     LinkComputerModel.ScanPhase.CONNECTING -> {
@@ -169,6 +188,46 @@ private fun ScanContent(state: LinkComputerModel.State, model: LinkComputerModel
                             modifier = Modifier.semantics { heading() },
                         )
                         Text(stringResource(R.string.bipe_app_link_computer_check_code_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * State account and otherAccounts of link-computer-scan (bipe-chat/bipe#985, ADR 0225): the account the computer gets.
+ * Only on a phone with more than one account. Read only when [onSwitch] is null (the consent screen).
+ */
+@Composable
+private fun LinkComputerAccountRow(tabs: AppTabsModel, onSwitch: ((String) -> Unit)? = null) {
+    val accounts = tabs.state.collectAsState().value.accounts
+    val account = accounts.firstOrNull { it.isCurrent }
+    if (accounts.size < 2 || account == null) return
+    val colors = BipeTheme.colors
+    var showsMenu by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised, RoundedCornerShape(12.dp)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Avatar(account.displayName, account.avatarUrl, tabs.media(account.userId), size = 40.dp, userId = account.userId, isCompany = account.isCompany)
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.bipe_app_link_computer_account), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+            Text(account.displayName, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1)
+            account.handle?.takeIf { "@$it" != account.displayName }?.let {
+                Text("@$it", style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, maxLines = 1)
+            }
+        }
+        if (onSwitch != null) {
+            Column {
+                TextButton(onClick = { showsMenu = true }) { Text(stringResource(R.string.bipe_app_link_computer_switch_account)) }
+                DropdownMenu(expanded = showsMenu, onDismissRequest = { showsMenu = false }) {
+                    accounts.filterNot { it.isCurrent }.forEach { other ->
+                        DropdownMenuItem(text = { Text(other.displayName) }, onClick = {
+                            showsMenu = false
+                            onSwitch(other.userId)
+                        })
                     }
                 }
             }
@@ -236,7 +295,7 @@ private fun LifecycleResumeEffect(onResume: () -> Unit, onPause: () -> Unit) {
     }
 }
 
-/** Spec link-computer-approve: the owner check, then the MAS consent page in a private web view. */
+/** Spec link-computer-approve: the owner check, then the native consent screen (ADR 0224). */
 @Composable
 private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerModel) {
     val context = LocalContext.current
@@ -258,28 +317,40 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
                     scope.launch { model.identityChecked(confirmOwner() == OwnerCheck.Approval.PASSED) }
                 }
             }
-            LinkComputerModel.ApprovePhase.LOADING, LinkComputerModel.ApprovePhase.CONSENT -> {
-                if (state.approvePhase == LinkComputerModel.ApprovePhase.CONSENT) {
-                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(if (phone) R.string.bipe_app_link_phone_consent_hint else R.string.bipe_link_computer_consent_hint), color = colors.inkPrimary)
-                        if (state.placeKnown) {
-                            val place = state.place
-                            Text(
-                                if (place != null) stringResource(R.string.bipe_link_computer_place, place) else stringResource(R.string.bipe_link_computer_place_unknown),
-                                fontWeight = FontWeight.Bold,
-                                color = colors.inkPrimary,
-                            )
-                            Text(stringResource(R.string.bipe_link_computer_place_source), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
-                        }
+            LinkComputerModel.ApprovePhase.LOADING -> {
+                CircularProgressIndicator(color = colors.accentFill)
+                Text(stringResource(R.string.bipe_link_computer_loading), color = colors.inkSecondary)
+            }
+            LinkComputerModel.ApprovePhase.CONSENT -> {
+                Column(modifier = Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (!phone) {
+                        LinkComputerAccountRow((context.applicationContext as BipeApplication).appTabs)
+                        Spacer(Modifier.size(8.dp))
                     }
-                } else {
-                    Text(stringResource(R.string.bipe_link_computer_loading), color = colors.inkSecondary)
+                    Text(stringResource(if (phone) R.string.bipe_app_link_phone_consent_hint else R.string.bipe_link_computer_consent_hint), color = colors.inkPrimary)
+                    Spacer(Modifier.size(8.dp))
+                    val device = state.device
+                    Text(
+                        if (device != null) stringResource(R.string.bipe_link_computer_device, device) else stringResource(R.string.bipe_link_computer_device_unknown),
+                        fontWeight = FontWeight.Bold,
+                        color = colors.inkPrimary,
+                    )
+                    state.ip?.let { Text(stringResource(R.string.bipe_link_computer_ip, it), color = colors.inkPrimary) }
+                    if (state.placeKnown) {
+                        val place = state.place
+                        Text(
+                            if (place != null) stringResource(R.string.bipe_link_computer_place, place) else stringResource(R.string.bipe_link_computer_place_unknown),
+                            fontWeight = FontWeight.Bold,
+                            color = colors.inkPrimary,
+                        )
+                        Text(stringResource(R.string.bipe_link_computer_place_source), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+                    }
                 }
-                val url = state.consentUrl
-                val host = state.masHost
-                if (url != null && host != null) {
-                    // The user never sees the MAS login form.
-                    MasWebView(url, host, model, Modifier.fillMaxWidth().weight(1f).alpha(if (state.approvePhase == LinkComputerModel.ApprovePhase.CONSENT) 1f else 0f))
+                BipeButton(onClick = model::approve, enabled = state.placeKnown, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.bipe_link_computer_approve))
+                }
+                BipeOutlinedButton(onClick = model::reject, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.bipe_app_cancel))
                 }
             }
             LinkComputerModel.ApprovePhase.FINISHING -> {
@@ -297,6 +368,7 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
                     color = colors.trustDangerInk,
                 )
                 Text(stringResource(state.approveError?.message(model.mode) ?: R.string.bipe_error_generic), color = colors.inkPrimary, textAlign = TextAlign.Center)
+                LinkFailureCode(state.errorCode)
                 BipeButton(onClick = model::retry) {
                     Text(stringResource(if (phone) R.string.bipe_app_link_phone_new_code else R.string.bipe_app_link_computer_scan_again))
                 }
@@ -310,59 +382,16 @@ private fun Message(text: String) {
     Text(text, color = BipeTheme.colors.inkPrimary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp))
 }
 
-/**
- * The private web view of link-computer-approve: its own cookies and storage, cleared before and after, https pages
- * on the MAS host only, no file access, no new windows. Never a Custom Tab: it shares cookies with the browser.
- */
-@SuppressLint("SetJavaScriptEnabled")
+/** State errorCode of link-computer-scan and link-phone-show: a short code for support under the error. */
 @Composable
-private fun MasWebView(url: String, masHost: String, model: LinkComputerModel, modifier: Modifier) {
-    DisposableEffect(Unit) {
-        clearWebData()
-        // Action finish: the web view's cookies and storage go when the screen goes.
-        onDispose { clearWebData() }
+internal fun LinkFailureCode(code: String?) {
+    if (code.isNullOrEmpty()) return
+    SelectionContainer {
+        Text(
+            stringResource(R.string.bipe_app_error_code, code),
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            color = BipeTheme.colors.inkSecondary,
+        )
     }
-    AndroidView(
-        modifier = modifier,
-        factory = { context ->
-            WebView(context).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.allowFileAccess = false
-                settings.allowContentAccess = false
-                settings.setSupportMultipleWindows(false)
-                settings.saveFormData = false
-                if (Build.VERSION.SDK_INT >= 26) importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
-                webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                        val target = request.url.toString()
-                        if (BipeWebLink.isAllowed(target, masHost)) return false
-                        model.blockedNavigation()
-                        return true
-                    }
-
-                    override fun onPageFinished(view: WebView, pageUrl: String) {
-                        if (!BipeWebLink.isAllowed(pageUrl, masHost)) return
-                        val probe = "JSON.stringify({password: document.querySelector('input[type=password]') !== null, " +
-                            "form: document.querySelector('form') !== null, text: document.body ? document.body.innerText : ''})"
-                        view.evaluateJavascript(probe) { result ->
-                            val page = runCatching { JSONObject(JSONObject("{\"v\":$result}").getString("v")) }.getOrNull() ?: return@evaluateJavascript
-                            model.pageLoaded(pageUrl, page.optBoolean("password"), page.optBoolean("form"), page.optString("text"))
-                                ?.let { view.evaluateJavascript(it, null) }
-                        }
-                    }
-                }
-                loadUrl(url)
-            }
-        },
-        onRelease = { webView ->
-            webView.stopLoading()
-            webView.destroy()
-        },
-    )
-}
-
-private fun clearWebData() {
-    CookieManager.getInstance().removeAllCookies(null)
-    WebStorage.getInstance().deleteAllData()
 }

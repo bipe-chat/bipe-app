@@ -56,6 +56,17 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "terms"], body: TermsAcceptance(termsVersion: version), accessToken: accessToken)
     }
     
+    // MARK: - Age signals (ADR 0229)
+
+    /// `PUT /v1/me/age`. Sends the OS age range, or source `none` with no range. The server keeps only the band and
+    /// returns it.
+    public func sendAgeSignal(source: String, lower: Int?, upper: Int?, method: String?, accessToken: String) async throws(BipeAPIError) -> String {
+        let response: AgeSignalResponse = try await send(method: "PUT", path: ["v1", "me", "age"],
+                                                         body: AgeSignalRequest(source: source, lower: lower, upper: upper, method: method),
+                                                         accessToken: accessToken)
+        return response.ageBand
+    }
+
     // MARK: - Device-first accounts (ADR 0057, ADR 0059)
     
     /// `GET /v1/me/account`. PIN state, recovery email and the recoveries of the last 7 days.
@@ -63,9 +74,10 @@ public struct BipeAPIClient: Sendable {
         try await send(method: "GET", path: ["v1", "me", "account"], body: Empty?.none, accessToken: accessToken)
     }
     
-    /// `PUT /v1/me/pin`. Set or change the PIN. The app checks the device owner first (biometrics).
-    public func setPIN(_ pin: String, accessToken: String) async throws(BipeAPIError) {
-        let _: NoContent = try await send(method: "PUT", path: ["v1", "me", "pin"], body: PINRequest(pin: pin), accessToken: accessToken)
+    /// `PUT /v1/me/pin`. Set or change the PIN. A change needs the current PIN (bipe-chat/bipe#908).
+    public func setPIN(_ pin: String, oldPIN: String?, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "PUT", path: ["v1", "me", "pin"], body: PINChangeRequest(pin: pin, oldPin: oldPIN),
+                                          accessToken: accessToken)
     }
 
     /// `POST /v1/me/pin/check` (spec pin-reminder). A wrong PIN counts against the account; a right one resets the count.
@@ -73,14 +85,15 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "pin", "check"], body: PINRequest(pin: pin), accessToken: accessToken)
     }
     
-    /// `POST /v1/me/device-first`. Moves a beta account to a hidden password. Needs a PIN first.
-    public func moveToDeviceFirst(accessToken: String) async throws(BipeAPIError) -> BipeCredentials {
-        try await send(method: "POST", path: ["v1", "me", "device-first"], body: Empty?.none, accessToken: accessToken)
+    /// `POST /v1/me/device-first`. Moves a beta account to a hidden password, once. Needs the current PIN (bipe-chat/bipe#908).
+    public func moveToDeviceFirst(pin: String, accessToken: String) async throws(BipeAPIError) -> BipeCredentials {
+        try await send(method: "POST", path: ["v1", "me", "device-first"], body: PINRequest(pin: pin), accessToken: accessToken)
     }
     
-    /// `POST /v1/me/recovery-token`. A new token; the old one stops working.
-    public func newRecoveryToken(accessToken: String) async throws(BipeAPIError) -> String {
-        let response: RecoveryTokenResponse = try await send(method: "POST", path: ["v1", "me", "recovery-token"], body: Empty?.none, accessToken: accessToken)
+    /// `POST /v1/me/recovery-token`. A new token; the old one stops working. Needs the current PIN (bipe-chat/bipe#908).
+    public func newRecoveryToken(pin: String, accessToken: String) async throws(BipeAPIError) -> String {
+        let response: RecoveryTokenResponse = try await send(method: "POST", path: ["v1", "me", "recovery-token"], body: PINRequest(pin: pin),
+                                                             accessToken: accessToken)
         return response.recoveryToken
     }
     
@@ -226,6 +239,36 @@ public struct BipeAPIClient: Sendable {
         try await send(method: "POST", path: ["v1", "me", "invites"], body: Empty?.none, accessToken: accessToken)
     }
     
+    // MARK: - Group links (ADR 0184)
+
+    /// `GET /v1/group-links/{code}`. No auth. The group name and member count, never member names.
+    public func groupLinkPreview(code: String) async throws(BipeAPIError) -> BipeGroupLinkPreview {
+        try await send(method: "GET", path: ["v1", "group-links", code], body: Empty?.none)
+    }
+
+    /// `POST /v1/group-links/{code}/join`. The groups service account invites the caller; then join the room.
+    public func joinGroupLink(code: String, accessToken: String) async throws(BipeAPIError) -> String {
+        let response: GroupLinkJoined = try await send(method: "POST", path: ["v1", "group-links", code, "join"], body: Empty?.none, accessToken: accessToken)
+        return response.roomId
+    }
+
+    /// `GET /v1/me/group-links?room_id=`. The active links of a group the caller administers.
+    public func groupLinks(roomId: String, accessToken: String) async throws(BipeAPIError) -> [BipeGroupLink] {
+        let response: GroupLinkList = try await send(method: "GET", path: ["v1", "me", "group-links"], query: [URLQueryItem(name: "room_id", value: roomId)],
+                                                     rawBody: nil, accessToken: accessToken)
+        return response.links
+    }
+
+    /// `POST /v1/me/group-links`. The code is returned once. Invite the groups service account first.
+    public func createGroupLink(roomId: String, accessToken: String) async throws(BipeAPIError) -> BipeCreatedGroupLink {
+        try await send(method: "POST", path: ["v1", "me", "group-links"], body: GroupLinkRequest(roomId: roomId), accessToken: accessToken)
+    }
+
+    /// `DELETE /v1/me/group-links/{linkId}`.
+    public func revokeGroupLink(id: String, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "DELETE", path: ["v1", "me", "group-links", id], body: Empty?.none, accessToken: accessToken)
+    }
+
     // MARK: - Phone-number discovery
     
     /// `POST /v1/contacts/lookup`. At most 500 numbers, already normalised with ``BipePhoneNumber``.
@@ -326,8 +369,11 @@ public struct BipeAPIClient: Sendable {
     }
     
     /// `PUT /v1/me/profile/photo`. `jpeg` must already fit the limits: see ``BipeProfilePhoto``.
-    public func setMyProfilePhoto(jpeg: Data, accessToken: String) async throws(BipeAPIError) -> BipeMyProfile {
-        try await send(method: "PUT", path: ["v1", "me", "profile", "photo"], rawBody: (data: jpeg, contentType: "image/jpeg"), accessToken: accessToken)
+    /// `source`: the mxc URI of the Matrix avatar that `jpeg` copies (ADR 0041, amended 2 Nov 2026).
+    public func setMyProfilePhoto(jpeg: Data, source: String?, accessToken: String) async throws(BipeAPIError) -> BipeMyProfile {
+        try await send(method: "PUT", path: ["v1", "me", "profile", "photo"],
+                       query: source.map { [URLQueryItem(name: "source", value: $0)] } ?? [],
+                       rawBody: (data: jpeg, contentType: "image/jpeg"), accessToken: accessToken)
     }
     
     /// `DELETE /v1/me/profile/photo`.
@@ -482,9 +528,25 @@ public struct BipeAPIClient: Sendable {
     private struct TermsAcceptance: Encodable {
         let termsVersion: String
     }
+
+    private struct AgeSignalRequest: Encodable {
+        let source: String
+        let lower: Int?
+        let upper: Int?
+        let method: String?
+    }
+
+    private struct AgeSignalResponse: Decodable {
+        let ageBand: String
+    }
     
     private struct PINRequest: Encodable {
         let pin: String
+    }
+
+    private struct PINChangeRequest: Encodable {
+        let pin: String
+        let oldPin: String?
     }
 
     private struct DeletionRequest: Encodable {
@@ -777,6 +839,8 @@ public struct BipeSignupResponse: Decodable, Sendable, CustomStringConvertible {
     public let handle: String?
     /// Present when a personal invite was used.
     public let inviterUserId: String?
+    /// Present when a group link code was used (ADR 0184): the account is invited there; join it after sign-in.
+    public let groupRoomId: String?
     /// Device-first only. The hidden MAS password, shown once. Keep it on this device only.
     public let password: String?
     /// Device-first only. Shown once. Sync it (iCloud Keychain).
@@ -814,6 +878,56 @@ public struct BipeInvitePreview: Decodable, Sendable {
     public let valid: Bool
     /// Without @. Only for a valid personal invite whose inviter has a handle.
     public let inviterHandle: String?
+    /// Only for a valid invite: when it stops working.
+    public let expiresAt: Date?
+}
+
+/// `GET /v1/group-links/{code}` (ADR 0184).
+public struct BipeGroupLinkPreview: Decodable, Sendable {
+    public let valid: Bool
+    public let name: String?
+    /// Joined members, the service account not counted.
+    public let members: Int?
+    /// The creator's public name, else @handle.
+    public let inviterName: String?
+    public let signsUp: Bool?
+}
+
+/// One active group link (ADR 0184).
+public struct BipeGroupLink: Decodable, Sendable, Identifiable, Equatable {
+    public let id: String
+    public let createdBy: String
+    public let createdAt: Date
+    public let expiresAt: Date
+    public let signsUp: Bool
+    public let joined: Int
+    public let signups: Int
+    public let signupsLeft: Int
+}
+
+public struct BipeCreatedGroupLink: Decodable, Sendable, CustomStringConvertible {
+    public let id: String
+    public let code: String
+    public let url: URL
+    public let expiresAt: Date
+    public let signsUp: Bool
+
+    /// Never prints the code.
+    public var description: String {
+        "BipeCreatedGroupLink(\(id))"
+    }
+}
+
+struct GroupLinkRequest: Encodable {
+    let roomId: String
+}
+
+struct GroupLinkList: Decodable {
+    let links: [BipeGroupLink]
+}
+
+struct GroupLinkJoined: Decodable {
+    let roomId: String
 }
 
 public enum BipeInviteStatus: String, Decodable, Sendable {
@@ -1002,6 +1116,9 @@ public struct BipePublicProfile: Decodable, Sendable, Equatable {
     public let bio: String?
     /// Absent without a photo. The URL changes when the photo changes.
     public let photoUrl: URL?
+    /// Social handles (ADR 0228): registries/profiles.json socials id to handle without @. Absent when empty.
+    /// The apps build each link with `BipeSocialHandles.url`; the server sends no URL.
+    public let socials: [String: String]?
     /// Set by the server only. The apps do not show a profile badge yet.
     public let badge: BadgeEnvelope?
 }
@@ -1016,6 +1133,12 @@ public struct BipeMyProfile: Decodable, Sendable, Equatable {
     public let handle: String?
     /// Absent without a photo.
     public let photoUrl: URL?
+    /// The mxc URI of the Matrix avatar that the photo copies. Absent without a photo or for an older upload.
+    public let photoSource: String?
+    /// Social handles (ADR 0228), keyed by registries/profiles.json socials id. The contract sends `{}` when none.
+    public let socials: [String: String]?
+    /// When the account signed up. Absent for an account without a sign-up row.
+    public let memberSince: Date?
 }
 
 /// Contract: `ProfileUpdate`.
@@ -1023,11 +1146,14 @@ public struct BipeProfileUpdate: Encodable, Sendable, Equatable {
     public let enabled: Bool
     public let name: String
     public let bio: String
+    /// Social handles (ADR 0228). nil: the server keeps the stored handles. A value replaces them all.
+    public let socials: [String: String]?
     
-    public init(enabled: Bool, name: String, bio: String) {
+    public init(enabled: Bool, name: String, bio: String, socials: [String: String]? = nil) {
         self.enabled = enabled
         self.name = name
         self.bio = bio
+        self.socials = socials
     }
 }
 
@@ -1077,6 +1203,8 @@ public enum BipeAPIErrorCode: String, Sendable {
     case pinWrong = "pin_wrong"
     case pinBlocked = "pin_blocked"
     case pinNotSet = "pin_not_set"
+    /// `POST /v1/me/device-first` on an account that already moved (bipe-chat/bipe#908).
+    case alreadyDeviceFirst = "already_device_first"
     case recoveryInvalid = "recovery_invalid"
     case emailUnavailable = "email_unavailable"
     /// 403. Reason `missing` or `outdated` (ADR 0113).
@@ -1122,6 +1250,8 @@ public enum BipeAPIErrorCode: String, Sendable {
     case brandMarkLimit = "brand_mark_limit"
     /// 409. The account already keeps maxKeptPerAccount voice audios (ADR 0164).
     case keepLimit = "keep_limit"
+    /// 409. The groups service account is not in the group or may not invite (ADR 0184).
+    case groupLinkNoAccess = "group_link_no_access"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -1172,6 +1302,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .pinWrong: BipeStrings.pinWrong(reason ?? "0")
             case .pinBlocked: BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries))
             case .pinNotSet: BipeStrings.pinCreateBody(String(BipeRegistries.pinLength))
+            case .alreadyDeviceFirst: BipeStrings.errorGeneric
             case .recoveryInvalid: BipeStrings.errorRecoveryInvalid
             case .emailUnavailable: BipeStrings.errorEmailUnavailable
             case .termsRequired: BipeStrings.signupTermsRequired
@@ -1192,6 +1323,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .brandNotVerified: BipeStrings.brandMarksNotVerified
             case .brandMarkLimit: BipeStrings.brandMarksLimit
             case .keepLimit: BipeStrings.voiceKeepLimit(String(BipeRegistries.voiceMediaMaxKeptPerAccount))
+            case .groupLinkNoAccess: BipeStrings.groupLinkErrorAccess
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

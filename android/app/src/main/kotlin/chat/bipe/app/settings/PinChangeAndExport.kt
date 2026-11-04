@@ -62,7 +62,7 @@ import kotlinx.coroutines.withContext
 /** Spec pin-change, phase. PIN_CHECK: the Bipe PIN, checked by the server, on a phone with no strong biometrics. */
 enum class PinChangePhase { CONFIRM_IDENTITY, PIN_CHECK, ENTERING, SAVING, FAILED, DONE }
 
-/** Spec pin-change: changes the account PIN after the owner check. No old PIN is needed (ADR 0057). */
+/** Spec pin-change: changes the account PIN after the current PIN, which the server checks (bipe-chat/bipe#908). */
 @Composable
 fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
     val context = LocalContext.current
@@ -73,7 +73,8 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
     var phase by remember { mutableStateOf(PinChangePhase.CONFIRM_IDENTITY) }
     var error by remember { mutableStateOf<Int?>(null) }
     var savedPin by remember { mutableStateOf<String?>(null) }
-    val reason = stringResource(R.string.bipe_pin_change_biometric_reason)
+    // The current PIN from PIN_CHECK, sent once with the new PIN. Held only while the screen is open.
+    var oldPin by remember { mutableStateOf<String?>(null) }
     BackHandler(enabled = phase != PinChangePhase.SAVING, onBack = onClose)
 
     fun save(pin: String) {
@@ -81,7 +82,9 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
         phase = PinChangePhase.SAVING
         scope.launch {
             try {
-                model.authorized { model.api.setPin(pin, it) }
+                val current = oldPin
+                model.authorized { model.api.setPin(pin, current, it) }
+                oldPin = null
                 // One account on the phone and the lock on: the new account PIN is the app lock PIN too (ADR 0086).
                 if (lock.store.isOn) withContext(Dispatchers.Default) { lock.store.setPin(pin) }
                 view.bipeHaptic(BipeHaptic.Success)
@@ -102,16 +105,11 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
         }
     }
 
-    // Action confirmIdentity (rule 14 tier 3, bipe-chat/bipe#785): strong biometrics, or the current Bipe PIN checked by
-    // the server on a phone without them; never the screen lock. A phone with no screen lock cannot change the PIN; the
-    // screen closes (fail closed).
+    // Action confirmIdentity (rule 14 tier 3, bipe-chat/bipe#785, bipe-chat/bipe#908): the current Bipe PIN, checked by
+    // the server, never the screen lock. The server needs it again with the new PIN, so biometrics alone are not enough.
+    // A phone with no screen lock cannot change the PIN; the screen closes (fail closed).
     LaunchedEffect(Unit) {
-        when (OwnerCheck.approvalMethod(context)) {
-            OwnerCheck.ApprovalMethod.BIOMETRICS ->
-                if (OwnerCheck.strongBiometrics(context, reason, context.getString(R.string.bipe_app_cancel))) phase = PinChangePhase.ENTERING else onClose()
-            OwnerCheck.ApprovalMethod.ACCOUNT_PIN -> phase = PinChangePhase.PIN_CHECK
-            OwnerCheck.ApprovalMethod.NONE -> onClose()
-        }
+        if (OwnerCheck.approvalMethod(context) == OwnerCheck.ApprovalMethod.NONE) onClose() else phase = PinChangePhase.PIN_CHECK
     }
 
     val colors = BipeTheme.colors
@@ -119,7 +117,10 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
         PinChangePhase.CONFIRM_IDENTITY -> Surface(Modifier.fillMaxSize().testTag(BipeScreen.PIN_CHANGE.id), color = colors.surfaceBase) {}
         PinChangePhase.PIN_CHECK -> AccountPinCheck(
             title = stringResource(R.string.bipe_pin_change_title),
-            check = { pin -> model.authorized { model.api.checkPin(pin, it) } },
+            check = { pin ->
+                model.authorized { model.api.checkPin(pin, it) }
+                oldPin = pin
+            },
             onPass = { phase = PinChangePhase.ENTERING },
             onCancel = onClose,
         )

@@ -53,6 +53,7 @@ struct BrandMarksView: View {
     @State private var label = BipeRegistries.brandMarkLabels.first ?? ""
     @State private var created: BipeCreatedBrandMarkInvite?
     @State private var problem: Problem?
+    @State private var toast: String?
     @State private var working = false
     @State private var removing: BipeHeldBrandMark?
     @State private var ending: BipeGrantedBrandMark?
@@ -75,6 +76,7 @@ struct BrandMarksView: View {
         .listStyle(.insetGrouped)
         .navigationTitle(BipeStrings.brandMarksTitle)
         .accessibilityIdentifier(BipeScreen.brandMarks.rawValue)
+        .toast($toast)
         .disabled(working)
         .task { await load() }
         .sheet(item: $offer) { offer in
@@ -87,7 +89,7 @@ struct BrandMarksView: View {
             }
             Button(BipeStrings.appCancel, role: .cancel) {}
         }
-        .alert(ending.map { BipeStrings.brandMarksEndConfirm(resellerNames[$0.reseller] ?? $0.reseller) } ?? "",
+        .alert(ending.map { BipeStrings.brandMarksEndConfirm(resellerNames[$0.reseller] ?? BipeChatRowName.person(userID: $0.reseller, displayName: nil, handle: nil)) } ?? "",
                isPresented: Binding(get: { ending != nil }, set: { if !$0 { ending = nil } })) {
             Button(BipeStrings.brandMarksEnd, role: .destructive) {
                 if let mark = ending { run { try await api.endBrandMark(id: mark.id) } }
@@ -157,7 +159,10 @@ struct BrandMarksView: View {
                             .font(.footnote)
                             .foregroundStyle(BipeColor.inkSecondary)
                         HStack {
-                            Button(BipeStrings.appCopy) { UIPasteboard.general.string = created.link }
+                            Button(BipeStrings.appCopy) {
+                                UIPasteboard.general.string = created.link
+                                toast = BipeStrings.appCopied
+                            }
                                 .buttonStyle(.borderless)
                             Spacer()
                             ShareLink(item: created.link) {
@@ -206,7 +211,7 @@ struct BrandMarksView: View {
             ForEach(grantedMarks) { mark in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(resellerNames[mark.reseller] ?? mark.reseller)
+                        Text(resellerNames[mark.reseller] ?? BipeChatRowName.person(userID: mark.reseller, displayName: nil, handle: nil))
                             .foregroundStyle(BipeColor.inkPrimary)
                         Text(Self.line(label: mark.label, brandName: brandName ?? ""))
                             .font(.caption)

@@ -134,7 +134,10 @@ class AppTabsModel(
     }
 
     /** Action longPressVoce: opens the account menu without changing the visible tab. */
-    fun longPressVoce() {
+    fun longPressVoce() = openAccountSwitcher()
+
+    /** Opens account-switcher: the hold on the tab, and action openAccounts of spec voce. */
+    fun openAccountSwitcher() {
         _state.value = _state.value.copy(showsAccountSwitcher = true)
     }
 
@@ -187,6 +190,7 @@ class AppTabsModel(
         val company = loader.isCompany(session.userId)
         if (session.userId !in sessionIds) return
         accountList.rememberName(session.userId, displayName)
+        mine?.handle?.let { chat.bipe.shared.BipeHandleCache.store(it, session.userId) }
         profiles[session.userId] = Profile(displayName, avatarUrl, mine?.handle, company,
             (status?.maxAccounts ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS).coerceAtLeast(1))
         refresh()
@@ -214,7 +218,8 @@ class AppTabsModel(
             val profile = profiles[userId]
             AccountSummary(
                 userId = userId,
-                displayName = profile?.name.orEmpty(),
+                // Spec account-switcher: the real display name, else the @handle; never the Matrix ID or its localpart.
+                displayName = chat.bipe.shared.BipeChatRowName.person(userId, null, profile?.name, profile?.handle, ""),
                 handle = profile?.handle,
                 avatarUrl = profile?.avatar,
                 isCurrent = userId == currentId,

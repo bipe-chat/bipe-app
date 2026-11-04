@@ -100,7 +100,8 @@ fun PixSendScreen(preview: PixPreview, chatList: ChatListModel, media: MediaLoad
                 Text(stringResource(R.string.bipe_pix_check_send_to_chat), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
             }
             // The account that sends: shown before any choice.
-            Text(chatList.session.userId, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, modifier = Modifier.padding(horizontal = 16.dp))
+            Text(chat.bipe.app.account.AccountList(androidx.compose.ui.platform.LocalContext.current).name(chatList.session.userId)
+                ?: androidx.compose.ui.res.stringResource(R.string.bipe_tab_you), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, modifier = Modifier.padding(horizontal = 16.dp))
             if (image != null) {
                 val bitmap = remember(image) { BitmapFactory.decodeFile(image.path)?.asImageBitmap() }
                 bitmap?.let {

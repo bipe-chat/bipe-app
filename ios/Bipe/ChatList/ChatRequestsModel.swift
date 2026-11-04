@@ -192,8 +192,9 @@ final class ChatRequestsModel: ObservableObject {
             for room in rooms {
                 guard !Task.isCancelled else { return }
                 if let summary = await Self.summary(of: room), summary.isDm != groups {
-                    if !groups && BipeInviteTrust.acceptsAutomatically(isDm: summary.isDm, inviterID: summary.inviterId,
-                                                                       isIgnored: false, pairs: invitePairs) {
+                    // Group invites have no invite pairs: only an official inviter joins by itself there.
+                    if BipeInviteTrust.acceptsAutomatically(isDm: summary.isDm, inviterID: summary.inviterId,
+                                                            isIgnored: false, pairs: groups ? [] : invitePairs) {
                         if pending.contains(summary.roomId) { continue }
                         if await run(summary.roomId, { try await $0.join() }) { continue }
                     }
@@ -224,7 +225,7 @@ final class ChatRequestsModel: ObservableObject {
             invitedAt = Date(milliseconds: timestamp)
         }
         let inviterId = inviter?.userId ?? ""
-        let inviterName = inviter?.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? (inviterId.isEmpty ? nil : Person.localpart(of: inviterId))
+        let inviterName = inviterId.isEmpty ? nil : BipeChatRowName.person(userID: inviterId, displayName: inviter?.displayName, handle: nil)
         let isDm = isDirectInvite(info)
         return ChatRequestSummary(
             roomId: info.id,

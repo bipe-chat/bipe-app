@@ -67,9 +67,10 @@ public extension BipeAPIClient {
         try await send(method: "GET", path: ["v1", "me", "guardians"], body: Empty?.none, accessToken: accessToken)
     }
 
-    /// `PUT /v1/me/guardians`. Replaces the list (0 to ``BipeRegistries/theftMaxGuardians`` IDs).
-    func setGuardians(_ userIDs: [String], accessToken: String) async throws(BipeAPIError) -> BipeGuardianState {
-        try await send(method: "PUT", path: ["v1", "me", "guardians"], body: GuardiansRequest(userIds: userIDs), accessToken: accessToken)
+    /// `PUT /v1/me/guardians`. Replaces the list (0 to ``BipeRegistries/theftMaxGuardians`` IDs). Needs the current PIN
+    /// (bipe-chat/bipe#908).
+    func setGuardians(_ userIDs: [String], pin: String, accessToken: String) async throws(BipeAPIError) -> BipeGuardianState {
+        try await send(method: "PUT", path: ["v1", "me", "guardians"], body: GuardiansRequest(userIds: userIDs, pin: pin), accessToken: accessToken)
     }
 
     /// `PUT /v1/me/phone`. Records this phone's ID for the account (bipe-chat/bipe#268).
@@ -89,13 +90,18 @@ public extension BipeAPIClient {
 
     /// `POST /v1/theft-marks`. At most 100 IDs. The statements are not verified here: see ``BipeTheftMarkVerifier``.
     func theftMarks(userIDs: [String], openID: BipeOpenIDToken) async throws(BipeAPIError) -> [BadgeEnvelope] {
-        let response: TheftMarksResponse = try await send(method: "POST", path: ["v1", "theft-marks"], body: GuardiansRequest(userIds: userIDs),
+        let response: TheftMarksResponse = try await send(method: "POST", path: ["v1", "theft-marks"], body: TheftMarksRequest(userIds: userIDs),
                                                           accessToken: openID.accessToken, serverName: openID.matrixServerName)
         return response.marks
     }
 }
 
 private nonisolated struct GuardiansRequest: Encodable {
+    let userIds: [String]
+    let pin: String
+}
+
+private nonisolated struct TheftMarksRequest: Encodable {
     let userIds: [String]
 }
 

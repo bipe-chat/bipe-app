@@ -37,7 +37,6 @@ class BadgeVerifier(trustedKeys: Map<String, ByteArray>) {
     fun verify(
         envelopeJson: String,
         sender: String,
-        senderDevice: String,
         senderMasterKey: String?,
         nowMillis: Long = System.currentTimeMillis(),
     ): BadgeVerificationResult {
@@ -50,14 +49,13 @@ class BadgeVerifier(trustedKeys: Map<String, ByteArray>) {
         }
         val envelope = runCatchingExceptions { json.decodeFromJsonElement(BadgeEnvelope.serializer(), probe) }.getOrNull()
             ?: return BadgeVerificationResult.Invalid(BadgeVerificationFailure.MALFORMED)
-        return verify(envelope, sender, senderDevice, senderMasterKey, nowMillis)
+        return verify(envelope, sender, senderMasterKey, nowMillis)
     }
 
     /** Runs the documented checks in order and returns the first failure. */
     fun verify(
         envelope: BadgeEnvelope,
         sender: String,
-        senderDevice: String,
         senderMasterKey: String?,
         nowMillis: Long = System.currentTimeMillis(),
     ): BadgeVerificationResult {
@@ -82,13 +80,8 @@ class BadgeVerifier(trustedKeys: Map<String, ByteArray>) {
         if (nowMillis >= payload.exp * 1000) return invalid(BadgeVerificationFailure.EXPIRED)
         if (nowMillis < payload.iat * 1000) return invalid(BadgeVerificationFailure.NOT_YET_VALID)
         if (payload.sub != sender) return invalid(BadgeVerificationFailure.SUBJECT_MISMATCH)
-        if (payload.lvl == BadgeLevel.CNPJ || payload.lvl == BadgeLevel.INSTITUTION || payload.lvl == BadgeLevel.BRAND_MARK) {
-            // A company badge, an institution badge or a brand mark binds to the account, so any of its devices may send.
-            // No known master key fails closed.
-            if (senderMasterKey == null || payload.msk != senderMasterKey) return invalid(BadgeVerificationFailure.MASTER_KEY_MISMATCH)
-        } else if (payload.dev != senderDevice) {
-            return invalid(BadgeVerificationFailure.DEVICE_MISMATCH)
-        }
+        // Every badge binds to the account (ADR 0239), so any of its cross-signed devices may send. No known master key fails closed.
+        if (senderMasterKey == null || payload.msk != senderMasterKey) return invalid(BadgeVerificationFailure.MASTER_KEY_MISMATCH)
         return BadgeVerificationResult.Valid(payload)
     }
 
@@ -146,9 +139,7 @@ data class BadgePayload(
     val name: String,
     /** Normalised CNPJ (14 characters, digits and uppercase letters). Present for `institution` and `cnpj`. */
     val cnpj: String? = null,
-    /** Fingerprint of the device key the badge is bound to. `pix` and `govbr` only. */
-    val dev: String? = null,
-    /** The account's cross-signing master key the badge is bound to. `cnpj`, `institution` and `brand-mark` only. */
+    /** The account's cross-signing master key the badge is bound to. Every level (ADR 0239). */
     val msk: String? = null,
     /** `brand-mark` only: the mark ID, the brand's Matrix user ID and the label id of registries/brand-marks.json. */
     val mark: String? = null,
@@ -169,13 +160,13 @@ data class BadgePayload(
     val exp: Long,
 ) {
     /** The required fields of [lvl] (badge-attestation.md, step 4). */
-    internal fun isWellFormed(): Boolean = when (lvl) {
-        BadgeLevel.CNPJ -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !legalName.isNullOrEmpty() && !msk.isNullOrEmpty() &&
+    internal fun isWellFormed(): Boolean = !msk.isNullOrEmpty() && when (lvl) {
+        BadgeLevel.CNPJ -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !legalName.isNullOrEmpty() &&
             method != null && checkedMonth != null && MONTH_PATTERN.matches(checkedMonth)
-        BadgeLevel.INSTITUTION -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !msk.isNullOrEmpty() && domainList() != null
-        BadgeLevel.BRAND_MARK -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !msk.isNullOrEmpty() && dev == null && name.isNotEmpty() &&
+        BadgeLevel.INSTITUTION -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && domainList() != null
+        BadgeLevel.BRAND_MARK -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && name.isNotEmpty() &&
             !mark.isNullOrEmpty() && !brand.isNullOrEmpty() && label != null && label in BipeRegistries.BRAND_MARK_LABELS
-        BadgeLevel.PIX, BadgeLevel.GOVBR -> dev != null
+        BadgeLevel.PIX, BadgeLevel.GOVBR -> true
     }
 
     /** `institution`: the verified domains, empty when absent; null when the field is not a list of domains. */
@@ -208,7 +199,6 @@ enum class BadgeVerificationFailure(val code: String) {
     EXPIRED("expired"),
     NOT_YET_VALID("not_yet_valid"),
     SUBJECT_MISMATCH("subject_mismatch"),
-    DEVICE_MISMATCH("device_mismatch"),
     MASTER_KEY_MISMATCH("master_key_mismatch"),
 }
 

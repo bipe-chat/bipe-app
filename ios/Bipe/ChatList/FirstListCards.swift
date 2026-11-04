@@ -18,10 +18,13 @@ final class FirstListCardsModel: ObservableObject {
         done = Set(saved.compactMap(BipeOnboardingCard.init(rawValue:)))
     }
 
-    /// State cards: registry order, only while Conversas lists at most firstListMaxChats chats.
-    func visible(chatCount: Int, handle: String?) -> [BipeOnboardingCard] {
+    /// State cards: registry order, only while Conversas lists at most firstListMaxChats chats. The invite card goes
+    /// once the bring-people sheet showed (needsNoBringPeople).
+    func visible(chatCount: Int, handle: String?, bringPeopleShown: Bool) -> [BipeOnboardingCard] {
         guard chatCount <= BipeOnboarding.firstListMaxChats else { return [] }
-        return BipeOnboardingCard.allCases.filter { !done.contains($0) && (!$0.needsHandle || handle != nil) }
+        return BipeOnboardingCard.allCases.filter {
+            !done.contains($0) && (!$0.needsHandle || handle != nil) && (!$0.needsNoBringPeople || !bringPeopleShown)
+        }
     }
 
     /// Actions dismiss, and every other action once it ran: the card goes for good.
@@ -37,35 +40,9 @@ struct FirstListCardView: View {
     let action: (BipeOnboardingTarget) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(BipeLocalized.string(card.titleKey))
-                .font(.headline)
-                .foregroundStyle(BipeColor.inkPrimary)
-            Text(bodyText)
-                .font(.subheadline)
-                .foregroundStyle(BipeColor.inkSecondary)
-            HStack(spacing: 16) {
-                Button { action(card.primary.target) } label: {
-                    Text(card.primary.title)
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .foregroundStyle(BipeColor.inkOnAccent)
-                        .background(Capsule().fill(BipeColor.accentFill))
-                }
-                ForEach(card.text, id: \.titleKey) { button in
-                    Button { action(button.target) } label: {
-                        Text(button.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BipeColor.accentInk)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.surfaceRaised))
+        PromptCard(title: BipeLocalized.string(card.titleKey), body: bodyText,
+                   primary: .init(title: card.primary.title) { action(card.primary.target) },
+                   texts: card.text.map { button in .init(title: button.title) { action(button.target) } })
     }
 
     private var bodyText: String {

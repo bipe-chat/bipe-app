@@ -60,6 +60,7 @@ class SignupDoneModel(
     val phase: StateFlow<Phase> = _phase.asStateFlow()
     val inviterUserId = outcome.inviterUserId
     val inviterHandle = outcome.inviterHandle
+    private val groupRoomId = outcome.groupRoomId
     private var continued = false
 
     /** Action appear: the success line for a short moment, then continue. */
@@ -74,6 +75,17 @@ class SignupDoneModel(
     fun continueFlow() {
         if (continued) return
         continued = true
+        val group = groupRoomId
+        if (group != null) {
+            // Spec group-link-open: the groups service account invited the new account at sign-up. The group opens first.
+            _phase.value = Phase.OPENING_CHAT
+            scope.launch {
+                if (runCatching { session.client.joinRoomById(group) }.isSuccess) return@launch onContinue(group)
+                val inviter = inviterUserId ?: return@launch onContinue(null)
+                onContinue(directChat(inviter))
+            }
+            return
+        }
         val inviter = inviterUserId ?: return onContinue(null)
         _phase.value = Phase.OPENING_CHAT
         scope.launch { onContinue(directChat(inviter)) }

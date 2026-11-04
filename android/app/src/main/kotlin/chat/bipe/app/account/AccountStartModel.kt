@@ -31,7 +31,8 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.Session
 
 /** What signup-done needs after a new account (spec signup-done). */
-data class SignupOutcome(val inviterUserId: String?, val inviterHandle: String?)
+/** [groupRoomId]: a sign-up with a group link code (ADR 0184), the group the account was invited into. */
+data class SignupOutcome(val inviterUserId: String?, val inviterHandle: String?, val groupRoomId: String? = null)
 
 /**
  * Spec account-start (bipe-shared product/screens/account-start.json).
@@ -233,7 +234,12 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         (context.applicationContext as BipeApplication).push.appBecameActive()
         _sessions.value.forEach { session ->
             scope.launch {
-                if (pendingAuthErrors.remove(session.userId)) authError(session, isSoftLogout = true) else session.syncService.start()
+                if (pendingAuthErrors.remove(session.userId)) {
+                    authError(session, isSoftLogout = true)
+                } else {
+                    session.syncService.start()
+                    session.resumeSending()
+                }
             }
             // bipe-chat/bipe#511: this phone's copy of the account's opening hours, for quiet pushes.
             scope.launch { WorkHoursSync.refresh(session, api, (context.applicationContext as BipeApplication).notifications) }
@@ -378,6 +384,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             if (app.roomToOpen.value?.accountUserId == current.userId) app.roomToOpen.value = null
             if (app.accountToOpen.value == current.userId) app.accountToOpen.value = null
             if (app.recoveryToCheck.value == current.userId) app.recoveryToCheck.value = null
+            if (app.invitesToRefresh.value == current.userId) app.invitesToRefresh.value = null
             // The pusher still goes before the SDK session ends.
             if (_userId.value == current.userId) app.push.signOut()
             current.signOut(context, sessionStore, vault, alreadyLoggedOut)

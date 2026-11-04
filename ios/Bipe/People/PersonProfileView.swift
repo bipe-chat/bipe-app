@@ -14,8 +14,6 @@ struct PersonProfileRoutes {
     var newGroup: ((String) -> Void)?
     /// fromDm: opens chat-notifications for the DM.
     var notifications: ((String) -> Void)?
-    /// fromDm: opens dm-delete for the DM.
-    var deleteChat: ((String) -> Void)?
 }
 
 /// Spec person-profile. From a DM header it is also the DM's info screen (ADR 0141).
@@ -97,6 +95,7 @@ struct PersonProfileView: View {
                     header
                 }
                 .listRowBackground(Color.clear)
+                socials
                 savedNumbers
                 actions
                 if model.fromDm, let roomId = model.dmRoomId {
@@ -173,6 +172,39 @@ struct PersonProfileView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
+    }
+
+    /// Spec socials (ADR 0228): under the bio, one row per network. A tap opens the link in the system browser,
+    /// which hands off to the network's app; never an in-app web view, never a link preview.
+    @ViewBuilder
+    private var socials: some View {
+        if !model.socials.isEmpty {
+            Section {
+                ForEach(model.socials) { link in
+                    Button {
+                        // Action openSocial. Not the openURL environment: the app routes Bipe links through it.
+                        UIApplication.shared.open(link.url)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text("\(link.platform.name) · @\(link.handle)")
+                                .foregroundStyle(BipeColor.inkPrimary)
+                            Spacer(minLength: 8)
+                            PhosphorIcon.link.image
+                                .resizable()
+                                .frame(width: 16, height: 16)
+                                .foregroundStyle(BipeColor.inkSecondary)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .accessibilityAddTraits(.isLink)
+                }
+            } header: {
+                Text(BipeStrings.publicProfileSocials)
+            } footer: {
+                Text(BipeStrings.publicProfileSocialsNotVerified)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
+        }
     }
 
     /// Spec savedNumbers (ADR 0191, bipe-chat/bipe#788): only from the user's own address book. Empty: no row.
@@ -295,21 +327,13 @@ struct PersonProfileView: View {
                 ChatMediaGalleryView(session: people.session, media: people.media, roomId: roomId)
             }
         }
-        if routes.notifications != nil || routes.deleteChat != nil {
+        // Spec person-profile notes: a DM is archived from the chat menu, never deleted here.
+        if let notifications = routes.notifications {
             Section {
-                if let notifications = routes.notifications {
-                    Button {
-                        notifications(roomId)
-                    } label: {
-                        IconLabel(icon: .bell, text: BipeStrings.settingsNotifications)
-                    }
-                }
-                if let deleteChat = routes.deleteChat {
-                    Button {
-                        deleteChat(roomId)
-                    } label: {
-                        IconLabel(icon: .trash, text: BipeStrings.dmDeleteAction, tint: BipeColor.trustDangerInk)
-                    }
+                Button {
+                    notifications(roomId)
+                } label: {
+                    IconLabel(icon: .bell, text: BipeStrings.settingsNotifications)
                 }
             }
         }

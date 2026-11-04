@@ -10,6 +10,8 @@ import MatrixRustSDK
 struct SignupOutcome: Equatable {
     var inviterUserId: String?
     var inviterHandle: String?
+    /// A sign-up with a group link code (ADR 0184): the group the account was invited into.
+    var groupRoomId: String?
 }
 
 private struct AccountStartupSnapshot: Sendable {
@@ -167,6 +169,7 @@ final class AccountStartModel: ObservableObject {
                 await authError(session, isSoftLogout: true)
             } else {
                 await session.syncService.start()
+                await session.resumeSending()
             }
         }
         await PushRegistration.shared.appBecameActive()
@@ -346,7 +349,8 @@ final class AccountStartModel: ObservableObject {
         }
     }
 
-    private static func name(of userId: String) -> String {
+    /// The account's remembered name, else Você.
+    static func name(of userId: String) -> String {
         let label = BipeAccountLabels.label(for: userId)
         return label == userId ? BipeStrings.tabYou : label
     }

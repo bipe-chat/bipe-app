@@ -6,6 +6,7 @@ package chat.bipe.app.account
 
 import android.content.Context
 import android.util.Base64
+import android.util.Log
 import chat.bipe.app.common.AppConfig
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.BipeRoomSubscriptions
@@ -14,12 +15,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
 import org.matrix.rustcomponents.sdk.ClientDelegate
 import org.matrix.rustcomponents.sdk.ClientException
+import org.matrix.rustcomponents.sdk.SendQueueRoomErrorListener
 import org.matrix.rustcomponents.sdk.Session
 import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
 import org.matrix.rustcomponents.sdk.SyncService
@@ -50,11 +53,41 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
         }.getOrNull()
     }
 
+    private var sendQueueHandle: TaskHandle? = null
+
+    /**
+     * Switches a room's send queue on again after the SDK switched it off (bipe-chat/bipe#947). matrix-rust-sdk turns a
+     * room's queue off after a failed send and never turns it on by itself, so messages stayed on "Sending…".
+     */
+    private fun watchSendQueues() {
+        sendQueueHandle = runCatching {
+            client.subscribeToSendQueueStatus(object : SendQueueRoomErrorListener {
+                override fun onError(roomId: String, error: ClientException) {
+                    Log.w(AccountStep.TAG, "send queue: off after an error, on again in 15 s")
+                    subscriptionCleanup.launch {
+                        delay(15_000)
+                        runCatching { client.getRoom(roomId)?.enableSendQueue(true) }
+                    }
+                }
+            })
+        }.getOrNull()
+    }
+
+    /** Switches every room's send queue on again, for a queue the SDK left off after a failed send (bipe-chat/bipe#947). */
+    suspend fun resumeSending() {
+        runCatching { client.enableAllSendQueues(true) }
+    }
+
     /** Stops the sync and the room subscriptions and keeps everything on this phone (spec soft-logout). */
     suspend fun pause() {
+        if (deliveredAcks.isInitialized()) delivered.stop()
         roomSubscriptions.close()
         syncService.stop()
     }
+
+    /** Spec read-receipts: the delivered acks of this account (ADR 0222), for the chat list and the push handler. */
+    private val deliveredAcks = lazy { chat.bipe.app.timeline.DeliveredAcks(client, userId) }
+    val delivered: chat.bipe.app.timeline.DeliveredAcks by deliveredAcks
 
     /** The access token for bipe-api calls (spec handle-pick notes). Read each time: the SDK may refresh it. */
     fun accessToken(): String? = runCatching { client.session().accessToken }.getOrNull()
@@ -64,6 +97,7 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
 
     /** Signs out on the server and removes this account's session, store and hidden password from this phone. */
     suspend fun signOut(context: Context, sessionStore: SessionStore, vault: BipeAccountVault, alreadyLoggedOut: Boolean = false) {
+        if (deliveredAcks.isInitialized()) delivered.stop()
         roomSubscriptions.close()
         subscriptionCleanup.cancel()
         if (!alreadyLoggedOut) runCatching { client.logout() }
@@ -80,14 +114,17 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
     companion object {
         /**
          * Signs in with the hidden password (MAS compatibility login, m.login.password), saves the session, starts the
-         * sync. Every step has a time limit ([AccountStep]).
+         * sync. Every step has a time limit ([AccountStep]). When this phone still holds the account's store, the login
+         * keeps that store and its device ID, so the cross-signing keys and the room keys stay (bipe-chat/bipe#909).
+         * Only a store without a known device ID goes.
          */
         suspend fun signIn(context: Context, userId: String, password: String, sessionStore: SessionStore): AccountSession {
-            deleteStore(context, userId)
+            val keptDeviceId = if (hasStore(context, userId)) storedDeviceId(context, userId) else null
+            if (keptDeviceId == null) deleteStore(context, userId)
             val client = AccountStep.run("build client") { makeClient(context, userId, sessionStore) }
-            AccountStep.run("login") { client.login(userId, password, AppConfig.DEVICE_NAME, null) }
+            AccountStep.run("login") { client.login(userId, password, AppConfig.DEVICE_NAME, keptDeviceId) }
             sessionStore.save(client.session())
-            return start(client)
+            return start(client, context)
         }
 
         /**
@@ -99,7 +136,7 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
             val client = AccountStep.run("build client") { makeClient(context, expired.userId, sessionStore) }
             AccountStep.run("login") { client.login(expired.userId, password, AppConfig.DEVICE_NAME, deviceId) }
             sessionStore.save(client.session())
-            return start(client)
+            return start(client, context)
         }
 
         /** true when the server refused the hidden password (M_FORBIDDEN), not a network or local failure. */
@@ -111,16 +148,20 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
             if (!hasStore(context, saved.userId)) throw AccountStep.NoStore()
             val client = AccountStep.run("build client") { makeClient(context, saved.userId, sessionStore, saved.homeserverUrl) }
             AccountStep.run("restore session") { client.restoreSession(saved) }
-            return start(client)
+            return start(client, context)
         }
 
-        private suspend fun start(client: Client): AccountSession {
+        private suspend fun start(client: Client, context: Context): AccountSession {
             val syncService = AccountStep.run("sync service") {
                 // start() spawns SDK network tasks; offline mode retries when connectivity returns.
                 // Initial sync/reachability responses must never gate local readiness.
                 client.syncService().withOfflineMode().finish().also { it.start() }
             }
-            return AccountSession(client, syncService, client.userId()).also { it.watchAuthErrors() }
+            return AccountSession(client, syncService, client.userId()).also {
+                runCatching { saveDeviceId(context, it.userId, client.deviceId()) }
+                it.watchAuthErrors()
+                it.watchSendQueues()
+            }
         }
 
         /** true when the account's SDK store folder exists and holds files. */
@@ -156,7 +197,24 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
                 .withSearchIndexStore(File(data, "SearchIndex").apply { mkdirs() }.path, null)
         }
 
-        /** Deletes the store of an account. A new sign-in needs an empty store: the crypto store belongs to one device. */
+        /**
+         * The device ID the account's store belongs to, kept in the store folder so it goes with the store
+         * (bipe-chat/bipe#909). The saved session can be gone (soft logout, PIN recovery) while the store stays.
+         */
+        fun storedDeviceId(context: Context, userId: String): String? =
+            runCatching { deviceIdFile(storePaths(context, folderName(userId)).first).readText().trim() }
+                .getOrNull()?.takeIf { it.isNotEmpty() }
+
+        private fun saveDeviceId(context: Context, userId: String, deviceId: String) {
+            deviceIdFile(storePaths(context, folderName(userId)).first).writeText(deviceId)
+        }
+
+        private fun deviceIdFile(data: File) = File(data, "bipe-device-id")
+
+        /**
+         * Deletes the store of an account. A new sign-in without a known device ID needs an empty store: the crypto
+         * store belongs to one device.
+         */
         fun deleteStore(context: Context, userId: String) = deleteStoreFolder(context, folderName(userId))
 
         fun deleteStoreFolder(context: Context, folder: String) {

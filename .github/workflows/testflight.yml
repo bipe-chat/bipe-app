@@ -11,7 +11,7 @@
 #   bipe-next-ipa). The job never makes a certificate: automatic signing made a development
 #   certificate on every run until the team reached Apple's limit.
 # - Android: a debug-signed release APK of chat.bipe.app.next (artifact bipe-next-apk).
-# Version (bipe-chat/bipe#584, ADR 0088, ADR 0163): the version name of version.json (Bipe Next's own line);
+# Version (bipe-chat/bipe#584, ADR 0088, ADR 0163, ADR 0227): the version name is an odometer that rolls at each public release (tools/version.mjs);
 # build number: its build plus the number of commits (tools/version.mjs). Both platforms carry the same pair.
 # Install commands: AGENTS.md, "Tester builds".
 name: testflight
@@ -137,6 +137,14 @@ jobs:
         working-directory: ios
         run: |
           /usr/libexec/PlistBuddy -c "Add :com.apple.developer.usernotifications.communication bool true" SupportFiles/Bipe/Bipe.entitlements
+      # Declared Age Range (ADR 0229, bipe-chat/bipe#994): the OS age signal. Added only when the owner has turned the
+      # capability on for the app ID and set BIPE_DECLARED_AGE_RANGE to true: a profile without the capability fails
+      # the archive. Off, the request fails and the app sends source none (the server treats it as unknown).
+      - name: Declared Age Range entitlement
+        if: vars.BIPE_DECLARED_AGE_RANGE == 'true'
+        working-directory: ios
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.declared-age-range bool true" SupportFiles/Bipe/Bipe.entitlements
       - name: Use the committed package pins
         run: |
           dir=ios/Bipe.xcodeproj/project.xcworkspace/xcshareddata/swiftpm
@@ -179,7 +187,14 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee "$RUNNER_TEMP/upload.log" | grep -E "error:|EXPORT (SUCCEEDED|FAILED)|Upload" || true
-          grep -q "EXPORT SUCCEEDED" "$RUNNER_TEMP/upload.log"
+          grep -q "EXPORT SUCCEEDED" "$RUNNER_TEMP/upload.log" && exit 0
+          # A re-run of a run whose upload passed: one commit has one build number (tools/version.mjs), so a
+          # number that App Store Connect already has is this commit's build. Go on to the testing group.
+          if grep -q "bundle version must be higher than the previously uploaded version: ‘${BUILD_NUMBER}’" "$RUNNER_TEMP/upload.log"; then
+            echo "::warning::Build $BUILD_NUMBER is already in App Store Connect (re-run); the upload is skipped."
+            exit 0
+          fi
+          exit 1
       - name: Export the ad hoc IPA
         run: |
           set -o pipefail
@@ -194,7 +209,7 @@ jobs:
         with:
           name: bipe-next-ipa
           path: ${{ runner.temp }}/adhoc/*.ipa
-          retention-days: 30
+          retention-days: 7
       - name: Add the build to the internal testing group
         if: steps.asc.outputs.app == 'true'
         run: node tools/asc.mjs distribute "$BUILD_NUMBER"
@@ -233,17 +248,38 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      # One fixed signing key for every tester APK (tools/tester-keystore.sh). The runner's debug key changes on
+      # every run, and Android refuses to update an app signed with another key. No key: the job stops.
+      - name: Tester signing key
+        env:
+          TESTER_KEYSTORE_B64: ${{ secrets.TESTER_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$TESTER_KEYSTORE_B64" ]; then
+            echo "::error::Secret TESTER_KEYSTORE_B64 is missing. MZ runs tools/tester-keystore.sh once."
+            exit 1
+          fi
+          printf '%s' "$TESTER_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/tester.keystore"
       - name: Build the tester APK
         # FCM (ADR 0150): the Firebase project's client values, repository variables set by MZ. Unset: no pushes.
+        # The tester key goes through the upload signing config; passwords come as ORG_GRADLE_PROJECT_* variables.
         env:
+          ORG_GRADLE_PROJECT_bipeUploadStorePassword: ${{ secrets.TESTER_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_bipeUploadKeyPassword: ${{ secrets.TESTER_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_bipeUploadKeyAlias: bipe-tester
           FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
           FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
           FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
           FIREBASE_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
         run: |
-          ./gradlew --no-daemon assemblePlayRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }} -PbipeCommit=${{ needs.build-number.outputs.commit }} \
+          ./gradlew --no-daemon assemblePlayRelease -PbipeBuildNumber=${{ needs.build-number.outputs.number }} -PbipeVersionName=${{ needs.build-number.outputs.version }} -PbipeCommit=${{ needs.build-number.outputs.commit }} -PbipeSelfUpdate=true \
             -PbipeFirebaseAppId="$FIREBASE_APP_ID" -PbipeFirebaseProjectId="$FIREBASE_PROJECT_ID" \
-            -PbipeFirebaseApiKey="$FIREBASE_API_KEY" -PbipeFirebaseSenderId="$FIREBASE_SENDER_ID"
+            -PbipeFirebaseApiKey="$FIREBASE_API_KEY" -PbipeFirebaseSenderId="$FIREBASE_SENDER_ID" \
+            -PbipeUploadStoreFile="$RUNNER_TEMP/tester.keystore"
+          rm -f "$RUNNER_TEMP/tester.keystore"
+          if keytool -printcert -jarfile app/build/outputs/apk/play/release/*.apk | grep -q "CN=Android Debug"; then
+            echo "::error::The tester APK is signed with a debug key, not the tester key."
+            exit 1
+          fi
           mv app/build/outputs/apk/play/release/*.apk "app/build/outputs/apk/play/release/Bipe-Next-${{ needs.build-number.outputs.number }}.apk"
           # bipe-infra k8s/bipe/apk-pull.yaml serves this APK at bipe.chat/baixar/android/bipe.apk. It checks the
           # SHA-256 file and reads the version file.
@@ -258,4 +294,4 @@ jobs:
             android/app/build/outputs/apk/play/release/*.apk
             android/app/build/outputs/apk/play/release/*.apk.sha256
             android/app/build/outputs/apk/play/release/version
-          retention-days: 30
+          retention-days: 3

@@ -4,8 +4,8 @@
 
 package chat.bipe.app.business
 
+import chat.bipe.app.common.BipeToasts
 import android.content.Context
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -225,7 +225,7 @@ class AgendaSetupModel(private val context: Context, private val business: Busin
         scope.launch {
             try {
                 state = business.withToken { setAgendaSettings(true, current.timeZone, it) }
-                Toast.makeText(context, context.getString(R.string.bipe_agenda_setup_done), Toast.LENGTH_LONG).show()
+                BipeToasts.show(context.getString(R.string.bipe_agenda_setup_done))
                 onDone()
             } catch (failure: CancellationException) {
                 throw failure

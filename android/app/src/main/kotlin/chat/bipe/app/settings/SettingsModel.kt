@@ -26,6 +26,7 @@ import chat.bipe.shared.settings.whoCanMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import chat.bipe.app.common.appVersionWithBuild
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.RecoveryState
@@ -71,8 +72,20 @@ class SettingsModel(
             }
     }
 
-    private val _state = MutableStateFlow(State())
+    private val _state = MutableStateFlow(lastStates[session.userId] ?: State())
     val state: StateFlow<State> = _state
+
+    init {
+        scope.launch { _state.collect { lastStates[session.userId] = it } }
+    }
+
+    companion object {
+        /**
+         * The last values read, per account, for this app run. A new model starts from them, so settings opens with its
+         * subtitles and switches filled and load() only refreshes them. Memory only: nothing goes to disk.
+         */
+        private val lastStates = java.util.concurrent.ConcurrentHashMap<String, State>()
+    }
 
     /** Spec settings-root, action appear: reads the summaries. Each fills in when it arrives. */
     fun load() {
@@ -160,7 +173,9 @@ class SettingsModel(
         BipeSettingsGroup.NOTIFICATIONS -> state.notificationsOn?.let {
             context.getString(if (it) R.string.bipe_settings_notifications_on else R.string.bipe_settings_notifications_off)
         }
-        BipeSettingsGroup.PROFILE, BipeSettingsGroup.CHATS, BipeSettingsGroup.HELP -> null
+        BipeSettingsGroup.HELP -> context.getString(R.string.bipe_help_version, appVersionWithBuild(context))
+        // chats: SettingsRootSection reads the theme and palette from AppTheme state.
+        BipeSettingsGroup.PROFILE, BipeSettingsGroup.CHATS -> null
     }
 
     fun needsAttention(state: State, group: BipeSettingsGroup): Boolean =

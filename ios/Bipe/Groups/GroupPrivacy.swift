@@ -213,7 +213,7 @@ struct GroupPrivacyView: View {
     }
 
     private func requestRow(_ request: KnockRequest) -> some View {
-        let name = request.displayName?.nilIfBlank ?? request.userId
+        let name = BipeChatRowName.person(userID: request.userId, displayName: request.displayName, handle: nil)
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 AvatarView(name: name, mxcUrl: request.avatarUrl, loader: media, size: 40, userId: request.userId)

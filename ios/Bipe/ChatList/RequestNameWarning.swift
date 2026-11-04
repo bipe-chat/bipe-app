@@ -87,10 +87,7 @@ struct RequestTrustContent: View {
     }
 
     private func identityKey(_ badge: BadgePayload) -> String {
-        switch badge.binding {
-        case .masterKey(let key): "master:" + key
-        case .device(let key): "device:" + key
-        }
+        "master:" + badge.msk
     }
 
     private func save(_ answer: Bool, key: String) {

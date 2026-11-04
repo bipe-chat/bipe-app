@@ -6,39 +6,22 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
-/// Spec encryption-status: the quiet banner, the first row of the chat list (it scrolls with the chats).
-struct HistoryBanner: View {
+/// The approvePhone card of chat-list-prompt (bipe-chat/bipe#894). The primary is the one way this phone has.
+struct ApprovePhoneCard: View {
     @ObservedObject var model: EncryptionStatusModel
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button(action: model.openSheet) {
-                HStack(spacing: 10) {
-                    PhosphorIcon.lockSimple.image
-                        .resizable()
-                        .frame(width: 18, height: 18)
-                        .foregroundStyle(BipeColor.glyphSecondary)
-                        .accessibilityHidden(true)
-                    Text(BipeStrings.appHistoryBanner)
-                        .font(.subheadline)
-                        .foregroundStyle(BipeColor.inkPrimary)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            Button(action: model.dismiss) {
-                Text(BipeStrings.fallbackSkip)
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.accentInk)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(BipeColor.surfaceRaised)
-        .accessibilityIdentifier(BipeScreen.encryptionStatus.rawValue)
+        PromptCard(title: BipeStrings.appHistoryTitle,
+                   body: model.hasWayOut ? BipeStrings.appHistoryBanner : BipeStrings.appHistoryNone,
+                   primary: primary,
+                   texts: model.hasWayOut ? [] : [.init(title: BipeStrings.fallbackSkip) { model.dismiss() }])
+            .accessibilityIdentifier(BipeScreen.encryptionStatus.rawValue)
+    }
+
+    private var primary: PromptCard.Action? {
+        if model.hasOtherDevices { return .init(title: BipeStrings.appHistoryApprove) { model.approveWithDevice() } }
+        if model.canUseRecoveryKey { return .init(title: BipeStrings.appHistoryUseKey) { model.useRecoveryKey() } }
+        return nil
     }
 }
 

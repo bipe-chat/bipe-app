@@ -5,12 +5,14 @@
 import BipeKit
 import Foundation
 
-/// Spec app-colors: the palette the user picked. It lives in the app group defaults, so the share extension shows
-/// the same colours. BipeTheme holds the palette that the views read.
+/// Spec app-colors: the palette and the chat background the user picked. They live in the app group defaults, so
+/// the share extension shows the same colours. BipeTheme holds the palette that the views read; ChatBackgroundView
+/// reads the chat background from the defaults.
 enum AppTheme {
     static let paletteKey = "bipe.settings.palette"
+    static let chatBackgroundKey = "bipe.settings.chatBackground"
 
-    private static var defaults: UserDefaults { UserDefaults(suiteName: AppConfig.appGroup) ?? .standard }
+    static var defaults: UserDefaults { UserDefaults(suiteName: AppConfig.appGroup) ?? .standard }
 
     /// The stored palette. A missing or unknown id is the default palette.
     static var stored: BipePalette {
@@ -26,5 +28,15 @@ enum AppTheme {
     static func save(_ palette: BipePalette) {
         defaults.set(palette.rawValue, forKey: paletteKey)
         BipeTheme.shared.palette = palette
+    }
+
+    /// The stored chat background (ADR 0213). A missing or unknown id is the default.
+    static var storedChatBackground: BipeChatBackground {
+        BipeChatBackground(rawValue: defaults.string(forKey: chatBackgroundKey) ?? "") ?? .standard
+    }
+
+    /// Keeps the chat background on the phone. ChatBackgroundView reads the key, so every chat shows it at once.
+    static func save(_ background: BipeChatBackground) {
+        defaults.set(background.rawValue, forKey: chatBackgroundKey)
     }
 }

@@ -90,7 +90,7 @@ class IdentityChangeModel(private val session: AccountSession, private val roomI
                         val name = if (kind == null) {
                             null
                         } else {
-                            runCatching { room.memberDisplayName(change.userId) }.getOrNull()?.takeIf { it.isNotBlank() } ?: change.userId
+                            chat.bipe.app.people.Person.name(change.userId, runCatching { room.memberDisplayName(change.userId) }.getOrNull())
                         }
                         _state.update { current ->
                             val others = current.warnings.filterNot { it.userId == change.userId }

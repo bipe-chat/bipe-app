@@ -185,7 +185,7 @@ public final class BipeCompanySeals {
                 store(wasSeen ? .suspended : .none, for: userID)
                 return
             }
-            switch verifier.verify(envelopeJSON: json, sender: userID, senderDevice: "", senderMasterKey: key) {
+            switch verifier.verify(envelopeJSON: json, sender: userID, senderMasterKey: key) {
             case .valid(let payload) where payload.lvl == .cnpj:
                 setSeen(userID, true)
                 let expiry = min(Date(timeIntervalSince1970: TimeInterval(payload.exp)), .now.addingTimeInterval(Self.ttl))

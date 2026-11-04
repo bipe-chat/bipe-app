@@ -109,6 +109,8 @@ struct MessageReceipt: Equatable {
     enum Tick: Equatable {
         case sending
         case sent
+        /// DM only: a device of the other person acked this event or a newer one (ADR 0222).
+        case delivered
         case read
         case failed
     }
@@ -150,6 +152,12 @@ struct RoomFacts {
     var roomMembers: Set<String> = []
     /// Cached handle changes of the room members (BipeHandleChangeStore), oldest first.
     var handleChanges: [BipeHandleChange] = []
+    /// DM only: the event IDs that a device of the other person acked (DeliveredLog, spec read-receipts).
+    var deliveredEventIds: Set<String> = []
+    /// False in a DM while the own read receipts switch is off: the read tick of the other person stays hidden.
+    var showsOthersRead = true
+    /// Groups only: the admins and moderators by user ID (spec chat-timeline senderRole, bipe-chat/bipe#733).
+    var roles: [String: GroupRole] = [:]
 }
 
 /// Builds the rows of spec timeline-rows from the SDK timeline items, oldest first.
@@ -165,17 +173,22 @@ enum TimelineRowBuilder {
             if userId == facts.ownUserId { return BipeStrings.appYou }
             if let member = facts.members[userId] { return member.name }
             unknown.insert(userId)
-            return userId
+            return BipeChatRowName.person(userID: userId, displayName: nil, handle: nil)
         }
 
         // Read receipts, newest first: who has read this event or a newer one (spec read-receipts notes).
         var readUpToHere: [String: Receipt] = [:]
         var receipts: [Int: MessageReceipt] = [:]
         var newestOwnIndex: Int?
+        // A delivered ack covers this event and every older one (spec read-receipts notes).
+        var deliveredUpToHere = false
         for (index, item) in items.enumerated().reversed() {
             guard let event = item.asEvent() else { continue }
             for (userId, receipt) in event.readReceipts where userId != facts.ownUserId && readUpToHere[userId] == nil {
                 readUpToHere[userId] = receipt
+            }
+            if !deliveredUpToHere, case .eventId(let eventId) = event.eventOrTransactionId, facts.deliveredEventIds.contains(eventId) {
+                deliveredUpToHere = true
             }
             guard event.isOwn, isShownMessage(event) else { continue }
             if newestOwnIndex == nil { newestOwnIndex = index }
@@ -185,8 +198,13 @@ enum TimelineRowBuilder {
             case .some(.sendingFailed): tick = .failed
             default:
                 let othersInRoom = max(1, facts.joinedMembers - 1)
-                let isRead = facts.isDm ? !readUpToHere.isEmpty : readUpToHere.count >= othersInRoom
-                tick = isRead ? .read : .sent
+                if facts.isDm {
+                    // Read wins over delivered; a hidden read still means the phone got it.
+                    let isRead = !readUpToHere.isEmpty
+                    tick = isRead && facts.showsOthersRead ? .read : (isRead || deliveredUpToHere ? .delivered : .sent)
+                } else {
+                    tick = readUpToHere.count >= othersInRoom ? .read : .sent
+                }
             }
             func readers(_ receipts: [String: Receipt]) -> [ReceiptReader] {
                 guard !facts.isDm else { return [] }
@@ -242,6 +260,7 @@ enum TimelineRowBuilder {
             // Spec timeline-rows nameAmbiguous: groups only; the SDK flag or a look-alike name among the members.
             base.senderNameAmbiguous = !event.isOwn && !facts.isDm
                 && (event.senderProfile.isNameAmbiguous || ambiguousSenders.contains(event.sender))
+            base.senderRole = event.isOwn || facts.isDm ? nil : facts.roles[event.sender]
             // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
             var mediaContent = MediaContent(content.kind)
             if case .media(var media) = mediaContent {
@@ -256,17 +275,20 @@ enum TimelineRowBuilder {
                 }
                 mediaContent = .media(media)
             }
-            // Spec voice-message forwardCount: the SDK types have no field for the forward mark (bipe-chat/bipe#83).
+            // Specs chat-timeline and voice-message forwardCount: the SDK types have no field for the forward mark
+            // (bipe-chat/bipe#83, bipe-chat/bipe#933).
+            let forwardCount = BipeForwardMark.count(eventJson: event.lazyProvider.debugInfo().originalJson)
             if case .voice(var voice) = mediaContent {
-                voice.forwardCount = BipeForwardMark.count(eventJson: event.lazyProvider.debugInfo().originalJson)
+                voice.forwardCount = forwardCount
                 mediaContent = .voice(voice)
             }
             switch content.kind {
             case .message(let messageContent):
                 var message = base
+                message.forwardCount = forwardCount
                 // The SDK types have no field for chat.bipe.assistant; it comes from the event JSON (ADR 0210).
                 if BipeAssistantSend.sender(eventId: eventId(event), json: { event.lazyProvider.debugInfo().originalJson }) != nil {
-                    message.assistantLabel = BipeStrings.appAssistantSentLabel(event.senderProfile.displayName(or: event.sender))
+                    message.assistantLabel = BipeStrings.appAssistantSentLabel(event.senderProfile.realName(of: event.sender) ?? name(event.sender))
                 }
                 switch mediaContent {
                 case .media(let media):
@@ -491,7 +513,7 @@ enum TimelineRowBuilder {
                                kind: .unsupported,
                                body: nil,
                                senderId: event.sender,
-                               senderName: event.isOwn ? senderName : event.senderProfile.displayName(or: senderName),
+                               senderName: event.isOwn ? senderName : event.senderProfile.realName(of: event.sender) ?? senderName,
                                isOwn: event.isOwn,
                                sentAt: Date(milliseconds: event.timestamp),
                                sendState: event.isOwn ? sendState : .sent,
@@ -505,7 +527,7 @@ enum TimelineRowBuilder {
         let eventId = details.eventId()
         switch details.event() {
         case .ready(let content, let sender, let senderProfile, _, _):
-            let senderName = sender == facts.ownUserId ? BipeStrings.appYou : senderProfile.displayName(or: name(sender))
+            let senderName = sender == facts.ownUserId ? BipeStrings.appYou : senderProfile.realName(of: sender) ?? name(sender)
             return MessageReply(eventId: eventId, state: .ready, senderName: senderName,
                                 preview: replyPreview(content, isOwn: sender == facts.ownUserId))
         case .error:

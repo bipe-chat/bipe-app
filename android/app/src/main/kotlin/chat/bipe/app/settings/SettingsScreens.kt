@@ -4,6 +4,7 @@
 
 package chat.bipe.app.settings
 
+import chat.bipe.app.common.BipeToasts
 import chat.bipe.app.location.LiveLocationRule
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,15 +22,15 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +43,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -85,6 +87,7 @@ import chat.bipe.app.people.PeopleScreen
 import chat.bipe.app.people.PeopleNavigation
 import chat.bipe.app.invites.InvitesModel
 import chat.bipe.app.invites.InvitesScreen
+import chat.bipe.app.common.appVersionDisplay
 import chat.bipe.app.common.AppTheme
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.media.upload.MediaQuality
@@ -94,6 +97,7 @@ import chat.bipe.app.voce.BusinessClaimScreen
 import chat.bipe.app.voce.TrustActions
 import chat.bipe.app.voce.TrustCardModel
 import chat.bipe.app.voce.TrustProfileScreen
+import chat.bipe.app.voce.GovbrVerifyScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipePhoneLinkState
@@ -108,6 +112,8 @@ import chat.bipe.shared.generated.BipeSettingsRowKind
 import chat.bipe.shared.generated.BipeSettingsSection
 import chat.bipe.shared.settings.BipeWhoCanMessage
 import chat.bipe.shared.settings.isShownOnAndroid
+import chat.bipe.app.linkcomputer.LinkComputerModel
+import chat.bipe.app.linkcomputer.LinkComputerScreen
 import kotlinx.coroutines.launch
 
 /** The screens that the settings stack pushes. */
@@ -123,14 +129,18 @@ sealed interface SettingsRoute {
     data object AppLockSetup : SettingsRoute
     data object AppLockOff : SettingsRoute
     data object LinkedDevices : SettingsRoute
+    /** Spec link-phone-show: Sua conta › Aparelhos › Trocar de celular is the only way in (bipe-chat/bipe#988). */
+    data object LinkPhone : SettingsRoute
     data object LinkedAccounts : SettingsRoute
     data object TheftProtection : SettingsRoute
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
+    data object Versions : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
     data object AppearanceChoice : SettingsRoute
     data object MediaQualityChoice : SettingsRoute
     data object AppColors : SettingsRoute
+    data object Accessibility : SettingsRoute
     data object DataUse : SettingsRoute
     data object LiveLocationDistance : SettingsRoute
     data object RecoveryKey : SettingsRoute
@@ -138,6 +148,8 @@ sealed interface SettingsRoute {
     data object RecoveryEmail : SettingsRoute
     data object TrustProfile : SettingsRoute
     data object BusinessClaim : SettingsRoute
+    data object GovbrVerify : SettingsRoute
+    data object YearRecap : SettingsRoute
 }
 
 /**
@@ -151,11 +163,10 @@ fun SettingsHost(
     invites: InvitesModel,
     onClose: () -> Unit,
     onSignedOut: () -> Unit,
-    /** Opens account-new, the same flow as the account switcher (ADR 0135). Null: the add row is left out. */
-    onNewAccount: (() -> Unit)? = null,
     onOpenChat: (String) -> Unit = {},
     onProfileChanged: () -> Unit = {},
     trust: TrustCardModel? = null,
+    yearRecap: (@Composable (onBack: () -> Unit) -> Unit)? = null,
     rootContent: (@Composable (SettingsModel, (BipeSettingsGroup) -> Unit, (PeopleRoute) -> Unit, () -> Unit, (SettingsRoute) -> Unit) -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -189,8 +200,7 @@ fun SettingsHost(
                 }
             }
         }
-        is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut,
-            onNewAccount = onNewAccount)
+        is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut)
         is SettingsRoute.People -> PeopleScreen(route.route, people, PeopleNavigation(
             push = { stack.add(SettingsRoute.People(it)) }, pop = pop,
             openChat = { stack.clear(); onOpenChat(it) },
@@ -209,11 +219,13 @@ fun SettingsHost(
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
         SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
+        SettingsRoute.LinkPhone -> LinkComputerScreen(model, onClose = pop, mode = LinkComputerModel.Mode.PHONE)
         SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
         SettingsRoute.TheftProtection -> TheftProtectionScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
+        SettingsRoute.Versions -> VersionHistoryScreen(onBack = pop)
         SettingsRoute.DataUse -> DataUseScreen(onBack = pop)
-        SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, onClose = pop)
+        SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, api, onClose = pop)
         SettingsRoute.RecoveryEmail -> {
             val ways = model.state.collectAsState().value.account
             RecoveryEmailAddScreen(api, session, current = ways?.email, pending = ways?.emailPending,
@@ -227,15 +239,21 @@ fun SettingsHost(
                 addPhoto = { stack.add(SettingsRoute.People(PeopleRoute.ProfileEdit)) },
                 chooseHandle = { stack.add(SettingsRoute.HandlePick) },
                 openClaim = { stack.add(SettingsRoute.BusinessClaim) },
+                openGovbr = if (chat.bipe.app.BuildConfig.BIPE_GOVBR) ({ stack.add(SettingsRoute.GovbrVerify); Unit }) else null,
             ), onBack = pop)
         }
+        // Spec govbr-verify: from the step 5 row only (bipe-chat/bipe#277).
+        SettingsRoute.GovbrVerify -> GovbrVerifyScreen(session, api, onVerified = { trust?.govbrVerified(it) }, onBack = pop)
         SettingsRoute.BusinessClaim -> BusinessClaimScreen(
             session, api,
             onChange = { trust?.reload() },
             openSupport = { stack.add(SettingsRoute.Support) },
             onBack = pop,
         )
+        // Spec year-recap: opens from the last row of Conversas e mídia (MZ, 3 Nov 2026).
+        SettingsRoute.YearRecap -> yearRecap?.invoke(pop)
         SettingsRoute.AppColors -> AppColorsScreen(onBack = pop)
+        SettingsRoute.Accessibility -> AccessibilitySettingsScreen(onBack = pop)
         // bipe-chat/bipe#676: appearance and media quality, kept on the phone.
         SettingsRoute.AppearanceChoice -> ChoiceListScreen(
             title = stringResource(R.string.bipe_chats_appearance),
@@ -313,15 +331,23 @@ fun SettingsPage(title: String, tag: String, onBack: () -> Unit, content: LazyLi
     }
 }
 
-/** Spec settings-root: one row per group of BipeSettings root, with the current state as the subtitle (ADR 0112). */
+/**
+ * Spec settings-root: one row per group of BipeSettings root, laid out as the iPhone Settings app: icon tile, title,
+ * the current state as the subtitle (ADR 0112).
+ */
 fun LazyListScope.SettingsRootSection(model: SettingsModel, onOpenGroup: (BipeSettingsGroup) -> Unit) {
     item(key = "settings-root-header") { SectionHeader(stringResource(R.string.bipe_settings_section)) }
     items(BipeSettingsGroup.root, key = { "settings-root-${it.name}" }) { group ->
         val state by model.state.collectAsState()
         val attention = model.needsAttention(state, group)
+        // chats: read here from AppTheme state, so the summary follows a change made in the group screen.
+        val summary = if (group == BipeSettingsGroup.CHATS) {
+            "${stringResource(AppTheme.appearance.title)} · ${stringResource(AppTheme.palette.title)}"
+        } else model.summary(state, group)
         SettingsRowItem(
             title = stringResource(group.title),
-            value = model.summary(state, group),
+            leading = PhosphorIcon.entries.firstOrNull { it.id == group.icon }?.let { icon -> @Composable { SettingsIconTile(icon) } },
+            value = summary,
             valueColor = if (attention) BipeTheme.colors.trustCautionInk else null,
             showsWarning = attention,
             showsChevron = true,
@@ -338,7 +364,6 @@ fun SettingsGroupScreen(
     onBack: () -> Unit,
     onOpen: (SettingsRoute) -> Unit,
     onSignedOut: () -> Unit,
-    onNewAccount: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -346,6 +371,7 @@ fun SettingsGroupScreen(
     val prefs = remember { context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE) }
     var hideRequestPhotos by remember { mutableStateOf(prefs.getBoolean(SettingsKeys.HIDE_REQUEST_PHOTOS, true)) }
     var sharePresence by remember { mutableStateOf(prefs.getBoolean(SettingsKeys.SHARE_PRESENCE, true)) }
+    var readReceipts by remember { mutableStateOf(prefs.getBoolean(SettingsKeys.READ_RECEIPTS, true)) }
     var showsSignOut by remember { mutableStateOf(false) }
     var showsDelete by remember { mutableStateOf(false) }
     var cancellingDeletion by remember { mutableStateOf(false) }
@@ -356,14 +382,13 @@ fun SettingsGroupScreen(
     val hasBiometrics = remember { OwnerCheck.hasBiometrics(context) }
     val export = remember { DataExportState() }
     val hasDeletion = state.deletion != null
-    val canAddAccount = onNewAccount != null
     // Spec encryption-status, from HomeScreen. The oldMessages row opens its sheet (bipe-chat/bipe#793).
     val encryption = LocalEncryptionStatus.current
     val needsApproval = encryption?.collectNeedsApproval() ?: false
-    val sections = remember(group, lockOn, hasDeletion, canAddAccount, needsApproval) {
+    val sections = remember(group, lockOn, hasDeletion, needsApproval) {
         group.sections.mapNotNull { section ->
             val rows = section.rows.filter {
-                it.isShownOnAndroid() && isAvailable(it, lockOn, hasBiometrics, hasDeletion, canAddAccount, needsApproval)
+                it.isShownOnAndroid() && isAvailable(it, lockOn, hasBiometrics, hasDeletion, needsApproval)
             }
             if (rows.isEmpty()) null else section to rows
         }
@@ -372,7 +397,6 @@ fun SettingsGroupScreen(
     val lockOffReason = stringResource(R.string.bipe_account_app_lock_off_reason)
     val biometricReason = stringResource(R.string.bipe_app_lock_biometric, word)
     val cancel = stringResource(R.string.bipe_app_cancel)
-    val copied = stringResource(R.string.bipe_help_device_id_copied)
     val deletionCancelReason = stringResource(R.string.bipe_deletion_cancel_reason)
     val deletionCancelled = stringResource(R.string.bipe_deletion_cancelled)
     val deletionCancelError = stringResource(R.string.bipe_deletion_cancel_error)
@@ -383,9 +407,6 @@ fun SettingsGroupScreen(
             return
         }
         when (row) {
-            BipeSettingsRow.PROFILE_NAME_PHOTO -> onOpen(SettingsRoute.People(PeopleRoute.ProfileEdit))
-            BipeSettingsRow.PROFILE_HANDLE -> onOpen(SettingsRoute.People(PeopleRoute.ProfileLink))
-            BipeSettingsRow.PROFILE_PUBLIC_PROFILE -> onOpen(SettingsRoute.People(PeopleRoute.PublicProfile))
             BipeSettingsRow.PRIVACY_BLOCKED -> onOpen(SettingsRoute.People(PeopleRoute.BlockedList))
             BipeSettingsRow.PRIVACY_CONTACTS -> onOpen(SettingsRoute.People(PeopleRoute.Contacts))
             BipeSettingsRow.PRIVACY_MESSAGING -> onOpen(SettingsRoute.Messaging)
@@ -394,22 +415,24 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_DELETE -> showsDelete = true
             BipeSettingsRow.ACCOUNT_CHANGE_PIN -> onOpen(SettingsRoute.PinChange)
             BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
+            BipeSettingsRow.ACCOUNT_LINK_PHONE -> onOpen(SettingsRoute.LinkPhone)
             BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS -> onOpen(SettingsRoute.LinkedAccounts)
             BipeSettingsRow.ACCOUNT_THEFT_PROTECTION -> onOpen(SettingsRoute.TheftProtection)
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
+            BipeSettingsRow.HELP_VERSIONS -> onOpen(SettingsRoute.Versions)
             BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)
             // Spec encryption-status, action openSheet: the same sheet as the chat list banner.
             BipeSettingsRow.ACCOUNT_OLD_MESSAGES -> encryption?.openSheet()
             BipeSettingsRow.ACCOUNT_EMAIL -> onOpen(SettingsRoute.RecoveryEmail)
-            // account-new shows the cap on the personal choice when the phone is full, as from the switcher.
-            BipeSettingsRow.ACCOUNT_ADD -> onNewAccount?.invoke()
             BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
             BipeSettingsRow.CHATS_APPEARANCE -> onOpen(SettingsRoute.AppearanceChoice)
             BipeSettingsRow.CHATS_MEDIA_QUALITY -> onOpen(SettingsRoute.MediaQualityChoice)
             BipeSettingsRow.CHATS_COLORS -> onOpen(SettingsRoute.AppColors)
+            BipeSettingsRow.CHATS_ACCESSIBILITY -> onOpen(SettingsRoute.Accessibility)
             BipeSettingsRow.CHATS_DATA_USE -> onOpen(SettingsRoute.DataUse)
             BipeSettingsRow.CHATS_LIVE_LOCATION -> onOpen(SettingsRoute.LiveLocationDistance)
+            BipeSettingsRow.CHATS_YEAR_RECAP -> onOpen(SettingsRoute.YearRecap)
             BipeSettingsRow.PRIVACY_EXPORT -> scope.launch { startDataExport(context, model, export) }
             // The screens of the other rows come with their own specs (see settings-group notes).
             else -> Unit
@@ -436,7 +459,7 @@ fun SettingsGroupScreen(
                         cancellingDeletion = true
                         val cancelled = model.cancelDeletion(deletion)
                         cancellingDeletion = false
-                        Toast.makeText(context, if (cancelled) deletionCancelled else deletionCancelError, Toast.LENGTH_SHORT).show()
+                        BipeToasts.show(if (cancelled) deletionCancelled else deletionCancelError)
                     }
                 }
             }
@@ -458,6 +481,11 @@ fun SettingsGroupScreen(
                     BipeSettingsRow.PRIVACY_PRESENCE -> SettingsSwitchItem(title, footer, sharePresence) {
                         sharePresence = it
                         prefs.edit().putBoolean(SettingsKeys.SHARE_PRESENCE, it).apply()
+                    }
+                    // Spec read-receipts readReceiptsEnabled (ADR 0222): DMs only; groups always send and show receipts.
+                    BipeSettingsRow.PRIVACY_READ_RECEIPTS -> SettingsSwitchItem(title, footer, readReceipts) {
+                        readReceipts = it
+                        prefs.edit().putBoolean(SettingsKeys.READ_RECEIPTS, it).apply()
                     }
                     BipeSettingsRow.ACCOUNT_APP_LOCK -> SettingsSwitchItem(title, footer, lockOn) { isOn ->
                         if (isOn) {
@@ -537,7 +565,7 @@ fun SettingsGroupScreen(
                     val clipboard = context.getSystemService(ClipboardManager::class.java)
                     clipboard?.setPrimaryClip(ClipData.newPlainText(null, deviceId))
                     view.bipeHaptic(BipeHaptic.Tap)
-                    Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
+                    BipeToasts.copied(context, R.string.bipe_help_device_id_copied)
                 }
             }
         }
@@ -560,14 +588,12 @@ private fun isAvailable(
     lockOn: Boolean,
     hasBiometrics: Boolean,
     hasDeletion: Boolean,
-    canAddAccount: Boolean,
     needsApproval: Boolean,
 ): Boolean = when (row) {
     // Exists only while the app lock is on and the phone has biometrics (spec settings-group notes).
     BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK -> lockOn && hasBiometrics
     // While a deletion waits, the banner (or the alert on the other devices) takes its place (spec account-delete).
     BipeSettingsRow.ACCOUNT_DELETE -> !hasDeletion
-    BipeSettingsRow.ACCOUNT_ADD -> canAddAccount
     // Only while this phone needs approval for old messages; Skip on the banner does not hide it (spec settings-group notes).
     BipeSettingsRow.ACCOUNT_OLD_MESSAGES -> needsApproval
     else -> true
@@ -576,14 +602,12 @@ private fun isAvailable(
 /** The current value of a row, formatted (spec settings-group, SettingsRow.value). */
 private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSettingsRow): String? = when (row) {
     BipeSettingsRow.PRIVACY_MESSAGING -> state.whoCanMessage?.let { context.getString(it.settingsSummary) }
-    BipeSettingsRow.PRIVACY_READ_RECEIPTS -> context.getString(R.string.bipe_privacy_read_receipts_value)
     BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS -> state.waysBack?.summary(context)
     BipeSettingsRow.PRIVACY_NUMBER -> state.phone?.summary(context, state.phoneNumber)
     BipeSettingsRow.ACCOUNT_EMAIL -> state.account?.let { it.email ?: context.getString(R.string.bipe_account_email_none) }
     BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> context.getString(
         if (state.hasRecoveryKey) R.string.bipe_account_recovery_key_saved else R.string.bipe_account_recovery_key_missing,
     )
-    BipeSettingsRow.ACCOUNT_THIS_DEVICE -> deviceModel()
     BipeSettingsRow.CHATS_SHOW_MEDIA -> {
         val id = context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE).getString(SettingsKeys.SHOW_MEDIA, null)
         context.getString((ShowMedia.entries.firstOrNull { it.id == id } ?: ShowMedia.ALWAYS).title)
@@ -595,14 +619,13 @@ private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSett
     else -> null
 }
 
-private fun deviceModel(): String =
-    if (Build.MODEL.startsWith(Build.MANUFACTURER, ignoreCase = true)) Build.MODEL else "${Build.MANUFACTURER} ${Build.MODEL}"
-
 /** Keys of the settings that live on this phone. */
 object SettingsKeys {
     const val FILE = "bipe_settings"
     const val HIDE_REQUEST_PHOTOS = "hide_request_photos"
     const val SHARE_PRESENCE = "share_presence"
+    /** Spec read-receipts readReceiptsEnabled (ADR 0222). */
+    const val READ_RECEIPTS = "read_receipts"
     const val SHOW_MEDIA = "show_media"
 }
 
@@ -700,11 +723,11 @@ private fun SectionFooter(section: BipeSettingsSection, group: BipeSettingsGroup
         if (text != null) {
             Text(text, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
         }
-        if (group == BipeSettingsGroup.HELP) {
+        if (group == BipeSettingsGroup.HELP && section.key == "about") {
             // The copy has a TalkBack action too, so it needs no long press (bipe#499).
             val copyLabel = stringResource(R.string.bipe_a11y_copy_device_id)
             Text(
-                stringResource(R.string.bipe_help_version, appVersion(LocalContext.current)),
+                stringResource(R.string.bipe_help_version, appVersionDisplay(LocalContext.current)),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.inkSecondary,
                 modifier = Modifier
@@ -713,14 +736,6 @@ private fun SectionFooter(section: BipeSettingsSection, group: BipeSettingsGroup
             )
         }
     }
-}
-
-/** The version name, build and commit, for bipe_help_version: "26.10.2 (141) 5481bba" (tools/version.mjs). */
-private fun appVersion(context: Context): String {
-    val info = context.packageManager.getPackageInfo(context.packageName, 0)
-    val build = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
-    val commit = chat.bipe.app.BuildConfig.BIPE_COMMIT
-    return if (commit.isEmpty()) "${info.versionName} ($build)" else "${info.versionName} ($build) $commit"
 }
 
 @Composable
@@ -739,6 +754,7 @@ private fun StatusCard(text: String) {
 @Composable
 fun SettingsRowItem(
     title: String,
+    leading: (@Composable () -> Unit)? = null,
     value: String? = null,
     footer: String? = null,
     titleColor: Color? = null,
@@ -776,6 +792,7 @@ fun SettingsRowItem(
             }
         },
         supportingContent = supporting,
+        leadingContent = leading,
         trailingContent = chevron,
         colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
         modifier = when {
@@ -786,6 +803,18 @@ fun SettingsRowItem(
             else -> Modifier
         },
     )
+}
+
+/**
+ * The icon tile of a settings root row (spec settings-root): the glyph in ink.onAccent on accent.fill, in a circle as
+ * the Android Settings app. Decorative: the row title says what the row is.
+ */
+@Composable
+fun SettingsIconTile(icon: PhosphorIcon) {
+    val colors = BipeTheme.colors
+    Box(Modifier.size(40.dp).background(colors.accentFill, CircleShape), contentAlignment = Alignment.Center) {
+        Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.inkOnAccent, modifier = Modifier.size(22.dp))
+    }
 }
 
 /** A Material 3 list item with a switch; a tap anywhere on the row toggles it. */

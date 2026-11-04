@@ -23,6 +23,28 @@ struct TrustMark: Identifiable, Equatable {
     var id: String { "\(kind)" }
 }
 
+/// Type SocialLink of spec person-profile (ADR 0228).
+struct SocialLink: Identifiable, Equatable {
+    var platform: SocialPlatform
+    /// PublicProfile.socials[platform], without @.
+    var handle: String
+    /// socialUrl, built on the device. The server sends no URL.
+    var url: URL
+
+    var id: String { platform.id }
+
+    /// The links of PublicProfile.socials in registry order. Unknown ids and handles that make no URL are skipped.
+    static func links(_ socials: [String: String]?) -> [SocialLink] {
+        guard let socials else { return [] }
+        return BipeRegistries.profileSocials.compactMap { platform in
+            guard let raw = socials[platform.id] else { return nil }
+            let handle = BipeSocialHandles.clean(raw)
+            guard !handle.isEmpty, let url = URL(string: BipeSocialHandles.url(platform, input: handle)) else { return nil }
+            return SocialLink(platform: platform, handle: handle, url: url)
+        }
+    }
+}
+
 /// A group where the user may invite (action addToGroup).
 struct InviteTarget: Identifiable, Equatable {
     var roomId: String
@@ -51,6 +73,8 @@ final class PersonProfileModel: ObservableObject {
     /// The identity read has run at least once: a nil trustIdentity then means lifecycle unknown.
     @Published private(set) var identityRead = false
     @Published private(set) var bio: String?
+    /// Spec socials: empty shows no section.
+    @Published private(set) var socials: [SocialLink] = []
     @Published private(set) var dmRoomId: String?
     /// Spec savedNumbers (ADR 0191): the numbers the user saved for this person in the own address book. Empty: no row.
     @Published private(set) var savedNumbers: [String] = []
@@ -61,7 +85,7 @@ final class PersonProfileModel: ObservableObject {
         self.people = people
         self.userId = userId
         self.fromDm = fromDm
-        person = Person(userId: userId, displayName: Person.localpart(of: userId), avatarUrl: nil)
+        person = Person(userId: userId, displayName: nil, avatarUrl: nil)
     }
 
     /// The user id is in Client.ignoredUsers.
@@ -85,6 +109,7 @@ final class PersonProfileModel: ObservableObject {
         if let handle = person.handle, let profile = try? await people.api.publicProfile(handle: handle) {
             let text = profile.bio?.trimmingCharacters(in: .whitespacesAndNewlines)
             bio = text?.isEmpty == false ? text : nil
+            socials = SocialLink.links(profile.socials)
         }
         // Spec savedNumbers: may run one address-book lookup first, so it comes last.
         savedNumbers = await people.savedNumbers(of: userId)

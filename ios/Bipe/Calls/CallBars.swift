@@ -6,36 +6,28 @@ import BipeKit
 import Phosphor
 import SwiftUI
 
-/// Spec call start: the voice and video buttons of the chat header.
-struct CallHeaderButtons: View {
+/// Spec call start in a DM: the voice and video rows of the chat menu (chat-timeline notes).
+/// focus: the account's call focus, read by the screen that owns the menu; nil hides the rows.
+struct CallMenuItems: View {
     @ObservedObject var model: ChatTimelineModel
     let session: AccountSession
-    @ObservedObject private var calls = CallCenter.shared
-    @State private var focus: String?
+    let focus: String?
 
     var body: some View {
-        HStack(spacing: 4) {
-            if model.isEncrypted, focus != nil {
-                button(video: false)
-                button(video: true)
+        if model.isEncrypted, focus != nil {
+            Button { start(video: false) } label: {
+                Label(BipeStrings.callVoice, systemImage: "phone")
+            }
+            Button { start(video: true) } label: {
+                Label(BipeStrings.callVideo, systemImage: "video")
             }
         }
-        .task(id: session.userId) { focus = await calls.focusUrl(for: session) }
     }
 
-    private func button(video: Bool) -> some View {
-        Button {
-            guard let room = model.matrixRoom else { return }
-            let ring = CallRingTarget(isDm: model.isDm, peerUserId: model.peerUserId)
-            Task { await calls.start(session: session, room: room, roomName: model.roomName, video: video, ring: ring) }
-        } label: {
-            Label {
-                Text(video ? BipeStrings.callVideo : BipeStrings.callVoice)
-            } icon: {
-                (video ? PhosphorIcon.videoCamera : PhosphorIcon.phone).image.resizable().frame(width: 22, height: 22)
-            }
-        }
-        .labelStyle(.iconOnly)
+    private func start(video: Bool) {
+        guard let room = model.matrixRoom else { return }
+        let ring = CallRingTarget(isDm: model.isDm, peerUserId: model.peerUserId)
+        Task { await CallCenter.shared.start(session: session, room: room, roomName: model.roomName, video: video, ring: ring) }
     }
 }
 

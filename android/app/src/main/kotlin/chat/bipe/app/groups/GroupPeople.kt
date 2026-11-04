@@ -4,13 +4,16 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.shared.generated.BipeGroupPowerLevels
 import java.text.Collator
 import java.text.Normalizer
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientException
 import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.MembershipState
+import org.matrix.rustcomponents.sdk.NotificationPowerLevels
 import org.matrix.rustcomponents.sdk.PowerLevel
+import org.matrix.rustcomponents.sdk.PowerLevels
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.RoomMember
 import uniffi.matrix_sdk.RoomMemberRole
@@ -31,7 +34,7 @@ data class Person(
 
     companion object {
         fun of(userId: String, displayName: String?, avatarUrl: String?): Person =
-            Person(userId, displayName?.takeIf { it.isNotEmpty() } ?: chat.bipe.app.people.Person.localpart(userId), avatarUrl)
+            Person(userId, chat.bipe.app.people.Person.name(userId, displayName), avatarUrl)
 
         fun of(member: RoomMember): Person = of(member.userId, member.displayName, member.avatarUrl)
 
@@ -89,8 +92,51 @@ object GroupPeople {
         is PowerLevel.Value -> powerLevel.value
     }
 
-    fun isAdmin(member: RoomMember): Boolean =
-        member.suggestedRoleForPowerLevel == RoomMemberRole.CREATOR || member.suggestedRoleForPowerLevel == RoomMemberRole.ADMINISTRATOR
+    fun isAdmin(member: RoomMember): Boolean = role(member) == GroupRole.ADMIN
+
+    /** Spec group-members GroupMember.role: a level between two roles shows the lower one. */
+    fun role(member: RoomMember): GroupRole {
+        if (member.suggestedRoleForPowerLevel == RoomMemberRole.CREATOR) return GroupRole.ADMIN
+        return GroupRole.of(level(member.powerLevel))
+    }
+
+    /**
+     * The admins and moderators of a group by user ID, for the sender line (spec chat-timeline senderRole).
+     * Creators (room version 12) are not in the power levels and count as admins.
+     */
+    fun staffRoles(levels: Map<String, Long>, creators: List<String>): Map<String, GroupRole> =
+        levels.mapValues { GroupRole.of(it.value) }.filterValues { it != GroupRole.MEMBER } + creators.associateWith { GroupRole.ADMIN }
+
+    /**
+     * The m.room.power_levels of a new group (spec group-create notes, bipe-chat/bipe#733). The users map stays
+     * empty, so the server keeps the creator at the top.
+     */
+    fun newGroupPowerLevels(): PowerLevels = PowerLevels(
+        usersDefault = BipeGroupPowerLevels.USERS_DEFAULT.toInt(),
+        eventsDefault = BipeGroupPowerLevels.EVENTS_DEFAULT.toInt(),
+        stateDefault = BipeGroupPowerLevels.STATE_DEFAULT.toInt(),
+        ban = BipeGroupPowerLevels.BAN.toInt(),
+        kick = BipeGroupPowerLevels.KICK.toInt(),
+        redact = BipeGroupPowerLevels.REDACT.toInt(),
+        invite = BipeGroupPowerLevels.INVITE.toInt(),
+        notifications = NotificationPowerLevels(room = BipeGroupPowerLevels.NOTIFICATIONS_ROOM.toInt()),
+        users = emptyMap(),
+        events = BipeGroupPowerLevels.EVENTS.mapValues { it.value.toInt() },
+    )
+}
+
+/** The three roles of a group (spec group-members, bipe-chat/bipe#733), in the order of the members list. */
+enum class GroupRole {
+    ADMIN, MODERATOR, MEMBER;
+
+    companion object {
+        /** A level between two roles is the lower one. */
+        fun of(level: Long): GroupRole = when {
+            level >= BipeGroupPowerLevels.ADMIN -> ADMIN
+            level >= BipeGroupPowerLevels.MODERATOR -> MODERATOR
+            else -> MEMBER
+        }
+    }
 }
 
 /** How an invite went (group-invite-members PersonPick status refused and failed). */

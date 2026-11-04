@@ -9,7 +9,6 @@ import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,10 +44,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.chatlist.PromptAction
+import chat.bipe.app.chatlist.PromptCard
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.shared.BipeHandle
-import chat.bipe.shared.generated.BipeRegistries
-import chat.bipe.shared.onboarding.BipePromptSlot
 import chat.bipe.shared.BipeHandleAvailabilityChecker
 import chat.bipe.shared.BipeHandleProblem
 import chat.bipe.shared.BipeHandleStatus
@@ -57,7 +57,9 @@ import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeMyHandle
 import chat.bipe.shared.generated.BipeOnboardingPrompt
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.onboarding.BipePromptSlot
 import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -245,34 +247,14 @@ class HandlePickModel(
 /** The card above chat-list for an account without an @ (registries/onboarding.json prompts.handle). */
 @Composable
 fun HandlePromptCard(model: HandlePickModel, open: () -> Unit) {
-    val colors = BipeTheme.colors
     val prompt = BipeOnboardingPrompt.HANDLE
     LaunchedEffect(Unit) { model.promptShown() }
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-            .background(colors.accentWash, RoundedCornerShape(14.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(stringResource(prompt.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-        prompt.body?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(prompt.primary.title),
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.inkOnAccent,
-                modifier = Modifier.bipeTapTarget().background(colors.accentFill, RoundedCornerShape(50)).clickable(role = Role.Button, onClick = open)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-            prompt.text.forEach {
-                Text(
-                    stringResource(it.title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.accentInk,
-                    modifier = Modifier.bipeTapTarget().clickable(role = Role.Button, onClick = model::dismissPrompt),
-                )
-            }
-        }
-    }
+    PromptCard(
+        title = stringResource(prompt.title),
+        body = prompt.body?.let { stringResource(it) },
+        primary = PromptAction(stringResource(prompt.primary.title), open),
+        texts = prompt.text.map { PromptAction(stringResource(it.title), model::dismissPrompt) },
+    )
 }
 
 @Composable
