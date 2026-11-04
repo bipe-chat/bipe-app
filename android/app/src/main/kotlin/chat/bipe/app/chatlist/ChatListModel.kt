@@ -352,7 +352,7 @@ class ChatListModel(
 
     /**
      * Action replyFromTile of spec chat-list: the send rules of spec composer (Markdown, Timeline.send), then the draft
-     * goes. [onResult] gets false when the send failed. The SDK send queue keeps the message after the timeline goes.
+     * goes and the chat is read. [onResult] gets false when the send failed. The SDK send queue keeps the message after the timeline goes.
      */
     fun replyFromTile(roomId: String, text: String, onResult: (Boolean) -> Unit) {
         scope.launch {
@@ -360,7 +360,10 @@ class ChatListModel(
             val sent = runCatching {
                 room?.timeline()?.send(ComposerMarkdown.content(text.trim(), emptyList())) ?: error("room unavailable")
             }.isSuccess
-            if (sent) runCatching { room?.clearComposerDraft(null) }
+            if (sent) {
+                runCatching { room?.clearComposerDraft(null) }
+                setUnread(roomId, false)
+            }
             onResult(sent)
         }
     }

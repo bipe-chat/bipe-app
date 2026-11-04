@@ -557,8 +557,7 @@ private fun tileLabel(entry: MuralEntry, messages: List<String>): String {
         chat.isMarkedUnread -> stringResource(R.string.bipe_chat_unread_state)
         else -> null
     }
-    val mention = if (chat.unreadCount > 0 && chat.mentionCount > 0) stringResource(R.string.bipe_a11y_mention) else null
-    return (listOfNotNull(chat.name, reason, unread, mention) + messages).joinToString(", ")
+    return (listOfNotNull(chat.name, reason, unread) + messages).joinToString(", ")
 }
 
 private fun reasonText(reason: BipeHomeReason): Int = when (reason) {

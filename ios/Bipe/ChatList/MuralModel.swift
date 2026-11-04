@@ -196,6 +196,7 @@ final class MuralModel: ObservableObject {
                 savedDraft = nil
             }
             try? await room.clearComposerDraft(threadRoot: nil)
+            await chatList.setUnread(roomId: roomId, unread: false)
             return true
         } catch {
             replyFailed = true

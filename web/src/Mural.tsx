@@ -11,7 +11,7 @@
 import { useEffect, useState, type MouseEvent } from 'react';
 import { useAccounts } from './accounts-context';
 import { contentWithMentions } from './mentions';
-import { useIgnoredUsers } from './chat-actions';
+import { markRead, useIgnoredUsers } from './chat-actions';
 import type { ChatSummary } from './chat-model';
 import { ComposerDraftType } from './generated/matrix_sdk_ffi';
 import { useClient } from './media';
@@ -53,7 +53,7 @@ function labelOf({ chat, reason }: MuralTile): string {
   const parts = [chat.face.name];
   if (reason === 'mention') parts.push(s('bipe_chat_mural_reason_mention'));
   if (reason === 'unanswered') parts.push(s('bipe_chat_mural_reason_unanswered'));
-  if (unread > 0) parts.push(unreadLabel(unread, Number(chat.info?.numUnreadMentions ?? 0)));
+  if (unread > 0) parts.push(unreadLabel(unread, 0));
   else if (chat.info?.isMarkedUnread) parts.push(s('bipe_chat_unread_state'));
   return parts.join(', ');
 }
@@ -270,6 +270,7 @@ function TileReply({ chat }: { chat: ChatSummary }) {
       setText('');
       setDraft(undefined);
       room.clearComposerDraft(undefined).catch(() => undefined);
+      markRead(room).catch(() => undefined);
     } catch (e) {
       console.warn('[trace] tile reply failed', describe(e));
       setFailed(true);

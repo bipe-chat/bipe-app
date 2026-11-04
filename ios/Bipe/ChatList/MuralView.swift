@@ -161,7 +161,6 @@ private enum MuralLabel {
         if let reason = reason.map(MuralReason.text) { parts.append(reason) }
         if chat.unreadCount > 0 {
             parts.append(BipeStrings.appChatListUnread(chat.unreadCount.formatted()))
-            if chat.mentionCount > 0 { parts.append(BipeStrings.a11yMention) }
         } else if chat.isMarkedUnread {
             parts.append(BipeStrings.chatUnreadState)
         }
