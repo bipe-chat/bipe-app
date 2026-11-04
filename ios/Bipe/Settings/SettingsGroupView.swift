@@ -302,7 +302,7 @@ struct SettingsGroupView: View {
             }
         case .chatsDataUse:
             NavigationLink {
-                DataUseView()
+                DataUseView(session: model.session)
             } label: {
                 SettingsRowLabel(title: row.title)
             }
