@@ -83,6 +83,13 @@ struct TimelineMessage: Identifiable, Equatable {
     var forwardCount = 0
 }
 
+/// A member whose assistant reads the chat (spec chat-timeline notes, bipe-chat/bipe#439).
+struct AssistantReader: Identifiable, Equatable {
+    /// The member's user ID.
+    let id: String
+    let name: String
+}
+
 /// Type MessageEdit of spec message-edit.
 struct MessageEdit: Equatable {
     var rowId: String
@@ -262,6 +269,12 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var typingNames: [String] = []
     // One-time notices (copied, failures, reported).
     @Published private(set) var notice: TimelineNotice?
+    /// Spec chat-timeline notes, assistant readers (ADR 0130, bipe-chat/bipe#439): the members whose assistant reads
+    /// this chat, one persistent notice each. Empty shows nothing, also after a failed read.
+    @Published private(set) var assistantReaders: [AssistantReader] = []
+    private var readersTask: Task<Void, Never>?
+    /// The reader marker state events in the loaded timeline; a change reads the room state again.
+    private var readerMarkerCount = 0
 
     let roomId: String
     private let session: AccountSession
@@ -324,6 +337,7 @@ final class ChatTimelineModel: ObservableObject {
         diffsTask?.cancel()
         handleChangesTask?.cancel()
         theftTask?.cancel()
+        readersTask?.cancel()
     }
 
     /// Spec typing-indicator sharesTyping: the presence setting (bipe_privacy_presence). On unless turned off.
@@ -383,6 +397,7 @@ final class ChatTimelineModel: ObservableObject {
             .filter { [roomId] in $0 == roomId }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.rebuild() }
+        refreshAssistantReaders()
         // Action appear of spec composer: a saved newMessage draft fills the field.
         if draft.isEmpty, dayFocus == nil, let saved = await room.newMessageDraft(threadRoot: threadRoot) {
             draft = saved
@@ -416,6 +431,7 @@ final class ChatTimelineModel: ObservableObject {
                 self.rebuild()
                 self.scrollToFocusedDay()
                 self.refreshRoomFacts(room)
+                self.noteReaderMarkers()
             }
         }
     }
@@ -1278,6 +1294,39 @@ final class ChatTimelineModel: ObservableObject {
     func showsTheftMarker(_ message: TimelineMessage) -> Bool {
         guard let theftMark, !message.isOwn, message.senderId == theftMark.sub else { return false }
         return message.sentAt >= theftMark.markerStart
+    }
+
+    // MARK: assistant readers
+
+    /// Spec chat-timeline notes, assistant readers (ADR 0130, bipe-chat/bipe#439): reads the room state from the
+    /// server (the SDK has no call for a custom state event) and runs assistantReaders. Called when the chat opens,
+    /// when the app comes to the foreground and when a reader marker reaches the timeline. A failed read shows nothing.
+    func refreshAssistantReaders() {
+        guard threadRoot == nil, let room else { return }
+        readersTask?.cancel()
+        readersTask = Task { [weak self, session, roomId] in
+            let state = try? await ServerRoomState.json(client: session.client, roomId: roomId)
+            var readers: [AssistantReader] = []
+            for userId in BipeAssistantSend.readers(stateJson: state) {
+                let name = ((try? await room.memberDisplayName(userId: userId)) ?? nil)?.nilIfBlank
+                readers.append(AssistantReader(id: userId, name: name ?? BipeWebLink.localpart(of: userId)))
+            }
+            guard !Task.isCancelled, let self else { return }
+            if self.assistantReaders != readers { self.assistantReaders = readers }
+        }
+    }
+
+    /// The marker is room state: when the count of marker events in the timeline changes, the state is read again.
+    private func noteReaderMarkers() {
+        let count = items.reduce(into: 0) { count, item in
+            if let event = item.asEvent(), case .state(_, .custom(let eventType)) = event.content,
+               eventType == BipeAssistantSend.readerEventType {
+                count += 1
+            }
+        }
+        guard count != readerMarkerCount else { return }
+        readerMarkerCount = count
+        refreshAssistantReaders()
     }
 
     // MARK: handle-change-line

@@ -2389,6 +2389,7 @@ export const ptBR = {
   bipe_web_account_unread_last_sync: "Mensagens não lidas na última sincronização",
   bipe_web_account_cap_reached: "Este navegador já tem %1$s contas. É o limite.",
   bipe_web_sign_out_all: "Sair de todas as contas deste navegador",
+  bipe_app_assistant_reads: "Um assistente de %1$s lê esta conversa",
 } as const;
 
 export type StringKey = keyof typeof ptBR;
@@ -4776,6 +4777,7 @@ export const en: Record<StringKey, string> = {
   bipe_web_account_unread_last_sync: "Unread messages at the last sync",
   bipe_web_account_cap_reached: "This browser already has %1$s accounts. That is the limit.",
   bipe_web_sign_out_all: "Sign out of all accounts in this browser",
+  bipe_app_assistant_reads: "An assistant of %1$s reads this chat",
 };
 
 export type Locale = "pt-BR" | "en";

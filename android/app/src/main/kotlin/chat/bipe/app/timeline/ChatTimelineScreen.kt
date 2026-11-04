@@ -521,6 +521,8 @@ fun ChatTimelineScreen(
                 if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
                 // Booking cards pinned above the timeline (agenda-booking-card); they are not room events (ADR 0102).
                 if (model.isMainTimeline) business?.Cards()
+                // Spec chat-timeline notes: one persistent notice per member whose assistant reads the chat.
+                if (model.isMainTimeline) AssistantReaderNotices(model)
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(
                     state = listState,
