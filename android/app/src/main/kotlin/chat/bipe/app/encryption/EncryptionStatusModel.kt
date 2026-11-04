@@ -115,14 +115,20 @@ class EncryptionStatusModel(
     fun needsApproval(verification: VerificationState, recovery: RecoveryState, otherDevices: Boolean, undecryptable: Boolean): Boolean =
         verification == VerificationState.UNVERIFIED && (otherDevices || canUseRecoveryKey(recovery) || undecryptable)
 
-    /** The banner: needsApproval, unless the person tapped Skip less than BANNER_PAUSE_MS ago. */
+    /** This phone has a way to get approved: another signed-in device or the recovery key. */
+    fun hasWayOut(recovery: RecoveryState, otherDevices: Boolean): Boolean = otherDevices || canUseRecoveryKey(recovery)
+
+    /**
+     * The approvePhone card of chat-list-prompt: needsApproval. With a way out it has no Agora não and stays
+     * (MZ, 31 Oct 2026, bipe-chat/bipe#894); without one, Skip hides it for BANNER_PAUSE_MS.
+     */
     fun showsBanner(
         verification: VerificationState,
         recovery: RecoveryState,
         otherDevices: Boolean,
         undecryptable: Boolean,
         dismissed: Boolean,
-    ): Boolean = needsApproval(verification, recovery, otherDevices, undecryptable) && !dismissed
+    ): Boolean = needsApproval(verification, recovery, otherDevices, undecryptable) && (hasWayOut(recovery, otherDevices) || !dismissed)
 
     /** Action noteUndecryptable: an undecryptable row showed, or the chat list read one. */
     fun noteUndecryptable() {

@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,6 +42,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.chatlist.PromptAction
+import chat.bipe.app.chatlist.PromptCard
+import chat.bipe.app.common.BipeButton
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.settings.AppLockModel
 import chat.bipe.app.settings.AppLockPinCheck
@@ -126,35 +128,16 @@ class RecoveryReminderModel(
 /** The card (registries/onboarding.json prompts.recovery). Same shape as the handle prompt card. */
 @Composable
 fun RecoveryReminderCard(model: RecoveryReminderModel, syncOff: Boolean = false, addEmail: () -> Unit) {
-    val colors = BipeTheme.colors
     val prompt = BipeOnboardingPrompt.RECOVERY
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(BipeScreen.RECOVERY_REMINDER.id)
-            .background(colors.accentWash, RoundedCornerShape(14.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(stringResource(prompt.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-        prompt.body?.let { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
-        // State syncOff (bipe-chat/bipe#202): the synced store does not back the recovery token up from this phone.
-        if (syncOff) Text(stringResource(R.string.bipe_fallback_sync_off_android), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(prompt.primary.title),
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.inkOnAccent,
-                modifier = Modifier.bipeTapTarget().background(colors.accentFill, RoundedCornerShape(50)).clickable(role = Role.Button, onClick = addEmail)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-            prompt.text.forEach {
-                Text(
-                    stringResource(it.title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.accentInk,
-                    modifier = Modifier.bipeTapTarget().clickable(role = Role.Button, onClick = model::dismiss),
-                )
-            }
-        }
-    }
+    // State syncOff (bipe-chat/bipe#202): the synced store does not back the recovery token up from this phone.
+    PromptCard(
+        title = stringResource(prompt.title),
+        body = prompt.body?.let { stringResource(it) },
+        note = if (syncOff) stringResource(R.string.bipe_fallback_sync_off_android) else null,
+        primary = PromptAction(stringResource(prompt.primary.title), addEmail),
+        texts = prompt.text.map { PromptAction(stringResource(it.title), model::dismiss) },
+        modifier = Modifier.testTag(BipeScreen.RECOVERY_REMINDER.id),
+    )
 }
 
 /** Spec recovery-email-add, phase. PIN_CHECK: the app lock PIN on a phone with no screen lock. */

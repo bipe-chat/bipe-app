@@ -14,7 +14,7 @@ import { checkDenyList } from './deny-list.mjs';
 import { checkLicences, catalogLibraries, swiftPins, loadTable } from './licences.mjs';
 import { checkHeaders, HEADER } from './headers.mjs';
 import { checkStrings, findLiterals, isUserText } from './strings.mjs';
-import { provenanceLine } from './provenance.mjs';
+import { provenanceLine, issueLine } from './provenance.mjs';
 import { evaluate, flatNames, matchedTokens, parseCsv, tokenCounts } from './similarity.mjs';
 import { checkSdkVersion, projectPin, resolvedPin, catalogPin } from './sdk-version.mjs';
 import { exact, token, sameSerial, profileName, exportOptions, signing, certificates, storeIds, prepare, idSet, STORE, BETA, external, BETA_TEXT } from './asc.mjs';
@@ -215,6 +215,22 @@ test('provenance fails without the line or with an empty line', () => {
   assert.equal(provenanceLine('Provenance:   \n'), null);
   assert.equal(provenanceLine(' Provenance: indented\n'), null);
   assert.equal(provenanceLine(undefined), null);
+});
+
+test('issue line: closing keyword, part of, no issue', () => {
+  assert.deepEqual(issueLine('Fixes bipe-chat/bipe#777.\n'), { kind: 'fixes', issue: 777 });
+  assert.deepEqual(issueLine('Text\ncloses bipe-chat/bipe#12 and more'), { kind: 'fixes', issue: 12 });
+  assert.deepEqual(issueLine('Part of bipe-chat/bipe#673. Spec: bipe-chat/bipe-shared#255.'), { kind: 'part', issue: 673 });
+  assert.deepEqual(issueLine('No issue: build fix after #230\n'), { kind: 'none', reason: 'build fix after #230' });
+  assert.deepEqual(issueLine('', 'Regenerate from bipe-shared#256'), { kind: 'generated' });
+});
+
+test('issue line fails on a bare mention, another repo or an empty reason', () => {
+  assert.equal(issueLine('bipe-chat/bipe#853. Spec: bipe-chat/bipe-shared#252.'), null);
+  assert.equal(issueLine('Fixes bipe-chat/bipe-shared#255'), null);
+  assert.equal(issueLine('Fixes #777'), null);
+  assert.equal(issueLine('No issue:   \n'), null);
+  assert.equal(issueLine(undefined, 'Stickers (bipe#838)'), null);
 });
 
 // Similarity (CSV evaluation; the JPlag run itself is covered by the CI self-test)
@@ -543,9 +559,9 @@ test('asc store set never registers a bundle ID or creates the app record', asyn
 
 test('version: build number is the base plus the commit count, above the highest build tag', async () => {
   const { parseVersionFile, highestTag, buildNumber } = await import('./version.mjs');
-  assert.deepEqual(parseVersionFile('{"version": "26.10.2", "build": 12}'), { version: '26.10.2', base: 12 });
-  assert.throws(() => parseVersionFile('{"version": "26.10", "build": 12}'));
-  assert.throws(() => parseVersionFile('{"version": "26.10.2", "build": 0}'));
+  assert.deepEqual(parseVersionFile('{"version": "1.0.2", "build": 12}'), { version: '1.0.2', base: 12 });
+  assert.throws(() => parseVersionFile('{"version": "1.0", "build": 12}'));
+  assert.throws(() => parseVersionFile('{"version": "1.0.2", "build": 0}'));
   assert.equal(highestTag(['builds/next/32', 'builds/next/132', 'v1', 'builds/next/x']), 132);
   assert.equal(highestTag([]), 0);
   assert.equal(buildNumber({ base: 12, commits: 129, tags: ['builds/next/132'] }), 141);

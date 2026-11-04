@@ -52,16 +52,15 @@ import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.share.searchFold
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.media.BipeForwardMark
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.Membership
 
 /** Type ForwardChat of spec message-forward. */
 data class ForwardChat(val roomId: String, val name: String, val avatarUrl: String?)
-
-/** Spec message-forward notes: at most this many chats per forward. */
-private const val FORWARD_LIMIT = 5
 
 /**
  * Spec message-forward (bipe-chat/bipe#664, bipe-chat/bipe#860): the chat picker for copies of sent messages, in timeline order.
@@ -78,6 +77,8 @@ fun MessageForwardSheet(client: Client, contentJsons: List<String>, media: Media
     var picked by remember { mutableStateOf(emptyList<String>()) }
     var sending by remember { mutableStateOf(false) }
     var showsLimit by remember { mutableStateOf(false) }
+    // State picked: forwardChats, or forwardChatsManyTimes when a sent content reaches forwardedManyTimes (bipe-chat/bipe#933).
+    val limit = remember(contentJsons) { BipeForwardMark.chatLimit(contentJsons.map { BipeForwardMark.count(it) }) }
     // State chats: joined chats, spaces left out, by name.
     LaunchedEffect(client) {
         chats = runCatching { client.rooms() }.getOrDefault(emptyList())
@@ -96,7 +97,7 @@ fun MessageForwardSheet(client: Client, contentJsons: List<String>, media: Media
     fun toggle(roomId: String) {
         picked = when {
             roomId in picked -> picked - roomId
-            picked.size >= FORWARD_LIMIT -> picked.also { showsLimit = true }
+            picked.size >= limit -> picked.also { showsLimit = true }
             else -> picked + roomId
         }
     }
@@ -179,7 +180,15 @@ fun MessageForwardSheet(client: Client, contentJsons: List<String>, media: Media
     if (showsLimit) {
         AlertDialog(
             onDismissRequest = { showsLimit = false },
-            text = { Text(stringResource(R.string.bipe_forward_limit, FORWARD_LIMIT.toString())) },
+            text = {
+                Text(
+                    if (limit == BipeRegistries.FORWARD_CHATS_MANY_TIMES && limit < BipeRegistries.FORWARD_CHATS) {
+                        stringResource(R.string.bipe_forward_limit_many)
+                    } else {
+                        stringResource(R.string.bipe_forward_limit, limit.toString())
+                    },
+                )
+            },
             confirmButton = { TextButton(onClick = { showsLimit = false }) { Text(stringResource(R.string.bipe_action_continue)) } },
         )
     }

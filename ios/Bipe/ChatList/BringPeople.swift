@@ -106,7 +106,7 @@ final class BringPeopleModel: ObservableObject {
     }
 
     /// Actions invite and replaceExpired: POST /v1/me/invites, then PUT the name. Returns the link to share.
-    func invite(at index: Int, name: String) async -> URL? {
+    func invite(at index: Int, name: String) async -> BipeInviteShare? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         phase = .creating(index)
@@ -130,7 +130,7 @@ final class BringPeopleModel: ObservableObject {
             editing = nil
             phase = .ready
             await load()
-            return made.url
+            return BipeInviteShare(url: made.url, expiresAt: made.expiresAt)
         } catch {
             if case .server(.inviteQuotaExhausted, _, _)? = error as? BipeAPIError {
                 phase = .failed(BipeStrings.errorInviteQuota)
@@ -142,8 +142,10 @@ final class BringPeopleModel: ObservableObject {
     }
 
     /// Action resend: the link kept on this phone, or nil when the invite was made on another phone.
-    func link(at index: Int) -> URL? {
-        slots.first { $0.index == index }?.inviteId.flatMap { links[$0] }
+    func link(at index: Int) -> BipeInviteShare? {
+        guard let id = slots.first(where: { $0.index == index })?.inviteId,
+              let url = links[id], let invite = invites[id] else { return nil }
+        return BipeInviteShare(url: url, expiresAt: invite.expiresAt)
     }
 
     /// Action openJoined: the DM with the person who joined.
@@ -157,8 +159,12 @@ final class BringPeopleModel: ObservableObject {
 
     // MARK: - The sheet
 
-    /// The sheet showed. The first time it counts as the first ask.
-    func sheetShown() { memory.asked(sheet: true) }
+    /// The sheet showed. The first time it counts as the first ask. It claims the prompt slot, so no chat list card
+    /// shows for promptSlotHours (spec bring-people).
+    func sheetShown() {
+        memory.asked(sheet: true)
+        promptSlot.claim(.bringPeople)
+    }
 
     /// Action notNow: one decline. Shown only while no slot is filled.
     func notNow() {
@@ -187,7 +193,7 @@ final class BringPeopleModel: ObservableObject {
     func reminderShown() { promptSlot.didShow(.bringPeopleReminder) }
 
     /// Action act: pending gives the kept link (nil: the invite is on another phone); expired makes a new invite.
-    func act() async -> URL? {
+    func act() async -> BipeInviteShare? {
         guard let reminder else { return nil }
         memory.asked()
         self.reminder = nil
@@ -216,7 +222,7 @@ struct BringPeopleView: View {
     let openInvites: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
-    @State private var shareURL: URL?
+    @State private var share: BipeInviteShare?
     @FocusState private var nameFocused: Bool
 
     var body: some View {
@@ -268,8 +274,8 @@ struct BringPeopleView: View {
         .tint(BipeColor.accentFill)
         .accessibilityIdentifier(BipeScreen.bringPeople.rawValue)
         .task { await model.load() }
-        .sheet(item: Binding(get: { shareURL.map(ShareLinkItem.init) }, set: { shareURL = $0?.url })) { item in
-            ShareSheet(items: [BipeStrings.invitesShareMessage(item.url.absoluteString)]).ignoresSafeArea()
+        .sheet(item: $share) { item in
+            ShareSheet(items: [item.message]).ignoresSafeArea()
         }
     }
 
@@ -340,19 +346,19 @@ struct BringPeopleView: View {
     }
 
     private func invite(_ index: Int) async {
-        guard let url = await model.invite(at: index, name: name) else { return }
+        guard let made = await model.invite(at: index, name: name) else { return }
         name = ""
-        shareURL = url
+        share = made
     }
 
     private func replace(_ slot: BringPeopleModel.Slot) async {
-        guard let name = slot.name, let url = await model.invite(at: slot.index, name: name) else { return }
-        shareURL = url
+        guard let name = slot.name, let made = await model.invite(at: slot.index, name: name) else { return }
+        share = made
     }
 
     private func resend(_ index: Int) {
-        if let url = model.link(at: index) {
-            shareURL = url
+        if let link = model.link(at: index) {
+            share = link
         } else {
             dismiss()
             openInvites()
@@ -383,55 +389,26 @@ struct BringPeopleView: View {
 struct BringPeopleReminderCard: View {
     @ObservedObject var model: BringPeopleModel
     let reminder: BringPeopleModel.Reminder
-    let share: (URL) -> Void
+    let share: (BipeInviteShare) -> Void
     let openInvites: () -> Void
 
     var body: some View {
         let prompt = BipeOnboardingPrompt.bringPeopleReminder
-        VStack(alignment: .leading, spacing: 8) {
-            Text(BipeStrings.bringPeopleReminderTitle(reminder.name))
-                .font(.headline)
-                .foregroundStyle(BipeColor.inkPrimary)
-            Text(reminder.kind == .pending ? BipeStrings.bringPeopleReminderPending : BipeStrings.bringPeopleReminderExpired)
-                .font(.subheadline)
-                .foregroundStyle(BipeColor.inkSecondary)
-            HStack(spacing: 16) {
-                Button {
-                    let kind = reminder.kind
-                    Task {
-                        if let url = await model.act() {
-                            share(url)
-                        } else if kind == .pending {
-                            openInvites()
-                        }
-                    }
-                } label: {
-                    Text(reminder.kind == .pending ? BipeStrings.bringPeopleResend : BipeStrings.bringPeopleExpiredAction)
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .foregroundStyle(BipeColor.inkOnAccent)
-                        .background(Capsule().fill(BipeColor.accentFill))
-                }
-                ForEach(prompt.text, id: \.titleKey) { button in
-                    Button { model.declineReminder() } label: {
-                        Text(button.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BipeColor.accentInk)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.accentWash))
+        PromptCard(title: BipeStrings.bringPeopleReminderTitle(reminder.name),
+                   body: reminder.kind == .pending ? BipeStrings.bringPeopleReminderPending : BipeStrings.bringPeopleReminderExpired,
+                   primary: .init(title: reminder.kind == .pending ? BipeStrings.bringPeopleResend : BipeStrings.bringPeopleExpiredAction) {
+                       let kind = reminder.kind
+                       Task {
+                           if let link = await model.act() {
+                               share(link)
+                           } else if kind == .pending {
+                               openInvites()
+                           }
+                       }
+                   },
+                   texts: prompt.text.map { .init(title: $0.title, run: { model.declineReminder() }) })
         .accessibilityIdentifier(BipeScreen.bringPeopleReminder.rawValue)
         .onAppear { model.reminderShown() }
     }
 }
 
-private struct ShareLinkItem: Identifiable {
-    let url: URL
-    var id: URL { url }
-}

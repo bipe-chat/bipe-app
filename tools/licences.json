@@ -110,19 +110,12 @@
       "source": "https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/LICENSE.txt",
       "checked": "2026-10-22"
     },
-    "Nunito": {
-      "ecosystem": "font",
-      "licence": "OFL-1.1",
-      "source": "https://github.com/googlefonts/nunito/blob/8c6a9bb9732545b9ed53f29ec5e1ab0ff53c4e6f/OFL.txt",
-      "checked": "2026-10-25",
-      "note": "ADR 0159 (bipe-chat/bipe): SIL OFL 1.1 is allowed for fonts. Android only: fonts/variable/Nunito[wght].ttf at that commit, bundled as android/app/src/main/res/font/nunito.ttf with android/app/fonts/Nunito-OFL.txt. Not a Gradle or SwiftPM dependency, so tools/licences.mjs does not read it."
-    },
     "@phosphor-icons/core": {
       "ecosystem": "vendored",
       "licence": "MIT",
       "source": "https://github.com/phosphor-icons/core/blob/main/LICENSE",
       "checked": "2026-10-22",
-      "note": "Vendored by tools/phosphor.mjs into ios/Phosphor and android/libraries/phosphor, with its LICENSE file. Version in tools/phosphor.json."
+      "note": "Vendored by tools/phosphor.mjs into ios/Phosphor, android/libraries/phosphor and web/src/phosphor, with its LICENSE file. Version in tools/phosphor.json."
     },
     "org.jetbrains.kotlinx:kotlinx-coroutines-core": {
       "ecosystem": "gradle",
@@ -223,6 +216,14 @@
       "checked": "2026-10-25",
       "unverified": true,
       "note": "Google Play Install Referrer (ADR 0154, Play build only, third named exception next to ADR 0150). Closed source, distributed on Google's Maven repository under the Android Software Development Kit License. Its POM was not readable from the agent session (dl.google.com blocked), so the licence name is unverified. Checked 2026-10-25."
+    },
+    "com.google.android.play:age-signals": {
+      "ecosystem": "gradle",
+      "licence": "LicenseRef-Android-SDK-License",
+      "scope": "play",
+      "source": "https://developer.android.com/google/play/age-signals/overview",
+      "checked": "2026-11-03",
+      "note": "Google Play Age Signals API, beta (ADR 0229, Play build only, a named exception next to ADR 0150). Closed source. Its POM (dl.google.com, version 0.0.4) names the Android Software Development Kit License and brings play-services-basement, play-services-tasks and play core-common under the same licence. Checked 2026-11-03."
     },
     "com.google.firebase:firebase-messaging": {
       "ecosystem": "gradle",

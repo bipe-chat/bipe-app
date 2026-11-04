@@ -158,6 +158,25 @@ private struct Bubble<Content: View>: View {
     }
 }
 
+/// Spec chat-timeline forward line (bipe-chat/bipe#933): a forward arrow and bipe_forward_line or bipe_forward_line_many.
+private struct ForwardLine: View {
+    let source: BipeForwardMark.Source
+
+    var body: some View {
+        HStack(spacing: 4) {
+            // The reply arrow, mirrored: a forward arrow.
+            PhosphorIcon.arrowBendUpLeft.image
+                .resizable()
+                .frame(width: 12, height: 12)
+                .scaleEffect(x: -1, y: 1)
+                .accessibilityHidden(true)
+            Text(source == .forwardedManyTimes ? BipeStrings.forwardLineMany : BipeStrings.forwardLine)
+                .font(.caption.italic())
+        }
+        .foregroundStyle(BipeColor.inkSecondary)
+    }
+}
+
 /// kind message: sender, reply quote, text, time, edited label, receipt, reactions. Long press opens
 /// message-actions; a swipe right starts a reply.
 private struct MessageBubbleRow: View {
@@ -189,6 +208,10 @@ private struct MessageBubbleRow: View {
                         SenderNameText(message: message)
                             .font(.caption.bold())
                             .foregroundStyle(BipeColor.accentInk)
+                    }
+                    // Spec chat-timeline notes (bipe-chat/bipe#933): voice rows keep their own source line.
+                    if message.voice == nil, let line = BipeForwardMark.line(count: message.forwardCount) {
+                        ForwardLine(source: line)
                     }
                     if let reply = details.reply {
                         ReplyQuote(reply: reply)
@@ -379,6 +402,10 @@ private struct ReceiptTick: View {
             icon(.check)
                 .accessibilityLabel(BipeStrings.appReceiptSent)
             if receipt.showsLabel { Text(BipeStrings.appReceiptSent).accessibilityHidden(true) }
+        case .delivered:
+            icon(.checks)
+                .accessibilityLabel(BipeStrings.appReceiptDelivered)
+            if receipt.showsLabel { Text(BipeStrings.appReceiptDelivered).accessibilityHidden(true) }
         case .read:
             icon(.checks)
                 .foregroundStyle(BipeColor.accentInk)
@@ -652,6 +679,15 @@ struct SenderNameText: View {
         let label = message.senderNameAmbiguous
             ? MemberNames.label(name: message.senderName, userId: message.senderId, handles: handles)
             : message.senderName
-        Text(label)
+        HStack(spacing: 4) {
+            // Spec chat-timeline senderRole (bipe-chat/bipe#733).
+            switch message.senderRole {
+            case .admin?: Text(label) + Text(" · " + BipeStrings.appRoleBadgeAdmin).foregroundColor(BipeColor.accentInk)
+            case .moderator?: Text(label) + Text(" · " + BipeStrings.appRoleBadgeModerator).foregroundColor(BipeColor.accentInk)
+            default: Text(label)
+            }
+            // Spec timeline-rows: the sender's seal (bipe-chat/bipe#596).
+            SealMark(userId: message.senderId, size: 14)
+        }
     }
 }

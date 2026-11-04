@@ -31,7 +31,7 @@ object StoreCast {
 /** Sample data of the store captures (bipe-shared product/store-captures.json, bipe-chat/bipe#457). */
 object StoreCaptures {
     /** The slugs of the appstore.md screenshot table, in store order. */
-    val slugs: List<String> = listOf("aviso-golpe", "pedidos", "conferir-pix", "seu-arroba", "selo-cnpj", "grupos", "stickers")
+    val slugs: List<String> = listOf("pedidos", "seu-arroba", "aviso-golpe", "dados-no-brasil", "empresa", "selo-cnpj", "conferir-pix", "grupos", "stickers")
 
     /** The slugs that have a capture source here. */
     val captured: List<String> = listOf("aviso-golpe", "pedidos", "conferir-pix", "seu-arroba")

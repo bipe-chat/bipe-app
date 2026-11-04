@@ -73,7 +73,8 @@ final class InvitesModel: ObservableObject {
             phase = .loaded
             for invite in response.invites where saved.newJoins.contains(invite.id) {
                 if let userId = invite.joinedUserId {
-                    let name = (try? await session.client.getProfile(userId: userId))?.displayName ?? Person.localpart(of: userId)
+                    let name = BipeChatRowName.person(userID: userId, displayName: (try? await session.client.getProfile(userId: userId))?.displayName,
+                                                      handle: nil)
                     notice = BipeStrings.invitesJoined(name)
                 }
             }

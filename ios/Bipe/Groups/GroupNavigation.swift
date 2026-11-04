@@ -36,34 +36,3 @@ extension EnvironmentValues {
         set { self[CloseChatKey.self] = newValue }
     }
 }
-
-/// A short message at the bottom of the screen, for results such as bipe_dm_invite_to_group_sent.
-struct ToastModifier: ViewModifier {
-    @Binding var message: String?
-
-    func body(content: Content) -> some View {
-        content.overlay(alignment: .bottom) {
-            if let message {
-                Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkPrimary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Capsule().fill(BipeColor.surfaceRaised).shadow(radius: 4))
-                    .padding(.bottom, 24)
-                    .transition(.bipeMove(edge: .bottom))
-                    .task(id: message) {
-                        try? await Task.sleep(for: .seconds(3))
-                        withBipeAnimation { self.message = nil }
-                    }
-            }
-        }
-        .bipeAnimation(.default, value: message)
-    }
-}
-
-extension View {
-    func toast(_ message: Binding<String?>) -> some View {
-        modifier(ToastModifier(message: message))
-    }
-}

@@ -77,13 +77,25 @@ struct RoomSubscriptionsTests {
     @Test func SDKNameSurvivesMissingHeroMetadata() {
         #expect(BipeChatRowName.resolve(roomID: "!room:example.test", sdkName: " Example Support ", peerName: nil, peerID: nil, unnamed: "Unnamed") == "Example Support")
         #expect(BipeChatRowName.resolve(roomID: "!room:example.test", sdkName: " ", peerName: "Example Person", peerID: "@person:example.test", unnamed: "Unnamed") == "Example Person")
-        #expect(BipeChatRowName.resolve(roomID: "!room:example.test", sdkName: "!room:example.test", peerName: "@person:example.test", peerID: "@person:example.test", unnamed: "Unnamed") == "person")
+        #expect(BipeChatRowName.resolve(roomID: "!room:example.test", sdkName: "!room:example.test", peerName: "@person:example.test", peerID: "@person:example.test", unnamed: "Unnamed") == "Unnamed")
+        #expect(BipeChatRowName.resolve(roomID: "!room:example.test", sdkName: "person", peerName: "person", peerID: "@person:example.test", unnamed: "Unnamed", peerHandle: "pessoa") == "@pessoa")
     }
 
-    /// ADR 0141: a DM never shows its own m.room.name; the person's name, then the localpart, wins.
+    /// People names (MZ, 2 November 2026): contact, real display name, @handle, placeholder. Never the ID or its localpart.
+    @Test func PersonNameNeverShowsTheMatrixID() {
+        let id = "@s9d89sa89sas0:bipe.net.br"
+        #expect(BipeChatRowName.person(userID: id, contactName: " Mãe ", displayName: "Ana", handle: "ana") == "Mãe")
+        #expect(BipeChatRowName.person(userID: id, displayName: "Ana", handle: "ana") == "Ana")
+        #expect(BipeChatRowName.person(userID: id, displayName: "s9d89sa89sas0", handle: "ana") == "@ana")
+        #expect(BipeChatRowName.person(userID: id, displayName: id, handle: nil, placeholder: "Sem nome") == "Sem nome")
+        #expect(BipeChatRowName.person(userID: id, displayName: " ", handle: "", placeholder: "Sem nome") == "Sem nome")
+    }
+
+    /// ADR 0141: a DM never shows its own m.room.name; the person's name, then the @handle, wins. Never the localpart.
     @Test func DMIgnoresItsRoomName() {
         #expect(BipeChatRowName.resolve(roomID: "!dm:example.test", sdkName: "Renamed", peerName: "Ana", peerID: "@ana:example.test", unnamed: "Unnamed", dmRoomName: "Renamed") == "Ana")
-        #expect(BipeChatRowName.resolve(roomID: "!dm:example.test", sdkName: " Renamed ", peerName: nil, peerID: "@ana:example.test", unnamed: "Unnamed", dmRoomName: "Renamed") == "ana")
+        #expect(BipeChatRowName.resolve(roomID: "!dm:example.test", sdkName: " Renamed ", peerName: nil, peerID: "@ana:example.test", unnamed: "Unnamed", dmRoomName: "Renamed") == "Unnamed")
+        #expect(BipeChatRowName.resolve(roomID: "!dm:example.test", sdkName: "ana", peerName: "ana", peerID: "@ana:example.test", unnamed: "Unnamed", peerHandle: "ana.souza") == "@ana.souza")
         #expect(BipeChatRowName.resolve(roomID: "!dm:example.test", sdkName: "Renamed", peerName: nil, peerID: nil, unnamed: "Unnamed", dmRoomName: "Renamed") == "Unnamed")
         #expect(BipeChatRowName.resolve(roomID: "!dm:example.test", sdkName: "Ana", peerName: nil, peerID: "@ana:example.test", unnamed: "Unnamed", dmRoomName: nil) == "Ana")
     }

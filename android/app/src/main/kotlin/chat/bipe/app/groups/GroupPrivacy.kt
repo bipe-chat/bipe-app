@@ -192,7 +192,7 @@ fun GroupPrivacyScreen(session: AccountSession, media: MediaLoader, roomId: Stri
             if (state.requests.isNotEmpty()) {
                 GroupSectionHeader(stringResource(R.string.bipe_group_requests))
                 state.requests.forEach { request ->
-                    val name = request.displayName?.takeIf { it.isNotBlank() } ?: request.userId
+                    val name = chat.bipe.app.people.Person.name(request.userId, request.displayName)
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Avatar(name, request.avatarUrl, media, size = 40.dp, userId = request.userId)

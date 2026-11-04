@@ -45,6 +45,7 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.BipeButton
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.invites.dateLabel
+import chat.bipe.app.invites.InviteShare
 import chat.bipe.app.invites.shareInvite
 import chat.bipe.app.people.PeopleScaffold
 import chat.bipe.shared.R
@@ -151,7 +152,7 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
     }
 
     /** Actions invite and replaceExpired: POST /v1/me/invites, then PUT the name. Returns the link to share. */
-    suspend fun invite(index: Int, name: String): String? {
+    suspend fun invite(index: Int, name: String): InviteShare? {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) return null
         _state.value = _state.value.copy(phase = Phase.Creating(index))
@@ -164,7 +165,7 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
             created = null
             _state.value = _state.value.copy(phase = Phase.Ready, editing = null)
             load()
-            made.url
+            InviteShare(made.url, made.expiresAt)
         } catch (error: CancellationException) { throw error }
         catch (error: Exception) {
             val quota = error is BipeApiException.Server && error.code == BipeApiErrorCode.INVITE_QUOTA_EXHAUSTED
@@ -174,7 +175,12 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
     }
 
     /** Action resend: the link kept on this phone, or null when the invite was made on another phone. */
-    fun link(index: Int): String? = _state.value.slots.getOrNull(index)?.inviteId?.let(savedLinks::get)
+    fun link(index: Int): InviteShare? {
+        val id = _state.value.slots.getOrNull(index)?.inviteId ?: return null
+        val url = savedLinks[id] ?: return null
+        val invite = invites[id] ?: return null
+        return InviteShare(url, invite.expiresAt)
+    }
 
     /** Action openJoined: the DM with the person who joined. */
     fun dmRoomId(index: Int): String? {
@@ -182,8 +188,11 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
         return runCatching { session.client.getDmRoom(userId) }.getOrNull()?.id()
     }
 
-    /** The sheet showed. The first time it counts as the first ask. */
-    fun sheetShown() = memory.asked(sheet = true)
+    /** The sheet showed. The first time it counts as the first ask. It claims the prompt slot, so no chat list card shows for PROMPT_SLOT_HOURS (spec bring-people). */
+    fun sheetShown() {
+        memory.asked(sheet = true)
+        promptSlot.claim(BipeOnboardingPrompt.BRING_PEOPLE)
+    }
 
     /** Action notNow of the sheet: one decline. Shown only while no slot is filled. */
     fun notNow() {
@@ -208,7 +217,7 @@ class BringPeopleModel(context: Context, val session: AccountSession, private va
     fun reminderShown() = promptSlot.didShow(BipeOnboardingPrompt.BRING_PEOPLE_REMINDER)
 
     /** Action act: pending gives the kept link (null: the invite is on another phone); expired makes a new invite. */
-    suspend fun act(): String? {
+    suspend fun act(): InviteShare? {
         val reminder = _state.value.reminder ?: return null
         memory.asked()
         _state.value = _state.value.copy(reminder = null)
@@ -345,40 +354,21 @@ private fun SlotHeader(slot: BringPeopleModel.Slot, label: String) {
 /** Spec bring-people-reminder: the card above Conversas that names one person. Same shape as the PIN reminder card. */
 @Composable
 fun BringPeopleReminderCard(model: BringPeopleModel, reminder: BringPeopleModel.Reminder, openInvites: () -> Unit) {
-    val colors = BipeTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prompt = BipeOnboardingPrompt.BRING_PEOPLE_REMINDER
     val pending = reminder.kind == BipeBringPeople.Kind.PENDING
     LaunchedEffect(reminder) { model.reminderShown() }
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag(BipeScreen.BRING_PEOPLE_REMINDER.id)
-            .background(colors.accentWash, RoundedCornerShape(14.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(stringResource(R.string.bipe_bring_people_reminder_title, reminder.name), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-        Text(stringResource(if (pending) R.string.bipe_bring_people_reminder_pending else R.string.bipe_bring_people_reminder_expired),
-            style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(if (pending) R.string.bipe_bring_people_resend else R.string.bipe_bring_people_expired_action),
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.inkOnAccent,
-                modifier = Modifier.bipeTapTarget().background(colors.accentFill, RoundedCornerShape(50)).clickable(role = Role.Button) {
-                    scope.launch {
-                        val link = model.act()
-                        if (link != null) shareInvite(context, link) else if (pending) openInvites()
-                    }
-                }.padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-            prompt.text.forEach {
-                Text(
-                    stringResource(it.title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.accentInk,
-                    modifier = Modifier.bipeTapTarget().clickable(role = Role.Button) { model.declineReminder() },
-                )
+    PromptCard(
+        title = stringResource(R.string.bipe_bring_people_reminder_title, reminder.name),
+        body = stringResource(if (pending) R.string.bipe_bring_people_reminder_pending else R.string.bipe_bring_people_reminder_expired),
+        primary = PromptAction(stringResource(if (pending) R.string.bipe_bring_people_resend else R.string.bipe_bring_people_expired_action)) {
+            scope.launch {
+                val link = model.act()
+                if (link != null) shareInvite(context, link) else if (pending) openInvites()
             }
-        }
-    }
+        },
+        texts = prompt.text.map { PromptAction(stringResource(it.title)) { model.declineReminder() } },
+        modifier = Modifier.testTag(BipeScreen.BRING_PEOPLE_REMINDER.id),
+    )
 }

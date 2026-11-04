@@ -1,0 +1,39 @@
+{
+  "name": "bipe-web",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Bipe web client spike: matrix-sdk-ffi in the browser (bipe-chat/bipe#900, ADR 0216).",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bipe-chat/bipe-app.git",
+    "directory": "web"
+  },
+  "packageManager": "pnpm@10.26.2",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "node --test \"src/bipe/*.test.mjs\""
+  },
+  "dependencies": {
+    "@ubjs/core": "0.31.0-6",
+    "@ubjs/wasm": "0.31.0-6",
+    "qrcode": "1.5.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "unicode-emoji-json": "0.9.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/qrcode": "1.5.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "prettier": "3.9.10",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "vite": "8.3.5"
+  }
+}

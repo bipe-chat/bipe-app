@@ -6,11 +6,25 @@ import BipeKit
 import Foundation
 import MatrixRustSDK
 
+/// Spec chat-list news room mark (bipe-chat/bipe#978): the room_id of GET /v1/me/news, kept on this phone per account.
+/// That exact room shows the Bipe badge and bipe_news_room_name. NewsRoomCleanup writes it at each start.
+nonisolated enum NewsRoomMark {
+    private static func key(_ userId: String) -> String { "bipe.newsRoomId.\(userId)" }
+
+    static func roomId(for userId: String) -> String? {
+        UserDefaults.standard.string(forKey: key(userId))
+    }
+
+    static func set(_ roomId: String?, for userId: String) {
+        UserDefaults.standard.set(roomId, forKey: key(userId))
+    }
+}
+
 /// Novidades do Bipe is a named room, not a DM (bipe-chat/bipe#809, spec chat-list notes). bipe-api made news rooms
 /// with is_direct before, so the account's m.direct lists them and the room took the DM name rule (ADR 0141).
-/// Once per account on this phone, after the first sync: the news room ID comes from GET /v1/me/news (room_id), and
-/// the app takes that room out of m.direct when it is there. A failure tries again at the next start or return to
-/// the foreground.
+/// At each start and return to the foreground: the news room ID comes from GET /v1/me/news (room_id) and goes to
+/// NewsRoomMark. Once per account on this phone, after the first sync, the app takes that room out of m.direct when
+/// it is there. A failure tries again at the next start or return to the foreground.
 @MainActor
 enum NewsRoomCleanup {
     private static func doneKey(_ userId: String) -> String { "bipe.newsRoomNotDm.\(userId)" }
@@ -19,7 +33,7 @@ enum NewsRoomCleanup {
     static func applyOnce(session: AccountSession, api: BipeAPIClient) async {
         let defaults = UserDefaults.standard
         let userId = session.userId
-        guard !defaults.bool(forKey: doneKey(userId)), running.insert(userId).inserted else { return }
+        guard running.insert(userId).inserted else { return }
         defer { running.remove(userId) }
         let state: BipeNewsState
         do {
@@ -29,6 +43,8 @@ enum NewsRoomCleanup {
         } catch {
             return
         }
+        NewsRoomMark.set(state.subscribed ? state.roomId : nil, for: userId)
+        guard !defaults.bool(forKey: doneKey(userId)) else { return }
         // No news room (news off): a room made later is not a DM.
         guard state.subscribed, let roomId = state.roomId else {
             defaults.set(true, forKey: doneKey(userId))

@@ -31,15 +31,27 @@ import java.util.UUID
  * The Matrix transport of a call (spec call, ADR 0186): the matrix-sdk-ffi widget driver with no page.
  * The app is the widget. It answers the driver's toWidget requests and sends fromWidget requests
  * (MSC2762 events and state, MSC3819 to-device, MSC4157 delayed events). All calls run on [scope] (main thread).
+ * The delivered ack of spec read-receipts uses the same transport with to-device capabilities only (DeliveredAcks).
+ *
+ * [capabilityNames] is what the widget asks for; [approved] is what the capabilities provider grants of it.
  */
 class CallWidget(
-    userId: String,
-    deviceId: String,
     private val scope: CoroutineScope,
-    extraSend: List<String> = emptyList(),
-    extraRead: List<String> = emptyList(),
+    private val capabilityNames: List<String>,
+    private val approved: WidgetCapabilities,
+    idPrefix: String,
     private val onIncoming: (Incoming) -> Unit,
 ) {
+    constructor(
+        userId: String,
+        deviceId: String,
+        scope: CoroutineScope,
+        extraSend: List<String> = emptyList(),
+        extraRead: List<String> = emptyList(),
+        onIncoming: (Incoming) -> Unit,
+    ) : this(scope, callCapabilityNames(userId, deviceId, extraSend, extraRead), callApproved(userId, deviceId, extraSend, extraRead),
+        "bipe-call", onIncoming)
+
     class Failure(message: String) : Exception(message)
 
     /** What the driver pushes to the widget. */
@@ -49,42 +61,16 @@ class CallWidget(
         data class ToDevice(val message: JsonObject) : Incoming
     }
 
-    val widgetId = "bipe-call-${UUID.randomUUID()}"
+    val widgetId = "$idPrefix-${UUID.randomUUID()}"
     // The driver needs a URL; nothing loads it.
     private val made = makeWidgetDriver(WidgetSettings(widgetId, false, "https://bipe.chat/call"))
-    private val capabilityNames: List<String>
-    private val approved: WidgetCapabilities
     private val pending = mutableMapOf<String, CompletableDeferred<JsonObject>>()
     private val ready = CompletableDeferred<Unit>()
     private var closed = false
     private var counter = 0
 
-    init {
-        val ownKey = BipeCall.stateKey(userId, deviceId)
-        val member = BipeCall.MEMBER_EVENT_TYPE
-        val key = BipeCall.KEY_EVENT_TYPE
-        val sendEvents = listOf(key) + extraSend
-        val readEvents = listOf(key) + extraRead
-        capabilityNames = listOf(
-            "org.matrix.msc4157.send.delayed_event",
-            "org.matrix.msc4157.update_delayed_event",
-            "org.matrix.msc2762.receive.state_event:$member",
-            "org.matrix.msc2762.send.state_event:$member#$ownKey",
-            "org.matrix.msc3819.send.to_device:$key",
-            "org.matrix.msc3819.receive.to_device:$key",
-        ) + sendEvents.map { "org.matrix.msc2762.send.event:$it" } + readEvents.map { "org.matrix.msc2762.receive.event:$it" }
-        approved = WidgetCapabilities(
-            read = listOf(WidgetEventFilter.StateWithType(member), WidgetEventFilter.ToDevice(key)) +
-                readEvents.map { WidgetEventFilter.MessageLikeWithType(it) },
-            send = listOf(WidgetEventFilter.StateWithTypeAndStateKey(member, ownKey), WidgetEventFilter.ToDevice(key)) +
-                sendEvents.map { WidgetEventFilter.MessageLikeWithType(it) },
-            requiresClient = false,
-            updateDelayedEvent = true,
-            sendDelayedEvent = true,
-            downloadFiles = false,
-            rtcTransports = false,
-        )
-    }
+    /** True after [close], or after the driver stopped. */
+    val isClosed: Boolean get() = closed
 
     /** Runs the driver for the room and reads its messages until [close]. */
     fun start(room: Room) {
@@ -118,6 +104,17 @@ class CallWidget(
             if (stateKey != null) put("state_key", stateKey)
             if (delayMs != null) put("delay", delayMs)
         })
+
+    /**
+     * An MSC3819 to-device message: [messages] maps user ID to device ID (or "*") to content. In an encrypted room the
+     * driver encrypts it with Olm.
+     */
+    suspend fun sendToDevice(type: String, messages: JsonObject) {
+        request("send_to_device", buildJsonObject {
+            put("type", type)
+            put("messages", messages)
+        })
+    }
 
     /** [action]: restart, cancel or send. */
     suspend fun updateDelayed(delayId: String, action: String) {
@@ -178,6 +175,38 @@ class CallWidget(
     companion object {
         /** A fromWidget request without an answer after this long fails. */
         const val REQUEST_TIMEOUT_MS = 15_000L
+
+        private fun callCapabilityNames(userId: String, deviceId: String, extraSend: List<String>, extraRead: List<String>): List<String> {
+            val ownKey = BipeCall.stateKey(userId, deviceId)
+            val member = BipeCall.MEMBER_EVENT_TYPE
+            val key = BipeCall.KEY_EVENT_TYPE
+            return listOf(
+                "org.matrix.msc4157.send.delayed_event",
+                "org.matrix.msc4157.update_delayed_event",
+                "org.matrix.msc2762.receive.state_event:$member",
+                "org.matrix.msc2762.send.state_event:$member#$ownKey",
+                "org.matrix.msc3819.send.to_device:$key",
+                "org.matrix.msc3819.receive.to_device:$key",
+            ) + (listOf(key) + extraSend).map { "org.matrix.msc2762.send.event:$it" } +
+                (listOf(key) + extraRead).map { "org.matrix.msc2762.receive.event:$it" }
+        }
+
+        private fun callApproved(userId: String, deviceId: String, extraSend: List<String>, extraRead: List<String>): WidgetCapabilities {
+            val ownKey = BipeCall.stateKey(userId, deviceId)
+            val member = BipeCall.MEMBER_EVENT_TYPE
+            val key = BipeCall.KEY_EVENT_TYPE
+            return WidgetCapabilities(
+                read = listOf(WidgetEventFilter.StateWithType(member), WidgetEventFilter.ToDevice(key)) +
+                    (listOf(key) + extraRead).map { WidgetEventFilter.MessageLikeWithType(it) },
+                send = listOf(WidgetEventFilter.StateWithTypeAndStateKey(member, ownKey), WidgetEventFilter.ToDevice(key)) +
+                    (listOf(key) + extraSend).map { WidgetEventFilter.MessageLikeWithType(it) },
+                requiresClient = false,
+                updateDelayedEvent = true,
+                sendDelayedEvent = true,
+                downloadFiles = false,
+                rtcTransports = false,
+            )
+        }
     }
 }
 

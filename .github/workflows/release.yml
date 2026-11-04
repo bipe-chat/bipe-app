@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# Public release (ADR 0227): run once when a build goes public on the App Store or on the Play production track.
+# It tags releases/<version> on the commit of that build (tools/version.mjs --release). From the next commit on, the
+# version name is the next odometer value (1.0.1 -> 1.0.2, 1.0.9 -> 1.1.0); nobody edits version.json to bump.
+# The changelog (bipe.chat/versoes) groups the builds under the release. Release one build number on both platforms.
+# Run: gh workflow run release.yml --repo bipe-chat/bipe-app --ref main -f build=<number>
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Build number that went public
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          # The build number counts the commits (tools/version.mjs): full history and the tags.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Tag the release
+        env:
+          BUILD: ${{ inputs.build }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          node tools/version.mjs --release "$BUILD" --ref HEAD | tee release.txt
+          tag=$(grep -o 'releases/[0-9.]*' release.txt | head -1)
+          git push origin "$tag"
+          echo "Released $tag (build $BUILD)" >> "$GITHUB_STEP_SUMMARY"

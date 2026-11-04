@@ -1,0 +1,14 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 324e3fe..b8cbfb4 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -109,7 +109,8 @@ thiserror = { version = "2.0.19", default-features = false }
+ tokio = { version = "1.53.1", default-features = false, features = ["sync"] }
+ tokio-stream = { version = "0.1.19", default-features = false }
+ tracing = { version = "0.1.41", default-features = false, features = ["std"] }
+-tracing-appender = { version = "0.2.3", default-features = false }
++# Bipe web spike: 0.2.5 calls symlink, which has no wasm32 build.
++tracing-appender = { version = "=0.2.4", default-features = false }
+ tracing-core = { version = "0.1.34", default-features = false }
+ tracing-subscriber = { version = "0.3.20", default-features = false, features = ["std", "smallvec", "fmt"] }
+ unicode-normalization = { version = "0.1.25", default-features = false }

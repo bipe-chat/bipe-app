@@ -114,6 +114,7 @@ class BipeHandleResolver(
     private fun setEntry(userId: String, entry: Entry) {
         entries.update { it + (userId to entry) }
         handlesFlow.update { it + (userId to entry.handle) }
+        BipeHandleCache.store(entry.handle, userId)
     }
 
     private fun enqueue(userId: String) {
@@ -168,5 +169,21 @@ class BipeHandleResolver(
         val MISSING_TTL_MILLIS = 2.minutes.inWholeMilliseconds
         const val BATCH_SIZE = 100
         val COALESCE_DELAY = 80.milliseconds
+    }
+}
+
+/**
+ * The @handles the resolvers found last, for the whole process, so notifications and models without a resolver name a
+ * person by the @ (People names) and never by the Matrix ID.
+ */
+object BipeHandleCache {
+    private val handles = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** The last known handle (without "@"), else `null`. */
+    fun handle(userId: String): String? = handles[userId]
+
+    /** A found handle replaces the old one; `null` (the user has none) removes it. */
+    fun store(handle: String?, userId: String) {
+        if (handle.isNullOrEmpty()) handles.remove(userId) else handles[userId] = handle
     }
 }

@@ -59,6 +59,8 @@ final class BusinessChatModel: ObservableObject {
     @Published private(set) var hasCatalog = false
     /// The catalogue has an active product with a fixed price and amount_cents: Fazer pedido shows.
     @Published private(set) var canOrder = false
+    /// The quotes tool is live: Pedir orçamento shows.
+    @Published private(set) var canRequestQuote = false
     /// Today's queue is open: Entrar na fila shows.
     @Published private(set) var queueOpen = false
     /// Open bookings of this DM: with the business, or (owner mode) of this customer.
@@ -139,6 +141,7 @@ final class BusinessChatModel: ObservableObject {
             canBook = false
             hasCatalog = false
             canOrder = false
+            canRequestQuote = false
             queueOpen = false
         }
         if withBookings { await loadRecords(peer: peer) }
@@ -158,6 +161,7 @@ final class BusinessChatModel: ObservableObject {
         canBook = false
         hasCatalog = false
         canOrder = false
+        canRequestQuote = false
         queueOpen = false
         bookings = []
         orders = []
@@ -173,16 +177,19 @@ final class BusinessChatModel: ObservableObject {
             try await client.resolveHandles(userIDs: [peer], openID: token)
         }
         if let found = resolved?[peer] { handle = found }
-        let services = (try? await api.services(business: business)) ?? []
+        // Spec business-chat-bar: a tool shows only when it is live (ADR 0194 point 2).
+        let live = Set((try? await api.liveTools(business: business)) ?? [])
+        canRequestQuote = live.contains("quotes")
+        let services = live.contains("agenda") ? (try? await api.services(business: business)) ?? [] : []
         canBook = !services.isEmpty
         for service in services { serviceNames[service.id] = service.name }
         if canBook, let agendas = try? await api.agendas(business: business) {
             for agenda in agendas { agendaNames[agenda.id] = agenda.name }
         }
         let items = (try? await api.catalog(business: business)) ?? []
-        hasCatalog = !items.isEmpty
-        canOrder = items.contains { $0.isOrderable }
-        queueOpen = (try? await api.queue(business: business))?.open ?? false
+        hasCatalog = live.contains("catalog") && !items.isEmpty
+        canOrder = live.contains("orders") && items.contains { $0.isOrderable }
+        queueOpen = live.contains("queue") ? (try? await api.queue(business: business))?.open ?? false : false
     }
 
     /// The cards of this DM. Each list loads on its own: a failure keeps the cards it had.
@@ -353,8 +360,10 @@ struct BusinessMenuItems: View {
                     Label(BipeStrings.orderMake, systemImage: "cart")
                 }
             }
-            Button { model.requestingQuote = true } label: {
-                Label(BipeStrings.quoteRequest, systemImage: "doc.text")
+            if model.canRequestQuote {
+                Button { model.requestingQuote = true } label: {
+                    Label(BipeStrings.quoteRequest, systemImage: "doc.text")
+                }
             }
             if model.queueOpen {
                 Button { model.route = .queue } label: {
@@ -376,7 +385,7 @@ struct BusinessProfileButtons: View {
         let action: () -> Void
     }
 
-    /// Pedir orçamento is on for every company (spec business-chat-bar).
+    /// Only live tools (spec business-chat-bar, ADR 0194 point 2).
     private var tools: [Tool] {
         guard model.isCompany else { return [] }
         var tools: [Tool] = []
@@ -389,7 +398,9 @@ struct BusinessProfileButtons: View {
         if model.canOrder {
             tools.append(Tool(id: "order", title: BipeStrings.orderMake, prominent: false) { model.route = .order(itemId: nil) })
         }
-        tools.append(Tool(id: "quote", title: BipeStrings.quoteRequest, prominent: false) { model.requestingQuote = true })
+        if model.canRequestQuote {
+            tools.append(Tool(id: "quote", title: BipeStrings.quoteRequest, prominent: false) { model.requestingQuote = true })
+        }
         if model.queueOpen {
             tools.append(Tool(id: "queue", title: BipeStrings.queueJoin, prominent: !model.canBook) { model.route = .queue })
         }

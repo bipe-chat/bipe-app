@@ -1,0 +1,19 @@
+diff --git a/crates/matrix-sdk/src/automatic_call_status.rs b/crates/matrix-sdk/src/automatic_call_status.rs
+index c2e89ca..2df12dd 100644
+--- a/crates/matrix-sdk/src/automatic_call_status.rs
++++ b/crates/matrix-sdk/src/automatic_call_status.rs
+@@ -20,13 +20,13 @@
+ use std::{
+     collections::HashSet,
+     sync::{Arc, Mutex},
+-    time::SystemTime,
+ };
+ 
+ use matrix_sdk_common::executor::spawn;
+ use ruma::{
+     OwnedRoomId, SecondsSinceUnixEpoch,
+     events::{OriginalSyncStateEvent, call::member::CallMemberEventContent},
++    time::SystemTime,
+ };
+ use tracing::warn;
+ 

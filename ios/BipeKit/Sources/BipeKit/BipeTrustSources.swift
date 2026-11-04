@@ -6,7 +6,7 @@ import Foundation
 
 /// The source adapter of the separate trust facts (ADR 0074, bipe-shared docs/trust-facts.md) for a person's profile.
 /// It fills BipeTrustInput only from authenticated sources: the SDK's cross-signing state of the person and the
-/// company seal that BadgeVerifier checked. Names, handles and profile fields never reach it.
+/// company or person seal that BadgeVerifier checked. Names, handles and profile fields never reach it.
 public enum BipeTrustSources {
     /// The person's identity as the SDK reports it (Encryption.userIdentity).
     public struct Identity: Equatable, Sendable {
@@ -24,10 +24,10 @@ public enum BipeTrustSources {
         }
     }
 
-    /// The company seal after BadgeVerifier (BipeCompanySealState), reduced to what the facts need.
+    /// The seal after BadgeVerifier (BipeCompanySealState, BipePersonSealState), reduced to what the facts need.
     public enum Seal: Equatable, Sendable {
         case none
-        /// A valid cnpj badge bound to the person's current master key, with its verified name.
+        /// A valid badge bound to the person's current master key, with its verified name.
         case verified(name: String)
         /// The person had a seal and it no longer verifies (for example after a master key reset).
         case suspended
@@ -55,7 +55,7 @@ public enum BipeTrustSources {
             input.badgeName = name
             input.badgeIssuedAt = proofTime
         case .suspended:
-            input.badgeStatus = "device_mismatch"
+            input.badgeStatus = "master_key_mismatch"
         case .none:
             break
         }

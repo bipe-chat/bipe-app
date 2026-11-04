@@ -4,6 +4,7 @@
 
 package chat.bipe.app.business
 
+import chat.bipe.app.common.BipeToastHost
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.ContextWrapper
@@ -103,11 +104,10 @@ class BusinessApi(val session: AccountSession) {
     suspend fun <T> withOpenId(request: suspend BipeApiClient.(BipeOpenIdToken) -> T): T =
         BipeApiClient.withOpenIdRetry(session.openId) { token -> api.request(token) }
 
-    /** A display name of a Matrix account: the profile name, else the ID's localpart. Never the full Matrix ID. */
+    /** A display name of a Matrix account by People names: the real profile name, else the @, else bipe_person_no_name. */
     suspend fun displayName(userId: String): String {
         names[userId]?.let { return it }
-        val name = runCatching { session.client.getProfile(userId).displayName }.getOrNull()?.takeIf { it.isNotBlank() }
-            ?: userId.removePrefix("@").substringBefore(':')
+        val name = chat.bipe.app.people.Person.name(userId, runCatching { session.client.getProfile(userId).displayName }.getOrNull())
         names[userId] = name
         return name
     }
@@ -340,7 +340,9 @@ fun CatalogPhoto(url: String?, name: String, size: Dp) {
 fun BusinessFullScreen(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(modifier = Modifier.fillMaxSize(), color = BipeTheme.colors.surfaceBase) {
-            Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) { content() }
+            BipeToastHost(Modifier.fillMaxSize(), bottom = 24.dp) {
+                Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) { content() }
+            }
         }
     }
 }

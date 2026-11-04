@@ -319,6 +319,7 @@ private fun RecoveryEmailScreen(model: RecoveryFlowModel) {
 private fun RecoveryBetaScreen(model: RecoveryFlowModel) {
     val email by model.betaEmail.collectAsState()
     val password by model.betaPassword.collectAsState()
+    val pin by model.betaPin.collectAsState()
     val busy by model.betaBusy.collectAsState()
     val error by model.betaError.collectAsState()
     RecoveryStep(BipeScreen.RECOVERY_START, stringResource(R.string.bipe_recovery_beta), stringResource(R.string.bipe_recovery_beta_body), onBack = { model.back() }) {
@@ -337,6 +338,16 @@ private fun RecoveryBetaScreen(model: RecoveryFlowModel) {
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        // Optional: with the account PIN the account moves to device-first after sign-in (bipe-chat/bipe#908).
+        OutlinedTextField(
+            value = pin,
+            onValueChange = model::editBetaPin,
+            label = { Text(stringResource(R.string.bipe_pin_enter_title)) },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             modifier = Modifier.fillMaxWidth(),
         )
         error?.let { Footer(it, isError = true) }

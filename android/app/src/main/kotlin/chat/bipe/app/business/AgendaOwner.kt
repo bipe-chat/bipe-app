@@ -4,8 +4,8 @@
 
 package chat.bipe.app.business
 
+import chat.bipe.app.common.BipeToasts
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -356,7 +356,7 @@ fun AgendaOwnerScreen(session: AccountSession, chatList: ChatListModel, onOpenCh
                         val customers = model.closeToday()
                         sheet = when {
                             customers == null -> {
-                                Toast.makeText(context, context.getString(R.string.bipe_agenda_error_save), Toast.LENGTH_SHORT).show()
+                                BipeToasts.show(context.getString(R.string.bipe_agenda_error_save))
                                 null
                             }
                             customers.isEmpty() -> null
@@ -458,7 +458,9 @@ private fun OwnerBookingRow(view: BookingView, showsAgenda: Boolean, onClick: ()
             Text(BusinessText.time(view.end), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(view.customerName.orEmpty(), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = colors.inkPrimary)
+            // A web record is name-only with a web mark (ADR 0195 point 17).
+            val shownName = view.customerName.orEmpty() + if (view.booking.web) " · ${stringResource(R.string.bipe_web_record_mark)}" else ""
+            Text(shownName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = colors.inkPrimary)
             Text(view.serviceName, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
             if (showsAgenda) view.agendaName?.let { Text(stringResource(R.string.bipe_agenda_with, it), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary) }
             Text(stringResource(BusinessText.status(view.status)), style = MaterialTheme.typography.labelSmall, color = statusColor(view.status))
@@ -522,7 +524,7 @@ private fun CloseMessageDialog(model: AgendaOwnerModel, customers: List<String>,
                 sending = true
                 scope.launch {
                     val sent = model.sendToCustomers(customers, text.trim())
-                    Toast.makeText(context, context.getString(R.string.bipe_agenda_close_today_sent, sent.toString()), Toast.LENGTH_SHORT).show()
+                    BipeToasts.show(context.getString(R.string.bipe_agenda_close_today_sent, sent.toString()))
                     sending = false
                     onClose()
                 }
@@ -600,7 +602,7 @@ fun AgendaOwnerBookingSheet(
             ) {
                 if (booking != null) {
                     Text(stringResource(BusinessText.status(booking.status)), style = MaterialTheme.typography.labelLarge, color = statusColor(booking.status))
-                    Detail(stringResource(R.string.bipe_agenda_customer), booking.customerName.orEmpty())
+                    Detail(stringResource(R.string.bipe_agenda_customer), booking.customerName.orEmpty() + if (booking.booking.web) " · ${stringResource(R.string.bipe_web_record_mark)}" else "")
                     Detail(stringResource(R.string.bipe_agenda_service), booking.serviceName)
                     booking.agendaName?.let { Detail(stringResource(R.string.bipe_agenda_person), it) }
                     Detail(stringResource(R.string.bipe_agenda_date), BusinessText.date(booking.start))

@@ -425,7 +425,7 @@ final class CallSession: ObservableObject, Identifiable {
         tiles = others.map { member in
             let participant = remote[LiveKit.Participant.Identity(from: member.identity)]
             let known = names[member.userId]
-            return CallTile(id: member.identity, userId: member.userId, name: known?.name ?? member.userId,
+            return CallTile(id: member.identity, userId: member.userId, name: known?.name ?? BipeChatRowName.person(userID: member.userId, displayName: nil, handle: nil),
                             avatarUrl: known?.avatarUrl, speaking: participant?.isSpeaking ?? false,
                             microphoneOn: participant?.isMicrophoneEnabled() ?? true,
                             cameraOn: participant?.isCameraEnabled() ?? false, track: participant?.firstCameraVideoTrack)
@@ -443,13 +443,13 @@ final class CallSession: ObservableObject, Identifiable {
     private func loadNames(for userIds: [String]) {
         let missing = Set(userIds).filter { names[$0] == nil }
         guard !missing.isEmpty else { return }
-        for id in missing { names[id] = (id, nil) }
+        for id in missing { names[id] = (BipeChatRowName.person(userID: id, displayName: nil, handle: nil), nil) }
         let room = room
         Task {
             for id in missing {
                 let name = (try? await room.memberDisplayName(userId: id)) ?? nil
                 let avatar = (try? await room.memberAvatarUrl(userId: id)) ?? nil
-                names[id] = (name ?? id, avatar)
+                names[id] = (BipeChatRowName.person(userID: id, displayName: name, handle: nil), avatar)
             }
             refresh()
         }

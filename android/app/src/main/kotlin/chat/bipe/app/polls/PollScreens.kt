@@ -4,7 +4,7 @@
 
 package chat.bipe.app.polls
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -168,7 +168,7 @@ fun PollDetailScreen(session: AccountSession, timeline: ChatTimelineModel, event
                                 if (poll.yourVote != option.answerId && pollTimeline != null) {
                                     scope.launch {
                                         runCatching { pollTimeline.sendPollResponse(poll.eventId, listOf(option.answerId)) }
-                                            .onFailure { Toast.makeText(context, voteError, Toast.LENGTH_LONG).show() }
+                                            .onFailure { BipeToasts.show(voteError) }
                                     }
                                 }
                             }
@@ -184,7 +184,7 @@ fun PollDetailScreen(session: AccountSession, timeline: ChatTimelineModel, event
                             Text(stringResource(R.string.bipe_app_poll_most_votes), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = colors.accentInk)
                         }
                         if (option.voterIds.isNotEmpty()) {
-                            Text(option.voterIds.joinToString { names[it] ?: it }, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
+                            Text(option.voterIds.joinToString { names[it] ?: chat.bipe.app.people.Person.name(it, null) }, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary)
                         }
                     }
                 }

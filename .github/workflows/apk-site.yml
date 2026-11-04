@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# The site serves the newest tester APK (bipe-chat/bipe#893). bipe-infra CronJob bipe-apk-pull copies the newest
+# bipe-next-apk artifact of main to https://bipe.chat/baixar/android/bipe.apk every 15 minutes. From 27 to 31 October
+# 2026 it failed (its token Secret had no key) and the site served an old build. This check fails when the site's
+# latest.json names an older artifact than the newest one on main, and that artifact is older than 1 hour.
+name: apk-site
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  check:
+    name: apk-site
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: bipe.chat serves the newest tester APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          served=$(curl -fsS https://bipe.chat/baixar/android/latest.json | jq -r .artifact_id)
+          newest=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=bipe-next-apk&per_page=50" \
+            --jq '[.artifacts[] | select(.workflow_run.head_branch == "main" and (.expired | not))] | max_by(.created_at) | "\(.id) \(.created_at)"')
+          read -r id created <<< "$newest"
+          age=$(( $(date +%s) - $(date -d "$created" +%s) ))
+          echo "served artifact $served, newest artifact $id from $created (${age}s ago)"
+          if [ "$served" != "$id" ] && [ "$age" -gt 3600 ]; then
+            echo "::error::bipe.chat serves artifact $served, main has $id since $created. Check CronJob bipe-apk-pull in bipe-infra k8s/bipe/apk-pull.yaml."
+            exit 1
+          fi

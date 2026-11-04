@@ -4,6 +4,10 @@
 
 package chat.bipe.app.invites
 
+import chat.bipe.app.common.BipeToastHost
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -50,7 +54,9 @@ fun InviteSomeoneNewRow(session: AccountSession, media: MediaLoader) {
     GroupRow(PhosphorIcon.PLUS, stringResource(R.string.bipe_contacts_invite)) { open = true }
     if (open) {
         Dialog(onDismissRequest = { open = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            InvitesScreen(session, api, media, onClose = { open = false }, onOpenChat = {})
+            BipeToastHost(Modifier.fillMaxSize(), bottom = 24.dp) {
+                InvitesScreen(session, api, media, onClose = { open = false }, onOpenChat = {})
+            }
         }
     }
 }

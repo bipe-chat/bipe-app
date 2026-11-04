@@ -161,16 +161,30 @@ public struct BipeMatrixAccountAPI: Sendable {
 }
 
 public extension BipeAPIClient {
-    /// `POST /v1/web-link/finish`: ends the MAS browser sessions that the private web view made (ADR 0118).
-    func finishWebLink(since: Date, accessToken: String) async throws(BipeAPIError) {
+    /// `POST /v1/web-link/finish`: ends the MAS browser sessions that the private web view made (ADR 0118). With kind
+    /// computer, bipe-api also records the web session that this phone approved (bipe-chat/bipe#398).
+    func finishWebLink(since: Date, kind: WebLinkKind? = nil, accessToken: String) async throws(BipeAPIError) {
         let _: NoContent = try await send(method: "POST", path: ["v1", "web-link", "finish"],
-                                          body: WebLinkFinish(since: since.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true))),
+                                          body: WebLinkFinish(since: since.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)),
+                                                              kind: kind?.rawValue),
                                           accessToken: accessToken)
     }
+
+    /// `POST /v1/web-link/sign-out`: signs out the web sessions that this phone approved (bipe-chat/bipe#398).
+    func signOutWebLinks(accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "POST", path: ["v1", "web-link", "sign-out"], body: Empty?.none, accessToken: accessToken)
+    }
+}
+
+/// What the phone approved: a web sign-in (link-computer) or a new phone (link-phone).
+public enum WebLinkKind: String, Sendable {
+    case computer
+    case phone
 }
 
 private struct WebLinkFinish: Encodable {
     let since: String
+    let kind: String?
 }
 
 // Link a computer (specs link-computer-scan and link-computer-approve, bipe-chat/bipe#574). Moved from bipe-ios

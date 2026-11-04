@@ -4,7 +4,7 @@
 
 package chat.bipe.app.business
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -69,6 +69,7 @@ import chat.bipe.shared.api.myQueuePlaces
 import chat.bipe.shared.api.myQuotes
 import chat.bipe.shared.api.ownerCatalog
 import chat.bipe.shared.api.ownerQuoteRequests
+import chat.bipe.shared.api.liveTools
 import chat.bipe.shared.api.publicQueue
 import chat.bipe.shared.api.publicAgendas
 import chat.bipe.shared.api.publicCatalog
@@ -113,6 +114,8 @@ class BusinessChatModel(val business: BusinessApi, private val media: MediaLoade
         val isCompany: Boolean = false,
         val handle: String? = null,
         val canBook: Boolean = false,
+        /** The quotes tool is live: Pedir orçamento shows. */
+        val canRequestQuote: Boolean = false,
         val hasCatalog: Boolean = false,
         /** IDs of the services the customer can book, for catalog-view's Agendar. */
         val bookableServices: Set<String> = emptySet(),
@@ -182,24 +185,27 @@ class BusinessChatModel(val business: BusinessApi, private val media: MediaLoade
         val handle = runCatching { business.withOpenId { resolveHandles(listOf(peerUserId), it) }[peerUserId] }.getOrNull()
         val route = handle ?: peerUserId
         val name = business.displayName(peerUserId)
-        val services = runCatching { business.api.publicServices(route) }.getOrNull().orEmpty()
+        // Spec business-chat-bar: a tool shows only when it is live (ADR 0194 point 2).
+        val live = runCatching { business.api.liveTools(route) }.getOrNull().orEmpty().toSet()
+        val services = if ("agenda" in live) runCatching { business.api.publicServices(route) }.getOrNull().orEmpty() else emptyList()
         val catalog = runCatching { business.api.publicCatalog(route) }.getOrNull().orEmpty()
         val open = runCatching { business.withToken { myBookings(it) } }.getOrNull().orEmpty()
             .filter { it.businessId == peerUserId && it.bookingStatus.isOpen }
         val agendas = if (open.isEmpty()) emptyMap() else
             runCatching { business.api.publicAgendas(route, null) }.getOrNull().orEmpty().associate { it.id to it.name }
         val names = (catalog + services).associate { it.id to it.name }
-        val queue = runCatching { business.api.publicQueue(route) }.getOrNull()
+        val queue = if ("queue" in live) runCatching { business.api.publicQueue(route) }.getOrNull() else null
         val orders = runCatching { business.withToken { myOrders(it) } }.getOrNull().orEmpty().filter { it.businessId == peerUserId }
         val quotes = runCatching { business.withToken { myQuotes(it) } }.getOrNull().orEmpty().filter { it.businessId == peerUserId }
         val place = runCatching { business.withToken { myQueuePlaces(it) } }.getOrNull().orEmpty()
             .firstOrNull { it.place.businessId == peerUserId && it.place.placeStatus.isActive }
-        val products = catalog.filter(::isOrderable)
+        val products = if ("orders" in live) catalog.filter(::isOrderable) else emptyList()
         state = State(
             isCompany = true,
             handle = handle,
             canBook = services.isNotEmpty(),
-            hasCatalog = catalog.isNotEmpty(),
+            hasCatalog = "catalog" in live && catalog.isNotEmpty(),
+            canRequestQuote = "quotes" in live,
             bookableServices = services.map { it.id }.toSet(),
             bookings = open.map { BookingView(it, route, name, names[it.serviceId].orEmpty(), agendas[it.agendaId], null) },
             businessName = name,
@@ -305,7 +311,7 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
         if (state.canBook) DropdownMenuItem(text = { Text(stringResource(R.string.bipe_agenda_book)) }, onClick = { open(BusinessSheet.Book()) })
         if (state.hasCatalog) DropdownMenuItem(text = { Text(stringResource(R.string.bipe_catalog_open)) }, onClick = { open(BusinessSheet.Catalog) })
         if (state.canOrder) DropdownMenuItem(text = { Text(stringResource(R.string.bipe_order_make)) }, onClick = { open(BusinessSheet.Order) })
-        DropdownMenuItem(text = { Text(stringResource(R.string.bipe_quote_request)) }, onClick = { open(BusinessSheet.RequestQuote) })
+        if (state.canRequestQuote) DropdownMenuItem(text = { Text(stringResource(R.string.bipe_quote_request)) }, onClick = { open(BusinessSheet.RequestQuote) })
         if (state.queueOpen || state.queuePlace != null) {
             DropdownMenuItem(text = { Text(stringResource(R.string.bipe_queue_join)) }, onClick = { open(BusinessSheet.Queue) })
         }
@@ -324,7 +330,7 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
             if (state.canBook) BipeButton(onClick = { sheet = BusinessSheet.Book() }) { Text(stringResource(R.string.bipe_agenda_book)) }
             if (state.hasCatalog) BipeTonalButton(onClick = { sheet = BusinessSheet.Catalog }) { Text(stringResource(R.string.bipe_catalog_open)) }
             if (state.canOrder) BipeTonalButton(onClick = { sheet = BusinessSheet.Order }) { Text(stringResource(R.string.bipe_order_make)) }
-            BipeTonalButton(onClick = { sheet = BusinessSheet.RequestQuote }) { Text(stringResource(R.string.bipe_quote_request)) }
+            if (state.canRequestQuote) BipeTonalButton(onClick = { sheet = BusinessSheet.RequestQuote }) { Text(stringResource(R.string.bipe_quote_request)) }
             if (state.queueOpen || state.queuePlace != null) {
                 BipeTonalButton(onClick = { sheet = BusinessSheet.Queue }) { Text(stringResource(R.string.bipe_queue_join)) }
             }
@@ -426,7 +432,7 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
                     preselectedServiceId = open.serviceId ?: open.moving?.booking?.serviceId,
                     moving = open.moving?.booking,
                     onClose = { booked ->
-                        if (booked) Toast.makeText(context, context.getString(R.string.bipe_agenda_booked), Toast.LENGTH_LONG).show()
+                        if (booked) BipeToasts.show(context.getString(R.string.bipe_agenda_booked))
                         close(booked)
                     },
                 )
@@ -460,7 +466,7 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
                     onClose = { sent ->
                         if (sent) {
                             cart.clear()
-                            Toast.makeText(context, context.getString(R.string.bipe_order_sent), Toast.LENGTH_LONG).show()
+                            BipeToasts.show(context.getString(R.string.bipe_order_sent))
                         }
                         close(sent)
                     },
@@ -481,7 +487,7 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
                         model.business.withToken { acceptQuoteForBooking(route, quote.id, quote.currentVersion, serviceId, agendaId, start, it) }
                     },
                     onClose = { booked ->
-                        if (booked) Toast.makeText(context, context.getString(R.string.bipe_agenda_booked), Toast.LENGTH_LONG).show()
+                        if (booked) BipeToasts.show(context.getString(R.string.bipe_agenda_booked))
                         close(booked)
                     },
                 )

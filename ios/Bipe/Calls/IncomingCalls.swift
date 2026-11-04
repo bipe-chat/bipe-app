@@ -56,7 +56,7 @@ final class IncomingCalls: ObservableObject {
         guard read.ring, ringing == nil, !CallCenter.shared.isInCall(roomId: roomId),
               !CallKitCenter.shared.isRinging(eventId: eventId) else { return }
         let call = IncomingCall(accountUserId: accountUserId, roomId: roomId, ringEventId: eventId,
-                                callerName: item.senderInfo.displayName ?? sender, callerAvatarUrl: item.senderInfo.avatarUrl,
+                                callerName: BipeChatRowName.person(userID: sender, displayName: item.senderInfo.displayName, handle: nil), callerAvatarUrl: item.senderInfo.avatarUrl,
                                 video: read.video, expiresAt: Date(timeIntervalSince1970: Double(read.expiresAt) / 1000))
         start(call, session: session)
     }

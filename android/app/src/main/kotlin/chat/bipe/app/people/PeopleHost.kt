@@ -4,8 +4,8 @@
 
 package chat.bipe.app.people
 
+import chat.bipe.app.common.BipeToasts
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -25,10 +25,12 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.business.QUEUE_LINK_QUERY
 import chat.bipe.app.business.QueueLinkScreen
+import chat.bipe.app.groups.GroupLinkOpenScreen
 import chat.bipe.app.groups.RoomLink
 import chat.bipe.app.groups.RoomLinkOpenScreen
 import chat.bipe.app.media.stickers.StickerPackScreen
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeInviteLink
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.R
 import chat.bipe.stickers.StickerPackRef
@@ -57,6 +59,13 @@ object PeopleLinks {
         return true
     }
 
+    /** A bipe.chat/g/<code> group link on a signed-in phone (spec group-link-open). */
+    fun offerGroupLink(uri: Uri): Boolean {
+        val code = BipeInviteLink.groupCode(uri) ?: return false
+        _pending.value = PeopleRoute.GroupLinkOpen(code)
+        return true
+    }
+
     fun take(): PeopleRoute? = _pending.value.also { _pending.value = null }
 }
 
@@ -74,8 +83,6 @@ class PeopleNavigation(
     val newGroup: ((String) -> Unit)? = null,
     /** person-profile notifications (fromDm): chat-notifications for the DM. */
     val notifications: ((String) -> Unit)? = null,
-    /** person-profile deleteChat (fromDm): dm-delete for the DM. */
-    val deleteChat: ((String) -> Unit)? = null,
     /** contacts invite: opens invites. */
     val invite: (() -> Unit)? = null,
 )
@@ -90,6 +97,7 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
             val openMessage = navigation.openMessage
             if (eventId != null && openMessage != null) openMessage(roomId, eventId) else navigation.openChat(roomId)
         }, onClose = navigation.pop)
+        is PeopleRoute.GroupLinkOpen -> GroupLinkOpenScreen(people, route.code, openChat = navigation.openChat, onClose = navigation.pop)
         is PeopleRoute.PersonProfile -> PersonProfileScreen(
             people,
             route.userId,
@@ -99,16 +107,14 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
                 openReport = { roomId -> navigation.push(PeopleRoute.ReportChat(roomId, isDm = true, otherUserId = route.userId)) },
                 newGroup = navigation.newGroup,
                 notifications = navigation.notifications,
-                deleteChat = navigation.deleteChat,
             ),
             onBack = navigation.pop,
         )
-        PeopleRoute.ProfileEdit -> ProfileEditScreen(people, onBack = navigation.pop)
-        PeopleRoute.PublicProfile -> PublicProfileEditScreen(
+        PeopleRoute.ProfileEdit -> ProfileEditScreen(
             people,
+            onBack = navigation.pop,
             pickHandle = navigation.pickHandle,
             openLink = { navigation.push(PeopleRoute.ProfileLink) },
-            onBack = navigation.pop,
         )
         PeopleRoute.ProfileQr -> ProfileLinkScreen(people, pickHandle = navigation.pickHandle, onBack = navigation.pop, showQr = true)
         PeopleRoute.ProfileLink -> ProfileLinkScreen(people, pickHandle = navigation.pickHandle, onBack = navigation.pop)
@@ -144,7 +150,7 @@ fun PeopleScreen(route: PeopleRoute, people: PeopleService, navigation: PeopleNa
                 route.isDm,
                 route.otherUserId,
                 onSent = { message ->
-                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    BipeToasts.show(message)
                     navigation.pop()
                 },
                 onBack = navigation.pop,
@@ -171,8 +177,7 @@ fun PeopleMenu(open: (PeopleRoute) -> Unit) {
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         listOf(
-            Triple(PhosphorIcon.USER_CIRCLE, R.string.bipe_settings_profile_name_photo, PeopleRoute.ProfileEdit),
-            Triple(PhosphorIcon.USER_CIRCLE, R.string.bipe_settings_public_profile, PeopleRoute.PublicProfile),
+            Triple(PhosphorIcon.USER_CIRCLE, R.string.bipe_settings_profile, PeopleRoute.ProfileEdit),
             Triple(PhosphorIcon.QR_CODE, R.string.bipe_app_profile_link, PeopleRoute.ProfileLink),
             Triple(PhosphorIcon.ADDRESS_BOOK, R.string.bipe_contacts_title, PeopleRoute.Contacts),
             Triple(PhosphorIcon.CHAT_TEXT, R.string.bipe_messaging_title, PeopleRoute.WhoCanMessage),
