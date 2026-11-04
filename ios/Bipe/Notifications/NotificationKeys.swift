@@ -38,6 +38,8 @@ enum NotificationKeys {
     static let inviteJoinedKind = "inviteJoined"
     static let groupLinkJoinedKind = "groupLinkJoined"
     static let roomIdPush = "bipe_room_id"
+    /// The local kind of the business pushes (bipe-chat/bipe#320): a tap opens the owner's account.
+    static let businessKind = "businessNotice"
 
     /// The owner of a local account notice (an approval nudge or a recovery alert) of `kind`, while its route still
     /// belongs to the recorded owner.

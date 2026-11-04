@@ -9,10 +9,19 @@ import Foundation
 public struct BipeNotificationPrefs: Codable, Sendable, Equatable {
     public let inviteJoined: Bool
     public let groupLinkJoined: Bool
+    /// The reminders of this account's bookings (bipe-chat/bipe#320).
+    public let bookingReminders: Bool
+    /// Company account: new bookings, new orders and customer cancellations.
+    public let workAlerts: Bool
+    /// Company account: the morning summary.
+    public let workSummary: Bool
 
-    public init(inviteJoined: Bool, groupLinkJoined: Bool) {
+    public init(inviteJoined: Bool, groupLinkJoined: Bool, bookingReminders: Bool = true, workAlerts: Bool = true, workSummary: Bool = true) {
         self.inviteJoined = inviteJoined
         self.groupLinkJoined = groupLinkJoined
+        self.bookingReminders = bookingReminders
+        self.workAlerts = workAlerts
+        self.workSummary = workSummary
     }
 }
 

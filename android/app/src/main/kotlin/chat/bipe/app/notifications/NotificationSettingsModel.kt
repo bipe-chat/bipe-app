@@ -165,6 +165,19 @@ class NotificationSettingsModel(
         _state.value.joinPrefs?.let { saveJoinPrefs(it.copy(groupLinkJoined = isOn)) }
     }
 
+    /** Actions setBookingReminders, setWorkAlerts, setWorkSummary (bipe-chat/bipe#320). */
+    fun setBookingReminders(isOn: Boolean) {
+        _state.value.joinPrefs?.let { saveJoinPrefs(it.copy(bookingReminders = isOn)) }
+    }
+
+    fun setWorkAlerts(isOn: Boolean) {
+        _state.value.joinPrefs?.let { saveJoinPrefs(it.copy(workAlerts = isOn)) }
+    }
+
+    fun setWorkSummary(isOn: Boolean) {
+        _state.value.joinPrefs?.let { saveJoinPrefs(it.copy(workSummary = isOn)) }
+    }
+
     /** Shows the new value at once; a failure puts the switch back and shows bipe_error_generic. */
     private fun saveJoinPrefs(prefs: BipeNotificationPrefs) {
         val old = _state.value.joinPrefs

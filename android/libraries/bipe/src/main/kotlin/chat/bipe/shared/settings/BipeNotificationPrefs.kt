@@ -16,6 +16,12 @@ import kotlinx.serialization.Serializable
 data class BipeNotificationPrefs(
     @SerialName("invite_joined") val inviteJoined: Boolean,
     @SerialName("group_link_joined") val groupLinkJoined: Boolean,
+    /** The reminders of this account's bookings (bipe-chat/bipe#320). */
+    @SerialName("booking_reminders") val bookingReminders: Boolean = true,
+    /** Company account: new bookings, new orders and customer cancellations. */
+    @SerialName("work_alerts") val workAlerts: Boolean = true,
+    /** Company account: the morning summary. */
+    @SerialName("work_summary") val workSummary: Boolean = true,
 )
 
 /** `GET /v1/me/notification-prefs`. No saved prefs: both true. */

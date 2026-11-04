@@ -105,6 +105,17 @@ struct NotificationSettingsView: View {
                     Toggle(isOn: binding(prefs.groupLinkJoined) { isOn in Task { await model.setGroupLinkJoined(isOn) } }) {
                         Text(BipeStrings.notificationsGroupLinkJoined)
                     }
+                    Toggle(isOn: binding(prefs.bookingReminders) { isOn in Task { await model.setBookingReminders(isOn) } }) {
+                        Text(BipeStrings.notificationsBookingReminders)
+                    }
+                    if model.isCompany {
+                        Toggle(isOn: binding(prefs.workAlerts) { isOn in Task { await model.setWorkAlerts(isOn) } }) {
+                            Text(BipeStrings.notificationsWorkAlerts)
+                        }
+                        Toggle(isOn: binding(prefs.workSummary) { isOn in Task { await model.setWorkSummary(isOn) } }) {
+                            Text(BipeStrings.notificationsWorkSummary)
+                        }
+                    }
                 } footer: {
                     Text(BipeStrings.notificationsJoinsFooter)
                 }

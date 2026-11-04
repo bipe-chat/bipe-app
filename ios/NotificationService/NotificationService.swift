@@ -22,6 +22,19 @@ final class NotificationService: UNNotificationServiceExtension {
     private var eventId: String?
     private var accountRoute: String?
 
+    /// The business pushes (bipe-chat/bipe#320): content-free, so the text is fixed here.
+    private static let businessText: [String: (title: String, body: String)] = [
+        "booking_tomorrow": (BipeStrings.pushBookingTomorrowTitle, BipeStrings.pushBookingTomorrowBody),
+        "booking_soon": (BipeStrings.pushBookingSoonTitle, BipeStrings.pushBookingSoonBody),
+        "booking_changed": (BipeStrings.pushBookingChangedTitle, BipeStrings.pushBookingChangedBody),
+        "order_updated": (BipeStrings.pushOrderUpdatedTitle, BipeStrings.pushOrderUpdatedBody),
+        "queue_called": (BipeStrings.queueCalled, BipeStrings.pushQueueCalledBody),
+        "work_new_booking": (BipeStrings.pushWorkNewBookingTitle, BipeStrings.pushWorkBody),
+        "work_new_order": (BipeStrings.pushWorkNewOrderTitle, BipeStrings.pushWorkBody),
+        "work_cancelled": (BipeStrings.pushWorkCancelledTitle, BipeStrings.pushWorkBody),
+        "work_today": (BipeStrings.pushWorkTodayTitle, BipeStrings.pushWorkBody),
+    ]
+
     override func didReceive(
         _ request: UNNotificationRequest,
         withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
@@ -41,6 +54,10 @@ final class NotificationService: UNNotificationServiceExtension {
         case NotificationKeys.recoveryCompletedPush:
             deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.recoveryKind,
                                        title: BipeStrings.appName, body: BipeStrings.recoveryPushCompletedBody))
+            return
+        case let kind? where Self.businessText[kind] != nil:
+            let text = Self.businessText[kind]!
+            deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.businessKind, title: text.title, body: text.body))
             return
         case NotificationKeys.inviteJoinedPush:
             deliver(Self.accountNotice(route: noticeRoute, kind: NotificationKeys.inviteJoinedKind,
