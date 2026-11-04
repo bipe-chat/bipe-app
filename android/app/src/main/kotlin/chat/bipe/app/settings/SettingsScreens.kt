@@ -379,6 +379,7 @@ fun SettingsGroupScreen(
     var showsSignOut by remember { mutableStateOf(false) }
     var showsDelete by remember { mutableStateOf(false) }
     var cancellingDeletion by remember { mutableStateOf(false) }
+    var blockingMove by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val lock = remember { AppLockModel.get(context) }
     val lockOn by lock.isOn.collectAsState()
@@ -404,6 +405,7 @@ fun SettingsGroupScreen(
     val deletionCancelReason = stringResource(R.string.bipe_deletion_cancel_reason)
     val deletionCancelled = stringResource(R.string.bipe_deletion_cancelled)
     val deletionCancelError = stringResource(R.string.bipe_deletion_cancel_error)
+    val moveBlockFailed = stringResource(R.string.bipe_phone_move_block_failed)
 
     fun tap(row: BipeSettingsRow) {
         if (row.kind == BipeSettingsRowKind.URL) {
@@ -464,6 +466,20 @@ fun SettingsGroupScreen(
                         val cancelled = model.cancelDeletion(deletion)
                         cancellingDeletion = false
                         BipeToasts.show(if (cancelled) deletionCancelled else deletionCancelError)
+                    }
+                }
+            }
+        }
+        // Spec phone-link-status, move (bipe-chat/bipe#469).
+        val phoneMove = state.phoneMove
+        if (group == BipeSettingsGroup.PRIVACY && phoneMove != null) {
+            item(key = "phone-move-banner") {
+                PhoneMoveBanner(phoneMove, blockingMove) {
+                    scope.launch {
+                        blockingMove = true
+                        val blocked = model.blockPhoneMove(phoneMove)
+                        blockingMove = false
+                        if (!blocked) BipeToasts.show(moveBlockFailed)
                     }
                 }
             }

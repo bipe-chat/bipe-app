@@ -59,7 +59,26 @@ public enum BipePhoneLinkState: Equatable, Sendable {
         return BipeStrings.privacyNumberValue(BipePhoneNumber.display(number), summary)
     }
 
-    private static func format(_ date: Date) -> String {
+    static func format(_ date: Date) -> String {
         date.formatted(date: .long, time: .omitted)
+    }
+}
+
+/// Spec phone-link-status, move (bipe-chat/bipe#469): a number moving between accounts. It never names the other account.
+public struct BipePhoneMove: Decodable, Sendable, Equatable {
+    public let id: String
+    /// `out`: another account proved this account's number. `in`: this account proved a number another account holds.
+    public let direction: String
+    public let state: String
+    public let ends: Date?
+
+    /// Only the holder of a waiting move can block it.
+    public var canBlock: Bool { direction == "out" && state == "waiting" }
+
+    /// The banner text.
+    public var text: String {
+        if state == "blocked" { return BipeStrings.phoneMoveBlocked }
+        let date = ends.map(BipePhoneLinkState.format) ?? ""
+        return direction == "out" ? BipeStrings.phoneMoveOut(date) : BipeStrings.phoneMoveIn(date)
     }
 }
