@@ -1222,7 +1222,7 @@ final class ChatTimelineModel: ObservableObject {
             var readers: [AssistantReader] = []
             for userId in BipeAssistantSend.readers(stateJson: state) {
                 let name = ((try? await room.memberDisplayName(userId: userId)) ?? nil)?.nilIfBlank
-                readers.append(AssistantReader(id: userId, name: name ?? Person.localpart(of: userId)))
+                readers.append(AssistantReader(id: userId, name: name ?? BipeWebLink.localpart(of: userId)))
             }
             guard !Task.isCancelled, let self else { return }
             if self.assistantReaders != readers { self.assistantReaders = readers }

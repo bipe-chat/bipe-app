@@ -442,7 +442,7 @@ class ChatTimelineModel(
             }
             val readers = BipeAssistantSend.readers(state).map { userId ->
                 val name = runCatching { room.memberDisplayName(userId) }.getOrNull()?.takeIf { it.isNotBlank() }
-                AssistantReader(userId, name ?: chat.bipe.app.people.Person.localpart(userId))
+                AssistantReader(userId, name ?: chat.bipe.shared.weblink.BipeWebLink.localpart(userId))
             }
             _assistantReaders.value = readers
         }
