@@ -70,7 +70,6 @@ import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.inviteConnections
 import chat.bipe.shared.invites.BipeInviteTrust
-import chat.bipe.shared.company.BipeCompanySealState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -596,15 +595,16 @@ private data class RequestTrust(val kind: ChatRequestSummary.Trust, val verified
 @Composable
 private fun requestTrust(model: ChatRequestsModel, request: ChatRequestSummary): RequestTrust {
     val seals by model.people.seals.states.collectAsState()
+    val persons by model.people.seals.personSeals.collectAsState()
     val tick by produceState(0L, model, request.inviterId) {
         while (isActive) { delay(30_000); value += 1 }
     }
-    return remember(request.inviterId, request.trust, seals[request.inviterId], tick) {
+    return remember(request.inviterId, request.trust, seals[request.inviterId], persons[request.inviterId], tick) {
         if (request.trust == ChatRequestSummary.Trust.EXTERNAL) RequestTrust(ChatRequestSummary.Trust.EXTERNAL)
         else {
-            val seal = model.people.seals.seal(request.inviterId)
-            if (seal is BipeCompanySealState.Verified && seal.payload.name.isNotBlank()) {
-                RequestTrust(ChatRequestSummary.Trust.VERIFIED, seal.payload.name, seal.payload.msk?.let { "master:$it" })
+            val badge = model.people.seals.verifiedBadge(request.inviterId)
+            if (badge != null && badge.name.isNotBlank()) {
+                RequestTrust(ChatRequestSummary.Trust.VERIFIED, badge.name, badge.msk?.let { "master:$it" })
             } else RequestTrust(ChatRequestSummary.Trust.UNVERIFIED)
         }
     }

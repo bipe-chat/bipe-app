@@ -10,7 +10,7 @@ import chat.bipe.shared.generated.BipeTrustInput
 /**
  * The source adapter of the separate trust facts (ADR 0074, bipe-shared docs/trust-facts.md) for a person's profile.
  * It fills BipeTrustInput only from authenticated sources: the SDK's cross-signing state of the person and the
- * company seal that BadgeVerifier checked. Names, handles and profile fields never reach it.
+ * company or person seal that BadgeVerifier checked. Names, handles and profile fields never reach it.
  */
 object BipeTrustSources {
     /** The person's identity as the SDK reports it (Encryption.userIdentity). */
@@ -23,11 +23,11 @@ object BipeTrustSources {
         val hasVerificationViolation: Boolean,
     )
 
-    /** The company seal after BadgeVerifier (BipeCompanySealState), reduced to what the facts need. */
+    /** The seal after BadgeVerifier (BipeCompanySealState, BipePersonSealState), reduced to what the facts need. */
     sealed interface Seal {
         data object None : Seal
 
-        /** A valid cnpj badge bound to the person's current master key, with its verified name. */
+        /** A valid badge bound to the person's current master key, with its verified name. */
         data class Verified(val name: String) : Seal
 
         /** The person had a seal and it no longer verifies (for example after a master key reset). */

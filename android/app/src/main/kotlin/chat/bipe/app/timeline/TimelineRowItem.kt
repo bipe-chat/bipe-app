@@ -65,6 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.SealMark
 import chat.bipe.app.common.memberLabel
 import chat.bipe.app.location.TimelineLiveLocationRow
 import chat.bipe.app.location.TimelineLocationRow
@@ -200,7 +201,7 @@ fun TimelineRowItem(
             Box(Modifier.clickable { onOpenPoll(poll.eventId) }) {
                 Bubble(message.isOwn) {
                     if (!message.isOwn && !isDm) {
-                        Text(senderLabel(message), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
+                        SenderLine(message, colors.accentInk)
                     }
                     PollCard(poll)
                     MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))
@@ -360,7 +361,7 @@ private fun MessageBubbleRow(
                     },
             ) {
                 if (!message.isOwn && !isDm) {
-                    Text(senderLabel(message), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.accentInk)
+                    SenderLine(message, colors.accentInk)
                 }
                 // Spec chat-timeline notes (bipe-chat/bipe#933): voice rows keep their own source line.
                 if (message.voice == null) BipeForwardMark.line(message.forwardCount)?.let { ForwardLine(it) }
@@ -625,7 +626,7 @@ private fun UndecryptableRow(message: TimelineMessage, onHistoryHelp: () -> Unit
     LaunchedEffect(message.id, encryption) { if (approvalCanHelp) encryption?.noteUndecryptable() }
     Bubble(message.isOwn, modifier = Modifier.testTag(BipeScreen.MESSAGE_UNDECRYPTABLE.id)) {
         if (!message.isOwn) {
-            Text(senderLabel(message), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors.inkSecondary)
+            SenderLine(message, colors.inkSecondary)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Icon(painterResource(PhosphorIcon.LOCK_SIMPLE.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(14.dp).padding(top = 2.dp))
@@ -668,6 +669,21 @@ private fun DeletedRow(message: TimelineMessage) {
             )
         }
         MessageTimestamp(message.sentAt, Modifier.align(Alignment.End))
+    }
+}
+
+/** The sender line with the sender's seal (spec timeline-rows, bipe-chat/bipe#596). */
+@Composable
+private fun SenderLine(message: TimelineMessage, color: androidx.compose.ui.graphics.Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            senderLabel(message),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = color,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        SealMark(message.senderId, size = 14.dp)
     }
 }
 
