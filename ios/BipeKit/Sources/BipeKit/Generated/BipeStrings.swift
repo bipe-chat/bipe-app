@@ -4508,6 +4508,40 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_loja_queue_position", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var pushBookingTomorrowTitle: String { NSLocalizedString("bipe_push_booking_tomorrow_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushBookingTomorrowBody: String { NSLocalizedString("bipe_push_booking_tomorrow_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushBookingSoonTitle: String { NSLocalizedString("bipe_push_booking_soon_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushBookingSoonBody: String { NSLocalizedString("bipe_push_booking_soon_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushBookingChangedTitle: String { NSLocalizedString("bipe_push_booking_changed_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushBookingChangedBody: String { NSLocalizedString("bipe_push_booking_changed_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushOrderUpdatedTitle: String { NSLocalizedString("bipe_push_order_updated_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushOrderUpdatedBody: String { NSLocalizedString("bipe_push_order_updated_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushQueueCalledBody: String { NSLocalizedString("bipe_push_queue_called_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushWorkNewBookingTitle: String { NSLocalizedString("bipe_push_work_new_booking_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushWorkNewOrderTitle: String { NSLocalizedString("bipe_push_work_new_order_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushWorkCancelledTitle: String { NSLocalizedString("bipe_push_work_cancelled_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushWorkTodayTitle: String { NSLocalizedString("bipe_push_work_today_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var pushWorkBody: String { NSLocalizedString("bipe_push_work_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var notificationsBookingReminders: String { NSLocalizedString("bipe_notifications_booking_reminders", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var notificationsWorkAlerts: String { NSLocalizedString("bipe_notifications_work_alerts", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var notificationsWorkSummary: String { NSLocalizedString("bipe_notifications_work_summary", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var businessToolsTitle: String { NSLocalizedString("bipe_business_tools_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var businessToolsFooter: String { NSLocalizedString("bipe_business_tools_footer", tableName: "Bipe", bundle: .module, comment: "") }
