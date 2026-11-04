@@ -523,6 +523,8 @@ struct SignupNameView: View {
                           text: model.displayName, onChange: model.editName,
                           contentType: model.isCompany ? UITextContentType.organizationName : .name)
             FieldFooter(text: BipeStrings.signupDisplayNameFooter)
+            // The person's region, read-only (ADR 0197).
+            FieldFooter(text: BipeStrings.onboardingPointBrazil)
             termsRow
             if model.showTermsRequired {
                 FieldFooter(text: BipeStrings.signupTermsRequired, isError: true)
