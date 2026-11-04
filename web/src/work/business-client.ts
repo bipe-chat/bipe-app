@@ -46,6 +46,8 @@ import type {
   Quote,
   QuoteAccept,
   QueuePosition,
+  QuoteLinkInput,
+  QuoteLinkResult,
   QuoteRequest,
   QuoteVersionInput,
   Service,
@@ -215,6 +217,10 @@ export class BusinessClient {
   quotes = () => this.get<{ quotes: Quote[] }>('/v1/me/business/quotes');
   quote = (id: string) => this.get<Quote>(`/v1/me/business/quotes/${enc(id)}`);
   reviseQuote = (id: string, v: QuoteVersionInput) => this.post<Quote>(`/v1/me/business/quotes/${enc(id)}/versions`, v);
+  /** A quote for a person with no Bipe account (ADR 0185). The link shows only here. */
+  createQuoteLink = (v: QuoteLinkInput) => this.post<QuoteLinkResult>('/v1/me/business/quotes/links', v);
+  renewQuoteLink = (id: string) => this.post<QuoteLinkResult>(`/v1/me/business/quotes/${enc(id)}/link`);
+  revokeQuoteLink = (id: string) => this.request<Quote>('DELETE', `/v1/me/business/quotes/${enc(id)}/link`);
 
   // ---- Pedidos (spec order-owner). No Pix charge on the web (ADR 0226 point 6). ----
 

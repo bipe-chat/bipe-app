@@ -5,6 +5,8 @@
 package chat.bipe.app.business
 
 import chat.bipe.app.common.BipeToasts
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,7 +69,11 @@ import chat.bipe.shared.api.BipeQuoteStatus
 import chat.bipe.shared.api.BipeQuoteVersionInput
 import chat.bipe.shared.api.FULFILMENT_PICKUP
 import chat.bipe.shared.api.acceptQuoteForOrder
+import chat.bipe.shared.api.BipeQuoteLink
 import chat.bipe.shared.api.answerQuoteRequest
+import chat.bipe.shared.api.createQuoteLink
+import chat.bipe.shared.api.renewQuoteLink
+import chat.bipe.shared.api.revokeQuoteLink
 import chat.bipe.shared.api.ownerCatalog
 import chat.bipe.shared.api.ownerQuoteRequests
 import chat.bipe.shared.api.ownerQuotes
@@ -320,7 +326,13 @@ private fun RequestedAt(request: BipeQuoteRequest) {
 }
 
 /** What the owner's quote list has open. */
-private data class QuoteDraftTarget(val quote: BipeQuote?, val request: BipeQuoteRequest?, val customerName: String)
+private data class QuoteDraftTarget(val quote: BipeQuote?, val request: BipeQuoteRequest?, val customerName: String, val link: Boolean = false)
+
+/** The share sheet of a quote link, with the text of ADR 0185. */
+private fun shareQuoteLink(context: Context, made: BipeQuoteLink) {
+    val text = context.getString(R.string.bipe_quote_share_text, made.businessName, BusinessText.reais(made.quote.current?.totalAmountCents ?: 0L), made.link)
+    context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null))
+}
 
 /**
  * Spec quote-builder, list part: the requests with no quote (newest first) and the quotes with their status. Each
@@ -329,6 +341,8 @@ private data class QuoteDraftTarget(val quote: BipeQuote?, val request: BipeQuot
 @Composable
 fun QuoteOwnerScreen(business: BusinessApi, onOpenChat: ((String) -> Unit)?, onClose: () -> Unit) {
     val colors = BipeTheme.colors
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var requests by remember { mutableStateOf<List<BipeQuoteRequest>?>(null) }
     var quotes by remember { mutableStateOf<List<BipeQuote>>(emptyList()) }
     var itemNames by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
@@ -344,7 +358,7 @@ fun QuoteOwnerScreen(business: BusinessApi, onOpenChat: ((String) -> Unit)?, onC
             quotes = business.withToken { ownerQuotes(it) }
             requests = open
             itemNames = runCatching { business.withToken { ownerCatalog(it) } }.getOrNull().orEmpty().associate { it.id to it.name }
-            (open.map { it.customerId } + quotes.map { it.customerId }).distinct().forEach { names[it] = business.displayName(it) }
+            (open.map { it.customerId } + quotes.map { it.customerId }).filter { it.isNotEmpty() }.distinct().forEach { names[it] = business.displayName(it) }
         } catch (error: CancellationException) {
             throw error
         } catch (_: Exception) {
@@ -352,7 +366,9 @@ fun QuoteOwnerScreen(business: BusinessApi, onOpenChat: ((String) -> Unit)?, onC
         }
     }
     Column(Modifier.fillMaxSize().testTag(BipeScreen.QUOTE_BUILDER.id)) {
-        GroupTopBar(stringResource(R.string.bipe_quotes_title), onBack = onClose)
+        GroupTopBar(stringResource(R.string.bipe_quotes_title), onBack = onClose) {
+            TextButton(onClick = { draft = QuoteDraftTarget(null, null, "", link = true) }) { Text(stringResource(R.string.bipe_quote_for_no_app)) }
+        }
         val open = requests
         when {
             failed && open == null -> LoadFailed(stringResource(R.string.bipe_quote_load_failed)) { attempt++ }
@@ -379,7 +395,7 @@ fun QuoteOwnerScreen(business: BusinessApi, onOpenChat: ((String) -> Unit)?, onC
                 }
                 if (quotes.isNotEmpty()) item(key = "quotes") { GroupSectionHeader(stringResource(R.string.bipe_quotes_title)) }
                 items(quotes, key = { "q-" + it.id }) { quote ->
-                    val name = names[quote.customerId].orEmpty()
+                    val name = quote.customerName ?: names[quote.customerId].orEmpty()
                     QuoteCard(
                         quote = quote,
                         ownerMode = true,
@@ -391,8 +407,26 @@ fun QuoteOwnerScreen(business: BusinessApi, onOpenChat: ((String) -> Unit)?, onC
                         onRevise = { draft = QuoteDraftTarget(quote, null, name) },
                         onChanged = { attempt++ },
                         customerName = name,
-                        onOpenChat = onOpenChat,
+                        onOpenChat = onOpenChat.takeIf { quote.customerId.isNotEmpty() },
                     )
+                    if (quote.customerName != null && quote.quoteStatus == BipeQuoteStatus.OFFERED) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = {
+                                scope.launch {
+                                    runCatching { business.withToken { renewQuoteLink(quote.id, it) } }.getOrNull()?.let { shareQuoteLink(context, it) }
+                                    attempt++
+                                }
+                            }) { Text(stringResource(R.string.bipe_quote_share_link)) }
+                            if (quote.hasLink) {
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        runCatching { business.withToken { revokeQuoteLink(quote.id, it) } }
+                                        attempt++
+                                    }
+                                }) { Text(stringResource(R.string.bipe_quote_revoke_link)) }
+                            }
+                        }
+                    }
                 }
                 item(key = "end") { Spacer(Modifier.size(16.dp)) }
             }
@@ -400,13 +434,15 @@ fun QuoteOwnerScreen(business: BusinessApi, onOpenChat: ((String) -> Unit)?, onC
     }
     draft?.let { target ->
         BusinessFullScreen(onDismiss = { draft = null }) {
-            QuoteBuilderScreen(business, target.quote, target.request, target.customerName, onClose = { sent ->
+            QuoteBuilderScreen(business, target.quote, target.request, target.customerName, link = target.link, onClose = { sent ->
                 draft = null
                 if (sent) attempt++
             })
         }
     }
 }
+
+private const val LINK_NAME_MAX = 40
 
 /** One draft line: a catálogo item ([itemId], its name fixed) or a typed name; quantity and unit price as typed. */
 private data class DraftLine(val itemId: String?, val name: String, val quantity: String, val unitPrice: String) {
@@ -437,9 +473,11 @@ fun QuoteBuilderScreen(
     quote: BipeQuote?,
     request: BipeQuoteRequest?,
     customerName: String,
+    link: Boolean = false,
     onClose: (Boolean) -> Unit,
 ) {
     val colors = BipeTheme.colors
+    var typedName by remember { mutableStateOf("") }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var catalog by remember { mutableStateOf<List<BipeCatalogItem>>(emptyList()) }
@@ -466,7 +504,7 @@ fun QuoteBuilderScreen(
         catalog = runCatching { business.withToken { ownerCatalog(it) } }.getOrNull().orEmpty()
     }
     val services = catalog.filter { it.isService && it.active }
-    val valid = lines.isNotEmpty() && lines.all { it.valid } && (request != null || quote != null)
+    val valid = lines.isNotEmpty() && lines.all { it.valid } && (request != null || quote != null || (link && typedName.isNotBlank()))
 
     fun send() {
         saving = true
@@ -474,7 +512,9 @@ fun QuoteBuilderScreen(
         val input = BipeQuoteVersionInput(lines.map { it.input() }, BusinessText.endOfDay(validUntil), visitServiceId)
         scope.launch {
             try {
-                business.withToken { token ->
+                if (link) {
+                    shareQuoteLink(context, business.withToken { createQuoteLink(typedName.trim().take(LINK_NAME_MAX), input, it) })
+                } else business.withToken { token ->
                     if (quote != null) reviseQuote(quote.id, input, token) else answerQuoteRequest(request!!.id, input, token)
                 }
                 onClose(true)
@@ -497,6 +537,15 @@ fun QuoteBuilderScreen(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            if (link) {
+                OutlinedTextField(
+                    value = typedName,
+                    onValueChange = { typedName = it.take(LINK_NAME_MAX) },
+                    label = { Text(stringResource(R.string.bipe_quote_customer_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             if (customerName.isNotBlank()) Text(customerName, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
             request?.let { RequestedAt(it) }
             lines.forEachIndexed { index, line ->

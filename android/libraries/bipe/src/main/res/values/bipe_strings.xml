@@ -1987,6 +1987,14 @@
     <string name="bipe_notifications_booking_reminders">Lembretes dos meus horários</string>
     <string name="bipe_notifications_work_alerts">Novos pedidos e agendamentos</string>
     <string name="bipe_notifications_work_summary">Resumo da agenda de manhã</string>
+    <string name="bipe_quote_for_no_app">Orçamento para quem não usa o Bipe</string>
+    <string name="bipe_quote_customer_name">Nome da pessoa</string>
+    <string name="bipe_quote_share_text">%1$s enviou um orçamento de %2$s: %3$s</string>
+    <string name="bipe_quote_share_link">Compartilhar link</string>
+    <string name="bipe_quote_revoke_link">Cancelar link</string>
+    <string name="bipe_quote_link_gone">Este link não vale mais. Peça um novo para a loja.</string>
+    <string name="bipe_quote_link_accepted">Orçamento aceito. A loja recebeu seu pedido.</string>
+    <string name="bipe_quote_link_refused">Orçamento recusado.</string>
     <string name="bipe_business_tools_title">Ferramentas do negócio</string>
     <string name="bipe_business_tools_footer">Seus clientes encontram estas ferramentas no seu perfil e na conversa com você.</string>
     <string name="bipe_business_tools_a11y">Ferramentas do negócio</string>

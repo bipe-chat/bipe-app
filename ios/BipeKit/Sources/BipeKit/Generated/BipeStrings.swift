@@ -4564,6 +4564,24 @@ public enum BipeStrings {
 
     public static var notificationsWorkSummary: String { NSLocalizedString("bipe_notifications_work_summary", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var quoteForNoApp: String { NSLocalizedString("bipe_quote_for_no_app", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var quoteCustomerName: String { NSLocalizedString("bipe_quote_customer_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func quoteShareText(_ p1: String, _ p2: String, _ p3: String) -> String {
+        String(format: NSLocalizedString("bipe_quote_share_text", tableName: "Bipe", bundle: .module, comment: ""), p1, p2, p3)
+    }
+
+    public static var quoteShareLink: String { NSLocalizedString("bipe_quote_share_link", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var quoteRevokeLink: String { NSLocalizedString("bipe_quote_revoke_link", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var quoteLinkGone: String { NSLocalizedString("bipe_quote_link_gone", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var quoteLinkAccepted: String { NSLocalizedString("bipe_quote_link_accepted", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var quoteLinkRefused: String { NSLocalizedString("bipe_quote_link_refused", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var businessToolsTitle: String { NSLocalizedString("bipe_business_tools_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var businessToolsFooter: String { NSLocalizedString("bipe_business_tools_footer", tableName: "Bipe", bundle: .module, comment: "") }

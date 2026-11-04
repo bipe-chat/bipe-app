@@ -105,6 +105,21 @@ extension BipeBusinessAPI {
         try await request("POST", ["v1", "me", "business", "quotes", quoteId, "versions"], json: version)
     }
 
+    /// `POST /v1/me/business/quotes/links`. A quote for a person with no Bipe account (ADR 0185).
+    public func createQuoteLink(customerName: String, _ version: BipeQuoteVersionInput) async throws(BipeAPIError) -> BipeQuoteLink {
+        try await request("POST", ["v1", "me", "business", "quotes", "links"], json: QuoteLinkBody(customerName: customerName, version: version))
+    }
+
+    /// `POST /v1/me/business/quotes/{id}/link`. A new link; the old one stops.
+    public func renewQuoteLink(quoteId: String) async throws(BipeAPIError) -> BipeQuoteLink {
+        try await request("POST", ["v1", "me", "business", "quotes", quoteId, "link"], json: EmptyLinkBody())
+    }
+
+    /// `DELETE /v1/me/business/quotes/{id}/link`.
+    public func revokeQuoteLink(quoteId: String) async throws(BipeAPIError) -> BipeQuote {
+        try await request("DELETE", ["v1", "me", "business", "quotes", quoteId, "link"])
+    }
+
     // MARK: - Orçamento, customer
 
     /// `POST /v1/businesses/{business}/quotes/requests`. A second tap returns the open request.
@@ -388,7 +403,12 @@ public struct BipeQuote: Decodable, Sendable, Identifiable, Equatable {
     public let id: String
     public let requestId: String
     public let businessId: String
+    /// Empty for a quote shared as a link (ADR 0185).
     public let customerId: String
+    /// The name the owner typed, for a quote shared as a link.
+    public let customerName: String?
+    /// A link to this quote works now.
+    public let hasLink: Bool
     public let status: BipeQuoteStatus
     public let currentVersion: Int
     public let versions: [BipeQuoteVersion]
@@ -396,7 +416,7 @@ public struct BipeQuote: Decodable, Sendable, Identifiable, Equatable {
     public let orderId: String?
 
     private enum CodingKeys: String, CodingKey {
-        case id, requestId, businessId, customerId, status, currentVersion, versions, bookingId, orderId
+        case id, requestId, businessId, customerId, customerName, hasLink, status, currentVersion, versions, bookingId, orderId
     }
 
     public init(from decoder: Decoder) throws {
@@ -405,6 +425,8 @@ public struct BipeQuote: Decodable, Sendable, Identifiable, Equatable {
         requestId = try container.decode(String.self, forKey: .requestId)
         businessId = try container.decode(String.self, forKey: .businessId)
         customerId = try container.decode(String.self, forKey: .customerId)
+        customerName = try container.decodeIfPresent(String.self, forKey: .customerName)
+        hasLink = try container.decodeIfPresent(Bool.self, forKey: .hasLink) ?? false
         // An unknown status from a newer server shows with no action.
         status = try BipeQuoteStatus(rawValue: container.decode(String.self, forKey: .status)) ?? .refused
         currentVersion = try container.decode(Int.self, forKey: .currentVersion)
@@ -637,5 +659,28 @@ extension BipeAPIError {
         case .paymentRequiresVerifiedBusiness, .pixChargeUnavailable: BipeStrings.orderErrorPix
         default: BipeStrings.orderError
         }
+    }
+}
+
+/// Contract `QuoteLinkResult`. The link shows only here: the server keeps a hash of its ID.
+public struct BipeQuoteLink: Decodable, Sendable, Equatable {
+    public let quote: BipeQuote
+    public let link: String
+    public let businessName: String
+}
+
+private struct EmptyLinkBody: Encodable {}
+
+/// Contract `QuoteLinkInput`: a version with the name the owner typed.
+private struct QuoteLinkBody: Encodable {
+    let customerName: String
+    let version: BipeQuoteVersionInput
+
+    private enum CodingKeys: String, CodingKey { case customerName }
+
+    func encode(to encoder: Encoder) throws {
+        try version.encode(to: encoder)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(customerName, forKey: .customerName)
     }
 }
