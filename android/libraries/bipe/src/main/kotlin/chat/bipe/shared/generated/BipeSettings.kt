@@ -62,7 +62,7 @@ enum class BipeSettingsRow(
     CHATS_SHOW_MEDIA("chats.showMedia", BipeSettingsRowKind.CHOICE, R.string.bipe_chats_show_media, null, null, null, null),
     CHATS_MEDIA_QUALITY("chats.mediaQuality", BipeSettingsRowKind.LINK, R.string.bipe_chats_media_quality, null, null, null, null),
     CHATS_DATA_USE("chats.dataUse", BipeSettingsRowKind.LINK, R.string.bipe_chats_data_use, null, null, null, null),
-    CHATS_MURAL("chats.mural", BipeSettingsRowKind.SWITCH, R.string.bipe_chats_mural, R.string.bipe_chats_mural_footer, "planned:1044", null, null),
+    CHATS_MURAL("chats.mural", BipeSettingsRowKind.SWITCH, R.string.bipe_chats_mural, R.string.bipe_chats_mural_footer, null, null, null),
     CHATS_STICKER_SUGGESTIONS("chats.stickerSuggestions", BipeSettingsRowKind.SWITCH, R.string.bipe_chats_sticker_suggestions, R.string.bipe_chats_sticker_suggestions_footer, "planned:841", null, null),
     CHATS_LIVE_LOCATION("chats.liveLocation", BipeSettingsRowKind.LINK, R.string.bipe_chats_live_location, R.string.bipe_chats_live_location_footer, null, null, null),
     CHATS_YEAR_RECAP("chats.yearRecap", BipeSettingsRowKind.LINK, R.string.bipe_year_recap_title, null, null, null, null),
