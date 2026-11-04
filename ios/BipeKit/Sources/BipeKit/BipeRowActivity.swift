@@ -16,18 +16,21 @@ public enum BipeRowActivity {
     }
 
     /// One event of the room's local timeline: its origin_server_ts in milliseconds, its chat-list preview (nil when the
-    /// row shows no text for it) and whether this account sent it.
+    /// row shows no text for it) and whether this account sent it. isStateLine: a join, leave or room creation that the
+    /// row shows as a line. Its kind is message for the row text, but nobody wrote it (BipeHomeInputs does not count it).
     public struct LocalEvent: Sendable, Equatable {
         public let timestampMs: UInt64
         public let kind: Kind
         public let previewText: String?
         public let isOwn: Bool
+        public let isStateLine: Bool
 
-        public init(timestampMs: UInt64, kind: Kind, previewText: String? = nil, isOwn: Bool = false) {
+        public init(timestampMs: UInt64, kind: Kind, previewText: String? = nil, isOwn: Bool = false, isStateLine: Bool = false) {
             self.timestampMs = timestampMs
             self.kind = kind
             self.previewText = previewText
             self.isOwn = isOwn
+            self.isStateLine = isStateLine
         }
     }
 

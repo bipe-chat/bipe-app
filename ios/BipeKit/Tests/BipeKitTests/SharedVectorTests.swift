@@ -8,6 +8,61 @@ import Testing
 
 /// Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). Android runs the same files.
 struct SharedVectorTests {
+    /// Spec chat-list, Mural score (ADR 0246). A score case is one chat alone in the plan.
+    @Test
+    func homeScore() throws {
+        func chat(_ input: [String: Any]) throws -> BipeHomeChat {
+            let id = try #require(input["id"] as? String)
+            let kindName = try #require(input["kind"] as? String)
+            let kind = try #require(BipeHomeChatKind(rawValue: kindName))
+            return BipeHomeChat(
+                id: id,
+                kind: kind,
+                hasSeal: input["hasSeal"] as? Bool ?? false,
+                official: input["official"] as? Bool ?? false,
+                favourite: input["favourite"] as? Bool ?? false,
+                muted: input["muted"] as? Bool ?? false,
+                mentioned: input["mentioned"] as? Bool ?? false,
+                unreadCount: (input["unreadCount"] as? NSNumber)?.intValue ?? 0,
+                lastFromOther: input["lastFromOther"] as? Bool ?? false,
+                minutesSinceActivity: (input["minutesSinceActivity"] as? NSNumber)?.intValue,
+                messagesPerWeek: (input["messagesPerWeek"] as? NSNumber)?.intValue ?? 0,
+                trustWarning: input["trustWarning"] as? Bool ?? false,
+                modelAttention: input["modelAttention"] as? String,
+                modelDue: input["modelDue"] as? Bool ?? false)
+        }
+        func percent(_ value: Any?) throws -> Int {
+            let score = try #require((value as? NSNumber)?.doubleValue)
+            return Int((score * 100).rounded())
+        }
+        let scores = try SharedVectors.array("home-score.json", key: "score")
+        #expect(!scores.isEmpty)
+        for vector in scores {
+            let name = vector["name"] as? String ?? ""
+            let input = try #require(vector["input"] as? [String: Any])
+            let expected = try #require(vector["expected"] as? [String: Any])
+            let wanted = try percent(expected["score"])
+            let tile = try #require(BipeHomeScore.plan([try chat(input)]).first)
+            #expect(tile.scorePercent == wanted, "home score \(name)")
+            #expect(tile.tier == (expected["tier"] as? NSNumber)?.intValue, "home score tier \(name)")
+            #expect(tile.reason?.rawValue == expected["reason"] as? String, "home score reason \(name)")
+        }
+        let plans = try SharedVectors.array("home-score.json", key: "plan")
+        #expect(!plans.isEmpty)
+        for vector in plans {
+            let name = vector["name"] as? String ?? ""
+            let input = try #require(vector["input"] as? [[String: Any]])
+            let expected = try #require(vector["expected"] as? [[String: Any]])
+            let tiles = BipeHomeScore.plan(try input.map(chat))
+            #expect(tiles.map(\.id) == expected.compactMap { $0["id"] as? String }, "home plan order \(name)")
+            for (tile, want) in zip(tiles, expected) {
+                let wanted = try percent(want["score"])
+                #expect(tile.scorePercent == wanted, "home plan score \(name)")
+                #expect(tile.tier == (want["tier"] as? NSNumber)?.intValue, "home plan tier \(name)")
+            }
+        }
+    }
+
     @Test
     func govbrVerify() throws {
         let file = try SharedVectors.object("govbr-verify.json")

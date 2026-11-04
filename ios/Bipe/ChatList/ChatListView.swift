@@ -24,6 +24,11 @@ struct ChatListView: View {
     @State private var showingArchived = false
     /// State reorderingFavourites of spec chat-list.
     @State private var reorderingFavourites = false
+    /// State muralEnabled of spec chat-list: the setting of this account on this device (ADR 0246).
+    @AppStorage private var muralEnabled: Bool
+    /// State muralShowsList of spec chat-list.
+    @State private var muralShowsList = false
+    @StateObject private var mural: MuralModel
     @ObservedObject private var notifications = NotificationActions.shared
     @StateObject private var handle: HandlePickModel
     @StateObject private var recovery: RecoveryReminderModel
@@ -87,6 +92,8 @@ struct ChatListView: View {
     init(model: ChatListModel, scope: ChatScope, api: BipeAPIClient, encryption: EncryptionStatusModel,
          initialRoomId: String? = nil) {
         self.api = api
+        _muralEnabled = AppStorage(wrappedValue: false, MuralSetting.key(userId: model.session.userId))
+        _mural = StateObject(wrappedValue: MuralModel(chatList: model))
         _model = ObservedObject(wrappedValue: model)
         _archive = ObservedObject(wrappedValue: model.archive)
         _handle = StateObject(wrappedValue: HandlePickModel(api: api, session: model.session))
@@ -419,6 +426,12 @@ struct ChatListView: View {
         }
     }
 
+    /// Mural is on for this list. The Grupos tab does not change (spec chat-list, Mural scope).
+    private var muralOn: Bool { muralEnabled && scope != .grupos }
+
+    /// The chats of this list: with Mural on, Conversas shows DMs and groups, as the company todas scope does.
+    private var listScope: ChatScope { muralOn ? .todas : scope }
+
     private var content: some View {
         VStack(spacing: 0) {
             // Spec live-location-banner: this account shares its live location.
@@ -458,6 +471,12 @@ struct ChatListView: View {
                 ListEntryRow(icon: .caretLeft, title: scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle)
             }
             .buttonStyle(.plain)
+        } else if muralOn && muralShowsList {
+            // Spec chat-list openMuralList: back returns to the tiles.
+            Button { muralShowsList = false } label: {
+                ListEntryRow(icon: .caretLeft, title: BipeStrings.appChatListTitle)
+            }
+            .buttonStyle(.plain)
         }
         if model.readActionFailed {
             VStack(alignment: .leading) {
@@ -493,7 +512,7 @@ struct ChatListView: View {
 
     @ViewBuilder
     private var list: some View {
-        switch model.phase(in: scope, archived: showingArchived) {
+        switch model.phase(in: listScope, archived: showingArchived) {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -511,10 +530,13 @@ struct ChatListView: View {
                     .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
+        case .loaded where muralOn && !muralShowsList && !showingArchived:
+            muralList
         case .loaded:
-            // Spec chat-list favourites: a favourite shows in the row at the top, not again below it.
-            let chats = model.chats(in: scope, archived: showingArchived).filter { showingArchived || !$0.isFavourite }
-            let favourites = showingArchived ? [] : model.favourites(in: scope)
+            // Spec chat-list favourites: a favourite shows in the row at the top, not again below it. In Mural there is no
+            // favourites row, so the plain list has every chat.
+            let chats = model.chats(in: listScope, archived: showingArchived).filter { showingArchived || muralOn || !$0.isFavourite }
+            let favourites = showingArchived || muralOn ? [] : model.favourites(in: scope)
                 .filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }
             List {
                 // The first item of the list, above banners, cards, requests and invites.
@@ -546,6 +568,63 @@ struct ChatListView: View {
         }
     }
 
+    /// Spec chat-list, Mural on and the tiles shown: the banners, the cards and the Pedidos row, then the tiles.
+    private var muralList: some View {
+        let live = Dictionary(muralChats(model.chats).map { ($0.roomId, $0) }, uniquingKeysWith: { first, _ in first })
+        return List {
+            topRows
+            MuralTileRows(model: mural, chats: live, media: model.media, selectedRoomId: selectedRoomId,
+                          open: { roomId in
+                              mural.keepReply()
+                              openChat(roomId)
+                          },
+                          openList: {
+                              mural.keepReply()
+                              muralShowsList = true
+                          }) { rowMenu($0) }
+        }
+        .listStyle(.plain)
+        .scrollDismissesKeyboard(.interactively)
+        // Spec chat-list, Mural grid rules: a tile does not move during a touch or a scroll.
+        .onScrollPhaseChange { _, phase in mural.setHold(.scroll, phase != .idle) }
+        // Every publish of the rows: a read of the local timeline can change the plan and leave the summaries equal.
+        .onReceive(model.$chats) { mural.update(muralRooms($0)) }
+        .onChange(of: muralRooms(model.chats), initial: true) { _, rooms in mural.update(rooms) }
+        .onChange(of: detail) { _, next in
+            // Back from a chat: its composer can have changed the saved draft.
+            if next == nil { mural.reloadDraft() }
+        }
+        .onDisappear {
+            mural.keepReply()
+            mural.setHold(.scroll, false)
+        }
+    }
+
+    /// The chats with a score: joined (ChatListModel lists no invite), not archived, not cleared.
+    private func muralChats(_ chats: [ChatSummary]) -> [ChatSummary] {
+        chats.filter { !archive.contains($0) && !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }
+    }
+
+    /// Spec chat-list, Mural inputs. The seal store reads are synchronous and observable: a new answer draws this view again.
+    private func muralRooms(_ chats: [ChatSummary]) -> [BipeHomeInputs.Room] {
+        muralChats(chats).map { chat in
+            let peer = chat.isDm ? chat.peerUserId : nil
+            return BipeHomeInputs.Room(
+                id: chat.roomId, isDm: chat.isDm,
+                isCompany: peer.map { people.seals.isCompany($0) } ?? false,
+                sealMark: peer.flatMap { people.seals.mark(for: $0) },
+                official: chat.isOfficial, favourite: chat.isFavourite, muted: chat.isMuted,
+                mentionCount: chat.mentionCount, unreadCount: chat.unreadCount,
+                lastActivityMs: chat.lastActivity.map(MuralModel.milliseconds))
+        }
+    }
+
+    /// The open chat beside the tiles, on a wide window.
+    private var selectedRoomId: String? {
+        if horizontalSizeClass == .regular, case .room(let roomId) = detail { return roomId }
+        return nil
+    }
+
     @ViewBuilder private func rowMenu(_ roomId: String) -> some View {
         if let chat = model.currentChat(roomId) {
             // Spec chat-row-actions: Send media first, Archive last, no delete (a chat is archived, never deleted).
@@ -561,7 +640,7 @@ struct ChatListView: View {
                           systemImage: chat.isFavourite ? "star.slash" : "star")
                 }
                 // Spec chat-row-actions reorderFavourites: a favourite, when its scope has two or more.
-                if chat.isFavourite && model.favourites(in: scope).count >= 2 {
+                if chat.isFavourite && !muralOn && model.favourites(in: scope).count >= 2 {
                     Button { reorderingFavourites = true } label: {
                         Label(BipeStrings.chatFavouritesReorderAction, systemImage: "arrow.left.arrow.right")
                     }
@@ -772,39 +851,7 @@ struct ChatRow: View {
                         .foregroundStyle(BipeColor.inkSecondary)
                         .lineLimit(2)
                     Spacer(minLength: 8)
-                    // Spec chat-notifications: a muted chat keeps its badge, without sound or notification.
-                    if chat.isMuted {
-                        PhosphorIcon.bellSlash.labelledImage(BipeStrings.appNotificationModeOff)
-                            .resizable()
-                            .frame(width: 16, height: 16)
-                            .foregroundStyle(BipeColor.inkSecondary)
-                    }
-                    if chat.unreadCount > 0 {
-                        if chat.mentionCount > 0 {
-                            // A mention has its own mark, not only a colour (bipe#497). The count's label reads it.
-                            Text(verbatim: "@")
-                                .font(.caption.bold())
-                                .foregroundStyle(BipeColor.inkOnAccent)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Circle().fill(BipeColor.accentFill))
-                                .accessibilityHidden(true)
-                        }
-                        let count = chat.unreadCount.formatted()
-                        Text(count)
-                            .font(.caption.bold())
-                            .foregroundStyle(BipeColor.inkOnAccent)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(BipeColor.accentFill))
-                            // A mention is read with the count; the badge shows it by colour only (bipe#495).
-                            .accessibilityLabel(chat.mentionCount > 0
-                                ? BipeStrings.appChatListUnread(count) + ", " + BipeStrings.a11yMention
-                                : BipeStrings.appChatListUnread(count))
-                    } else if chat.isMarkedUnread {
-                        Circle().fill(BipeColor.accentFill).frame(width: 8, height: 8)
-                            .accessibilityLabel(BipeStrings.chatUnreadState)
-                    }
+                    ChatRowBadges(chat: chat)
                 }
             }
             // The separator starts at the text, not at the initials inside the avatar.
@@ -819,6 +866,47 @@ struct ChatRow: View {
         Calendar.current.isDateInToday(date)
             ? .dateTime.hour().minute()
             : .dateTime.day().month(.abbreviated)
+    }
+}
+
+/// The mute mark, the mention mark and the unread count of a chat (spec chat-list), on a row or a Mural tile.
+struct ChatRowBadges: View {
+    let chat: ChatSummary
+
+    var body: some View {
+        // Spec chat-notifications: a muted chat keeps its badge, without sound or notification.
+        if chat.isMuted {
+            PhosphorIcon.bellSlash.labelledImage(BipeStrings.appNotificationModeOff)
+                .resizable()
+                .frame(width: 16, height: 16)
+                .foregroundStyle(BipeColor.inkSecondary)
+        }
+        if chat.unreadCount > 0 {
+            if chat.mentionCount > 0 {
+                // A mention has its own mark, not only a colour (bipe#497). The count's label reads it.
+                Text(verbatim: "@")
+                    .font(.caption.bold())
+                    .foregroundStyle(BipeColor.inkOnAccent)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Circle().fill(BipeColor.accentFill))
+                    .accessibilityHidden(true)
+            }
+            let count = chat.unreadCount.formatted()
+            Text(count)
+                .font(.caption.bold())
+                .foregroundStyle(BipeColor.inkOnAccent)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(BipeColor.accentFill))
+                // A mention is read with the count; the badge shows it by colour only (bipe#495).
+                .accessibilityLabel(chat.mentionCount > 0
+                    ? BipeStrings.appChatListUnread(count) + ", " + BipeStrings.a11yMention
+                    : BipeStrings.appChatListUnread(count))
+        } else if chat.isMarkedUnread {
+            Circle().fill(BipeColor.accentFill).frame(width: 8, height: 8)
+                .accessibilityLabel(BipeStrings.chatUnreadState)
+        }
     }
 }
 
