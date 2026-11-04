@@ -2774,6 +2774,12 @@ public enum BipeStrings {
 
     public static var versionsNote: String { NSLocalizedString("bipe_versions_note", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var versionsTesting: String { NSLocalizedString("bipe_versions_testing", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func versionsReleased(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_versions_released", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static func versionsBuild(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_versions_build", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
