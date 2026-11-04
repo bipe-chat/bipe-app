@@ -120,13 +120,22 @@ enum SessionStore {
         return nil
     }
 
-    /// Replaces the app-group copy only. An older copy in the Team-ID group stays until sign-out; reads prefer this one.
+    /// Replaces the app-group copy only, in place: a failed write keeps the old session (bipe-chat/bipe#915). An older
+    /// copy in the Team-ID group stays until sign-out; reads prefer this one.
     private static func write(_ data: Data, account: String) {
-        SecItemDelete(query(account: account, group: ownGroup) as CFDictionary)
-        var item = query(account: account, group: ownGroup)
-        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        item[kSecValueData as String] = data
-        let status = SecItemAdd(item as CFDictionary, nil)
+        let own = query(account: account, group: ownGroup)
+        let attributes: [String: Any] = [
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+            kSecValueData as String: data,
+        ]
+        var status = SecItemUpdate(own as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            var item = own
+            item.merge(attributes) { _, new in new }
+            status = SecItemAdd(item as CFDictionary, nil)
+            // The notification service extension may have added the same item between the update and the add.
+            if status == errSecDuplicateItem { status = SecItemUpdate(own as CFDictionary, attributes as CFDictionary) }
+        }
         if status != errSecSuccess {
             NSLog("Bipe session write failed: \(status)")
         }
