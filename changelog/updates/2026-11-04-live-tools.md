@@ -1,7 +1,7 @@
 ---
 id: 2026-11-04-live-tools
 date: 2026-11-04
-kind: changed
+kind: improved
 platforms: [ios, android]
 refs: [bipe#802]
 ---
