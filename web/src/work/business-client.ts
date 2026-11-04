@@ -51,6 +51,7 @@ import type {
   Service,
   ServiceInput,
   SlotDays,
+  WebSettings,
   WorkSetup,
   WorkSuggestions,
 } from '../bipe/generated/business-api';
@@ -239,6 +240,11 @@ export class BusinessClient {
   dismissWorkSuggestion = (id: string) => this.post<WorkSuggestions>(`/v1/me/business/suggestions/${enc(id)}/dismiss`);
   businessToday = () => this.get<BusinessToday>('/v1/me/business/today');
   liveTools = (business: string) => this.get<BusinessLiveTools>(`/v1/businesses/${enc(business)}/tools`);
+
+  // ---- The owner's web switches (ADR 0195) ----
+
+  webSettings = () => this.get<WebSettings>('/v1/me/business/web-settings');
+  setWebSettings = (settings: WebSettings) => this.put<WebSettings>('/v1/me/business/web-settings', settings);
 
   // ---- Selos de revenda, read only on the web (spec brand-marks, ADR 0226 point 2) ----
 

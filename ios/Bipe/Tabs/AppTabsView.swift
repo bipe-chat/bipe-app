@@ -44,6 +44,25 @@ struct AppTabsView: View {
         return .search
     }
 
+    @State private var shopClaimNotice: String?
+
+    /// ADR 0195 point 7: the records of a shop token move to this account, then the chat with the shop opens.
+    private func runShopClaim(chatList: ChatListModel) async {
+        guard let claim = ShopClaim.pending() else { return }
+        guard let records = try? await session.business(api).claimWebRecords(business: claim.handle, token: claim.token) else {
+            ShopClaim.clear()
+            return
+        }
+        ShopClaim.clear()
+        shopClaimNotice = BipeStrings.lojaClaimed("@\(claim.handle)")
+        guard let businessId = records.bookings.first?.businessId ?? records.orders.first?.businessId else { return }
+        let people = PeopleService(session: session, api: api, media: chatList.media)
+        if let roomId = try? await people.openOrCreateDM(with: businessId) {
+            model.selectTab(.conversas)
+            TabsLinks.shared.link = .chat(roomId)
+        }
+    }
+
     var body: some View {
         let chatList = model.chatList(for: session)
         TabView(selection: Binding(get: { model.selectedTab }, set: { model.selectTab($0) })) {
@@ -153,7 +172,13 @@ struct AppTabsView: View {
         .sheet(isPresented: $showsNewAccount, onDismiss: { newAccountStart = nil }) {
             AccountNewView(tabs: model, session: session, api: api, preset: newAccountStart) { showsNewAccount = false }
         }
+        .task(id: session.userId) { await runShopClaim(chatList: chatList) }
+        .toast($shopClaimNotice, bottom: 72)
         .onOpenURL { url in
+            if ShopClaim.keep(url) {
+                Task { await runShopClaim(chatList: chatList) }
+                return
+            }
             if govbr.open(url) { return }
             if let code = BipeInviteLink.groupCode(from: url) {
                 model.selectTab(.conversas)

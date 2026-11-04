@@ -367,7 +367,9 @@ export function WorkSectorScreen({ client, onBack }: { client: BusinessClient; o
 export function WithToolState({ client, id, screen }: { client: BusinessClient; id: BusinessToolId; screen: ReactNode }) {
   const tools = useLoad(() => client.businessTools(), [client]);
   const action = useAction();
+  const web = useLoad(() => client.webSettings().catch(() => undefined), [client]);
   const tool = tools.data?.tools.find((t) => t.id === id);
+  const webKey = id === 'agenda' ? 'web_booking' : id === 'orders' ? 'web_orders' : undefined;
   const set = (state: 'live' | 'off') =>
     void action.run(() => client.setBusinessTool(id, state)).then((updated) => {
       if (updated) tools.setData(updated);
@@ -379,6 +381,22 @@ export function WithToolState({ client, id, screen }: { client: BusinessClient; 
         <div className="bipe-bar flex shrink-0 items-center gap-2 border-t-[0.5px] border-line-subtle px-4 py-1">
           <span className="min-w-0 flex-1 truncate text-footnote text-ink-secondary">{stateText(tool)}</span>
           <ErrorLine error={action.error} />
+          {webKey && tool.state === 'live' && web.data && (
+            <label className="flex items-center gap-1.5 text-footnote text-ink-primary">
+              <input
+                type="checkbox"
+                checked={web.data[webKey]}
+                disabled={action.busy}
+                onChange={(e) => {
+                  const next = { ...web.data!, [webKey]: e.target.checked };
+                  void action.run(() => client.setWebSettings(next)).then((saved) => {
+                    if (saved) web.setData(saved);
+                  });
+                }}
+              />
+              {id === 'agenda' ? s('bipe_web_booking_switch') : s('bipe_web_orders_switch')}
+            </label>
+          )}
           {tool.state === 'setup' && (
             <TextButton disabled={action.busy} onClick={() => set('live')}>
               {s('bipe_work_tool_publish')}

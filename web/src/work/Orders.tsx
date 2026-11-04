@@ -191,7 +191,7 @@ function OrderRow({ order, selected, onOpen }: { order: Order; selected: boolean
         onClick={onOpen}
       >
         <span className="flex items-baseline gap-2">
-          <span className="min-w-0 flex-1 truncate text-headline text-ink-primary">{customerText(order.customer)}</span>
+          <span className="min-w-0 flex-1 truncate text-headline text-ink-primary">{orderCustomerText(order)}</span>
           <span className="text-body tabular-nums text-ink-primary">{money(order.total_amount_cents)}</span>
         </span>
         <span className="truncate text-subheadline text-ink-secondary">
@@ -237,7 +237,7 @@ function OrderDetail({
   return (
     <div className="flex flex-col gap-6 px-4 pb-8">
       <DetailHeader title={s('bipe_order_card_title')} onClose={onClose} />
-      <Section header={customerText(order.customer)}>
+      <Section header={orderCustomerText(order)}>
         <li className="flex flex-col gap-1.5 px-4 py-3">
           <span className="text-subheadline text-ink-secondary">{whenText(order.created_at)}</span>
           {order.lines.map((line, i) => (
@@ -653,6 +653,9 @@ export function orderErrorText(e: unknown): string {
 function customerText(c: BookingCustomer): string {
   return customerName(c);
 }
+
+/** A web record is name-only with a web mark (ADR 0195 point 17). */
+const orderCustomerText = (o: Order) => (o.web ? `${customerText(o.customer)} · ${s('bipe_web_record_mark')}` : customerText(o.customer));
 
 /** The price of an orderable product (isOrderable on iOS): an active fixed-price product with an amount. */
 export function unitCents(item: CatalogItem): number | undefined {

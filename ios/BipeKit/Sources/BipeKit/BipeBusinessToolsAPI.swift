@@ -523,9 +523,11 @@ public struct BipeOrder: Decodable, Sendable, Identifiable, Equatable {
     public let status: BipeOrderStatus
     public let refuseReason: BipeOrderRefuseReason?
     public let quoteId: String?
+    /// Made on the web with a first name (ADR 0195). No chat.
+    public let web: Bool
 
     private enum CodingKeys: String, CodingKey {
-        case id, businessId, customer, source, createdAt, lines, totalAmountCents, fulfilment, payment, status, refuseReason, quoteId
+        case web, id, businessId, customer, source, createdAt, lines, totalAmountCents, fulfilment, payment, status, refuseReason, quoteId
     }
 
     public init(from decoder: Decoder) throws {
@@ -543,6 +545,7 @@ public struct BipeOrder: Decodable, Sendable, Identifiable, Equatable {
         status = try BipeOrderStatus(rawValue: container.decode(String.self, forKey: .status)) ?? .done
         refuseReason = try container.decodeIfPresent(String.self, forKey: .refuseReason).flatMap(BipeOrderRefuseReason.init(rawValue:))
         quoteId = try container.decodeIfPresent(String.self, forKey: .quoteId)
+        web = try container.decodeIfPresent(Bool.self, forKey: .web) ?? false
     }
 }
 

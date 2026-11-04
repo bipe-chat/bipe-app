@@ -6,6 +6,7 @@ package chat.bipe.app
 
 import chat.bipe.app.common.BipeToastHost
 import chat.bipe.app.common.BipeToasts
+import chat.bipe.app.business.ShopClaims
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.Bundle
@@ -167,6 +168,8 @@ class MainActivity : ComponentActivity() {
     private fun readInviteLink(intent: Intent?) {
         if (intent?.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
+        // A claim link waits for the account, through sign-up (ADR 0195 point 7).
+        if (ShopClaims.keep(applicationContext, uri.toString())) return
         // A profile link waits in PeopleLinks until the home screen shows (spec profile-link-open).
         if (PeopleLinks.offer(uri)) return
         // A group link opens group-link-open on a signed-in phone; else onboarding takes its code (spec group-link-open).

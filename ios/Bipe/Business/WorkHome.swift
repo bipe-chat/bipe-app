@@ -16,6 +16,8 @@ final class WorkHomeModel: ObservableObject {
     @Published private(set) var suggestion: BipeWorkSuggestion?
     @Published private(set) var today: BipeBusinessToday?
     @Published var askSector = false
+    /// The owner's web switches (ADR 0195).
+    @Published private(set) var web: BipeWebSettings?
     @Published var notice: String?
 
     let api: BipeBusinessAPI
@@ -34,6 +36,7 @@ final class WorkHomeModel: ObservableObject {
             sector = read.sector
         }
         setup = try? await api.workSetup()
+        web = try? await api.webSettings()
         suggestion = (try? await api.workSuggestions())?.first
         let hasLive = tools?.contains { $0.state == .live } == true
         today = hasLive ? try? await api.businessToday() : nil
@@ -60,6 +63,14 @@ final class WorkHomeModel: ObservableObject {
             notice = BipeStrings.workToolError
         }
         await load()
+    }
+
+    func setWeb(_ next: BipeWebSettings) async {
+        do {
+            web = try await api.setWebSettings(next)
+        } catch {
+            notice = BipeStrings.workToolError
+        }
     }
 
     func dismissSuggestion() async {
@@ -228,7 +239,7 @@ struct WorkHomeSections: View {
         Section(BipeStrings.workToday) {
             ForEach(today.bookings) { booking in
                 HStack {
-                    Text(BookingText.when(booking)).foregroundStyle(BipeColor.inkPrimary)
+                    Text(booking.web ? "\(BookingText.when(booking)) · \(BipeStrings.webRecordMark)" : BookingText.when(booking)).foregroundStyle(BipeColor.inkPrimary)
                     Spacer()
                     if booking.status == .requested {
                         Button(BipeStrings.workTodayConfirm) {
@@ -240,7 +251,7 @@ struct WorkHomeSections: View {
             }
             ForEach(today.orders) { order in
                 HStack {
-                    Text(BipeMoney.text(cents: order.totalAmountCents)).foregroundStyle(BipeColor.inkPrimary)
+                    Text(order.web ? "\(BipeMoney.text(cents: order.totalAmountCents)) · \(BipeStrings.webRecordMark)" : BipeMoney.text(cents: order.totalAmountCents)).foregroundStyle(BipeColor.inkPrimary)
                     Spacer()
                     if order.status == .sent {
                         Button(BipeStrings.workTodayAccept) {
@@ -398,6 +409,19 @@ struct WorkToolStateBar: View {
     private var tool: BipeBusinessTool? { model.tools?.first { $0.id == id } }
 
     var body: some View {
+        if let web = model.web, tool?.state == .live, id == "agenda" || id == "orders" {
+            Toggle(id == "agenda" ? BipeStrings.webBookingSwitch : BipeStrings.webOrdersSwitch,
+                   isOn: Binding(get: { id == "agenda" ? web.webBooking : web.webOrders },
+                                 set: { on in
+                                     var next = web
+                                     if id == "agenda" { next.webBooking = on } else { next.webOrders = on }
+                                     Task { await model.setWeb(next) }
+                                 }))
+                .font(.footnote)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .background(.bar)
+        }
         if let tool, tool.state != .off {
             HStack {
                 Text(tool.state == .live ? BipeStrings.workToolStateLive : BipeStrings.workToolStateSetup)

@@ -250,6 +250,9 @@ enum class BipeScreen(val id: String) {
     /** Location (flow chat). Spec: bipe-shared/product/screens/location-view.json */
     LOCATION_VIEW("location-view"),
 
+    /** Shop on the web (flow business). Spec: bipe-shared/product/screens/loja-web.json */
+    LOJA_WEB("loja-web"),
+
     /** Media viewer (flow chat). Spec: bipe-shared/product/screens/media-viewer.json */
     MEDIA_VIEWER("media-viewer"),
 

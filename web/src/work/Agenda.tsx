@@ -168,6 +168,8 @@ const OPEN: BookingStatus[] = ['held', 'requested', 'confirmed'];
 
 /** A name-only customer shows the name; a signed-in one the profile name (common.tsx customerName). */
 const customerText = (c: BookingCustomer) => customerName(c);
+/** A web record is name-only with a web mark (ADR 0195 point 17). */
+const bookingCustomerText = (b: Booking) => (b.web ? `${customerText(b.customer)} · ${s('bipe_web_record_mark')}` : customerText(b.customer));
 
 /** The agenda errors of bipe-api, as the phone shows them (BipeAPIError.agendaMessage). */
 const AGENDA_ERRORS: Record<string, StringKey> = {
@@ -586,7 +588,7 @@ function BookingCard({
     >
       <span className="text-footnote font-semibold text-ink-primary">{clockIn(timeZone, Date.parse(booking.start))}</span>
       <span className="truncate text-footnote text-ink-primary">{service}</span>
-      <span className="truncate text-caption text-ink-secondary">{customerText(booking.customer)}</span>
+      <span className="truncate text-caption text-ink-secondary">{bookingCustomerText(booking)}</span>
       {agenda && <span className="truncate text-caption text-ink-secondary">{agenda}</span>}
       {booking.status !== 'confirmed' && (
         <span className={`truncate text-caption ${STATUS_TINT[booking.status]}`}>{s(STATUS[booking.status])}</span>
@@ -716,7 +718,7 @@ export function BookingPanel({
           label={s('bipe_agenda_time')}
           value={`${clockIn(timeZone, start)} – ${clockIn(timeZone, Date.parse(booking.end))}`}
         />
-        <Detail label={s('bipe_agenda_customer')} value={customerText(booking.customer)} />
+        <Detail label={s('bipe_agenda_customer')} value={bookingCustomerText(booking)} />
         <Row>
           <span className={`text-subheadline font-semibold ${STATUS_TINT[status]}`}>{s(STATUS[status])}</span>
         </Row>

@@ -48,7 +48,41 @@ public struct BipeBusinessToday: Decodable, Sendable, Equatable {
     public let quoteRequests: [BipeQuoteRequest]
 }
 
+/// Contract `WebSettings`: the owner's web switches (ADR 0195).
+public struct BipeWebSettings: Codable, Sendable, Equatable {
+    public var webBooking: Bool
+    public var webOrders: Bool
+
+    public init(webBooking: Bool, webOrders: Bool) {
+        self.webBooking = webBooking
+        self.webOrders = webOrders
+    }
+}
+
+/// Contract `WebRecords`: the records a claim moved to the account.
+public struct BipeWebRecords: Decodable, Sendable, Equatable {
+    public let bookings: [BipeBooking]
+    public let orders: [BipeOrder]
+}
+
 extension BipeBusinessAPI {
+    /// `GET /v1/me/business/web-settings`.
+    public func webSettings() async throws(BipeAPIError) -> BipeWebSettings {
+        try await request("GET", ["v1", "me", "business", "web-settings"])
+    }
+
+    /// `PUT /v1/me/business/web-settings`.
+    public func setWebSettings(_ settings: BipeWebSettings) async throws(BipeAPIError) -> BipeWebSettings {
+        try await request("PUT", ["v1", "me", "business", "web-settings"], json: settings)
+    }
+
+    /// `POST /v1/businesses/{business}/web/claim`. The token's records move to this account; the token stops working.
+    public func claimWebRecords(business: String, token: String) async throws(BipeAPIError) -> BipeWebRecords {
+        try await request("POST", ["v1", "businesses", business, "web", "claim"], json: WebClaim(token: token))
+    }
+
+    private struct WebClaim: Encodable { let token: String }
+
     /// `GET /v1/me/business/tools`.
     public func businessTools() async throws(BipeAPIError) -> BipeBusinessTools {
         try await request("GET", ["v1", "me", "business", "tools"])

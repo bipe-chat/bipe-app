@@ -105,7 +105,9 @@ final class AgendaOwnerModel: ObservableObject {
     }
 
     func customerName(_ booking: BipeBooking) -> String {
-        booking.customer.name ?? booking.customer.userId.map { customerNames[$0] ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) } ?? ""
+        // Spec agenda-owner: a web record is name-only with a web mark (ADR 0195 point 17).
+        if booking.web, let name = booking.customer.name { return "\(name) · \(BipeStrings.webRecordMark)" }
+        return booking.customer.name ?? booking.customer.userId.map { customerNames[$0] ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) } ?? ""
     }
 
     /// Action block: POST /v1/me/business/agenda/blocks for the agenda on screen, or every agenda.
