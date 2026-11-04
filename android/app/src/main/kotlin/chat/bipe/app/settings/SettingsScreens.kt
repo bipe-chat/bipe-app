@@ -275,6 +275,10 @@ fun SettingsHost(
             options = ShowMedia.entries.map { it.id to stringResource(it.title) },
             key = SettingsKeys.SHOW_MEDIA,
             default = ShowMedia.ALWAYS.id,
+            // Stored in the account (MSC4278 media_previews, spec timeline-media notes).
+            onSelect = { id ->
+                chat.bipe.app.media.MediaPreviewSync.setShowMedia(context, ShowMedia.entries.firstOrNull { it.id == id } ?: ShowMedia.ALWAYS)
+            },
             onBack = pop,
         )
         // chats.liveLocation: the update distance of live location (spec settings-group notes).
@@ -476,7 +480,8 @@ fun SettingsGroupScreen(
                 when (row) {
                     BipeSettingsRow.PRIVACY_REQUEST_PHOTOS -> SettingsSwitchItem(title, footer, hideRequestPhotos) {
                         hideRequestPhotos = it
-                        prefs.edit().putBoolean(SettingsKeys.HIDE_REQUEST_PHOTOS, it).apply()
+                        // Stored in the account (MSC4278 invite_avatars, spec chat-requests notes).
+                        chat.bipe.app.media.MediaPreviewSync.setHideInvitePhotos(context, it)
                     }
                     BipeSettingsRow.PRIVACY_PRESENCE -> SettingsSwitchItem(title, footer, sharePresence) {
                         sharePresence = it

@@ -177,7 +177,10 @@ struct SettingsGroupView: View {
                 SettingsRowLabel(title: row.title, value: model.whoCanMessage?.settingsSummary, footer: row.footer)
             }
         case .privacyRequestPhotos:
-            Toggle(isOn: $hideRequestPhotos) { SettingsRowLabel(title: row.title, footer: row.footer) }
+            // Stored in the account (MSC4278 invite_avatars, spec chat-requests notes).
+            Toggle(isOn: Binding(get: { hideRequestPhotos }, set: { MediaPreviewSync.shared.setHideInvitePhotos($0) })) {
+                SettingsRowLabel(title: row.title, footer: row.footer)
+            }
         case .privacyPresence:
             Toggle(isOn: $sharePresence) { SettingsRowLabel(title: row.title, footer: row.footer) }
         case .privacyReadReceipts:
@@ -287,7 +290,10 @@ struct SettingsGroupView: View {
             NavigationLink {
                 ChoiceListView(title: row.title,
                                options: ShowMedia.allCases.map { (id: $0.rawValue, title: $0.title) },
-                               selection: $showMedia)
+                               // Stored in the account (MSC4278 media_previews, spec timeline-media notes).
+                               selection: Binding(get: { showMedia }, set: { value in
+                                   MediaPreviewSync.shared.setShowMedia(ShowMedia(rawValue: value) ?? .always)
+                               }))
             } label: {
                 SettingsRowLabel(title: row.title, value: ShowMedia(rawValue: showMedia)?.title)
             }

@@ -14,6 +14,8 @@ struct TimelineMediaRow: View {
     let media: MediaMessage
     let loader: MediaLoader
     let isPrivateRoom: Bool
+    /// Spec timeline-media fromStranger: the media waits for a tap whatever showMedia says.
+    var fromStranger = false
     /// Action open for image, video and sticker: media-viewer.
     let openViewer: () -> Void
     let cancelUpload: () -> Void
@@ -87,7 +89,7 @@ struct TimelineMediaRow: View {
                     Button(BipeStrings.a11yStickerPlay, action: play)
                 }
             }
-            .task(id: "\(media.source.url)#\(revealed)") { await appear() }
+            .task(id: "\(media.source.url)#\(revealed)#\(fromStranger)") { await appear() }
     }
 
     /// Spec timeline-media notes: an animated sticker plays in a loop, except with the data saver on mobile
@@ -261,7 +263,7 @@ struct TimelineMediaRow: View {
         guard media.kind != .file else { return }
         // Spec data-use: on mobile data with the data saver, photos and stickers wait for a tap.
         let savesData = (media.kind == .image || media.kind == .sticker) && DataUseMeter.shared.savesData
-        let shows = ShowMedia.current.shows(inPrivateRoom: isPrivateRoom)
+        let shows = !fromStranger && ShowMedia.current.shows(inPrivateRoom: isPrivateRoom)
         guard revealed || (shows && !savesData) || message.isOwn else {
             // An animated sticker shows the server's still of its first frame with a play mark instead
             // (spec timeline-media notes). Without a still (an encrypted file), it waits as a photo does.
