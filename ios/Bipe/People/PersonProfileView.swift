@@ -119,7 +119,11 @@ struct PersonProfileView: View {
                 if model.isOfficial {
                     OfficialBadge(font: .footnote)
                 }
-                if model.facts.identity == "verified" {
+                if model.facts.identity == "verified", !model.seal.isVerified {
+                    // Spec person-profile: a person's seal has no sheet. The verified-name line says what it means.
+                    SealMark(userId: model.userId, size: 22)
+                        .environment(\.bipeCompanySeals, people.seals)
+                } else if model.facts.identity == "verified" {
                     Button {
                         showsSeal = true
                     } label: {
@@ -247,6 +251,9 @@ struct PersonProfileView: View {
         let facts = model.facts
         if facts.identity == "verified" {
             FactCaption(text: BipeStrings.trustIdentityBody)
+        }
+        if model.personSeal == .suspended {
+            FactCaption(text: BipeStrings.badgeSuspendedBody)
         }
         if facts.contact == "confirmed" {
             FactCaption(text: BipeStrings.trustContactBody)

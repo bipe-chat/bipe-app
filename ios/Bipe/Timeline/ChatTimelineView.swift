@@ -476,6 +476,10 @@ struct ChatTimelineView: View {
                     if model.isNewsRoom || (model.isDm && BipeOfficialAccounts.isOfficial(model.peerUserId)) {
                         OfficialBadge()
                     }
+                    if model.isDm {
+                        SealMark(userId: model.peerUserId)
+                            .environment(\.bipeCompanySeals, people?.seals)
+                    }
                 }
                 // Spec brand-mark: a reseller's mark under the title, never instead of the name.
                 if model.isDm {

@@ -62,7 +62,7 @@ struct RequestTrustContent: View {
             if let contact = photoMatchName {
                 CautionLine(text: BipeStrings.warningPhotoMatch(contact))
             }
-            if case .verified(let name) = trust, let badge = seals.badge(for: request.inviterId),
+            if case .verified(let name) = trust, let badge = seals.verifiedBadge(for: request.inviterId),
                badge.name == name, let saved = people.contactName(for: request.inviterId) {
                 let key = BipeContactNameKey.make(accountId: model.session.userId, peerId: request.inviterId, savedName: saved, verifiedName: name, identityKey: identityKey(badge))
                 let answer = answers[key] ?? (UserDefaults.standard.object(forKey: key) as? Bool)
