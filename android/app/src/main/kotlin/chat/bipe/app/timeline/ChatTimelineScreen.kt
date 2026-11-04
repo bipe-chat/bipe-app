@@ -21,6 +21,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -287,6 +288,9 @@ fun ChatTimelineScreen(
     NotificationsPromptTrigger(session, roomId, messages)
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
+    // The list keeps to the newest message until the person scrolls up (chat-timeline opens at the bottom).
+    var followsNewest by rememberSaveable(roomId) { mutableStateOf(true) }
+    var seenNewestId by rememberSaveable(roomId) { mutableStateOf<String?>(null) }
     var dmMenu by remember { mutableStateOf(false) }
     var groupMenu by remember { mutableStateOf(false) }
     // Spec chat-timeline searchInChat (bipe-chat/bipe#861): a message hit scrolls this chat to it.
@@ -339,7 +343,11 @@ fun ChatTimelineScreen(
     LaunchedEffect(rows.lastOrNull()?.id) {
         // The day view stays on the picked day when newer events load at the bottom.
         if (dayFocus != null) return@LaunchedEffect
-        if (rows.isNotEmpty()) if (reduceMotion) listState.scrollToItem(0) else listState.animateScrollToItem(0)
+        val newest = rows.lastOrNull() ?: return@LaunchedEffect
+        // The person's own message always returns to the newest message.
+        if (newest.id != seenNewestId && newest.message?.isOwn == true) followsNewest = true
+        seenNewestId = newest.id
+        if (followsNewest) if (reduceMotion) listState.scrollToItem(0) else listState.animateScrollToItem(0)
     }
     // Day view: the "newer" loader item sits before the rows at index 0.
     val rowOffset = if (dayFocus != null) 1 else 0
@@ -371,8 +379,18 @@ fun ChatTimelineScreen(
     LaunchedEffect(atNewest, rows.lastOrNull()?.id) {
         if (atNewest && rows.isNotEmpty()) model.markAsRead()
     }
+    // Only the person's own scroll stops the list from following the newest message, not a scroll by the app.
+    val dragged by listState.interactionSource.collectIsDraggedAsState()
+    var personScrolling by remember { mutableStateOf(false) }
+    LaunchedEffect(atNewest) { if (atNewest) followsNewest = true }
+    LaunchedEffect(dragged, scrolling, atNewest) {
+        if (dragged) personScrolling = true
+        if (!atNewest && personScrolling) followsNewest = false
+        if (!dragged && !scrolling) personScrolling = false
+    }
     LaunchedEffect(ui.scrollTarget) {
         val target = ui.scrollTarget ?: return@LaunchedEffect
+        followsNewest = false
         val index = newestFirst.indexOfFirst { it.id == target }.let { if (it >= 0) it + rowOffset else it }
         if (index >= 0) if (reduceMotion) listState.scrollToItem(index) else listState.animateScrollToItem(index)
         model.scrolledToTarget()

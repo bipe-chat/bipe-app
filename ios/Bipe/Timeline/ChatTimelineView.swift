@@ -18,8 +18,9 @@ struct ChatTimelineView: View {
     @State private var showsNotifications = false
     @State private var showsGallery = false
     @State private var toast: String?
-    /// The list keeps to the newest message until the person scrolls (chat-timeline opens at the bottom).
+    /// The list keeps to the newest message until the person scrolls up (chat-timeline opens at the bottom).
     @State private var followsNewest = true
+    @State private var scrollPhase: ScrollPhase = .idle
     /// Spec chat-timeline searchInChat (bipe-chat/bipe#861).
     @State private var searchingChat = false
     /// The group menu's group-details row.
@@ -402,6 +403,11 @@ struct ChatTimelineView: View {
                 set: { if !$0 { model[keyPath: keyPath] = nil } })
     }
 
+    nonisolated private static func isAtBottom(_ geometry: ScrollGeometry) -> Bool {
+        geometry.contentOffset.y + geometry.containerSize.height - geometry.contentInsets.bottom
+            >= geometry.contentSize.height - 40
+    }
+
     private var rowList: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -439,8 +445,9 @@ struct ChatTimelineView: View {
             .onScrollTargetVisibilityChange(idType: String.self, threshold: 0.1) { ids in
                 visibleRowIds = ids
             }
-            .onScrollPhaseChange { _, phase in
-                if phase == .interacting { followsNewest = false }
+            .onScrollPhaseChange { _, phase, context in
+                scrollPhase = phase
+                if phase == .interacting { followsNewest = Self.isAtBottom(context.geometry) }
                 floatingDateHide?.cancel()
                 if phase.isScrolling {
                     if !showsFloatingDate { withBipeAnimation { showsFloatingDate = true } }
@@ -461,20 +468,25 @@ struct ChatTimelineView: View {
             }
             // The chat opens at the newest message. The first rows and the history pages come in batches,
             // and the lazy stack guesses row heights, so the bottom anchor alone can land higher up.
-            // Until the person scrolls, each batch scrolls to the newest message again.
-            .onScrollGeometryChange(for: Bool.self) { geometry in
-                geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 40
-            } action: { _, atBottom in
-                if atBottom { followsNewest = true }
+            // Until the person scrolls up, each change of the content height scrolls to the newest message again.
+            .onScrollGeometryChange(for: Bool.self, of: Self.isAtBottom) { _, atBottom in
+                if atBottom {
+                    followsNewest = true
+                } else if scrollPhase == .interacting || scrollPhase == .decelerating {
+                    followsNewest = false
+                }
             }
-            .onChange(of: model.rows.count) {
+            .onScrollGeometryChange(for: CGFloat.self, of: \.contentSize.height) { _, _ in
                 if followsNewest, model.dayFocus == nil, let lastId = model.rows.last?.id {
                     proxy.scrollTo(lastId, anchor: .bottom)
                 }
             }
             .onChange(of: model.rows.last?.id) { _, lastId in
                 // The day view stays on the picked day when newer events load at the bottom.
-                if let lastId, model.dayFocus == nil {
+                guard let lastId, model.dayFocus == nil else { return }
+                // The person's own message always returns to the newest message.
+                if model.rows.last?.message?.isOwn == true { followsNewest = true }
+                if followsNewest {
                     withBipeAnimation { proxy.scrollTo(lastId, anchor: .bottom) }
                 }
             }
