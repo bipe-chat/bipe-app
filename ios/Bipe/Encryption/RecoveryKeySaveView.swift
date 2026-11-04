@@ -38,6 +38,7 @@ final class RecoveryKeySaveModel: ObservableObject {
     @Published private(set) var recoveryKey: String?
     /// State account: the account the key belongs to, so a screenshot of the key names it.
     @Published private(set) var account: String
+    let pinPrompt = AccountPinPrompt()
 
     private let session: AccountSession
     private let api: BipeAPIClient
@@ -90,13 +91,21 @@ final class RecoveryKeySaveModel: ObservableObject {
         recoveryState == .incomplete || verificationState != .verified
     }
 
-    /// Action create: a first key with enableRecovery; a new key (the old one stops working) after the owner check.
-    /// Never while needsApproval.
+    /// Action create: a first key with enableRecovery; a new key (the old one stops working) after the owner check
+    /// (ApprovalCheck: biometrics, else the Bipe PIN; never the passcode). Never while needsApproval.
     func create() async {
         guard !needsApproval else { return }
         let encryption = session.client.encryption()
         if keyExists {
-            guard await OwnerCheck.owner(reason: BipeStrings.appRecoveryKeyBiometric) else { return }
+            let session = self.session
+            let api = self.api
+            let reason = BipeStrings.appRecoveryKeyBiometric
+            let check = await ApprovalCheck.run(reason: reason, pinTitle: reason, prompt: pinPrompt) { (pin: String) async throws(BipeAPIError) in
+                try await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) in
+                    try await api.checkPIN(pin, accessToken: token)
+                }
+            }
+            guard check == .passed else { return }
         }
         phase = .creating
         progress = .starting
@@ -189,6 +198,7 @@ struct RecoveryKeySaveView: View {
         .tint(BipeColor.accentFill)
         .interactiveDismissDisabled(model.phase == .creating || model.phase == .showKey)
         .accessibilityIdentifier(BipeScreen.recoveryKeySave.rawValue)
+        .accountPinPrompt(model.pinPrompt)
         .task { await model.observe() }
         .task { await model.loadAccount() }
     }
