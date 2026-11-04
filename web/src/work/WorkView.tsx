@@ -15,6 +15,7 @@ import { Icon } from '../ui/Icon';
 import { NavBar, Row, Section } from '../ui/List';
 import type { BusinessClient, WorkHours } from './business-client';
 import { AgendaScreen } from './Agenda';
+import { BrandMarksScreen } from './BrandMarks';
 import { CatalogScreen } from './Catalog';
 import {
   LoadState,
@@ -31,7 +32,7 @@ import { QueueScreen } from './Queue';
 import { QuotesScreen } from './Quotes';
 
 // The URL segment of each tool: /trabalho/<tool> (router.ts).
-type Tool = 'agenda' | 'catalogo' | 'pedidos' | 'orcamentos' | 'fila' | 'horario';
+type Tool = 'agenda' | 'catalogo' | 'pedidos' | 'orcamentos' | 'fila' | 'selos' | 'horario';
 
 const TOOLS: { tool: Tool; title: StringKey }[] = [
   { tool: 'agenda', title: 'bipe_tab_agenda' },
@@ -39,6 +40,7 @@ const TOOLS: { tool: Tool; title: StringKey }[] = [
   { tool: 'pedidos', title: 'bipe_orders_title' },
   { tool: 'orcamentos', title: 'bipe_quotes_title' },
   { tool: 'fila', title: 'bipe_queue_title' },
+  { tool: 'selos', title: 'bipe_brand_marks_title' },
 ];
 
 /**
@@ -92,6 +94,8 @@ function ToolScreen({
       return <QuotesScreen client={client} onBack={back} />;
     case 'fila':
       return <QueueScreen client={client} onBack={back} />;
+    case 'selos':
+      return <BrandMarksScreen client={client} onBack={back} />;
     case 'horario':
       return <HoursScreen client={client} onBack={back} />;
     default:

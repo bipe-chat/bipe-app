@@ -53,7 +53,7 @@ const DEFAULT_VALID_DAYS = 7;
 
 type Open = { kind: 'request'; id: string } | { kind: 'quote'; id: string; revising: boolean };
 
-export function QuotesScreen({ client, onBack }: WorkScreenProps) {
+export function QuotesScreen({ client, onBack, openQuoteId }: WorkScreenProps & { openQuoteId?: string }) {
   useNames();
   const lists = useLoad(async () => {
     const [requests, quotes] = await Promise.all([client.quoteRequests(), client.quotes()]);
@@ -65,7 +65,9 @@ export function QuotesScreen({ client, onBack }: WorkScreenProps) {
   }, [client]);
   // The builder's catálogo. A failed read leaves only typed lines, as on the phone.
   const catalog = useLoad(() => client.catalog().then((c) => c.items).catch((): CatalogItem[] => []), [client]);
-  const [open, setOpen] = useState<Open>();
+  const [open, setOpen] = useState<Open | undefined>(
+    openQuoteId ? { kind: 'quote', id: openQuoteId, revising: true } : undefined,
+  );
 
   const { reload } = lists;
   useEffect(() => {
@@ -587,7 +589,7 @@ type CardData = {
   visitName?: string;
 };
 
-function versionCard(v: QuoteVersion, catalog: CatalogItem[]): CardData {
+export function versionCard(v: QuoteVersion, catalog: CatalogItem[]): CardData {
   return {
     version: v.version,
     lines: v.lines.map((l) => ({ quantity: l.quantity, name: l.name, cents: l.total_amount_cents })),
@@ -598,7 +600,7 @@ function versionCard(v: QuoteVersion, catalog: CatalogItem[]): CardData {
 }
 
 /** QuoteCardView and QuoteVersionSummary: title and version, lines, total, validity, visit and status. */
-function QuoteCard({ card, status, caption }: { card: CardData; status?: Quote['status']; caption?: string }) {
+export function QuoteCard({ card, status, caption }: { card: CardData; status?: Quote['status']; caption?: string }) {
   return (
     <figure className="flex flex-col gap-1.5">
       {caption && <figcaption className="px-4 text-footnote text-ink-secondary">{caption}</figcaption>}
@@ -649,7 +651,7 @@ function StatusLine({ status }: { status: Quote['status'] }) {
 // ---- Values ----
 
 /** The version that can be accepted; the newest when the list lacks it. */
-function currentVersion(quote: Quote): QuoteVersion | undefined {
+export function currentVersion(quote: Quote): QuoteVersion | undefined {
   return (
     quote.versions.find((v) => v.version === quote.current_version) ??
     quote.versions.reduce<QuoteVersion | undefined>((a, v) => (a && a.version > v.version ? a : v), undefined)
@@ -699,11 +701,11 @@ function quantityText(quantity: number): string {
 
 const pad = (n: number) => String(n).padStart(2, '0');
 /** A local date as the date input holds it: YYYY-MM-DD. */
-function localDate(d: Date): string {
+export function localDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function addDays(d: Date, days: number): Date {
+export function addDays(d: Date, days: number): Date {
   const out = new Date(d);
   out.setDate(out.getDate() + days);
   return out;
