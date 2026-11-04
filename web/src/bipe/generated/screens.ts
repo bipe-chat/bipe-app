@@ -98,7 +98,7 @@ export const BipeScreen = {
   contacts: "contacts",
   /** Download my data (flow settings). Spec: bipe-shared/product/screens/data-export.json */
   dataExport: "data-export",
-  /** Data use (flow settings). Spec: bipe-shared/product/screens/data-use.json */
+  /** Data and storage (flow settings). Spec: bipe-shared/product/screens/data-use.json */
   dataUse: "data-use",
   /** Account deletion asked on another device (flow settings). Spec: bipe-shared/product/screens/deletion-alert.json */
   deletionAlert: "deletion-alert",

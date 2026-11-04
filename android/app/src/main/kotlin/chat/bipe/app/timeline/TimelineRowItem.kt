@@ -116,6 +116,8 @@ fun TimelineRowItem(
     onHistoryHelp: () -> Unit = {},
     onOpenPoll: (String) -> Unit = {},
     isPrivateRoom: Boolean = true,
+    /** Spec timeline-media fromStranger: media waits for a tap whatever showMedia says. */
+    fromStranger: Boolean = false,
     voiceState: VoicePlayer.State = VoicePlayer.State(),
     onTogglePlay: (String, VoiceMessage) -> Unit = { _, _ -> },
     onSeek: (String, Float) -> Unit = { _, _ -> },
@@ -156,6 +158,7 @@ fun TimelineRowItem(
                         media = mediaMessage,
                         loader = media,
                         isPrivateRoom = isPrivateRoom,
+                        fromStranger = fromStranger,
                         onOpenViewer = { onOpenViewer(row.id) },
                         onCancelUpload = { model.cancelUpload(row.id) },
                     )
@@ -233,7 +236,7 @@ fun TimelineRowItem(
 
 /** Spec timeline-rows notes: today, yesterday, else the system date in the app language, with the year only when it is not this year. */
 @Composable
-private fun daySeparatorText(day: Long): String {
+internal fun daySeparatorText(day: Long): String {
     val now = Calendar.getInstance()
     val then = Calendar.getInstance().apply { timeInMillis = day }
     val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }

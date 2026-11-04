@@ -1146,8 +1146,8 @@
     <string name="bipe_app_report_error">Não deu para enviar o relato. Tente de novo.</string>
     <string name="bipe_account_sign_out">Sair deste aparelho</string>
     <string name="bipe_privacy_who_can_talk">Quem pode falar com você</string>
-    <string name="bipe_privacy_requests_hide_photos">Esconder fotos em Pedidos</string>
-    <string name="bipe_privacy_requests_hide_photos_footer">A foto de quem você não conhece só aparece depois que você aceita.</string>
+    <string name="bipe_privacy_requests_hide_photos">Esconder foto de quem convida</string>
+    <string name="bipe_privacy_requests_hide_photos_footer">Em pedidos e convites para grupos, a foto só aparece depois que você aceita.</string>
     <string name="bipe_privacy_blocked">Bloqueados</string>
     <string name="bipe_privacy_blocked_none">Você não bloqueou ninguém</string>
     <string name="bipe_privacy_who_can_find">Quem pode te achar</string>
@@ -1181,7 +1181,7 @@
     <string name="bipe_chats_show_media_always">Sempre</string>
     <string name="bipe_chats_show_media_private">Só em conversas e grupos fechados</string>
     <string name="bipe_chats_show_media_never">Só quando eu tocar</string>
-    <string name="bipe_chats_data_use">Uso de dados</string>
+    <string name="bipe_chats_data_use">Dados e armazenamento</string>
     <string name="bipe_chats_sticker_suggestions">Sugerir stickers</string>
     <string name="bipe_chats_sticker_suggestions_footer">Ao digitar um emoji ou uma palavra, seus stickers aparecem acima do teclado. A busca acontece só no seu celular.</string>
     <string name="bipe_data_use_budget">Um dia normal no Bipe gasta cerca de %1$s: conversas de texto, 10 áudios, 10 fotos e um grupo.</string>
@@ -1195,6 +1195,16 @@
     <string name="bipe_data_use_saver">Economizar dados móveis</string>
     <string name="bipe_data_use_saver_footer">Nos dados móveis, as fotos só aparecem quando você toca nelas. Vídeos e áudios sempre baixam só quando você toca.</string>
     <string name="bipe_data_use_saver_system">Seu celular está economizando dados, então o Bipe economiza também.</string>
+    <string name="bipe_storage_title">Armazenamento</string>
+    <string name="bipe_storage_media">Fotos, vídeos e arquivos</string>
+    <string name="bipe_storage_voice">Mensagens de voz</string>
+    <string name="bipe_storage_store">Mensagens e dados das conversas</string>
+    <string name="bipe_storage_footer">Espaço que o Bipe usa neste celular. Limpar o cache apaga a mídia baixada. Suas mensagens e chaves ficam.</string>
+    <string name="bipe_storage_clear">Limpar cache de mídia</string>
+    <string name="bipe_storage_clear_title">Limpar o cache de mídia?</string>
+    <string name="bipe_storage_clear_body">Fotos, vídeos e áudios baixados saem deste celular e baixam de novo quando você abrir. As conversas carregam de novo do servidor. Nenhuma mensagem se perde.</string>
+    <string name="bipe_storage_clear_confirm">Limpar</string>
+    <string name="bipe_storage_cleared">%1$s liberados</string>
     <string name="bipe_chats_live_location">Localização em tempo real</string>
     <string name="bipe_chats_live_location_footer">Quanto você precisa andar para a sua localização em tempo real mudar no mapa.</string>
     <string name="bipe_help_terms">Termos de uso</string>

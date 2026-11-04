@@ -163,6 +163,8 @@ fun ChatTimelineScreen(
     threadRoot: String? = null,
     /** Spec chat-search openMessage (bipe-chat/bipe#671): the message to scroll to after the chat opens. */
     focusEventId: String? = null,
+    /** Spec chat-timeline dayFocus (bipe-chat/bipe#828): the day view; null for the main timeline. */
+    dayFocus: DayFocus? = null,
     /** Spec chat-row-actions sendMedia: open the photo picker once the chat shows. */
     startPhotos: Boolean = false,
     onStartPhotosUsed: () -> Unit = {},
@@ -181,7 +183,7 @@ fun ChatTimelineScreen(
         format = { id, arg -> context.getString(id, arg) },
         formatArgs = { id, args -> context.getString(id, *args.toTypedArray()) },
     )
-    val model = remember(session, roomId, threadRoot) {
+    val model = remember(session, roomId, threadRoot, dayFocus) {
         ChatTimelineModel(
             session, roomId, scope, InviterGreetings(context, session.userId), strings, context.getString(R.string.bipe_dm_no_name),
             sharesTyping = { sharesTyping(context) },
@@ -189,6 +191,28 @@ fun ChatTimelineScreen(
             voiceMedia = VoiceMediaStore.store(context, session),
             threadRoot = threadRoot,
             handles = people?.handles,
+            dayFocus = dayFocus,
+        )
+    }
+    // Spec chat-timeline dayFocus: the day view over the main timeline; back goes to the newest messages.
+    val openDay by model.openDay.collectAsState()
+    openDay?.let { day ->
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { model.openDay(null) },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+        ) {
+            ChatTimelineScreen(session, media, roomId, onBack = { model.openDay(null) }, people = people, dayFocus = day)
+        }
+    }
+    // Spec chat-timeline jumpToDate: the date picker.
+    var pickingDate by rememberSaveable { mutableStateOf(false) }
+    if (pickingDate) {
+        JumpToDateDialog(
+            onPick = { day ->
+                pickingDate = false
+                model.jumpToDate(day)
+            },
+            onCancel = { pickingDate = false },
         )
     }
     // Spec threads openThread: the thread view over the main timeline.
@@ -247,6 +271,10 @@ fun ChatTimelineScreen(
     val inviterHint by model.inviterHint.collectAsState()
     val messages by model.messages.collectAsState()
     val isPrivateRoom by model.isPrivateRoom.collectAsState()
+    // Spec timeline-media fromStranger (bipe-chat/bipe#827): a DM accepted from Pedidos whose other person is not a
+    // contact. True until the peer is known, so no media loads before the contact check.
+    val fromRequest = remember(roomId) { chat.bipe.app.media.RequestRooms.contains(context, roomId) }
+    val fromStranger = fromRequest && peerUserId?.let { people?.contactName(it) } == null
     // Spec voice-message: one player per chat; it stops when the chat closes.
     val voicePlayer = remember(session, roomId) { VoicePlayer(context.applicationContext, media, scope) }
     val voiceState by voicePlayer.state.collectAsState()
@@ -309,8 +337,35 @@ fun ChatTimelineScreen(
     // Reduce Motion: the list jumps, it does not scroll by itself (bipe#496).
     val reduceMotion = LocalReduceMotion.current
     LaunchedEffect(rows.lastOrNull()?.id) {
+        // The day view stays on the picked day when newer events load at the bottom.
+        if (dayFocus != null) return@LaunchedEffect
         if (rows.isNotEmpty()) if (reduceMotion) listState.scrollToItem(0) else listState.animateScrollToItem(0)
     }
+    // Day view: the "newer" loader item sits before the rows at index 0.
+    val rowOffset = if (dayFocus != null) 1 else 0
+    val newerLoads by model.newerLoads.collectAsState()
+    // Spec chat-timeline floatingDate (bipe-chat/bipe#828): shown while the list scrolls, hidden 1 s after it stops.
+    val scrolling = listState.isScrollInProgress
+    var showsFloatingDate by remember { mutableStateOf(false) }
+    LaunchedEffect(scrolling) {
+        if (scrolling) {
+            showsFloatingDate = true
+        } else {
+            kotlinx.coroutines.delay(1000)
+            showsFloatingDate = false
+        }
+    }
+    // The top row on screen is the visible row with the highest index in the reversed list.
+    val floatingDay by remember(rows, rowOffset) {
+        derivedStateOf {
+            val top = listState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: return@derivedStateOf null
+            val newestIndex = (top - rowOffset).coerceIn(0, maxOf(0, rows.size - 1))
+            TimelineDays.day(rows.size - 1 - newestIndex, rows)
+        }
+    }
+    // Keeps the last day while the pill fades out.
+    var lastFloatingDay by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(floatingDay) { floatingDay?.let { lastFloatingDay = it } }
     // Action markAsRead: while the newest row is on screen.
     val atNewest by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
     LaunchedEffect(atNewest, rows.lastOrNull()?.id) {
@@ -318,7 +373,7 @@ fun ChatTimelineScreen(
     }
     LaunchedEffect(ui.scrollTarget) {
         val target = ui.scrollTarget ?: return@LaunchedEffect
-        val index = newestFirst.indexOfFirst { it.id == target }
+        val index = newestFirst.indexOfFirst { it.id == target }.let { if (it >= 0) it + rowOffset else it }
         if (index >= 0) if (reduceMotion) listState.scrollToItem(index) else listState.animateScrollToItem(index)
         model.scrolledToTarget()
     }
@@ -344,6 +399,7 @@ fun ChatTimelineScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     when {
+                                        dayFocus != null -> daySeparatorText(dayFocus.dayStart)
                                         threadRoot != null -> stringResource(R.string.bipe_thread_title)
                                         model.isNewsRoom -> stringResource(R.string.bipe_news_room_name)
                                         else -> roomName
@@ -364,7 +420,7 @@ fun ChatTimelineScreen(
                             if (isDm) BrandMarkHeaderLine(peerUserId, people?.brandMarks)
                         }
                     }
-                    if (isGroup && onOpenGroupDetails != null && threadRoot == null) {
+                    if (isGroup && onOpenGroupDetails != null && model.isMainTimeline) {
                         // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
                         Box {
                             IconButton(onClick = { groupMenu = true }) {
@@ -392,7 +448,7 @@ fun ChatTimelineScreen(
                             }
                         }
                     }
-                    if (isDm && threadRoot == null) {
+                    if (isDm && model.isMainTimeline) {
                         // Spec chat-timeline notes: the DM chat menu is the one button on the right. Archive, never delete.
                         val startCall = rememberCallStart(model, session, roomName)
                         Box {
@@ -450,8 +506,8 @@ fun ChatTimelineScreen(
                         }
                     }
                 }
-                // Spec threads notes: the thread view shows none of the chat bars.
-                if (threadRoot == null) {
+                // Spec threads notes: the thread view shows none of the chat bars; nor does the day view (dayFocus).
+                if (model.isMainTimeline) {
                     OngoingCallBar(model, session, roomName)
                     predecessor?.let { (old, name) ->
                         PredecessorLine(name ?: stringResource(R.string.bipe_group_common_no_room_name)) { onOpenChat(old) }
@@ -464,12 +520,13 @@ fun ChatTimelineScreen(
                 val cvmPeer = peerUserId
                 if (isDm && people != null && cvmPeer != null) CvmStopOrderCard(people, cvmPeer)
                 // Booking cards pinned above the timeline (agenda-booking-card); they are not room events (ADR 0102).
-                if (threadRoot == null) business?.Cards()
+                if (model.isMainTimeline) business?.Cards()
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(
                     state = listState,
                     reverseLayout = true,
                     // Spec app-colors, ADR 0213: the chat background, still behind the scrolling messages.
-                    modifier = Modifier.weight(1f).fillMaxWidth().chatBackground(AppTheme.chatBackground, colors),
+                    modifier = Modifier.fillMaxSize().chatBackground(AppTheme.chatBackground, colors),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -477,6 +534,13 @@ fun ChatTimelineScreen(
                     val institutionOf: (TimelineRow) -> BadgePayload? = { row ->
                         sealInstitutions?.value // read in composition, so a badge that arrives redraws the row
                         row.message?.takeUnless { it.isOwn }?.let { message -> people?.seals?.institution(message.senderId) }
+                    }
+                    if (dayFocus != null) {
+                        item(key = "newer") {
+                            // Day view only: composed while the bottom of the list is on screen (spec chat-timeline dayFocus).
+                            LaunchedEffect(rows.size, newerLoads) { model.loadNewer() }
+                            Spacer(Modifier.size(1.dp))
+                        }
                     }
                     items(newestFirst, key = { it.id }) { row ->
                         // Spec message-forward selection (bipe-chat/bipe#860).
@@ -499,6 +563,7 @@ fun ChatTimelineScreen(
                                 onHistoryHelp = onHistoryHelp,
                                 onOpenPoll = { openPollId = it },
                                 isPrivateRoom = isPrivateRoom,
+                                fromStranger = fromStranger,
                                 voiceState = voiceState,
                                 onTogglePlay = voicePlayer::togglePlay,
                                 onSeek = voicePlayer::seek,
@@ -526,6 +591,14 @@ fun ChatTimelineScreen(
                         }
                     }
                 }
+                // Spec chat-timeline floatingDate: the day of the top row while the list scrolls; no fade with Reduce Motion.
+                FloatingDateOverlay(
+                    visible = showsFloatingDate && floatingDay != null,
+                    day = lastFloatingDay,
+                    onPick = if (model.isMainTimeline) ({ pickingDate = true }) else null,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp),
+                )
+                }
                 inviterHint?.let { hint -> InviterHintRow(hint, roomName) { model.sendGreeting(greeting) } }
                 TypingLine(ui.typingNames)
                 // Spec chat-timeline profileNotice (ADR 0049): 1:1 chats only, amber, above the composer.
@@ -534,9 +607,9 @@ fun ChatTimelineScreen(
                     ProfileNoticeBar(people, noticePeer, roomName)
                 }
                 if (isDm && theftMark != null) TheftMarkBanner(roomName)
-                if (threadRoot == null) IdentityChangeBar(identity)
+                if (model.isMainTimeline) IdentityChangeBar(identity)
                 // Spec drafts (bipe-chat/bipe#866): the assistant draft banner above the composer.
-                if (threadRoot == null && ui.selection == null && successorRoomId == null) {
+                if (model.isMainTimeline && ui.selection == null && successorRoomId == null) {
                     AssistantDraftBanner(session, roomId) { draft ->
                         val root = draft.threadRoot
                         if (root != null) {
@@ -603,6 +676,8 @@ fun ChatTimelineScreen(
                         onForward = model::forwardSelection,
                         onDelete = model::askDeleteSelection,
                     )
+                    // Spec chat-timeline dayFocus: the day view is read-only, with no composer.
+                    dayFocus != null -> Unit
                     // Spec chat-timeline notes, upgraded groups (bipe-chat/bipe#773).
                     successorRoomId != null -> RoomUpgradeBar(model, onOpenChat)
                     isDm && people != null && peer != null -> DmComposerSlot(people, peer, roomName, composerBar)
@@ -752,6 +827,8 @@ private fun noticeText(notice: TimelineNotice, arg: String?): String = when (not
     TimelineNotice.SELECTION_FORWARDED -> stringResource(R.string.bipe_select_forward_done)
     TimelineNotice.SELECTION_LIMIT -> stringResource(R.string.bipe_select_limit, MESSAGE_SELECTION_LIMIT.toString())
     TimelineNotice.SELECTION_DELETE_FAILED -> stringResource(R.string.bipe_select_delete_failed)
+    TimelineNotice.JUMP_EMPTY -> stringResource(R.string.bipe_jump_to_date_empty)
+    TimelineNotice.JUMP_FAILED -> stringResource(R.string.bipe_error_generic)
 }
 
 /** Spec typing-indicator: who is typing, above the composer. */
