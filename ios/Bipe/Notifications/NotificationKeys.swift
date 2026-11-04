@@ -31,6 +31,13 @@ enum NotificationKeys {
     static let recoveryStartedPush = "recovery_started"
     static let recoveryCompletedPush = "recovery_completed"
     static let recoveryKind = "recovery"
+    /// pushKinds of the join pushes (bipe-chat/bipe#967), and the kinds of their local notifications. group_link_joined
+    /// carries the group in roomIdPush.
+    static let inviteJoinedPush = "invite_joined"
+    static let groupLinkJoinedPush = "group_link_joined"
+    static let inviteJoinedKind = "inviteJoined"
+    static let groupLinkJoinedKind = "groupLinkJoined"
+    static let roomIdPush = "bipe_room_id"
 
     /// The owner of a local account notice (an approval nudge or a recovery alert) of `kind`, while its route still
     /// belongs to the recorded owner.

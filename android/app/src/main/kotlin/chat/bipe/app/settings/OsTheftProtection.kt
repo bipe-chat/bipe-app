@@ -63,7 +63,7 @@ class OsTheftPromptMemory(private val context: Context) {
         prefs.edit().putBoolean(DONE_KEY, true).apply()
     }
 
-    /** Trigger voceAfterDays: this phone first saw the account [BipeOnboarding.OS_THEFT_PROTECTION_AFTER_DAYS] ago. */
+    /** Trigger afterDaysOnPhone: this phone first saw the account [BipeOnboarding.OS_THEFT_PROTECTION_AFTER_DAYS] ago. */
     fun isDue(userId: String, now: Long = System.currentTimeMillis()): Boolean =
         now - BipePinReminderMemory(context, userId).firstSeen >= BipeOnboarding.OS_THEFT_PROTECTION_AFTER_DAYS * DAY
 

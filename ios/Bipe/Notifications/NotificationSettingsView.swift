@@ -25,13 +25,14 @@ struct NotificationSettingsView: View {
             }
             Section {
                 modePicker(BipeStrings.notificationsChats,
+                           isDm: true,
                            selection: model.chatsMode,
                            // ADR 0141: no mentions mode in a DM. An older mentions rule still shows until changed.
                            options: model.chatsMode == .mentions ? [.all, .mentions, .off] : [.all, .off]) { mode in
                     Task { await model.setChatsMode(mode) }
                 }
                 VStack(alignment: .leading, spacing: 6) {
-                    modePicker(BipeStrings.notificationsGroups, selection: model.groupsMode, options: [.all, .mentions, .off]) { mode in
+                    modePicker(BipeStrings.notificationsGroups, isDm: false, selection: model.groupsMode, options: [.all, .mentions, .off]) { mode in
                         Task { await model.setGroupsMode(mode) }
                     }
                     if model.groupsMode == .mentions && model.mentionsMayMiss {
@@ -92,6 +93,20 @@ struct NotificationSettingsView: View {
                     }
                 } footer: {
                     Text(BipeStrings.workHoursBody)
+                }
+            }
+
+            // Join pushes (bipe-chat/bipe#967): account settings on the server. Hidden until read.
+            if let prefs = model.joinPrefs {
+                Section {
+                    Toggle(isOn: binding(prefs.inviteJoined) { isOn in Task { await model.setInviteJoined(isOn) } }) {
+                        Text(BipeStrings.notificationsInviteJoined)
+                    }
+                    Toggle(isOn: binding(prefs.groupLinkJoined) { isOn in Task { await model.setGroupLinkJoined(isOn) } }) {
+                        Text(BipeStrings.notificationsGroupLinkJoined)
+                    }
+                } footer: {
+                    Text(BipeStrings.notificationsJoinsFooter)
                 }
             }
 
@@ -159,12 +174,13 @@ struct NotificationSettingsView: View {
     }
 
     private func modePicker(_ title: String,
+                            isDm: Bool,
                             selection: NotificationMode,
                             options: [NotificationMode],
                             set: @escaping (NotificationMode) -> Void) -> some View {
         Picker(selection: binding(selection, set: set)) {
             ForEach(options, id: \.self) { mode in
-                Text(mode.label).tag(mode)
+                Text(mode.label(isDm: isDm)).tag(mode)
             }
         } label: {
             Text(title)

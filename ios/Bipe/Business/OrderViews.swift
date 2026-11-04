@@ -362,7 +362,7 @@ struct OrderOwnerView: View {
             .refreshable { await load() }
             .toast($notice)
             .sheet(item: $opened) { order in
-                OrderOwnerDetailView(context: context, order: order, customerName: BusinessText.customer(order.customer, names: names),
+                OrderOwnerDetailView(context: context, order: order, customerName: order.web ? "\(BusinessText.customer(order.customer, names: names)) · \(BipeStrings.webRecordMark)" : BusinessText.customer(order.customer, names: names),
                                      close: { message in
                                          opened = nil
                                          if let message { notice = message }

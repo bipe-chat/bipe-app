@@ -80,7 +80,8 @@ final class IdentityChangeModel: ObservableObject {
                 case .verificationViolation: kind = .verificationLost
                 case .verified, .pinned: continue
                 }
-                let name = (try? await room.memberDisplayName(userId: change.userId))?.nilIfBlank ?? change.userId
+                let name = BipeChatRowName.person(userID: change.userId, displayName: (try? await room.memberDisplayName(userId: change.userId)) ?? nil,
+                                                  handle: nil)
                 warnings.append(Warning(userId: change.userId, name: name, kind: kind))
             }
         }

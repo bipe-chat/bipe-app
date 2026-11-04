@@ -6,17 +6,16 @@ package chat.bipe.app.groups
 
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MemberNames
+import chat.bipe.shared.generated.BipeGroupPowerLevels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.MembershipState
-import org.matrix.rustcomponents.sdk.PowerLevel
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.RoomMember
 import org.matrix.rustcomponents.sdk.UserPowerLevelUpdate
-import org.matrix.rustcomponents.sdk.suggestedPowerLevelForRole
 import uniffi.matrix_sdk.RoomMemberRole
 import uniffi.ruma_events.StateEventType
 
@@ -24,7 +23,7 @@ import uniffi.ruma_events.StateEventType
 data class GroupMember(
     val person: Person,
     val membership: Membership,
-    val isAdmin: Boolean,
+    val role: GroupRole,
     val isYou: Boolean,
     /** A creator (room version 12) has no role actions. */
     val isCreator: Boolean,
@@ -33,6 +32,8 @@ data class GroupMember(
     val nameAmbiguous: Boolean = false,
 ) {
     enum class Membership { JOINED, INVITED, BANNED }
+
+    val isAdmin: Boolean get() = role == GroupRole.ADMIN
 }
 
 /** Spec group-members (bipe-shared product/screens/group-members.json). */
@@ -42,7 +43,7 @@ class GroupMembersModel(
     private val scope: CoroutineScope,
 ) {
     /** The rows of the action sheet (group-members notes). */
-    enum class MemberAction { VIEW_PROFILE, MAKE_ADMIN, REMOVE_ADMIN, REMOVE, BAN, UNBAN, CANCEL_INVITE }
+    enum class MemberAction { VIEW_PROFILE, MAKE_ADMIN, REMOVE_ADMIN, MAKE_MODERATOR, REMOVE_MODERATOR, REMOVE, BAN, UNBAN, CANCEL_INVITE }
 
     data class Rights(val canInvite: Boolean, val canKick: Boolean, val canBan: Boolean, val canChangeRoles: Boolean)
 
@@ -57,6 +58,9 @@ class GroupMembersModel(
     val banned: StateFlow<List<GroupMember>> = _banned.asStateFlow()
     private val _rights = MutableStateFlow(Rights(false, false, false, false))
     val rights: StateFlow<Rights> = _rights.asStateFlow()
+    private val _customRoles = MutableStateFlow(false)
+    /** Another Matrix app set permissions off the three roles (bipe-chat/bipe#733). */
+    val customRoles: StateFlow<Boolean> = _customRoles.asStateFlow()
     private val _loading = MutableStateFlow(true)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
     private val _error = MutableStateFlow(false)
@@ -64,6 +68,7 @@ class GroupMembersModel(
 
     private var all: List<GroupMember> = emptyList()
     private var ownLevel = 0L
+    private var customLevels = false
 
     private fun room(): Room? = runCatching { session.client.getRoom(roomId) }.getOrNull()
 
@@ -78,6 +83,8 @@ class GroupMembersModel(
                     canBan = levels.canOwnUserBan(),
                     canChangeRoles = levels.canOwnUserSendState(StateEventType.RoomPowerLevels),
                 )
+                val values = levels.values()
+                customLevels = listOf(values.kick, values.ban, values.redact).any { it != BipeGroupPowerLevels.MODERATOR }
             }
             GroupPeople.members(room, cachedOnly = true)?.takeIf { it.isNotEmpty() }?.let {
                 applyMembers(it)
@@ -102,11 +109,17 @@ class GroupMembersModel(
         val actions = mutableListOf<MemberAction>()
         when (member.membership) {
             GroupMember.Membership.JOINED -> {
-                if (rights.canChangeRoles && !member.isCreator && member.level < ownLevel) {
-                    actions += if (member.isAdmin) MemberAction.REMOVE_ADMIN else MemberAction.MAKE_ADMIN
+                // Matrix refuses to kick, ban or change a person at or above the user's level.
+                val below = !member.isCreator && member.level < ownLevel
+                if (rights.canChangeRoles && below) {
+                    actions += when (member.role) {
+                        GroupRole.ADMIN -> listOf(MemberAction.MAKE_MODERATOR, MemberAction.REMOVE_ADMIN)
+                        GroupRole.MODERATOR -> listOf(MemberAction.MAKE_ADMIN, MemberAction.REMOVE_MODERATOR)
+                        GroupRole.MEMBER -> listOf(MemberAction.MAKE_ADMIN, MemberAction.MAKE_MODERATOR)
+                    }
                 }
-                if (rights.canKick) actions += MemberAction.REMOVE
-                if (rights.canBan) actions += MemberAction.BAN
+                if (rights.canKick && below) actions += MemberAction.REMOVE
+                if (rights.canBan && below) actions += MemberAction.BAN
             }
             GroupMember.Membership.INVITED -> if (rights.canKick) actions += MemberAction.CANCEL_INVITE
             GroupMember.Membership.BANNED -> if (rights.canBan) actions += MemberAction.UNBAN
@@ -114,7 +127,7 @@ class GroupMembersModel(
         return actions
     }
 
-    /** Actions makeAdmin, removeAdmin, remove, ban and cancelInvite. Remove and ban are confirmed by the screen first. */
+    /** Actions makeAdmin, removeAdmin, makeModerator, removeModerator, remove, ban and cancelInvite. Remove and ban are confirmed by the screen first. */
     fun perform(action: MemberAction, member: GroupMember) {
         val room = room() ?: return
         val userId = member.person.userId
@@ -122,8 +135,9 @@ class GroupMembersModel(
             runCatching {
                 when (action) {
                     MemberAction.VIEW_PROFILE -> return@launch
-                    MemberAction.MAKE_ADMIN -> setLevel(room, userId, RoomMemberRole.ADMINISTRATOR)
-                    MemberAction.REMOVE_ADMIN -> setLevel(room, userId, RoomMemberRole.USER)
+                    MemberAction.MAKE_ADMIN -> setLevel(room, userId, BipeGroupPowerLevels.ADMIN)
+                    MemberAction.MAKE_MODERATOR -> setLevel(room, userId, BipeGroupPowerLevels.MODERATOR)
+                    MemberAction.REMOVE_ADMIN, MemberAction.REMOVE_MODERATOR -> setLevel(room, userId, BipeGroupPowerLevels.MEMBER)
                     MemberAction.REMOVE, MemberAction.CANCEL_INVITE -> room.kickUser(userId, null)
                     MemberAction.BAN -> room.banUser(userId, null)
                     MemberAction.UNBAN -> room.unbanUser(userId, null)
@@ -140,9 +154,8 @@ class GroupMembersModel(
         _error.value = false
     }
 
-    private suspend fun setLevel(room: Room, userId: String, role: RoomMemberRole) {
-        val level = suggestedPowerLevelForRole(role) as? PowerLevel.Value ?: return
-        room.updatePowerLevelsForUsers(listOf(UserPowerLevelUpdate(userId, level.value)))
+    private suspend fun setLevel(room: Room, userId: String, level: Long) {
+        room.updatePowerLevelsForUsers(listOf(UserPowerLevelUpdate(userId, level)))
     }
 
     private fun applyMembers(members: List<RoomMember>) {
@@ -157,7 +170,7 @@ class GroupMembersModel(
             GroupMember(
                 person = Person.of(member),
                 membership = membership,
-                isAdmin = GroupPeople.isAdmin(member),
+                role = GroupPeople.role(member),
                 isYou = member.userId == session.userId,
                 isCreator = member.suggestedRoleForPowerLevel == RoomMemberRole.CREATOR,
                 level = GroupPeople.level(member.powerLevel),
@@ -166,6 +179,8 @@ class GroupMembersModel(
         }
         val lookalikes = MemberNames.ambiguous(all.associate { it.person.userId to it.person.displayName })
         all = all.map { if (it.person.userId in lookalikes) it.copy(nameAmbiguous = true) else it }
+        val roleLevels = setOf(BipeGroupPowerLevels.ADMIN, BipeGroupPowerLevels.MODERATOR, BipeGroupPowerLevels.MEMBER)
+        _customRoles.value = customLevels || all.any { !it.isCreator && it.level !in roleLevels }
         rebuild()
     }
 
@@ -174,7 +189,7 @@ class GroupMembersModel(
         val visible = all.filter { it.person.matches(query) }
         val byName = compareBy(GroupPeople.byName) { member: GroupMember -> member.person.displayName }
         _joined.value = visible.filter { it.membership == GroupMember.Membership.JOINED }
-            .sortedWith(compareByDescending<GroupMember> { it.isAdmin }.then(byName))
+            .sortedWith(compareBy<GroupMember> { it.role.ordinal }.then(byName))
         _invited.value = visible.filter { it.membership == GroupMember.Membership.INVITED }.sortedWith(byName)
         _banned.value = if (_rights.value.canBan) visible.filter { it.membership == GroupMember.Membership.BANNED }.sortedWith(byName) else emptyList()
     }

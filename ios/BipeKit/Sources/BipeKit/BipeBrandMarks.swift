@@ -103,7 +103,7 @@ public final class BipeBrandMarks {
         var marks: [BipeBrandMark] = []
         if let verifier = try? BadgeVerifier.bipeTrusted() {
             for json in envelopes {
-                guard case .valid(let payload) = verifier.verify(envelopeJSON: json, sender: userID, senderDevice: "", senderMasterKey: key),
+                guard case .valid(let payload) = verifier.verify(envelopeJSON: json, sender: userID, senderMasterKey: key),
                       payload.lvl == .brandMark, let mark = payload.brandMark, let cnpj = payload.cnpj,
                       !marks.contains(where: { $0.id == mark.mark }) else { continue }
                 marks.append(BipeBrandMark(id: mark.mark, brand: mark.brand, brandName: payload.name, cnpj: cnpj, label: mark.label))

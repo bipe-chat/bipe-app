@@ -4,8 +4,8 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.app.common.BipeToasts
 import androidx.activity.compose.BackHandler
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -118,7 +118,7 @@ fun GroupHost(
                     creating = false
                     creatingWith = emptyList()
                     onOpenRoom(newRoomId)
-                    if (!allInvited) Toast.makeText(context, invitesFailed, Toast.LENGTH_LONG).show()
+                    if (!allInvited) BipeToasts.show(invitesFailed)
                 },
                 people = creatingWith,
             )

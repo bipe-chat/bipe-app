@@ -4,6 +4,7 @@
 
 package chat.bipe.app.people
 
+import chat.bipe.app.common.BipeToasts
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -129,7 +130,6 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
     var checking by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
     var matches by remember { mutableStateOf<List<ContactMatch>?>(null) }
-    var notice by remember { mutableStateOf<String?>(null) }
 
     // Action check: normalised numbers in chunks of 500 to POST /v1/contacts/lookup. Stops at a 429.
     fun check() {
@@ -180,8 +180,6 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
         stringResource(R.string.bipe_contacts_title),
         BipeScreen.CONTACTS.id,
         onBack,
-        notice = notice,
-        onNoticeShown = { notice = null },
     ) {
         when (permission) {
             ContactsPermission.NOT_ASKED -> {
@@ -224,11 +222,11 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                                     runCatching { people.openOrCreateDm(match.person.userId) }
                                         .onSuccess(openChat)
                                         .onFailure { error ->
-                                            notice = if (error is PeopleException) {
+                                            BipeToasts.show(if (error is PeopleException) {
                                                 context.getString(R.string.bipe_app_group_invite_refused, match.person.displayName)
                                             } else {
                                                 context.getString(R.string.bipe_error_generic)
-                                            }
+                                            })
                                         }
                                 }
                             }) { Text(stringResource(R.string.bipe_invites_chat)) }

@@ -8,6 +8,7 @@ import android.content.Context
 import chat.bipe.shared.BipeHandleProblem
 import chat.bipe.shared.BipeProfileProblem
 import chat.bipe.shared.R
+import chat.bipe.shared.account.BipeAgeSignal
 import chat.bipe.shared.account.BipePinProblem
 import chat.bipe.shared.generated.BipeRegistries
 import java.io.IOException
@@ -131,6 +132,25 @@ class BipeApiClient(baseUrl: String) {
         if (status == 404) null else throw error
     }
 
+    // gov.br verification (bipe-chat/bipe#544, spec govbr-verify)
+
+    /** `POST /v1/verifications/govbr`. A challenge PDF bound to this device, valid 30 minutes. */
+    suspend fun startGovbrVerification(accessToken: String): BipeGovbrChallenge =
+        send("POST", listOf("v1", "verifications", "govbr"), accessToken = accessToken, response = BipeGovbrChallenge.serializer())
+
+    /** `PUT /v1/verifications/govbr/{id}/document`. The signed PDF. A rejection is a 200 with a reason, not an error. */
+    suspend fun sendGovbrDocument(verificationId: String, pdf: ByteArray, accessToken: String): BipeVerificationStatus {
+        val (status, text) = exchange(
+            "PUT",
+            listOf("v1", "verifications", "govbr", verificationId, "document"),
+            body = pdf,
+            contentType = "application/pdf",
+            accessToken = accessToken,
+        )
+        if (status !in 200..299) throw serverError(status, text)
+        return decodePeople(BipeVerificationStatus.serializer(), text, status)
+    }
+
     /** `POST /v1/me/terms`. Records that the person ticked the box for [termsVersion] (ADR 0113). */
     suspend fun acceptTerms(termsVersion: String, accessToken: String) {
         send<Unit>(
@@ -142,11 +162,30 @@ class BipeApiClient(baseUrl: String) {
         )
     }
 
+    /**
+     * `PUT /v1/me/age` (ADR 0229). Sends the OS age range, or source `none` with no range. The server keeps only the band
+     * and returns it.
+     */
+    suspend fun sendAgeSignal(signal: BipeAgeSignal, accessToken: String): String =
+        send(
+            "PUT",
+            listOf("v1", "me", "age"),
+            body = encode(BipeAgeSignalRequest.serializer(), BipeAgeSignalRequest(signal.source, signal.lower, signal.upper, signal.method)),
+            accessToken = accessToken,
+            response = BipeAgeSignalResponse.serializer(),
+        ).ageBand
+
     // Recovery (ADR 0057, ADR 0059)
 
-    /** `POST /v1/me/device-first`. A beta account gets a hidden password and a recovery token, once. */
-    suspend fun moveToDeviceFirst(accessToken: String): BipeCredentials =
-        send("POST", listOf("v1", "me", "device-first"), accessToken = accessToken, response = BipeCredentials.serializer())
+    /** `POST /v1/me/device-first`. A beta account gets a hidden password and a recovery token, once. Needs the current PIN (bipe-chat/bipe#908). */
+    suspend fun moveToDeviceFirst(pin: String, accessToken: String): BipeCredentials =
+        send(
+            "POST",
+            listOf("v1", "me", "device-first"),
+            body = encode(BipePinRequest.serializer(), BipePinRequest(pin)),
+            accessToken = accessToken,
+            response = BipeCredentials.serializer(),
+        )
 
     /**
      * `POST /v1/me/approval-nudge` (bipe-chat/bipe#628): a push to the other devices of the account while this device
@@ -382,6 +421,9 @@ enum class BipeApiErrorCode(val id: String) {
     PIN_WRONG("pin_wrong"),
     PIN_BLOCKED("pin_blocked"),
     PIN_NOT_SET("pin_not_set"),
+
+    /** `POST /v1/me/device-first` on an account that already moved (bipe-chat/bipe#908). */
+    ALREADY_DEVICE_FIRST("already_device_first"),
     RECOVERY_INVALID("recovery_invalid"),
     EMAIL_UNAVAILABLE("email_unavailable"),
 
@@ -447,6 +489,9 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** 409. The account already keeps maxKeptPerAccount voice audios (ADR 0164). */
     KEEP_LIMIT("keep_limit"),
+
+    /** 409. The groups service account is not in the group or may not invite (ADR 0184). */
+    GROUP_LINK_NO_ACCESS("group_link_no_access"),
     ;
 
     companion object {
@@ -494,6 +539,7 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.PIN_WRONG -> context.getString(R.string.bipe_pin_wrong, (triesLeft ?: 0).toString())
             BipeApiErrorCode.PIN_BLOCKED -> context.getString(R.string.bipe_pin_blocked_body, BipeRegistries.PIN_MAX_WRONG_TRIES.toString())
             BipeApiErrorCode.PIN_NOT_SET -> context.getString(R.string.bipe_deletion_pin_not_set)
+            BipeApiErrorCode.ALREADY_DEVICE_FIRST -> context.getString(R.string.bipe_error_generic)
             BipeApiErrorCode.DELETION_PENDING -> context.getString(R.string.bipe_deletion_error)
             BipeApiErrorCode.RECOVERY_INVALID -> context.getString(R.string.bipe_error_recovery_invalid)
             BipeApiErrorCode.EMAIL_UNAVAILABLE -> context.getString(R.string.bipe_error_email_unavailable)
@@ -530,6 +576,7 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.BRAND_MARK_LIMIT -> context.getString(R.string.bipe_brand_marks_limit)
             BipeApiErrorCode.KEEP_LIMIT ->
                 context.getString(R.string.bipe_voice_keep_limit, BipeRegistries.VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT.toString())
+            BipeApiErrorCode.GROUP_LINK_NO_ACCESS -> context.getString(R.string.bipe_group_link_error_access)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID,
             BipeApiErrorCode.PASSWORD_WEAK, BipeApiErrorCode.SUPPORT_UNAVAILABLE ->
                 context.getString(R.string.bipe_error_generic)

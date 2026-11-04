@@ -70,6 +70,20 @@ object BipeForwardMark {
         else -> Source.FILE
     }
 
+    /** The forward line of any message (bipe-chat/bipe#933): FORWARDED_MANY_TIMES, FORWARDED, or null for a count under 1. */
+    fun line(count: Int): Source? = when {
+        count >= BipeRegistries.FORWARDED_MANY_TIMES -> Source.FORWARDED_MANY_TIMES
+        count >= 1 -> Source.FORWARDED
+        else -> null
+    }
+
+    /**
+     * The most chats one forward goes to (bipe-chat/bipe#933). [sentCounts] are the counts of the contents the forward
+     * sends: FORWARD_CHATS_MANY_TIMES when one reaches FORWARDED_MANY_TIMES, else FORWARD_CHATS.
+     */
+    fun chatLimit(sentCounts: List<Int>): Int =
+        if (sentCounts.any { it >= BipeRegistries.FORWARDED_MANY_TIMES }) BipeRegistries.FORWARD_CHATS_MANY_TIMES else BipeRegistries.FORWARD_CHATS
+
     private fun JsonObject.hasMsgType(): Boolean = (get("msgtype") as? JsonPrimitive)?.isString == true
 
     /** The content object of event JSON: its "content" when it has one, else the object itself. */

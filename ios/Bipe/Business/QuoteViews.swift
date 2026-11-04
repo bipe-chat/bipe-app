@@ -166,7 +166,7 @@ struct QuoteOwnerView: View {
             .refreshable { await load() }
             .toast($notice)
             .sheet(item: $building) { target in
-                QuoteBuilderView(context: context, mode: target.mode, customerName: names[target.customerId] ?? Person.localpart(of: target.customerId),
+                QuoteBuilderView(context: context, mode: target.mode, customerName: names[target.customerId] ?? BipeChatRowName.person(userID: target.customerId, displayName: nil, handle: nil),
                                  close: { message in
                                      building = nil
                                      if let message { notice = message }
@@ -268,7 +268,7 @@ struct QuoteOwnerView: View {
     }
 
     private func name(_ userId: String) -> String {
-        names[userId] ?? Person.localpart(of: userId)
+        names[userId] ?? BipeChatRowName.person(userID: userId, displayName: nil, handle: nil)
     }
 
     /// GET /v1/me/business/quotes/requests and /v1/me/business/quotes.

@@ -14,8 +14,8 @@
 #   uploaded one, the fork's included.
 # - Play listing (bipe-chat/bipe#457): title, short and full description from bipe-shared product/appstore.md and
 #   the phone panels and feature graphic from the bipe-web store image builder, in one edit (tools/play.mjs listing).
-#   It fails closed while a panel uses an iPhone capture: the phone panels need native Android captures in bipe-web
-#   appstore/raw/play-phone (store-captures.yml makes them).
+#   The panels are built from the site's phone scenes, as on the App Store (MZ, 1 November 2026). Play takes the
+#   first 8 panels of the appstore.md screenshot table. It fails closed while bipe-web has no captures for a locale.
 # Owner-only setup (MZ): secrets DIST_CERT_P12, DIST_CERT_PASSWORD, ASC_KEY_P8, ANDROID_UPLOAD_KEYSTORE
 # (base64), ANDROID_UPLOAD_KEYSTORE_PASSWORD, ANDROID_UPLOAD_KEY_ALIAS, ANDROID_UPLOAD_KEY_PASSWORD,
 # PLAY_SERVICE_ACCOUNT_JSON; variables ASC_KEY_ID, ASC_ISSUER_ID, STORE_FIREBASE_APP_ID,

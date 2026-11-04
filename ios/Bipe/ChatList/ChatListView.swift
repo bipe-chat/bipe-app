@@ -22,6 +22,8 @@ struct ChatListView: View {
     @ObservedObject private var model: ChatListModel
     @ObservedObject private var archive: ChatArchiveModel
     @State private var showingArchived = false
+    /// State reorderingFavourites of spec chat-list.
+    @State private var reorderingFavourites = false
     @ObservedObject private var notifications = NotificationActions.shared
     @StateObject private var handle: HandlePickModel
     @StateObject private var recovery: RecoveryReminderModel
@@ -34,7 +36,7 @@ struct ChatListView: View {
     // Specs bring-people and bring-people-reminder (bipe-chat/bipe#752).
     @StateObject private var bringPeople: BringPeopleModel
     @State private var showsBringPeople = false
-    @State private var bringShare: ShareItem?
+    @State private var bringShare: BipeInviteShare?
     @StateObject private var requests: ChatRequestsModel
     @StateObject private var banner: RemoteBannerModel
     @Environment(\.scenePhase) private var scenePhase
@@ -47,6 +49,8 @@ struct ChatListView: View {
     @State private var detail: ChatDetail?
     /// The message the open chat scrolls to (spec room-link-open, bipe-chat/bipe#666). Any other detail clears it.
     @State private var focusEventId: String?
+    /// Spec chat-row-actions sendMedia: the open chat shows the photo picker. Any other detail clears it.
+    @State private var startAttachment: AttachmentChoice?
     @State private var path = NavigationPath()
     @State private var compactColumn: NavigationSplitViewColumn
     @State private var showsHandlePick = false
@@ -55,12 +59,12 @@ struct ChatListView: View {
     @State private var openingQueue: String?
     /// A group link waiting for room-link-open.
     @State private var openingRoomLink: RoomLink?
+    @State private var openingGroupLink: GroupLinkCode?
     /// A pack link (spec sticker-pack).
     @State private var openingPack: StickerPackRef?
     @State private var newGroupWith: [Person]?
     @State private var notificationsRoom: String?
     @State private var groupDetailsRoom: String?
-    @State private var deletingFromProfile: String?
     private let scope: ChatScope
     private let api: BipeAPIClient
     @State private var showingInvites = false
@@ -71,6 +75,8 @@ struct ChatListView: View {
     @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
     @State private var showsDrafts = false
     @StateObject private var cards: FirstListCardsModel
+    @StateObject private var asks: AccountAsksModel
+    @State private var showsProfileEdit = false
     @State private var shareItem: ShareItem?
     private struct ShareItem: Identifiable {
         let url: URL
@@ -96,6 +102,7 @@ struct ChatListView: View {
         _detail = State(initialValue: initialRoomId.map(ChatDetail.room))
         _compactColumn = State(initialValue: initialRoomId == nil ? .sidebar : .detail)
         _cards = StateObject(wrappedValue: FirstListCardsModel(userId: model.session.userId))
+        _asks = StateObject(wrappedValue: AccountAsksModel(session: model.session))
         self.scope = scope
     }
 
@@ -143,6 +150,7 @@ struct ChatListView: View {
                 await handle.load()
                 await recovery.load()
                 await bringPeople.load()
+                await asks.load()
                 openBringPeopleIfDue()
             }
         }
@@ -161,12 +169,14 @@ struct ChatListView: View {
                     if scope != .grupos {
                         await recovery.load()
                         await bringPeople.load()
+                        await asks.load()
                     }
                     pinReminder.refresh()
                 }
             }
         }
         .environment(\.bipeBrandMarks, people.brandMarks)
+        .environment(\.bipeCompanySeals, people.seals)
         .environment(\.bipeHandles, people.handles)
         .onAppear { people.start() }
         .sheet(isPresented: $showsDrafts) {
@@ -174,6 +184,9 @@ struct ChatListView: View {
         }
         .sheet(isPresented: $showsHandlePick) {
             HandlePickView(model: handle)
+        }
+        .sheet(isPresented: $showsProfileEdit, onDismiss: { Task { await asks.load() } }) {
+            NavigationStack { ProfileEditView(people: people) }
         }
         .sheet(item: $shareItem) { item in
             ShareSheet(items: [item.url]).ignoresSafeArea()
@@ -189,7 +202,7 @@ struct ChatListView: View {
                             openInvites: { Task { try? await Task.sleep(for: .milliseconds(500)); showingInvites = true } })
         }
         .sheet(item: $bringShare) { item in
-            ShareSheet(items: [BipeStrings.invitesShareMessage(item.url.absoluteString)]).ignoresSafeArea()
+            ShareSheet(items: [item.message]).ignoresSafeArea()
         }
         .sheet(isPresented: $showsPinChange) {
             NavigationStack { PinChangeView(model: settings) }
@@ -207,6 +220,9 @@ struct ChatListView: View {
         }
         .sheet(item: $openingRoomLink) { link in
             RoomLinkOpenView(session: model.session, link: link, media: model.media) { openMessage($0, eventId: $1) }
+        }
+        .sheet(item: $openingGroupLink) { link in
+            GroupLinkOpenView(session: model.session, link: link) { openChat($0) }
         }
         .sheet(item: $openingPack) { pack in
             StickerPackView(model: StickerPackModel(ref: pack, client: model.session.client, handles: people.handles),
@@ -231,9 +247,6 @@ struct ChatListView: View {
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button(BipeStrings.appClose) { groupDetailsRoom = nil } } }
             }
         }
-        .sheet(item: Binding(get: { deletingFromProfile.map(RoomSheetId.init) }, set: { deletingFromProfile = $0?.id })) { room in
-            DmDeleteView(session: model.session, roomId: room.id) { closeDetail() }
-        }
         // invite-signed-in: the inviter's chat or profile-link-open, in the Conversas list.
         .onReceive(TabsLinks.shared.$link.compactMap { $0 }) { link in
             guard scope != .grupos else { return }
@@ -244,6 +257,7 @@ struct ChatListView: View {
             case .person(let userId): show(.people(.person(userId: userId, fromDm: false)))
             case .queue(let handle): openingQueue = handle
             case .room(let link): openingRoomLink = link
+            case .groupLink(let link): openingGroupLink = link
             }
         }
         .onOpenURL { url in
@@ -289,14 +303,13 @@ struct ChatListView: View {
     /// (lanes D and E), this menu is their way in.
     private var peopleMenu: some View {
         Menu {
-            Button { path.append(PeopleRoute.profileEdit) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsProfileNamePhoto) }
-            Button { path.append(PeopleRoute.publicProfile) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsPublicProfile) }
+            Button { path.append(PeopleRoute.profileEdit) } label: { IconLabel(icon: .userCircle, text: BipeStrings.settingsProfile) }
             Button { path.append(PeopleRoute.profileLink) } label: { IconLabel(icon: .qrCode, text: BipeStrings.appProfileLink) }
             Button { path.append(PeopleRoute.contacts) } label: { IconLabel(icon: .addressBook, text: BipeStrings.contactsTitle) }
             Button { path.append(PeopleRoute.whoCanMessage) } label: { IconLabel(icon: .chatText, text: BipeStrings.messagingTitle) }
             Button { path.append(PeopleRoute.blockedList) } label: { IconLabel(icon: .prohibit, text: BipeStrings.privacyBlocked) }
         } label: {
-            PhosphorIcon.userCircle.labelledImage(BipeStrings.settingsPublicProfile)
+            PhosphorIcon.userCircle.labelledImage(BipeStrings.settingsProfile)
                 .resizable()
                 .frame(width: 26, height: 26)
                 .foregroundStyle(BipeColor.accentInk)
@@ -313,17 +326,13 @@ struct ChatListView: View {
                                   newGroup: { userId in
                                       Task {
                                           let person = try? await people.person(userId)
-                                          newGroupWith = [person ?? Person(userId: userId, displayName: Person.localpart(of: userId), avatarUrl: nil)]
+                                          newGroupWith = [person ?? Person(userId: userId, displayName: nil, avatarUrl: nil)]
                                       }
                                   },
-                                  notifications: { notificationsRoom = $0 },
-                                  deleteChat: { deletingFromProfile = $0 }))
+                                  notifications: { notificationsRoom = $0 }))
         case .profileEdit:
-            ProfileEditView(people: people)
-        case .publicProfile:
-            PublicProfileEditView(people: people,
-                                  pickHandle: { showsHandlePick = true },
-                                  openLink: { path.append(PeopleRoute.profileLink) })
+            ProfileEditView(people: people, pickHandle: { showsHandlePick = true },
+                            openLink: { path.append(PeopleRoute.profileLink) })
         case .profileQr:
             ProfileLinkView(people: people, pickHandle: { showsHandlePick = true }, initiallyShowsQr: true)
         case .profileLink:
@@ -337,28 +346,76 @@ struct ChatListView: View {
         }
     }
 
-    /// One card at a time: the handle card first, then the recovery reminder (spec recovery-reminder), then the PIN
-    /// reminder (spec pin-reminder), then the bring-people reminder (spec bring-people-reminder).
+    /// Spec chat-list-prompt (bipe-chat/bipe#894): the entries whose source condition holds now.
+    private var eligiblePrompts: Set<BipeChatListPrompt> {
+        var eligible: Set<BipeChatListPrompt> = []
+        if banner.state != .hidden && banner.banner != nil { eligible.insert(.remoteBanner) }
+        if encryption.showsBanner { eligible.insert(.approvePhone) }
+        if asks.showsNotifications { eligible.insert(.notifications) }
+        if asks.showsOsTheft { eligible.insert(.osTheftProtection) }
+        if asks.showsPhoto { eligible.insert(.photo) }
+        if recovery.showsCard { eligible.insert(.recovery) }
+        if pinReminder.showsCard { eligible.insert(.pinReminder) }
+        if handle.showsPrompt { eligible.insert(.handle) }
+        if bringPeople.reminder != nil { eligible.insert(.bringPeopleReminder) }
+        let count = model.chats(in: .conversas, archived: false).count
+        for card in cards.visible(chatCount: count, handle: handle.currentHandle, bringPeopleShown: bringPeople.memory.sheetShown) {
+            if let entry = BipeChatListPrompt(rawValue: card.rawValue) { eligible.insert(entry) }
+        }
+        return eligible
+    }
+
+    /// Spec chat-list-prompt: one card at a time, the first row of every chat list but the archived one.
     @ViewBuilder
-    private var handlePrompt: some View {
-        if scope != .grupos && handle.showsPrompt {
-            HandlePromptCard(model: handle) { showsHandlePick = true }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-        } else if scope != .grupos && recovery.showsCard {
+    private var promptRow: some View {
+        let slot = BipePromptSlot(userID: model.session.userId)
+        if !showingArchived, let card = slot.chatListCard(eligible: eligiblePrompts) {
+            promptCard(card)
+                .id(card)
+                .onAppear { slot.didShowCard(card) }
+                .listRowBackground(BipeColor.surfaceBase)
+                .listRowSeparator(.hidden)
+        }
+    }
+
+    @ViewBuilder
+    private func promptCard(_ card: BipeChatListPrompt) -> some View {
+        switch card {
+        case .remoteBanner:
+            RemoteBannerView(model: banner)
+        case .approvePhone:
+            ApprovePhoneCard(model: encryption)
+        case .notifications:
+            AccountAskCard(prompt: .notifications, open: { Task { await asks.allowNotifications() } },
+                           dismiss: asks.dismissNotifications)
+        case .notificationCheckup:
+            // Android only (spec notification-checkup): iOS never makes this entry eligible.
+            EmptyView()
+        case .appUpdate:
+            // Android tester APK only (spec app-update): TestFlight and the App Store update iOS.
+            EmptyView()
+        case .recovery:
             RecoveryReminderCard(model: recovery) { showsRecoveryEmail = true }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-        } else if scope != .grupos && pinReminder.showsCard {
+        case .pinReminder:
             PinReminderCard(model: pinReminder) { showsPinReminder = true }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-        } else if scope != .grupos, let reminder = bringPeople.reminder {
-            BringPeopleReminderCard(model: bringPeople, reminder: reminder,
-                                    share: { bringShare = ShareItem(url: $0) },
-                                    openInvites: { showingInvites = true })
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+        case .osTheftProtection:
+            AccountAskCard(prompt: .osTheftProtection, note: OsTheftProtection.pathText,
+                           open: { asks.finishOsTheft(); OsTheftProtection.openSettings() },
+                           dismiss: asks.finishOsTheft)
+        case .handle:
+            HandlePromptCard(model: handle) { showsHandlePick = true }
+        case .photo:
+            AccountAskCard(prompt: .photo, open: { showsProfileEdit = true }, dismiss: asks.dismissPhoto)
+        case .bringPeopleReminder:
+            if let reminder = bringPeople.reminder {
+                BringPeopleReminderCard(model: bringPeople, reminder: reminder,
+                                        share: { bringShare = $0 },
+                                        openInvites: { showingInvites = true })
+            }
+        case .profile, .invite, .notes:
+            if let first = BipeOnboardingCard(rawValue: card.rawValue) {
+                FirstListCardView(card: first, handle: handle.currentHandle) { target in run(target, of: first) }
+            }
         }
     }
 
@@ -366,24 +423,7 @@ struct ChatListView: View {
         VStack(spacing: 0) {
             // Spec live-location-banner: this account shares its live location.
             LiveLocationListRow(userId: model.session.userId)
-            RemoteBannerView(model: banner)
-                .padding(.horizontal, 16)
-                .padding(.vertical, banner.state == .hidden ? 0 : 8)
-            handlePrompt
             list
-        }
-    }
-
-    /// Spec chat-list-cards: the first-list cards at the top of Conversas.
-    @ViewBuilder
-    private var firstListCards: some View {
-        if scope != .grupos && !showingArchived {
-            let count = model.chats(in: .conversas, archived: false).count
-            ForEach(cards.visible(chatCount: count, handle: handle.currentHandle), id: \.self) { card in
-                FirstListCardView(card: card, handle: handle.currentHandle) { target in run(target, of: card) }
-                    .listRowBackground(BipeColor.surfaceBase)
-                    .listRowSeparator(.hidden)
-            }
         }
     }
 
@@ -409,16 +449,15 @@ struct ChatListView: View {
     /// The requests row and the group invites above the chats (specs chat-requests and chat-list-filters).
     @ViewBuilder
     private var topRows: some View {
-        // Spec encryption-status: the banner is the first row, so it scrolls with the chats (MZ decision 25 Oct 2026),
-        // in every chat list (bipe-chat/bipe#853).
-        if encryption.showsBanner && !showingArchived {
-            HistoryBanner(model: encryption)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(BipeColor.surfaceRaised)
-        }
-        firstListCards
-        Button(showingArchived ? (scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle) : BipeStrings.archivedTitle) {
-            showingArchived.toggle()
+        // Spec chat-list-prompt: the one prompt card is the first row, so it scrolls with the chats (MZ decision
+        // 25 Oct 2026), in every chat list (bipe-chat/bipe#853, #894).
+        promptRow
+        // Spec chat-archive openArchived: Archived opens from the last row of the list; this row goes back.
+        if showingArchived {
+            Button { showingArchived = false } label: {
+                ListEntryRow(icon: .caretLeft, title: scope == .grupos ? BipeStrings.tabGroups : BipeStrings.appChatListTitle)
+            }
+            .buttonStyle(.plain)
         }
         if model.readActionFailed {
             VStack(alignment: .leading) {
@@ -463,7 +502,11 @@ struct ChatListView: View {
                 topRows
                 if showingArchived {
                     Text(BipeStrings.archivedEmpty).foregroundStyle(BipeColor.inkSecondary)
-                } else { emptyState }
+                } else {
+                    emptyState
+                        // Spec chat-list loadMore: a page with no chat for this tab asks for the next page.
+                        .task(id: model.chats.count) { model.loadMore(in: scope) }
+                }
                 moreRows
                     .listRowSeparator(.hidden)
             }
@@ -474,9 +517,13 @@ struct ChatListView: View {
             let favourites = showingArchived ? [] : model.favourites(in: scope)
                 .filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }
             List {
-                // The first item of the list, above banners, cards, Archived, requests and invites.
+                // The first item of the list, above banners, cards, requests and invites.
                 if !favourites.isEmpty {
-                    FavouritesGrid(chats: favourites, media: model.media, open: openChat) { rowMenu($0) }
+                    FavouritesGrid(chats: favourites, media: model.media, reordering: $reorderingFavourites, open: openChat,
+                                   move: { roomId, index in
+                                       let shown = favourites.map(\.roomId)
+                                       Task { await model.moveFavourite(roomId: roomId, to: index, shown: shown) }
+                                   }) { rowMenu($0) }
                         .listRowBackground(BipeColor.surfaceBase)
                         .listRowSeparator(.hidden)
                 }
@@ -488,10 +535,9 @@ struct ChatListView: View {
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
                     .contextMenu { rowMenu(chat.roomId) }
                     .accessibilityActions { rowMenu(chat.roomId) }
-                    .onAppear {
-                        if chat.id == chats.last?.id {
-                            if !showingArchived { model.loadMore(in: scope) }
-                        }
+                    // Runs again when a page adds rooms while the last row is still on screen.
+                    .task(id: chat.id == chats.last?.id ? model.chats.count : -1) {
+                        if chat.id == chats.last?.id && !showingArchived { model.loadMore(in: scope) }
                     }
                 }
                 moreRows
@@ -502,7 +548,10 @@ struct ChatListView: View {
 
     @ViewBuilder private func rowMenu(_ roomId: String) -> some View {
         if let chat = model.currentChat(roomId) {
-            archiveAction(chat)
+            // Spec chat-row-actions: Send media first, Archive last, no delete (a chat is archived, never deleted).
+            Button { sendMedia(roomId) } label: {
+                Label(BipeStrings.chatSendMedia, systemImage: "photo.on.rectangle")
+            }
             // Spec chat-row-actions favourite. The SDK drops m.lowpriority when it sets m.favourite: not for an archive.
             if !archive.contains(chat) {
                 Button {
@@ -510,6 +559,12 @@ struct ChatListView: View {
                 } label: {
                     Label(chat.isFavourite ? BipeStrings.chatUnfavouriteAction : BipeStrings.chatFavouriteAction,
                           systemImage: chat.isFavourite ? "star.slash" : "star")
+                }
+                // Spec chat-row-actions reorderFavourites: a favourite, when its scope has two or more.
+                if chat.isFavourite && model.favourites(in: scope).count >= 2 {
+                    Button { reorderingFavourites = true } label: {
+                        Label(BipeStrings.chatFavouritesReorderAction, systemImage: "arrow.left.arrow.right")
+                    }
                 }
             }
             Button {
@@ -526,11 +581,7 @@ struct ChatListView: View {
                 Label(BipeStrings.chatDetails, systemImage: "info.circle")
             }
                 .disabled(chat.isDm && chat.peerUserId == nil)
-            if chat.isDm {
-                Button(role: .destructive) { deletingDm = roomId } label: {
-                    Label(BipeStrings.dmDeleteAction, systemImage: "trash")
-                }
-            }
+            archiveAction(chat)
         }
     }
 
@@ -552,7 +603,10 @@ struct ChatListView: View {
 
     @ViewBuilder private var moreRows: some View {
         if !showingArchived {
-            Button(BipeStrings.chatListMore) { model.loadMore(in: scope) }
+            Button { showingArchived = true } label: {
+                ListEntryRow(icon: .archive, title: BipeStrings.archivedTitle)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -586,7 +640,7 @@ struct ChatListView: View {
     private func openBringPeopleIfDue() {
         guard scope != .grupos, detail == nil, !showsBringPeople, !showsHandlePick, !showsPinReminder, !showsPinChange,
               !showsRecoveryEmail, !showingInvites, !creatingGroup, shareItem == nil, openingLink == nil,
-              openingRoomLink == nil, openingQueue == nil, bringPeople.memory.sheetDue,
+              openingRoomLink == nil, openingGroupLink == nil, openingQueue == nil, bringPeople.memory.sheetDue,
               BipeInviteStore(userID: model.session.userId).inviterGreeting() == nil else { return }
         bringPeople.sheetShown()
         showsBringPeople = true
@@ -598,6 +652,12 @@ struct ChatListView: View {
     }
 
     /// Opens the chat at a message when eventId is set.
+    /// Spec chat-row-actions sendMedia: opens the chat with the photo picker.
+    private func sendMedia(_ roomId: String) {
+        show(.room(roomId))
+        startAttachment = .photos
+    }
+
     private func openMessage(_ roomId: String, eventId: String?) {
         show(.room(roomId))
         focusEventId = eventId
@@ -605,6 +665,7 @@ struct ChatListView: View {
 
     private func show(_ next: ChatDetail) {
         focusEventId = nil
+        startAttachment = nil
         detail = next
         path = NavigationPath()
         compactColumn = .detail
@@ -613,6 +674,7 @@ struct ChatListView: View {
     /// closeChat: back to the list with nothing selected.
     private func closeDetail() {
         focusEventId = nil
+        startAttachment = nil
         detail = nil
         path = NavigationPath()
         compactColumn = .sidebar
@@ -647,13 +709,23 @@ struct ChatListView: View {
 
     private func timeline(_ roomId: String, focusEventId: String? = nil) -> some View {
         ChatTimelineView(session: model.session, media: model.media, roomId: roomId, people: people,
-                         focusEventId: focusEventId) {
+                         focusEventId: focusEventId, openInfo: {
             Task {
                 if let userId = await people.dmPartner(roomId: roomId) {
                     path.append(PeopleRoute.person(userId: userId, fromDm: true))
                 }
             }
-        }
+        }, archive: archiveToggle(roomId), startAttachment: startAttachment)
+    }
+
+    /// Spec chat-archive from the DM chat menu, on the same archive as the row action.
+    private func archiveToggle(_ roomId: String) -> ChatArchiveToggle {
+        ChatArchiveToggle(
+            isArchived: { [archive] in archive.markers[roomId] != nil },
+            set: { [model, archive] archived in
+                if let chat = model.chats.first(where: { $0.roomId == roomId }) { archive.set(chat, archived: archived) }
+            }
+        )
     }
 
     private var requestsScreen: some View {
@@ -668,7 +740,7 @@ struct ChatRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, userId: chat.peerUserId)
+            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, userId: chat.peerUserId, members: chat.avatarMembers)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(chat.name)
@@ -677,6 +749,9 @@ struct ChatRow: View {
                         .lineLimit(1)
                     if chat.isOfficial {
                         OfficialBadge()
+                    }
+                    if chat.isDm {
+                        SealMark(userId: chat.peerUserId)
                     }
                     Spacer(minLength: 8)
                     if let lastActivity = chat.lastActivity {
@@ -732,6 +807,8 @@ struct ChatRow: View {
                     }
                 }
             }
+            // The separator starts at the text, not at the initials inside the avatar.
+            .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
@@ -746,31 +823,96 @@ struct ChatRow: View {
 }
 
 /// Spec chat-list favourites: large avatars, three per line, the name under each.
+/// In reorder mode a cell drags onto another cell to take its place (spec chat-list reorderingFavourites).
 private struct FavouritesGrid<MenuContent: View>: View {
     let chats: [ChatSummary]
     let media: MediaLoader
+    @Binding var reordering: Bool
     let open: (String) -> Void
+    let move: (_ roomId: String, _ index: Int) -> Void
     @ViewBuilder let menu: (String) -> MenuContent
-    @ScaledMetric(relativeTo: .caption) private var avatarSize: CGFloat = 72
+    @State private var gridWidth: CGFloat = 0
+    @State private var dropTarget: String?
+
+    /// The avatar is 80% of its column, so it follows the screen width, not Dynamic Type. Capped at 92 pt on wide screens.
+    private var avatarSize: CGFloat {
+        guard gridWidth > 0 else { return 72 }
+        return min((gridWidth - 2 * 12) / 3 * 0.8, 92)
+    }
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
-            ForEach(chats) { chat in
-                Button { open(chat.roomId) } label: { cell(chat) }
-                    .buttonStyle(.plain)
-                    .contextMenu { menu(chat.roomId) }
-                    .accessibilityActions { menu(chat.roomId) }
-                    .accessibilityLabel(chat.isUnread ? chat.name + ", " + BipeStrings.chatUnreadState : chat.name)
+        VStack(spacing: 8) {
+            if reordering {
+                HStack {
+                    Text(BipeStrings.chatFavouritesReorderHint)
+                        .font(.footnote)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                    Spacer()
+                    Button(BipeStrings.chatFavouritesReorderDone) { reordering = false }
+                        .font(.body.weight(.semibold))
+                        .buttonStyle(.borderless)
+                }
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 16) {
+                ForEach(Array(chats.enumerated()), id: \.element.id) { index, chat in
+                    if reordering {
+                        reorderCell(chat, index: index)
+                    } else {
+                        // A Menu, not .contextMenu: the grid is one List row, and List shows the first
+                        // .contextMenu of a row for every cell in it. The Menu belongs to its own cell.
+                        Menu { menu(chat.roomId) } label: { cell(chat) } primaryAction: { open(chat.roomId) }
+                            .menuIndicator(.hidden)
+                            .menuStyle(.button)
+                            .buttonStyle(.plain)
+                            // A Menu plays no haptic when a long press opens it; the list rows' .contextMenu does.
+                            .simultaneousGesture(LongPressGesture().onEnded { _ in BipeHaptics.play(.hold) })
+                            .accessibilityActions { menu(chat.roomId) }
+                            .accessibilityLabel(cellLabel(chat))
+                    }
+                }
             }
         }
         .padding(.vertical, 8)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(BipeStrings.chatFavourites)
+        // Reorder mode ends with fewer than two favourites or when the list goes away.
+        .onChange(of: chats.count) { _, count in if count < 2 { reordering = false } }
+        .onDisappear { reordering = false }
+    }
+
+    private func reorderCell(_ chat: ChatSummary, index: Int) -> some View {
+        cell(chat)
+            .opacity(dropTarget == chat.roomId ? 0.5 : 1)
+            .draggable(chat.roomId) { cell(chat) }
+            .dropDestination(for: String.self) { items, _ in
+                guard let roomId = items.first, roomId != chat.roomId, chats.contains(where: { $0.roomId == roomId }) else { return false }
+                BipeHaptics.play(.hold)
+                move(roomId, index)
+                return true
+            } isTargeted: { targeted in
+                if targeted { dropTarget = chat.roomId } else if dropTarget == chat.roomId { dropTarget = nil }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(cellLabel(chat))
+            .accessibilityActions {
+                if index > 0 {
+                    Button(BipeStrings.chatFavouriteMoveEarlier) { move(chat.roomId, index - 1) }
+                }
+                if index < chats.count - 1 {
+                    Button(BipeStrings.chatFavouriteMoveLater) { move(chat.roomId, index + 1) }
+                }
+            }
+    }
+
+    private func cellLabel(_ chat: ChatSummary) -> String {
+        chat.isUnread ? chat.name + ", " + BipeStrings.chatUnreadState : chat.name
     }
 
     private func cell(_ chat: ChatSummary) -> some View {
         VStack(spacing: 6) {
-            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: avatarSize, userId: chat.peerUserId)
+            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: avatarSize, userId: chat.peerUserId,
+                       members: chat.avatarMembers)
                 .overlay(alignment: .topTrailing) {
                     if chat.isUnread {
                         Circle().fill(BipeColor.accentFill)

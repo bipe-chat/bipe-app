@@ -11,12 +11,18 @@ import chat.bipe.app.groups.RoomLink
 import chat.bipe.app.chatlist.NativeDmSelection
 import android.Manifest
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import chat.bipe.shared.BipeTrustSources
 import chat.bipe.shared.BipeHandleResolver
+import chat.bipe.shared.BipeChatRowName
 import chat.bipe.shared.api.lookupContacts
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.BipeMyProfile
+import chat.bipe.shared.api.deleteMyProfilePhoto
+import chat.bipe.shared.api.myProfile
+import chat.bipe.shared.api.setMyProfilePhoto
 import chat.bipe.shared.api.BipeOpenIdToken
 import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.stickers.StickerPackRef
@@ -37,6 +43,7 @@ import org.matrix.rustcomponents.sdk.ClientException
 import org.matrix.rustcomponents.sdk.CreateRoomParameters
 import org.matrix.rustcomponents.sdk.ErrorKind
 import org.matrix.rustcomponents.sdk.IgnoredUsersListener
+import org.matrix.rustcomponents.sdk.MediaSource
 import org.matrix.rustcomponents.sdk.PowerLevels
 import org.matrix.rustcomponents.sdk.RoomPreset
 import org.matrix.rustcomponents.sdk.RoomVisibility
@@ -45,22 +52,26 @@ import org.matrix.rustcomponents.sdk.TaskHandle
 /** Type Person of the people specs: the name to show, the photo and the @. Never the Matrix ID (ADR 0013). */
 data class Person(
     val userId: String,
-    /** The saved contact name, else the profile name, else the @, else the ID's localpart. */
+    /** People names: the saved contact name, else the real profile name, else the @, else bipe_person_no_name. */
     val displayName: String,
     val avatarUrl: String? = null,
     val handle: String? = null,
 ) {
     companion object {
-        /** The localpart of a Matrix ID, the last fallback of a name (blocked-list notes). */
-        fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
+        /** bipe_person_no_name in the app's language. BipeApplication sets it at start. */
+        @Volatile var noName: () -> String = { "" }
+
+        /** People names (BipeChatRowName.person, bipe-shared screens README): never the Matrix ID or its localpart. */
+        fun name(userId: String, displayName: String?, handle: String? = null, contactName: String? = null): String =
+            BipeChatRowName.person(userId, contactName, displayName, handle, noName())
     }
 }
 
 /** The people screens the home screen can show on top of the chat list. */
 sealed interface PeopleRoute {
     data class PersonProfile(val userId: String, val fromDm: Boolean) : PeopleRoute
+    /** Spec profile-edit: Seu perfil, one screen. */
     data object ProfileEdit : PeopleRoute
-    data object PublicProfile : PeopleRoute
     data object ProfileQr : PeopleRoute
     data object ProfileLink : PeopleRoute
     /** [queue]: the counter QR link `?fila` of a business opens queue-customer for [handle] (spec queue-customer notes). */
@@ -71,6 +82,10 @@ sealed interface PeopleRoute {
     data class ReportChat(val roomId: String, val isDm: Boolean, val otherUserId: String?) : PeopleRoute
     /** A matrix.to or matrix: group link (spec room-link-open). */
     data class RoomLinkOpen(val link: RoomLink) : PeopleRoute
+    /** A bipe.chat/g/<code> group link (spec group-link-open). Prints redacted: the code is a secret. */
+    data class GroupLinkOpen(val code: String) : PeopleRoute {
+        override fun toString(): String = "GroupLinkOpen(redacted)"
+    }
     /** A pack link bipe.chat/s/<room ID> (spec sticker-pack). */
     data class StickerPackLink(val ref: StickerPackRef) : PeopleRoute
 }
@@ -256,6 +271,41 @@ class PeopleService(
     /** Calls bipe-api with the account's token, retrying once on 401. */
     suspend fun <T> withToken(request: suspend (String) -> T): T = BipeApiClient.withTokenRetry({ session.accessToken() }, request)
 
+    /**
+     * Spec public-profile-edit syncPhoto (ADR 0041, amended 2 Nov 2026): the public photo is a copy of the Matrix avatar,
+     * because the web page cannot read Matrix media. Only for a published profile. Uploads only when the avatar differs
+     * from photo_source. Returns the new profile, or [profile] when nothing changed or a step failed: the next run tries
+     * again.
+     */
+    suspend fun syncPublicPhoto(profile: BipeMyProfile): BipeMyProfile {
+        if (!profile.enabled) return profile
+        val client = session.client
+        return try {
+            val mxc = client.avatarUrl()
+            when {
+                mxc == null -> if (profile.hasPhoto) withToken { api.deleteMyProfilePhoto(it) } else profile
+                mxc == profile.photoSource -> profile
+                else -> {
+                    val bytes = client.getMediaContent(MediaSource.fromUrl(mxc))
+                    val jpeg = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let { BipeProfilePhoto.jpeg(it) }
+                    if (jpeg == null) profile else withToken { api.setMyProfilePhoto(jpeg, mxc, it) }
+                }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            profile
+        }
+    }
+
+    /** syncPhoto after a photo change in profile-edit: GET /v1/me/profile first. */
+    suspend fun syncPublicPhoto() {
+        val profile = try { withToken { api.myProfile(it) } }
+            catch (error: CancellationException) { throw error }
+            catch (_: Exception) { return }
+        syncPublicPhoto(profile)
+    }
+
     /** Runs [request] with the OpenID token, for the core routes (bipe-chat/bipe#646). */
     suspend fun <T> withOpenId(request: suspend (BipeOpenIdToken) -> T): T = BipeApiClient.withOpenIdRetry(session.openId, request)
 
@@ -267,7 +317,7 @@ class PeopleService(
         return Person(userId, displayName(contactName, profile?.displayName, handle, userId), profile?.avatarUrl, handle)
     }
 
-    /** Several people. A profile that does not load still gives a row (the @ or the localpart). */
+    /** Several people. A profile that does not load still gives a row (the @ or bipe_person_no_name). */
     suspend fun people(userIds: List<String>): List<Person> {
         return userIds.map { userId ->
             val profile = runCatching { session.client.getProfile(userId) }.getOrNull()
@@ -372,12 +422,8 @@ class PeopleService(
     }
 
     companion object {
-        fun displayName(contactName: String?, profileName: String?, handle: String?, userId: String): String {
-            contactName?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
-            // A profile name that is the raw Matrix ID is no name (ADR 0013).
-            profileName?.trim()?.takeIf { it.isNotEmpty() && it != userId }?.let { return it }
-            if (handle != null) return "@$handle"
-            return Person.localpart(userId)
-        }
+        /** People names (BipeChatRowName.person): never the Matrix ID or its localpart. */
+        fun displayName(contactName: String?, profileName: String?, handle: String?, userId: String): String =
+            Person.name(userId, profileName, handle, contactName)
     }
 }

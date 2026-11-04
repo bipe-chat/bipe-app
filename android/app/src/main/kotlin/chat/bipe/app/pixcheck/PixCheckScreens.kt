@@ -4,7 +4,7 @@
 
 package chat.bipe.app.pixcheck
 
-import android.widget.Toast
+import chat.bipe.app.common.BipeToasts
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -132,7 +132,7 @@ fun PixCheckResult(results: List<PixCheckedItem>, accountAvailable: Boolean, onS
                 if (shareText != null) {
                     TextButton(onClick = {
                         if (!PixShareResult.share(context, shareText)) {
-                            Toast.makeText(context, context.getString(R.string.bipe_error_generic), Toast.LENGTH_SHORT).show()
+                            BipeToasts.show(context.getString(R.string.bipe_error_generic))
                         }
                     }) {
                         Text(stringResource(R.string.bipe_pix_check_share_result), color = colors.accentInk)

@@ -139,7 +139,7 @@ struct AgendaOwnerBookingView: View {
             LabeledContent(BipeStrings.agendaPerson, value: agendaName(booking.agendaId))
             LabeledContent(BipeStrings.agendaDate, value: booking.start.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
             LabeledContent(BipeStrings.agendaTime, value: BookingText.time(booking.start))
-            LabeledContent(BipeStrings.agendaCustomer, value: booking.customer.name ?? customerName ?? "")
+            LabeledContent(BipeStrings.agendaCustomer, value: booking.web ? "\(booking.customer.name ?? "") · \(BipeStrings.webRecordMark)" : booking.customer.name ?? customerName ?? "")
             Text(booking.status.text)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(booking.status.tint)

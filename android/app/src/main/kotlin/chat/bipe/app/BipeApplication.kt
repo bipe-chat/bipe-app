@@ -34,6 +34,9 @@ class BipeApplication : Application() {
     /** Spec notification-service. */
     val notifications: PhoneNotifications by lazy { PhoneNotifications(this) }
 
+    /** Spec app-update (ADR 0233): one offer and one download for every account. Tester APK only. */
+    val appUpdate: chat.bipe.app.update.AppUpdate by lazy { chat.bipe.app.update.AppUpdate(this, scope) }
+
     /** Action open of a notification: the chat that the home screen opens next. */
     val roomToOpen = MutableStateFlow<BipeNotificationOpen?>(null)
 
@@ -43,20 +46,34 @@ class BipeApplication : Application() {
     /** A recovery alert push or its tap (bipe-chat/bipe#171): the account whose recovery-alert runs check at once. */
     val recoveryToCheck = MutableStateFlow<String?>(null)
 
+    /** An invite join push or its tap (bipe-chat/bipe#967): the account whose invites refresh at once. */
+    val invitesToRefresh = MutableStateFlow<String?>(null)
+
+    /** True while MainActivity is on screen: an invite join then shows only the join notice (bipe-chat/bipe#967). */
+    @Volatile var activityVisible = false
+
     /** Spec pix-check-result, action sendToChat: the preview the home screen offers next. */
     val pixPreview = MutableStateFlow<PixPreview?>(null)
 
     /** Spec share-to-chat: the share the home screen offers next. */
     val pendingShare = MutableStateFlow<chat.bipe.app.share.PendingShare?>(null)
 
+    /** Spec govbr-verify: the open gov.br check of this app run, which a signed PDF from the share sheet finds. */
+    val govbr = chat.bipe.app.voce.GovbrInbox()
+
     private var watchingAccounts = false
 
     override fun onCreate() {
         super.onCreate()
+        // People names: the placeholder for a person without a name or @.
+        chat.bipe.app.people.Person.noName = { getString(chat.bipe.shared.R.string.bipe_person_no_name) }
         // Spec app-colors: the stored palette before the first screen.
         chat.bipe.app.common.AppTheme.load(this)
         // Spec incoming-call: the missed calls of the chat list previews.
         chat.bipe.app.calls.MissedCalls.init(this)
+        // Spec read-receipts: the delivered acks and the read receipts switch on this phone.
+        chat.bipe.app.timeline.DeliveredLog.init(this)
+        chat.bipe.app.timeline.ReadReceiptSetting.init(this)
         // Before any SDK call. On Android, initPlatform is the only place where the SDK sets up rustls-platform-verifier:
         // without it the first HTTPS request (the login) panics, and Kotlin gets InternalException. It also sends SDK
         // warnings, errors and panics to logcat.
@@ -94,6 +111,11 @@ class BipeApplication : Application() {
                 notifications.recoveryAlert(message.accountUserId, message.completed)
                 recoveryToCheck.value = message.accountUserId
             }
+            is BipePushMessage.InviteJoined -> {
+                if (!activityVisible) notifications.inviteJoined(message.accountUserId)
+                invitesToRefresh.value = message.accountUserId
+            }
+            is BipePushMessage.GroupLinkJoined -> notifications.groupLinkJoined(message.accountUserId, message.roomId)
             BipePushMessage.Ignored -> Unit
         }
     }

@@ -174,13 +174,17 @@ struct ReactionSendersSheet: View {
 struct ReadersSheet: View {
     let readers: [ReceiptReader]
     let media: MediaLoader
+    /// The session's handle resolver for the @ of a same name (spec read-receipts nameAmbiguous). nil: no @.
+    var handles: BipeHandleResolver?
 
     var body: some View {
         NavigationStack {
             List(readers) { reader in
                 HStack(spacing: 12) {
                     AvatarView(name: reader.name, mxcUrl: reader.avatarUrl, loader: media, size: 32, userId: reader.userId)
-                    Text(reader.name)
+                    Text(reader.nameAmbiguous
+                         ? MemberNames.label(name: reader.name, userId: reader.userId, handles: handles)
+                         : reader.name)
                         .foregroundStyle(BipeColor.inkPrimary)
                     Spacer()
                     if let readAt = reader.readAt {

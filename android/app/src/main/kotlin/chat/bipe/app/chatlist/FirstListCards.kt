@@ -43,10 +43,12 @@ class FirstListCardsModel(context: Context, userId: String) {
     )
     val done: StateFlow<Set<BipeOnboardingCard>> = _done.asStateFlow()
 
-    /** State cards: registry order, only while Conversas lists at most FIRST_LIST_MAX_CHATS chats. */
-    fun visible(done: Set<BipeOnboardingCard>, chatCount: Int, handle: String?): List<BipeOnboardingCard> {
+    /** State cards: registry order, only while Conversas lists at most FIRST_LIST_MAX_CHATS chats. The invite card goes once the bring-people sheet showed (needsNoBringPeople). */
+    fun visible(done: Set<BipeOnboardingCard>, chatCount: Int, handle: String?, bringPeopleShown: Boolean): List<BipeOnboardingCard> {
         if (chatCount > BipeOnboarding.FIRST_LIST_MAX_CHATS) return emptyList()
-        return BipeOnboardingCard.entries.filter { it !in done && (!it.needsHandle || handle != null) }
+        return BipeOnboardingCard.entries.filter {
+            it !in done && (!it.needsHandle || handle != null) && (!it.needsNoBringPeople || !bringPeopleShown)
+        }
     }
 
     /** Actions dismiss, and every other action once it ran: the card goes for good. */
@@ -58,33 +60,11 @@ class FirstListCardsModel(context: Context, userId: String) {
 
 @Composable
 fun FirstListCard(card: BipeOnboardingCard, handle: String?, onAction: (BipeOnboardingTarget) -> Unit) {
-    val colors = BipeTheme.colors
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-            .background(colors.surfaceRaised, RoundedCornerShape(14.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(stringResource(card.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary)
-        val body = if (card == BipeOnboardingCard.PROFILE && handle != null) stringResource(R.string.bipe_first_card_profile_body, handle)
-        else stringResource(card.body)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(card.primary.title),
-                style = MaterialTheme.typography.titleSmall,
-                color = colors.inkOnAccent,
-                modifier = Modifier.bipeTapTarget().background(colors.accentFill, RoundedCornerShape(50))
-                    .clickable(role = Role.Button) { onAction(card.primary.target) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-            card.text.forEach { button ->
-                Text(
-                    stringResource(button.title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.accentInk,
-                    modifier = Modifier.bipeTapTarget().clickable(role = Role.Button) { onAction(button.target) },
-                )
-            }
-        }
-    }
+    PromptCard(
+        title = stringResource(card.title),
+        body = if (card == BipeOnboardingCard.PROFILE && handle != null) stringResource(R.string.bipe_first_card_profile_body, handle)
+        else stringResource(card.body),
+        primary = PromptAction(stringResource(card.primary.title)) { onAction(card.primary.target) },
+        texts = card.text.map { button -> PromptAction(stringResource(button.title)) { onAction(button.target) } },
+    )
 }

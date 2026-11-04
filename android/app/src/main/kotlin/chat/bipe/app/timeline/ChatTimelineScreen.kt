@@ -4,6 +4,7 @@
 
 package chat.bipe.app.timeline
 
+import chat.bipe.app.common.BipeToasts
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -39,6 +40,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -64,6 +71,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import chat.bipe.app.tabs.HidesTabBar
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -81,13 +92,17 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.business.rememberBusinessChatTools
 import chat.bipe.app.chatlist.ChatMessageSearchSheet
+import chat.bipe.app.common.AppTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.LocalReduceMotion
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.memberLabel
 import chat.bipe.app.common.bipeTapTarget
+import chat.bipe.app.common.chatBackground
+import chat.bipe.app.common.floatingSurface
 import chat.bipe.app.composer.MentionSuggestion
-import chat.bipe.app.notifications.NotificationsPrompt
+import chat.bipe.app.notifications.NotificationsPromptTrigger
 import chat.bipe.app.people.BrandMarkHeaderLine
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.people.ProfileNoticeBar
@@ -97,15 +112,18 @@ import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.app.common.OfficialBadge
+import chat.bipe.app.common.SealMark
 import chat.bipe.app.groups.ClearedChatsStore
-import chat.bipe.app.groups.DmDeleteSheet
-import chat.bipe.app.calls.CallHeaderButtons
+import chat.bipe.app.calls.CallMenuItems
+import chat.bipe.app.calls.rememberCallStart
+import chat.bipe.app.groups.ChatNotificationsScreen
+import chat.bipe.app.media.ChatMediaGalleryScreen
 import chat.bipe.app.calls.OngoingCallBar
 import chat.bipe.app.media.MediaViewer
 import chat.bipe.app.media.VoicePlayer
 import chat.bipe.app.media.stickers.StickerPicker
 import chat.bipe.app.media.stickers.StickerPackScreen
-import chat.bipe.app.media.upload.AttachmentPicker
+import chat.bipe.app.media.upload.AttachmentMenu
 import chat.bipe.app.media.upload.UploadPreviewScreen
 import chat.bipe.app.media.voice.MicrophoneDeniedBar
 import chat.bipe.app.media.voice.VoiceRecordingBar
@@ -133,9 +151,10 @@ fun ChatTimelineScreen(
     onBack: () -> Unit,
     onOpenGroupDetails: (() -> Unit)? = null,
     onHistoryHelp: () -> Unit = {},
-    onDmDeleted: () -> Unit = onBack,
     /** Opens the chat's info: person-profile for a DM. */
     onOpenInfo: (() -> Unit)? = null,
+    /** Spec chat-archive from the DM chat menu. null: no archive row. */
+    archive: ChatArchiveToggle? = null,
     /** The account's people service, for the blocked bar of a DM (block-person). null: no bar. */
     people: PeopleService? = null,
     /** Opens another chat in place of this one (a new DM from inviteAgain). */
@@ -144,7 +163,12 @@ fun ChatTimelineScreen(
     threadRoot: String? = null,
     /** Spec chat-search openMessage (bipe-chat/bipe#671): the message to scroll to after the chat opens. */
     focusEventId: String? = null,
+    /** Spec chat-row-actions sendMedia: open the photo picker once the chat shows. */
+    startPhotos: Boolean = false,
+    onStartPhotosUsed: () -> Unit = {},
 ) {
+    // Spec app-tabs: the tab bar hides while a chat or thread is open.
+    HidesTabBar()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
@@ -164,6 +188,7 @@ fun ChatTimelineScreen(
             handleChanges = HandleChangeStores.store(context, session),
             voiceMedia = VoiceMediaStore.store(context, session),
             threadRoot = threadRoot,
+            handles = people?.handles,
         )
     }
     // Spec threads openThread: the thread view over the main timeline.
@@ -199,6 +224,7 @@ fun ChatTimelineScreen(
     val roomName by model.roomName.collectAsState()
     val roomAvatarUrl by model.roomAvatarUrl.collectAsState()
     val peerUserId by model.peerUserId.collectAsState()
+    val avatarMembers by model.avatarMembers.collectAsState()
     val isGroup by model.isGroup.collectAsState()
     val successorRoomId by model.successorRoomId.collectAsState()
     val predecessor by model.predecessor.collectAsState()
@@ -228,10 +254,9 @@ fun ChatTimelineScreen(
     var viewerRowId by rememberSaveable(session.userId, roomId) { mutableStateOf<String?>(null) }
     // composer
     val composer by model.composer.collectAsState()
-    var attaching by remember { mutableStateOf(false) }
     var upload by remember { mutableStateOf<PickedUpload?>(null) }
     var showsStickers by remember { mutableStateOf(false) }
-    NotificationsPrompt(session, roomId, messages)
+    NotificationsPromptTrigger(session, roomId, messages)
     val greeting = stringResource(R.string.bipe_inviter_greeting)
     val listState = rememberLazyListState()
     var dmMenu by remember { mutableStateOf(false) }
@@ -243,17 +268,23 @@ fun ChatTimelineScreen(
     }
     // Spec business-chat-bar: the tools and booking cards of a DM with a company (or, on a company, with a customer).
     val business = rememberBusinessChatTools(session, media, peerUserId.takeIf { isDm })
-    var deletingDm by rememberSaveable { mutableStateOf(false) }
-    if (deletingDm) {
-        DmDeleteSheet(session, roomId, onDismiss = { deletingDm = false }, onDeleted = {
-            deletingDm = false
-            onDmDeleted()
-        })
-    }
     var creatingPoll by rememberSaveable { mutableStateOf(false) }
     var openPollId by rememberSaveable { mutableStateOf<String?>(null) }
     if (creatingPoll) {
         PollCreateScreen(model) { creatingPoll = false }
+        return
+    }
+    // Spec chat-timeline notes: chat-notifications and chat-media-gallery from the DM chat menu.
+    var showsNotifications by rememberSaveable { mutableStateOf(false) }
+    if (showsNotifications) {
+        BackHandler { showsNotifications = false }
+        ChatNotificationsScreen(session, roomId, onBack = { showsNotifications = false })
+        return
+    }
+    var showsGallery by rememberSaveable { mutableStateOf(false) }
+    if (showsGallery) {
+        BackHandler { showsGallery = false }
+        ChatMediaGalleryScreen(session, media, roomId, onClose = { showsGallery = false })
         return
     }
     // Spec location-send, with the reply target taken when it opened.
@@ -307,28 +338,32 @@ fun ChatTimelineScreen(
                         modifier = Modifier.weight(1f).then(if (isDm && onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId)
+                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId, members = avatarMembers)
                         Spacer(Modifier.size(8.dp))
                         Column(modifier = Modifier.weight(1f, fill = false)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    if (threadRoot == null) roomName else stringResource(R.string.bipe_thread_title),
+                                    when {
+                                        threadRoot != null -> stringResource(R.string.bipe_thread_title)
+                                        model.isNewsRoom -> stringResource(R.string.bipe_news_room_name)
+                                        else -> roomName
+                                    },
                                     style = MaterialTheme.typography.titleMedium,
                                     color = colors.inkPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f, fill = false),
                                 )
-                                if (isDm && BipeOfficialAccounts.isOfficial(peerUserId)) {
+                                if (model.isNewsRoom || (isDm && BipeOfficialAccounts.isOfficial(peerUserId))) {
                                     Spacer(Modifier.size(6.dp))
                                     OfficialBadge()
                                 }
+                                if (isDm) SealMark(peerUserId, Modifier.padding(start = 6.dp), seals = people?.seals)
                             }
                             // Spec brand-mark: a reseller's mark under the title, never instead of the name.
                             if (isDm) BrandMarkHeaderLine(peerUserId, people?.brandMarks)
                         }
                     }
-                    if (threadRoot == null) CallHeaderButtons(model, session, roomName)
                     if (isGroup && onOpenGroupDetails != null && threadRoot == null) {
                         // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
                         Box {
@@ -357,17 +392,18 @@ fun ChatTimelineScreen(
                             }
                         }
                     }
-                    if (isDm) {
+                    if (isDm && threadRoot == null) {
+                        // Spec chat-timeline notes: the DM chat menu is the one button on the right. Archive, never delete.
+                        val startCall = rememberCallStart(model, session, roomName)
                         Box {
                             IconButton(onClick = { dmMenu = true }) {
                                 Icon(
-                                    painterResource(PhosphorIcon.INFO.drawable),
-                                    contentDescription = stringResource(R.string.bipe_dm_details_title),
+                                    painterResource(PhosphorIcon.DOTS_THREE.drawable),
+                                    contentDescription = stringResource(R.string.bipe_chat_actions),
                                     tint = colors.glyphPrimary,
                                 )
                             }
                             DropdownMenu(expanded = dmMenu, onDismissRequest = { dmMenu = false }) {
-                                business?.MenuItems(dismiss = { dmMenu = false })
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.bipe_search_in_chat)) },
                                     onClick = {
@@ -375,13 +411,41 @@ fun ChatTimelineScreen(
                                         searchingChat = true
                                     },
                                 )
+                                onOpenInfo?.let { open ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.bipe_dm_details_title)) },
+                                        onClick = {
+                                            dmMenu = false
+                                            open()
+                                        },
+                                    )
+                                }
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.bipe_dm_delete_action), color = colors.trustDangerInk) },
+                                    text = { Text(stringResource(R.string.bipe_settings_notifications)) },
                                     onClick = {
                                         dmMenu = false
-                                        deletingDm = true
+                                        showsNotifications = true
                                     },
                                 )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.bipe_gallery_title)) },
+                                    onClick = {
+                                        dmMenu = false
+                                        showsGallery = true
+                                    },
+                                )
+                                CallMenuItems(startCall, dismiss = { dmMenu = false })
+                                business?.MenuItems(dismiss = { dmMenu = false })
+                                archive?.let { toggle ->
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(if (toggle.archived) R.string.bipe_unarchive_action else R.string.bipe_archive_action)) },
+                                        onClick = {
+                                            dmMenu = false
+                                            toggle.set(!toggle.archived)
+                                            if (!toggle.archived) onBack()
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -404,7 +468,8 @@ fun ChatTimelineScreen(
                 LazyColumn(
                     state = listState,
                     reverseLayout = true,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    // Spec app-colors, ADR 0213: the chat background, still behind the scrolling messages.
+                    modifier = Modifier.weight(1f).fillMaxWidth().chatBackground(AppTheme.chatBackground, colors),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -446,7 +511,7 @@ fun ChatTimelineScreen(
                     }
                     item(key = "history") {
                         // Composed while the top of the list is on screen, again after each load and each change of the rows
-                        // (action loadHistory). After a failed load, the next change of the rows tries again.
+                        // (action loadHistory). After a failed load, the model changes historyLoads after a pause.
                         LaunchedEffect(rows.size, historyLoads) { model.loadHistory() }
                         if (isLoadingHistory && !reachedStart) {
                             Text(
@@ -509,7 +574,18 @@ fun ChatTimelineScreen(
                         onCancelReply = model::cancelReply,
                         onCancelEdit = model::cancelEdit,
                         onPickSuggestion = model::pickSuggestion,
-                        onAttach = { attaching = true },
+                        attachMenu = { expanded, onDismiss ->
+                            AttachmentMenu(
+                                expanded = expanded,
+                                openPhotos = startPhotos,
+                                onPhotosOpened = onStartPhotosUsed,
+                                onDismiss = onDismiss,
+                                onPicked = { files -> upload = PickedUpload(files, model.takeReplyEventId()) },
+                                onStickers = { showsStickers = true },
+                                onLocation = { locationSend = LocationSendRequest(model.takeReplyEventId()) },
+                                onPoll = if (composer.canPoll) ({ creatingPoll = true }) else null,
+                            )
+                        },
                         onStickers = { showsStickers = true },
                         onRecord = { model.startRecording(context.applicationContext) },
                         onEndRecording = model::endRecording,
@@ -533,18 +609,12 @@ fun ChatTimelineScreen(
                     else -> composerBar()
                 }
             }
-            ui.notice?.let { notice ->
-                Text(
-                    noticeText(notice, ui.noticeArg),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.inkPrimary,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 110.dp)
-                        .background(colors.surfaceRaised, CircleShape)
-                        .border(1.dp, colors.lineSubtle, CircleShape)
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                )
+            val noticeShown = ui.notice?.let { noticeText(it, ui.noticeArg) }
+            LaunchedEffect(ui.notice, ui.noticeArg) {
+                when {
+                    ui.notice == TimelineNotice.COPIED -> BipeToasts.copied(context)
+                    noticeShown != null -> BipeToasts.show(noticeShown)
+                }
             }
         }
     }
@@ -618,18 +688,6 @@ fun ChatTimelineScreen(
             containerColor = colors.surfaceRaised,
             titleContentColor = colors.inkPrimary,
             textContentColor = colors.inkSecondary,
-        )
-    }
-    if (attaching) {
-        AttachmentPicker(
-            onPicked = { files ->
-                attaching = false
-                upload = PickedUpload(files, model.takeReplyEventId())
-            },
-            onStickers = { showsStickers = true },
-            onLocation = { locationSend = LocationSendRequest(model.takeReplyEventId()) },
-            onPoll = if (composer.canPoll) ({ creatingPoll = true }) else null,
-            onDismiss = { attaching = false },
         )
     }
     upload?.let { picked ->
@@ -751,7 +809,8 @@ private fun ComposerBar(
     onCancelReply: () -> Unit,
     onCancelEdit: () -> Unit,
     onPickSuggestion: (MentionSuggestion) -> Unit,
-    onAttach: () -> Unit,
+    /** Spec attachment-picker: the menu of the + button, anchored to it. */
+    attachMenu: @Composable (expanded: Boolean, onDismiss: () -> Unit) -> Unit,
     onStickers: () -> Unit,
     onRecord: () -> Unit,
     onEndRecording: () -> Unit,
@@ -766,7 +825,13 @@ private fun ComposerBar(
         if (ui.replyingToRowId != null || ui.editing != null) runCatching { focus.requestFocus() }
     }
     val recording = composer.recording
-    Column(modifier = Modifier.fillMaxWidth().background(colors.surfaceRaised).testTag(BipeScreen.COMPOSER.id)) {
+    // Spec composer: the input and its buttons float over the chat background; the bars that replace them stay solid.
+    val floats = composer.canPost && !microphoneDenied && !(recording != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (floats) Modifier else Modifier.background(colors.surfaceRaised))
+            .testTag(BipeScreen.COMPOSER.id),
+    ) {
         if (!composer.canPost) {
             Text(
                 stringResource(R.string.bipe_dm_no_permission_to_post),
@@ -785,39 +850,52 @@ private fun ComposerBar(
             VoiceRecordingBar(recording, onClose = onEndRecording)
             return@Column
         }
-        if (composer.suggestions.isNotEmpty()) {
-            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
-                items(composer.suggestions, key = { it.userId ?: "@room" }) { suggestion ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onPickSuggestion(suggestion) }.padding(horizontal = 16.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Avatar(suggestion.name, suggestion.avatarUrl, media, size = 32.dp)
-                        Column {
-                            Text(suggestion.name, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
-                            suggestion.handle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
+        val reply = ui.replyingTo
+        val editing = ui.editing
+        if (composer.suggestions.isNotEmpty() || reply != null || editing != null) {
+            Column(
+                modifier = Modifier
+                    .padding(start = 12.dp, end = 12.dp, top = 8.dp)
+                    .fillMaxWidth()
+                    .floatingSurface(RoundedCornerShape(20.dp), colors.surfaceRaised, colors.lineSubtle)
+                    .clip(RoundedCornerShape(20.dp)),
+            ) {
+                if (composer.suggestions.isNotEmpty()) {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
+                        items(composer.suggestions, key = { it.userId ?: "@room" }) { suggestion ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable { onPickSuggestion(suggestion) }.padding(horizontal = 16.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Avatar(suggestion.name, suggestion.avatarUrl, media, size = 32.dp)
+                                Column {
+                                    // Spec composer nameAmbiguous: a member with no handle line shows the Matrix ID after a shared name.
+                                    val label = suggestion.userId?.takeIf { suggestion.handle == null }
+                                        ?.let { memberLabel(suggestion.name, it, suggestion.nameAmbiguous) } ?: suggestion.name
+                                    Text(label, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                                    suggestion.handle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
+                                }
+                            }
                         }
                     }
                 }
+                if (reply != null) {
+                    ComposerContextBar(
+                        icon = PhosphorIcon.ARROW_BEND_UP_LEFT,
+                        title = stringResource(R.string.bipe_app_message_replying_to, reply.senderName.orEmpty()),
+                        preview = reply.preview,
+                        onClose = onCancelReply,
+                    )
+                } else if (editing != null) {
+                    ComposerContextBar(
+                        icon = PhosphorIcon.PENCIL_SIMPLE,
+                        title = stringResource(R.string.bipe_app_message_editing),
+                        preview = editing.originalText,
+                        onClose = onCancelEdit,
+                    )
+                }
             }
-        }
-        val reply = ui.replyingTo
-        val editing = ui.editing
-        if (reply != null) {
-            ComposerContextBar(
-                icon = PhosphorIcon.ARROW_BEND_UP_LEFT,
-                title = stringResource(R.string.bipe_app_message_replying_to, reply.senderName.orEmpty()),
-                preview = reply.preview,
-                onClose = onCancelReply,
-            )
-        } else if (editing != null) {
-            ComposerContextBar(
-                icon = PhosphorIcon.PENCIL_SIMPLE,
-                title = stringResource(R.string.bipe_app_message_editing),
-                preview = editing.originalText,
-                onClose = onCancelEdit,
-            )
         }
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -825,20 +903,24 @@ private fun ComposerBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (editing == null) {
-                IconButton(onClick = onAttach) {
-                    Icon(
-                        painterResource(PhosphorIcon.PAPERCLIP.drawable),
-                        contentDescription = stringResource(R.string.bipe_app_composer_attach),
-                        tint = colors.glyphPrimary,
-                    )
+                var attaching by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { attaching = true }, modifier = Modifier.floatingSurface(CircleShape, colors.surfaceRaised, colors.lineSubtle)) {
+                        Icon(
+                            painterResource(PhosphorIcon.PLUS.drawable),
+                            contentDescription = stringResource(R.string.bipe_app_composer_attach),
+                            tint = colors.glyphPrimary,
+                        )
+                    }
+                    attachMenu(attaching) { attaching = false }
                 }
             }
             val placeholder = stringResource(R.string.bipe_app_timeline_composer_placeholder)
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .background(colors.surfaceSunken, RoundedCornerShape(20.dp))
-                    .padding(start = 14.dp, end = 6.dp),
+                    .floatingSurface(RoundedCornerShape(24.dp), colors.surfaceRaised, colors.lineSubtle)
+                    .padding(start = 16.dp, end = 6.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 BasicTextField(
@@ -850,7 +932,18 @@ private fun ComposerBar(
                     modifier = Modifier
                         .weight(1f)
                         .focusRequester(focus)
-                        .padding(vertical = 10.dp),
+                        // A hardware keyboard: Enter sends, Shift+Enter makes a new line (bipe-chat/bipe#832). Enter
+                        // from the on-screen keyboard (a virtual device) keeps making a new line.
+                        .onPreviewKeyEvent { event ->
+                            val hardware = event.nativeKeyEvent.device?.isVirtual == false
+                            if (!hardware || event.isShiftPressed || (event.key != Key.Enter && event.key != Key.NumPadEnter)) {
+                                return@onPreviewKeyEvent false
+                            }
+                            if (event.type == KeyEventType.KeyDown && canSend) onSend()
+                            true
+                        }
+                        // 22 dp line + 2 x 13 = 48 dp, the sticker button's height, so one line sits in the middle.
+                        .padding(vertical = 13.dp),
                     decorationBox = { inner ->
                         Box {
                             if (draft.isEmpty()) {
@@ -880,19 +973,19 @@ private fun ComposerBar(
             if (showsRecord) {
                 IconButton(
                     onClick = { microphone.launch(Manifest.permission.RECORD_AUDIO) },
-                    modifier = Modifier.background(colors.accentFill, CircleShape),
+                    modifier = Modifier.floatingSurface(CircleShape, colors.surfaceRaised, colors.lineSubtle),
                 ) {
                     Icon(
                         painterResource(PhosphorIcon.MICROPHONE.drawable),
                         contentDescription = stringResource(R.string.bipe_app_composer_record),
-                        tint = colors.inkOnAccent,
+                        tint = colors.glyphPrimary,
                     )
                 }
             } else {
                 IconButton(
                     onClick = onSend,
                     enabled = canSend,
-                    modifier = Modifier.background(if (canSend) colors.accentFill else colors.surfaceSunken, CircleShape),
+                    modifier = Modifier.floatingSurface(CircleShape, if (canSend) colors.accentFill else colors.surfaceRaised, colors.lineSubtle),
                 ) {
                     Icon(
                         painterResource(if (editing == null) PhosphorIcon.PAPER_PLANE_RIGHT.drawable else PhosphorIcon.CHECK.drawable),
@@ -981,3 +1074,6 @@ private fun CvmStopOrderCard(people: PeopleService, userId: String) {
         Text(stringResource(R.string.bipe_cvm_stop_order_card, date), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = colors.trustDangerInk)
     }
 }
+
+/** Spec chat-archive from the DM chat menu: the chat's archived state in the account's archive, and its setter. */
+class ChatArchiveToggle(val archived: Boolean, val set: (Boolean) -> Unit)

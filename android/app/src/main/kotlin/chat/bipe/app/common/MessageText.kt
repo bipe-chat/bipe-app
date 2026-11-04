@@ -43,8 +43,13 @@ fun TimelineItemContent.previewText(undecryptable: String, label: (Int) -> Strin
     }
 }
 
-fun ProfileDetails.displayName(orUserId: String): String =
-    (this as? ProfileDetails.Ready)?.displayName?.takeIf { it.isNotEmpty() } ?: orUserId
+/** People names for the sender [userId]: the real display name, else the @handle, else bipe_person_no_name. */
+fun ProfileDetails.displayName(userId: String, handle: String? = null): String =
+    chat.bipe.app.people.Person.name(userId, (this as? ProfileDetails.Ready)?.displayName, handle)
+
+/** The display name when it is a real name (People names), else null. */
+fun ProfileDetails.realName(userId: String): String? =
+    chat.bipe.shared.BipeChatRowName.realName((this as? ProfileDetails.Ready)?.displayName, userId)
 
 /** The SDK's flag: another member of the room has the same display name. */
 val ProfileDetails.isNameAmbiguous: Boolean
@@ -68,13 +73,11 @@ object MemberNames {
             .flatMapTo(mutableSetOf()) { group -> group.map { it.key } }
 
     /**
-     * The name with what tells the member apart: "Maria @maria1" for a Bipe user once the @ is known,
-     * the Matrix ID for a user of another server, the name alone while the @ loads.
+     * The name with what tells the member apart: "Maria @maria1" for a Bipe user once the @ is known, the name alone
+     * while the @ loads and for a user of another server. Never the Matrix ID (People names).
      */
-    fun label(name: String, userId: String, handle: String?): String = when {
-        BipeServers.isBipeUserId(userId) -> handle?.let { "$name @$it" } ?: name
-        else -> "$name $userId"
-    }
+    fun label(name: String, userId: String, handle: String?): String =
+        handle?.takeIf { BipeServers.isBipeUserId(userId) && name != "@$it" }?.let { "$name @$it" } ?: name
 }
 
 /** [name] with the @ when [ambiguous] (spec nameAmbiguous). Recomposes when the @ arrives. */

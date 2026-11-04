@@ -4,12 +4,14 @@
 
 package chat.bipe.app.pixcheck
 
+import androidx.compose.ui.unit.dp
+import chat.bipe.app.common.BipeToastHost
+import chat.bipe.app.common.BipeToasts
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -39,32 +41,34 @@ class PixCheckActivity : ComponentActivity() {
         if (savedInstanceState == null) readShare(intent)
         setContent {
             BipeTheme {
-                val state by model.state.collectAsState()
-                PixCheckScreen(
-                    state = state,
-                    onCancel = {
-                        model.cancel()
-                        finish()
-                    },
-                    onClose = {
-                        model.close()
-                        PixShareResult.clear(this)
-                        finish()
-                    },
-                    onRetry = model::retry,
-                    accountAvailable = PixPreview.accountAvailable(this),
-                    // Only after the tap: the app shows the editable preview and asks for chat choice and Send.
-                    onSendToChat = { item ->
-                        val image = model.sourceImage(item)
-                        runCatching { PixPreview.open(this, text = item.input, image = image) }
-                            .onSuccess {
-                                model.close()
-                                finish()
-                            }
-                            // handoffFailed: a generic error; a new tap retries the same preview.
-                            .onFailure { Toast.makeText(this, getString(R.string.bipe_error_generic), Toast.LENGTH_SHORT).show() }
-                    },
-                )
+                BipeToastHost(bottom = 24.dp) {
+                    val state by model.state.collectAsState()
+                    PixCheckScreen(
+                        state = state,
+                        onCancel = {
+                            model.cancel()
+                            finish()
+                        },
+                        onClose = {
+                            model.close()
+                            PixShareResult.clear(this@PixCheckActivity)
+                            finish()
+                        },
+                        onRetry = model::retry,
+                        accountAvailable = PixPreview.accountAvailable(this@PixCheckActivity),
+                        // Only after the tap: the app shows the editable preview and asks for chat choice and Send.
+                        onSendToChat = { item ->
+                            val image = model.sourceImage(item)
+                            runCatching { PixPreview.open(this@PixCheckActivity, text = item.input, image = image) }
+                                .onSuccess {
+                                    model.close()
+                                    finish()
+                                }
+                                // handoffFailed: a generic error; a new tap retries the same preview.
+                                .onFailure { BipeToasts.show(getString(R.string.bipe_error_generic)) }
+                        },
+                    )
+                }
             }
         }
     }

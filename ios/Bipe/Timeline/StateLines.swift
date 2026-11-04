@@ -20,6 +20,10 @@ struct StateLine: Equatable {
         case photoRemoved
         case descriptionChanged
         case descriptionRemoved
+        case madeAdmin
+        case madeModerator
+        case removedAdmin
+        case removedModerator
     }
 
     var change: Change
@@ -62,9 +66,36 @@ enum StateLines {
         case .state(_, .roomTopic(let topic)):
             return StateLine(change: topic?.nilIfBlank == nil ? .descriptionRemoved : .descriptionChanged,
                              actorId: event.sender, targetIds: [])
+        case .state(_, .roomPowerLevels(_, _, let users, let previousUsers, let thresholds, _)):
+            guard let previousUsers else { return nil }
+            return roleLine(users: users, previous: previousUsers, usersDefault: thresholds.usersDefault, actorId: event.sender)
         default:
             return nil
         }
+    }
+
+    /// Spec timeline-rows StateLine.change madeAdmin to removedModerator: the first role change of one power levels
+    /// event, with every person of that change (bipe-chat/bipe#733).
+    static func roleLine(users: [String: Int64], previous: [String: Int64], usersDefault: Int64, actorId: String) -> StateLine? {
+        var changes: [StateLine.Change: [String]] = [:]
+        for userId in Set(users.keys).union(previous.keys).sorted() {
+            let old = GroupRole(level: previous[userId] ?? usersDefault)
+            let new = GroupRole(level: users[userId] ?? usersDefault)
+            guard old != new else { continue }
+            let change: StateLine.Change
+            switch new {
+            case .admin: change = .madeAdmin
+            case .moderator: change = .madeModerator
+            case .member: change = old == .admin ? .removedAdmin : .removedModerator
+            }
+            changes[change, default: []].append(userId)
+        }
+        for change in [StateLine.Change.madeAdmin, .madeModerator, .removedAdmin, .removedModerator] {
+            if let targets = changes[change] {
+                return StateLine(change: change, actorId: actorId, targetIds: targets)
+            }
+        }
+        return nil
     }
 
     /// The previous line with this one folded in, or nil when they do not fold: the same membership change, and for
@@ -101,6 +132,10 @@ enum StateLines {
         case .photoRemoved: return BipeStrings.appStatePhotoRemoved(actor)
         case .descriptionChanged: return BipeStrings.appStateDescriptionChanged(actor)
         case .descriptionRemoved: return BipeStrings.appStateDescriptionRemoved(actor)
+        case .madeAdmin: return BipeStrings.appStateMadeAdmin(actor, people)
+        case .madeModerator: return BipeStrings.appStateMadeModerator(actor, people)
+        case .removedAdmin: return BipeStrings.appStateRemovedAdmin(actor, people)
+        case .removedModerator: return BipeStrings.appStateRemovedModerator(actor, people)
         }
     }
 }

@@ -38,12 +38,13 @@ public nonisolated struct BipeCredentialStore: Sendable {
         case pendingSignup = "chat.bipe.account.pending-signup"
         case passwordExcluded = "chat.bipe.account.password.excluded"
         case tokenExcluded = "chat.bipe.account.recovery-token.excluded"
+        case storeKey = "chat.bipe.account.store-key"
     }
     
     /// Every service this store writes, sign-out markers first: the app-group move (bipe-chat/bipe#531) copies a marker
     /// before the items it hides.
     public static let keychainServices: [String] = [Service.passwordExcluded, .tokenExcluded, .password, .recoveryToken,
-                                                    .pendingSignup, .pendingRecovery].map(\.rawValue)
+                                                    .pendingSignup, .pendingRecovery, .storeKey].map(\.rawValue)
 
     /// A sign-up whose credentials are not stored yet (ADR 0094). The key makes a retry return the same account.
     /// The PIN is the one the first try sent, so the app lock gets the PIN the account really has.
@@ -184,6 +185,52 @@ public nonisolated struct BipeCredentialStore: Sendable {
         delete(.pendingRecovery)
     }
     
+    // MARK: - SDK store key
+
+    /// The keychain cannot answer now, or the item is not a store key. A store that needs the key stays closed.
+    public enum StoreKeyError: Error {
+        case unavailable
+    }
+
+    /// The key of the SDK stores made since bipe-chat/bipe#913 (ADR 0073). `nil` when this phone has none. One key for
+    /// the whole install, so a store keeps its key when it moves between folders (QR login). Reads the own group only,
+    /// and tells "no item" apart from every other keychain answer.
+    public func storeKey() throws -> Data? {
+        guard let ownedAccessGroup else { throw StoreKeyError.unavailable }
+        var query = baseQuery(.storeKey, group: ownedAccessGroup, account: Self.storeKeyAccount)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        let (status, result) = keychain.copyMatching(query)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let key = result as? Data, key.count == Self.storeKeySize else {
+            throw StoreKeyError.unavailable
+        }
+        return key
+    }
+
+    /// The store key, made and saved when this phone has none. Device only, not in backups. Never replaces a saved key:
+    /// when another process adds one first, that one wins.
+    public func storeKeyMakingOne() throws -> Data {
+        if let key = try storeKey() { return key }
+        guard let ownedAccessGroup else { throw StoreKeyError.unavailable }
+        var bytes = [UInt8](repeating: 0, count: Self.storeKeySize)
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+            throw StoreKeyError.unavailable
+        }
+        var item = baseQuery(.storeKey, group: ownedAccessGroup, account: Self.storeKeyAccount)
+        item[kSecValueData as String] = Data(bytes)
+        item[kSecAttrSynchronizable as String] = false
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let status = keychain.add(item)
+        guard status == errSecSuccess || status == errSecDuplicateItem, let key = try storeKey() else {
+            throw StoreKeyError.unavailable
+        }
+        return key
+    }
+
+    private static let storeKeyAccount = "install"
+    private static let storeKeySize = 32
+
     // MARK: - Private
     
     private static let encoder: JSONEncoder = {
