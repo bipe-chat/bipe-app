@@ -2,16 +2,12 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// Trabalho on the web (ADR 0226, bipe-chat/bipe#979): the business-tools list of a company account
-// (spec business-tools, WorkView on iOS) and the opening hours (spec work-hours). Each row opens its tool
-// in this pane. The actions that ADR 0226 point 6 keeps on an attested phone (create the company, CNPJ,
+// Trabalho on the web (ADR 0226, bipe-chat/bipe#979): the home of a company account (WorkHome.tsx, spec
+// business-tools) and the opening hours (spec work-hours). Each row opens its tool in this pane. The actions that ADR 0226 point 6 keeps on an attested phone (create the company, CNPJ,
 // seal, domains, seats, Pix charges) are not here; one footer line says they are in the app.
 
 import { useState } from 'react';
-import type { StringKey } from '../bipe/generated/strings';
-import { caretRight } from '../phosphor/icons';
 import { locale, s } from '../ui/i18n';
-import { Icon } from '../ui/Icon';
 import { NavBar, Row, Section } from '../ui/List';
 import type { BusinessClient, WorkHours } from './business-client';
 import { AgendaScreen } from './Agenda';
@@ -30,18 +26,10 @@ import {
 import { OrdersScreen } from './Orders';
 import { QueueScreen } from './Queue';
 import { QuotesScreen } from './Quotes';
+import { WithToolState, WorkHome, WorkSectorScreen, WorkSetupScreen } from './WorkHome';
 
 // The URL segment of each tool: /trabalho/<tool> (router.ts).
-type Tool = 'agenda' | 'catalogo' | 'pedidos' | 'orcamentos' | 'fila' | 'selos' | 'horario';
-
-const TOOLS: { tool: Tool; title: StringKey }[] = [
-  { tool: 'agenda', title: 'bipe_tab_agenda' },
-  { tool: 'catalogo', title: 'bipe_catalog_title' },
-  { tool: 'pedidos', title: 'bipe_orders_title' },
-  { tool: 'orcamentos', title: 'bipe_quotes_title' },
-  { tool: 'fila', title: 'bipe_queue_title' },
-  { tool: 'selos', title: 'bipe_brand_marks_title' },
-];
+type Tool = 'agenda' | 'catalogo' | 'pedidos' | 'orcamentos' | 'fila' | 'selos' | 'passos' | 'ramo' | 'horario';
 
 /**
  * Shown only when the current account is a company account (bipe-api account type, ADR 0132). tool is the open
@@ -85,68 +73,26 @@ function ToolScreen({
   const back = () => onTool(undefined);
   switch (tool as Tool | undefined) {
     case 'agenda':
-      return <AgendaScreen client={client} onBack={back} />;
+      return <WithToolState client={client} id="agenda" screen={<AgendaScreen client={client} onBack={back} />} />;
     case 'catalogo':
-      return <CatalogScreen client={client} onBack={back} />;
+      return <WithToolState client={client} id="catalog" screen={<CatalogScreen client={client} onBack={back} />} />;
     case 'pedidos':
-      return <OrdersScreen client={client} onBack={back} />;
+      return <WithToolState client={client} id="orders" screen={<OrdersScreen client={client} onBack={back} />} />;
     case 'orcamentos':
-      return <QuotesScreen client={client} onBack={back} />;
+      return <WithToolState client={client} id="quotes" screen={<QuotesScreen client={client} onBack={back} />} />;
     case 'fila':
-      return <QueueScreen client={client} onBack={back} />;
+      return <WithToolState client={client} id="queue" screen={<QueueScreen client={client} onBack={back} />} />;
     case 'selos':
       return <BrandMarksScreen client={client} onBack={back} />;
+    case 'passos':
+      return <WorkSetupScreen client={client} onBack={back} onTool={onTool} />;
+    case 'ramo':
+      return <WorkSectorScreen client={client} onBack={back} />;
     case 'horario':
       return <HoursScreen client={client} onBack={back} />;
     default:
-      return <ToolList client={client} onOpen={onTool} onClose={onClose} />;
+      return <WorkHome client={client} onOpen={onTool} onClose={onClose} />;
   }
-}
-
-function ToolList({ client, onOpen, onClose }: { client: BusinessClient; onOpen: (t: Tool) => void; onClose: () => void }) {
-  // The Agenda row's subtitle (spec business-tools agendaPublished). A failed read shows no subtitle.
-  const agenda = useLoad(() => client.agenda().catch(() => undefined), [client]);
-  const agendaSubtitle =
-    agenda.data === undefined
-      ? undefined
-      : agenda.data.published
-        ? s('bipe_agenda_published')
-        : s('bipe_agenda_not_published');
-  return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-grouped-screen">
-      <NavBar title={s('bipe_tab_work')} onBack={onClose} />
-      <div className="flex flex-col gap-6 px-4 pb-8">
-        <Section header={s('bipe_business_tools_title')} footer={s('bipe_business_tools_footer')}>
-          {TOOLS.map(({ tool, title }) => (
-            <ToolRow
-              key={tool}
-              title={s(title)}
-              subtitle={tool === 'agenda' ? agendaSubtitle : undefined}
-              onClick={() => onOpen(tool)}
-            />
-          ))}
-        </Section>
-        <Section>
-          <ToolRow title={s('bipe_work_hours_title')} onClick={() => onOpen('horario')} />
-        </Section>
-        <p className="px-4 text-footnote text-ink-secondary">{s('bipe_web_work_phone_only')}</p>
-      </div>
-    </div>
-  );
-}
-
-function ToolRow({ title, subtitle, onClick }: { title: string; subtitle?: string; onClick: () => void }) {
-  return (
-    <Row>
-      <button type="button" className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left" onClick={onClick}>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-body text-ink-primary">{title}</span>
-          {subtitle && <span className="truncate text-footnote text-ink-secondary">{subtitle}</span>}
-        </span>
-        <Icon path={caretRight} size={16} className="text-glyph-secondary" />
-      </button>
-    </Row>
-  );
 }
 
 const weekdayName = (isoDay: number) =>

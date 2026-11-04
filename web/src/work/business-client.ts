@@ -22,6 +22,11 @@ import type {
   Booking,
   BookingHold,
   BookingMove,
+  BusinessLiveTools,
+  BusinessToday,
+  BusinessToolId,
+  BusinessTools,
+  BusinessToolState,
   Catalog,
   CatalogItem,
   CatalogItemInput,
@@ -46,6 +51,8 @@ import type {
   Service,
   ServiceInput,
   SlotDays,
+  WorkSetup,
+  WorkSuggestions,
 } from '../bipe/generated/business-api';
 
 export const API_BASE = 'https://api.bipe.net.br';
@@ -219,6 +226,19 @@ export class BusinessClient {
     this.post<Order>(`/v1/me/business/orders/${enc(id)}/${action}`);
   refuseOrder = (id: string, reason: OrderRefuseReason) =>
     this.post<Order>(`/v1/me/business/orders/${enc(id)}/refuse`, { reason });
+
+  // ---- Tool state, sector, steps, suggestions, Hoje (specs business-tools, work-setup, ADR 0194) ----
+
+  businessTools = () => this.get<BusinessTools>('/v1/me/business/tools');
+  setBusinessTool = (id: BusinessToolId, state: BusinessToolState) =>
+    this.put<BusinessTools>(`/v1/me/business/tools/${enc(id)}`, { state });
+  setWorkSector = (sector?: string) => this.put<BusinessTools>('/v1/me/business/sector', sector ? { sector } : {});
+  workSetup = () => this.get<WorkSetup>('/v1/me/business/setup');
+  workLinkOpened = () => this.post<WorkSetup>('/v1/me/business/setup/link-opened');
+  workSuggestions = () => this.get<WorkSuggestions>('/v1/me/business/suggestions');
+  dismissWorkSuggestion = (id: string) => this.post<WorkSuggestions>(`/v1/me/business/suggestions/${enc(id)}/dismiss`);
+  businessToday = () => this.get<BusinessToday>('/v1/me/business/today');
+  liveTools = (business: string) => this.get<BusinessLiveTools>(`/v1/businesses/${enc(business)}/tools`);
 
   // ---- Selos de revenda, read only on the web (spec brand-marks, ADR 0226 point 2) ----
 
