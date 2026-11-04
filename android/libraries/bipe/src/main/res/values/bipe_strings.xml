@@ -1995,6 +1995,9 @@
     <string name="bipe_quote_link_gone">Este link não vale mais. Peça um novo para a loja.</string>
     <string name="bipe_quote_link_accepted">Orçamento aceito. A loja recebeu seu pedido.</string>
     <string name="bipe_quote_link_refused">Orçamento recusado.</string>
+    <string name="bipe_business_stop">Parar de receber</string>
+    <string name="bipe_business_stop_undo">Voltar a receber</string>
+    <string name="bipe_business_stopped">Esta empresa não pode mais começar uma conversa com você. Respostas e avisos de horários e pedidos continuam.</string>
     <string name="bipe_business_tools_title">Ferramentas do negócio</string>
     <string name="bipe_business_tools_footer">Seus clientes encontram estas ferramentas no seu perfil e na conversa com você.</string>
     <string name="bipe_business_tools_a11y">Ferramentas do negócio</string>
@@ -2215,6 +2218,12 @@
     <string name="bipe_poll_state_ended">Encerrada</string>
     <string name="bipe_chats_media_quality_standard">Padrão, arquivos menores</string>
     <string name="bipe_chats_media_quality_high">Alta, como foram tiradas</string>
+    <string name="bipe_chats_mural">Mural</string>
+    <string name="bipe_chats_mural_footer">Suas conversas aparecem em blocos de tamanhos diferentes. Menções e mensagens não lidas deixam o bloco maior. O Bipe monta o mural neste aparelho, e nada disso sai dele.</string>
+    <string name="bipe_chat_mural_no_news">Sem novidade</string>
+    <string name="bipe_chat_mural_view_list">Ver todas em lista</string>
+    <string name="bipe_chat_mural_reason_mention">Mencionou você</string>
+    <string name="bipe_chat_mural_reason_unanswered">Sem resposta</string>
     <string name="bipe_chats_theme">Tema</string>
     <string name="bipe_chats_photos_videos">Fotos e vídeos</string>
     <string name="bipe_room_upgrade_replaced">Este grupo foi trocado por um grupo novo. As mensagens novas ficam lá.</string>

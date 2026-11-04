@@ -4582,6 +4582,12 @@ public enum BipeStrings {
 
     public static var quoteLinkRefused: String { NSLocalizedString("bipe_quote_link_refused", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var businessStop: String { NSLocalizedString("bipe_business_stop", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessStopUndo: String { NSLocalizedString("bipe_business_stop_undo", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessStopped: String { NSLocalizedString("bipe_business_stopped", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var businessToolsTitle: String { NSLocalizedString("bipe_business_tools_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var businessToolsFooter: String { NSLocalizedString("bipe_business_tools_footer", tableName: "Bipe", bundle: .module, comment: "") }
@@ -5083,6 +5089,18 @@ public enum BipeStrings {
     public static var chatsMediaQualityStandard: String { NSLocalizedString("bipe_chats_media_quality_standard", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatsMediaQualityHigh: String { NSLocalizedString("bipe_chats_media_quality_high", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsMural: String { NSLocalizedString("bipe_chats_mural", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsMuralFooter: String { NSLocalizedString("bipe_chats_mural_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatMuralNoNews: String { NSLocalizedString("bipe_chat_mural_no_news", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatMuralViewList: String { NSLocalizedString("bipe_chat_mural_view_list", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatMuralReasonMention: String { NSLocalizedString("bipe_chat_mural_reason_mention", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatMuralReasonUnanswered: String { NSLocalizedString("bipe_chat_mural_reason_unanswered", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var chatsTheme: String { NSLocalizedString("bipe_chats_theme", tableName: "Bipe", bundle: .module, comment: "") }
 
