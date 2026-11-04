@@ -360,6 +360,40 @@ data class BipeQuoteVersionInput(
     @SerialName("visit_service_id") val visitServiceId: String? = null,
 )
 
+/** Contract `QuoteLinkInput`: a version with the name the owner typed (ADR 0185). */
+@Serializable
+private data class QuoteLinkBody(
+    @SerialName("customer_name") val customerName: String,
+    @SerialName("lines") val lines: List<BipeQuoteLineInput>,
+    @SerialName("valid_until") val validUntil: String,
+    @SerialName("visit_service_id") val visitServiceId: String? = null,
+)
+
+/** Contract `QuoteLinkResult`. The link shows only here: the server keeps a hash of its ID. */
+@Serializable
+data class BipeQuoteLink(
+    @SerialName("quote") val quote: BipeQuote,
+    @SerialName("link") val link: String,
+    @SerialName("business_name") val businessName: String,
+)
+
+/** `POST /v1/me/business/quotes/links`. A quote for a person with no Bipe account. */
+suspend fun BipeApiClient.createQuoteLink(customerName: String, version: BipeQuoteVersionInput, accessToken: String): BipeQuoteLink = send(
+    "POST",
+    listOf("v1", "me", "business", "quotes", "links"),
+    body = encode(QuoteLinkBody.serializer(), QuoteLinkBody(customerName, version.lines, version.validUntil, version.visitServiceId)),
+    accessToken = accessToken,
+    response = BipeQuoteLink.serializer(),
+)
+
+/** `POST /v1/me/business/quotes/{id}/link`. A new link; the old one stops. */
+suspend fun BipeApiClient.renewQuoteLink(quoteId: String, accessToken: String): BipeQuoteLink =
+    send("POST", listOf("v1", "me", "business", "quotes", quoteId, "link"), accessToken = accessToken, response = BipeQuoteLink.serializer())
+
+/** `DELETE /v1/me/business/quotes/{id}/link`. */
+suspend fun BipeApiClient.revokeQuoteLink(quoteId: String, accessToken: String): BipeQuote =
+    send("DELETE", listOf("v1", "me", "business", "quotes", quoteId, "link"), accessToken = accessToken, response = BipeQuote.serializer())
+
 /** Contract `QuoteLine` and `OrderLine`: a snapshot the server calculated. */
 @Serializable
 data class BipeCommerceLine(
@@ -388,7 +422,12 @@ data class BipeQuote(
     @SerialName("id") val id: String,
     @SerialName("request_id") val requestId: String,
     @SerialName("business_id") val businessId: String,
+    /** Empty for a quote shared as a link (ADR 0185). */
     @SerialName("customer_id") val customerId: String,
+    /** The name the owner typed, for a quote shared as a link. */
+    @SerialName("customer_name") val customerName: String? = null,
+    /** A link to this quote works now. */
+    @SerialName("has_link") val hasLink: Boolean = false,
     @SerialName("status") val status: String,
     @SerialName("current_version") val currentVersion: Int,
     @SerialName("versions") val versions: List<BipeQuoteVersion>,

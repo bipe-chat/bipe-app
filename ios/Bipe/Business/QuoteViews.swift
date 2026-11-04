@@ -151,6 +151,7 @@ struct QuoteOwnerView: View {
     @State private var loading = true
     @State private var failed = false
     @State private var building: QuoteBuilderTarget?
+    @State private var sharing: QuoteShare?
     @State private var notice: String?
     @Environment(\.scenePhase) private var scenePhase
 
@@ -158,6 +159,16 @@ struct QuoteOwnerView: View {
         content
             .background(BipeColor.surfaceBase.ignoresSafeArea())
             .navigationTitle(BipeStrings.quotesTitle)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(BipeStrings.quoteForNoApp) {
+                        building = QuoteBuilderTarget(mode: .link, customerId: "")
+                    }
+                }
+            }
+            .sheet(item: $sharing) { share in
+                ShareSheet(items: [share.text])
+            }
             .accessibilityIdentifier(BipeScreen.quoteBuilder.rawValue)
             .task { await load() }
             .onChange(of: scenePhase) { _, phase in
@@ -170,6 +181,11 @@ struct QuoteOwnerView: View {
                                  close: { message in
                                      building = nil
                                      if let message { notice = message }
+                                     Task { await load() }
+                                 },
+                                 shareLink: { made in
+                                     building = nil
+                                     sharing = QuoteShare(made)
                                      Task { await load() }
                                  })
             }
@@ -239,7 +255,7 @@ struct QuoteOwnerView: View {
     private func quoteRow(_ quote: BipeQuote) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
-                Text(name(quote.customerId))
+                Text(quote.customerName ?? name(quote.customerId))
                     .font(.headline)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer(minLength: 8)
@@ -258,7 +274,25 @@ struct QuoteOwnerView: View {
                     }
                     .buttonStyle(.bipeBordered)
                 }
-                if let openChat = context.openChat {
+                if quote.customerName != nil, quote.status == .offered {
+                    Button(BipeStrings.quoteShareLink) {
+                        Task {
+                            if let made = try? await context.api.renewQuoteLink(quoteId: quote.id) { sharing = QuoteShare(made) }
+                            await load()
+                        }
+                    }
+                    .buttonStyle(.bipeBordered)
+                    if quote.hasLink {
+                        Button(BipeStrings.quoteRevokeLink, role: .destructive) {
+                            Task {
+                                _ = try? await context.api.revokeQuoteLink(quoteId: quote.id)
+                                await load()
+                            }
+                        }
+                        .buttonStyle(.bipeBordered)
+                    }
+                }
+                if let openChat = context.openChat, !quote.customerId.isEmpty {
                     Button(BipeStrings.appPersonMessage) { openChat(quote.customerId) }
                         .buttonStyle(.bipeBordered)
                 }
@@ -279,7 +313,7 @@ struct QuoteOwnerView: View {
             requests = try await context.api.quoteRequests().sorted { $0.createdAt > $1.createdAt }
             quotes = try await context.api.ownerQuotes()
             failed = false
-            names = await context.names(for: requests.map(\.customerId) + quotes.map(\.customerId), known: names)
+            names = await context.names(for: requests.map(\.customerId) + quotes.map(\.customerId).filter { !$0.isEmpty }, known: names)
         } catch {
             failed = true
             if !requests.isEmpty || !quotes.isEmpty { notice = BipeStrings.quoteLoadFailed }
@@ -296,7 +330,18 @@ struct QuoteBuilderTarget: Identifiable {
         switch mode {
         case .answer(let request): "answer-\(request.id)"
         case .revise(let quote): "revise-\(quote.id)"
+        case .link: "link"
         }
+    }
+}
+
+/// The share sheet of a quote link, with the text of ADR 0185.
+struct QuoteShare: Identifiable {
+    let id = UUID()
+    let text: String
+
+    init(_ made: BipeQuoteLink) {
+        text = BipeStrings.quoteShareText(made.businessName, BusinessText.money(made.quote.current?.totalAmountCents ?? 0), made.link)
     }
 }
 
@@ -308,6 +353,8 @@ struct QuoteBuilderView: View {
         case answer(BipeQuoteRequest)
         /// Action revise: a new version of a quote.
         case revise(BipeQuote)
+        /// Action shareLink: a quote for a person with no Bipe account (ADR 0185).
+        case link
     }
 
     /// One line being built: a catálogo item or a typed name.
@@ -324,6 +371,10 @@ struct QuoteBuilderView: View {
     let customerName: String
     /// Closes the sheet; the text is the result to show, or nil.
     let close: (String?) -> Void
+    /// Action shareLink: the new link goes to the share sheet.
+    var shareLink: ((BipeQuoteLink) -> Void)? = nil
+
+    @State private var typedName = ""
 
     @State private var catalog: [BipeCatalogItem] = []
     @State private var lines: [DraftLine] = []
@@ -361,7 +412,12 @@ struct QuoteBuilderView: View {
                         }
                     }
                 } header: {
-                    Text(customerName)
+                    if case .link = mode {
+                        TextField(BipeStrings.quoteCustomerName, text: $typedName)
+                            .textCase(nil)
+                    } else {
+                        Text(customerName)
+                    }
                 }
                 Section {
                     DatePicker(BipeStrings.quoteValidity, selection: $validUntil, in: Date()..., displayedComponents: [.date])
@@ -500,6 +556,11 @@ struct QuoteBuilderView: View {
                 _ = try await context.api.answerQuoteRequest(requestId: request.id, draft)
             case .revise(let quote):
                 _ = try await context.api.reviseQuote(quoteId: quote.id, draft)
+            case .link:
+                let name = typedName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !name.isEmpty else { return }
+                shareLink?(try await context.api.createQuoteLink(customerName: String(name.prefix(40)), draft))
+                return
             }
             close(nil)
         } catch {

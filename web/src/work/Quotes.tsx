@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type {
   CatalogItem,
   Quote,
+  QuoteLinkResult,
   QuoteLineInput,
   QuoteRequest,
   QuoteVersion,
@@ -34,6 +35,7 @@ import {
   OpenChatButton,
   PrimaryButton,
   SecondaryButton,
+  TextButton,
   SplitPane,
   useAction,
   useLoad,
@@ -51,7 +53,7 @@ const MAX_NAME = 200;
 /** QuoteBuilderView: the validity starts 7 days ahead. */
 const DEFAULT_VALID_DAYS = 7;
 
-type Open = { kind: 'request'; id: string } | { kind: 'quote'; id: string; revising: boolean };
+type Open = { kind: 'request'; id: string } | { kind: 'quote'; id: string; revising: boolean } | { kind: 'link' };
 
 export function QuotesScreen({ client, onBack, openQuoteId }: WorkScreenProps & { openQuoteId?: string }) {
   useNames();
@@ -104,6 +106,10 @@ export function QuotesScreen({ client, onBack, openQuoteId }: WorkScreenProps & 
           onClose={() => setOpen(undefined)}
         />
       );
+  } else if (data && open?.kind === 'link') {
+    detail = (
+      <QuoteBuilder key="link" client={client} catalog={items} target={{ kind: 'link' }} onSent={sent} onClose={() => setOpen(undefined)} />
+    );
   } else if (data && open?.kind === 'quote') {
     const quote = data.quotes.find((q) => q.id === open.id);
     if (quote)
@@ -118,6 +124,8 @@ export function QuotesScreen({ client, onBack, openQuoteId }: WorkScreenProps & 
         />
       ) : (
         <QuoteDetail
+          client={client}
+          onChanged={() => void reload()}
           quote={quote}
           catalog={items}
           onBack={() => setOpen(undefined)}
@@ -129,6 +137,11 @@ export function QuotesScreen({ client, onBack, openQuoteId }: WorkScreenProps & 
   const list = (
     <div className="flex min-h-0 flex-1 flex-col bg-grouped-screen">
       <NavBar title={s('bipe_quotes_title')} onBack={onBack} />
+      {data && (
+        <div className="px-4 pb-2">
+          <TextButton onClick={() => setOpen({ kind: 'link' })}>{s('bipe_quote_for_no_app')}</TextButton>
+        </div>
+      )}
       {!data ? (
         lists.loading ? (
           <LoadState loading error={undefined} onRetry={() => void reload()} />
@@ -220,7 +233,7 @@ function QuoteRow({ quote, selected, onOpen }: { quote: Quote; selected: boolean
           <span
             className={`min-w-0 flex-1 truncate text-body font-semibold ${selected ? 'text-accent-ink' : 'text-ink-primary'}`}
           >
-            {customerLabel(quote.customer_id)}
+            {quote.customer_name ?? customerLabel(quote.customer_id)}
           </span>
           <span className="shrink-0 text-body tabular-nums text-ink-primary">
             {money(current?.total_amount_cents ?? 0)}
@@ -239,11 +252,15 @@ function QuoteRow({ quote, selected, onOpen }: { quote: Quote; selected: boolean
 
 /** Spec quote-card in owner mode: the current version, the older ones read only, Enviar nova versão while open. */
 function QuoteDetail({
+  client,
   quote,
   catalog,
   onBack,
   onRevise,
+  onChanged,
 }: {
+  client: WorkScreenProps['client'];
+  onChanged: () => void;
   quote: Quote;
   catalog: CatalogItem[];
   onBack: () => void;
@@ -256,9 +273,9 @@ function QuoteDetail({
     <div className="flex min-h-0 flex-1 flex-col bg-grouped-screen">
       <NavBar title={s('bipe_quote_card_title')} onBack={onBack} />
       <div className="flex flex-col gap-6 overflow-y-auto px-4 pb-8">
-        <p className="truncate px-4 text-headline text-ink-primary">{customerLabel(quote.customer_id)}</p>
+        <p className="truncate px-4 text-headline text-ink-primary">{quote.customer_name ?? customerLabel(quote.customer_id)}</p>
         <div className="-mt-4">
-          <OpenChatButton customer={quote.customer_id} />
+          {quote.customer_id && <OpenChatButton customer={quote.customer_id} />}
         </div>
         {current && (
           <QuoteCard
@@ -270,6 +287,18 @@ function QuoteDetail({
         {revisable && (
           <div>
             <PrimaryButton onClick={onRevise}>{s('bipe_quote_send_revision')}</PrimaryButton>
+          </div>
+        )}
+        {quote.customer_name && quote.status === 'offered' && (
+          <div className="flex flex-wrap gap-3">
+            <SecondaryButton onClick={() => void client.renewQuoteLink(quote.id).then(shareQuote).then(onChanged, onChanged)}>
+              {s('bipe_quote_share_link')}
+            </SecondaryButton>
+            {quote.has_link && (
+              <TextButton danger onClick={() => void client.revokeQuoteLink(quote.id).then(onChanged, onChanged)}>
+                {s('bipe_quote_revoke_link')}
+              </TextButton>
+            )}
           </div>
         )}
         {previous.length > 0 && (
@@ -287,7 +316,7 @@ function QuoteDetail({
 
 // ---- The builder ----
 
-type BuilderTarget = { kind: 'answer'; request: QuoteRequest } | { kind: 'revise'; quote: Quote };
+type BuilderTarget = { kind: 'answer'; request: QuoteRequest } | { kind: 'revise'; quote: Quote } | { kind: 'link' };
 
 /** One line being built: a catálogo item (name fixed) or a typed name. Quantity and price stay as typed. */
 type DraftLine = { key: number; itemId?: string; name: string; quantity: string; unitPrice: string };
@@ -352,17 +381,28 @@ function QuoteBuilder({
   const today = localDate(new Date());
   const visitName = services.find((sv) => sv.id === visitServiceId)?.name;
 
+  const [typedName, setTypedName] = useState('');
   const submit = async () => {
     if (!draft) return;
+    if (target.kind === 'link') {
+      if (!typedName.trim()) return;
+      const made = await send.run(() => client.createQuoteLink({ ...draft, customer_name: typedName.trim() }));
+      if (made) {
+        await shareQuote(made);
+        onSent(made.quote);
+      }
+      return;
+    }
+    const answered = target;
     const quote = await send.run(() =>
-      target.kind === 'answer'
-        ? client.answerRequest(target.request.id, draft)
-        : client.reviseQuote(target.quote.id, draft),
+      answered.kind === 'answer'
+        ? client.answerRequest(answered.request.id, draft)
+        : client.reviseQuote(answered.quote.id, draft),
     );
     if (quote) onSent(quote);
   };
 
-  const customerId = target.kind === 'answer' ? target.request.customer_id : target.quote.customer_id;
+  const customerId = target.kind === 'answer' ? target.request.customer_id : target.kind === 'revise' ? target.quote.customer_id : '';
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-grouped-screen">
@@ -379,9 +419,14 @@ function QuoteBuilder({
         }}
       >
         <div className="-mb-4">
-          <OpenChatButton customer={customerId} />
+          {customerId && <OpenChatButton customer={customerId} />}
         </div>
-        <Section header={customerLabel(customerId)}>
+        {target.kind === 'link' && (
+          <Field label={s('bipe_quote_customer_name')}>
+            <input className={inputClass} maxLength={40} value={typedName} onChange={(e) => setTypedName(e.target.value)} />
+          </Field>
+        )}
+        <Section header={customerId ? customerLabel(customerId) : undefined}>
           {lines.map((line) => (
             <li key={line.key} className="flex flex-col gap-2 px-4 py-3 [&:not(:last-child)]:border-b-[0.5px] [&:not(:last-child)]:border-line-subtle">
               <div className="flex items-center gap-2">
@@ -656,6 +701,14 @@ export function currentVersion(quote: Quote): QuoteVersion | undefined {
     quote.versions.find((v) => v.version === quote.current_version) ??
     quote.versions.reduce<QuoteVersion | undefined>((a, v) => (a && a.version > v.version ? a : v), undefined)
   );
+}
+
+/** The share sheet of a quote link, with the text of ADR 0185. Without one, the text goes to the clipboard. */
+async function shareQuote(made: QuoteLinkResult): Promise<void> {
+  const total = currentVersion(made.quote)?.total_amount_cents ?? 0;
+  const text = s('bipe_quote_share_text', made.business_name, money(total), made.link);
+  if (navigator.share) await navigator.share({ text }).catch(() => undefined);
+  else await navigator.clipboard?.writeText(text).catch(() => undefined);
 }
 
 /** The customer of a request or quote. The web screen has no name lookup, so the user ID shows. */
