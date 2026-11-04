@@ -413,16 +413,30 @@ fun WorkToolStateBar(model: WorkHomeModel, run: (suspend () -> Unit) -> Unit, id
     val tool = model.tools?.firstOrNull { it.id == id } ?: return
     if (tool.state == BipeBusinessTool.OFF) return
     val web = model.web
-    if (web != null && tool.state == BipeBusinessTool.LIVE && (id == "agenda" || id == "orders")) {
+    if (web != null && tool.state == BipeBusinessTool.LIVE && (id == "agenda" || id == "orders" || id == "queue")) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                stringResource(if (id == "agenda") R.string.bipe_web_booking_switch else R.string.bipe_web_orders_switch),
+                stringResource(when (id) {
+                    "agenda" -> R.string.bipe_web_booking_switch
+                    "orders" -> R.string.bipe_web_orders_switch
+                    else -> R.string.bipe_web_queue_switch
+                }),
                 style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkPrimary, modifier = Modifier.weight(1f),
             )
             Switch(
-                checked = if (id == "agenda") web.webBooking else web.webOrders,
+                checked = when (id) {
+                    "agenda" -> web.webBooking
+                    "orders" -> web.webOrders
+                    else -> web.webQueue
+                },
                 onCheckedChange = { on ->
-                    run { model.saveWeb(if (id == "agenda") web.copy(webBooking = on) else web.copy(webOrders = on)) }
+                    run {
+                        model.saveWeb(when (id) {
+                            "agenda" -> web.copy(webBooking = on)
+                            "orders" -> web.copy(webOrders = on)
+                            else -> web.copy(webQueue = on)
+                        })
+                    }
                 },
             )
         }
