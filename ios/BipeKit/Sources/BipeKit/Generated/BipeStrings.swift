@@ -4582,6 +4582,12 @@ public enum BipeStrings {
 
     public static var quoteLinkRefused: String { NSLocalizedString("bipe_quote_link_refused", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var businessStop: String { NSLocalizedString("bipe_business_stop", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessStopUndo: String { NSLocalizedString("bipe_business_stop_undo", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessStopped: String { NSLocalizedString("bipe_business_stopped", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var businessToolsTitle: String { NSLocalizedString("bipe_business_tools_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var businessToolsFooter: String { NSLocalizedString("bipe_business_tools_footer", tableName: "Bipe", bundle: .module, comment: "") }

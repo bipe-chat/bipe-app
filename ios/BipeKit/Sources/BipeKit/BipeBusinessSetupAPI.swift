@@ -85,6 +85,20 @@ extension BipeBusinessAPI {
 
     private struct WebClaim: Encodable { let token: String }
 
+    /// `GET /v1/business-stops/{workAccount}`: whether this account stopped the work account (ADR 0237).
+    public func businessStopped(_ workAccount: String) async throws(BipeAPIError) -> Bool {
+        let stop: BusinessStop = try await request("GET", ["v1", "business-stops", workAccount])
+        return stop.stopped
+    }
+
+    /// `PUT` or `DELETE /v1/business-stops/{workAccount}`.
+    public func setBusinessStopped(_ workAccount: String, stopped: Bool) async throws(BipeAPIError) -> Bool {
+        let stop: BusinessStop = try await request(stopped ? "PUT" : "DELETE", ["v1", "business-stops", workAccount])
+        return stop.stopped
+    }
+
+    private struct BusinessStop: Decodable { let stopped: Bool }
+
     /// `GET /v1/me/business/tools`.
     public func businessTools() async throws(BipeAPIError) -> BipeBusinessTools {
         try await request("GET", ["v1", "me", "business", "tools"])

@@ -59,6 +59,8 @@ final class BusinessChatModel: ObservableObject {
     @Published private(set) var hasCatalog = false
     /// The catalogue has an active product with a fixed price and amount_cents: Fazer pedido shows.
     @Published private(set) var canOrder = false
+    /// ADR 0237: this person stopped the company. nil: not read, the row hides.
+    @Published private(set) var stopped: Bool?
     /// The quotes tool is live: Pedir orçamento shows.
     @Published private(set) var canRequestQuote = false
     /// Today's queue is open: Entrar na fila shows.
@@ -162,6 +164,7 @@ final class BusinessChatModel: ObservableObject {
         hasCatalog = false
         canOrder = false
         canRequestQuote = false
+        stopped = nil
         queueOpen = false
         bookings = []
         orders = []
@@ -170,7 +173,20 @@ final class BusinessChatModel: ObservableObject {
         ownerMode = false
     }
 
+    /// Action toggleStop: one tap, in effect at once.
+    func toggleStop() async {
+        guard let stopped, let businessId else { return }
+        do {
+            let now = try await api.setBusinessStopped(businessId, stopped: !stopped)
+            self.stopped = now
+            if now { notice = BipeStrings.businessStopped }
+        } catch {
+            notice = BipeStrings.errorGeneric
+        }
+    }
+
     private func loadTools(of peer: String) async {
+        stopped = ownerMode ? nil : try? await api.businessStopped(peer)
         let client = client
         let session = session
         let resolved = try? await BipeAPIClient.withOpenIDRetry(session.openID) { (token: BipeOpenIDToken) async throws(BipeAPIError) -> [String: String] in
@@ -370,6 +386,12 @@ struct BusinessMenuItems: View {
                     Label(BipeStrings.queueJoin, systemImage: "list.number")
                 }
             }
+            if let stopped = model.stopped {
+                Button { Task { await model.toggleStop() } } label: {
+                    Label(stopped ? BipeStrings.businessStopUndo : BipeStrings.businessStop,
+                          systemImage: stopped ? "bell" : "hand.raised")
+                }
+            }
         }
     }
 }
@@ -403,6 +425,11 @@ struct BusinessProfileButtons: View {
         }
         if model.queueOpen {
             tools.append(Tool(id: "queue", title: BipeStrings.queueJoin, prominent: !model.canBook) { model.route = .queue })
+        }
+        if let stopped = model.stopped {
+            tools.append(Tool(id: "stop", title: stopped ? BipeStrings.businessStopUndo : BipeStrings.businessStop, prominent: false) {
+                Task { await model.toggleStop() }
+            })
         }
         return tools
     }

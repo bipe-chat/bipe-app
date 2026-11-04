@@ -156,3 +156,14 @@ suspend fun BipeApiClient.claimWebRecords(business: String, token: String, acces
     accessToken = accessToken,
     response = BipeWebRecords.serializer(),
 )
+
+@Serializable
+private data class BusinessStop(@SerialName("stopped") val stopped: Boolean)
+
+/** `GET /v1/business-stops/{workAccount}`: whether this account stopped the work account (ADR 0237). */
+suspend fun BipeApiClient.businessStopped(workAccount: String, accessToken: String): Boolean =
+    send("GET", listOf("v1", "business-stops", workAccount), accessToken = accessToken, response = BusinessStop.serializer()).stopped
+
+/** `PUT` or `DELETE /v1/business-stops/{workAccount}`. */
+suspend fun BipeApiClient.setBusinessStopped(workAccount: String, stopped: Boolean, accessToken: String): Boolean =
+    send(if (stopped) "PUT" else "DELETE", listOf("v1", "business-stops", workAccount), accessToken = accessToken, response = BusinessStop.serializer()).stopped

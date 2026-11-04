@@ -69,7 +69,9 @@ import chat.bipe.shared.api.myQueuePlaces
 import chat.bipe.shared.api.myQuotes
 import chat.bipe.shared.api.ownerCatalog
 import chat.bipe.shared.api.ownerQuoteRequests
+import chat.bipe.shared.api.businessStopped
 import chat.bipe.shared.api.liveTools
+import chat.bipe.shared.api.setBusinessStopped
 import chat.bipe.shared.api.publicQueue
 import chat.bipe.shared.api.publicAgendas
 import chat.bipe.shared.api.publicCatalog
@@ -116,6 +118,8 @@ class BusinessChatModel(val business: BusinessApi, private val media: MediaLoade
         val canBook: Boolean = false,
         /** The quotes tool is live: Pedir orçamento shows. */
         val canRequestQuote: Boolean = false,
+        /** ADR 0237: this person stopped the company. null: not read, the row hides. */
+        val stopped: Boolean? = null,
         val hasCatalog: Boolean = false,
         /** IDs of the services the customer can book, for catalog-view's Agendar. */
         val bookableServices: Set<String> = emptySet(),
@@ -150,6 +154,18 @@ class BusinessChatModel(val business: BusinessApi, private val media: MediaLoade
 
     var state by mutableStateOf(State())
         private set
+
+    /** Action toggleStop: one tap, in effect at once. */
+    suspend fun toggleStop(context: android.content.Context) {
+        val current = state.stopped ?: return
+        val now = runCatching { business.withToken { setBusinessStopped(peerUserId, !current, it) } }.getOrNull()
+        if (now == null) {
+            BipeToasts.show(context.getString(R.string.bipe_error_generic))
+            return
+        }
+        state = state.copy(stopped = now)
+        if (now) BipeToasts.show(context.getString(R.string.bipe_business_stopped))
+    }
 
     /** Action load. A failure hides a tool, never the chat. */
     suspend fun load() {
@@ -206,6 +222,7 @@ class BusinessChatModel(val business: BusinessApi, private val media: MediaLoade
             canBook = services.isNotEmpty(),
             hasCatalog = "catalog" in live && catalog.isNotEmpty(),
             canRequestQuote = "quotes" in live,
+            stopped = runCatching { business.withToken { businessStopped(peerUserId, it) } }.getOrNull(),
             bookableServices = services.map { it.id }.toSet(),
             bookings = open.map { BookingView(it, route, name, names[it.serviceId].orEmpty(), agendas[it.agendaId], null) },
             businessName = name,
@@ -315,6 +332,17 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
         if (state.queueOpen || state.queuePlace != null) {
             DropdownMenuItem(text = { Text(stringResource(R.string.bipe_queue_join)) }, onClick = { open(BusinessSheet.Queue) })
         }
+        state.stopped?.let { stopped ->
+            val context = LocalContext.current
+            val scope = rememberCoroutineScope()
+            DropdownMenuItem(
+                text = { Text(stringResource(if (stopped) R.string.bipe_business_stop_undo else R.string.bipe_business_stop)) },
+                onClick = {
+                    dismiss()
+                    scope.launch { model.toggleStop(context) }
+                },
+            )
+        }
     }
 
     /** Spec business-chat-bar: the buttons under the name on a company's person-profile (ADR 0103: Agendar first). */
@@ -333,6 +361,13 @@ class BusinessChatTools(session: AccountSession, media: MediaLoader, peerUserId:
             if (state.canRequestQuote) BipeTonalButton(onClick = { sheet = BusinessSheet.RequestQuote }) { Text(stringResource(R.string.bipe_quote_request)) }
             if (state.queueOpen || state.queuePlace != null) {
                 BipeTonalButton(onClick = { sheet = BusinessSheet.Queue }) { Text(stringResource(R.string.bipe_queue_join)) }
+            }
+            state.stopped?.let { stopped ->
+                val context = LocalContext.current
+                val scope = rememberCoroutineScope()
+                BipeTonalButton(onClick = { scope.launch { model.toggleStop(context) } }) {
+                    Text(stringResource(if (stopped) R.string.bipe_business_stop_undo else R.string.bipe_business_stop))
+                }
             }
         }
     }
