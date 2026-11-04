@@ -2372,4 +2372,5 @@
     <string name="bipe_web_account_unread_last_sync">Mensagens não lidas na última sincronização</string>
     <string name="bipe_web_account_cap_reached">Este navegador já tem %1$s contas. É o limite.</string>
     <string name="bipe_web_sign_out_all">Sair de todas as contas deste navegador</string>
+    <string name="bipe_app_assistant_reads">Um assistente de %1$s lê esta conversa</string>
 </resources>

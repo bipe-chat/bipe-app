@@ -1876,8 +1876,7 @@
         "title": "bipe_privacy_assistant_send",
         "footer": "bipe_privacy_assistant_send_footer",
         "kind": "switch",
-        "adr": "0210",
-        "gate": "planned:439"
+        "adr": "0210"
        }
       ]
      }
@@ -3740,7 +3739,7 @@
   "androidStoreUrl": "https://play.google.com/store/apps/details?id=br.gov.meugovbr"
  },
  "mcpTools": {
-  "$comment": "MCP tools of every Bipe MCP surface, one data class each (bipe ADR 0130, ADR 0210; bipe-chat/bipe#436). surface: bridge (bipe-business, the company's server), public (bipe-api, mcp.bipe.chat, Sao Paulo), personal (bipe-mcp on the user's machine). class: public (anyone can see it on bipe.chat, no opt-in), metadata (lists, assignees, tags, status, times; no text), content (message text, notes, attachments; off by default, opt-in per scope with the destination named). writes: none, draft (puts a draft in the user's apps, bipe#866), send (sends a message), state (changes status, tags or room state). A personal tool with writes send needs scope content-send, and bipe-mcp sends only while the user's switch is on: global account data personalSend.accountDataType {\"enabled\": true}, set from Settings on the phone, off by default (ADR 0210 as corrected by MZ on 30 October 2026). Every message it sends carries personalSend.markerField {\"client\": <MCP client name>}, and Bipe apps label it. A public tool has class public, writes none and no scope. The servers read this file; docs and the site render it. No second list.",
+  "$comment": "MCP tools of every Bipe MCP surface, one data class each (bipe ADR 0130, ADR 0210; bipe-chat/bipe#436). surface: bridge (bipe-business, the company's server), public (bipe-api, mcp.bipe.chat, Sao Paulo), personal (bipe-mcp on the user's machine). class: public (anyone can see it on bipe.chat, no opt-in), metadata (lists, assignees, tags, status, times; no text), content (message text, notes, attachments; off by default, opt-in per scope with the destination named). writes: none, draft (puts a draft in the user's apps, bipe#866), send (sends a message), state (changes status, tags or room state). A personal tool with writes send needs scope content-send, and bipe-mcp sends only while the user's switch is on: global account data personalSend.accountDataType {\"enabled\": true}, set from Settings on the phone, off by default (ADR 0210 as corrected by MZ on 30 October 2026). Every message it sends carries personalSend.markerField {\"client\": <MCP client name>}, and Bipe apps label it. A public tool has class public, writes none and no scope. The servers read this file; docs and the site render it. No second list. readerMarker: the room state event (state key = the member's own user ID) that bipe-mcp sets before it returns other members' messages (set_full_content); every member's app shows that the member's assistant reads the chat (assistantReaders, test-vectors/assistant-send.json).",
   "version": 1,
   "surfaces": [
    "bridge",
@@ -3758,6 +3757,10 @@
    "send",
    "state"
   ],
+  "readerMarker": {
+   "eventType": "chat.bipe.assistant",
+   "field": "full_content"
+  },
   "personalSend": {
    "accountDataType": "chat.bipe.assistant_send",
    "default": false,
@@ -6403,7 +6406,8 @@
    "bipe_web_account_switcher_title": "Contas neste navegador",
    "bipe_web_account_unread_last_sync": "Mensagens não lidas na última sincronização",
    "bipe_web_account_cap_reached": "Este navegador já tem %1$s contas. É o limite.",
-   "bipe_web_sign_out_all": "Sair de todas as contas deste navegador"
+   "bipe_web_sign_out_all": "Sair de todas as contas deste navegador",
+   "bipe_app_assistant_reads": "Um assistente de %1$s lê esta conversa"
   }
  },
  "stringsEn": {
@@ -8779,7 +8783,8 @@
    "bipe_web_account_switcher_title": "Accounts in this browser",
    "bipe_web_account_unread_last_sync": "Unread messages at the last sync",
    "bipe_web_account_cap_reached": "This browser already has %1$s accounts. That is the limit.",
-   "bipe_web_sign_out_all": "Sign out of all accounts in this browser"
+   "bipe_web_sign_out_all": "Sign out of all accounts in this browser",
+   "bipe_app_assistant_reads": "An assistant of %1$s reads this chat"
   }
  }
 }
