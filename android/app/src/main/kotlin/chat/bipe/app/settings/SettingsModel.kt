@@ -10,6 +10,8 @@ import androidx.core.app.NotificationManagerCompat
 import chat.bipe.app.account.AccountSession
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipePhoneLinkState
+import chat.bipe.shared.account.BipePhoneMove
+import chat.bipe.shared.account.blockPhoneMove
 import chat.bipe.shared.account.myPhone
 import chat.bipe.shared.account.setDiscoverableByPhone
 import chat.bipe.shared.api.BipeAccountDeletion
@@ -50,6 +52,8 @@ class SettingsModel(
         val phone: BipePhoneLinkState? = null,
         /** The own linked number in E.164 from GET /v1/me/phone (ADR 0191), null for a link made before the server stored it. */
         val phoneNumber: String? = null,
+        /** Spec phone-link-status, move (bipe-chat/bipe#469). */
+        val phoneMove: BipePhoneMove? = null,
         /** The discovery switch (PUT /v1/me/discovery): null until GET /v1/me/phone answers. */
         val discoverableByPhone: Boolean? = null,
         /** ADR 0140: the waiting deletion, from GET /v1/me/account. */
@@ -112,6 +116,7 @@ class SettingsModel(
                 it.copy(
                     phone = BipePhoneLinkState.of(value),
                     phoneNumber = value.number.takeIf { value.linked },
+                    phoneMove = value.move,
                     discoverableByPhone = value.discoverableByPhone,
                 )
             } }
@@ -128,6 +133,13 @@ class SettingsModel(
      * Spec account-delete, action cancelPending: POST /v1/me/deletions/{id}/cancel. A 404 means it no longer waits, which
      * is what the person wanted. False when the cancel failed.
      */
+    /** Spec phone-link-status, action blockMove. False when the block failed. */
+    suspend fun blockPhoneMove(move: BipePhoneMove): Boolean {
+        if (runCatching { authorized { api.blockPhoneMove(move.id, it) } }.isFailure) return false
+        load()
+        return true
+    }
+
     suspend fun cancelDeletion(deletion: BipeAccountDeletion): Boolean {
         val result = runCatching { authorized { api.cancelDeletion(deletion.id, it) } }
         val gone = (result.exceptionOrNull() as? BipeApiException.Server)?.code == BipeApiErrorCode.NOT_FOUND

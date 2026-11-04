@@ -31,6 +31,7 @@ struct SettingsGroupView: View {
     @State private var showsSignOut = false
     @State private var showsDelete = false
     @State private var cancellingDeletion = false
+    @State private var blockingMove = false
     @State private var showsRecoveryKey = false
     @State private var showsEmail = false
     @State private var showsLockSetup = false
@@ -64,6 +65,27 @@ struct SettingsGroupView: View {
                     DeletionBanner(deletion: deletion, isCancelling: cancellingDeletion) {
                         Task { await cancelDeletion(deletion) }
                     }
+                }
+            }
+            // Spec phone-link-status, move (bipe-chat/bipe#469).
+            if group == .privacy, let move = model.phoneMove {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(move.text)
+                            .font(.subheadline)
+                            .foregroundStyle(BipeColor.trustCautionInk)
+                        if move.canBlock {
+                            Button {
+                                Task { await blockMove(move) }
+                            } label: {
+                                Text(BipeStrings.phoneMoveBlock)
+                            }
+                            .buttonStyle(.bipeBordered)
+                            .disabled(blockingMove)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    .listRowBackground(BipeColor.trustCautionWash)
                 }
             }
             if group == .account, let warning = model.waysBack?.warning {
@@ -436,6 +458,13 @@ struct SettingsGroupView: View {
         let cancelled = await model.cancelDeletion(deletion)
         cancellingDeletion = false
         notice = cancelled ? BipeStrings.deletionCancelled : BipeStrings.deletionCancelError
+    }
+
+    private func blockMove(_ move: BipePhoneMove) async {
+        blockingMove = true
+        let blocked = await model.blockPhoneMove(move)
+        blockingMove = false
+        if !blocked { notice = BipeStrings.phoneMoveBlockFailed }
     }
 
     /// Spec app-lock, action turnOff: the owner check, or the app lock PIN on a phone with no passcode.

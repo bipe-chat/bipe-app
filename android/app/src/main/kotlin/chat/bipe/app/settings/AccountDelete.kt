@@ -49,6 +49,7 @@ import chat.bipe.app.account.AccountList
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeAccountDeletion
+import chat.bipe.shared.account.BipePhoneMove
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.bipeHaptic
@@ -216,6 +217,23 @@ private fun Message(text: String, icon: PhosphorIcon, onClose: () -> Unit) {
         Spacer(Modifier.size(8.dp))
         BipeButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.bipe_action_continue))
+        }
+    }
+}
+
+/** Spec phone-link-status, move (bipe-chat/bipe#469): the banner on Privacidade. It never names the other account. */
+@Composable
+fun PhoneMoveBanner(move: BipePhoneMove, isBlocking: Boolean, onBlock: () -> Unit) {
+    val context = LocalContext.current
+    val colors = BipeTheme.colors
+    Surface(color = colors.trustCautionWash, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(move.text(context), style = MaterialTheme.typography.bodyMedium, color = colors.trustCautionInk)
+            if (move.canBlock) {
+                BipeOutlinedButton(onClick = onBlock, enabled = !isBlocking) {
+                    Text(stringResource(R.string.bipe_phone_move_block))
+                }
+            }
         }
     }
 }

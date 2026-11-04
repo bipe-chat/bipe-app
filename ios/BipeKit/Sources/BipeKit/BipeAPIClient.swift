@@ -283,6 +283,11 @@ public struct BipeAPIClient: Sendable {
         try await send(method: "GET", path: ["v1", "me", "phone"], body: Empty?.none, accessToken: accessToken)
     }
     
+    /// `POST /v1/me/phone/moves/{id}/block`. The holder keeps the number (bipe-chat/bipe#469).
+    public func blockPhoneMove(id: String, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "POST", path: ["v1", "me", "phone", "moves", id, "block"], body: Empty?.none, accessToken: accessToken)
+    }
+
     /// `PUT /v1/me/discovery`.
     public func setDiscoverableByPhone(_ value: Bool, accessToken: String) async throws(BipeAPIError) {
         let _: DiscoverySettings = try await send(method: "PUT", path: ["v1", "me", "discovery"], body: DiscoverySettings(byPhone: value), accessToken: accessToken)
@@ -872,6 +877,8 @@ public struct BipeMyPhone: Decodable, Sendable {
     public let confirmBy: Date?
     /// The caller's own linked number in E.164 (ADR 0191). `nil` when not linked or for a link made before the server stored it.
     public let number: String?
+    /// A move of a number between accounts (bipe-chat/bipe#469), `nil` when there is none.
+    public let move: BipePhoneMove?
 }
 
 public struct BipeInvitePreview: Decodable, Sendable {
