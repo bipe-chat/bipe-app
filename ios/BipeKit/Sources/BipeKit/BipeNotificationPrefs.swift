@@ -7,14 +7,14 @@ import Foundation
 /// Contract: `NotificationPrefs`. Which join pushes the account gets (bipe-chat/bipe#967, spec notification-settings).
 /// The API reads them before it sends invite_joined or group_link_joined, so they apply on every device of the account.
 public struct BipeNotificationPrefs: Codable, Sendable, Equatable {
-    public var inviteJoined: Bool
-    public var groupLinkJoined: Bool
+    public let inviteJoined: Bool
+    public let groupLinkJoined: Bool
     /// The reminders of this account's bookings (bipe-chat/bipe#320).
-    public var bookingReminders: Bool
+    public let bookingReminders: Bool
     /// Company account: new bookings, new orders and customer cancellations.
-    public var workAlerts: Bool
+    public let workAlerts: Bool
     /// Company account: the morning summary.
-    public var workSummary: Bool
+    public let workSummary: Bool
 
     public init(inviteJoined: Bool, groupLinkJoined: Bool, bookingReminders: Bool = true, workAlerts: Bool = true, workSummary: Bool = true) {
         self.inviteJoined = inviteJoined

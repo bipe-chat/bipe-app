@@ -121,27 +121,21 @@ final class NotificationSettingsModel: ObservableObject {
         }
     }
 
-    /// Action setInviteJoined.
-    func setInviteJoined(_ isOn: Bool) async {
-        guard let prefs = joinPrefs else { return }
-        var next = prefs
-        next.inviteJoined = isOn
-        await saveJoinPrefs(next)
-    }
+    /// Actions setInviteJoined, setGroupLinkJoined, setBookingReminders, setWorkAlerts, setWorkSummary.
+    func setInviteJoined(_ isOn: Bool) async { await changePrefs(inviteJoined: isOn) }
+    func setGroupLinkJoined(_ isOn: Bool) async { await changePrefs(groupLinkJoined: isOn) }
+    func setBookingReminders(_ isOn: Bool) async { await changePrefs(bookingReminders: isOn) }
+    func setWorkAlerts(_ isOn: Bool) async { await changePrefs(workAlerts: isOn) }
+    func setWorkSummary(_ isOn: Bool) async { await changePrefs(workSummary: isOn) }
 
-    /// Action setGroupLinkJoined.
-    func setGroupLinkJoined(_ isOn: Bool) async {
+    private func changePrefs(inviteJoined: Bool? = nil, groupLinkJoined: Bool? = nil, bookingReminders: Bool? = nil,
+                             workAlerts: Bool? = nil, workSummary: Bool? = nil) async {
         guard let prefs = joinPrefs else { return }
-        var next = prefs
-        next.groupLinkJoined = isOn
-        await saveJoinPrefs(next)
-    }
-
-    /// Actions setBookingReminders, setWorkAlerts, setWorkSummary (bipe-chat/bipe#320).
-    func setPref(_ key: WritableKeyPath<BipeNotificationPrefs, Bool>, _ isOn: Bool) async {
-        guard var next = joinPrefs else { return }
-        next[keyPath: key] = isOn
-        await saveJoinPrefs(next)
+        await saveJoinPrefs(BipeNotificationPrefs(inviteJoined: inviteJoined ?? prefs.inviteJoined,
+                                                  groupLinkJoined: groupLinkJoined ?? prefs.groupLinkJoined,
+                                                  bookingReminders: bookingReminders ?? prefs.bookingReminders,
+                                                  workAlerts: workAlerts ?? prefs.workAlerts,
+                                                  workSummary: workSummary ?? prefs.workSummary))
     }
 
     /// Shows the new value at once; a failure puts the switch back and shows bipe_error_generic.
