@@ -2,7 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// Moved from bipe-android libraries/bipe stickers/StickerPacks.kt (Bipe code).
+// Moved from Bipe's libraries/bipe stickers/StickerPacks.kt (Bipe code).
 
 package chat.bipe.stickers
 

@@ -2,7 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// The pack reads and writes of bipe-android libraries/bipe stickers/StickerPackRepository.kt (Bipe code),
+// The pack reads and writes of Bipe's libraries/bipe stickers/StickerPackRepository.kt (Bipe code),
 // over HttpURLConnection instead of the fork's OkHttp client and session store.
 
 package chat.bipe.stickers

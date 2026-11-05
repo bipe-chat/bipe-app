@@ -7,10 +7,9 @@ Status: in force from 21 October 2026. A lawyer reviews this text (bipe-chat/bip
 This permission covers **Bipe code**: code whose copyright holders are Bipe's authors and contributors. In the bipe-chat repositories that is:
 
 - every file in bipe-shared, bipe-api, bipe-web, bipe-business and bipe-infra;
-- `Components/BipeKit` in bipe-ios, and the `libraries/bipe*` modules in bipe-android;
 - every file in Bipe's own app clients (bipe-chat/bipe#538).
 
-It does not cover code from Element or other third parties, for example the Element X code in bipe-ios and bipe-android, and bipe-chat/compound-design-tokens (bipe-tokens), which is a fork of Element's Compound tokens. That code stays under its own licence.
+It does not cover code from Element or other third parties, for example Element X code and bipe-chat/compound-design-tokens (bipe-tokens), which is a fork of Element's Compound tokens. That code stays under its own licence.
 
 ## The permission
 
