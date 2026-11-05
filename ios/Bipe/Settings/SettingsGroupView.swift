@@ -131,7 +131,7 @@ struct SettingsGroupView: View {
         .sheet(isPresented: $showsEmail, onDismiss: { Task { await model.load() } }) {
             // Spec recovery-email-add, from the e-mail row of Ways back (bipe-chat/bipe#531).
             RecoveryEmailAddView(api: model.api, session: model.session, current: model.account?.email,
-                                 pending: model.account?.emailPending) {}
+                                 pending: model.account?.emailPending, pinSet: model.account?.pinSet ?? false) {}
         }
         .sheet(isPresented: $showsDelete, onDismiss: { Task { await model.load() } }) {
             AccountDeleteView(model: model)

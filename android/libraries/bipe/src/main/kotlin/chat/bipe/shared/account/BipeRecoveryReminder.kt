@@ -31,17 +31,25 @@ object BipeRecoveryReminder {
 }
 
 @Serializable
-private data class RecoveryEmailRequest(@SerialName("email") val email: String, @SerialName("lang") val lang: String) {
+private data class RecoveryEmailRequest(
+    @SerialName("email") val email: String,
+    @SerialName("lang") val lang: String,
+    @SerialName("pin") val pin: String? = null,
+) {
     override fun toString(): String = "RecoveryEmailRequest"
 }
 
-/** `PUT /v1/me/email` (spec recovery-email-add). The server sends a link to confirm the address. Never logged. */
-suspend fun BipeApiClient.setRecoveryEmail(email: String, accessToken: String) {
+/**
+ * `PUT /v1/me/email` (spec recovery-email-add). The server sends a link to confirm the address. Never logged. [pin] is
+ * the current PIN: required when the account has one, because a session alone cannot change the address that can reset
+ * the PIN.
+ */
+suspend fun BipeApiClient.setRecoveryEmail(email: String, pin: String?, accessToken: String) {
     val lang = if (Locale.getDefault().language == "pt") "pt" else "en"
     send<Unit>(
         "PUT",
         listOf("v1", "me", "email"),
-        body = encode(RecoveryEmailRequest.serializer(), RecoveryEmailRequest(email, lang)),
+        body = encode(RecoveryEmailRequest.serializer(), RecoveryEmailRequest(email, lang, pin)),
         accessToken = accessToken,
         response = null,
     )

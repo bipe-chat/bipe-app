@@ -86,6 +86,8 @@ struct RecoveryEmailAddView: View {
     /// The verified address and the one waiting for its link, from GET /v1/me/account.
     let current: String?
     let pending: String?
+    /// The account has a PIN, from GET /v1/me/account. The server answers 400 reason `pin` when this is out of date.
+    let pinSet: Bool
     /// After 202: the caller reloads the account state.
     let onSent: () -> Void
 
@@ -93,6 +95,7 @@ struct RecoveryEmailAddView: View {
     @State private var email = ""
     @State private var emailInvalid = false
     @State private var pinCheck: PinCheckRequest?
+    @StateObject private var pinPrompt = AccountPinPrompt()
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -125,6 +128,7 @@ struct RecoveryEmailAddView: View {
                     Button { dismiss() } label: { Text(BipeStrings.appCancel) }
                 }
             }
+            .accountPinPrompt(pinPrompt)
         }
         .accessibilityIdentifier(BipeScreen.recoveryEmailAdd.rawValue)
         .task { await confirmIdentity() }
@@ -206,7 +210,8 @@ struct RecoveryEmailAddView: View {
         if case .failed = phase { phase = .editing }
     }
 
-    /// Action send: PUT /v1/me/email. The address is never logged.
+    /// Action send: PUT /v1/me/email, with the account PIN when the account has one. The address and the PIN are never
+    /// logged.
     private func send() async {
         let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard BipeSignupRules.isPlausibleEmail(address) else {
@@ -214,25 +219,65 @@ struct RecoveryEmailAddView: View {
             return
         }
         phase = .sending
-        let api = api
+        if pinSet {
+            await sendWithPIN(address)
+            return
+        }
         do {
-            try await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) in
-                try await api.setRecoveryEmail(address, accessToken: token)
-            }
+            try await put(address, pin: nil)
             BipeHaptics.play(.success)
             phase = .sent(address)
             onSent()
         } catch {
-            switch error {
-            case .server(.emailTaken, _, _): phase = .failed(BipeStrings.errorEmailTaken)
-            case .server(.emailUnavailable, _, _): phase = .failed(BipeStrings.errorEmailUnavailable)
-            case .server(.rateLimited, _, _): phase = .failed(BipeStrings.errorRateLimited)
-            case .server(.badRequest, _, _):
+            if case .server(.badRequest, let reason, _) = error, reason == "pin" {
+                await sendWithPIN(address)
+            } else {
+                show(error)
+            }
+        }
+    }
+
+    /// The PIN pad sends the PUT, so a wrong or blocked PIN stays on the pad. Any other failure closes the pad and shows
+    /// on the form.
+    private func sendWithPIN(_ address: String) async {
+        let passed = await pinPrompt.ask(title: BipeStrings.emailTitle) { (pin: String) async throws(BipeAPIError) in
+            do {
+                try await put(address, pin: pin)
+            } catch {
+                switch error {
+                case .server(.pinWrong, _, _), .server(.pinBlocked, _, _): throw error
+                default:
+                    show(error)
+                    return
+                }
+            }
+            phase = .sent(address)
+            onSent()
+        }
+        if !passed, phase == .sending { phase = .editing }
+    }
+
+    private func put(_ address: String, pin: String?) async throws(BipeAPIError) {
+        let api = api
+        try await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) in
+            try await api.setRecoveryEmail(address, pin: pin, accessToken: token)
+        }
+    }
+
+    private func show(_ error: BipeAPIError) {
+        switch error {
+        case .server(.emailTaken, _, _): phase = .failed(BipeStrings.errorEmailTaken)
+        case .server(.emailUnavailable, _, _): phase = .failed(BipeStrings.errorEmailUnavailable)
+        case .server(.rateLimited, _, _): phase = .failed(BipeStrings.errorRateLimited)
+        case .server(.badRequest, let reason, _):
+            if reason == "pin" {
+                phase = .failed(BipeStrings.errorGeneric)
+            } else {
                 emailInvalid = true
                 phase = .editing
-            case .network: phase = .failed(BipeStrings.errorNetwork)
-            default: phase = .failed(BipeStrings.errorGeneric)
             }
+        case .network: phase = .failed(BipeStrings.errorNetwork)
+        default: phase = .failed(BipeStrings.errorGeneric)
         }
     }
 }

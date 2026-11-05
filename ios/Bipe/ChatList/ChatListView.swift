@@ -216,7 +216,7 @@ struct ChatListView: View {
         }
         .sheet(isPresented: $showsRecoveryEmail) {
             RecoveryEmailAddView(api: api, session: model.session, current: recovery.account?.email,
-                                 pending: recovery.account?.emailPending) {
+                                 pending: recovery.account?.emailPending, pinSet: recovery.account?.pinSet ?? false) {
                 Task { await recovery.load() }
             }
         }
