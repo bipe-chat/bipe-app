@@ -49,6 +49,7 @@ import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.settings.AppLockModel
 import chat.bipe.app.settings.AppLockPinCheck
 import chat.bipe.app.settings.OwnerCheck
+import chat.bipe.app.settings.rememberAccountPinCheck
 import chat.bipe.shared.BipeSignupRules
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeRecoveryReminder
@@ -145,7 +146,8 @@ private enum class EmailAddPhase { CONFIRM_IDENTITY, PIN_CHECK, EDITING, SENDING
 
 /**
  * Spec recovery-email-add: add or change the recovery e-mail on a signed-in phone, after the owner check.
- * [current] and [pending] come from GET /v1/me/account; [onSent] reloads it after 202.
+ * [current], [pending] and [pinSet] come from GET /v1/me/account; [onSent] reloads it after 202. The server answers 400
+ * reason `pin` when [pinSet] is out of date.
  */
 @Composable
 fun RecoveryEmailAddScreen(
@@ -153,6 +155,7 @@ fun RecoveryEmailAddScreen(
     session: AccountSession,
     current: String?,
     pending: String?,
+    pinSet: Boolean,
     onSent: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -178,7 +181,49 @@ fun RecoveryEmailAddScreen(
         }
     }
 
-    // Action send: PUT /v1/me/email. The address is never logged.
+    suspend fun put(address: String, pin: String?) {
+        BipeApiClient.withTokenRetry({ session.accessToken() }) { api.setRecoveryEmail(address, pin, it) }
+    }
+
+    fun show(failure: BipeApiException) {
+        val server = failure as? BipeApiException.Server
+        if (server?.code == BipeApiErrorCode.BAD_REQUEST && server.reason != "pin") {
+            emailInvalid = true
+            phase = EmailAddPhase.EDITING
+        } else {
+            error = when {
+                failure is BipeApiException.Network -> R.string.bipe_error_network
+                server?.code == BipeApiErrorCode.EMAIL_TAKEN -> R.string.bipe_error_email_taken
+                server?.code == BipeApiErrorCode.EMAIL_UNAVAILABLE -> R.string.bipe_error_email_unavailable
+                server?.code == BipeApiErrorCode.RATE_LIMITED -> R.string.bipe_error_rate_limited
+                else -> R.string.bipe_error_generic
+            }
+            phase = EmailAddPhase.FAILED
+        }
+    }
+
+    // The PIN pad sends the PUT, so a wrong or blocked PIN stays on the pad. Any other failure closes the pad and shows
+    // on the form.
+    val askPin = rememberAccountPinCheck(stringResource(R.string.bipe_email_title)) { pin ->
+        val address = email.trim()
+        try {
+            put(address, pin)
+            sentTo = address
+            phase = EmailAddPhase.SENT
+            onSent()
+        } catch (failure: BipeApiException) {
+            val code = (failure as? BipeApiException.Server)?.code
+            if (code == BipeApiErrorCode.PIN_WRONG || code == BipeApiErrorCode.PIN_BLOCKED) throw failure
+            show(failure)
+        }
+    }
+
+    suspend fun sendWithPin() {
+        if (!askPin() && phase == EmailAddPhase.SENDING) phase = EmailAddPhase.EDITING
+    }
+
+    // Action send: PUT /v1/me/email, with the account PIN when the account has one. The address and the PIN are never
+    // logged.
     fun send() {
         val address = email.trim()
         if (!BipeSignupRules.isPlausibleEmail(address)) {
@@ -187,27 +232,19 @@ fun RecoveryEmailAddScreen(
         }
         phase = EmailAddPhase.SENDING
         scope.launch {
+            if (pinSet) {
+                sendWithPin()
+                return@launch
+            }
             try {
-                BipeApiClient.withTokenRetry({ session.accessToken() }) { api.setRecoveryEmail(address, it) }
+                put(address, null)
                 view.bipeHaptic(BipeHaptic.Success)
                 sentTo = address
                 phase = EmailAddPhase.SENT
                 onSent()
             } catch (failure: BipeApiException) {
-                val code = (failure as? BipeApiException.Server)?.code
-                if (code == BipeApiErrorCode.BAD_REQUEST) {
-                    emailInvalid = true
-                    phase = EmailAddPhase.EDITING
-                } else {
-                    error = when {
-                        failure is BipeApiException.Network -> R.string.bipe_error_network
-                        code == BipeApiErrorCode.EMAIL_TAKEN -> R.string.bipe_error_email_taken
-                        code == BipeApiErrorCode.EMAIL_UNAVAILABLE -> R.string.bipe_error_email_unavailable
-                        code == BipeApiErrorCode.RATE_LIMITED -> R.string.bipe_error_rate_limited
-                        else -> R.string.bipe_error_generic
-                    }
-                    phase = EmailAddPhase.FAILED
-                }
+                val server = failure as? BipeApiException.Server
+                if (server?.code == BipeApiErrorCode.BAD_REQUEST && server.reason == "pin") sendWithPin() else show(failure)
             }
         }
     }

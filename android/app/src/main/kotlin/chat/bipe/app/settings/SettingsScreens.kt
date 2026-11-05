@@ -228,7 +228,7 @@ fun SettingsHost(
         SettingsRoute.RecoveryKey -> RecoveryKeySaveScreen(session, api, onClose = pop)
         SettingsRoute.RecoveryEmail -> {
             val ways = model.state.collectAsState().value.account
-            RecoveryEmailAddScreen(api, session, current = ways?.email, pending = ways?.emailPending,
+            RecoveryEmailAddScreen(api, session, current = ways?.email, pending = ways?.emailPending, pinSet = ways?.pinSet ?: false,
                 onSent = model::load, onClose = pop)
         }
         SettingsRoute.TrustProfile -> {
