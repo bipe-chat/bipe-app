@@ -20,6 +20,8 @@ final class SettingsModel: ObservableObject {
     @Published private(set) var phone: BipePhoneLinkState? { didSet { remember() } }
     /// The own linked number in E.164 from GET /v1/me/phone (ADR 0191), `nil` for a link made before the server stored it.
     @Published private(set) var phoneNumber: String? { didSet { remember() } }
+    /// Spec phone-link-status, move (bipe-chat/bipe#469). Not kept between visits: it always comes fresh from the server.
+    @Published private(set) var phoneMove: BipePhoneMove?
     /// The discovery switch (PUT /v1/me/discovery): `nil` until GET /v1/me/phone answers.
     @Published private(set) var discoverableByPhone: Bool? { didSet { remember() } }
     @Published private(set) var hasRecoveryKey = false { didSet { remember() } }
@@ -135,8 +137,23 @@ final class SettingsModel: ObservableObject {
         }) {
             phone = BipePhoneLinkState(phone: value)
             phoneNumber = value.linked ? value.number : nil
+            phoneMove = value.move
             discoverableByPhone = value.discoverableByPhone
         }
+    }
+
+    /// Spec phone-link-status, action blockMove. `false` when the block failed.
+    func blockPhoneMove(_ move: BipePhoneMove) async -> Bool {
+        let api = api
+        do {
+            try await authorized { (token: String) async throws(BipeAPIError) in
+                try await api.blockPhoneMove(id: move.id, accessToken: token)
+            }
+        } catch {
+            return false
+        }
+        await loadPhone()
+        return true
     }
 
     /// The discovery switch: PUT /v1/me/discovery. `false` when the save failed; the value stays as it was.

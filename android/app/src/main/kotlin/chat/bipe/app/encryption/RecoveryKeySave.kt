@@ -68,6 +68,7 @@ import org.matrix.rustcomponents.sdk.VerificationState
 import org.matrix.rustcomponents.sdk.RecoveryStateListener
 import org.matrix.rustcomponents.sdk.TaskHandle
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.settings.checkPin
 
 /**
  * Spec recovery-key-save (bipe-shared product/screens/recovery-key-save.json): makes the recovery key for the message
@@ -140,9 +141,14 @@ class RecoveryKeySaveModel(private val session: AccountSession, private val api:
     fun needsApproval(recovery: RecoveryState, verification: VerificationState): Boolean =
         recovery == RecoveryState.INCOMPLETE || verification != VerificationState.VERIFIED
 
+    /** Sends the Bipe PIN of the approval check to the server, on a phone with no strong biometrics. */
+    suspend fun checkAccountPin(pin: String) {
+        BipeApiClient.withTokenRetry({ session.accessToken() }) { api.checkPin(pin, it) }
+    }
+
     /**
-     * Action create: a first key with enableRecovery; a new key (the old one stops working) after the owner check.
-     * Never while needsApproval.
+     * Action create: a first key with enableRecovery; a new key (the old one stops working) after the owner check
+     * ([OwnerCheck.approval]: strong biometrics, else the Bipe PIN; never the screen lock). Never while needsApproval.
      */
     fun create(confirmOwner: suspend () -> Boolean) {
         if (needsApproval(_recoveryState.value, _verificationState.value)) return
@@ -238,7 +244,7 @@ fun RecoveryKeySaveScreen(session: AccountSession, api: BipeApiClient, onClose: 
     val account by model.account.collectAsState()
     var copied by remember { mutableStateOf(false) }
     val exists = model.keyExists(recoveryState)
-    val ownerTitle = stringResource(R.string.bipe_app_recovery_key_biometric)
+    val confirmOwner = rememberApprovalCheck(stringResource(R.string.bipe_app_recovery_key_biometric), model::checkAccountPin)
     // The key shows only once: leaving before "I saved the key" needs the explicit button.
     BackHandler(enabled = phase != RecoveryKeySaveModel.Phase.SHOW_KEY && phase != RecoveryKeySaveModel.Phase.CREATING) { onClose() }
 
@@ -274,7 +280,7 @@ fun RecoveryKeySaveScreen(session: AccountSession, api: BipeApiClient, onClose: 
                     Text(stringResource(R.string.bipe_account_recovery_key_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                     Spacer(Modifier.weight(1f))
                     BipeButton(
-                        onClick = { model.create { OwnerCheck.owner(context, ownerTitle) } },
+                        onClick = { model.create { confirmOwner() == OwnerCheck.Approval.PASSED } },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(stringResource(if (exists) R.string.bipe_app_recovery_key_replace else R.string.bipe_app_recovery_key_create))
@@ -340,7 +346,7 @@ fun RecoveryKeySaveScreen(session: AccountSession, api: BipeApiClient, onClose: 
                 RecoveryKeySaveModel.Phase.FAILED -> {
                     Text(stringResource(R.string.bipe_error_generic), color = colors.trustDangerInk)
                     Spacer(Modifier.weight(1f))
-                    BipeButton(onClick = { model.create { OwnerCheck.owner(context, ownerTitle) } }, modifier = Modifier.fillMaxWidth()) {
+                    BipeButton(onClick = { model.create { confirmOwner() == OwnerCheck.Approval.PASSED } }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.bipe_app_retry))
                     }
                 }

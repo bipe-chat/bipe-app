@@ -473,6 +473,14 @@
     <string name="bipe_phone_confirm_expired">Confirmation expired: nobody finds you by your number.</string>
     <string name="bipe_phone_confirm_action">Confirm number</string>
     <string name="bipe_phone_confirm_notice_title">Confirm your number</string>
+    <string name="bipe_phone_move_out">Another account asked for this number. It moves there on %1$s unless you block it.</string>
+    <string name="bipe_phone_move_block">Block</string>
+    <string name="bipe_phone_move_block_failed">Could not block. Try again.</string>
+    <string name="bipe_phone_move_in">This number moves to this account on %1$s unless the other account blocks it.</string>
+    <string name="bipe_phone_move_blocked">This number is linked to another account.</string>
+    <string name="bipe_phone_move_alert">Another account asked for your number. If this was not you, open Settings, Privacy and tap Block. You have %1$s days.</string>
+    <string name="bipe_phone_move_done_out">Your number moved to another account. If this was not you, reply here.</string>
+    <string name="bipe_phone_move_done_in">This number is now linked to this account.</string>
     <string name="bipe_tab_chats">Chats</string>
     <string name="bipe_tab_agenda">Agenda</string>
     <string name="bipe_tab_work">Work</string>

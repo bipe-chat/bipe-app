@@ -12,7 +12,7 @@ struct PhoneLinkStateTests {
     private let day: TimeInterval = 86_400
     
     private func phone(linked: Bool = true, confirmIn days: Double?) -> BipeMyPhone {
-        BipeMyPhone(linked: linked, discoverableByPhone: true, linkedAt: now, confirmBy: days.map { now.addingTimeInterval($0 * day) }, number: nil)
+        BipeMyPhone(linked: linked, discoverableByPhone: true, linkedAt: now, confirmBy: days.map { now.addingTimeInterval($0 * day) }, number: nil, move: nil)
     }
     
     @Test

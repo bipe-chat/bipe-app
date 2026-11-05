@@ -1108,6 +1108,28 @@ public enum BipeStrings {
 
     public static var phoneConfirmNoticeTitle: String { NSLocalizedString("bipe_phone_confirm_notice_title", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func phoneMoveOut(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_phone_move_out", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var phoneMoveBlock: String { NSLocalizedString("bipe_phone_move_block", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var phoneMoveBlockFailed: String { NSLocalizedString("bipe_phone_move_block_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func phoneMoveIn(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_phone_move_in", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var phoneMoveBlocked: String { NSLocalizedString("bipe_phone_move_blocked", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func phoneMoveAlert(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_phone_move_alert", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var phoneMoveDoneOut: String { NSLocalizedString("bipe_phone_move_done_out", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var phoneMoveDoneIn: String { NSLocalizedString("bipe_phone_move_done_in", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var tabChats: String { NSLocalizedString("bipe_tab_chats", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var tabAgenda: String { NSLocalizedString("bipe_tab_agenda", tableName: "Bipe", bundle: .module, comment: "") }
