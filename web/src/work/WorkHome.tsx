@@ -98,7 +98,9 @@ export function WorkHome({
   };
 
   const data = home.data;
-  const nextStep = data?.setup?.steps.find((step) => !step.done);
+  // Spec company-team: only the owner gets Próximo passo. A failed read of the seats keeps it, as before.
+  const isOwner = !data?.seats || data.seats.me.role === 'owner';
+  const nextStep = isOwner ? data?.setup?.steps.find((step) => !step.done) : undefined;
   const rows = data?.tools?.tools.filter((t) => t.state !== 'off') ?? [];
   const off = data?.tools?.tools.filter((t) => t.state === 'off') ?? [];
   const people = data?.seats?.seats.filter((seat) => seat.status === 'active').length;

@@ -42,6 +42,9 @@ export function CompanyTeamScreen({ client, onBack }: { client: BusinessClient; 
                   <span className="truncate text-footnote text-ink-secondary">
                     {s(seat.role === 'owner' ? 'bipe_team_role_owner' : 'bipe_team_role_attendant')}
                   </span>
+                  {list.me.seat_id === seat.id && seat.role !== 'owner' && (
+                    <span className="truncate text-footnote text-ink-secondary">{s('bipe_team_you_here')}</span>
+                  )}
                   {seat.devices.map((device) => (
                     <span key={device.device_id} className="truncate text-footnote text-ink-secondary">
                       {deviceText(device)}
