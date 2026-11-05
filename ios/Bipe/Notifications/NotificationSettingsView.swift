@@ -35,11 +35,6 @@ struct NotificationSettingsView: View {
                     modePicker(BipeStrings.notificationsGroups, isDm: false, selection: model.groupsMode, options: [.all, .mentions, .off]) { mode in
                         Task { await model.setGroupsMode(mode) }
                     }
-                    if model.groupsMode == .mentions && model.mentionsMayMiss {
-                        Text(BipeStrings.groupScreenNotificationSettingsMentionsOnlyDisclaimer)
-                            .font(.footnote)
-                            .foregroundStyle(BipeColor.inkSecondary)
-                    }
                 }
                 Toggle(isOn: binding(model.wholeGroupMentions) { isOn in Task { await model.setWholeGroupMentions(isOn) } }) {
                     Text(BipeStrings.notificationsWholeGroup)

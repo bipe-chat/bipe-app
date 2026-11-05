@@ -119,7 +119,8 @@ final class NotificationService: UNNotificationServiceExtension {
                 await waitAtMost(ackWait, for: ack)
                 return shown
             case .eventFilteredOut, .eventRedacted, .eventNotFound:
-                // Shows nothing: an empty content replaces the gateway alert.
+                // Empty content. Without Apple's filtering entitlement iOS may still show the gateway alert, which is
+                // passive (ADR 0254, PushRegistration).
                 let empty = UNMutableNotificationContent()
                 empty.badge = unreadCount.map { NSNumber(value: $0) }
                 return empty
@@ -138,11 +139,16 @@ final class NotificationService: UNNotificationServiceExtension {
               NotificationPrefs.preview(for: target.accountUserId), let text = messageText(event),
               let mutable = shown.mutableCopy() as? UNMutableNotificationContent else { return shown }
         let senderName = BipeChatRowName.person(userID: event.senderId(), displayName: item.senderInfo.displayName, handle: nil)
-        return await CommunicationNotification.updated(
+        let updated = await CommunicationNotification.updated(
             mutable, text: text, senderId: event.senderId(), senderName: senderName,
             senderAvatarUrl: item.senderInfo.avatarUrl, roomId: target.roomId,
             groupName: item.roomInfo.isDm ? nil : item.roomInfo.displayName, groupAvatarUrl: item.roomInfo.avatarUrl,
             ownUserId: target.accountUserId, client: await NotificationClients.shared.mediaClient(userId: target.accountUserId))
+        // The update makes new content. A passive notification must stay passive.
+        guard shown.interruptionLevel == .passive, updated.interruptionLevel != .passive,
+              let passive = updated.mutableCopy() as? UNMutableNotificationContent else { return updated }
+        passive.interruptionLevel = .passive
+        return passive
     }
 
     /// Spec read-receipts, ack send (ADR 0222): a DM event from the other person is delivered to this phone.
@@ -215,6 +221,10 @@ final class NotificationService: UNNotificationServiceExtension {
             content.body = BipeStrings.appNotificationNewMessage
         }
         apply(sound: sound(isNoisy: item.isNoisy ?? true, userId: target.accountUserId), to: content, userId: target.accountUserId)
+        // ADR 0254: a group message that is not for this person stays in the list, with no banner.
+        if !room.isDm, item.isNoisy == false {
+            content.interruptionLevel = .passive
+        }
         return content
     }
 

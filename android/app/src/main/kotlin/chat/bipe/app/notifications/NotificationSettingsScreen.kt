@@ -136,14 +136,6 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
                 enabled = state.isLoaded,
                 onSelect = model::setGroupsMode,
             )
-            if (state.groupsMode == NotificationMode.MENTIONS && state.mentionsMayMiss) {
-                Text(
-                    stringResource(R.string.bipe_group_screen_notification_settings_mentions_only_disclaimer),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.inkSecondary,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
-            }
             SwitchRow(stringResource(R.string.bipe_notifications_whole_group), state.wholeGroupMentions, state.isLoaded, model::setWholeGroupMentions)
             SwitchRow(stringResource(R.string.bipe_notifications_invites), state.invites, state.isLoaded, model::setInvites)
 

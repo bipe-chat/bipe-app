@@ -45,7 +45,7 @@ class GroupCreateModel(
         scope.launch {
             val settings = session.client.getNotificationSettings()
             _isQuietDefault.value =
-                settings.getDefaultRoomNotificationMode(true, false) == RoomNotificationMode.MENTIONS_AND_KEYWORDS_ONLY
+                settings.getDefaultRoomNotificationMode(false, false) == RoomNotificationMode.MENTIONS_AND_KEYWORDS_ONLY
         }
     }
 

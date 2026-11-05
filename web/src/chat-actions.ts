@@ -27,7 +27,9 @@ const toSdk: Record<Exclude<NotifyMode, 'mentionsLegacy'>, RoomNotificationMode>
 export async function notifyMode(client: Client, room: Room, isDm: boolean): Promise<NotifyMode> {
   const settings = await client.getNotificationSettings();
   const encrypted = await room.isEncrypted();
-  const { mode } = await settings.getRoomNotificationSettings(room.id(), encrypted, isDm);
+  const { mode: roomMode, isDefault } = await settings.getRoomNotificationSettings(room.id(), encrypted, isDm);
+  // Spec chat-notifications notes (ADR 0254): the plain rule is the default of a group.
+  const mode = isDefault ? await settings.getDefaultRoomNotificationMode(encrypted && isDm, isDm) : roomMode;
   if (mode === RoomNotificationMode.Mute) return 'mute';
   if (mode === RoomNotificationMode.AllMessages) return 'all';
   return isDm ? 'mentionsLegacy' : 'quiet';
@@ -44,8 +46,9 @@ export async function setNotifyMode(
   const settings = await client.getNotificationSettings();
   const encrypted = await room.isEncrypted();
   if (from === 'mute' && to !== 'mute') await settings.unmuteRoom(room.id(), encrypted, isDm);
-  const fallback = await settings.getDefaultRoomNotificationMode(encrypted, isDm);
-  if (toSdk[to] === fallback) await settings.restoreDefaultRoomNotificationMode(room.id());
+  const fallback = await settings.getDefaultRoomNotificationMode(encrypted && isDm, isDm);
+  // A quiet rule on an encrypted group would stop its pushes, so quiet there always restores the default (ADR 0254).
+  if (toSdk[to] === fallback || (to === 'quiet' && encrypted && !isDm)) await settings.restoreDefaultRoomNotificationMode(room.id());
   else await settings.setRoomNotificationMode(room.id(), toSdk[to]);
 }
 

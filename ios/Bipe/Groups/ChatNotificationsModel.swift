@@ -62,7 +62,6 @@ final class ChatNotificationsModel: ObservableObject {
     private let session: AccountSession
     private var isEncrypted = true
     private var defaultMode: NotifyMode?
-    private var canPushEncrypted = true
 
     init(session: AccountSession, roomId: String) {
         self.session = session
@@ -73,10 +72,20 @@ final class ChatNotificationsModel: ObservableObject {
     static func currentMode(client: Client, roomId: String) async -> NotifyMode? {
         guard let room = try? client.getRoom(roomId: roomId), let info = try? await room.roomInfo() else { return nil }
         let settings = await client.getNotificationSettings()
-        guard let roomSettings = try? await settings.getRoomNotificationSettings(roomId: roomId,
-                                                                                 isEncrypted: info.encryptionState != .notEncrypted,
+        let isEncrypted = info.encryptionState != .notEncrypted
+        guard let roomSettings = try? await settings.getRoomNotificationSettings(roomId: roomId, isEncrypted: isEncrypted,
                                                                                  isOneToOne: info.isDm) else { return nil }
-        return NotifyMode(roomSettings.mode, isDm: info.isDm)
+        return mode(roomSettings, default: await defaultMode(settings, isEncrypted: isEncrypted, isDm: info.isDm), isDm: info.isDm)
+    }
+
+    /// Spec chat-notifications notes (ADR 0254): the plain rule decides what an encrypted group does on the phone, so it
+    /// is the default of a group. The encrypted rule stays on all messages and only makes the server push.
+    private static func defaultMode(_ settings: NotificationSettings, isEncrypted: Bool, isDm: Bool) async -> NotifyMode {
+        NotifyMode(await settings.getDefaultRoomNotificationMode(isEncrypted: isEncrypted && isDm, isOneToOne: isDm), isDm: isDm)
+    }
+
+    private static func mode(_ roomSettings: RoomNotificationSettings, default defaultMode: NotifyMode, isDm: Bool) -> NotifyMode {
+        roomSettings.isDefault ? defaultMode : NotifyMode(roomSettings.mode, isDm: isDm)
     }
 
     /// Action appear.
@@ -85,10 +94,15 @@ final class ChatNotificationsModel: ObservableObject {
         isDm = info.isDm
         isEncrypted = info.encryptionState != .notEncrypted
         let settings = await session.client.getNotificationSettings()
-        defaultMode = NotifyMode(await settings.getDefaultRoomNotificationMode(isEncrypted: isEncrypted, isOneToOne: isDm), isDm: isDm)
-        canPushEncrypted = await settings.canHomeserverPushEncryptedEventToDevice()
+        let defaultMode = await Self.defaultMode(settings, isEncrypted: isEncrypted, isDm: isDm)
+        self.defaultMode = defaultMode
         if let roomSettings = try? await settings.getRoomNotificationSettings(roomId: roomId, isEncrypted: isEncrypted, isOneToOne: isDm) {
-            current = NotifyMode(roomSettings.mode, isDm: isDm)
+            current = Self.mode(roomSettings, default: defaultMode, isDm: isDm)
+            // A mentions-only rule in an encrypted group stops every push. Repairs an older choice.
+            if !isDm, isEncrypted, !roomSettings.isDefault, roomSettings.mode == .mentionsAndKeywordsOnly {
+                try? await settings.restoreDefaultRoomNotificationMode(roomId: roomId)
+                current = defaultMode
+            }
         }
         rebuildOptions()
     }
@@ -118,24 +132,19 @@ final class ChatNotificationsModel: ObservableObject {
 
     private func rebuildOptions() {
         var modes: [NotifyMode]
-        var quietFooter: String? = BipeStrings.appNotifyQuietFooter
         if isDm {
             modes = [.all, .mute]
             if current == .mentionsLegacy {
                 modes.append(.mentionsLegacy)
             }
-        } else if isEncrypted && !canPushEncrypted {
-            // Quiet would silence the group until the server pushes encrypted events (#118).
+        } else if isEncrypted && defaultMode != .quiet {
+            // A quiet rule on one encrypted group would stop its pushes. Quiet there is only the account default.
             modes = [.all, .mute]
-            if current == .quiet {
-                modes.insert(.quiet, at: 0)
-                quietFooter = nil
-            }
         } else {
             modes = [.quiet, .all, .mute]
         }
         options = modes.map { mode in
-            NotifyOption(mode: mode, footer: mode == .quiet ? quietFooter : nil, isDefault: mode == defaultMode)
+            NotifyOption(mode: mode, footer: mode == .quiet ? BipeStrings.appNotifyQuietFooter : nil, isDefault: mode == defaultMode)
         }
     }
 }

@@ -73,16 +73,18 @@ final class PushRegistration: ObservableObject {
         let pushkey = token.map { String(format: "%02x", $0) }.joined()
         let lang = Self.appLanguage
         if let registration, registration.userId == session.userId, registration.pushkey == pushkey,
-           registration.appId == AppConfig.pusherAppId, registration.lang == lang, registration.ownerVersion == 1, registration.accountRoute == route {
+           registration.appId == AppConfig.pusherAppId, registration.lang == lang, registration.ownerVersion == 2, registration.accountRoute == route {
             return
         }
         do {
             // Content-free: event_id_only. mutable-content makes iOS run the notification service extension
-            // for every push; the alert shows only if the extension cannot run.
+            // for every push; the alert shows only if the extension cannot run or gives back empty content.
+            // Passive, so that alert never rings (ADR 0254). The extension sets the level of what it shows.
             let defaultPayload: [String: Any] = [
                 NotificationKeys.accountRoute: route,
                 "aps": [
                     "mutable-content": 1,
+                    "interruption-level": "passive",
                     "alert": ["title": BipeStrings.appName, "body": BipeStrings.appNotificationNewMessage],
                 ],
             ]
@@ -100,7 +102,7 @@ final class PushRegistration: ObservableObject {
             )
             guard self.session === session else { return }
             save(Registration(userId: session.userId, pushkey: pushkey, appId: AppConfig.pusherAppId,
-                              lang: lang, registeredAt: .now, ownerVersion: 1, accountRoute: route))
+                              lang: lang, registeredAt: .now, ownerVersion: 2, accountRoute: route))
         } catch {
             NSLog("Bipe pusher registration failed")
         }
