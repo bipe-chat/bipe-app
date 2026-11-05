@@ -677,11 +677,12 @@ fun ChatTimelineScreen(
                                 onPhotosOpened = onStartPhotosUsed,
                                 onDismiss = onDismiss,
                                 onPicked = { files -> upload = PickedUpload(files, model.takeReplyEventId()) },
-                                onStickers = { showsStickers = true },
-                                onLocation = { locationSend = LocationSendRequest(model.takeReplyEventId()) },
-                                onPoll = if (composer.canPoll) ({ creatingPoll = true }) else null,
+                                onStickers = if (isNotes) null else ({ showsStickers = true }),
+                                onLocation = if (isNotes) null else ({ locationSend = LocationSendRequest(model.takeReplyEventId()) }),
+                                onPoll = if (composer.canPoll && !isNotes) ({ creatingPoll = true }) else null,
                             )
                         },
+                        isNotes = isNotes,
                         onStickers = { showsStickers = true },
                         onRecord = { model.startRecording(context.applicationContext) },
                         onEndRecording = model::endRecording,
@@ -911,6 +912,8 @@ private fun ComposerBar(
     onPickSuggestion: (MentionSuggestion) -> Unit,
     /** Spec attachment-picker: the menu of the + button, anchored to it. */
     attachMenu: @Composable (expanded: Boolean, onDismiss: () -> Unit) -> Unit,
+    /** Spec composer notes, Notes: no sticker button. */
+    isNotes: Boolean,
     onStickers: () -> Unit,
     onRecord: () -> Unit,
     onEndRecording: () -> Unit,
@@ -1053,7 +1056,7 @@ private fun ComposerBar(
                         }
                     },
                 )
-                if (editing == null) {
+                if (editing == null && !isNotes) {
                     Icon(
                         painterResource(PhosphorIcon.STICKER.drawable),
                         contentDescription = stringResource(R.string.bipe_action_stickers),

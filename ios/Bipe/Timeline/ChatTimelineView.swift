@@ -546,7 +546,7 @@ struct ChatTimelineView: View {
     }
 
     private var composerBar: some View {
-        ComposerBar(model: model, media: media, openAttachments: { attaching = $0 }, openStickers: { showsStickers = true })
+        ComposerBar(model: model, media: media, isNotes: isNotes, openAttachments: { attaching = $0 }, openStickers: { showsStickers = true })
             // Spec identity-change blocksSending: until the person taps Entendi.
             .disabled(identity.blocksSending)
             // Spec composer nameAmbiguous: the @ in the suggestion rows.
@@ -698,6 +698,8 @@ private struct LocationSendRequest: Identifiable {
 private struct ComposerBar: View {
     @ObservedObject var model: ChatTimelineModel
     let media: MediaLoader
+    /// Spec composer notes, Notes: no sticker button, and the short + menu.
+    let isNotes: Bool
     let openAttachments: (AttachmentChoice) -> Void
     let openStickers: () -> Void
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -757,7 +759,7 @@ private struct ComposerBar: View {
         }
         HStack(alignment: .bottom, spacing: 8) {
             if model.editing == nil {
-                AttachmentMenu(canPoll: model.canPoll, choose: openAttachments) {
+                AttachmentMenu(canPoll: model.canPoll, isNotes: isNotes, choose: openAttachments) {
                     iconImage(.plus)
                 }
                 .accessibilityLabel(BipeStrings.appComposerAttach)
@@ -778,7 +780,7 @@ private struct ComposerBar: View {
                     // 22 pt line + 2 x 11 = 44 pt, the sticker button's height, so one line sits in the middle.
                     .padding(.vertical, 11)
                     .foregroundStyle(BipeColor.inkPrimary)
-                if model.editing == nil {
+                if model.editing == nil, !isNotes {
                     Button(action: openStickers) {
                         PhosphorIcon.sticker.image
                             .resizable()

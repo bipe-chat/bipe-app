@@ -12,7 +12,8 @@ import { Fragment, useEffect, useState } from 'react';
 import { PALETTES, useSetting, writeSetting, type Appearance, type ChatBackgroundOption } from './appearance';
 import { useClient } from './media';
 import { useMuralEnabled, writeMural } from './mural-plan';
-import { caretRight, chatCircle, bell, check, info, lockSimple, userCircle } from './phosphor/icons';
+import { openNotes } from './notes';
+import { caretRight, chatCircle, bell, check, info, lockSimple, notepad, userCircle } from './phosphor/icons';
 import { Spinner } from './ui/Spinner';
 import { settings } from './registries';
 import { useAccounts } from './accounts-context';
@@ -151,12 +152,29 @@ export function Settings({
   group,
   onGroup,
   onClose,
+  onOpenChat,
 }: {
   group?: string;
   onGroup: (group: string | undefined) => void;
   onClose: () => void;
+  /** Spec voce openNotes. */
+  onOpenChat: (roomId: string) => void;
 }) {
   const client = useClient();
+  const [openingNotes, setOpeningNotes] = useState(false);
+  const [notesFailed, setNotesFailed] = useState(false);
+  const startNotes = () => {
+    if (openingNotes) return;
+    setNotesFailed(false);
+    setOpeningNotes(true);
+    openNotes(client)
+      .then(onOpenChat)
+      .catch((e: unknown) => {
+        console.warn('[trace] notes open failed', e);
+        setNotesFailed(true);
+      })
+      .finally(() => setOpeningNotes(false));
+  };
   // The open group comes from the URL (/ajustes/<group>).
   const open = settings.groups.find((g) => g.key === group);
   const setOpen = (g: Group | undefined) => onGroup(g?.key);
@@ -192,6 +210,39 @@ export function Settings({
             {s('bipe_settings_profile')}
           </button>
         </div>
+        <Section>
+          <li>
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 pl-4 text-left hover:bg-surface-sunken"
+              disabled={openingNotes}
+              onClick={startNotes}
+            >
+              <span
+                aria-hidden
+                className="grid size-[29px] shrink-0 place-items-center rounded-[7px] bg-accent-fill text-ink-on-accent"
+              >
+                <Icon path={notepad} size={18} />
+              </span>
+              <span className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1 pr-4">
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-body text-ink-primary">{s('bipe_self_chat_title')}</span>
+                  <span className="truncate text-subheadline text-ink-secondary">{s('bipe_self_chat_subtitle')}</span>
+                </span>
+                {openingNotes && <Spinner />}
+              </span>
+            </button>
+          </li>
+        </Section>
+        {notesFailed && (
+          <Alert
+            title={s('bipe_self_chat_error')}
+            action={s('bipe_app_retry')}
+            destructive={false}
+            onCancel={() => setNotesFailed(false)}
+            onAction={startNotes}
+          />
+        )}
         <Section header={s('bipe_settings_section')}>
           {groups.map((g) => (
             <li key={g.key}>
