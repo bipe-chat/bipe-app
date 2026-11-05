@@ -38,7 +38,7 @@ struct ProfileNoticeBar: View {
     let people: PeopleService
     let userId: String
     let name: String
-    @State private var notice = false
+    @State private var notice: String?
 
     /// Spec chat-timeline: at most one read an hour for the same person.
     static let maxAge: TimeInterval = 3600
@@ -46,14 +46,14 @@ struct ProfileNoticeBar: View {
     var body: some View {
         // A VStack, not a Group: the task must run while the bar is hidden.
         VStack(spacing: 0) {
-            if notice {
+            if let notice {
                 HStack(alignment: .top, spacing: 8) {
                     PhosphorIcon.warning.image
                         .resizable()
                         .frame(width: 18, height: 18)
                         .foregroundStyle(BipeColor.trustCautionInk)
                         .accessibilityHidden(true)
-                    Text(BipeStrings.profileNoticeNamePhoto(name))
+                    Text(notice)
                         .font(.footnote)
                         .foregroundStyle(BipeColor.inkPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -69,10 +69,10 @@ struct ProfileNoticeBar: View {
         }
         .task(id: userId) {
             guard let facts = await people.profileFacts(userId, maxAge: Self.maxAge) else {
-                notice = false
+                notice = nil
                 return
             }
-            notice = BipeProfileFactLines(facts: facts).notice
+            notice = BipeProfileFactLines(facts: facts).noticeText(name: name)
         }
     }
 }

@@ -442,11 +442,14 @@ struct SharedVectorTests {
             let facts = BipeProfileFacts(userId: "@a:bipe.net.br",
                                          createdAt: raw["created_at"] as? String,
                                          nameChanges: raw["name_changes"] as? [String] ?? [],
-                                         photoChanges: raw["photo_changes"] as? [String] ?? [])
+                                         photoChanges: raw["photo_changes"] as? [String] ?? [],
+                                         numberMovedOut: raw["number_moved_out"] as? [String] ?? [],
+                                         numberMovedIn: raw["number_moved_in"] as? [String] ?? [])
             let result = BipeProfileFactLines(facts: facts, now: now)
             let expected = try #require(vector["expected"] as? [String: Any])
             let lines = try #require(expected["lines"] as? [[String: Any]])
             #expect(result.notice == expected["notice"] as? Bool, "profile facts \(name)")
+            #expect(result.numberNotice?.rawValue == expected["numberNotice"] as? String, "profile facts \(name)")
             #expect(result.lines.count == lines.count, "profile facts \(name)")
             for (line, want) in zip(result.lines, lines) {
                 #expect(line.fact.rawValue == want["fact"] as? String, "profile facts \(name)")

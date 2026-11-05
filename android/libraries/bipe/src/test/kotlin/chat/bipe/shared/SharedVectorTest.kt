@@ -346,11 +346,12 @@ class SharedVectorTest {
             val name = vector.string("name")
             val raw = vector.getValue("facts").jsonObject
             fun dates(key: String) = raw[key]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
-            val facts = BipeProfileFacts("@a:bipe.net.br", raw.string("created_at"), dates("name_changes"), dates("photo_changes"))
+            val facts = BipeProfileFacts("@a:bipe.net.br", raw.string("created_at"), dates("name_changes"), dates("photo_changes"), dates("number_moved_out"), dates("number_moved_in"))
             val result = BipeProfileFactLines.of(facts, now)
             val expected = vector.getValue("expected").jsonObject
             val lines = expected.getValue("lines").jsonArray.map { it.jsonObject }
             assertWithMessage("profile facts notice $name").that(result.notice).isEqualTo(expected.getValue("notice").jsonPrimitive.boolean)
+            assertWithMessage("profile facts number notice $name").that(result.numberNotice?.id).isEqualTo(expected.string("numberNotice"))
             assertWithMessage("profile facts lines $name").that(result.lines.map { listOf(it.fact.id, it.count, it.at) })
                 .isEqualTo(lines.map { listOf(it.string("fact"), it.string("count")?.toInt(), BipeProfileFactLines.parse(it.string("at")!!)) })
         }

@@ -22,12 +22,24 @@ import kotlin.math.max
  * Same rule as BipeKit `BipeProfileFactLines` on iOS.
  */
 data class BipeProfileFactLines(
-    /** In order: created, photo, name. Empty when nothing applies. */
+    /** In order: created, photo, name, numberOut, numberIn. Empty when nothing applies. */
     val lines: List<Line>,
     /** A name change and a photo change at most noticePairHours apart, the later one younger than noticeDays. */
     val notice: Boolean,
+    /** The newest number move in the window (bipe-chat/bipe#161), null without one. */
+    val numberNotice: NumberNotice? = null,
 ) {
-    enum class Fact(val id: String) { CREATED("created"), PHOTO("photo"), NAME("name") }
+    enum class Fact(val id: String) { CREATED("created"), PHOTO("photo"), NAME("name"), NUMBER_OUT("numberOut"), NUMBER_IN("numberIn") }
+
+    enum class NumberNotice(val id: String) { OUT("out"), IN("in") }
+
+    /** The text of the amber bar of chat-timeline, null without a notice. A number move wins over a name and photo change. */
+    fun noticeText(context: Context, name: String): String? = when {
+        numberNotice == NumberNotice.OUT -> context.getString(R.string.bipe_profile_notice_number_out, name)
+        numberNotice == NumberNotice.IN -> context.getString(R.string.bipe_profile_notice_number_in, name)
+        notice -> context.getString(R.string.bipe_profile_notice_name_photo, name)
+        else -> null
+    }
 
     /** [count] is the number of changes in the window, `null` for [Fact.CREATED]. [at] is the creation time or the latest change. */
     data class Line(val fact: Fact, val count: Int?, val at: Instant)
@@ -49,6 +61,8 @@ data class BipeProfileFactLines(
             } else {
                 context.getString(R.string.bipe_profile_fact_name_once, age)
             }
+            Fact.NUMBER_OUT -> context.getString(R.string.bipe_profile_fact_number_out, age)
+            Fact.NUMBER_IN -> context.getString(R.string.bipe_profile_fact_number_in, age)
         }
     }
 
@@ -70,10 +84,19 @@ data class BipeProfileFactLines(
             }
             if (photos.isNotEmpty()) lines += Line(Fact.PHOTO, photos.size, Instant.ofEpochMilli(photos.last()))
             if (names.isNotEmpty()) lines += Line(Fact.NAME, names.size, Instant.ofEpochMilli(names.last()))
+            val movedOut = inWindow(facts.numberMovedOut).lastOrNull()
+            val movedIn = inWindow(facts.numberMovedIn).lastOrNull()
+            if (movedOut != null) lines += Line(Fact.NUMBER_OUT, null, Instant.ofEpochMilli(movedOut))
+            if (movedIn != null) lines += Line(Fact.NUMBER_IN, null, Instant.ofEpochMilli(movedIn))
             val pairMs = BipeRegistries.PROFILE_FACTS_NOTICE_PAIR_HOURS * HOUR_MS
             val noticeMs = BipeRegistries.PROFILE_FACTS_NOTICE_DAYS * DAY_MS
             val notice = names.any { name -> photos.any { photo -> abs(name - photo) <= pairMs && nowMs - max(name, photo) < noticeMs } }
-            return BipeProfileFactLines(lines, notice)
+            val numberNotice = when {
+                movedOut == null && movedIn == null -> null
+                (movedIn ?: -1L) > (movedOut ?: -1L) -> NumberNotice.IN
+                else -> NumberNotice.OUT
+            }
+            return BipeProfileFactLines(lines, notice, numberNotice)
         }
 
         /** An ISO 8601 date with a zone. Anything else is `null`. */

@@ -11,19 +11,24 @@ public struct BipeProfileFacts: Codable, Sendable, Hashable {
     public let createdAt: String?
     public let nameChanges: [String]
     public let photoChanges: [String]
+    /// When this account's number went to another account, and when it got one from another account (bipe-chat/bipe#161).
+    public let numberMovedOut: [String]
+    public let numberMovedIn: [String]
 
     /// The most Matrix IDs per `POST /v1/profile-facts` call.
     public static let batchSize = 100
 
-    public init(userId: String, createdAt: String?, nameChanges: [String], photoChanges: [String]) {
+    public init(userId: String, createdAt: String?, nameChanges: [String], photoChanges: [String], numberMovedOut: [String] = [], numberMovedIn: [String] = []) {
         self.userId = userId
         self.createdAt = createdAt
         self.nameChanges = nameChanges
         self.photoChanges = photoChanges
+        self.numberMovedOut = numberMovedOut
+        self.numberMovedIn = numberMovedIn
     }
 
     private enum CodingKeys: String, CodingKey {
-        case userId, createdAt, nameChanges, photoChanges
+        case userId, createdAt, nameChanges, photoChanges, numberMovedOut, numberMovedIn
     }
 
     public init(from decoder: Decoder) throws {
@@ -32,6 +37,8 @@ public struct BipeProfileFacts: Codable, Sendable, Hashable {
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
         nameChanges = try container.decodeIfPresent([String].self, forKey: .nameChanges) ?? []
         photoChanges = try container.decodeIfPresent([String].self, forKey: .photoChanges) ?? []
+        numberMovedOut = try container.decodeIfPresent([String].self, forKey: .numberMovedOut) ?? []
+        numberMovedIn = try container.decodeIfPresent([String].self, forKey: .numberMovedIn) ?? []
     }
 }
 
@@ -42,6 +49,14 @@ public nonisolated struct BipeProfileFactLines: Sendable, Equatable {
         case created
         case photo
         case name
+        case numberOut
+        case numberIn
+    }
+
+    /// Which way the newest number move in the window went (bipe-chat/bipe#161).
+    public enum NumberNotice: String, Sendable {
+        case out
+        case `in`
     }
 
     public struct Line: Sendable, Equatable {
@@ -58,10 +73,12 @@ public nonisolated struct BipeProfileFactLines: Sendable, Equatable {
         }
     }
 
-    /// In order: created, photo, name. Empty when nothing applies.
+    /// In order: created, photo, name, numberOut, numberIn. Empty when nothing applies.
     public let lines: [Line]
     /// A name change and a photo change at most noticePairHours apart, the later one younger than noticeDays.
     public let notice: Bool
+    /// The newest number move in the window, `nil` without one.
+    public let numberNotice: NumberNotice?
 
     private static let dayMs: Int64 = 86_400_000
     private static let hourMs: Int64 = 3_600_000
@@ -87,6 +104,14 @@ public nonisolated struct BipeProfileFactLines: Sendable, Equatable {
         if let last = names.last {
             lines.append(Line(fact: .name, count: names.count, at: Self.date(last)))
         }
+        let movedOut = inWindow(facts.numberMovedOut).last
+        let movedIn = inWindow(facts.numberMovedIn).last
+        if let movedOut {
+            lines.append(Line(fact: .numberOut, count: nil, at: Self.date(movedOut)))
+        }
+        if let movedIn {
+            lines.append(Line(fact: .numberIn, count: nil, at: Self.date(movedIn)))
+        }
         let pairMs = Int64(BipeRegistries.profileFactsNoticePairHours) * Self.hourMs
         let noticeMs = Int64(BipeRegistries.profileFactsNoticeDays) * Self.dayMs
         var notice = false
@@ -97,6 +122,20 @@ public nonisolated struct BipeProfileFactLines: Sendable, Equatable {
         }
         self.lines = lines
         self.notice = notice
+        if movedOut == nil, movedIn == nil {
+            numberNotice = nil
+        } else {
+            numberNotice = (movedIn ?? -1) > (movedOut ?? -1) ? .in : .out
+        }
+    }
+
+    /// The text of the amber bar of chat-timeline, `nil` without a notice. A number move wins over a name and photo change.
+    public func noticeText(name: String) -> String? {
+        switch numberNotice {
+        case .out: BipeStrings.profileNoticeNumberOut(name)
+        case .in: BipeStrings.profileNoticeNumberIn(name)
+        case nil: notice ? BipeStrings.profileNoticeNamePhoto(name) : nil
+        }
     }
 
     /// The lines as text (spec chat-request and person-profile profileFacts).
@@ -112,6 +151,10 @@ public nonisolated struct BipeProfileFactLines: Sendable, Equatable {
                 return count >= 2 ? BipeStrings.profileFactPhotoTimes(String(count), window) : BipeStrings.profileFactPhotoOnce(age)
             case .name:
                 return count >= 2 ? BipeStrings.profileFactNameTimes(String(count), window) : BipeStrings.profileFactNameOnce(age)
+            case .numberOut:
+                return BipeStrings.profileFactNumberOut(age)
+            case .numberIn:
+                return BipeStrings.profileFactNumberIn(age)
             }
         }
     }
