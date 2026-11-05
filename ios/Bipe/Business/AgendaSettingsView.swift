@@ -14,6 +14,7 @@ struct AgendaSettingsView: View {
     /// The Agenda changed: the tab reloads.
     let changed: () -> Void
 
+    private let agendas: [BipeAgenda]
     @State private var published: Bool
     @State private var timeZone: String
     @State private var policy: BipeAgendaPolicy
@@ -30,6 +31,7 @@ struct AgendaSettingsView: View {
         self.api = api
         self.editSetup = editSetup
         self.changed = changed
+        agendas = state.agendas
         _published = State(initialValue: state.published)
         _timeZone = State(initialValue: state.timeZone)
         _policy = State(initialValue: state.policy)
@@ -75,6 +77,7 @@ struct AgendaSettingsView: View {
             } footer: {
                 Text(BipeStrings.agendaRequestModeFooter)
             }
+            AgendaCalendarsSections(api: api, agendas: agendas)
             Section {
                 Button(BipeStrings.agendaSetupHours, action: editSetup)
                 Button(BipeStrings.agendaSetupPeople, action: editSetup)

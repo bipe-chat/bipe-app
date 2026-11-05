@@ -12,6 +12,7 @@ import type { ClientLike as Client } from '../generated/matrix_sdk_ffi';
 import type {
   Agenda,
   AgendaActivation,
+  AgendaFeed,
   AgendaBlock,
   AgendaCloseDay,
   AgendaInput,
@@ -22,6 +23,7 @@ import type {
   Booking,
   BookingHold,
   BookingMove,
+  BusyImport,
   BusinessLiveTools,
   BusinessToday,
   BusinessToolId,
@@ -246,6 +248,16 @@ export class BusinessClient {
   dismissWorkSuggestion = (id: string) => this.post<WorkSuggestions>(`/v1/me/business/suggestions/${enc(id)}/dismiss`);
   businessToday = () => this.get<BusinessToday>('/v1/me/business/today');
   liveTools = (business: string) => this.get<BusinessLiveTools>(`/v1/businesses/${enc(business)}/tools`);
+
+  // ---- External calendars of an agenda (ADR 0101) ----
+
+  issueAgendaFeed = (agendaId: string, includeFirstName: boolean) =>
+    this.post<AgendaFeed>(`/v1/me/business/agenda/agendas/${enc(agendaId)}/feed`, { include_customer_first_name: includeFirstName });
+  busyImports = (agendaId: string) => this.get<{ imports: BusyImport[] }>(`/v1/me/business/agenda/agendas/${enc(agendaId)}/busy-imports`);
+  addBusyImport = (agendaId: string, url: string) =>
+    this.post<BusyImport>(`/v1/me/business/agenda/agendas/${enc(agendaId)}/busy-imports`, { url });
+  removeBusyImport = (agendaId: string, importId: string) =>
+    this.del(`/v1/me/business/agenda/agendas/${enc(agendaId)}/busy-imports/${enc(importId)}`);
 
   // ---- The owner's web switches (ADR 0195) ----
 

@@ -11,6 +11,7 @@
 // The close-day message to customers is not here: it goes through the encrypted chat (ADR 0102), and this
 // screen has only the business client.
 
+import { AgendaCalendars } from './AgendaCalendars';
 import { useMemo, useState } from 'react';
 import type {
   Agenda,
@@ -1191,6 +1192,7 @@ function GeneralPage({ client, state, onState }: SettingsProps) {
         <Detail label={s('bipe_agenda_time_zone')} value={state.time_zone} />
       </Section>
       <AgendaError error={publish.error} text={publishError} />
+      <AgendaCalendars client={client} agendas={state.agendas} />
       <form
         className="flex flex-col gap-6"
         onSubmit={async (e) => {
