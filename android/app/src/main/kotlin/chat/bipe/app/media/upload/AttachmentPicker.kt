@@ -56,9 +56,10 @@ fun AttachmentMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     onPicked: (List<Pair<File, String?>>) -> Unit,
-    onStickers: () -> Unit,
-    /** Action location: opens location-send. */
-    onLocation: () -> Unit,
+    /** null hides the row (spec attachment-picker notes, Notes). */
+    onStickers: (() -> Unit)?,
+    /** Action location: opens location-send. null hides the row (spec attachment-picker notes, Notes). */
+    onLocation: (() -> Unit)?,
     /** Action poll: opens poll-create. null hides the row (canPoll false). */
     onPoll: (() -> Unit)?,
     /** Spec chat-row-actions sendMedia: true opens the photo picker without the menu. */
@@ -127,8 +128,12 @@ fun AttachmentMenu(
             file.launch(arrayOf("*/*"))
         }
         // Phosphor has no pin in tools/phosphor.json: the row draws the map pin.
-        MenuRow(stringResource(R.string.bipe_app_attach_location), icon = { MapPin() }, onDismiss, onLocation)
-        MenuRow(PhosphorIcon.STICKER, stringResource(R.string.bipe_action_stickers), onDismiss, onStickers)
+        if (onLocation != null) {
+            MenuRow(stringResource(R.string.bipe_app_attach_location), icon = { MapPin() }, onDismiss, onLocation)
+        }
+        if (onStickers != null) {
+            MenuRow(PhosphorIcon.STICKER, stringResource(R.string.bipe_action_stickers), onDismiss, onStickers)
+        }
         if (onPoll != null) {
             MenuRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_app_attach_poll), onDismiss, onPoll)
         }
