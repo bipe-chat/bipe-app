@@ -24,6 +24,7 @@ import {
   SecondaryButton,
   useAction,
   useLoad,
+  shareOrSave,
   useNames,
   useWorkHost,
   type WorkScreenProps,
@@ -529,17 +530,7 @@ function CounterQr() {
     if (!target || !handle) return;
     target.toBlob(async (blob) => {
       if (!blob) return;
-      const file = new File([blob], `fila-${handle}.png`, { type: 'image/png' });
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: s('bipe_queue_qr_title') }).catch(() => undefined);
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file.name;
-      a.click();
-      URL.revokeObjectURL(url);
+      await shareOrSave(new File([blob], `fila-${handle}.png`, { type: 'image/png' }), s('bipe_queue_qr_title'));
     }, 'image/png');
   };
 

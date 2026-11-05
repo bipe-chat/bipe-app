@@ -15,6 +15,20 @@ import { WorkError, type BusinessClient } from './business-client';
 /** Every Trabalho tool screen takes the account's business client and a way back to the Trabalho list. */
 export type WorkScreenProps = { client: BusinessClient; onBack: () => void };
 
+/** Shares a file where the browser can, else saves it. */
+export async function shareOrSave(file: File, title: string): Promise<void> {
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title }).catch(() => undefined);
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = file.name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /** The user-facing text of a failed call: no connection, or the generic error. Never the raw API message. */
 export function errorText(e: unknown): string {
   return e instanceof WorkError && e.code === 'network' ? s('bipe_error_network') : s('bipe_error_generic');

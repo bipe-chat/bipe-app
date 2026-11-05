@@ -216,6 +216,46 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_brand_mark_ended", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var businessKitTitle: String { NSLocalizedString("bipe_business_kit_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessKitIntro: String { NSLocalizedString("bipe_business_kit_intro", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessKitButtonHeader: String { NSLocalizedString("bipe_business_kit_button_header", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessKitButtonLabel: String { NSLocalizedString("bipe_business_kit_button_label", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func businessKitButtonCode(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_business_kit_button_code", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var businessKitButtonFooter: String { NSLocalizedString("bipe_business_kit_button_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessKitCopyCode: String { NSLocalizedString("bipe_business_kit_copy_code", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessKitQrHeader: String { NSLocalizedString("bipe_business_kit_qr_header", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessKitQrFooter: String { NSLocalizedString("bipe_business_kit_qr_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessKitSharePng: String { NSLocalizedString("bipe_business_kit_share_png", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessKitShareSvg: String { NSLocalizedString("bipe_business_kit_share_svg", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var businessKitLinesHeader: String { NSLocalizedString("bipe_business_kit_lines_header", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func businessKitLineSite(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_business_kit_line_site", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func businessKitLineEmail(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_business_kit_line_email", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func businessKitLineReceipt(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_business_kit_line_receipt", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var businessKitRule: String { NSLocalizedString("bipe_business_kit_rule", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var brandMarksTitle: String { NSLocalizedString("bipe_brand_marks_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var brandMarksHeldHeader: String { NSLocalizedString("bipe_brand_marks_held_header", tableName: "Bipe", bundle: .module, comment: "") }
