@@ -124,6 +124,8 @@ class PersonProfileModel(
         val facts: BipeTrustFacts = BipeTrustSources.profileFacts("", null, BipeTrustSources.Seal.None),
         val reservedNameWarning: Boolean = false,
         val bio: String? = null,
+        /** The public profile photo, for the avatar when the server hides the Matrix profile. */
+        val publicPhotoUrl: String? = null,
         /** Spec socials: empty shows no section. */
         val socials: List<SocialLink> = emptyList(),
         val dmRoomId: String? = null,
@@ -155,7 +157,7 @@ class PersonProfileModel(
             scope.launch { people.seals.personSeals.collect { applySeal(people.seals.seal(userId)) } }
             val profile = person.handle?.let { handle -> runCatching { people.api.publicProfile(handle) }.getOrNull() }
             val bio = profile?.bio?.trim()
-            _state.value = _state.value.copy(bio = bio?.takeIf { it.isNotEmpty() }, socials = SocialLink.links(profile?.socials.orEmpty()))
+            _state.value = _state.value.copy(bio = bio?.takeIf { it.isNotEmpty() }, publicPhotoUrl = profile?.photoUrl, socials = SocialLink.links(profile?.socials.orEmpty()))
         }
     }
 
@@ -382,7 +384,7 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Avatar(state.person.displayName, state.person.avatarUrl, model.people.media, size = 96.dp, userId = state.person.userId, isCompany = state.isCompany)
+        Avatar(state.person.displayName, state.person.avatarUrl, model.people.media, size = 96.dp, userId = state.person.userId, isCompany = state.isCompany, publicPhotoUrl = state.publicPhotoUrl)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 state.person.displayName,

@@ -30,6 +30,19 @@ final class MediaLoader {
         return image
     }
 
+    /// The public profile photo (GET /v1/profiles/{handle}/photo). The server hides Client.getProfile from a person with
+    /// no shared room, so this is the photo of someone the user has not talked to. Only the API's own profile route.
+    func publicPhoto(url: URL) async -> UIImage? {
+        guard url.scheme == "https", url.host == AppConfig.apiBaseURL.host, url.path.hasPrefix("/v1/profiles/") else { return nil }
+        let key = url.absoluteString as NSString
+        if let cached = cache.object(forKey: key) { return cached }
+        guard let (data, response) = try? await URLSession.shared.data(from: url),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let image = UIImage(data: data) else { return nil }
+        cache.setObject(image, forKey: key)
+        return image
+    }
+
     func avatarUrl(userId: String) async -> String? {
         (try? await client.getProfile(userId: userId))?.avatarUrl
     }
@@ -55,6 +68,8 @@ struct AvatarView: View {
     var showsPhoto = true
     /// Spec chat-list notes, Group avatar (bipe-chat/bipe#1004): a group with no photo shows these members.
     var members: [Person] = []
+    /// The public profile photo, for a person whose Matrix profile the server hides.
+    var publicPhotoUrl: URL? = nil
 
     @State private var image: UIImage?
     @State private var resolvedCompany = false
@@ -83,14 +98,15 @@ struct AvatarView: View {
         .frame(width: size, height: size)
         .clipShape(shape)
         .accessibilityHidden(true)
-        .task(id: "\(userId ?? "")|\(mxcUrl ?? "")|\(size)|\(showsPhoto)") {
+        .task(id: "\(userId ?? "")|\(mxcUrl ?? "")|\(size)|\(showsPhoto)|\(publicPhotoUrl?.absoluteString ?? "")") {
             image = nil
             resolvedCompany = false
             async let company = companyType()
             var url = showsPhoto ? mxcUrl : nil
             if showsPhoto, url == nil, let userId { url = await loader.avatarUrl(userId: userId) }
-            let loaded: UIImage?
-            if let url { loaded = await loader.thumbnail(mxcUrl: url, size: Int(size * 3)) } else { loaded = nil }
+            var loaded: UIImage?
+            if let url { loaded = await loader.thumbnail(mxcUrl: url, size: Int(size * 3)) }
+            if loaded == nil, showsPhoto, let publicPhotoUrl { loaded = await loader.publicPhoto(url: publicPhotoUrl) }
             guard !Task.isCancelled else { return }
             image = loaded
             let type = await company
