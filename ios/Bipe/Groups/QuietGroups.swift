@@ -6,8 +6,9 @@ import Foundation
 import MatrixRustSDK
 
 /// Quiet groups by default (ADR 0026, specs group-create and chat-notifications notes). Once per account, after the
-/// first sync: the account default for groups becomes mentions and keywords, and the override rule
-/// chat.bipe.poll_start makes a new poll notify in a quiet group.
+/// first sync: the account default for plain group messages becomes mentions and keywords, and the override rule
+/// chat.bipe.poll_start makes a new poll notify in a quiet group. Encrypted groups stay on all messages, so the server
+/// pushes each one and the phone decides after decrypting it (ADR 0254).
 enum QuietGroups {
     static let pollRuleId = "chat.bipe.poll_start"
 
@@ -33,10 +34,10 @@ enum QuietGroups {
                                                      conditions: [.eventMatch(key: "type", pattern: "*.poll.start")])
             }
             try await settings.setDefaultRoomNotificationMode(isEncrypted: false, isOneToOne: false, mode: .mentionsAndKeywordsOnly)
-            // Mentions-only in an encrypted group needs the server to push encrypted events (#118). Until it does,
-            // the encrypted default stays as it is and the next start tries again.
-            guard await settings.canHomeserverPushEncryptedEventToDevice() else { return }
-            try await settings.setDefaultRoomNotificationMode(isEncrypted: true, isOneToOne: false, mode: .mentionsAndKeywordsOnly)
+            // Mentions-only on the encrypted rule stops the push, so a mention never arrives. Repairs an older choice.
+            if await settings.getDefaultRoomNotificationMode(isEncrypted: true, isOneToOne: false) == .mentionsAndKeywordsOnly {
+                try await settings.setDefaultRoomNotificationMode(isEncrypted: true, isOneToOne: false, mode: .allMessages)
+            }
             defaults.set(true, forKey: doneKey(session.userId))
         } catch {
             // Tried again at the next start.

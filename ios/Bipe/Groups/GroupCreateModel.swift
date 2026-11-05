@@ -35,7 +35,7 @@ final class GroupCreateModel: ObservableObject {
     /// bipe_app_group_create_quiet_footer shows only when the default for groups is quiet.
     func appear() async {
         let settings = await session.client.getNotificationSettings()
-        isQuietDefault = await settings.getDefaultRoomNotificationMode(isEncrypted: true, isOneToOne: false) == .mentionsAndKeywordsOnly
+        isQuietDefault = await settings.getDefaultRoomNotificationMode(isEncrypted: false, isOneToOne: false) == .mentionsAndKeywordsOnly
     }
 
     /// Action setName.

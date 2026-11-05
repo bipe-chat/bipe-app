@@ -71,7 +71,6 @@ class NotificationSettingsModel(
         val wholeGroupMentions: Boolean = true,
         val invites: Boolean = true,
         val sound: NotificationSound = NotificationSound.PHONE,
-        val mentionsMayMiss: Boolean = false,
         val hasOlderChoices: Boolean = false,
         val isLoaded: Boolean = false,
         /** The older-choices dialog, with the change that waits for it. */
@@ -292,15 +291,13 @@ class NotificationSettingsModel(
 
     private suspend fun load(settings: NotificationSettings? = this.settings) {
         settings ?: return
-        // The screen reads the encrypted value and writes both (spec notes).
+        // Chats: reads the encrypted value and writes both. Groups: reads the plain value (spec notes, ADR 0254).
         val chats = settings.getDefaultRoomNotificationMode(isEncrypted = true, isOneToOne = true)
-        val groups = settings.getDefaultRoomNotificationMode(isEncrypted = true, isOneToOne = false)
         val chatsPlain = settings.getDefaultRoomNotificationMode(isEncrypted = false, isOneToOne = true)
-        val groupsPlain = settings.getDefaultRoomNotificationMode(isEncrypted = false, isOneToOne = false)
+        val groups = settings.getDefaultRoomNotificationMode(isEncrypted = false, isOneToOne = false)
         val current = _state.value
         val wholeGroup = runCatching { settings.isRoomMentionEnabled() }.getOrDefault(current.wholeGroupMentions)
         val invites = runCatching { settings.isInviteForMeEnabled() }.getOrDefault(current.invites)
-        val mentionsMayMiss = !settings.canPushEncryptedEventToDevice()
         val hasKeywords = settings.containsKeywordsRules()
         _state.update {
             it.copy(
@@ -308,8 +305,7 @@ class NotificationSettingsModel(
                 groupsMode = NotificationMode.of(groups),
                 wholeGroupMentions = wholeGroup,
                 invites = invites,
-                mentionsMayMiss = mentionsMayMiss,
-                hasOlderChoices = chats != chatsPlain || groups != groupsPlain || hasKeywords,
+                hasOlderChoices = chats != chatsPlain || hasKeywords,
                 sound = notifications.sound(session.userId),
                 preview = notifications.preview(session.userId),
                 isLoaded = true,
@@ -328,7 +324,9 @@ class NotificationSettingsModel(
     }
 
     private suspend fun setDefault(settings: NotificationSettings, isOneToOne: Boolean, mode: NotificationMode) {
-        settings.setDefaultRoomNotificationMode(isEncrypted = true, isOneToOne = isOneToOne, mode = mode.sdkMode)
+        // Mentions in a group: the encrypted rule stays on all messages, so a mention still reaches the phone (ADR 0254).
+        val encrypted = if (!isOneToOne && mode == NotificationMode.MENTIONS) NotificationMode.ALL else mode
+        settings.setDefaultRoomNotificationMode(isEncrypted = true, isOneToOne = isOneToOne, mode = encrypted.sdkMode)
         settings.setDefaultRoomNotificationMode(isEncrypted = false, isOneToOne = isOneToOne, mode = mode.sdkMode)
     }
 }

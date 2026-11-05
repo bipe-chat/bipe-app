@@ -67,7 +67,6 @@ final class NotificationSettingsModel: ObservableObject {
     @Published private(set) var isCompany = false
     /// The opening hours, for the row's value. `nil` until read or for a personal account.
     @Published var workHours: BipeWorkHours?
-    @Published private(set) var mentionsMayMiss = false
     @Published private(set) var hasOlderChoices = false
     @Published private(set) var isLoaded = false
     /// The older-choices dialog, with the change that waits for it.
@@ -297,18 +296,16 @@ final class NotificationSettingsModel: ObservableObject {
 
     private func load() async {
         guard let settings else { return }
-        // The screen reads the encrypted value and writes both (spec notes).
+        // Chats: reads the encrypted value and writes both. Groups: reads the plain value (spec notes, ADR 0254).
         let chats = await settings.getDefaultRoomNotificationMode(isEncrypted: true, isOneToOne: true)
-        let groups = await settings.getDefaultRoomNotificationMode(isEncrypted: true, isOneToOne: false)
         let chatsPlain = await settings.getDefaultRoomNotificationMode(isEncrypted: false, isOneToOne: true)
-        let groupsPlain = await settings.getDefaultRoomNotificationMode(isEncrypted: false, isOneToOne: false)
+        let groups = await settings.getDefaultRoomNotificationMode(isEncrypted: false, isOneToOne: false)
         chatsMode = NotificationMode(chats)
         groupsMode = NotificationMode(groups)
         wholeGroupMentions = (try? await settings.isRoomMentionEnabled()) ?? wholeGroupMentions
         invites = (try? await settings.isInviteForMeEnabled()) ?? invites
-        mentionsMayMiss = !(await settings.canPushEncryptedEventToDevice())
         let hasKeywords = await settings.containsKeywordsRules()
-        hasOlderChoices = chats != chatsPlain || groups != groupsPlain || hasKeywords
+        hasOlderChoices = chats != chatsPlain || hasKeywords
         sound = NotificationSound.current(for: session.userId)
         preview = NotificationPrefs.preview(for: session.userId)
         isLoaded = true
@@ -327,7 +324,9 @@ final class NotificationSettingsModel: ObservableObject {
     }
 
     private static func setDefault(_ settings: NotificationSettings, isOneToOne: Bool, mode: NotificationMode) async throws {
-        try await settings.setDefaultRoomNotificationMode(isEncrypted: true, isOneToOne: isOneToOne, mode: mode.sdkMode)
+        // Mentions in a group: the encrypted rule stays on all messages, so a mention still reaches the phone (ADR 0254).
+        let encrypted: NotificationMode = !isOneToOne && mode == .mentions ? .all : mode
+        try await settings.setDefaultRoomNotificationMode(isEncrypted: true, isOneToOne: isOneToOne, mode: encrypted.sdkMode)
         try await settings.setDefaultRoomNotificationMode(isEncrypted: false, isOneToOne: isOneToOne, mode: mode.sdkMode)
     }
 }

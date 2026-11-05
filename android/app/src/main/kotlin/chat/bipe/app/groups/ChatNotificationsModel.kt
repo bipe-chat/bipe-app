@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.Client
+import org.matrix.rustcomponents.sdk.NotificationSettings
 import org.matrix.rustcomponents.sdk.RoomNotificationMode
+import org.matrix.rustcomponents.sdk.RoomNotificationSettings
 import uniffi.matrix_sdk_base.EncryptionState
 
 /** Enum NotifyOption.mode of spec chat-notifications. */
@@ -62,7 +64,6 @@ class ChatNotificationsModel(
     private var isDm = false
     private var isEncrypted = true
     private var defaultMode: NotifyMode? = null
-    private var canPushEncrypted = true
 
     /** Action appear. */
     fun appear() {
@@ -72,10 +73,15 @@ class ChatNotificationsModel(
             isDm = info.isDm
             isEncrypted = info.encryptionState != EncryptionState.NOT_ENCRYPTED
             val settings = session.client.getNotificationSettings()
-            defaultMode = NotifyMode.of(settings.getDefaultRoomNotificationMode(isEncrypted, isDm), isDm)
-            canPushEncrypted = settings.canHomeserverPushEncryptedEventToDevice()
+            val fallback = defaultMode(settings, isEncrypted, isDm)
+            defaultMode = fallback
             runCatching { settings.getRoomNotificationSettings(roomId, isEncrypted, isDm) }.getOrNull()?.let {
-                _current.value = NotifyMode.of(it.mode, isDm)
+                _current.value = mode(it, fallback, isDm)
+                // A mentions-only rule in an encrypted group stops every push. Repairs an older choice.
+                if (!isDm && isEncrypted && !it.isDefault && it.mode == RoomNotificationMode.MENTIONS_AND_KEYWORDS_ONLY) {
+                    runCatching { settings.restoreDefaultRoomNotificationMode(roomId) }
+                    _current.value = fallback
+                }
             }
             rebuildOptions()
         }
@@ -112,17 +118,13 @@ class ChatNotificationsModel(
 
     private fun rebuildOptions() {
         val current = _current.value
-        var quietFooter: Int? = R.string.bipe_app_notify_quiet_footer
         val modes = when {
             isDm -> listOfNotNull(NotifyMode.ALL, NotifyMode.MUTE, NotifyMode.MENTIONS_LEGACY.takeIf { current == it })
-            isEncrypted && !canPushEncrypted -> {
-                // Quiet would silence the group until the server pushes encrypted events (#118).
-                quietFooter = null
-                listOfNotNull(NotifyMode.QUIET.takeIf { current == it }, NotifyMode.ALL, NotifyMode.MUTE)
-            }
+            // A quiet rule on one encrypted group would stop its pushes. Quiet there is only the account default.
+            isEncrypted && defaultMode != NotifyMode.QUIET -> listOf(NotifyMode.ALL, NotifyMode.MUTE)
             else -> listOf(NotifyMode.QUIET, NotifyMode.ALL, NotifyMode.MUTE)
         }
-        _options.value = modes.map { NotifyOption(it, if (it == NotifyMode.QUIET) quietFooter else null, it == defaultMode) }
+        _options.value = modes.map { NotifyOption(it, if (it == NotifyMode.QUIET) R.string.bipe_app_notify_quiet_footer else null, it == defaultMode) }
     }
 
     companion object {
@@ -131,10 +133,21 @@ class ChatNotificationsModel(
             val room = runCatching { client.getRoom(roomId) }.getOrNull() ?: return null
             val info = runCatching { room.roomInfo() }.getOrNull() ?: return null
             val settings = client.getNotificationSettings()
+            val isEncrypted = info.encryptionState != EncryptionState.NOT_ENCRYPTED
             val roomSettings = runCatching {
-                settings.getRoomNotificationSettings(roomId, info.encryptionState != EncryptionState.NOT_ENCRYPTED, info.isDm)
+                settings.getRoomNotificationSettings(roomId, isEncrypted, info.isDm)
             }.getOrNull() ?: return null
-            return NotifyMode.of(roomSettings.mode, info.isDm)
+            return mode(roomSettings, defaultMode(settings, isEncrypted, info.isDm), info.isDm)
         }
+
+        /**
+         * Spec chat-notifications notes (ADR 0254): the plain rule decides what an encrypted group does on the phone, so
+         * it is the default of a group. The encrypted rule stays on all messages and only makes the server push.
+         */
+        private suspend fun defaultMode(settings: NotificationSettings, isEncrypted: Boolean, isDm: Boolean): NotifyMode =
+            NotifyMode.of(settings.getDefaultRoomNotificationMode(isEncrypted && isDm, isDm), isDm)
+
+        private fun mode(roomSettings: RoomNotificationSettings, default: NotifyMode, isDm: Boolean): NotifyMode =
+            if (roomSettings.isDefault) default else NotifyMode.of(roomSettings.mode, isDm)
     }
 }
