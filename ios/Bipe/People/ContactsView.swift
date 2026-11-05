@@ -19,6 +19,8 @@ struct AddressBookEntry: Sendable, Equatable {
 struct ContactMatch: Identifiable, Equatable {
     var person: Person
     var joinedWithInvite: Bool
+    /// bipe-chat/bipe#161: the age of a number move. The row then shows the account's own name.
+    var numberMovedAge: String?
 
     var id: String { person.userId }
 }
@@ -98,6 +100,7 @@ final class ContactsModel: ObservableObject {
         let book = await Task.detached(priority: .userInitiated) { Self.readAddressBook() }.value
         var found: [String: String] = [:]
         var entries: [String: String] = [:]
+        var moved: [String: String] = [:]
         let phones = Array(book.keys)
         do throws(BipeAPIError) {
             for start in stride(from: 0, to: phones.count, by: Self.lookupChunk) {
@@ -105,8 +108,12 @@ final class ContactsModel: ObservableObject {
                 let result = try await people.withOpenID { (token: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeContactMatch] in
                     try await people.api.lookupContacts(phones: chunk, openID: token)
                 }
-                for match in result where match.userId != people.session.userId && found[match.userId] == nil {
-                    guard let entry = book[match.phone] else { continue }
+                for match in result where match.userId != people.session.userId {
+                    if let age = match.movedAge {
+                        moved[match.userId] = age
+                        continue
+                    }
+                    guard found[match.userId] == nil, let entry = book[match.phone] else { continue }
                     found[match.userId] = entry.name
                     entries[match.userId] = entry.id
                 }
@@ -119,6 +126,11 @@ final class ContactsModel: ObservableObject {
             }
             return
         }
+        // bipe-chat/bipe#161: the saved name and entry stay away from an account that just got the number.
+        for userId in moved.keys {
+            found[userId] = nil
+            entries[userId] = nil
+        }
         people.rememberContactNames(found)
         people.rememberContactEntries(entries)
         let invited = (try? await people.withToken { (token: String) async throws(BipeAPIError) -> Set<String> in
@@ -129,6 +141,10 @@ final class ContactsModel: ObservableObject {
             let person = (try? await people.person(userId, contactName: name))
                 ?? Person(userId: userId, displayName: name, avatarUrl: nil)
             list.append(ContactMatch(person: person, joinedWithInvite: invited.contains(userId)))
+        }
+        for (userId, age) in moved {
+            guard let person = try? await people.person(userId) else { continue }
+            list.append(ContactMatch(person: person, joinedWithInvite: false, numberMovedAge: age))
         }
         matches = list.sorted { $0.person.displayName.localizedCaseInsensitiveCompare($1.person.displayName) == .orderedAscending }
         phase = .loaded
@@ -257,7 +273,11 @@ struct ContactsView: View {
                 Text(match.person.displayName)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .lineLimit(1)
-                if match.joinedWithInvite {
+                if let age = match.numberMovedAge {
+                    Text(BipeStrings.contactsNumberMoved(age))
+                        .font(.caption)
+                        .foregroundStyle(BipeColor.trustCautionInk)
+                } else if match.joinedWithInvite {
                     Text(BipeStrings.contactsJoinedWithInvite)
                         .font(.caption)
                         .foregroundStyle(BipeColor.accentInk)

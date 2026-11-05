@@ -274,6 +274,8 @@ data class BipeContactMatch(
     /** E.164, as normalised by the server. */
     @SerialName("phone") val phone: String,
     @SerialName("user_id") val userId: String,
+    /** When this account got the number from another account, in the facts window (bipe-chat/bipe#161). Null otherwise. */
+    @SerialName("moved_at") val movedAt: String? = null,
 ) {
     /** Never prints the number. */
     override fun toString(): String = "BipeContactMatch($userId)"

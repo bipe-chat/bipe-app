@@ -149,6 +149,9 @@ data class BipeProfileFacts(
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("name_changes") val nameChanges: List<String> = emptyList(),
     @SerialName("photo_changes") val photoChanges: List<String> = emptyList(),
+    /** When this account's number went to another account, and when it got one from another account (bipe-chat/bipe#161). */
+    @SerialName("number_moved_out") val numberMovedOut: List<String> = emptyList(),
+    @SerialName("number_moved_in") val numberMovedIn: List<String> = emptyList(),
 ) {
     companion object {
         /** The most Matrix IDs per `POST /v1/profile-facts` call. */

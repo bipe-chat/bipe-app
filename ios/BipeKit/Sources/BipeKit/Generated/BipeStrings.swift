@@ -44,6 +44,26 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_profile_notice_name_photo", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static func profileFactNumberOut(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_number_out", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func profileFactNumberIn(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_fact_number_in", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func profileNoticeNumberOut(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_notice_number_out", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func profileNoticeNumberIn(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_profile_notice_number_in", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func contactsNumberMoved(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_contacts_number_moved", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var theftTitle: String { NSLocalizedString("bipe_theft_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var theftIntro: String { NSLocalizedString("bipe_theft_intro", tableName: "Bipe", bundle: .module, comment: "") }

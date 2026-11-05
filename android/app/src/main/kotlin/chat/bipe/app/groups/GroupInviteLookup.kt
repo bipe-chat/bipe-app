@@ -38,6 +38,8 @@ internal class GroupInviteLookup(private val context: Context, private val peopl
                 val found = runCatching { people.withOpenId { people.api.lookupContacts(chunk, it) } }.getOrNull() ?: break
                 lookedUp = true
                 found.forEach { match ->
+                    // bipe-chat/bipe#161: a number that just moved keeps its saved name away from the new account.
+                    if (match.movedAt != null) return@forEach
                     val entry = book[match.phone] ?: return@forEach
                     names[match.userId] = entry.name
                     entries[match.userId] = entry.id

@@ -106,7 +106,8 @@ final class PeopleService: ObservableObject {
             guard let found = try? await withOpenID({ (token: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeContactMatch] in
                 try await api.lookupContacts(phones: chunk, openID: token)
             }) else { break }
-            for match in found where match.userId != session.userId && entries[match.userId] == nil {
+            // bipe-chat/bipe#161: a number that just moved keeps its saved name away from the new account.
+            for match in found where match.userId != session.userId && entries[match.userId] == nil && match.movedAt == nil {
                 guard let entry = book[match.phone] else { continue }
                 names[match.userId] = entry.name
                 entries[match.userId] = entry.id
