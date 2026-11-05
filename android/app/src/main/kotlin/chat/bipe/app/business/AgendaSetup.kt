@@ -560,6 +560,7 @@ fun AgendaSettingsScreen(business: BusinessApi, agenda: BipeAgendaState, onClose
                 NumberField(stringResource(R.string.bipe_agenda_cancel_window), cancelWindow, !saving) { cancelWindow = it }
                 NumberField(stringResource(R.string.bipe_agenda_max_open), maxOpen, !saving) { maxOpen = it }
             }
+            AgendaCalendarsSections(business, agenda.agendas)
             SettingsSwitchItem(stringResource(R.string.bipe_agenda_request_mode), stringResource(R.string.bipe_agenda_request_mode_footer), requestMode, !saving) {
                 requestMode = it
             }

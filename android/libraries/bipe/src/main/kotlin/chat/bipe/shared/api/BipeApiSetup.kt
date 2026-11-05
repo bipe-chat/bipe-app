@@ -167,3 +167,54 @@ suspend fun BipeApiClient.businessStopped(workAccount: String, accessToken: Stri
 /** `PUT` or `DELETE /v1/business-stops/{workAccount}`. */
 suspend fun BipeApiClient.setBusinessStopped(workAccount: String, stopped: Boolean, accessToken: String): Boolean =
     send(if (stopped) "PUT" else "DELETE", listOf("v1", "business-stops", workAccount), accessToken = accessToken, response = BusinessStop.serializer()).stopped
+
+/** Contract `AgendaFeed`: a secret URL that shows once. */
+@Serializable
+data class BipeAgendaFeed(
+    @SerialName("url") val url: String,
+    @SerialName("include_customer_first_name") val includeCustomerFirstName: Boolean,
+)
+
+/** Contract `BusyImport`. The secret address never comes back. */
+@Serializable
+data class BipeBusyImport(
+    @SerialName("id") val id: String,
+    @SerialName("agenda_id") val agendaId: String,
+    @SerialName("failing") val failing: Boolean = false,
+)
+
+@Serializable
+private data class FeedOptions(@SerialName("include_customer_first_name") val includeCustomerFirstName: Boolean)
+
+@Serializable
+private data class BusyImportInput(@SerialName("url") val url: String)
+
+@Serializable
+private data class BusyImports(@SerialName("imports") val imports: List<BipeBusyImport>)
+
+/** `POST /v1/me/business/agenda/agendas/{id}/feed`. The URL shows once; a new one revokes the old (ADR 0101). */
+suspend fun BipeApiClient.issueAgendaFeed(agendaId: String, includeFirstName: Boolean, accessToken: String): BipeAgendaFeed = send(
+    "POST",
+    listOf("v1", "me", "business", "agenda", "agendas", agendaId, "feed"),
+    body = encode(FeedOptions.serializer(), FeedOptions(includeFirstName)),
+    accessToken = accessToken,
+    response = BipeAgendaFeed.serializer(),
+)
+
+/** `GET .../busy-imports`. */
+suspend fun BipeApiClient.busyImports(agendaId: String, accessToken: String): List<BipeBusyImport> =
+    send("GET", listOf("v1", "me", "business", "agenda", "agendas", agendaId, "busy-imports"), accessToken = accessToken, response = BusyImports.serializer()).imports
+
+/** `POST .../busy-imports`. bad_request for an address the server refuses or cannot read. */
+suspend fun BipeApiClient.addBusyImport(agendaId: String, url: String, accessToken: String): BipeBusyImport = send(
+    "POST",
+    listOf("v1", "me", "business", "agenda", "agendas", agendaId, "busy-imports"),
+    body = encode(BusyImportInput.serializer(), BusyImportInput(url)),
+    accessToken = accessToken,
+    response = BipeBusyImport.serializer(),
+)
+
+/** `DELETE .../busy-imports/{id}`, with its busy blocks. */
+suspend fun BipeApiClient.removeBusyImport(agendaId: String, importId: String, accessToken: String) {
+    send<Unit>("DELETE", listOf("v1", "me", "business", "agenda", "agendas", agendaId, "busy-imports", importId), accessToken = accessToken, response = null)
+}
