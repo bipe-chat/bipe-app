@@ -40,7 +40,6 @@ import chat.bipe.app.groups.GroupTopBar
 import chat.bipe.app.people.QrCode
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.R
-import chat.bipe.shared.api.myHandle
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.launch
 
