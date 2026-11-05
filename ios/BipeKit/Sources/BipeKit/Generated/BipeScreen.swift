@@ -139,6 +139,21 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Business seal (flow people). Spec: bipe-shared/product/screens/company-seal.json
     case companySeal = "company-seal"
 
+    /// Call one more person (flow business). Spec: bipe-shared/product/screens/company-team-add.json
+    case companyTeamAdd = "company-team-add"
+
+    /// Answer for a work account (flow business). Spec: bipe-shared/product/screens/company-team-join.json
+    case companyTeamJoin = "company-team-join"
+
+    /// Remove a person (flow business). Spec: bipe-shared/product/screens/company-team-remove.json
+    case companyTeamRemove = "company-team-remove"
+
+    /// You answer for this account (flow business). Spec: bipe-shared/product/screens/company-team-welcome.json
+    case companyTeamWelcome = "company-team-welcome"
+
+    /// Who answers (flow business). Spec: bipe-shared/product/screens/company-team.json
+    case companyTeam = "company-team"
+
     /// Composer (flow chat). Spec: bipe-shared/product/screens/composer.json
     case composer = "composer"
 

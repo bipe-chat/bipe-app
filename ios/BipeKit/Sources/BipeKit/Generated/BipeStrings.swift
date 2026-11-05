@@ -4526,6 +4526,134 @@ public enum BipeStrings {
 
     public static var workStepSecondSeatBody: String { NSLocalizedString("bipe_work_step_second_seat_body", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var teamTitle: String { NSLocalizedString("bipe_team_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamRowAlone: String { NSLocalizedString("bipe_team_row_alone", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func teamRowPeople(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_row_people", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func teamAloneBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_alone_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var teamRoleOwner: String { NSLocalizedString("bipe_team_role_owner", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamRoleAttendant: String { NSLocalizedString("bipe_team_role_attendant", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamYou: String { NSLocalizedString("bipe_team_you", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamYouHere: String { NSLocalizedString("bipe_team_you_here", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func teamYouAs(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_you_as", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var teamWaiting: String { NSLocalizedString("bipe_team_waiting", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamDevicePhone: String { NSLocalizedString("bipe_team_device_phone", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamDeviceWeb: String { NSLocalizedString("bipe_team_device_web", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamUnassignedTitle: String { NSLocalizedString("bipe_team_unassigned_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamUnassignedBody: String { NSLocalizedString("bipe_team_unassigned_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamDeviceAssign: String { NSLocalizedString("bipe_team_device_assign", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamDeviceRemove: String { NSLocalizedString("bipe_team_device_remove", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamAddOwn: String { NSLocalizedString("bipe_team_add_own", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamAdd: String { NSLocalizedString("bipe_team_add", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamAddName: String { NSLocalizedString("bipe_team_add_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func teamAddWarning(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_team_add_warning", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var teamAddContinue: String { NSLocalizedString("bipe_team_add_continue", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func teamAddCodeTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_add_code_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var teamAddCodeBody: String { NSLocalizedString("bipe_team_add_code_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamAddCodeNeverShare: String { NSLocalizedString("bipe_team_add_code_never_share", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func teamAddLimit(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_add_limit", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func teamAddDone(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_add_done", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var teamAddExpired: String { NSLocalizedString("bipe_team_add_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func teamRemoveTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_remove_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func teamRemoveBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_remove_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var teamRemoveConfirm: String { NSLocalizedString("bipe_team_remove_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func teamLeave(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_leave", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var teamLeaveBody: String { NSLocalizedString("bipe_team_leave_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamLeaveConfirm: String { NSLocalizedString("bipe_team_leave_confirm", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func teamRemoved(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_removed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var teamJoinRow: String { NSLocalizedString("bipe_team_join_row", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamJoinRowBody: String { NSLocalizedString("bipe_team_join_row_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamJoinScanTitle: String { NSLocalizedString("bipe_team_join_scan_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamJoinScanBody: String { NSLocalizedString("bipe_team_join_scan_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamJoinCheckTitle: String { NSLocalizedString("bipe_team_join_check_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamJoinCheckBody: String { NSLocalizedString("bipe_team_join_check_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamJoinAttestFailed: String { NSLocalizedString("bipe_team_join_attest_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func teamWelcomeTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_welcome_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func teamWelcomeBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_team_welcome_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var teamSharedTitle: String { NSLocalizedString("bipe_team_shared_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamSharedChats: String { NSLocalizedString("bipe_team_shared_chats", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamSharedRead: String { NSLocalizedString("bipe_team_shared_read", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamSharedChanges: String { NSLocalizedString("bipe_team_shared_changes", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamWelcomeOk: String { NSLocalizedString("bipe_team_welcome_ok", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamOwnerOnly: String { NSLocalizedString("bipe_team_owner_only", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var teamError: String { NSLocalizedString("bipe_team_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var workStepSecondSeatSkip: String { NSLocalizedString("bipe_work_step_second_seat_skip", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var workToday: String { NSLocalizedString("bipe_work_today", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var workTodayBookings: String { NSLocalizedString("bipe_work_today_bookings", tableName: "Bipe", bundle: .module, comment: "") }

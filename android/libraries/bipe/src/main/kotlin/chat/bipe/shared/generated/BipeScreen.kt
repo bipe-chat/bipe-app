@@ -145,6 +145,21 @@ enum class BipeScreen(val id: String) {
     /** Business seal (flow people). Spec: bipe-shared/product/screens/company-seal.json */
     COMPANY_SEAL("company-seal"),
 
+    /** Call one more person (flow business). Spec: bipe-shared/product/screens/company-team-add.json */
+    COMPANY_TEAM_ADD("company-team-add"),
+
+    /** Answer for a work account (flow business). Spec: bipe-shared/product/screens/company-team-join.json */
+    COMPANY_TEAM_JOIN("company-team-join"),
+
+    /** Remove a person (flow business). Spec: bipe-shared/product/screens/company-team-remove.json */
+    COMPANY_TEAM_REMOVE("company-team-remove"),
+
+    /** You answer for this account (flow business). Spec: bipe-shared/product/screens/company-team-welcome.json */
+    COMPANY_TEAM_WELCOME("company-team-welcome"),
+
+    /** Who answers (flow business). Spec: bipe-shared/product/screens/company-team.json */
+    COMPANY_TEAM("company-team"),
+
     /** Composer (flow chat). Spec: bipe-shared/product/screens/composer.json */
     COMPOSER("composer"),
 

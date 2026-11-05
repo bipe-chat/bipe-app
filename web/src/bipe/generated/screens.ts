@@ -94,6 +94,16 @@ export const BipeScreen = {
   chatTimeline: "chat-timeline",
   /** Business seal (flow people). Spec: bipe-shared/product/screens/company-seal.json */
   companySeal: "company-seal",
+  /** Call one more person (flow business). Spec: bipe-shared/product/screens/company-team-add.json */
+  companyTeamAdd: "company-team-add",
+  /** Answer for a work account (flow business). Spec: bipe-shared/product/screens/company-team-join.json */
+  companyTeamJoin: "company-team-join",
+  /** Remove a person (flow business). Spec: bipe-shared/product/screens/company-team-remove.json */
+  companyTeamRemove: "company-team-remove",
+  /** You answer for this account (flow business). Spec: bipe-shared/product/screens/company-team-welcome.json */
+  companyTeamWelcome: "company-team-welcome",
+  /** Who answers (flow business). Spec: bipe-shared/product/screens/company-team.json */
+  companyTeam: "company-team",
   /** Composer (flow chat). Spec: bipe-shared/product/screens/composer.json */
   composer: "composer",
   /** Contacts and invites (flow people). Spec: bipe-shared/product/screens/contacts.json */
