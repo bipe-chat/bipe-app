@@ -16,7 +16,7 @@ struct WorkView: View {
     @StateObject private var home: WorkHomeModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var path = NavigationPath()
-    private enum Destination: Hashable { case agenda, catalogOwner, ordersOwner, quotesOwner, queueOwner, brandMarks, setup }
+    private enum Destination: Hashable { case agenda, catalogOwner, ordersOwner, quotesOwner, queueOwner, brandMarks, kit, setup }
 
     init(chatList: ChatListModel, api: BipeAPIClient, openChat: @escaping (String) -> Void) {
         self.chatList = chatList
@@ -33,6 +33,7 @@ struct WorkView: View {
                                  openTool: open(tool:),
                                  openSetup: { path.append(Destination.setup) },
                                  openBrandMarks: { path.append(Destination.brandMarks) },
+                                 openKit: { path.append(Destination.kit) },
                                  openSector: { home.askSector = true })
             }
             .accessibilityIdentifier(BipeScreen.businessTools.rawValue)
@@ -65,6 +66,8 @@ struct WorkView: View {
                         .safeAreaInset(edge: .bottom) { WorkToolStateBar(model: home, id: "queue") }
                 case .brandMarks:
                     BrandMarksView(api: chatList.session.business(api), people: people)
+                case .kit:
+                    BusinessKitView(people: people)
                 case .setup:
                     WorkSetupView(model: home, people: people, openTool: open(tool:))
                 }

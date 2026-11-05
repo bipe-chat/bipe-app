@@ -88,6 +88,9 @@ enum class BipeScreen(val id: String) {
     /** My business: claim and verify the company (flow voce). Spec: bipe-shared/product/screens/business-claim.json */
     BUSINESS_CLAIM("business-claim"),
 
+    /** Promotion kit of a work account (flow business). Spec: bipe-shared/product/screens/business-kit.json */
+    BUSINESS_KIT("business-kit"),
+
     /** Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json */
     BUSINESS_TOOLS("business-tools"),
 

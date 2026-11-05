@@ -867,6 +867,13 @@ public struct BipeContactMatch: Decodable, Sendable, Hashable {
     /// E.164, as normalised by the server.
     public let phone: String
     public let userId: String
+    /// When this account got the number from another account, in the facts window (bipe-chat/bipe#161). `nil` otherwise.
+    public let movedAt: String?
+
+    /// The time since the move in words, for the contacts row. `nil` without a move.
+    public var movedAge: String? {
+        movedAt.flatMap(BipeProfileFactLines.parse).map { BipeProfileFactLines.age(since: $0) }
+    }
 }
 
 public struct BipeMyPhone: Decodable, Sendable {

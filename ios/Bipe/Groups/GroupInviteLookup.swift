@@ -40,7 +40,8 @@ struct GroupInviteLookup {
                     try await people.api.lookupContacts(phones: chunk, openID: token)
                 }) else { break }
                 lookedUp = true
-                for match in found {
+                // bipe-chat/bipe#161: a number that just moved keeps its saved name away from the new account.
+                for match in found where match.movedAt == nil {
                     guard let entry = book[match.phone] else { continue }
                     names[match.userId] = entry.name
                     entries[match.userId] = entry.id

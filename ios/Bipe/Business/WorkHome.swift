@@ -148,6 +148,7 @@ struct WorkHomeSections: View {
     let openTool: (String) -> Void
     let openSetup: () -> Void
     let openBrandMarks: () -> Void
+    let openKit: () -> Void
     let openSector: () -> Void
     @State private var blocked: BipeBusinessTool?
 
@@ -210,6 +211,7 @@ struct WorkHomeSections: View {
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             Button(action: openBrandMarks) { Text(BipeStrings.brandMarksTitle).foregroundStyle(BipeColor.inkPrimary) }
+            Button(action: openKit) { Text(BipeStrings.businessKitTitle).foregroundStyle(BipeColor.inkPrimary) }
         }
         .alert(blocked?.missing == "catalog_product" ? BipeStrings.workToolNeedsProduct : BipeStrings.workToolNeedsService,
                isPresented: Binding(get: { blocked != nil }, set: { if !$0 { blocked = nil } })) {

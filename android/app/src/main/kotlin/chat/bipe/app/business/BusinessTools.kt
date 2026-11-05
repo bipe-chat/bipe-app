@@ -64,7 +64,7 @@ import kotlinx.coroutines.launch
 
 /** What the business tools section has open. */
 private enum class ToolScreen(val toolId: String?) {
-    AGENDA("agenda"), CATALOG("catalog"), ORDERS("orders"), QUOTES("quotes"), QUEUE("queue"), BRAND_MARKS(null), SETUP(null)
+    AGENDA("agenda"), CATALOG("catalog"), ORDERS("orders"), QUOTES("quotes"), QUEUE("queue"), BRAND_MARKS(null), KIT(null), SETUP(null)
 }
 
 /**
@@ -109,7 +109,7 @@ fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpe
     val run: (suspend () -> Unit) -> Unit = { call -> scope.launch { call() } }
     val openTool: (String) -> Unit = { id -> open = ToolScreen.entries.firstOrNull { it.toolId == id } }
     Column(Modifier.fillMaxWidth().testTag(BipeScreen.BUSINESS_TOOLS.id)) {
-        WorkHomeSections(home, run, openTool, openSetup = { open = ToolScreen.SETUP }, openBrandMarks = { open = ToolScreen.BRAND_MARKS })
+        WorkHomeSections(home, run, openTool, openSetup = { open = ToolScreen.SETUP }, openBrandMarks = { open = ToolScreen.BRAND_MARKS }, openKit = { open = ToolScreen.KIT })
     }
     open?.let { screen ->
         BusinessFullScreen(onDismiss = { open = null }) {
@@ -124,6 +124,7 @@ fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpe
                 ToolScreen.QUOTES -> QuoteOwnerScreen(business, onOpenChat = openCustomerChat, onClose = { open = null })
                 ToolScreen.QUEUE -> QueueOwnerScreen(business, customers, onClose = { open = null })
                 ToolScreen.BRAND_MARKS -> BrandMarksScreen(business, onClose = { open = null })
+                ToolScreen.KIT -> BusinessKitScreen(business, onClose = { open = null })
                 ToolScreen.SETUP -> WorkSetupScreen(home, run, openTool, onClose = { open = null })
             }
         }
