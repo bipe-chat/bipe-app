@@ -251,6 +251,9 @@ fun ChatTimelineScreen(
     val peerUserId by model.peerUserId.collectAsState()
     val avatarMembers by model.avatarMembers.collectAsState()
     val isGroup by model.isGroup.collectAsState()
+    // Spec group-details notes, Notes: the group menu names the info screen as a chat, not a group.
+    val isNotes by produceState(false, session, roomId, isGroup) { if (isGroup) value = chat.bipe.app.voce.NotesRoom(context, session).isNotes(roomId) }
+    val chatInfoTitle = if (isNotes) R.string.bipe_dm_details_title else R.string.bipe_app_group_details_title
     val successorRoomId by model.successorRoomId.collectAsState()
     val predecessor by model.predecessor.collectAsState()
     val allRows by model.rows.collectAsState()
@@ -444,13 +447,13 @@ fun ChatTimelineScreen(
                             IconButton(onClick = { groupMenu = true }) {
                                 Icon(
                                     painterResource(PhosphorIcon.INFO.drawable),
-                                    contentDescription = stringResource(R.string.bipe_app_group_details_title),
+                                    contentDescription = stringResource(chatInfoTitle),
                                     tint = colors.glyphPrimary,
                                 )
                             }
                             DropdownMenu(expanded = groupMenu, onDismissRequest = { groupMenu = false }) {
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.bipe_app_group_details_title)) },
+                                    text = { Text(stringResource(chatInfoTitle)) },
                                     onClick = {
                                         groupMenu = false
                                         onOpenGroupDetails()
@@ -674,11 +677,12 @@ fun ChatTimelineScreen(
                                 onPhotosOpened = onStartPhotosUsed,
                                 onDismiss = onDismiss,
                                 onPicked = { files -> upload = PickedUpload(files, model.takeReplyEventId()) },
-                                onStickers = { showsStickers = true },
-                                onLocation = { locationSend = LocationSendRequest(model.takeReplyEventId()) },
-                                onPoll = if (composer.canPoll) ({ creatingPoll = true }) else null,
+                                onStickers = if (isNotes) null else ({ showsStickers = true }),
+                                onLocation = if (isNotes) null else ({ locationSend = LocationSendRequest(model.takeReplyEventId()) }),
+                                onPoll = if (composer.canPoll && !isNotes) ({ creatingPoll = true }) else null,
                             )
                         },
+                        isNotes = isNotes,
                         onStickers = { showsStickers = true },
                         onRecord = { model.startRecording(context.applicationContext) },
                         onEndRecording = model::endRecording,
@@ -908,6 +912,8 @@ private fun ComposerBar(
     onPickSuggestion: (MentionSuggestion) -> Unit,
     /** Spec attachment-picker: the menu of the + button, anchored to it. */
     attachMenu: @Composable (expanded: Boolean, onDismiss: () -> Unit) -> Unit,
+    /** Spec composer notes, Notes: no sticker button. */
+    isNotes: Boolean,
     onStickers: () -> Unit,
     onRecord: () -> Unit,
     onEndRecording: () -> Unit,
@@ -1050,7 +1056,7 @@ private fun ComposerBar(
                         }
                     },
                 )
-                if (editing == null) {
+                if (editing == null && !isNotes) {
                     Icon(
                         painterResource(PhosphorIcon.STICKER.drawable),
                         contentDescription = stringResource(R.string.bipe_action_stickers),

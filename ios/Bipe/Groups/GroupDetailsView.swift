@@ -20,6 +20,8 @@ struct GroupDetailsView: View {
     private static let galleryIcon = PhosphorIcon.image
     @State private var reporting = false
     @State private var toast: String?
+    /// Spec group-details notes, Notes: nil until the account data is read.
+    @State private var isNotes: Bool?
     private let media: MediaLoader
 
     init(session: AccountSession, media: MediaLoader, roomId: String) {
@@ -35,12 +37,16 @@ struct GroupDetailsView: View {
             .listRowBackground(Color.clear)
 
             if model.phase == .viewing {
-                viewingSections
+                if isNotes == true {
+                    Section { galleryRow }
+                } else if isNotes == false {
+                    viewingSections
+                }
             } else {
                 editingSections
             }
         }
-        .navigationTitle(BipeStrings.appGroupDetailsTitle)
+        .navigationTitle(isNotes == true ? BipeStrings.dmDetailsTitle : BipeStrings.appGroupDetailsTitle)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(model.phase != .viewing)
         .toolbar { toolbar }
@@ -70,6 +76,7 @@ struct GroupDetailsView: View {
         .toast($toast)
         .accessibilityIdentifier(BipeScreen.groupDetails.rawValue)
         .task { await model.appear() }
+        .task { isNotes = await NotesRoom(session: model.session).isNotes(roomId: model.roomId) }
         .onChange(of: pickedPhoto) { _, item in
             Task {
                 guard let item, let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else { return }
@@ -98,9 +105,11 @@ struct GroupDetailsView: View {
                     .font(.title2.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
-                Text(BipeStrings.appGroupDetailsPeople(model.memberCount.formatted()))
-                    .font(.subheadline)
-                    .foregroundStyle(BipeColor.inkSecondary)
+                if isNotes == false {
+                    Text(BipeStrings.appGroupDetailsPeople(model.memberCount.formatted()))
+                        .font(.subheadline)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                }
             } else if model.canEditPhoto {
                 PhotosPicker(selection: $pickedPhoto, matching: .images) {
                     Text(BipeStrings.appGroupPhotoChoose)
@@ -176,15 +185,7 @@ struct GroupDetailsView: View {
                     row(icon: .link, title: BipeStrings.groupLinkTitle, chevron: false)
                 }
             }
-            // Spec chat-media-gallery (bipe#672).
-            Button {
-                showsGallery = true
-            } label: {
-                row(icon: Self.galleryIcon, title: BipeStrings.galleryTitle)
-            }
-            .sheet(isPresented: $showsGallery) {
-                ChatMediaGalleryView(session: model.session, media: media, roomId: model.roomId)
-            }
+            galleryRow
             // Spec poll-history (bipe#669).
             NavigationLink {
                 PollHistoryView(session: model.session, roomId: model.roomId)
@@ -233,6 +234,18 @@ struct GroupDetailsView: View {
         }
     }
 
+    /// Spec chat-media-gallery (bipe#672).
+    private var galleryRow: some View {
+        Button {
+            showsGallery = true
+        } label: {
+            row(icon: Self.galleryIcon, title: BipeStrings.galleryTitle)
+        }
+        .sheet(isPresented: $showsGallery) {
+            ChatMediaGalleryView(session: model.session, media: media, roomId: model.roomId)
+        }
+    }
+
     @ViewBuilder
     private var editingSections: some View {
         Section {
@@ -252,7 +265,7 @@ struct GroupDetailsView: View {
     private var toolbar: some ToolbarContent {
         switch model.phase {
         case .viewing:
-            if model.canEdit {
+            if model.canEdit, isNotes == false {
                 ToolbarItem(placement: .primaryAction) {
                     Button(BipeStrings.appEdit) { model.edit() }
                 }

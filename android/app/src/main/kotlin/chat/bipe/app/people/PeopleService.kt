@@ -195,7 +195,8 @@ class PeopleService(
             }
             found.forEach { match ->
                 val entry = book[match.phone] ?: return@forEach
-                if (match.userId != session.userId && match.userId !in entries) {
+                // bipe-chat/bipe#161: a number that just moved keeps its saved name away from the new account.
+                if (match.userId != session.userId && match.userId !in entries && match.movedAt == null) {
                     names[match.userId] = entry.name
                     entries[match.userId] = entry.id
                 }

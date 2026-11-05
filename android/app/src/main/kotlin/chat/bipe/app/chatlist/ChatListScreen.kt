@@ -400,7 +400,7 @@ fun HomeScreen(
             }
             showsRecoveryEmail -> RecoveryEmailAddScreen(
                 api, session, current = recoveryState.account?.email, pending = recoveryState.account?.emailPending,
-                onSent = recovery::load, onClose = { showsRecoveryEmail = false },
+                pinSet = recoveryState.account?.pinSet ?: false, onSent = recovery::load, onClose = { showsRecoveryEmail = false },
             )
             showsRequests -> ChatRequestsScreen(requests, media,
                 onBack = { showsRequests = false },

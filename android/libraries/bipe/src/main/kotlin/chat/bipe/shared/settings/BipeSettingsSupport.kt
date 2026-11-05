@@ -114,6 +114,8 @@ object BipeDataExportFile {
 /** The fields of GET /v1/me/account that the ways back need. */
 @Serializable
 data class BipeAccountWays(
+    /** The account has a PIN. */
+    @SerialName("pin_set") val pinSet: Boolean = false,
     /** The verified recovery email. */
     @SerialName("email") val email: String? = null,
     /** An address waiting for its link. */
