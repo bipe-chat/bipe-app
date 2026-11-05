@@ -245,6 +245,7 @@ fun WorkHomeSections(
     openTool: (String) -> Unit,
     openSetup: () -> Unit,
     openBrandMarks: () -> Unit,
+    openKit: () -> Unit,
 ) {
     var blocked by remember { mutableStateOf<BipeBusinessTool?>(null) }
     val turnOn: (BipeBusinessTool) -> Unit = { tool ->
@@ -307,6 +308,7 @@ fun WorkHomeSections(
             onClick = { model.askSector = true },
         )
         WorkRow(stringResource(R.string.bipe_brand_marks_title), null, PhosphorIcon.SEAL_CHECK, onClick = openBrandMarks)
+        WorkRow(stringResource(R.string.bipe_business_kit_title), null, PhosphorIcon.QR_CODE, onClick = openKit)
     }
     blocked?.let { tool ->
         AlertDialog(

@@ -538,7 +538,7 @@ private const val SHARE_SCALE = 16
 private const val SHARE_MARGIN_MODULES = 4
 
 /** Writes the QR code of [link] as a PNG in the cache and opens the share sheet. `false` when it could not. */
-private suspend fun shareQr(context: Context, link: String): Boolean {
+internal suspend fun shareQr(context: Context, link: String, fileName: String = "bipe-fila-qr.png"): Boolean {
     val file = withContext(Dispatchers.IO) {
         runCatching {
             val modules = qrBitmap(link) ?: return@runCatching null
@@ -551,11 +551,37 @@ private suspend fun shareQr(context: Context, link: String): Boolean {
                 drawBitmap(scaled, margin.toFloat(), margin.toFloat(), null)
             }
             val dir = File(context.cacheDir, "queue").apply { mkdirs() }
-            File(dir, "bipe-fila-qr.png").also { out -> FileOutputStream(out).use { image.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+            File(dir, fileName).also { out -> FileOutputStream(out).use { image.compress(Bitmap.CompressFormat.PNG, 100, it) } }
         }.getOrNull()
     } ?: return false
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.media", file)
     val send = Intent(Intent.ACTION_SEND).setType("image/png").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    return runCatching { context.startActivity(Intent.createChooser(send, null)) }.isSuccess
+}
+
+/** Writes the QR code of [link] as an SVG with the same quiet zone and opens the share sheet. `false` when it could not. */
+internal suspend fun shareQrSvg(context: Context, link: String, fileName: String): Boolean {
+    val file = withContext(Dispatchers.IO) {
+        runCatching {
+            val modules = qrBitmap(link) ?: return@runCatching null
+            val path = StringBuilder()
+            for (y in 0 until modules.height) {
+                for (x in 0 until modules.width) {
+                    if (modules.getPixel(x, y) == android.graphics.Color.BLACK) {
+                        path.append("M${x + SHARE_MARGIN_MODULES} ${y + SHARE_MARGIN_MODULES}h1v1h-1z")
+                    }
+                }
+            }
+            val width = modules.width + 2 * SHARE_MARGIN_MODULES
+            val height = modules.height + 2 * SHARE_MARGIN_MODULES
+            val svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 $width $height\" shape-rendering=\"crispEdges\">" +
+                "<rect width=\"$width\" height=\"$height\" fill=\"#fff\"/><path d=\"$path\" fill=\"#000\"/></svg>"
+            val dir = File(context.cacheDir, "queue").apply { mkdirs() }
+            File(dir, fileName).also { it.writeText(svg) }
+        }.getOrNull()
+    } ?: return false
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.media", file)
+    val send = Intent(Intent.ACTION_SEND).setType("image/svg+xml").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     return runCatching { context.startActivity(Intent.createChooser(send, null)) }.isSuccess
 }
 
