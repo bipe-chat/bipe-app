@@ -364,12 +364,11 @@ class PeopleService(
     }
 
     /**
-     * A new DM with the person (spec person-profile notes). The user is at BipeDmPowerLevels.CREATE_LEVEL and the
-     * person at 0 while the server writes the first state and the invite; then the DM power levels of
-     * registries/dm-power-levels.json put both at 0. A failed second write leaves a usable DM.
+     * A new DM with the person (spec person-profile notes). Every room is room version 12, where the server refuses
+     * a creator in the users map with a 400, so the map stays empty in the create and in the second write. The second
+     * write sets the DM power levels of registries/dm-power-levels.json. A failed second write leaves a usable DM.
      */
     suspend fun createDm(userId: String): String {
-        val me = session.userId
         val powerLevels = PowerLevels(
             usersDefault = null,
             eventsDefault = null,
@@ -379,7 +378,7 @@ class PeopleService(
             redact = null,
             invite = null,
             notifications = null,
-            users = mapOf(me to BipeDmPowerLevels.CREATE_LEVEL.toInt(), userId to BipeDmPowerLevels.USERS_DEFAULT.toInt()),
+            users = emptyMap(),
             events = emptyMap(),
         )
         val parameters = CreateRoomParameters(
@@ -397,16 +396,16 @@ class PeopleService(
             if (error.kind is ErrorKind.Forbidden) throw PeopleException(PeopleException.Kind.INVITE_REFUSED)
             throw error
         }
-        lockDm(roomId, listOf(me, userId))
+        lockDm(roomId)
         return roomId
     }
 
     /** Room.sendStateEventRaw with the m.room.power_levels content of a new DM (ADR 0141, bipe-chat/bipe#532). */
-    private suspend fun lockDm(roomId: String, userIds: List<String>) {
+    private suspend fun lockDm(roomId: String) {
         repeat(5) { attempt ->
             val room = runCatching { session.client.getRoom(roomId) }.getOrNull()
             if (room != null) {
-                runCatching { room.sendStateEventRaw("m.room.power_levels", "", BipeDmPowerLevels.content(userIds)) }
+                runCatching { room.sendStateEventRaw("m.room.power_levels", "", BipeDmPowerLevels.content(emptyList())) }
                 return
             }
             // The created room reaches the local store with the next sync.
