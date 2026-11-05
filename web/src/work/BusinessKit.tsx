@@ -5,7 +5,8 @@
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
 import { s } from '../ui/i18n';
-import { NavBar, Row, Section } from '../ui/List';
+import { NavBar, Section } from '../ui/List';
+import { Spinner } from '../ui/Spinner';
 import { SecondaryButton, shareOrSave, useWorkHost } from './common';
 
 // A quiet zone of 4 modules, dark on white (spec business-kit).
@@ -27,14 +28,13 @@ export function BusinessKitScreen({ onBack }: { onBack: () => void }) {
   }, [host]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-grouped-screen">
       <NavBar title={s('bipe_business_kit_title')} onBack={onBack} />
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {handle === null && (
-          <p className="text-center text-body text-ink-secondary">{s('bipe_public_profile_needs_handle')}</p>
-        )}
-        {handle && <Kit link={`https://bipe.chat/@${handle}`} />}
-      </div>
+      {handle === undefined && <Spinner />}
+      {handle === null && (
+        <p className="px-4 text-center text-body text-ink-secondary">{s('bipe_public_profile_needs_handle')}</p>
+      )}
+      {handle && <Kit link={`https://bipe.chat/@${handle}`} />}
     </div>
   );
 }
@@ -74,38 +74,42 @@ function Kit({ link }: { link: string }) {
   ];
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-4">
+    <div className="flex flex-col gap-6 px-4 pb-8">
       <p className="text-body text-ink-primary">{s('bipe_business_kit_intro')}</p>
       {notice && (
         <p role="status" className="text-footnote text-ink-secondary">
           {notice}
         </p>
       )}
-      <Section header={s('bipe_business_kit_button_header')}>
-        <div className="flex flex-col gap-3 p-4">
+      <Section header={s('bipe_business_kit_button_header')} footer={s('bipe_business_kit_button_footer')}>
+        <li className="flex flex-col gap-3 p-4">
           <code className="break-all font-mono text-footnote text-ink-primary">{code}</code>
           <SecondaryButton onClick={() => copy(code)}>{s('bipe_business_kit_copy_code')}</SecondaryButton>
-        </div>
+        </li>
       </Section>
-      <p className="px-4 text-footnote text-ink-secondary">{s('bipe_business_kit_button_footer')}</p>
-      <Section header={s('bipe_business_kit_qr_header')}>
-        <div className="flex flex-col items-center gap-3 p-4">
+      <Section header={s('bipe_business_kit_qr_header')} footer={s('bipe_business_kit_qr_footer')}>
+        <li className="flex flex-col items-center gap-3 p-4">
           <div className="w-full max-w-[240px] rounded-2xl bg-white">
             <canvas ref={canvas} className="block h-auto w-full [image-rendering:pixelated]" />
           </div>
           <SecondaryButton onClick={sharePng}>{s('bipe_business_kit_share_png')}</SecondaryButton>
           <SecondaryButton onClick={() => void shareSvg()}>{s('bipe_business_kit_share_svg')}</SecondaryButton>
-        </div>
+        </li>
       </Section>
-      <p className="px-4 text-footnote text-ink-secondary">{s('bipe_business_kit_qr_footer')}</p>
-      <Section header={s('bipe_business_kit_lines_header')}>
+      <Section header={s('bipe_business_kit_lines_header')} footer={s('bipe_business_kit_rule')}>
         {lines.map((line) => (
-          <Row key={line} onClick={() => copy(line)}>
-            <span className="text-body text-ink-primary">{line}</span>
-          </Row>
+          <li key={line}>
+            <button
+              type="button"
+              aria-label={`${s('bipe_app_copy')}: ${line}`}
+              onClick={() => copy(line)}
+              className="min-h-11 w-full px-4 py-2 text-left text-body text-ink-primary"
+            >
+              {line}
+            </button>
+          </li>
         ))}
       </Section>
-      <p className="px-4 text-footnote text-ink-secondary">{s('bipe_business_kit_rule')}</p>
     </div>
   );
 }
