@@ -10,6 +10,11 @@
 "bipe_profile_fact_name_once" = "Name changed %1$@ ago";
 "bipe_profile_fact_name_times" = "Name changed %1$@ times in %2$@ days";
 "bipe_profile_notice_name_photo" = "%1$@ changed their name and photo recently. Before you send money, check with them another way.";
+"bipe_profile_fact_number_out" = "This account's number moved to another account %1$@ ago";
+"bipe_profile_fact_number_in" = "This account got a number from another account %1$@ ago";
+"bipe_profile_notice_number_out" = "%1$@'s number moved to another account. This chat stays with the old account. If the person says they changed accounts, confirm another way.";
+"bipe_profile_notice_number_in" = "%1$@ got a number that belonged to another account. Before you send money, confirm with the person another way.";
+"bipe_contacts_number_moved" = "This number changed accounts %1$@ ago. Confirm with the person another way.";
 "bipe_theft_title" = "Theft protection";
 "bipe_theft_intro" = "Choose up to 3 people you trust. If your phone is stolen, any of them can mark your account as stolen. The account is signed out of every device at once.";
 "bipe_theft_guardians_section" = "Your guardians";
@@ -2003,7 +2008,7 @@
 "bipe_quote_link_refused" = "Quote declined.";
 "bipe_business_stop" = "Stop receiving";
 "bipe_business_stop_undo" = "Receive again";
-"bipe_business_stopped" = "This business can no longer start a chat with you. Replies and booking and order updates continue.";
+"bipe_business_stopped" = "This business can no longer write to you on its own. Replies and booking and order updates continue.";
 "bipe_agenda_calendar_section" = "External calendars";
 "bipe_agenda_feed_get" = "Subscribe in your calendar";
 "bipe_agenda_feed_footer" = "The link is secret. A new link turns off the old one.";
