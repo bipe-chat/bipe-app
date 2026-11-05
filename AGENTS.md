@@ -1,6 +1,6 @@
 # bipe-app
 
-This repo holds Bipe's own messenger client. `ios/` holds the iOS app (SwiftUI). `android/` holds the Android app (Jetpack Compose). Both apps use matrix-rust-sdk through `matrix-sdk-ffi`. The apps replace the Element X forks (bipe-ios, bipe-android).
+This repo holds Bipe's own messenger client. `ios/` holds the iOS app (SwiftUI). `android/` holds the Android app (Jetpack Compose). Both apps use matrix-rust-sdk through `matrix-sdk-ffi`. The apps replace the old Element X forks.
 
 Decisions: [ADR 0143](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0143-own-client-on-matrix-rust-sdk.md), [ADR 0144](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0144-app-store-permission-for-bipe-code.md), [ADR 0145](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0145-own-client-setup.md). Plan: [client-rewrite-plan.md](https://github.com/bipe-chat/bipe/blob/main/docs/client-rewrite-plan.md). The tracker is `bipe-chat/bipe`.
 
@@ -8,19 +8,17 @@ Decisions: [ADR 0143](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0143-
 
 These rules come from the plan, section 2. They are mandatory.
 
-- The new repos never contain Element X code, and agents never read Element X sources while they work on them. Agent sessions for the new clients do not open `bipe-ios`, `bipe-android` or `bipe-tokens` outside the allowed paths below.
-- Allowed reading: BipeKit (`bipe-ios/Components/BipeKit`), `bipe-android/libraries/bipe*`, bipe-shared, bipe-api, the docs in bipe, the Matrix spec, matrix-rust-sdk source and docs (Apache-2.0).
+- The new repos never contain Element X code, and agents never read Element X sources while they work on them. Agent sessions for the new clients do not open the old forks or `bipe-tokens`.
 - Bipe features that live inside Element files today (228 iOS files, 199 Android files) are re-specified from the running app, the issue and the ADR. Nobody reads the fork diff to port them: the diff shows Element code around the Bipe lines.
-- Never fork, clone or seed a new repo from bipe-ios, bipe-android or bipe-tokens.
+- Never fork, clone or seed a new repo from the old forks or bipe-tokens.
 
 Rules for sessions:
 
-- Start a session in `~/Dev/Bipe/bipe-app` or in a cloud session that clones only bipe-app and bipe-shared. The fork checkouts left `~/Dev/Bipe` on 26 October 2026 (`~/Dev/BipeApp` is gone). Never clone bipe-ios, bipe-android or compound-design-tokens again.
+- Start a session in `~/Dev/Bipe/bipe-app` or in a cloud session that clones only bipe-app and bipe-shared. The fork checkouts left `~/Dev/Bipe` on 26 October 2026 (`~/Dev/BipeApp` is gone). Never clone the old forks or compound-design-tokens again.
 - A session that worked on a fork issue today does not work in this repo. It gives the issue text to a new session.
 - Do not read any `element-hq` repository. Do not read the fork bundles in `~/Dev/_/bipe-forks-*`, the folders `~/Dev/Bipe/.worktrees` and `~/Dev/Bipe/.factory`, or a fork checkout if one comes back. These rules apply to shell commands too (`cat`, `grep`, `find`, `ls`, `git`), not only to the Read tool.
-- `.claude/settings.json` denies Read and Edit on the fork paths and the fork bundles. In Claude Code a deny rule wins over an allow rule, so the settings cannot allow the BipeKit and `libraries/bipe*` subfolders inside a denied folder. Read BipeKit and `libraries/bipe*` from GitHub only, at these paths and nowhere else in the fork repos:
-  - `gh api repos/bipe-chat/bipe-ios/contents/Components/BipeKit/<path>`
-  - `gh api repos/bipe-chat/bipe-android/contents/libraries/<bipe-module>/<path>`
+- `.claude/settings.json` denies Read and Edit on the `bipe-tokens` paths and the fork bundles.
+- The old forks are not a source. Do not read any part of them, on disk or on GitHub.
 - If you are not sure that a source is allowed, do not open it. Ask in the issue.
 
 ## Allowed reading list
@@ -29,7 +27,6 @@ Rules for sessions:
 - bipe-shared (screen specs, tokens, contracts, test vectors, `tools/gen.mjs`).
 - bipe-api.
 - The docs in bipe (`bipe-chat/bipe`, folder `docs/`).
-- BipeKit (`bipe-ios/Components/BipeKit`) and `bipe-android/libraries/bipe*`, through GitHub only (see above).
 - The Matrix spec (spec.matrix.org).
 - matrix-rust-sdk source and docs, `matrix-sdk-ffi` included (Apache-2.0).
 - Platform docs from Apple, Google and the Android Open Source Project.

@@ -57,6 +57,7 @@ import { rowTime } from './row-preview';
 import { NavBar, OfficialBadge } from './ui/List';
 import { RequestScreen, RequestsList, requesterOf } from './Requests';
 import { ClientContext } from './media';
+import { useNotesRoomId } from './notes';
 import { Settings } from './Settings';
 import { businessClientFor } from './work/business-client';
 import { workHostFor } from './work/host';
@@ -178,7 +179,10 @@ export function Chats({ client }: { client: Client }) {
       });
   }, [allRooms]);
 
-  const summaries = useChatSummaries(allRooms, client.userId());
+  // Spec chat-list-filters notes (ADR 0053): the self-chat shows in neither tab, in search or in the badges. It opens from Você.
+  const notesId = useNotesRoomId(client, sync.kind);
+  const listedRooms = useMemo(() => allRooms.filter((r) => r.id() !== notesId), [allRooms, notesId]);
+  const summaries = useChatSummaries(listedRooms, client.userId());
   const archive = useMemo(() => new ChatArchive(client.userId()), [client]);
   useArchiveVersion(archive);
   useEffect(() => {
@@ -668,6 +672,7 @@ export function Chats({ client }: { client: Client }) {
               group={route.kind === 'settings' ? route.group : undefined}
               onGroup={(group) => navigate({ kind: 'settings', group })}
               onClose={() => setDetail(undefined)}
+              onOpenChat={(roomId) => navigate({ kind: 'chat', roomId })}
             />
           ) : detail?.kind === 'requests' ? (
             <RequestsList

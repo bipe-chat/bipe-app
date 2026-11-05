@@ -25,6 +25,8 @@ struct ChatTimelineView: View {
     @State private var searchingChat = false
     /// The group menu's group-details row.
     @State private var showsGroupDetails = false
+    /// Spec group-details notes, Notes: the group menu names the info screen as a chat, not a group.
+    @State private var isNotes = false
     @ObservedObject private var cleared = ClearedChatsStore.shared
     /// Spec drafts (bipe-chat/bipe#866): the assistant draft banner above the composer.
     @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
@@ -224,11 +226,11 @@ struct ChatTimelineView: View {
                 ToolbarItem(placement: .primaryAction) {
                     // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
                     Menu {
-                        Button { showsGroupDetails = true } label: { Label(BipeStrings.appGroupDetailsTitle, systemImage: "info.circle") }
+                        Button { showsGroupDetails = true } label: { Label(chatInfoTitle, systemImage: "info.circle") }
                         Button { searchingChat = true } label: { Label(BipeStrings.searchInChat, systemImage: "magnifyingglass") }
                     } label: {
                         Label {
-                            Text(BipeStrings.appGroupDetailsTitle)
+                            Text(chatInfoTitle)
                         } icon: {
                             PhosphorIcon.info.toolbarImage(size: 22)
                         }
@@ -297,6 +299,7 @@ struct ChatTimelineView: View {
             await model.start()
         }
         .task(id: model.isGroup) { if model.isGroup { await pinned.observe() } }
+        .task(id: model.isGroup) { if model.isGroup { isNotes = await NotesRoom(session: session).isNotes(roomId: roomId) } }
         .task(id: startAttachment) { if let startAttachment { attaching = startAttachment } }
         // Spec chat-search openMessage (bipe#671): scroll to the message once the first rows are in.
         .task(id: focusEventId) {
@@ -390,6 +393,10 @@ struct ChatTimelineView: View {
             if NotificationActions.shared.visibleRoom == target { NotificationActions.shared.chatOpened(nil) }
         }
         .notificationsPromptTrigger(userID: session.userId, messages: model.rows.compactMap(\.message))
+    }
+
+    private var chatInfoTitle: String {
+        isNotes ? BipeStrings.dmDetailsTitle : BipeStrings.appGroupDetailsTitle
     }
 
     /// Spec dm-delete: events at or below the marker of a cleared DM are gone.
@@ -539,7 +546,7 @@ struct ChatTimelineView: View {
     }
 
     private var composerBar: some View {
-        ComposerBar(model: model, media: media, openAttachments: { attaching = $0 }, openStickers: { showsStickers = true })
+        ComposerBar(model: model, media: media, isNotes: isNotes, openAttachments: { attaching = $0 }, openStickers: { showsStickers = true })
             // Spec identity-change blocksSending: until the person taps Entendi.
             .disabled(identity.blocksSending)
             // Spec composer nameAmbiguous: the @ in the suggestion rows.
@@ -691,6 +698,8 @@ private struct LocationSendRequest: Identifiable {
 private struct ComposerBar: View {
     @ObservedObject var model: ChatTimelineModel
     let media: MediaLoader
+    /// Spec composer notes, Notes: no sticker button, and the short + menu.
+    let isNotes: Bool
     let openAttachments: (AttachmentChoice) -> Void
     let openStickers: () -> Void
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -750,7 +759,7 @@ private struct ComposerBar: View {
         }
         HStack(alignment: .bottom, spacing: 8) {
             if model.editing == nil {
-                AttachmentMenu(canPoll: model.canPoll, choose: openAttachments) {
+                AttachmentMenu(canPoll: model.canPoll, isNotes: isNotes, choose: openAttachments) {
                     iconImage(.plus)
                 }
                 .accessibilityLabel(BipeStrings.appComposerAttach)
@@ -771,7 +780,7 @@ private struct ComposerBar: View {
                     // 22 pt line + 2 x 11 = 44 pt, the sticker button's height, so one line sits in the middle.
                     .padding(.vertical, 11)
                     .foregroundStyle(BipeColor.inkPrimary)
-                if model.editing == nil {
+                if model.editing == nil, !isNotes {
                     Button(action: openStickers) {
                         PhosphorIcon.sticker.image
                             .resizable()

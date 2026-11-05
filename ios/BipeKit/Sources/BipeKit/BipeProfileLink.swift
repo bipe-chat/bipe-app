@@ -2,7 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// Moved from BipeKit (bipe-ios Components/BipeKit/Sources/BipeKit/BipeProfileLink.swift): the link part only.
+// Moved from BipeKit: the link part only.
 // The QR code views stay for the screen issue.
 
 import Foundation

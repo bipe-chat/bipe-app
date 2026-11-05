@@ -33,6 +33,12 @@ final class NotesRoom {
         roomId = id
     }
 
+    /// Is this room the account's notes? A failed read says no.
+    func isNotes(roomId: String) async -> Bool {
+        try? await refresh()
+        return self.roomId == roomId
+    }
+
     func open() async throws -> String {
         guard !opening else { throw Failure.unavailable }
         opening = true

@@ -20,6 +20,8 @@ enum AttachmentChoice {
 struct AttachmentMenu<Label: View>: View {
     /// canPoll of spec attachment-picker: false hides the poll row.
     let canPoll: Bool
+    /// Spec attachment-picker notes, Notes: photos and videos, camera and file only.
+    var isNotes = false
     let choose: (AttachmentChoice) -> Void
     @ViewBuilder let label: () -> Label
 
@@ -28,10 +30,12 @@ struct AttachmentMenu<Label: View>: View {
             Button { choose(.photos) } label: { IconLabel(icon: .image, text: BipeStrings.appAttachPhotos) }
             Button { choose(.camera) } label: { IconLabel(icon: .camera, text: BipeStrings.appAttachCamera) }
             Button { choose(.file) } label: { IconLabel(icon: .file, text: BipeStrings.appAttachFile) }
-            // Phosphor has no pin in tools/phosphor.json.
-            Button { choose(.location) } label: { SwiftUI.Label(BipeStrings.appAttachLocation, systemImage: "mappin.and.ellipse") }
-            Button { choose(.sticker) } label: { IconLabel(icon: .sticker, text: BipeStrings.actionStickers) }
-            if canPoll {
+            if !isNotes {
+                // Phosphor has no pin in tools/phosphor.json.
+                Button { choose(.location) } label: { SwiftUI.Label(BipeStrings.appAttachLocation, systemImage: "mappin.and.ellipse") }
+                Button { choose(.sticker) } label: { IconLabel(icon: .sticker, text: BipeStrings.actionStickers) }
+            }
+            if canPoll, !isNotes {
                 Button { choose(.poll) } label: { IconLabel(icon: .chartBar, text: BipeStrings.appAttachPoll) }
             }
         } label: {

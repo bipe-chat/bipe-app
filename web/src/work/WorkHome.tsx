@@ -237,6 +237,7 @@ export function WorkHome({
               onClick={() => onOpen('ramo')}
             />
             <ToolRow title={s('bipe_brand_marks_title')} onClick={() => onOpen('selos')} />
+            <ToolRow title={s('bipe_business_kit_title')} onClick={() => onOpen('kit')} />
           </Section>
           <p className="px-4 text-footnote text-ink-secondary">{s('bipe_web_work_phone_only')}</p>
         </div>

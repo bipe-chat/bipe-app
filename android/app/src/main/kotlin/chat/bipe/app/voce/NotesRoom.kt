@@ -31,6 +31,12 @@ class NotesRoom(context: Context, private val session: AccountSession) {
         roomId = id
     }
 
+    /** Is this room the account's notes? A failed read says no. */
+    suspend fun isNotes(roomId: String): Boolean {
+        runCatching { refresh() }
+        return this.roomId == roomId
+    }
+
     suspend fun open(title: String): String = mutex.withLock {
         // Offline or malformed account data never means "no notes yet".
         refresh()

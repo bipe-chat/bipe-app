@@ -45,6 +45,7 @@ import androidx.core.content.ContextCompat
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeProfileFactLines
 import chat.bipe.shared.BipePhoneNumber
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiErrorCode
@@ -58,7 +59,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Type ContactMatch of spec contacts. */
-data class ContactMatch(val person: Person, val joinedWithInvite: Boolean)
+data class ContactMatch(
+    val person: Person,
+    val joinedWithInvite: Boolean,
+    /** bipe-chat/bipe#161: the age of a number move. The row then shows the account's own name. */
+    val numberMovedAge: String? = null,
+)
 
 /** State permission of spec contacts. Android has no limited access. */
 private enum class ContactsPermission { NOT_ASKED, GRANTED, DENIED }
@@ -141,10 +147,16 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
             val phones = book.keys.toList()
             val found = linkedMapOf<String, String>()
             val entries = mutableMapOf<String, String>()
+            val moved = mutableMapOf<String, String>()
             val result = runCatching {
                 // At most 500 numbers per POST /v1/contacts/lookup.
                 phones.chunked(500).forEach { chunk ->
                     people.withOpenId { people.api.lookupContacts(chunk, it) }.forEach { match ->
+                        val movedAt = match.movedAt?.let { BipeProfileFactLines.parse(it) }
+                        if (movedAt != null) {
+                            if (match.userId != people.session.userId) moved[match.userId] = BipeProfileFactLines.age(movedAt)
+                            return@forEach
+                        }
                         val entry = book[match.phone]
                         if (match.userId != people.session.userId && match.userId !in found && entry != null) {
                             found[match.userId] = entry.name
@@ -159,13 +171,17 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                 checking = false
                 return@launch
             }
+            // bipe-chat/bipe#161: the saved name and entry stay away from an account that just got the number.
+            moved.keys.forEach { found.remove(it); entries.remove(it) }
             people.rememberContactNames(found)
             people.rememberContactEntries(entries)
             val invited = runCatching { people.withToken { people.api.inviteConnections(it) }.toSet() }.getOrDefault(emptySet())
             matches = found.map { (userId, name) ->
                 val person = runCatching { people.person(userId, contactName = name) }.getOrElse { Person(userId, name) }
                 ContactMatch(person, userId in invited)
-            }.sortedBy { it.person.displayName.lowercase() }
+            }.plus(moved.mapNotNull { (userId, age) ->
+                runCatching { people.person(userId) }.getOrNull()?.let { ContactMatch(it, false, age) }
+            }).sortedBy { it.person.displayName.lowercase() }
             checking = false
         }
     }
@@ -211,7 +227,10 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(match.person.displayName, color = colors.inkPrimary, maxLines = 1)
-                                if (match.joinedWithInvite) {
+                                val movedAge = match.numberMovedAge
+                                if (movedAge != null) {
+                                    Text(stringResource(R.string.bipe_contacts_number_moved, movedAge), style = MaterialTheme.typography.bodySmall, color = colors.trustCautionInk)
+                                } else if (match.joinedWithInvite) {
                                     Text(stringResource(R.string.bipe_contacts_joined_with_invite), style = MaterialTheme.typography.bodySmall, color = colors.accentInk)
                                 } else {
                                     match.person.handle?.let { Text("@$it", style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary) }

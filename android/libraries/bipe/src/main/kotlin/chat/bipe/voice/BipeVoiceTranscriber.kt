@@ -2,7 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// Moved from bipe-android libraries/bipe voice/BipeVoiceTranscriber.kt (Bipe code): without the DI
+// Moved from Bipe's libraries/bipe voice/BipeVoiceTranscriber.kt (Bipe code): without the DI
 // annotations and the logger of the fork.
 
 package chat.bipe.voice

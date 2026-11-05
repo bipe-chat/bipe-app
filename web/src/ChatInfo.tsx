@@ -21,6 +21,7 @@ import { useEscape } from './ui/keys';
 import { Spinner } from './ui/Spinner';
 import { BlockAlert, DmDeleteAlert, LeaveAlert, NotifySheet, ReportSheet } from './ChatActions';
 import { useIgnoredUsers } from './chat-actions';
+import { useIsNotes } from './notes';
 import { useClient } from './media';
 import { bell, flag, link, prohibit, signOut, trash } from './phosphor/icons';
 import { Icon } from './ui/Icon';
@@ -50,18 +51,27 @@ export function ChatInfo({
   onGone: () => void;
 }) {
   const isDm = face.isDirect === true;
+  const isNotes = useIsNotes(useClient(), room);
   useEscape(onClose);
   return (
     <aside className="fixed inset-0 z-40 flex min-h-0 flex-col bg-grouped-screen md:static md:z-auto md:w-[360px] md:shrink-0 md:border-l md:border-line-subtle">
       <NavBar
-        title={isDm ? s('bipe_dm_details_title') : s('bipe_app_group_details_title')}
+        title={isDm || isNotes ? s('bipe_dm_details_title') : s('bipe_app_group_details_title')}
         onBack={onClose}
         backLabel={s('bipe_app_close')}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-6">
-        {isDm ? <PersonInfo face={face} /> : <GroupDetails room={room} face={face} chats={chats} Header={Header} />}
+        {isDm ? (
+          <PersonInfo face={face} />
+        ) : isNotes === false ? (
+          <GroupDetails room={room} face={face} chats={chats} Header={Header} />
+        ) : (
+          <Header name={face.name} avatarUrl={face.avatarUrl} members={face.members} />
+        )}
         {businessTools}
-        <ChatActionRows room={room} face={face} isDm={isDm} latestTs={latestTs} onGone={onGone} />
+        {(isDm || isNotes === false) && (
+          <ChatActionRows room={room} face={face} isDm={isDm} latestTs={latestTs} onGone={onGone} />
+        )}
       </div>
     </aside>
   );

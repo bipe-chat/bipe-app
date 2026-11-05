@@ -17,7 +17,7 @@ import kotlinx.serialization.json.Json
  * its own Android Keystore key ([KEY_ALIAS]) and its own cipher wrapper, so [BipeAccountVault] keeps that file aside as
  * [FILE_NAME] instead of reading it as its own.
  *
- * The JSON inside follows the fork's `BipeVaultData` (bipe-android `libraries/bipe/.../account/BipeAccountVault.kt`,
+ * The JSON inside follows `BipeVaultData` of the old Android app (`libraries/bipe/.../account/BipeAccountVault.kt`,
  * Bipe code). The cipher wrapper is not Bipe code: its layout is taken from the stored file on the rehearsal phone
  * (plan section 4 step 3), not from the fork's sources, and lands with that evidence.
  */

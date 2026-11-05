@@ -97,10 +97,11 @@ public struct BipeAPIClient: Sendable {
         return response.recoveryToken
     }
     
-    /// `PUT /v1/me/email`. The server sends a link to confirm the address.
-    public func setRecoveryEmail(_ email: String, accessToken: String) async throws(BipeAPIError) {
+    /// `PUT /v1/me/email`. The server sends a link to confirm the address. `pin` is the current PIN: required when the
+    /// account has one, because a session alone cannot change the address that can reset the PIN.
+    public func setRecoveryEmail(_ email: String, pin: String?, accessToken: String) async throws(BipeAPIError) {
         let _: NoContent = try await send(method: "PUT", path: ["v1", "me", "email"],
-                                          body: EmailRequest(email: email, lang: Self.emailLanguage),
+                                          body: EmailRequest(email: email, lang: Self.emailLanguage, pin: pin),
                                           accessToken: accessToken)
     }
     
@@ -140,9 +141,9 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "DELETE", path: ["v1", "me", "kept-media", server, mediaId], body: Empty?.none, accessToken: accessToken)
     }
 
-    /// `DELETE /v1/me/email`.
-    public func removeRecoveryEmail(accessToken: String) async throws(BipeAPIError) {
-        let _: NoContent = try await send(method: "DELETE", path: ["v1", "me", "email"], body: Empty?.none, accessToken: accessToken)
+    /// `DELETE /v1/me/email`. `pin` as in `setRecoveryEmail`. An account with no PIN sends no body.
+    public func removeRecoveryEmail(pin: String?, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "DELETE", path: ["v1", "me", "email"], body: pin.map { PINRequest(pin: $0) }, accessToken: accessToken)
     }
     
     /// `POST /v1/me/recoveries/{id}/cancel`. An old device cancels a waiting recovery.
@@ -566,6 +567,7 @@ public struct BipeAPIClient: Sendable {
     private struct EmailRequest: Encodable {
         let email: String
         let lang: String
+        let pin: String?
     }
     
     private struct TokenRecoveryRequest: Encodable {
@@ -867,6 +869,13 @@ public struct BipeContactMatch: Decodable, Sendable, Hashable {
     /// E.164, as normalised by the server.
     public let phone: String
     public let userId: String
+    /// When this account got the number from another account, in the facts window (bipe-chat/bipe#161). `nil` otherwise.
+    public let movedAt: String?
+
+    /// The time since the move in words, for the contacts row. `nil` without a move.
+    public var movedAge: String? {
+        movedAt.flatMap(BipeProfileFactLines.parse).map { BipeProfileFactLines.age(since: $0) }
+    }
 }
 
 public struct BipeMyPhone: Decodable, Sendable {

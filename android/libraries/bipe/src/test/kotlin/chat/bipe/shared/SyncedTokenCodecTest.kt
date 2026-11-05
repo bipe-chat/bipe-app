@@ -10,7 +10,7 @@ import com.google.common.truth.Truth.assertThat
 import java.security.MessageDigest
 import org.junit.Test
 
-/** The Block Store entry format, which must stay the fork's (bipe-android libraries/bipeblockstore). */
+/** The Block Store entry format, which must stay the format of the old Android app (libraries/bipeblockstore). */
 class SyncedTokenCodecTest {
     private val aliceKey = "chat.bipe.recovery_token." +
         MessageDigest.getInstance("SHA-256").digest(ALICE.encodeToByteArray()).take(16).joinToString("") { "%02x".format(it) }
