@@ -15,8 +15,9 @@ import org.matrix.rustcomponents.sdk.Tweak
 
 /**
  * Quiet groups by default (ADR 0026, specs group-create and chat-notifications notes). Once per account, after the
- * first sync: the account default for groups becomes mentions and keywords, and the override rule
- * chat.bipe.poll_start makes a new poll notify in a quiet group.
+ * first sync: the account default for plain group messages becomes mentions and keywords, and the override rule
+ * chat.bipe.poll_start makes a new poll notify in a quiet group. Encrypted groups stay on all messages, so the server
+ * pushes each one and the phone decides after decrypting it (ADR 0254).
  */
 object QuietGroups {
     const val POLL_RULE_ID = "chat.bipe.poll_start"
@@ -45,10 +46,10 @@ object QuietGroups {
                 )
             }
             settings.setDefaultRoomNotificationMode(false, false, RoomNotificationMode.MENTIONS_AND_KEYWORDS_ONLY)
-            // Mentions-only in an encrypted group needs the server to push encrypted events (#118). Until it does,
-            // the encrypted default stays as it is and the next start tries again.
-            if (!settings.canHomeserverPushEncryptedEventToDevice()) return
-            settings.setDefaultRoomNotificationMode(true, false, RoomNotificationMode.MENTIONS_AND_KEYWORDS_ONLY)
+            // Mentions-only on the encrypted rule stops the push, so a mention never arrives. Repairs an older choice.
+            if (settings.getDefaultRoomNotificationMode(true, false) == RoomNotificationMode.MENTIONS_AND_KEYWORDS_ONLY) {
+                settings.setDefaultRoomNotificationMode(true, false, RoomNotificationMode.ALL_MESSAGES)
+            }
             prefs.edit().putBoolean(session.userId, true).apply()
         }
     }
