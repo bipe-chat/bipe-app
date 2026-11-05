@@ -187,9 +187,8 @@ private struct WebLinkFinish: Encodable {
     let kind: String?
 }
 
-// Link a computer (specs link-computer-scan and link-computer-approve, bipe-chat/bipe#574). Moved from bipe-ios
-// Components/BipeKit/Sources/BipeKit/BipeWebLink.swift (Bipe code): qrLoginFeature, isDeviceConsentPath,
-// firstIPAddress, BipeWebLinkPlace.label and supportsQRLogin.
+// Link a computer (specs link-computer-scan and link-computer-approve, bipe-chat/bipe#574). Moved from BipeKit
+// (Bipe code): qrLoginFeature, isDeviceConsentPath, firstIPAddress, BipeWebLinkPlace.label and supportsQRLogin.
 
 public extension BipeWebLink {
     /// The `/versions` unstable feature that a server with QR sign-in advertises.

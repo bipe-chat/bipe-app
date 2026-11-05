@@ -44,7 +44,7 @@ interface BipeRecoveryTokenSync {
 }
 
 /**
- * The format of the synced entries, the same as the fork's Play build writes (bipe-android `libraries/bipeblockstore`),
+ * The format of the synced entries, the same as the Play build of the old Android app writes (`libraries/bipeblockstore`),
  * so the app reads the fork's entries after the switch to the fork's application ID (docs/client-switch-plan.md step 3).
  *
  * - One entry per account (ADR 0086). The key is [KEY_PREFIX] and the first 16 bytes of the SHA-256 of the Matrix ID in
