@@ -13,6 +13,7 @@ import type { BusinessClient, WorkHours } from './business-client';
 import { AgendaScreen } from './Agenda';
 import { BrandMarksScreen } from './BrandMarks';
 import { CatalogScreen } from './Catalog';
+import { CompanyTeamScreen } from './CompanyTeam';
 import {
   LoadState,
   setNameLookup,
@@ -30,7 +31,7 @@ import { QuotesScreen } from './Quotes';
 import { WithToolState, WorkHome, WorkSectorScreen, WorkSetupScreen } from './WorkHome';
 
 // The URL segment of each tool: /trabalho/<tool> (router.ts).
-type Tool = 'agenda' | 'catalogo' | 'pedidos' | 'orcamentos' | 'fila' | 'selos' | 'passos' | 'ramo' | 'horario' | 'kit';
+type Tool = 'agenda' | 'catalogo' | 'pedidos' | 'orcamentos' | 'fila' | 'selos' | 'passos' | 'ramo' | 'horario' | 'kit' | 'quem-atende';
 
 /**
  * Shown only when the current account is a company account (bipe-api account type, ADR 0132). tool is the open
@@ -87,6 +88,8 @@ function ToolScreen({
       return <BusinessKitScreen onBack={back} />;
     case 'selos':
       return <BrandMarksScreen client={client} onBack={back} />;
+    case 'quem-atende':
+      return <CompanyTeamScreen client={client} onBack={back} />;
     case 'passos':
       return <WorkSetupScreen client={client} onBack={back} onTool={onTool} />;
     case 'ramo':

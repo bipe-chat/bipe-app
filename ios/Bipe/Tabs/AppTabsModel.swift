@@ -215,6 +215,8 @@ final class AppTabsModel: ObservableObject {
             try await api.account(accessToken: token)
         }
         let company = await media.isCompany(userId: userId)
+        // A phone that just joined a company account takes the open owner window here (ADR 0251 point 13).
+        if company { _ = try? await session.business(api).seats() }
         guard sessionIds.contains(userId), var loaded = profiles[userId] else { return }
         if let mine { loaded.handle = mine.handle }
         if let status { loaded.maxAccounts = max(1, status.maxAccounts ?? loaded.maxAccounts) }

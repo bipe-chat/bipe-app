@@ -18,6 +18,8 @@ final class WorkHomeModel: ObservableObject {
     @Published var askSector = false
     /// The owner's web switches (ADR 0195).
     @Published private(set) var web: BipeWebSettings?
+    /// Spec company-team. nil until read: the row shows no summary and still opens the screen.
+    @Published private(set) var seats: BipeSeatList?
     @Published var notice: String?
 
     let api: BipeBusinessAPI
@@ -37,12 +39,25 @@ final class WorkHomeModel: ObservableObject {
         }
         setup = try? await api.workSetup()
         web = try? await api.webSettings()
+        await loadSeats()
         suggestion = (try? await api.workSuggestions())?.first
         let hasLive = tools?.contains { $0.state == .live } == true
         today = hasLive ? try? await api.businessToday() : nil
         // Spec work-sector: once, on a new work account. Pular and a pick both mark it.
         if let setup, sector == nil, setup.doneCount == 0, !UserDefaults.standard.bool(forKey: askedKey) {
             askSector = true
+        }
+    }
+
+    func loadSeats() async {
+        if let read = try? await api.seats() { seats = read }
+    }
+
+    func seatAction(_ call: () async throws -> BipeSeatList) async {
+        do {
+            seats = try await call()
+        } catch {
+            notice = BipeStrings.teamError
         }
     }
 
@@ -150,6 +165,7 @@ struct WorkHomeSections: View {
     let openBrandMarks: () -> Void
     let openKit: () -> Void
     let openSector: () -> Void
+    let openTeam: () -> Void
     @State private var blocked: BipeBusinessTool?
 
     private var rows: [BipeBusinessTool] { model.tools?.filter { $0.state != .off } ?? [] }
@@ -206,6 +222,14 @@ struct WorkHomeSections: View {
             }
         }
         Section {
+            Button(action: openTeam) {
+                if let list = model.seats {
+                    LabeledContent(BipeStrings.teamTitle, value: list.activeSeats.count > 1 ? BipeStrings.teamRowPeople(String(list.activeSeats.count)) : BipeStrings.teamRowAlone)
+                        .foregroundStyle(BipeColor.inkPrimary)
+                } else {
+                    Text(BipeStrings.teamTitle).foregroundStyle(BipeColor.inkPrimary)
+                }
+            }
             Button(action: openSector) {
                 LabeledContent(BipeStrings.workSectorRow, value: model.sector.map(WorkText.sector) ?? BipeStrings.workSectorNone)
                     .foregroundStyle(BipeColor.inkPrimary)

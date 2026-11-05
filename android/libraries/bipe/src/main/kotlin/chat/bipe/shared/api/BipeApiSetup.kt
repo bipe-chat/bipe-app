@@ -218,3 +218,70 @@ suspend fun BipeApiClient.addBusyImport(agendaId: String, url: String, accessTok
 suspend fun BipeApiClient.removeBusyImport(agendaId: String, importId: String, accessToken: String) {
     send<Unit>("DELETE", listOf("v1", "me", "business", "agenda", "agendas", agendaId, "busy-imports", importId), accessToken = accessToken, response = null)
 }
+
+// People on a work account (ADR 0251, ADR 0252). Contract /v1/me/business/seats. Same calls as BipeBusinessSetupAPI.swift.
+
+/** Contract `SeatDevice`. [kind] is phone or web. */
+@Serializable
+data class BipeSeatDevice(
+    @SerialName("device_id") val deviceId: String,
+    @SerialName("kind") val kind: String,
+    @SerialName("display_name") val displayName: String? = null,
+    @SerialName("added_at") val addedAt: String,
+)
+
+/** Contract `Seat`. */
+@Serializable
+data class BipeSeat(
+    @SerialName("id") val id: String,
+    @SerialName("name") val name: String,
+    @SerialName("role") val role: String,
+    @SerialName("status") val status: String,
+    @SerialName("devices") val devices: List<BipeSeatDevice>,
+    @SerialName("window_expires_at") val windowExpiresAt: String? = null,
+)
+
+/** Contract `SeatMe`. [role] is owner, attendant or none. A device with none has no owner rights. */
+@Serializable
+data class BipeSeatMe(
+    @SerialName("seat_id") val seatId: String? = null,
+    @SerialName("name") val name: String? = null,
+    @SerialName("role") val role: String,
+)
+
+/** Contract `SeatList`. */
+@Serializable
+data class BipeSeatList(
+    @SerialName("me") val me: BipeSeatMe,
+    @SerialName("seats") val seats: List<BipeSeat>,
+    @SerialName("unassigned_devices") val unassignedDevices: List<BipeSeatDevice>,
+    @SerialName("max_people") val maxPeople: Int,
+    @SerialName("backup_rotation_pending") val backupRotationPending: Boolean,
+) {
+    /** The people who answer now. A waiting seat is not one yet. */
+    val activeSeats: List<BipeSeat> get() = seats.filter { it.status == "active" }
+}
+
+@Serializable
+private data class SeatDeviceAssign(@SerialName("seat_id") val seatId: String)
+
+/** `GET /v1/me/business/seats`. Also lets a phone that just joined take the open owner window. */
+suspend fun BipeApiClient.seats(accessToken: String): BipeSeatList =
+    send("GET", listOf("v1", "me", "business", "seats"), accessToken = accessToken, response = BipeSeatList.serializer())
+
+/** `POST /v1/me/business/seats/{seatId}/window`. Only the owner's own seat. */
+suspend fun BipeApiClient.openSeatWindow(seatId: String, accessToken: String): BipeSeat =
+    send("POST", listOf("v1", "me", "business", "seats", seatId, "window"), accessToken = accessToken, response = BipeSeat.serializer())
+
+/** `PUT /v1/me/business/seats/devices/{deviceId}`. A device with no person joins a seat. */
+suspend fun BipeApiClient.assignSeatDevice(deviceId: String, seatId: String, accessToken: String): BipeSeatList = send(
+    "PUT",
+    listOf("v1", "me", "business", "seats", "devices", deviceId),
+    body = encode(SeatDeviceAssign.serializer(), SeatDeviceAssign(seatId)),
+    accessToken = accessToken,
+    response = BipeSeatList.serializer(),
+)
+
+/** `DELETE /v1/me/business/seats/devices/{deviceId}`. Ends the session of that device. */
+suspend fun BipeApiClient.removeSeatDevice(deviceId: String, accessToken: String): BipeSeatList =
+    send("DELETE", listOf("v1", "me", "business", "seats", "devices", deviceId), accessToken = accessToken, response = BipeSeatList.serializer())

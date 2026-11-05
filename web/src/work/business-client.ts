@@ -53,6 +53,7 @@ import type {
   QuoteRequest,
   QuoteVersionInput,
   Service,
+  SeatList,
   ServiceInput,
   SlotDays,
   WebSettings,
@@ -243,6 +244,7 @@ export class BusinessClient {
     this.put<BusinessTools>(`/v1/me/business/tools/${enc(id)}`, { state });
   setWorkSector = (sector?: string) => this.put<BusinessTools>('/v1/me/business/sector', sector ? { sector } : {});
   workSetup = () => this.get<WorkSetup>('/v1/me/business/setup');
+  seats = () => this.get<SeatList>('/v1/me/business/seats');
   workLinkOpened = () => this.post<WorkSetup>('/v1/me/business/setup/link-opened');
   workSuggestions = () => this.get<WorkSuggestions>('/v1/me/business/suggestions');
   dismissWorkSuggestion = (id: string) => this.post<WorkSuggestions>(`/v1/me/business/suggestions/${enc(id)}/dismiss`);
