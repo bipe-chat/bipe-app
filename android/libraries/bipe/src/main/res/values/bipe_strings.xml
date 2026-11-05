@@ -70,6 +70,22 @@
     <string name="bipe_brand_mark_brand_seal">Selo da marca</string>
     <string name="bipe_brand_mark_brand_unchecked">Não deu para conferir o selo da marca agora.</string>
     <string name="bipe_brand_mark_ended">%1$s não confirma mais esta revendedora</string>
+    <string name="bipe_business_kit_title">Kit para divulgar</string>
+    <string name="bipe_business_kit_intro">Leve seus clientes para o Bipe pelos seus canais: site, e-mail, recibos e balcão.</string>
+    <string name="bipe_business_kit_button_header">Botão para o seu site</string>
+    <string name="bipe_business_kit_button_label">Fale com a gente no Bipe</string>
+    <string name="bipe_business_kit_button_code">&lt;a href=\'%1$s\' style=\'display:inline-block;padding:12px 20px;border-radius:999px;background:#802F7C;color:#fff;font:600 16px system-ui,sans-serif;text-decoration:none\'>%2$s&lt;/a></string>
+    <string name="bipe_business_kit_button_footer">Cole este código na página do seu site.</string>
+    <string name="bipe_business_kit_copy_code">Copiar código</string>
+    <string name="bipe_business_kit_qr_header">QR code</string>
+    <string name="bipe_business_kit_qr_footer">Para recibos, notas e balcão. O PNG serve para imprimir. O SVG fica nítido em qualquer tamanho.</string>
+    <string name="bipe_business_kit_share_png">Compartilhar PNG</string>
+    <string name="bipe_business_kit_share_svg">Compartilhar SVG</string>
+    <string name="bipe_business_kit_lines_header">Frases prontas</string>
+    <string name="bipe_business_kit_line_site">Fale com a gente no Bipe: %1$s</string>
+    <string name="bipe_business_kit_line_email">Agora também atendemos no Bipe. Fale com a gente em %1$s</string>
+    <string name="bipe_business_kit_line_receipt">Dúvidas ou novo pedido? Chame a gente no Bipe: %1$s</string>
+    <string name="bipe_business_kit_rule">Este kit é para os seus canais, e não para conversas em outros aplicativos.</string>
     <string name="bipe_brand_marks_title">Selos de revenda</string>
     <string name="bipe_brand_marks_held_header">Selos desta conta</string>
     <string name="bipe_brand_marks_held_empty">Nenhuma marca confirma esta conta ainda.</string>
