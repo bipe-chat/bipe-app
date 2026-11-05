@@ -73,6 +73,8 @@ final class PersonProfileModel: ObservableObject {
     /// The identity read has run at least once: a nil trustIdentity then means lifecycle unknown.
     @Published private(set) var identityRead = false
     @Published private(set) var bio: String?
+    /// The public profile photo, for the avatar when the server hides the Matrix profile.
+    @Published private(set) var publicPhotoUrl: URL?
     /// Spec socials: empty shows no section.
     @Published private(set) var socials: [SocialLink] = []
     @Published private(set) var dmRoomId: String?
@@ -109,6 +111,7 @@ final class PersonProfileModel: ObservableObject {
         if let handle = person.handle, let profile = try? await people.api.publicProfile(handle: handle) {
             let text = profile.bio?.trimmingCharacters(in: .whitespacesAndNewlines)
             bio = text?.isEmpty == false ? text : nil
+            publicPhotoUrl = profile.photoUrl
             socials = SocialLink.links(profile.socials)
         }
         // Spec savedNumbers: may run one address-book lookup first, so it comes last.

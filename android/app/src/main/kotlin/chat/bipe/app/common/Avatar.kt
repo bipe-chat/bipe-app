@@ -41,6 +41,8 @@ import kotlinx.coroutines.withContext
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.MediaSource
 import org.matrix.rustcomponents.sdk.RoomInfo
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 
 /** Loads avatar thumbnails through the SDK media API and keeps them in memory. */
@@ -57,6 +59,33 @@ class MediaLoader(val client: Client) {
         val company = runCatching { api.avatarAccountIsCompany(userId) }.getOrNull() ?: return false
         accountTypes[userId] = company
         return company
+    }
+
+    /**
+     * The public profile photo (GET /v1/profiles/{handle}/photo). The server hides Client.getProfile from a person with
+     * no shared room, so this is the photo of someone the user has not talked to. Only the API's own profile route.
+     */
+    suspend fun publicPhoto(url: String): ImageBitmap? {
+        if (!url.startsWith("${AppConfig.API_BASE_URL}/v1/profiles/")) return null
+        cache.get(url)?.let { return it }
+        val image = withContext(Dispatchers.IO) {
+            runCatching {
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.connectTimeout = 10_000
+                connection.readTimeout = 10_000
+                try {
+                    if (connection.responseCode == 200) {
+                        connection.inputStream.use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
+                    } else {
+                        null
+                    }
+                } finally {
+                    connection.disconnect()
+                }
+            }.getOrNull()
+        } ?: return null
+        cache.put(url, image)
+        return image
     }
 
     suspend fun thumbnail(mxcUrl: String, size: Int): ImageBitmap? {
@@ -88,6 +117,8 @@ fun Avatar(
     isCompany: Boolean = false,
     showsPhoto: Boolean = true,
     members: List<Person> = emptyList(),
+    /** The public profile photo, for a person whose Matrix profile the server hides. */
+    publicPhotoUrl: String? = null,
 ) {
     if (mxcUrl == null && members.isNotEmpty()) {
         MemberCluster(members, loader, size, showsPhoto)
@@ -96,11 +127,12 @@ fun Avatar(
     val colors = BipeTheme.colors
     var image by remember(userId, mxcUrl, showsPhoto) { mutableStateOf<ImageBitmap?>(null) }
     var company by remember(userId, isCompany) { mutableStateOf(isCompany) }
-    LaunchedEffect(loader, userId, mxcUrl, size, isCompany, showsPhoto) {
+    LaunchedEffect(loader, userId, mxcUrl, size, isCompany, showsPhoto, publicPhotoUrl) {
         if (loader == null) return@LaunchedEffect
         launch {
             val url = if (showsPhoto) mxcUrl ?: userId?.let { loader.avatarUrl(it) } else null
             image = url?.let { loader.thumbnail(it, (size.value * 3).toInt()) }
+                ?: publicPhotoUrl?.takeIf { showsPhoto }?.let { loader.publicPhoto(it) }
         }
         if (!isCompany && userId != null) launch { company = loader.isCompany(userId) }
     }
