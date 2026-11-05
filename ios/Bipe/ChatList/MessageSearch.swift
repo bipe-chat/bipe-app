@@ -60,10 +60,9 @@ final class MessageSearchModel: ObservableObject {
         handle?.cancel()
     }
 
-    /// Runs with editQuery, after its 150 ms limit. A blank query clears the hits.
+    /// Runs with editQuery, after its 150 ms limit. A query without a letter or digit clears the hits.
     func search(_ query: String) async {
-        let query = query.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else {
+        guard let query = MessageSearchQuery.make(query) else {
             hits = []
             return
         }
