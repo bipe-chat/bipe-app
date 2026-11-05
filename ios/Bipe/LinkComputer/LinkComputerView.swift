@@ -18,8 +18,9 @@ struct LinkComputerView: View {
     /// Action approvePhone opens its sheet once this full-screen flow has gone.
     @Environment(\.encryptionStatus) private var encryption
 
-    init(settings: SettingsModel, mode: LinkComputerModel.Mode = .computer, tabs: AppTabsModel? = nil) {
-        _model = StateObject(wrappedValue: LinkComputerModel(settings: settings, mode: mode))
+    init(settings: SettingsModel, mode: LinkComputerModel.Mode = .computer, tabs: AppTabsModel? = nil,
+         person: LinkComputerModel.PersonToAdd? = nil, onGrantDone: (() -> Void)? = nil) {
+        _model = StateObject(wrappedValue: LinkComputerModel(settings: settings, mode: mode, person: person, onGrantDone: onGrantDone))
         self.tabs = mode == .computer ? tabs : nil
     }
 
@@ -249,6 +250,22 @@ private struct LinkComputerWarningView: View {
     @ObservedObject var model: LinkComputerModel
     @Environment(\.scenePhase) private var scenePhase
 
+    // Spec company-team-add: the words of moving to your own new phone would contradict this screen.
+    private var warningTitle: String {
+        if let person = model.person { return BipeStrings.teamAddCodeTitle(person.name) }
+        return model.mode == .computer ? BipeStrings.linkComputerWarningTitle : BipeStrings.appLinkPhoneWarningTitle
+    }
+
+    private var warningBody: String {
+        if let person = model.person { return BipeStrings.teamAddWarning(person.name, person.accountName) }
+        return model.mode == .computer ? BipeStrings.linkComputerWarningBody : BipeStrings.appLinkPhoneWarningBody
+    }
+
+    private var warningScam: String {
+        if model.person != nil { return BipeStrings.teamAddCodeNeverShare }
+        return model.mode == .computer ? BipeStrings.linkComputerWarningScam : BipeStrings.appLinkPhoneScam
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             PhosphorIcon.warningCircle.image
@@ -256,10 +273,10 @@ private struct LinkComputerWarningView: View {
                 .frame(width: 48, height: 48)
                 .foregroundStyle(BipeColor.trustCautionInk)
                 .accessibilityHidden(true)
-            Text(model.mode == .computer ? BipeStrings.linkComputerWarningTitle : BipeStrings.appLinkPhoneWarningTitle)
+            Text(warningTitle)
                 .font(.title2.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
-            Text(model.mode == .computer ? BipeStrings.linkComputerWarningBody : BipeStrings.appLinkPhoneWarningBody)
+            Text(warningBody)
                 .foregroundStyle(BipeColor.inkPrimary)
             // ADR 0059: the time of the request; the model and the place show on the MAS page.
             if model.mode == .phone, let requestedAt = model.requestedAt {
@@ -267,7 +284,7 @@ private struct LinkComputerWarningView: View {
                     .font(.body.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
             }
-            Text(model.mode == .computer ? BipeStrings.linkComputerWarningScam : BipeStrings.appLinkPhoneScam)
+            Text(warningScam)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .foregroundStyle(BipeColor.inkPrimary)
@@ -326,7 +343,7 @@ private struct LinkComputerApproveView: View {
                     .frame(width: 48, height: 48)
                     .foregroundStyle(BipeColor.trustVerifiedInk)
                     .accessibilityHidden(true)
-                Text(model.mode == .computer ? BipeStrings.linkComputerDone : BipeStrings.appLinkPhoneDone)
+                Text(model.person.map { BipeStrings.teamAddDone($0.name) } ?? (model.mode == .computer ? BipeStrings.linkComputerDone : BipeStrings.appLinkPhoneDone))
                     .font(.title3.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
@@ -358,9 +375,18 @@ private struct LinkComputerApproveView: View {
             if let tabs {
                 LinkComputerAccountRow(tabs: tabs)
             }
-            Text(model.mode == .computer ? BipeStrings.linkComputerConsentHint : BipeStrings.appLinkPhoneConsentHint)
-                .font(.subheadline)
-                .foregroundStyle(BipeColor.inkPrimary)
+            if model.person == nil {
+                Text(model.mode == .computer ? BipeStrings.linkComputerConsentHint : BipeStrings.appLinkPhoneConsentHint)
+                    .font(.subheadline)
+                    .foregroundStyle(BipeColor.inkPrimary)
+            }
+            if model.people.count > 1 {
+                Picker(BipeStrings.teamTitle, selection: $model.pickedSeatId) {
+                    ForEach(model.people) { seat in
+                        Text(seat.name).tag(Optional(seat.id))
+                    }
+                }
+            }
             VStack(alignment: .leading, spacing: 4) {
                 Text(model.device.map(BipeStrings.linkComputerDevice) ?? BipeStrings.linkComputerDeviceUnknown)
                     .font(.subheadline.bold())

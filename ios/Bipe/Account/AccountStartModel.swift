@@ -238,6 +238,7 @@ final class AccountStartModel: ObservableObject {
         }
         await session.signOut(alreadyLoggedOut: alreadyLoggedOut)
         AccountList.remove(session.userId)
+        CompanyRole.remember(nil, userId: session.userId)
         guard userId == session.userId else { return }
         signupOutcome = nil
         if let next = sessions.first {
@@ -288,6 +289,13 @@ final class AccountStartModel: ObservableObject {
             await signOut(userId: session.userId, alreadyLoggedOut: true)
             DeletionDate.remember(nil, for: session.userId)
             notice = BipeStrings.deletionDone
+            return
+        }
+        // Spec company-team: the owner removed this person. A person has no PIN and no password to sign in again with.
+        if CompanyRole.isAttendant(session.userId) {
+            AccountStep.log.notice("removed from a work account")
+            await signOut(userId: session.userId, alreadyLoggedOut: true)
+            notice = BipeStrings.teamRemoved(name)
             return
         }
         guard isSoftLogout else {

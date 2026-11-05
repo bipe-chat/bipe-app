@@ -108,8 +108,8 @@ private fun ShowPhases(state: LinkComputerModel.State, model: LinkComputerModel)
             Text(stringResource(R.string.bipe_app_link_phone_preparing), color = colors.inkSecondary)
         }
         LinkComputerModel.ShowPhase.SHOWING_CODE -> {
-            Title(stringResource(R.string.bipe_app_link_phone_title))
-            Text(stringResource(R.string.bipe_app_link_phone_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
+            Title(model.person?.let { stringResource(R.string.bipe_team_add_code_title, it.name) } ?: stringResource(R.string.bipe_app_link_phone_title))
+            Text(stringResource(if (model.person == null) R.string.bipe_app_link_phone_body else R.string.bipe_team_add_code_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
             val code = state.qrCode
             val bitmap = remember(code) { code?.let(::renderQr) }
             if (code != null && bitmap != null) {
@@ -120,7 +120,7 @@ private fun ShowPhases(state: LinkComputerModel.State, model: LinkComputerModel)
                     filterQuality = FilterQuality.None,
                     modifier = Modifier.widthIn(max = 320.dp).fillMaxWidth().background(androidx.compose.ui.graphics.Color.White, RoundedCornerShape(16.dp)).padding(16.dp),
                 )
-                if (canCopyQrCode(context)) {
+                if (canCopyQrCode(context) && model.person == null) {
                     var copied by remember(code) { mutableStateOf(false) }
                     BipeOutlinedButton(onClick = {
                         val clipboard = context.getSystemService(ClipboardManager::class.java)
@@ -131,7 +131,7 @@ private fun ShowPhases(state: LinkComputerModel.State, model: LinkComputerModel)
                     }
                 }
             }
-            Text(stringResource(R.string.bipe_app_link_phone_never_share), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)
+            Text(stringResource(if (model.person == null) R.string.bipe_app_link_phone_never_share else R.string.bipe_team_add_code_never_share), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)
         }
         LinkComputerModel.ShowPhase.ENTER_CHECK_CODE, LinkComputerModel.ShowPhase.CHECKING -> {
             Title(stringResource(R.string.bipe_app_link_phone_check_code_title))

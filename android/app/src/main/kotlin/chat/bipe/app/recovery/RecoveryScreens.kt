@@ -87,6 +87,7 @@ fun RecoveryFlowScreen(model: RecoveryFlowModel, onClose: () -> Unit) {
             RecoveryFlowModel.Route.WAITING -> RecoveryWaitingScreen(model)
             RecoveryFlowModel.Route.OLD_PHONE -> OldPhoneScreen(model)
             RecoveryFlowModel.Route.LINKED -> RecoveryLinkedScreen(model)
+            RecoveryFlowModel.Route.JOIN -> model.JoinScreen()
         }
     }
 }
@@ -166,6 +167,14 @@ private fun RecoveryStartScreen(model: RecoveryFlowModel, onClose: () -> Unit) {
                     headlineContent = { Text(stringResource(row.title), style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary) },
                     supportingContent = { Text(body, style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) },
                     modifier = Modifier.fillMaxWidth().clickable { model.choose(row) },
+                )
+            }
+            if (model.softLogoutUserId == null) {
+                HorizontalDivider()
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.bipe_team_join_row), style = MaterialTheme.typography.titleMedium) },
+                    supportingContent = { Text(stringResource(R.string.bipe_team_join_row_body), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) },
+                    modifier = Modifier.fillMaxWidth().clickable { model.openJoin() },
                 )
             }
         }

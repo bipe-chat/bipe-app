@@ -47,8 +47,8 @@ struct LinkPhoneShowView: View {
             Text(BipeStrings.appLinkPhonePreparing)
                 .foregroundStyle(BipeColor.inkSecondary)
         case .showingCode:
-            title(BipeStrings.appLinkPhoneTitle)
-            Text(BipeStrings.appLinkPhoneBody)
+            title(model.person.map { BipeStrings.teamAddCodeTitle($0.name) } ?? BipeStrings.appLinkPhoneTitle)
+            Text(model.person == nil ? BipeStrings.appLinkPhoneBody : BipeStrings.teamAddCodeBody)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .multilineTextAlignment(.center)
             if let bytes = model.qrBytes, let image = Self.render(bytes) {
@@ -61,7 +61,7 @@ struct LinkPhoneShowView: View {
                     .background(RoundedRectangle(cornerRadius: 16).fill(.white))
                     .frame(maxWidth: 320)
                     .accessibilityHidden(true)
-                if LinkComputerModel.canCopyCode {
+                if LinkComputerModel.canCopyCode, model.person == nil {
                     Button {
                         UIPasteboard.general.string = bytes.base64EncodedString()
                         copied = true
@@ -71,7 +71,7 @@ struct LinkPhoneShowView: View {
                     .buttonStyle(.bipeBordered)
                 }
             }
-            Text(BipeStrings.appLinkPhoneNeverShare)
+            Text(model.person == nil ? BipeStrings.appLinkPhoneNeverShare : BipeStrings.teamAddCodeNeverShare)
                 .font(.footnote)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .multilineTextAlignment(.center)

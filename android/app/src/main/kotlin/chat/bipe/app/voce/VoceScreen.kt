@@ -41,7 +41,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.business.BusinessApi
 import chat.bipe.app.business.BusinessFullScreen
+import chat.bipe.app.business.CompanyLeaveRow
 import chat.bipe.app.business.MyBookingsScreen
 import chat.bipe.app.people.PeopleService
 import chat.bipe.app.common.MediaLoader
@@ -107,9 +109,14 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                     // Spec voce (bipe-chat/bipe#988): the profile row, then the trust card. No prompt cards here
                     // (bipe-chat/bipe#894): chat-list-prompt shows every ask.
                     current?.let { account ->
-                        item(key = "profile") { VoceProfileRow(account, media, openProfile = { openPeople(PeopleRoute.ProfileEdit) }) }
+                        item(key = "profile") { VoceProfileRow(account, media, openProfile = if (account.answersOnly) null else ({ openPeople(PeopleRoute.ProfileEdit) })) }
+                        if (account.seatRole == "attendant" && account.isCompany) {
+                            item(key = "leave") {
+                                CompanyLeaveRow(account.displayName, BusinessApi(session)) { tabs.start.completeSignOut(session.userId) }
+                            }
+                        }
                     }
-                    trustProfile?.let { profile ->
+                    trustProfile?.takeIf { current?.answersOnly != true }?.let { profile ->
                         item(key = "trust-gap") { VoceSectionHeader(null) }
                         TrustCardSection(profile, TrustActions(
                             addName = { openPeople(PeopleRoute.ProfileEdit) },
@@ -129,9 +136,11 @@ fun VoceScreen(tabs: AppTabsModel, session: AccountSession, api: BipeApiClient, 
                             VoceRow(PhosphorIcon.CLOCK, stringResource(R.string.bipe_agenda_my_bookings), onClick = { showsMyBookings = true })
                         }
                     }
-                    item { VoceSectionHeader(null) }
-                    item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
-                    SettingsRootSection(settings, openGroup)
+                    if (current?.answersOnly != true) {
+                        item { VoceSectionHeader(null) }
+                        item { VoceRow(PhosphorIcon.USER_PLUS, stringResource(R.string.bipe_invites_title), onClick = openInvites) }
+                    }
+                    SettingsRootSection(settings, openGroup, hidesAccount = current?.answersOnly == true)
                     // Spec voce (MZ, 4 Nov 2026): the accounts stay in the switcher, which this row opens too, as the Você
                     // tab does (hold, TalkBack action). Adicionar conta is the last row (spec account-new).
                     item { VoceSectionHeader(null) }

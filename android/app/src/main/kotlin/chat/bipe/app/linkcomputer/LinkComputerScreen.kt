@@ -15,6 +15,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.RadioButton
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -85,10 +87,16 @@ import androidx.compose.foundation.text.selection.SelectionContainer
  * then link-phone-approve; the only way in is Você > Conectar outro aparelho (ADR 0059).
  */
 @Composable
-fun LinkComputerScreen(settings: SettingsModel, onClose: () -> Unit, mode: LinkComputerModel.Mode = LinkComputerModel.Mode.COMPUTER) {
+fun LinkComputerScreen(
+    settings: SettingsModel,
+    onClose: () -> Unit,
+    mode: LinkComputerModel.Mode = LinkComputerModel.Mode.COMPUTER,
+    person: LinkComputerModel.PersonToAdd? = null,
+    onGrantDone: (() -> Unit)? = null,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val model = remember(settings, mode) { LinkComputerModel(context.applicationContext, settings, scope, mode) }
+    val model = remember(settings, mode, person) { LinkComputerModel(context.applicationContext, settings, scope, mode, person, onGrantDone) }
     val state by model.state.collectAsState()
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), model::cameraResult)
     LaunchedEffect(model) {
@@ -252,11 +260,13 @@ private fun WarningContent(state: LinkComputerModel.State, model: LinkComputerMo
     Column(modifier = Modifier.fillMaxSize().testTag(screen.id), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustCautionInk, modifier = Modifier.size(48.dp))
         Text(
-            stringResource(if (phone) R.string.bipe_app_link_phone_warning_title else R.string.bipe_link_computer_warning_title),
+            model.person?.let { stringResource(R.string.bipe_team_add_code_title, it.name) }
+                ?: stringResource(if (phone) R.string.bipe_app_link_phone_warning_title else R.string.bipe_link_computer_warning_title),
             style = MaterialTheme.typography.headlineSmall,
             color = colors.inkPrimary,
         )
-        Text(stringResource(if (phone) R.string.bipe_app_link_phone_warning_body else R.string.bipe_link_computer_warning_body), color = colors.inkPrimary)
+        Text(model.person?.let { stringResource(R.string.bipe_team_add_warning, it.name, it.accountName) }
+            ?: stringResource(if (phone) R.string.bipe_app_link_phone_warning_body else R.string.bipe_link_computer_warning_body), color = colors.inkPrimary)
         // ADR 0059: the time of the request; the model and the place show on the MAS page.
         val requestedAt = state.requestedAt
         if (phone && requestedAt != null) {
@@ -264,7 +274,8 @@ private fun WarningContent(state: LinkComputerModel.State, model: LinkComputerMo
             Text(stringResource(R.string.bipe_app_link_phone_time, time), fontWeight = FontWeight.Bold, color = colors.inkPrimary)
         }
         Text(
-            stringResource(if (phone) R.string.bipe_app_link_phone_scam else R.string.bipe_link_computer_warning_scam),
+            if (model.person != null) stringResource(R.string.bipe_team_add_code_never_share)
+            else stringResource(if (phone) R.string.bipe_app_link_phone_scam else R.string.bipe_link_computer_warning_scam),
             color = colors.inkPrimary,
             modifier = Modifier.fillMaxWidth().background(colors.trustCautionWash, RoundedCornerShape(12.dp)).padding(12.dp),
         )
@@ -327,7 +338,18 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
                         LinkComputerAccountRow((context.applicationContext as BipeApplication).appTabs)
                         Spacer(Modifier.size(8.dp))
                     }
-                    Text(stringResource(if (phone) R.string.bipe_app_link_phone_consent_hint else R.string.bipe_link_computer_consent_hint), color = colors.inkPrimary)
+                    if (model.person == null) {
+                        Text(stringResource(if (phone) R.string.bipe_app_link_phone_consent_hint else R.string.bipe_link_computer_consent_hint), color = colors.inkPrimary)
+                    }
+                    if (state.people.size > 1) {
+                        Text(stringResource(R.string.bipe_team_title), fontWeight = FontWeight.Bold, color = colors.inkPrimary)
+                        state.people.forEach { seat ->
+                            Row(Modifier.fillMaxWidth().clickable { model.pickPerson(seat.id) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = state.pickedSeatId == seat.id, onClick = { model.pickPerson(seat.id) })
+                                Text(seat.name, color = colors.inkPrimary)
+                            }
+                        }
+                    }
                     Spacer(Modifier.size(8.dp))
                     val device = state.device
                     Text(
@@ -359,7 +381,8 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
             }
             LinkComputerModel.ApprovePhase.DONE -> {
                 Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = colors.trustVerifiedInk, modifier = Modifier.size(48.dp))
-                Text(stringResource(if (phone) R.string.bipe_app_link_phone_done else R.string.bipe_link_computer_done), style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary, textAlign = TextAlign.Center)
+                Text(model.person?.let { stringResource(R.string.bipe_team_add_done, it.name) }
+                    ?: stringResource(if (phone) R.string.bipe_app_link_phone_done else R.string.bipe_link_computer_done), style = MaterialTheme.typography.titleLarge, color = colors.inkPrimary, textAlign = TextAlign.Center)
             }
             LinkComputerModel.ApprovePhase.FAILED -> {
                 Text(

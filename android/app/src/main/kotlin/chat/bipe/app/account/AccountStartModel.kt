@@ -6,6 +6,7 @@ package chat.bipe.app.account
 
 import android.content.Context
 import android.util.Log
+import chat.bipe.app.business.CompanyRole
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.settings.DeletionDates
 import chat.bipe.app.BipeApplication
@@ -265,6 +266,13 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             _notice.value = context.getString(chat.bipe.shared.R.string.bipe_deletion_done)
             return
         }
+        // Spec company-team: the owner removed this person. A person has no PIN and no password to sign in again with.
+        if (CompanyRole.isAttendant(context, session.userId)) {
+            Log.i(AccountStep.TAG, "removed from a work account")
+            removeAccount(session, alreadyLoggedOut = true)
+            _notice.value = context.getString(chat.bipe.shared.R.string.bipe_team_removed, name)
+            return
+        }
         if (!isSoftLogout) {
             // Another device signed this phone out: never sign in again by itself (spec soft-logout notes).
             Log.i(AccountStep.TAG, "soft-logout: device signed out on the server")
@@ -438,6 +446,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             if (_userId.value == current.userId) app.push.signOut()
             current.signOut(context, sessionStore, vault, alreadyLoggedOut)
             accountList.remove(current.userId)
+            CompanyRole.remember(context, current.userId, null)
             if (_userId.value != current.userId) return@launch
             _signupOutcome.value = null
             val next = _sessions.value.firstOrNull()

@@ -57,7 +57,22 @@ final class WorkHomeModel: ObservableObject {
         do {
             seats = try await call()
         } catch {
-            notice = BipeStrings.teamError
+            notice = Self.seatMessage(error)
+        }
+    }
+
+    /// bipe_team_owner_only for owner_only, else the plain error of the seat screens.
+    static func seatMessage(_ error: Error) -> String {
+        if case .server(.ownerOnly, _, _)? = error as? BipeAPIError { return BipeStrings.teamOwnerOnly }
+        return BipeStrings.teamError
+    }
+
+    /// Only the owner answers: the second_seat step counts as done (ADR 0252).
+    func skipSecondSeat() async {
+        do {
+            setup = try await api.skipSecondSeat()
+        } catch {
+            notice = Self.seatMessage(error)
         }
     }
 
@@ -173,7 +188,8 @@ struct WorkHomeSections: View {
 
     var body: some View {
         if let today = model.today { todaySection(today) }
-        if let setup = model.setup, let next = setup.steps.first(where: { !$0.done }) {
+        // Spec company-team: the setup path is for the owner.
+        if model.seats?.me.role ?? "owner" == "owner", let setup = model.setup, let next = setup.steps.first(where: { !$0.done }) {
             Section {
                 Button(action: openSetup) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -337,6 +353,7 @@ struct WorkSetupView: View {
     @ObservedObject var model: WorkHomeModel
     let people: PeopleService
     let openTool: (String) -> Void
+    let openTeam: () -> Void
     @State private var shareLink: URL?
 
     var body: some View {
@@ -355,6 +372,9 @@ struct WorkSetupView: View {
                             }
                         }
                     }
+                    if setup.steps.contains(where: { $0.id == "second_seat" && !$0.done }) {
+                        Button(BipeStrings.workStepSecondSeatSkip) { Task { await model.skipSecondSeat() } }
+                    }
                 } footer: {
                     Text(setup.doneCount == setup.steps.count ? BipeStrings.workSetupDone : BipeStrings.workProgress(String(setup.doneCount), String(setup.steps.count)))
                 }
@@ -372,6 +392,7 @@ struct WorkSetupView: View {
         switch step.id {
         case "catalog": openTool("catalog")
         case "first_tool": openTool(setup.firstTool)
+        case "second_seat": openTeam()
         case "link":
             Task {
                 let mine = try? await people.withOpenID { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle in

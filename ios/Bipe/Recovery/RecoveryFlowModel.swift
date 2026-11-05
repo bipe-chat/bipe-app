@@ -28,6 +28,7 @@ final class RecoveryFlowModel: ObservableObject {
         case beta
         case waiting
         case oldPhone
+        case join
         case linked
     }
 

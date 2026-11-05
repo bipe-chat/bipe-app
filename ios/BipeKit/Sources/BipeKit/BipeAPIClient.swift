@@ -1268,6 +1268,14 @@ public enum BipeAPIErrorCode: String, Sendable {
     case keepLimit = "keep_limit"
     /// 409. The groups service account is not in the group or may not invite (ADR 0184).
     case groupLinkNoAccess = "group_link_no_access"
+    /// 403. A device of a work account that is not the owner's (ADR 0251).
+    case ownerOnly = "owner_only"
+    /// 409. The work account has the most people it can have (ADR 0252).
+    case seatLimit = "seat_limit"
+    /// 409. Another phone is joining the work account now (ADR 0251).
+    case seatWindowOpen = "seat_window_open"
+    /// 409. No phone can join the work account now (ADR 0251).
+    case seatWindowClosed = "seat_window_closed"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -1340,6 +1348,9 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .brandMarkLimit: BipeStrings.brandMarksLimit
             case .keepLimit: BipeStrings.voiceKeepLimit(String(BipeRegistries.voiceMediaMaxKeptPerAccount))
             case .groupLinkNoAccess: BipeStrings.groupLinkErrorAccess
+            case .ownerOnly: BipeStrings.teamOwnerOnly
+            case .seatLimit, .seatWindowOpen: BipeStrings.teamError
+            case .seatWindowClosed: BipeStrings.teamAddExpired
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

@@ -6,9 +6,11 @@ package chat.bipe.app.recovery
 
 import android.content.Context
 import android.net.Uri
+import androidx.compose.runtime.Composable
 import chat.bipe.app.BuildConfig
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.SessionStore
+import chat.bipe.app.business.CompanyTeamJoinScreen
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.account.BipeLinkProof
@@ -72,7 +74,7 @@ class RecoveryFlowModel(
     /** Spec soft-logout needsPin: the account whose token the server refused. */
     val softLogoutUserId: String? = null,
 ) {
-    enum class Route { START, PIN, EMAIL, BETA, WAITING, OLD_PHONE, LINKED }
+    enum class Route { START, PIN, EMAIL, BETA, WAITING, OLD_PHONE, LINKED, JOIN }
 
     /** Spec recovery-pin, state factor. LINKED: the proof of recovery-linked (ADR 0096). */
     enum class Factor { TOKEN, EMAIL_LINK, LINKED }
@@ -621,6 +623,17 @@ class RecoveryFlowModel(
 
     /** The old phone for recovery-old-phone: builds its model with this flow's store and sign-in. */
     fun oldPhoneModel(scope: CoroutineScope): OldPhoneModel = OldPhoneModel(context, sessionStore, scope, onSignedIn)
+
+    /** Spec company-team-join: a phone with no account gets here from the install path. */
+    fun openJoin() {
+        _route.value = Route.JOIN
+    }
+
+    /** The join flow for this flow's store and sign-in. */
+    @Composable
+    fun JoinScreen() {
+        CompanyTeamJoinScreen(api, sessionStore, onClose = { _route.value = Route.START }, onDone = onSignedIn)
+    }
 
     /** Stores the password (this phone only) and the token, signs in, then opens chat-list and encryption-status. */
     private suspend fun signIn(credentials: BipeCredentials) {

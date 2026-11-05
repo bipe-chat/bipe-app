@@ -30,7 +30,8 @@ final class RecoveryReminderModel: ObservableObject {
 
     /// State visible. Unknown account state (offline, older server) shows no card.
     var showsCard: Bool {
-        guard account?.independentRecovery == false,
+        // Spec company-team: a person who answers for a work account has no ways back of their own.
+        guard !CompanyRole.isAttendant(session.userId), account?.independentRecovery == false,
               let since = defaults.object(forKey: sinceKey) as? Date else { return false }
         return BipeRecoveryReminder.isDue(now: Date(), since: since, snoozedUntil: snoozedUntil)
     }

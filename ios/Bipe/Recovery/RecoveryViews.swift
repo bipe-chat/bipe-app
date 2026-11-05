@@ -34,6 +34,8 @@ struct RecoveryFlowView: View {
                         case .beta: RecoveryBetaView(model: model)
                         case .waiting: RecoveryWaitingView(model: model).navigationBarBackButtonHidden()
                         case .oldPhone: OldPhoneView(onSignedIn: model.signedInWithOldPhone)
+                        case .join:
+                            CompanyTeamJoinView(api: model.api, close: { model.path.removeAll() }, onDone: model.signedInWithOldPhone)
                         case .linked: RecoveryLinkedView(model: model)
                         }
                     }
@@ -125,6 +127,25 @@ private struct RecoveryStartView: View {
                             .font(.headline)
                             .foregroundStyle(BipeColor.inkPrimary)
                         Text(rowBody(of: row))
+                            .font(.subheadline)
+                            .foregroundStyle(BipeColor.inkSecondary)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceRaised))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            // Spec company-team-join: a phone with no account gets here from the install path.
+            if model.softLogoutUserId == nil {
+                Button { model.path.append(.join) } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(BipeStrings.teamJoinRow)
+                            .font(.headline)
+                            .foregroundStyle(BipeColor.inkPrimary)
+                        Text(BipeStrings.teamJoinRowBody)
                             .font(.subheadline)
                             .foregroundStyle(BipeColor.inkSecondary)
                             .multilineTextAlignment(.leading)

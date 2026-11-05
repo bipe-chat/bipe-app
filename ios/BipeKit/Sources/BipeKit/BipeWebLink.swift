@@ -163,10 +163,10 @@ public struct BipeMatrixAccountAPI: Sendable {
 public extension BipeAPIClient {
     /// `POST /v1/web-link/finish`: ends the MAS browser sessions that the private web view made (ADR 0118). With kind
     /// computer, bipe-api also records the web session that this phone approved (bipe-chat/bipe#398).
-    func finishWebLink(since: Date, kind: WebLinkKind? = nil, accessToken: String) async throws(BipeAPIError) {
+    func finishWebLink(since: Date, kind: WebLinkKind? = nil, seatId: String? = nil, accessToken: String) async throws(BipeAPIError) {
         let _: NoContent = try await send(method: "POST", path: ["v1", "web-link", "finish"],
                                           body: WebLinkFinish(since: since.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)),
-                                                              kind: kind?.rawValue),
+                                                              kind: kind?.rawValue, seatId: seatId),
                                           accessToken: accessToken)
     }
 
@@ -185,6 +185,7 @@ public enum WebLinkKind: String, Sendable {
 private struct WebLinkFinish: Encodable {
     let since: String
     let kind: String?
+    let seatId: String?
 }
 
 // Link a computer (specs link-computer-scan and link-computer-approve, bipe-chat/bipe#574). Moved from BipeKit

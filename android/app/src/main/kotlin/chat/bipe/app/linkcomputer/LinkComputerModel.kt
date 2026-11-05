@@ -11,6 +11,8 @@ import chat.bipe.app.settings.SettingsModel
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.api.BipeApiException
+import chat.bipe.shared.api.BipeSeat
+import chat.bipe.shared.api.seats
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.settings.checkPin
 import chat.bipe.shared.weblink.BipeLinkComputer
@@ -56,7 +58,13 @@ class LinkComputerModel(
     private val settings: SettingsModel,
     private val scope: CoroutineScope,
     val mode: Mode = Mode.COMPUTER,
+    /** Mode PHONE, spec company-team-add: the person this phone adds. */
+    val person: PersonToAdd? = null,
+    /** The grant finished: the person's phone has its session and can claim the seat. */
+    private val onGrantDone: (() -> Unit)? = null,
 ) {
+    data class PersonToAdd(val seatId: String, val name: String, val accountName: String)
+
     private val session get() = settings.session
     private val matrix get() = BipeMatrixAccountApi(session.client.homeserver())
 
@@ -120,6 +128,9 @@ class LinkComputerModel(
         val isClosed: Boolean = false,
         /** Action approvePhone closed the flow: the screen opens the encryption-status sheet after it closes. */
         val opensApproval: Boolean = false,
+        /** Mode COMPUTER on a work account with more than one person: who the web session belongs to. */
+        val people: List<BipeSeat> = emptyList(),
+        val pickedSeatId: String? = null,
     ) {
         val canContinue: Boolean get() = secondsLeft == 0
     }
@@ -158,7 +169,19 @@ class LinkComputerModel(
             }
             _state.update { it.copy(support = support, scanPhase = if (cameraAllowed) ScanPhase.SCANNING else ScanPhase.CAMERA_DENIED) }
             if (support == Support.SUPPORTED && mode == Mode.PHONE) generate()
+            if (support == Support.SUPPORTED && mode == Mode.COMPUTER) loadPeople()
         }
+    }
+
+    /** Spec link-computer-approve pickPerson. A personal account answers not_found and the list stays empty. */
+    private suspend fun loadPeople() {
+        val list = runCatching { settings.authorized { settings.api.seats(it) } }.getOrNull() ?: return
+        if (list.me.role != "owner" || list.activeSeats.size < 2) return
+        _state.update { it.copy(people = list.activeSeats, pickedSeatId = list.me.seatId) }
+    }
+
+    fun pickPerson(seatId: String) {
+        _state.update { it.copy(pickedSeatId = seatId) }
     }
 
     fun cameraResult(allowed: Boolean) {
@@ -245,6 +268,7 @@ class LinkComputerModel(
             GrantGeneratedQrLoginProgress.SyncingSecrets -> _state.update { it.copy(approvePhase = ApprovePhase.FINISHING) }
             GrantGeneratedQrLoginProgress.Done -> {
                 _state.update { it.copy(approvePhase = ApprovePhase.DONE) }
+                onGrantDone?.invoke()
                 scope.launch { finish() }
             }
         }
@@ -534,7 +558,8 @@ class LinkComputerModel(
         consent = null
         val since = startedAt
         val kind = if (mode == Mode.COMPUTER) WebLinkKind.COMPUTER else WebLinkKind.PHONE
-        runCatching { settings.authorized { settings.api.finishWebLink(since, it, kind) } }
+        val seatId = person?.seatId ?: _state.value.pickedSeatId
+        runCatching { settings.authorized { settings.api.finishWebLink(since, it, kind, seatId) } }
             .onFailure { android.util.Log.w("Bipe", "web-link finish failed") }
     }
 

@@ -24,7 +24,10 @@ struct AccountRows: View {
                                userId: account.userId, isCompany: account.isCompany)
                     VStack(alignment: .leading, spacing: 0) {
                         Text(account.displayName).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
-                        if let owner = account.ownerName {
+                        if account.seatRole == "attendant" {
+                            Text(BipeStrings.teamYouHere).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                                .lineLimit(1)
+                        } else if let owner = account.ownerName {
                             Text(BipeStrings.accountCompanyOwner(owner)).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
                                 .lineLimit(1)
                         } else if let handle = account.handleLine {

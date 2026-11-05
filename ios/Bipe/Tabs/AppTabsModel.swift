@@ -17,6 +17,8 @@ struct AccountSummary: Identifiable, Equatable {
     var isCurrent: Bool
     var hasUnread: Bool
     var isCompany = false
+    /// Spec company-team: owner, attendant or none. nil on a personal account, or before it loads.
+    var seatRole: String?
     /// For a company account made on this phone: its owner's name, while the owner is on this phone (bipe-chat/bipe#444).
     var ownerName: String?
     var ownerId: String?
@@ -24,6 +26,9 @@ struct AccountSummary: Identifiable, Equatable {
     var isLoaded = false
 
     var id: String { userId }
+
+    /// A device of a work account that is not the owner's: it answers and does not run the account (ADR 0251).
+    var answersOnly: Bool { isCompany && (seatRole == "attendant" || seatRole == "none") }
 
     /// The @handle line under the name; none when the name already is the @handle.
     var handleLine: String? {
@@ -73,6 +78,7 @@ final class AppTabsModel: ObservableObject {
         var handle: String?
         var isCompany: Bool
         var maxAccounts: Int
+        var seatRole: String?
         /// The bipe-api part (@handle, company, account limit) has loaded too.
         var isLoaded = false
     }
@@ -216,11 +222,14 @@ final class AppTabsModel: ObservableObject {
         }
         let company = await media.isCompany(userId: userId)
         // A phone that just joined a company account takes the open owner window here (ADR 0251 point 13).
-        if company { _ = try? await session.business(api).seats() }
+        var seats: BipeSeatList?
+        if company { seats = try? await session.business(api).seats() }
+        if let role = seats?.me.role { CompanyRole.remember(role, userId: userId) }
         guard sessionIds.contains(userId), var loaded = profiles[userId] else { return }
         if let mine { loaded.handle = mine.handle }
         if let status { loaded.maxAccounts = max(1, status.maxAccounts ?? loaded.maxAccounts) }
         loaded.isCompany = company
+        loaded.seatRole = company ? seats?.me.role ?? (CompanyRole.isAttendant(userId) ? "attendant" : nil) : nil
         loaded.isLoaded = true
         profiles[userId] = loaded
         refresh()
@@ -302,6 +311,7 @@ final class AppTabsModel: ObservableObject {
                                   isCurrent: userId == currentId,
                                   hasUnread: latestChats[userId]?.contains { $0.isUnread } ?? false,
                                   isCompany: profile?.isCompany ?? false,
+                                  seatRole: profile?.seatRole,
                                   isLoaded: profile?.isLoaded ?? false)
         }
         accounts = Self.grouped(summaries)

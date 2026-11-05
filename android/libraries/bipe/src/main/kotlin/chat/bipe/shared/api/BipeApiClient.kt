@@ -492,6 +492,18 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** 409. The groups service account is not in the group or may not invite (ADR 0184). */
     GROUP_LINK_NO_ACCESS("group_link_no_access"),
+
+    /** 403. A device of a work account that is not the owner's (ADR 0251). */
+    OWNER_ONLY("owner_only"),
+
+    /** 409. The work account has the most people it can have (ADR 0252). */
+    SEAT_LIMIT("seat_limit"),
+
+    /** 409. Another phone is joining the work account now (ADR 0251). */
+    SEAT_WINDOW_OPEN("seat_window_open"),
+
+    /** 409. No phone can join the work account now (ADR 0251). */
+    SEAT_WINDOW_CLOSED("seat_window_closed"),
     ;
 
     companion object {

@@ -60,9 +60,14 @@ import chat.bipe.shared.generated.BipeScreen
  */
 @Composable
 internal fun OldPhoneScreen(flow: RecoveryFlowModel) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val model = remember(flow) { flow.oldPhoneModel(scope) }
+    OldPhoneContent(remember(flow) { flow.oldPhoneModel(scope) }, joining = false)
+}
+
+/** [joining]: spec company-team-join, the same steps with the words of joining a work account. */
+@Composable
+internal fun OldPhoneContent(model: OldPhoneModel, joining: Boolean) {
+    val context = LocalContext.current
     val state by model.state.collectAsState()
     val colors = BipeTheme.colors
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission(), model::cameraResult)
@@ -80,9 +85,9 @@ internal fun OldPhoneScreen(flow: RecoveryFlowModel) {
     ) {
         when (state.phase) {
             OldPhoneModel.Phase.SCANNING, OldPhoneModel.Phase.FAILED, OldPhoneModel.Phase.CAMERA_DENIED -> {
-                Title(stringResource(R.string.bipe_app_old_phone_title))
-                Text(stringResource(R.string.bipe_recovery_qr_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
-                Text(stringResource(R.string.bipe_app_old_phone_where), fontWeight = FontWeight.Bold, color = colors.inkPrimary, textAlign = TextAlign.Center)
+                Title(stringResource(if (joining) R.string.bipe_team_join_scan_title else R.string.bipe_app_old_phone_title))
+                Text(stringResource(if (joining) R.string.bipe_team_join_scan_body else R.string.bipe_recovery_qr_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
+                if (!joining) Text(stringResource(R.string.bipe_app_old_phone_where), fontWeight = FontWeight.Bold, color = colors.inkPrimary, textAlign = TextAlign.Center)
                 if (state.phase == OldPhoneModel.Phase.CAMERA_DENIED) {
                     Text(stringResource(R.string.bipe_camera_permission_body), color = colors.inkPrimary, textAlign = TextAlign.Center)
                     BipeOutlinedButton(onClick = {
@@ -92,7 +97,7 @@ internal fun OldPhoneScreen(flow: RecoveryFlowModel) {
                     QrScanner(onCode = model::codeRead, modifier = Modifier.widthIn(max = 320.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(16.dp)))
                 }
                 // Rule 5, at the moment of the scan.
-                Text(stringResource(R.string.bipe_recovery_qr_never_from_others), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)
+                if (!joining) Text(stringResource(R.string.bipe_recovery_qr_never_from_others), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)
                 if (model.canPaste) PasteField(state, model)
                 state.error?.let { error ->
                     Text(stringResource(R.string.bipe_app_old_phone_error_title), style = MaterialTheme.typography.titleMedium, color = colors.trustDangerInk)
@@ -105,7 +110,7 @@ internal fun OldPhoneScreen(flow: RecoveryFlowModel) {
                 Text(stringResource(R.string.bipe_app_old_phone_connecting), color = colors.inkSecondary)
             }
             OldPhoneModel.Phase.SHOW_CHECK_CODE -> {
-                Title(stringResource(R.string.bipe_app_old_phone_check_code_title))
+                Title(stringResource(if (joining) R.string.bipe_team_join_check_title else R.string.bipe_app_old_phone_check_code_title))
                 // Large; never read aloud or sent anywhere.
                 Text(
                     state.checkCode.orEmpty(),
@@ -115,7 +120,7 @@ internal fun OldPhoneScreen(flow: RecoveryFlowModel) {
                     color = colors.inkPrimary,
                     modifier = Modifier.semantics { heading() },
                 )
-                Text(stringResource(R.string.bipe_app_old_phone_check_code_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
+                Text(stringResource(if (joining) R.string.bipe_team_join_check_body else R.string.bipe_app_old_phone_check_code_body), color = colors.inkSecondary, textAlign = TextAlign.Center)
             }
             OldPhoneModel.Phase.WAITING_FOR_APPROVAL -> {
                 Title(stringResource(R.string.bipe_app_old_phone_waiting_title))

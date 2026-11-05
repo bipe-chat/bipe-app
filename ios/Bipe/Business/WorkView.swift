@@ -12,16 +12,19 @@ struct WorkView: View {
     private let api: BipeAPIClient
     /// Opens a chat in Conversas.
     private let openChat: (String) -> Void
+    /// This phone left the work account: the account goes from this phone.
+    private let onLeft: () async -> Void
     @StateObject private var people: PeopleService
     @StateObject private var home: WorkHomeModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var path = NavigationPath()
     private enum Destination: Hashable { case agenda, catalogOwner, ordersOwner, quotesOwner, queueOwner, brandMarks, kit, setup, team }
 
-    init(chatList: ChatListModel, api: BipeAPIClient, openChat: @escaping (String) -> Void) {
+    init(chatList: ChatListModel, api: BipeAPIClient, openChat: @escaping (String) -> Void, onLeft: @escaping () async -> Void) {
         self.chatList = chatList
         self.api = api
         self.openChat = openChat
+        self.onLeft = onLeft
         _people = StateObject(wrappedValue: PeopleService(session: chatList.session, api: api, media: chatList.media))
         _home = StateObject(wrappedValue: WorkHomeModel(api: chatList.session.business(api), accountId: chatList.session.userId))
     }
@@ -70,9 +73,9 @@ struct WorkView: View {
                 case .kit:
                     BusinessKitView(people: people)
                 case .team:
-                    CompanyTeamView(home: home, session: chatList.session, api: api)
+                    CompanyTeamView(home: home, session: chatList.session, api: api, onLeft: onLeft)
                 case .setup:
-                    WorkSetupView(model: home, people: people, openTool: open(tool:))
+                    WorkSetupView(model: home, people: people, openTool: open(tool:), openTeam: { path.append(Destination.team) })
                 }
             }
         }

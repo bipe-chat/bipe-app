@@ -39,6 +39,8 @@ import chat.bipe.app.common.BipeToasts
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeProfileLink
 import chat.bipe.shared.R
+import chat.bipe.shared.api.BipeApiErrorCode
+import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeBusinessToday
 import chat.bipe.shared.api.BipeBusinessTool
 import chat.bipe.shared.api.BipeBookingStatus
@@ -59,6 +61,7 @@ import chat.bipe.shared.api.seats as readSeats
 import chat.bipe.shared.api.setBusinessTool
 import chat.bipe.shared.api.setWorkSector
 import chat.bipe.shared.api.setWebSettings
+import chat.bipe.shared.api.skipSecondSeat
 import chat.bipe.shared.api.webSettings
 import chat.bipe.shared.api.workLinkOpened
 import chat.bipe.shared.api.workSetup
@@ -121,8 +124,24 @@ class WorkHomeModel(val business: BusinessApi, private val context: Context) {
     }
 
     suspend fun seatAction(call: suspend () -> BipeSeatList) {
-        val updated = read { call() }
-        if (updated == null) BipeToasts.show(context.getString(R.string.bipe_team_error)) else seats = updated
+        try {
+            seats = call()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            BipeToasts.show(context.getString(seatMessage(error)))
+        }
+    }
+
+    /** Only the owner answers: the second_seat step counts as done (ADR 0252). */
+    suspend fun skipSecondSeat() {
+        try {
+            setup = business.withToken { skipSecondSeat(it) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            BipeToasts.show(context.getString(seatMessage(error)))
+        }
     }
 
     suspend fun saveSector(id: String?) {
@@ -174,6 +193,11 @@ class WorkHomeModel(val business: BusinessApi, private val context: Context) {
         load()
     }
 }
+
+/** bipe_team_owner_only for owner_only, else the plain error of the seat screens. */
+@StringRes
+fun seatMessage(error: Exception): Int =
+    if ((error as? BipeApiException.Server)?.code == BipeApiErrorCode.OWNER_ONLY) R.string.bipe_team_owner_only else R.string.bipe_team_error
 
 /** Text of the registry IDs (registries/business-tools.json). */
 object WorkText {
@@ -277,7 +301,8 @@ fun WorkHomeSections(
     model.today?.let { TodaySection(it, model, run, openTool) }
     val setup = model.setup
     val next = setup?.steps?.firstOrNull { !it.done }
-    if (setup != null && next != null) {
+    // Spec company-team: the setup path is for the owner.
+    if (setup != null && next != null && (model.seats?.me?.role ?: "owner") == "owner") {
         SectionTitle(stringResource(R.string.bipe_work_next_step))
         WorkRow(
             WorkText.stepTitle(next.id, setup.firstTool),
@@ -386,7 +411,7 @@ private fun TodaySection(today: BipeBusinessToday, model: WorkHomeModel, run: (s
 
 /** Spec work-setup: the full list of steps. The server computes each one; the owner does not tick a step by hand. */
 @Composable
-fun WorkSetupScreen(model: WorkHomeModel, run: (suspend () -> Unit) -> Unit, openTool: (String) -> Unit, onClose: () -> Unit) {
+fun WorkSetupScreen(model: WorkHomeModel, run: (suspend () -> Unit) -> Unit, openTool: (String) -> Unit, openTeam: () -> Unit, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val setup = model.setup
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).testTag(BipeScreen.WORK_SETUP.id)) {
@@ -400,11 +425,17 @@ fun WorkSetupScreen(model: WorkHomeModel, run: (suspend () -> Unit) -> Unit, ope
                     "catalog" -> ({ openTool("catalog") })
                     "first_tool" -> ({ openTool(plan.firstTool) })
                     "link" -> ({ run { model.shareLink() } })
+                    "second_seat" -> openTeam
                     // Perfil and Selo live under Você on the phone: the row says what to do.
                     else -> null
                 }
                 WorkRow(WorkText.stepTitle(step.id, plan.firstTool), WorkText.stepBody(step.id),
                     if (step.done) PhosphorIcon.CHECK_CIRCLE else null, onClick = open)
+                if (step.id == "second_seat" && !step.done) {
+                    TextButton(onClick = { run { model.skipSecondSeat() } }, modifier = Modifier.padding(horizontal = 8.dp)) {
+                        Text(stringResource(R.string.bipe_work_step_second_seat_skip))
+                    }
+                }
             }
         }
         setup?.let {

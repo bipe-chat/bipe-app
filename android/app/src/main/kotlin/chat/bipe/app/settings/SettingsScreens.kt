@@ -339,9 +339,10 @@ fun SettingsPage(title: String, tag: String, onBack: () -> Unit, content: LazyLi
  * Spec settings-root: one row per group of BipeSettings root, laid out as the iPhone Settings app: icon tile, title,
  * the current state as the subtitle (ADR 0112).
  */
-fun LazyListScope.SettingsRootSection(model: SettingsModel, onOpenGroup: (BipeSettingsGroup) -> Unit) {
+fun LazyListScope.SettingsRootSection(model: SettingsModel, onOpenGroup: (BipeSettingsGroup) -> Unit, hidesAccount: Boolean = false) {
     item(key = "settings-root-header") { SectionHeader(stringResource(R.string.bipe_settings_section)) }
-    items(BipeSettingsGroup.root, key = { "settings-root-${it.name}" }) { group ->
+    // Spec company-team: a person who answers for a work account has no ways back or credentials of its own.
+    items(BipeSettingsGroup.root.filter { !hidesAccount || it != BipeSettingsGroup.ACCOUNT }, key = { "settings-root-${it.name}" }) { group ->
         val state by model.state.collectAsState()
         val attention = model.needsAttention(state, group)
         // chats: read here from AppTheme state, so the summary follows a change made in the group screen.

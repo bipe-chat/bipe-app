@@ -230,11 +230,43 @@ public struct BipeSeatList: Decodable, Sendable, Equatable {
 }
 
 private struct SeatDeviceAssign: Encodable { let seatId: String }
+private struct SeatName: Encodable { let name: String }
+private struct SeatClaim: Encodable { let attestation: BipeAttestation }
 
 extension BipeBusinessAPI {
     /// `GET /v1/me/business/seats`. Also lets a phone that just joined take the open owner window.
     public func seats() async throws(BipeAPIError) -> BipeSeatList {
         try await request("GET", ["v1", "me", "business", "seats"])
+    }
+
+    /// `POST /v1/me/business/seats`. A waiting attendant, with the window open for their phone.
+    public func createSeat(name: String) async throws(BipeAPIError) -> BipeSeat {
+        try await request("POST", ["v1", "me", "business", "seats"], json: SeatName(name: name))
+    }
+
+    /// `PATCH /v1/me/business/seats/{seatId}`.
+    public func renameSeat(id: String, name: String) async throws(BipeAPIError) -> BipeSeat {
+        try await request("PATCH", ["v1", "me", "business", "seats", id], json: SeatName(name: name))
+    }
+
+    /// `DELETE /v1/me/business/seats/{seatId}`. Ends every session of the person.
+    public func removeSeat(id: String) async throws(BipeAPIError) -> BipeSeatList {
+        try await request("DELETE", ["v1", "me", "business", "seats", id])
+    }
+
+    /// `POST /v1/me/business/seats/claim`. The device of the token joins the seat with the open window.
+    public func claimSeat(attestation: BipeAttestation) async throws(BipeAPIError) -> BipeSeatList {
+        try await request("POST", ["v1", "me", "business", "seats", "claim"], json: SeatClaim(attestation: attestation))
+    }
+
+    /// `POST /v1/me/business/seats/leave`. An attendant only. Ends every session of the person.
+    public func leaveSeat() async throws(BipeAPIError) -> BipeSeatList {
+        try await request("POST", ["v1", "me", "business", "seats", "leave"], json: Empty())
+    }
+
+    /// `POST /v1/me/business/setup/second-seat-skip`. Only the owner answers.
+    public func skipSecondSeat() async throws(BipeAPIError) -> BipeWorkSetup {
+        try await request("POST", ["v1", "me", "business", "setup", "second-seat-skip"], json: Empty())
     }
 
     /// `POST /v1/me/business/seats/{seatId}/window`. Only the owner's own seat.
