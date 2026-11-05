@@ -6,7 +6,8 @@
 // and NativeDmSelection on iOS; spec group-create). People come from the account's DMs and the homeserver
 // user directory (Client.searchUsers). A DM reuses the newest joined DM with the person (ADR 0141, the
 // generated rule newestDmRooms); a new one is encrypted, trusted private, invites the person, and then
-// writes the DM power levels of registries dmPowerLevels. A group is encrypted, private, with the defaults
+// writes the DM power levels of registries dmPowerLevels. Every room is room version 12, where the server refuses
+// a creator in the users map with a 400, so the map stays empty in both writes. A group is encrypted, private, with the defaults
 // of the privateChat preset; people are invited one by one after the create.
 
 import { useEffect, useState } from 'react';
@@ -78,7 +79,6 @@ export async function openOrCreateDm(client: Client, peer: string): Promise<stri
   }
   const existing = (newestDmRooms(candidates) as Record<string, string>)[peer];
   if (existing) return existing;
-  const me = client.userId();
   const roomId = await client.createRoom({
     name: undefined,
     topic: undefined,
@@ -89,10 +89,7 @@ export async function openOrCreateDm(client: Client, peer: string): Promise<stri
     invite: [peer],
     avatar: undefined,
     powerLevelContentOverride: {
-      users: new Map([
-        [me, dmPowerLevels.createLevel],
-        [peer, dmPowerLevels.usersDefault],
-      ]),
+      users: new Map(),
       events: new Map(),
     },
     joinRuleOverride: undefined,
@@ -102,7 +99,7 @@ export async function openOrCreateDm(client: Client, peer: string): Promise<stri
   });
   // A failed second write leaves a usable DM where only the account can invite or change it.
   const room = await roomWhenSynced(client, roomId);
-  await room?.sendStateEventRaw('m.room.power_levels', '', dmPowerLevelsContent([me, peer])).catch(() => undefined);
+  await room?.sendStateEventRaw('m.room.power_levels', '', dmPowerLevelsContent([])).catch(() => undefined);
   return roomId;
 }
 

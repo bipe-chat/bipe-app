@@ -312,14 +312,13 @@ final class PeopleService: ObservableObject {
         return try await createDM(with: userId)
     }
 
-    /// A new DM with the person (spec person-profile notes). The user is at BipeDmPowerLevels.createLevel and the
-    /// person at 0 while the server writes the first state and the invite; then the DM power levels of
-    /// registries/dm-power-levels.json put both at 0. A failed second write leaves a usable DM.
+    /// A new DM with the person (spec person-profile notes). Every room is room version 12, where the server refuses
+    /// a creator in the users map with a 400, so the map stays empty in the create and in the second write. The second
+    /// write sets the DM power levels of registries/dm-power-levels.json. A failed second write leaves a usable DM.
     func createDM(with userId: String) async throws -> String {
-        let me = session.userId
         let powerLevels = PowerLevels(usersDefault: nil, eventsDefault: nil, stateDefault: nil,
                                       ban: nil, kick: nil, redact: nil, invite: nil, notifications: nil,
-                                      users: [me: Int32(BipeDmPowerLevels.createLevel), userId: Int32(BipeDmPowerLevels.usersDefault)],
+                                      users: [:],
                                       events: [:])
         let parameters = CreateRoomParameters(name: nil, isEncrypted: true, isDirect: true,
                                               visibility: .private, preset: .trustedPrivateChat,
@@ -334,16 +333,16 @@ final class PeopleService: ObservableObject {
             }
             throw error
         }
-        await lockDM(roomId: roomId, userIds: [me, userId])
+        await lockDM(roomId: roomId)
         return roomId
     }
 
     /// Room.sendStateEventRaw with the m.room.power_levels content of a new DM (ADR 0141, bipe-chat/bipe#532).
-    private func lockDM(roomId: String, userIds: [String]) async {
+    private func lockDM(roomId: String) async {
         for attempt in 1...5 {
             if let room = try? session.client.getRoom(roomId: roomId) {
                 _ = try? await room.sendStateEventRaw(eventType: "m.room.power_levels", stateKey: "",
-                                                      content: BipeDmPowerLevels.content(userIds: userIds))
+                                                      content: BipeDmPowerLevels.content(userIds: []))
                 return
             }
             // The created room reaches the local store with the next sync.
