@@ -82,6 +82,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// My business: claim and verify the company (flow voce). Spec: bipe-shared/product/screens/business-claim.json
     case businessClaim = "business-claim"
 
+    /// Promotion kit of a work account (flow business). Spec: bipe-shared/product/screens/business-kit.json
+    case businessKit = "business-kit"
+
     /// Business tools (flow business). Spec: bipe-shared/product/screens/business-tools.json
     case businessTools = "business-tools"
 
