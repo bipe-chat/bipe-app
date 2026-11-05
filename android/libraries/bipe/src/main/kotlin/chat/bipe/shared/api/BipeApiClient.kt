@@ -589,6 +589,9 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.KEEP_LIMIT ->
                 context.getString(R.string.bipe_voice_keep_limit, BipeRegistries.VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT.toString())
             BipeApiErrorCode.GROUP_LINK_NO_ACCESS -> context.getString(R.string.bipe_group_link_error_access)
+            BipeApiErrorCode.OWNER_ONLY -> context.getString(R.string.bipe_team_owner_only)
+            BipeApiErrorCode.SEAT_LIMIT, BipeApiErrorCode.SEAT_WINDOW_OPEN -> context.getString(R.string.bipe_team_error)
+            BipeApiErrorCode.SEAT_WINDOW_CLOSED -> context.getString(R.string.bipe_team_add_expired)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID,
             BipeApiErrorCode.PASSWORD_WEAK, BipeApiErrorCode.SUPPORT_UNAVAILABLE ->
                 context.getString(R.string.bipe_error_generic)
