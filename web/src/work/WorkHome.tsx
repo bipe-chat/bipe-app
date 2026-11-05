@@ -79,9 +79,10 @@ export function WorkHome({
       client.workSetup().catch(() => undefined),
       client.workSuggestions().then((r) => r.suggestions).catch(() => []),
     ]);
+    const seats = await client.seats().catch(() => undefined);
     const hasLive = tools?.tools.some((t) => t.state === 'live');
     const today = hasLive ? await client.businessToday().catch(() => undefined) : undefined;
-    return { tools, setup, suggestion: suggestions[0], today };
+    return { tools, setup, suggestion: suggestions[0], today, seats };
   }, [client]);
   const action = useAction();
   const [blocked, setBlocked] = useState<BusinessToolStatus>();
@@ -100,6 +101,9 @@ export function WorkHome({
   const nextStep = data?.setup?.steps.find((step) => !step.done);
   const rows = data?.tools?.tools.filter((t) => t.state !== 'off') ?? [];
   const off = data?.tools?.tools.filter((t) => t.state === 'off') ?? [];
+  const people = data?.seats?.seats.filter((seat) => seat.status === 'active').length;
+  const teamSummary =
+    people === undefined ? undefined : people > 1 ? s('bipe_team_row_people', String(people)) : s('bipe_team_row_alone');
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-grouped-screen">
@@ -230,6 +234,7 @@ export function WorkHome({
             )
           )}
           <Section>
+            <ToolRow title={s('bipe_team_title')} subtitle={teamSummary} onClick={() => onOpen('quem-atende')} />
             <ToolRow title={s('bipe_work_hours_title')} onClick={() => onOpen('horario')} />
             <ToolRow
               title={s('bipe_work_sector_row')}

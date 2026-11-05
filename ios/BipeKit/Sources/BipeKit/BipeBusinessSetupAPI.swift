@@ -191,3 +191,64 @@ extension BipeBusinessAPI {
     private struct Suggestions: Decodable { let suggestions: [BipeWorkSuggestion] }
     private struct LiveTools: Decodable { let tools: [String] }
 }
+
+// MARK: - People on a work account (ADR 0251, ADR 0252; contract /v1/me/business/seats)
+
+public struct BipeSeatDevice: Decodable, Sendable, Identifiable, Equatable {
+    public let deviceId: String
+    public let kind: String
+    public let displayName: String?
+    public let addedAt: String
+    public var id: String { deviceId }
+}
+
+public struct BipeSeat: Decodable, Sendable, Identifiable, Equatable {
+    public let id: String
+    public let name: String
+    public let role: String
+    public let status: String
+    public let devices: [BipeSeatDevice]
+    public let windowExpiresAt: String?
+}
+
+public struct BipeSeatMe: Decodable, Sendable, Equatable {
+    public let seatId: String?
+    public let name: String?
+    /// owner, attendant or none. A device with none has no owner rights.
+    public let role: String
+}
+
+public struct BipeSeatList: Decodable, Sendable, Equatable {
+    public let me: BipeSeatMe
+    public let seats: [BipeSeat]
+    public let unassignedDevices: [BipeSeatDevice]
+    public let maxPeople: Int
+    public let backupRotationPending: Bool
+
+    /// The people who answer now. A waiting seat is not one yet.
+    public var activeSeats: [BipeSeat] { seats.filter { $0.status == "active" } }
+}
+
+private struct SeatDeviceAssign: Encodable { let seatId: String }
+
+extension BipeBusinessAPI {
+    /// `GET /v1/me/business/seats`. Also lets a phone that just joined take the open owner window.
+    public func seats() async throws(BipeAPIError) -> BipeSeatList {
+        try await request("GET", ["v1", "me", "business", "seats"])
+    }
+
+    /// `POST /v1/me/business/seats/{seatId}/window`. Only the owner's own seat.
+    public func openSeatWindow(seatId: String) async throws(BipeAPIError) -> BipeSeat {
+        try await request("POST", ["v1", "me", "business", "seats", seatId, "window"], json: Empty())
+    }
+
+    /// `PUT /v1/me/business/seats/devices/{deviceId}`. A device with no person joins a seat.
+    public func assignSeatDevice(deviceId: String, seatId: String) async throws(BipeAPIError) -> BipeSeatList {
+        try await request("PUT", ["v1", "me", "business", "seats", "devices", deviceId], json: SeatDeviceAssign(seatId: seatId))
+    }
+
+    /// `DELETE /v1/me/business/seats/devices/{deviceId}`. Ends the session of that device.
+    public func removeSeatDevice(deviceId: String) async throws(BipeAPIError) -> BipeSeatList {
+        try await request("DELETE", ["v1", "me", "business", "seats", "devices", deviceId])
+    }
+}

@@ -45,6 +45,7 @@ import chat.bipe.shared.api.BipeBookingStatus
 import chat.bipe.shared.api.BipeOrderStatus
 import chat.bipe.shared.api.BipeOwnerBookingAction
 import chat.bipe.shared.api.BipeOwnerOrderAction
+import chat.bipe.shared.api.BipeSeatList
 import chat.bipe.shared.api.BipeWebSettings
 import chat.bipe.shared.api.BipeWorkSetup
 import chat.bipe.shared.api.BipeWorkSuggestion
@@ -54,6 +55,7 @@ import chat.bipe.shared.api.callNextInQueue
 import chat.bipe.shared.api.dismissWorkSuggestion
 import chat.bipe.shared.api.ownerBookingAction
 import chat.bipe.shared.api.ownerOrderAction
+import chat.bipe.shared.api.seats as readSeats
 import chat.bipe.shared.api.setBusinessTool
 import chat.bipe.shared.api.setWorkSector
 import chat.bipe.shared.api.setWebSettings
@@ -80,6 +82,9 @@ class WorkHomeModel(val business: BusinessApi, private val context: Context) {
         private set
     var today by mutableStateOf<BipeBusinessToday?>(null)
         private set
+    /** Spec company-team. null until read: the row shows no summary and still opens the screen. */
+    var seats by mutableStateOf<BipeSeatList?>(null)
+        private set
     var askSector by mutableStateOf(false)
     /** The owner's web switches (ADR 0195). */
     var web by mutableStateOf<BipeWebSettings?>(null)
@@ -103,11 +108,21 @@ class WorkHomeModel(val business: BusinessApi, private val context: Context) {
         }
         setup = read { business.withToken { workSetup(it) } }
         web = read { business.withToken { webSettings(it) } }
+        loadSeats()
         suggestion = read { business.withToken { workSuggestions(it) } }?.firstOrNull()
         val hasLive = tools?.any { it.state == BipeBusinessTool.LIVE } == true
         today = if (hasLive) read { business.withToken { businessToday(it) } } else null
         // Spec work-sector: once, on a new work account. Pular and a pick both mark it.
         if (setup != null && sector == null && setup?.doneCount == 0 && !prefs.getBoolean(askedKey, false)) askSector = true
+    }
+
+    suspend fun loadSeats() {
+        read { business.withToken { readSeats(it) } }?.let { seats = it }
+    }
+
+    suspend fun seatAction(call: suspend () -> BipeSeatList) {
+        val updated = read { call() }
+        if (updated == null) BipeToasts.show(context.getString(R.string.bipe_team_error)) else seats = updated
     }
 
     suspend fun saveSector(id: String?) {
@@ -246,6 +261,7 @@ fun WorkHomeSections(
     openSetup: () -> Unit,
     openBrandMarks: () -> Unit,
     openKit: () -> Unit,
+    openTeam: () -> Unit,
 ) {
     var blocked by remember { mutableStateOf<BipeBusinessTool?>(null) }
     val turnOn: (BipeBusinessTool) -> Unit = { tool ->
@@ -302,6 +318,17 @@ fun WorkHomeSections(
         }
     }
     Column(Modifier.padding(top = 12.dp)) {
+        val people = model.seats?.activeSeats?.size
+        WorkRow(
+            stringResource(R.string.bipe_team_title),
+            when {
+                people == null -> null
+                people > 1 -> stringResource(R.string.bipe_team_row_people, people.toString())
+                else -> stringResource(R.string.bipe_team_row_alone)
+            },
+            PhosphorIcon.USERS_THREE,
+            onClick = openTeam,
+        )
         WorkRow(
             stringResource(R.string.bipe_work_sector_row),
             model.sector?.let { stringResource(WorkText.sector(it)) } ?: stringResource(R.string.bipe_work_sector_none),

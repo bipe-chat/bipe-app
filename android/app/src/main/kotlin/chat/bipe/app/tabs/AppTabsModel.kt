@@ -13,6 +13,7 @@ import chat.bipe.app.chatlist.ChatSummary
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.voce.NotesRoom
 import chat.bipe.app.invites.InvitesModel
+import chat.bipe.shared.api.seats
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.coroutines.CoroutineScope
@@ -193,6 +194,8 @@ class AppTabsModel(
         val status = runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { start.api.account(it) } }.getOrNull()
         val loader = mediaLoaders[session.userId] ?: return
         val company = loader.isCompany(session.userId)
+        // A phone that just joined a company account takes the open owner window here (ADR 0251 point 13).
+        if (company) runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { start.api.seats(it) } }
         if (session.userId !in sessionIds) return
         accountList.rememberName(session.userId, displayName)
         mine?.handle?.let { chat.bipe.shared.BipeHandleCache.store(it, session.userId) }
