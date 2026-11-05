@@ -152,6 +152,18 @@ final class LinkComputerModel: ObservableObject {
     }
 
     let mode: Mode
+    /// Mode phone, spec company-team-add: the person this phone adds, with the name of the work account.
+    struct PersonToAdd: Equatable {
+        let seatId: String
+        let name: String
+        let accountName: String
+    }
+    let person: PersonToAdd?
+    /// The grant finished: the person's phone has its session and can claim the seat.
+    private let onGrantDone: (() -> Void)?
+    /// Mode computer on a work account with more than one person: who the web session belongs to.
+    @Published private(set) var people: [BipeSeat] = []
+    @Published var pickedSeatId: String?
 
     @Published private(set) var support: Support = .checking
     @Published private(set) var step: Step = .scan
@@ -203,9 +215,11 @@ final class LinkComputerModel: ObservableObject {
     /// Held only between the owner check and the one post of the MAS login form.
     private var password: String?
 
-    init(settings: SettingsModel, mode: Mode = .computer) {
+    init(settings: SettingsModel, mode: Mode = .computer, person: PersonToAdd? = nil, onGrantDone: (() -> Void)? = nil) {
         self.settings = settings
         self.mode = mode
+        self.person = person
+        self.onGrantDone = onGrantDone
         step = mode == .computer ? .scan : .show
     }
 
@@ -236,9 +250,19 @@ final class LinkComputerModel: ObservableObject {
         }
         guard support == .supported else { return }
         switch mode {
-        case .computer: await askCamera()
+        case .computer:
+            await loadPeople()
+            await askCamera()
         case .phone: generate()
         }
+    }
+
+    /// Spec link-computer-approve pickPerson. A personal account answers not_found and the list stays empty.
+    private func loadPeople() async {
+        guard let list = try? await session.business(settings.api).seats(), list.me.role == "owner",
+              list.activeSeats.count > 1 else { return }
+        people = list.activeSeats
+        pickedSeatId = list.me.seatId
     }
 
     private func askCamera() async {
@@ -416,6 +440,7 @@ final class LinkComputerModel: ObservableObject {
             approvePhase = .finishing
         case .done:
             approvePhase = .done
+            onGrantDone?()
             Task { await finish() }
         }
     }
@@ -662,9 +687,10 @@ final class LinkComputerModel: ObservableObject {
         let api = settings.api
         let since = startedAt
         let kind: WebLinkKind = mode == .computer ? .computer : .phone
+        let seatId = person?.seatId ?? pickedSeatId
         do {
             try await settings.authorized { (token: String) async throws(BipeAPIError) in
-                try await api.finishWebLink(since: since, kind: kind, accessToken: token)
+                try await api.finishWebLink(since: since, kind: kind, seatId: seatId, accessToken: token)
             }
         } catch {
             NSLog("Bipe web-link finish failed")

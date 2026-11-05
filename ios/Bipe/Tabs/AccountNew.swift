@@ -90,6 +90,7 @@ struct AccountNewView: View {
     @StateObject private var model: AccountNewModel
     @State private var signup: SignupStart?
     @State private var showsExisting = false
+    @State private var showsJoin = false
     @State private var recoveryLink: URL?
 
     /// preset: a sign-up that already has its invite (invite-signed-in newAccount).
@@ -116,6 +117,14 @@ struct AccountNewView: View {
                 close()
                 tabs.start.didRecover(session)
             }
+        } else if showsJoin {
+            NavigationStack {
+                CompanyTeamJoinView(api: api, close: { showsJoin = false }) { session in
+                    close()
+                    tabs.start.didRecover(session)
+                }
+            }
+            .tint(BipeColor.accentFill)
         } else {
             choices
         }
@@ -162,6 +171,9 @@ struct AccountNewView: View {
                     choice(icon: .key, title: BipeStrings.accountNewExisting, body: BipeStrings.accountNewExistingBody,
                            enabled: true) {
                         showsExisting = true
+                    }
+                    choice(icon: .usersThree, title: BipeStrings.teamJoinRow, body: BipeStrings.teamJoinRowBody, enabled: true) {
+                        showsJoin = true
                     }
                 }
             }

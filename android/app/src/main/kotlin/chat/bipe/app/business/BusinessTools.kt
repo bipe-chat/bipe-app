@@ -125,7 +125,7 @@ fun BusinessToolsSection(session: AccountSession, chatList: ChatListModel, onOpe
                 ToolScreen.QUEUE -> QueueOwnerScreen(business, customers, onClose = { open = null })
                 ToolScreen.BRAND_MARKS -> BrandMarksScreen(business, onClose = { open = null })
                 ToolScreen.KIT -> BusinessKitScreen(business, onClose = { open = null })
-                ToolScreen.SETUP -> WorkSetupScreen(home, run, openTool, onClose = { open = null })
+                ToolScreen.SETUP -> WorkSetupScreen(home, run, openTool, openTeam = { open = ToolScreen.TEAM }, onClose = { open = null })
                 ToolScreen.TEAM -> CompanyTeamScreen(home, session, run, onClose = { open = null })
             }
         }

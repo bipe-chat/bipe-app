@@ -81,6 +81,8 @@ class RecoveryReminderModel(
     val session: AccountSession,
     private val scope: CoroutineScope,
 ) {
+    private val attendant = chat.bipe.app.business.CompanyRole.isAttendant(context, session.userId)
+
     data class State(
         /** Null until GET /v1/me/account answers. */
         val account: BipeAccountWays? = null,
@@ -103,6 +105,8 @@ class RecoveryReminderModel(
 
     /** State visible. Unknown account state (offline, older server) shows no card. */
     fun showsCard(state: State): Boolean {
+        // Spec company-team: a person who answers for a work account has no ways back of their own.
+        if (attendant) return false
         if (state.account?.independentRecovery != false) return false
         val since = Instant.ofEpochMilli(preferences.getLong(sinceKey, System.currentTimeMillis()))
         return BipeRecoveryReminder.isDue(Instant.now(), since, state.snoozedUntil)

@@ -40,13 +40,24 @@ struct VoceView: View {
                 // (bipe-chat/bipe#894): chat-list-prompt shows every ask.
                 if let account = model.accounts.first(where: \.isCurrent) {
                     Section {
-                        NavigationLink(value: PeopleRoute.profileEdit) {
+                        if account.answersOnly {
                             VoceProfileRow(account: account, media: chatList.media)
+                            if account.seatRole == "attendant" {
+                                CompanyLeaveButton(accountName: account.displayName, api: chatList.session.business(api)) {
+                                    await model.start.signOut(userId: chatList.session.userId, alreadyLoggedOut: true)
+                                }
+                            }
+                        } else {
+                            NavigationLink(value: PeopleRoute.profileEdit) {
+                                VoceProfileRow(account: account, media: chatList.media)
+                            }
+                            .accessibilityHint(BipeStrings.settingsProfile)
                         }
-                        .accessibilityHint(BipeStrings.settingsProfile)
                     }
-                    TrustCardSection(profile: trust.profile(for: account), actions: trustActions,
-                                     openLadder: { path.append(Destination.trust) })
+                    if !account.answersOnly {
+                        TrustCardSection(profile: trust.profile(for: account), actions: trustActions,
+                                         openLadder: { path.append(Destination.trust) })
+                    }
                 }
                 Section {
                     Button(action: openNotes) {
@@ -68,12 +79,14 @@ struct VoceView: View {
                         }
                     }
                 }
-                Section {
-                    NavigationLink(value: Destination.invites) {
-                        VoceTileLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
+                if model.accounts.first(where: \.isCurrent)?.answersOnly != true {
+                    Section {
+                        NavigationLink(value: Destination.invites) {
+                            VoceTileLabel(icon: .userPlus, text: BipeStrings.invitesTitle)
+                        }
                     }
                 }
-                SettingsRootSection(model: settings)
+                SettingsRootSection(model: settings, hidesAccount: model.accounts.first(where: \.isCurrent)?.answersOnly == true)
                 // Spec voce (MZ, 4 Nov 2026): the accounts stay in the switcher, which this row opens too, as the Você
                 // tab does (hold, VoiceOver action). Adicionar conta is the last row (spec account-new).
                 Section {

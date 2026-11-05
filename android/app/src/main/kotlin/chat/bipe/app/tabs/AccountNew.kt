@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountList
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.business.CompanyTeamJoinScreen
 import chat.bipe.app.people.PeopleScaffold
 import chat.bipe.app.recovery.RecoveryFlowModel
 import chat.bipe.app.recovery.RecoveryFlowScreen
@@ -149,6 +150,7 @@ fun AccountNewScreen(
     val tabsState by tabs.state.collectAsState()
     var signup by remember { mutableStateOf(preset) }
     var showsExisting by remember { mutableStateOf(false) }
+    var showsJoin by remember { mutableStateOf(false) }
     LaunchedEffect(model) { model.appear() }
 
     val start = signup
@@ -179,6 +181,14 @@ fun AccountNewScreen(
         }
         BackHandler { showsExisting = false }
         RecoveryFlowScreen(recovery, onClose = { showsExisting = false })
+        return
+    }
+    if (showsJoin) {
+        BackHandler { showsJoin = false }
+        CompanyTeamJoinScreen(api, tabs.start.sessionStore, onClose = { showsJoin = false }, onDone = { joined ->
+            onClose()
+            tabs.start.didRecover(joined)
+        })
         return
     }
     BackHandler(onBack = onClose)
@@ -218,6 +228,14 @@ fun AccountNewScreen(
             enabled = !state.busy,
         ) {
             showsExisting = true
+        }
+        ChoiceRow(
+            PhosphorIcon.USERS_THREE,
+            stringResource(R.string.bipe_team_join_row),
+            stringResource(R.string.bipe_team_join_row_body),
+            enabled = !state.busy,
+        ) {
+            showsJoin = true
         }
     }
 }

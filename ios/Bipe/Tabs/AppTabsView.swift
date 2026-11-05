@@ -83,6 +83,8 @@ struct AppTabsView: View {
                     WorkView(chatList: chatList, api: api, openChat: { roomId in
                         model.selectTab(.conversas)
                         TabsLinks.shared.link = .chat(roomId)
+                    }, onLeft: {
+                        await model.start.signOut(userId: session.userId, alreadyLoggedOut: true)
                     })
                     .id(session.userId)
                 } label: {

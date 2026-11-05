@@ -7,6 +7,7 @@ package chat.bipe.app.tabs
 import chat.bipe.app.account.AccountList
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.AccountStartModel
+import chat.bipe.app.business.CompanyRole
 import chat.bipe.app.chatlist.ChatListModel
 import chat.bipe.app.chatlist.ChatScope
 import chat.bipe.app.chatlist.ChatSummary
@@ -33,12 +34,17 @@ data class AccountSummary(
     val isCurrent: Boolean,
     val hasUnread: Boolean,
     val isCompany: Boolean = false,
+    /** Spec company-team: owner, attendant or none. null on a personal account, or before it loads. */
+    val seatRole: String? = null,
     /** For a company account made on this phone: its owner, while the owner is on this phone (bipe-chat/bipe#444). */
     val ownerId: String? = null,
     val ownerName: String? = null,
     /** true once the profile (name, photo, @) has loaded. */
     val isLoaded: Boolean = false,
-)
+) {
+    /** A device of a work account that is not the owner's: it answers and does not run the account (ADR 0251). */
+    val answersOnly: Boolean get() = isCompany && (seatRole == "attendant" || seatRole == "none")
+}
 
 /**
  * Spec app-tabs (bipe-shared product/screens/app-tabs.json).
@@ -77,7 +83,7 @@ class AppTabsModel(
     private val inviteModels = mutableMapOf<String, InvitesModel>()
     private val listJobs = mutableMapOf<String, Job>()
     private val latestChats = mutableMapOf<String, List<ChatSummary>>()
-    private data class Profile(val name: String, val avatar: String?, val handle: String?, val company: Boolean, val limit: Int)
+    private data class Profile(val name: String, val avatar: String?, val handle: String?, val company: Boolean, val limit: Int, val seatRole: String? = null)
     private val profiles = mutableMapOf<String, Profile>()
     private val mediaLoaders = mutableMapOf<String, MediaLoader>()
     private var sessionIds: List<String> = emptyList()
@@ -195,12 +201,14 @@ class AppTabsModel(
         val loader = mediaLoaders[session.userId] ?: return
         val company = loader.isCompany(session.userId)
         // A phone that just joined a company account takes the open owner window here (ADR 0251 point 13).
-        if (company) runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { start.api.seats(it) } }
+        val role = if (company) runCatching { BipeApiClient.withTokenRetry({ session.accessToken() }) { start.api.seats(it) } }.getOrNull()?.me?.role else null
+        if (role != null) CompanyRole.remember(start.appContext, session.userId, role)
         if (session.userId !in sessionIds) return
         accountList.rememberName(session.userId, displayName)
         mine?.handle?.let { chat.bipe.shared.BipeHandleCache.store(it, session.userId) }
         profiles[session.userId] = Profile(displayName, avatarUrl, mine?.handle, company,
-            (status?.maxAccounts ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS).coerceAtLeast(1))
+            (status?.maxAccounts ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS).coerceAtLeast(1),
+            if (company) role ?: "attendant".takeIf { CompanyRole.isAttendant(start.appContext, session.userId) } else null)
         refresh()
     }
 
@@ -233,6 +241,7 @@ class AppTabsModel(
                 isCurrent = userId == currentId,
                 hasUnread = latestChats[userId].orEmpty().any { it.isUnread },
                 isCompany = profile?.company ?: false,
+                seatRole = profile?.seatRole,
                 isLoaded = profile != null,
             )
         })

@@ -70,7 +70,10 @@ fun AccountMenu(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: ()
                     Column {
                         Text(name, style = MaterialTheme.typography.bodyLarge)
                         val owner = account.ownerName
-                        if (owner != null) {
+                        if (account.seatRole == "attendant") {
+                            Text(stringResource(R.string.bipe_team_you_here), style = MaterialTheme.typography.bodyMedium,
+                                color = BipeTheme.colors.inkSecondary)
+                        } else if (owner != null) {
                             Text(stringResource(R.string.bipe_account_company_owner, owner), style = MaterialTheme.typography.bodyMedium,
                                 color = BipeTheme.colors.inkSecondary)
                         } else account.handle?.takeIf { "@$it" != name }?.let {
@@ -128,7 +131,10 @@ fun AccountRows(tabs: AppTabsModel, fallbackMedia: MediaLoader) {
             Column(Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.titleMedium, color = BipeTheme.colors.inkPrimary)
                 val owner = account.ownerName
-                if (owner != null) {
+                if (account.seatRole == "attendant") {
+                    Text(stringResource(R.string.bipe_team_you_here), color = BipeTheme.colors.inkSecondary,
+                        style = MaterialTheme.typography.bodyMedium)
+                } else if (owner != null) {
                     Text(stringResource(R.string.bipe_account_company_owner, owner), color = BipeTheme.colors.inkSecondary,
                         style = MaterialTheme.typography.bodyMedium)
                 } else account.handle?.takeIf { "@$it" != name }?.let { Text("@$it", color = BipeTheme.colors.inkSecondary, style = MaterialTheme.typography.bodyMedium) }

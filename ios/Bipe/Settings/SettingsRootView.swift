@@ -45,13 +45,15 @@ struct SettingsHomeView: View {
 /// the current state as the subtitle (ADR 0112).
 struct SettingsRootSection: View {
     @ObservedObject var model: SettingsModel
+    /// Spec company-team: a person who answers for a work account has no ways back or credentials of its own.
+    var hidesAccount = false
     // Read here, not in the model, so the chats summary follows a change made in the group screen.
     @AppStorage(Appearance.key) private var appearance = Appearance.system.rawValue
     private let theme = BipeTheme.shared
 
     var body: some View {
         Section {
-            ForEach(BipeSettingsGroup.root, id: \.self) { group in
+            ForEach(BipeSettingsGroup.root.filter { !hidesAccount || $0 != .account }, id: \.self) { group in
                 // Action openGroup. notifications opens notification-settings (bipe-chat/bipe#566).
                 NavigationLink(value: group == .notifications ? SettingsRoute.notifications : SettingsRoute.group(group)) {
                     row(group)

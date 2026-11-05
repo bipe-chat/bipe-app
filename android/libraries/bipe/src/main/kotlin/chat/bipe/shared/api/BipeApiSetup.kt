@@ -265,6 +265,12 @@ data class BipeSeatList(
 @Serializable
 private data class SeatDeviceAssign(@SerialName("seat_id") val seatId: String)
 
+@Serializable
+private data class SeatName(@SerialName("name") val name: String)
+
+@Serializable
+private data class SeatClaim(@SerialName("attestation") val attestation: BipeAttestation)
+
 /** `GET /v1/me/business/seats`. Also lets a phone that just joined take the open owner window. */
 suspend fun BipeApiClient.seats(accessToken: String): BipeSeatList =
     send("GET", listOf("v1", "me", "business", "seats"), accessToken = accessToken, response = BipeSeatList.serializer())
@@ -285,3 +291,42 @@ suspend fun BipeApiClient.assignSeatDevice(deviceId: String, seatId: String, acc
 /** `DELETE /v1/me/business/seats/devices/{deviceId}`. Ends the session of that device. */
 suspend fun BipeApiClient.removeSeatDevice(deviceId: String, accessToken: String): BipeSeatList =
     send("DELETE", listOf("v1", "me", "business", "seats", "devices", deviceId), accessToken = accessToken, response = BipeSeatList.serializer())
+
+/** `POST /v1/me/business/seats`. A waiting attendant, with the window open for their phone. */
+suspend fun BipeApiClient.createSeat(name: String, accessToken: String): BipeSeat = send(
+    "POST",
+    listOf("v1", "me", "business", "seats"),
+    body = encode(SeatName.serializer(), SeatName(name)),
+    accessToken = accessToken,
+    response = BipeSeat.serializer(),
+)
+
+/** `PATCH /v1/me/business/seats/{seatId}`. */
+suspend fun BipeApiClient.renameSeat(seatId: String, name: String, accessToken: String): BipeSeat = send(
+    "PATCH",
+    listOf("v1", "me", "business", "seats", seatId),
+    body = encode(SeatName.serializer(), SeatName(name)),
+    accessToken = accessToken,
+    response = BipeSeat.serializer(),
+)
+
+/** `DELETE /v1/me/business/seats/{seatId}`. Ends every session of the person. */
+suspend fun BipeApiClient.removeSeat(seatId: String, accessToken: String): BipeSeatList =
+    send("DELETE", listOf("v1", "me", "business", "seats", seatId), accessToken = accessToken, response = BipeSeatList.serializer())
+
+/** `POST /v1/me/business/seats/claim`. The device of the token joins the seat with the open window. */
+suspend fun BipeApiClient.claimSeat(attestation: BipeAttestation, accessToken: String): BipeSeatList = send(
+    "POST",
+    listOf("v1", "me", "business", "seats", "claim"),
+    body = encode(SeatClaim.serializer(), SeatClaim(attestation)),
+    accessToken = accessToken,
+    response = BipeSeatList.serializer(),
+)
+
+/** `POST /v1/me/business/seats/leave`. An attendant only. Ends every session of the person. */
+suspend fun BipeApiClient.leaveSeat(accessToken: String): BipeSeatList =
+    send("POST", listOf("v1", "me", "business", "seats", "leave"), accessToken = accessToken, response = BipeSeatList.serializer())
+
+/** `POST /v1/me/business/setup/second-seat-skip`. Only the owner answers. */
+suspend fun BipeApiClient.skipSecondSeat(accessToken: String): BipeWorkSetup =
+    send("POST", listOf("v1", "me", "business", "setup", "second-seat-skip"), accessToken = accessToken, response = BipeWorkSetup.serializer())

@@ -26,7 +26,7 @@ import chat.bipe.shared.R
 
 /** Spec voce profile row (bipe-chat/bipe#988): avatar, name and @ in one full-width row that opens Seu perfil. */
 @Composable
-internal fun VoceProfileRow(account: AccountSummary, media: MediaLoader, openProfile: () -> Unit) {
+internal fun VoceProfileRow(account: AccountSummary, media: MediaLoader, openProfile: (() -> Unit)?) {
     val colors = BipeTheme.colors
     val hint = stringResource(R.string.bipe_settings_profile)
     ListItem(
@@ -37,7 +37,7 @@ internal fun VoceProfileRow(account: AccountSummary, media: MediaLoader, openPro
         supportingContent = account.handle?.let { handle -> @Composable { Text("@$handle", color = colors.inkSecondary) } },
         leadingContent = { Avatar(account.displayName, account.avatarUrl, media, size = 56.dp, userId = account.userId, isCompany = account.isCompany) },
         colors = ListItemDefaults.colors(containerColor = colors.surfaceBase),
-        modifier = Modifier.clickable(onClickLabel = hint, onClick = openProfile),
+        modifier = openProfile?.let { Modifier.clickable(onClickLabel = hint, onClick = it) } ?: Modifier,
     )
 }
 

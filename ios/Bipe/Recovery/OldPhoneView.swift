@@ -13,7 +13,11 @@ struct OldPhoneView: View {
     /// Grows with the system text size (bipe-chat/bipe#498).
     @ScaledMetric(relativeTo: .largeTitle) private var codeSize: CGFloat = 64
 
-    init(onSignedIn: @escaping (AccountSession) -> Void) {
+    /// Spec company-team-join: the same steps with the words of joining a work account.
+    private let joining: Bool
+
+    init(joining: Bool = false, onSignedIn: @escaping (AccountSession) -> Void) {
+        self.joining = joining
         _model = StateObject(wrappedValue: OldPhoneModel(onSignedIn: onSignedIn))
     }
 
@@ -26,7 +30,7 @@ struct OldPhoneView: View {
             .frame(maxWidth: .infinity)
         }
         .scrollDismissesKeyboard(.interactively)
-        .navigationTitle(BipeStrings.recoveryQr)
+        .navigationTitle(joining ? BipeStrings.teamJoinRow : BipeStrings.recoveryQr)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.recoveryOldPhone.rawValue)
         .task { await model.open() }
@@ -37,14 +41,16 @@ struct OldPhoneView: View {
     private var content: some View {
         switch model.phase {
         case .scanning, .failed, .cameraDenied:
-            title(BipeStrings.appOldPhoneTitle)
-            Text(BipeStrings.recoveryQrBody)
+            title(joining ? BipeStrings.teamJoinScanTitle : BipeStrings.appOldPhoneTitle)
+            Text(joining ? BipeStrings.teamJoinScanBody : BipeStrings.recoveryQrBody)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .multilineTextAlignment(.center)
-            Text(BipeStrings.appOldPhoneWhere)
-                .font(.subheadline.bold())
-                .foregroundStyle(BipeColor.inkPrimary)
-                .multilineTextAlignment(.center)
+            if !joining {
+                Text(BipeStrings.appOldPhoneWhere)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(BipeColor.inkPrimary)
+                    .multilineTextAlignment(.center)
+            }
             if model.phase == .cameraDenied {
                 Text(BipeStrings.cameraPermissionBody)
                     .foregroundStyle(BipeColor.inkPrimary)
@@ -66,10 +72,12 @@ struct OldPhoneView: View {
                     .frame(maxWidth: 320)
             }
             // Rule 5, at the moment of the scan.
-            Text(BipeStrings.recoveryQrNeverFromOthers)
-                .font(.footnote)
-                .foregroundStyle(BipeColor.inkSecondary)
-                .multilineTextAlignment(.center)
+            if !joining {
+                Text(BipeStrings.recoveryQrNeverFromOthers)
+                    .font(.footnote)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                    .multilineTextAlignment(.center)
+            }
             if OldPhoneModel.canPaste {
                 pasteField
             }
@@ -81,7 +89,7 @@ struct OldPhoneView: View {
             Text(BipeStrings.appOldPhoneConnecting)
                 .foregroundStyle(BipeColor.inkSecondary)
         case .showCheckCode:
-            title(BipeStrings.appOldPhoneCheckCodeTitle)
+            title(joining ? BipeStrings.teamJoinCheckTitle : BipeStrings.appOldPhoneCheckCodeTitle)
             // Large; never read aloud or sent anywhere.
             Text(verbatim: model.checkCode ?? "")
                 .font(.system(size: codeSize, weight: .bold, design: .monospaced))
@@ -89,7 +97,7 @@ struct OldPhoneView: View {
                 .minimumScaleFactor(0.4)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .accessibilityAddTraits(.isHeader)
-            Text(BipeStrings.appOldPhoneCheckCodeBody)
+            Text(joining ? BipeStrings.teamJoinCheckBody : BipeStrings.appOldPhoneCheckCodeBody)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .multilineTextAlignment(.center)
         case .waitingForApproval:
