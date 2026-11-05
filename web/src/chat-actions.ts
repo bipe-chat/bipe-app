@@ -79,6 +79,24 @@ export async function deleteDm(client: Client, room: Room, latestTs: number) {
   await client.setAccountData(clearedChats.eventType, JSON.stringify(next));
 }
 
+/** Spec group-details notes, Notes: is this room the account's self-chat? undefined until read; a failed read says no. */
+export function useIsNotes(client: Client, room: Room): boolean | undefined {
+  const [isNotes, setIsNotes] = useState<boolean>();
+  useEffect(() => {
+    let stopped = false;
+    setIsNotes(undefined);
+    client
+      .accountData('chat.bipe.self_chat')
+      .then((json) => (json ? (JSON.parse(json) as { room_id?: unknown }).room_id === room.id() : false))
+      .catch(() => false)
+      .then((found) => !stopped && setIsNotes(found));
+    return () => {
+      stopped = true;
+    };
+  }, [client, room]);
+  return isNotes;
+}
+
 /** The cleared-chats account data, read at start and again when the page comes back to the front. */
 export function useClearedChats(client: Client, version = 0): (roomId: string) => number | null {
   const [content, setContent] = useState<unknown>();

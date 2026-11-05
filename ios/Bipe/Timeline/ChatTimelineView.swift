@@ -25,6 +25,8 @@ struct ChatTimelineView: View {
     @State private var searchingChat = false
     /// The group menu's group-details row.
     @State private var showsGroupDetails = false
+    /// Spec group-details notes, Notes: the group menu names the info screen as a chat, not a group.
+    @State private var isNotes = false
     @ObservedObject private var cleared = ClearedChatsStore.shared
     /// Spec drafts (bipe-chat/bipe#866): the assistant draft banner above the composer.
     @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
@@ -224,11 +226,11 @@ struct ChatTimelineView: View {
                 ToolbarItem(placement: .primaryAction) {
                     // Spec chat-timeline notes: the group menu, with group-details and searchInChat.
                     Menu {
-                        Button { showsGroupDetails = true } label: { Label(BipeStrings.appGroupDetailsTitle, systemImage: "info.circle") }
+                        Button { showsGroupDetails = true } label: { Label(chatInfoTitle, systemImage: "info.circle") }
                         Button { searchingChat = true } label: { Label(BipeStrings.searchInChat, systemImage: "magnifyingglass") }
                     } label: {
                         Label {
-                            Text(BipeStrings.appGroupDetailsTitle)
+                            Text(chatInfoTitle)
                         } icon: {
                             PhosphorIcon.info.toolbarImage(size: 22)
                         }
@@ -297,6 +299,7 @@ struct ChatTimelineView: View {
             await model.start()
         }
         .task(id: model.isGroup) { if model.isGroup { await pinned.observe() } }
+        .task(id: model.isGroup) { if model.isGroup { isNotes = await NotesRoom(session: session).isNotes(roomId: roomId) } }
         .task(id: startAttachment) { if let startAttachment { attaching = startAttachment } }
         // Spec chat-search openMessage (bipe#671): scroll to the message once the first rows are in.
         .task(id: focusEventId) {
@@ -390,6 +393,10 @@ struct ChatTimelineView: View {
             if NotificationActions.shared.visibleRoom == target { NotificationActions.shared.chatOpened(nil) }
         }
         .notificationsPromptTrigger(userID: session.userId, messages: model.rows.compactMap(\.message))
+    }
+
+    private var chatInfoTitle: String {
+        isNotes ? BipeStrings.dmDetailsTitle : BipeStrings.appGroupDetailsTitle
     }
 
     /// Spec dm-delete: events at or below the marker of a cleared DM are gone.

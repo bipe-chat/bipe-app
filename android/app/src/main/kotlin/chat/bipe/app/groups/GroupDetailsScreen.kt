@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -56,6 +57,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.voce.NotesRoom
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
@@ -77,6 +79,8 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     var sub by rememberSaveable { mutableStateOf(GroupSubScreen.NONE) }
     var leaving by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
+    // Spec group-details notes, Notes: null until the account data is read.
+    val isNotes by produceState<Boolean?>(null, session, roomId) { value = NotesRoom(context, session).isNotes(roomId) }
     val sentText = stringResource(R.string.bipe_dm_invite_to_group_sent)
     val back = {
         sub = GroupSubScreen.NONE
@@ -207,12 +211,12 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.GROUP_DETAILS.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             GroupTopBar(
-                stringResource(R.string.bipe_app_group_details_title),
+                stringResource(if (isNotes == true) R.string.bipe_dm_details_title else R.string.bipe_app_group_details_title),
                 onBack = if (viewing) onBack else model::cancelEdit,
                 backIcon = if (viewing) PhosphorIcon.CARET_LEFT else PhosphorIcon.X,
             ) {
                 when {
-                    viewing && canEdit -> TextButton(onClick = model::edit) { Text(stringResource(R.string.bipe_app_edit)) }
+                    viewing && canEdit && isNotes == false -> TextButton(onClick = model::edit) { Text(stringResource(R.string.bipe_app_edit)) }
                     phase == GroupDetailsModel.Phase.SAVING ->
                         CircularProgressIndicator(color = colors.accentFill, modifier = Modifier.size(24.dp).padding(end = 4.dp))
                     phase == GroupDetailsModel.Phase.EDITING ->
@@ -235,7 +239,9 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     }
                     if (viewing) {
                         Text(info.name, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary, textAlign = TextAlign.Center)
-                        Text(stringResource(R.string.bipe_app_group_details_people, count), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
+                        if (isNotes == false) {
+                            Text(stringResource(R.string.bipe_app_group_details_people, count), style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
+                        }
                     } else if (canEditPhoto) {
                         TextButton(
                             onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -255,7 +261,9 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                         }
                     }
                 }
-                if (viewing) {
+                if (viewing && isNotes == true) {
+                    GroupRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_gallery_title)) { sub = GroupSubScreen.GALLERY }
+                } else if (viewing && isNotes == false) {
                     val description = info.description
                     if (description != null || canEdit) {
                         GroupSectionHeader(stringResource(R.string.bipe_app_group_description))
@@ -288,7 +296,7 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                     Spacer(Modifier.height(16.dp))
                     GroupRow(PhosphorIcon.FLAG, stringResource(R.string.bipe_app_report_group), tint = colors.trustDangerInk) { sub = GroupSubScreen.REPORT }
                     GroupRow(PhosphorIcon.SIGN_OUT, stringResource(R.string.bipe_app_group_leave_action), tint = colors.trustDangerInk) { leaving = true }
-                } else {
+                } else if (!viewing) {
                     OutlinedTextField(
                         value = editName,
                         onValueChange = { model.editName.value = it },
