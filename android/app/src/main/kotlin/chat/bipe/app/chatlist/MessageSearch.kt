@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.search.MessageSearchQuery
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.delay
@@ -92,10 +93,10 @@ class MessageSearchModel(
     /** The pages loaded for [ROOM_FILL] since the last setQuery. */
     private var fillPages = 0
 
-    /** Runs with editQuery, after its 150 ms limit. A blank query clears the hits. */
+    /** Runs with editQuery, after its 150 ms limit. A query without a letter or digit clears the hits. */
     suspend fun search(query: String) {
-        val pattern = query.trim()
-        if (pattern.isEmpty()) {
+        val pattern = MessageSearchQuery.make(query)
+        if (pattern == null) {
             _hits.value = emptyList()
             return
         }
