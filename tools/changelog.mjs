@@ -27,7 +27,7 @@ import { RELEASE_PREFIX, TAG_PREFIX, readHistory, releaseVersions, versionName }
 
 export const KINDS = ['new', 'improved', 'fixed', 'removed'];
 // web/ is a spike: its changes stay out of the changelog.
-export const PLATFORMS = ['ios', 'android'];
+export const PLATFORMS = ['ios', 'android', 'macos'];
 const UPDATES = 'changelog/updates';
 
 const git = (root, ...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: 64 << 20 }).trim();
@@ -177,7 +177,7 @@ function loadBuilds(root, ref = 'HEAD') {
 
 // --- rendering --------------------------------------------------------------------------------------------------
 
-const PLATFORM_NAMES = { ios: 'iOS', android: 'Android' };
+const PLATFORM_NAMES = { ios: 'iOS', android: 'Android', macos: 'macOS' };
 
 export function updateBullet(update) {
   const where = update.platforms.map((p) => PLATFORM_NAMES[p]).join(', ');
@@ -275,6 +275,7 @@ export function platformsOf(paths) {
   const found = [];
   if (app.some((p) => p.startsWith('ios/') && /\.(swift|xcstrings|strings|json|png|svg)$/.test(p))) found.push('ios');
   if (app.some((p) => p.startsWith('android/') && /\.(kt|xml|json|png|svg)$/.test(p) && !p.endsWith('.gradle.kts'))) found.push('android');
+  if (app.some((p) => p.startsWith('macos/') && /\.(swift|json|png|svg)$/.test(p))) found.push('macos');
   return found;
 }
 

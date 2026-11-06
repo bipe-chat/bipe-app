@@ -101,3 +101,11 @@ test('a pull request that changes app code needs an update file', () => {
 test('every update file in the repo is well formed', () => {
   assert.deepEqual(checkUpdates(REPO_ROOT), []);
 });
+
+test('Mac changes use the same build history and require their own release note', () => {
+  const update = parseUpdate(good.replace('ios, android', 'macos'));
+  assert.deepEqual(updateProblems('2026-11-02-pr360.md', update), []);
+  assert.match(missingUpdate({ title: 'Mac: accounts', paths: ['macos/BipeMac/MacWorkspace.swift'], added: [] }), /macos/);
+  const draft = draftUpdate({ subject: 'Mac: add accounts (#487)', date: '2026-11-06', short: 'synthetic', paths: ['macos/BipeMac/MacWorkspace.swift'] });
+  assert.match(draft.text, /platforms: \[macos\]/);
+});
