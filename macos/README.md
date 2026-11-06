@@ -13,7 +13,9 @@ Started 6 November 2026. Tracking: [bipe#1018](https://github.com/bipe-chat/bipe
 - Restart restores the same device. A missing crypto store fails closed instead of making new keys under the saved device ID. SDK offline mode makes cached state available without waiting for a network response.
 - An authentication refusal ends the local session. Delayed refresh callbacks cannot save it again after revocation. The encrypted cache remains local; this spike makes no remote-erasure claim.
 
-The spike holds one linked account and uses light appearance. BipeKit's current generated non-UIKit colors use the light palette, so forcing light appearance keeps text readable when macOS uses dark appearance. Adaptive Mac color/high-contrast generation, multiple personal/work accounts, rich media, full scam-warning presentation, search, notifications, calls and the work UI remain in #1018. The phone/inbox merge needs the key-model decision specified by ADR 0252. Windows implementation follows the Mac spike's recorded evidence.
+The spike holds one linked account. The Mac uses Bipe's generated app icon, shared rounded typography, adaptive colors for light/dark/Increase Contrast, Phosphor glyphs and large native buttons. Desktop cards, message bubbles, account rows and the composer use the shared tokens. Multiple personal/work accounts, rich media, search, notifications, calls and the work UI remain in #1018. Windows follows the Mac spike evidence.
+
+QR codes use one binary byte segment, as the web does, so released phone scanners can read them. Apple's Core Image encoder mixed an alphanumeric MATRIX header with byte segments; the released iPhone scanner ignored that result. The native MIT-licensed Nayuki encoder is vendored unchanged, with source hashes and its notice in macos/QRCode. The regression test decodes the final bitmap with the released phone's byte-only rules. No phone update is needed for this compatibility fix.
 
 ## CI evidence
 

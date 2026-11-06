@@ -10,6 +10,8 @@ import Observation
 import SwiftUI
 #if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #endif
 
 /// The palettes of the app theme (bipe-chat/bipe#811). Each one sets the themed accent and own-bubble colours and
@@ -427,6 +429,16 @@ public enum BipeColor {
                 blue: CGFloat(value & 0xFF) / 255,
                 alpha: 1
             )
+        })
+        #elseif canImport(AppKit)
+        return Color(nsColor: NSColor(name: nil) { appearance in
+            let match = appearance.bestMatch(from: [.accessibilityHighContrastDarkAqua, .accessibilityHighContrastAqua, .darkAqua, .aqua])
+            let darkMode = match == .darkAqua || match == .accessibilityHighContrastDarkAqua
+            let high = match == .accessibilityHighContrastAqua || match == .accessibilityHighContrastDarkAqua
+            let value = darkMode ? (high ? darkHighContrast : dark) : (high ? lightHighContrast : light)
+            return NSColor(srgbRed: CGFloat((value >> 16) & 0xFF) / 255,
+                           green: CGFloat((value >> 8) & 0xFF) / 255,
+                           blue: CGFloat(value & 0xFF) / 255, alpha: 1)
         })
         #else
         return Color(red: Double((light >> 16) & 0xFF) / 255, green: Double((light >> 8) & 0xFF) / 255, blue: Double(light & 0xFF) / 255)
