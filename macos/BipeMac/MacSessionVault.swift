@@ -51,13 +51,15 @@ struct SystemMacKeychain: MacKeychain {
     }
 }
 
-enum MacVaultError: Error { case keychain, invalidRecord, missingKey, missingStore }
+enum MacVaultError: Error { case keychain, invalidRecord, missingKey, missingStore, duplicateAccount }
 
 /// Tokens and the database encryption key only enter the Keychain. No credentials enter UserDefaults or logs.
 struct MacSessionVault: Sendable {
     let keychain: any MacKeychain
+    // SDK refresh callbacks may arrive on different threads and from different accounts.
+    private static let lock = NSLock()
 
-    struct Record: Codable {
+    struct Record: Codable, Equatable {
         let folder: String
         let accessToken: String
         let refreshToken: String?
@@ -72,11 +74,44 @@ struct MacSessionVault: Sendable {
         }
     }
 
-    func load() throws -> Record? {
-        guard let data = try keychain.read("current") else { return nil }
+    private struct Accounts: Codable {
+        let version: Int
+        var records: [Record]
+    }
+
+    func loadAll() throws -> [Record] { try Self.lock.withLock { try records() } }
+
+    func load(userID: String) throws -> Record? {
+        try loadAll().first { $0.userId == userID }
+    }
+
+    /// Copy the installed spike's record before removing it. A failed write leaves its login intact.
+    private func records() throws -> [Record] {
+        if let data = try keychain.read("accounts") {
+            let accounts = try JSONDecoder().decode(Accounts.self, from: data)
+            guard accounts.version == 1 else { throw MacVaultError.invalidRecord }
+            try validate(accounts.records)
+            // An empty envelope is authoritative; an old record must never resurrect a signed-out account.
+            return accounts.records
+        }
+        guard let data = try keychain.read("current") else { return [] }
         let record = try JSONDecoder().decode(Record.self, from: data)
-        guard UUID(uuidString: record.folder) != nil else { throw MacVaultError.invalidRecord }
-        return record
+        try validate([record])
+        try write([record])
+        try keychain.remove("current")
+        return [record]
+    }
+
+    private func validate(_ records: [Record]) throws {
+        guard Set(records.map(\.userId)).count == records.count,
+              Set(records.map(\.folder)).count == records.count,
+              records.allSatisfy({ UUID(uuidString: $0.folder) != nil && !$0.userId.isEmpty && !$0.deviceId.isEmpty }) else {
+            throw MacVaultError.invalidRecord
+        }
+    }
+
+    private func write(_ records: [Record]) throws {
+        try keychain.write(JSONEncoder().encode(Accounts(version: 1, records: records)), account: "accounts")
     }
 
     func save(_ session: Session, folder: String) throws {
@@ -84,12 +119,34 @@ struct MacSessionVault: Sendable {
         let record = Record(folder: folder, accessToken: session.accessToken, refreshToken: session.refreshToken,
                             userId: session.userId, deviceId: session.deviceId, homeserverUrl: session.homeserverUrl,
                             oauthData: session.oauthData)
-        try keychain.write(JSONEncoder().encode(record), account: "current")
+        try Self.lock.withLock {
+            var saved = try records()
+            if let index = saved.firstIndex(where: { $0.userId == session.userId }) {
+                // Linking the same account again must not replace its existing device and crypto store.
+                guard saved[index].folder == folder, saved[index].deviceId == session.deviceId else {
+                    throw MacVaultError.duplicateAccount
+                }
+                saved[index] = record
+            } else {
+                saved.append(record)
+            }
+            try validate(saved)
+            try write(saved)
+        }
     }
 
-    func clear() throws { try keychain.remove("current") }
+    func clear(userID: String) throws {
+        try Self.lock.withLock {
+            try write(records().filter { $0.userId != userID })
+            try keychain.remove("current")
+        }
+    }
 
     func storeKey(create: Bool) throws -> Data {
+        try Self.lock.withLock { try lockedStoreKey(create: create) }
+    }
+
+    private func lockedStoreKey(create: Bool) throws -> Data {
         if let key = try keychain.read("database-key") {
             guard key.count == 32 else { throw MacVaultError.missingKey }
             return key
@@ -122,7 +179,7 @@ final class MacSessionDelegate: ClientSessionDelegate, @unchecked Sendable {
     func deactivate() { lock.withLock { active = false } }
 
     func retrieveSessionFromKeychain(userId: String) throws -> Session {
-        guard let record = try vault.load(), record.userId == userId, record.folder == folder else {
+        guard let record = try vault.load(userID: userId), record.folder == folder else {
             throw MacVaultError.invalidRecord
         }
         return record.session

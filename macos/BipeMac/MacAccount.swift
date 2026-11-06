@@ -29,13 +29,23 @@ final class MacAccount: ObservableObject {
     @Published private(set) var phase: Phase = .starting
     @Published private(set) var qrBytes: Data?
     @Published private(set) var rooms: [Room] = []
+    @Published private(set) var roomRows: [MacRoomSummary] = []
     @Published private(set) var userId = ""
+    @Published private(set) var displayName = BipeStrings.tabYou
+    @Published private(set) var handle: String?
+    @Published private(set) var isCompany = false
     @Published private(set) var storageFailed = false
     @Published var checkCode = ""
 
     private(set) var client: Client?
     private var sync: SyncService?
-    private let vault = MacSessionVault(keychain: SystemMacKeychain())
+    let api = BipeAPIClient(baseURL: URL(string: "https://api.bipe.net.br")!)
+    let drafts = MacDrafts()
+    private let vault: MacSessionVault
+    private var savedUserID: String?
+    private var openID: BipeOpenIDTokens?
+    var onReady: (() -> Void)?
+    var onAlreadyLinked: ((String) -> Void)?
     private var loginTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
     private var listTask: Task<Void, Never>?
@@ -46,6 +56,23 @@ final class MacAccount: ObservableObject {
     private var checkSender: CheckCodeSender?
     private var attempt = UUID()
     private var launched = false
+
+    init(record: MacSessionVault.Record? = nil, vault: MacSessionVault = MacSessionVault(keychain: SystemMacKeychain())) {
+        self.vault = vault
+        savedUserID = record?.userId
+        if let record {
+            userId = record.userId
+            displayName = BipeAccountLabels.label(for: record.userId)
+            handle = BipeHandleCache.handle(for: record.userId)
+            isCompany = BipeAccountLabels.isCompany(record.userId)
+        }
+    }
+
+    var business: BipeBusinessAPI {
+        BipeBusinessAPI(api: api) { [weak self] in try? self?.client?.session().accessToken }
+    }
+
+    var hasUnread: Bool { roomRows.contains { $0.unread > 0 || $0.markedUnread } }
 
     func start() {
         guard !launched else { return }
@@ -66,6 +93,7 @@ final class MacAccount: ObservableObject {
         sync = nil
         client = nil
         rooms = []
+        roomRows = []
         attempt = UUID()
         let current = attempt
         phase = .starting
@@ -76,7 +104,8 @@ final class MacAccount: ObservableObject {
             do {
                 await oldSync?.stop()
                 try Task.checkCancellation()
-                if let saved = try vault.load() {
+                if let savedUserID {
+                    guard let saved = try vault.load(userID: savedUserID) else { throw MacVaultError.invalidRecord }
                     let delegate = sessionDelegate(folder: saved.folder, active: true)
                     let client = try await makeClient(folder: saved.folder, restoring: true, delegate: delegate)
                     try Task.checkCancellation()
@@ -153,7 +182,19 @@ final class MacAccount: ObservableObject {
         await reader.value
         try Task.checkCancellation()
         guard attempt == current else { throw CancellationError() }
-        try vault.save(client.session(), folder: folder)
+        do {
+            try vault.save(client.session(), folder: folder)
+        } catch MacVaultError.duplicateAccount {
+            // End only the redundant new device, leaving the existing account and keys untouched.
+            let duplicateUserID = try client.userId()
+            try? await client.logout()
+            onAlreadyLinked?(duplicateUserID)
+            throw MacVaultError.duplicateAccount
+        } catch {
+            try? await client.logout()
+            throw error
+        }
+        savedUserID = try client.userId()
         committed = true
         delegate.activate()
         try await connected(client, attempt: current)
@@ -225,6 +266,12 @@ final class MacAccount: ObservableObject {
         guard attempt == current else { throw CancellationError() }
         self.client = client
         userId = try client.userId()
+        displayName = BipeAccountLabels.label(for: userId)
+        handle = BipeHandleCache.handle(for: userId)
+        isCompany = BipeAccountLabels.isCompany(userId)
+        openID = BipeOpenIDTokens(homeserverURL: try client.session().homeserverUrl, userID: userId) { [weak self] in
+            try? self?.client?.session().accessToken
+        }
         let delegate = MacAuthDelegate { [weak self] in
             Task { @MainActor in
                 guard self?.attempt == current else { return }
@@ -240,6 +287,8 @@ final class MacAccount: ObservableObject {
         await sync.start()
         guard attempt == current, phase != .revoked else { return }
         phase = .signedIn
+        onReady?()
+        Task { await refreshProfile() }
         let service = sync.roomListService()
         let list = try await service.allRooms()
         let stream = RoomListEntriesStream()
@@ -250,9 +299,48 @@ final class MacAccount: ObservableObject {
             for await updates in stream.updates {
                 guard !Task.isCancelled, attempt == current else { return }
                 for update in updates { rooms.apply(update.vectorDiff) }
+                var rows: [MacRoomSummary] = []
+                for room in rooms {
+                    guard let info = try? await room.roomInfo() else { continue }
+                    rows.append(MacRoomSummary(room: room, info: info, ownUserID: userId))
+                }
+                guard !Task.isCancelled, attempt == current else { return }
+                roomRows = rows
                 try? await service.subscribeToRooms(roomIds: rooms.map { $0.id() })
             }
         }
+    }
+
+    func loadMoreRooms() { entries?.controller().addOnePage() }
+
+    func refreshProfile() async {
+        guard let client, phase == .signedIn else { return }
+        let current = attempt
+        if let name = try? await client.displayName(), attempt == current {
+            BipeAccountLabels.remember(displayName: name, for: userId)
+            displayName = BipeAccountLabels.label(for: userId)
+        }
+        if let type = try? await api.accountType(userID: userId), attempt == current {
+            isCompany = type == .company
+            BipeAccountLabels.rememberCompany(isCompany, for: userId)
+        }
+        if let openID, let record = try? await BipeAPIClient.withOpenIDRetry(openID, { (token: BipeOpenIDToken) async throws(BipeAPIError) -> BipeMyHandle in
+            try await self.api.myHandle(openID: token)
+        }), attempt == current {
+            handle = record.handle
+            BipeHandleCache.store(handle: record.handle, for: userId)
+            displayName = BipeAccountLabels.label(for: userId)
+        }
+    }
+
+    /// Cancel a QR attempt without changing any other account's saved session.
+    func cancelLink() {
+        attempt = UUID()
+        loginTask?.cancel()
+        refreshTask?.cancel()
+        qrBytes = nil
+        checkSender = nil
+        sessionSaver?.deactivate()
     }
 
     private func revoked() async {
@@ -271,7 +359,8 @@ final class MacAccount: ObservableObject {
         sync = nil
         client = nil
         rooms = []
-        userId = ""
-        do { try vault.clear() } catch { storageFailed = true }
+        roomRows = []
+        openID = nil
+        do { try vault.clear(userID: userId); savedUserID = nil } catch { storageFailed = true }
     }
 }

@@ -52,7 +52,7 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/bipe-mac" ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO $bipe_version_settings \
             > "$RUNNER_TEMP/macos-build.log" 2>&1 || { tail -100 "$RUNNER_TEMP/macos-build.log"; exit 1; }
-          bipe_archs=" $(lipo -archs "$RUNNER_TEMP/bipe-mac/Build/Products/${{ matrix.configuration }}/BipeMac.app/Contents/MacOS/BipeMac") "
+          bipe_archs=" $(lipo -archs "$RUNNER_TEMP/bipe-mac/Build/Products/${{ matrix.configuration }}/Bipe.app/Contents/MacOS/Bipe") "
           echo "$bipe_archs"
           [[ "$bipe_archs" == *" arm64 "* && "$bipe_archs" == *" x86_64 "* ]]
       - name: SDK loading, encrypted storage and session tests
@@ -80,17 +80,21 @@ jobs:
           assert.equal(actual.revision, expected.revision);
           console.log(`Mac Matrix SDK ${actual.version} at ${actual.revision}`);
           JS
-      - name: Package the spike
+      - name: Package the Mac preview
         if: matrix.configuration == 'Release'
         run: |
-          app="$RUNNER_TEMP/bipe-mac/Build/Products/Release/BipeMac.app"
+          app="$RUNNER_TEMP/bipe-mac/Build/Products/Release/Bipe.app"
           codesign --force --deep --sign - "$app"
-          ditto -c -k --sequesterRsrc --keepParent "$app" "$RUNNER_TEMP/Bipe-Mac-spike.zip"
+          codesign --verify --deep --strict "$app"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "$RUNNER_TEMP/Bipe-Mac.zip"
+          (cd "$RUNNER_TEMP" && shasum -a 256 Bipe-Mac.zip > Bipe-Mac.zip.sha256)
       - uses: actions/upload-artifact@v4
         if: matrix.configuration == 'Release'
         with:
           name: bipe-mac-spike
-          path: ${{ runner.temp }}/Bipe-Mac-spike.zip
+          path: |
+            ${{ runner.temp }}/Bipe-Mac.zip
+            ${{ runner.temp }}/Bipe-Mac.zip.sha256
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -98,3 +102,42 @@ jobs:
           path: |
             ${{ runner.temp }}/macos-*.log
             ${{ runner.temp }}/macos-tests.xcresult
+  publish:
+    name: Publish Mac preview
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: bipe-mac-spike
+          path: preview
+      - name: Publish the tested preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd preview
+          sha256sum --check Bipe-Mac.zip.sha256
+          cat > notes.md <<EOF
+          Native Bipe preview for macOS 15 or later, on Apple silicon and Intel.
+
+          Download Bipe-Mac.zip, extract it and move Bipe.app to Applications. Link an existing account from Bipe on your phone.
+
+          Personal and work feature parity is in progress: https://github.com/bipe-chat/bipe/issues/1018
+          This preview uses an ad hoc signature and is not notarized by Apple. macOS may require approval in System Settings > Privacy & Security after the first opening attempt.
+
+          Source: $GITHUB_SHA. Both Mac build configurations and the native tests passed before publication. The SHA-256 checksum is attached.
+          EOF
+          if gh release view mac-preview --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release upload mac-preview Bipe-Mac.zip Bipe-Mac.zip.sha256 --clobber --repo "$GH_REPO"
+            gh api --method PATCH "repos/$GH_REPO/git/refs/tags/mac-preview" -f sha="$GITHUB_SHA" -F force=false >/dev/null
+            gh release edit mac-preview --prerelease --title 'Bipe (Mac preview)' --notes-file notes.md --repo "$GH_REPO"
+          else
+            gh release create mac-preview Bipe-Mac.zip Bipe-Mac.zip.sha256 --target "$GITHUB_SHA" --prerelease \
+              --title 'Bipe (Mac preview)' --notes-file notes.md --repo "$GH_REPO"
+          fi

@@ -5787,4 +5787,10 @@ public enum BipeStrings {
     public static func appAssistantReads(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_app_assistant_reads", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var macAccountsTitle: String { NSLocalizedString("bipe_mac_accounts_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var macWorkOverview: String { NSLocalizedString("bipe_mac_work_overview", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var macRefresh: String { NSLocalizedString("bipe_mac_refresh", tableName: "Bipe", bundle: .module, comment: "") }
 }
