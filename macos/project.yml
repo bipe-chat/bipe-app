@@ -24,6 +24,7 @@ packages:
     path: ../ios/BipeKit
 targets:
   BipeMac:
+    productName: Bipe
     type: application
     platform: macOS
     sources:
@@ -41,6 +42,7 @@ targets:
       path: SupportFiles/Info.plist
       properties:
         CFBundleDisplayName: Bipe
+        CFBundleName: Bipe
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: pt-BR
@@ -49,6 +51,8 @@ targets:
         NSHumanReadableCopyright: Copyright 2026 Bipe contributors
     settings:
       base:
+        PRODUCT_NAME: Bipe
+        PRODUCT_MODULE_NAME: BipeMac
         PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.mac
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_OBJC_BRIDGING_HEADER: BipeMac/BipeMac-Bridging-Header.h

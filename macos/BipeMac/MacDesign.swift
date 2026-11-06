@@ -54,10 +54,12 @@ struct MacNotice: View {
 
 struct MacAvatar: View {
     let name: String
+    var isCompany = false
     var body: some View {
         Text(String(name.trimmingCharacters(in: CharacterSet(charactersIn: "@ ")).prefix(1)).uppercased())
             .font(.headline).foregroundStyle(BipeColor.accentInk)
-            .frame(width: 36, height: 36).background(BipeColor.accentWash, in: Circle())
+            .frame(width: 36, height: 36)
+            .background(BipeColor.accentWash, in: RoundedRectangle(cornerRadius: isCompany ? 10 : 18))
             .accessibilityHidden(true)
     }
 }

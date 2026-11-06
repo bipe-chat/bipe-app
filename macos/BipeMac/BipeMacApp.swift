@@ -9,12 +9,12 @@ import SwiftUI
 
 @main
 struct BipeMacApp: App {
-    @StateObject private var account = MacAccount()
+    @StateObject private var workspace = MacWorkspace()
 
     var body: some Scene {
         WindowGroup {
-            MacRootView(account: account)
-                .frame(minWidth: 760, minHeight: 520)
+            MacRootView(workspace: workspace)
+                .frame(minWidth: 980, minHeight: 600)
                 .fontDesign(.rounded)
                 .tint(BipeColor.accentFill)
                 .foregroundStyle(BipeColor.inkPrimary)
@@ -23,63 +23,45 @@ struct BipeMacApp: App {
                     // Hosted unit tests use synthetic clients; they must not start a real phone-link attempt.
                     if NSClassFromString("XCTestCase") != nil { return }
                     #endif
-                    account.start()
+                    workspace.start()
                 }
         }
-        .defaultSize(width: 1040, height: 720)
+        .defaultSize(width: 1200, height: 780)
     }
 }
 
 struct MacRootView: View {
-    @ObservedObject var account: MacAccount
-    @State private var selected: String?
+    @ObservedObject var workspace: MacWorkspace
 
     var body: some View {
         Group {
-            if account.phase == .signedIn {
-                NavigationSplitView {
-                    List(selection: $selected) {
-                        ForEach(account.rooms.map { MacRoom(room: $0) }) { entry in
-                            HStack(spacing: 12) {
-                                MacAvatar(name: entry.room.displayName() ?? entry.id)
-                                Text(entry.room.displayName() ?? entry.id).font(.body).lineLimit(2)
-                            }.padding(.vertical, 6).tag(entry.id)
-                        }
-                    }
-                    .navigationTitle(BipeStrings.appChatListTitle)
-                    .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 360)
-                    .safeAreaInset(edge: .bottom) {
-                        HStack(spacing: 10) {
-                            MacAvatar(name: account.userId)
-                            Text(account.userId).font(.caption).textSelection(.enabled).lineLimit(2)
-                            Spacer(minLength: 0)
-                        }.padding().background(BipeColor.surfaceRaised)
-                    }
-                } detail: {
-                    if let room = account.rooms.first(where: { $0.id() == selected }) {
-                        MacChatView(room: room).id(room.id())
-                    } else {
-                        VStack(spacing: 16) {
-                            MacBrand()
-                            Text(BipeStrings.appChatListEmpty).font(.body).foregroundStyle(BipeColor.inkSecondary)
-                        }.frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
-                    }
-                }
+            if workspace.failed {
+                VStack(spacing: MacDesign.gap) {
+                    MacNotice(text: BipeStrings.errorGeneric, danger: true)
+                    Button(BipeStrings.appRetry) { workspace.restore() }.buttonStyle(.bipeProminent)
+                }.padding(MacDesign.pageInset)
+            } else if let account = workspace.current {
+                MacAccountView(workspace: workspace, account: account).id(ObjectIdentifier(account))
+            } else if let linking = workspace.linking {
+                MacLinkView(account: linking)
             } else {
-                MacLinkView(account: account)
+                ProgressView()
             }
         }
-        .safeAreaInset(edge: .top) {
-            if account.storageFailed {
-                MacNotice(text: BipeStrings.errorGeneric, danger: true).padding()
+        .sheet(isPresented: Binding(get: { workspace.current != nil && workspace.linking != nil }, set: { if !$0 { workspace.cancelLink() } })) {
+            if let linking = workspace.linking {
+                VStack(spacing: 0) {
+                    HStack {
+                        Spacer()
+                        Button(BipeStrings.appCancel) { workspace.cancelLink() }
+                            .disabled(linking.phase == .keys || linking.phase == .approving)
+                            .keyboardShortcut(.cancelAction)
+                    }.padding()
+                    MacLinkView(account: linking)
+                }.frame(width: 820, height: 580).interactiveDismissDisabled()
             }
         }
     }
-}
-
-private struct MacRoom: Identifiable {
-    let room: Room
-    var id: String { room.id() }
 }
 
 struct MacLinkView: View {
@@ -150,6 +132,7 @@ struct MacLinkView: View {
 
 struct MacChatView: View {
     let room: Room
+    let name: String
     @StateObject private var model = MacTimeline()
 
     var body: some View {
@@ -180,7 +163,7 @@ struct MacChatView: View {
                     .disabled(model.sending || model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }.padding()
         }
-        .navigationTitle(room.displayName() ?? room.id())
+        .navigationTitle(name)
         .background(BipeColor.surfaceBase)
         .task { await model.run(room: room) }
     }

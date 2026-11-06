@@ -77,8 +77,9 @@ final class MacTimeline: ObservableObject {
             case .unableToDecrypt: body = BipeStrings.webTimelineUndecryptable
             default: return nil
             }
-            var sender = event.sender
-            if case .ready(let name, _, _, _, _) = event.senderProfile { sender = name ?? sender }
+            var displayName: String?
+            if case .ready(let name, _, _, _, _) = event.senderProfile { displayName = name }
+            let sender = BipeChatRowName.person(userID: event.sender, displayName: displayName, handle: nil)
             let pending: Bool
             let failed: Bool
             switch event.localSendState {

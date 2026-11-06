@@ -90,12 +90,12 @@ final class MacSpikeTests: XCTestCase {
         let vault = MacSessionVault(keychain: MemoryKeychain())
         let folder = UUID().uuidString
         try vault.save(session, folder: folder)
-        let saved = try XCTUnwrap(vault.load())
+        let saved = try XCTUnwrap(vault.load(userID: session.userId))
         XCTAssertEqual(saved.folder, folder)
         XCTAssertEqual(saved.session.deviceId, session.deviceId)
         XCTAssertEqual(saved.session.refreshToken, session.refreshToken)
-        try vault.clear()
-        XCTAssertNil(try vault.load())
+        try vault.clear(userID: session.userId)
+        XCTAssertNil(try vault.load(userID: session.userId))
     }
 
     func testMissingStoreKeyFailsClosedOnRestore() throws {
@@ -116,7 +116,7 @@ final class MacSpikeTests: XCTestCase {
         try vault.save(session, folder: folder)
         keychain.refuseWrites = true
         XCTAssertThrowsError(try vault.save(session, folder: UUID().uuidString))
-        XCTAssertEqual(try vault.load()?.folder, folder)
+        XCTAssertEqual(try vault.load(userID: session.userId)?.folder, folder)
         XCTAssertThrowsError(try vault.save(session, folder: "../other-account"))
     }
 
@@ -125,15 +125,95 @@ final class MacSpikeTests: XCTestCase {
         let folder = UUID().uuidString
         let delegate = MacSessionDelegate(vault: vault, folder: folder, active: false, onFailure: {})
         delegate.saveSessionInKeychain(session: session)
-        XCTAssertNil(try vault.load())
+        XCTAssertNil(try vault.load(userID: session.userId))
         try vault.save(session, folder: folder)
         delegate.activate()
         XCTAssertEqual(try delegate.retrieveSessionFromKeychain(userId: session.userId).deviceId, session.deviceId)
         XCTAssertThrowsError(try delegate.retrieveSessionFromKeychain(userId: "@other:example.invalid"))
         delegate.deactivate()
-        try vault.clear()
+        try vault.clear(userID: session.userId)
         delegate.saveSessionInKeychain(session: session)
-        XCTAssertNil(try vault.load(), "A delayed refresh must not resurrect a revoked device")
+        XCTAssertNil(try vault.load(userID: session.userId), "A delayed refresh must not resurrect a revoked device")
+    }
+
+    func testInstalledSingleAccountMigratesWithoutChangingItsDeviceFolderOrKey() throws {
+        let keychain = MemoryKeychain()
+        let record = MacSessionVault.Record(folder: UUID().uuidString, accessToken: session.accessToken,
+                                           refreshToken: session.refreshToken, userId: session.userId, deviceId: session.deviceId,
+                                           homeserverUrl: session.homeserverUrl, oauthData: "synthetic-oauth")
+        keychain.values["current"] = try JSONEncoder().encode(record)
+        keychain.values["database-key"] = Data(repeating: 7, count: 32)
+        let vault = MacSessionVault(keychain: keychain)
+        XCTAssertEqual(try vault.loadAll(), [record])
+        XCTAssertEqual(try vault.load(userID: record.userId), record)
+        XCTAssertEqual(try vault.storeKey(create: false), Data(repeating: 7, count: 32))
+        XCTAssertNil(keychain.values["current"])
+    }
+
+    func testFailedMigrationKeepsTheInstalledLoginIntact() throws {
+        let keychain = MemoryKeychain()
+        let record = MacSessionVault.Record(folder: UUID().uuidString, accessToken: session.accessToken,
+                                           refreshToken: session.refreshToken, userId: session.userId, deviceId: session.deviceId,
+                                           homeserverUrl: session.homeserverUrl, oauthData: nil)
+        let original = try JSONEncoder().encode(record)
+        keychain.values["current"] = original
+        keychain.refuseWrites = true
+        let vault = MacSessionVault(keychain: keychain)
+        XCTAssertThrowsError(try vault.loadAll())
+        XCTAssertEqual(keychain.values["current"], original)
+        XCTAssertNil(keychain.values["accounts"])
+        keychain.refuseWrites = false
+        XCTAssertEqual(try vault.loadAll(), [record])
+    }
+
+    func testRefreshAndRevocationAffectOnlyTheirOwnAccount() throws {
+        let keychain = MemoryKeychain()
+        let vault = MacSessionVault(keychain: keychain)
+        let firstFolder = UUID().uuidString
+        let other = Session(accessToken: "other-token", refreshToken: "other-refresh", userId: "@company:example.invalid",
+                            deviceId: "OTHERDEVICE", homeserverUrl: session.homeserverUrl, oauthData: nil, slidingSyncVersion: .native)
+        let otherFolder = UUID().uuidString
+        try vault.save(session, folder: firstFolder)
+        try vault.save(other, folder: otherFolder)
+        let saver = MacSessionDelegate(vault: vault, folder: firstFolder, active: true, onFailure: {})
+        let refreshed = Session(accessToken: "refreshed-token", refreshToken: "refreshed-refresh", userId: session.userId,
+                                deviceId: session.deviceId, homeserverUrl: session.homeserverUrl, oauthData: nil, slidingSyncVersion: .native)
+        saver.saveSessionInKeychain(session: refreshed)
+        XCTAssertEqual(try vault.loadAll().map(\.userId), [session.userId, other.userId], "Refresh preserves oldest-first order")
+        XCTAssertEqual(try vault.load(userID: other.userId)?.refreshToken, other.refreshToken)
+        XCTAssertEqual(try vault.load(userID: session.userId)?.refreshToken, refreshed.refreshToken)
+        saver.deactivate()
+        try vault.clear(userID: session.userId)
+        saver.saveSessionInKeychain(session: refreshed)
+        XCTAssertEqual(try vault.loadAll().map(\.userId), [other.userId])
+        XCTAssertEqual(try vault.load(userID: other.userId)?.folder, otherFolder)
+    }
+
+    func testRelinkingCannotOverwriteAnExistingDeviceOrCryptoFolder() throws {
+        let vault = MacSessionVault(keychain: MemoryKeychain())
+        let folder = UUID().uuidString
+        try vault.save(session, folder: folder)
+        XCTAssertThrowsError(try vault.save(session, folder: UUID().uuidString))
+        XCTAssertEqual(try vault.load(userID: session.userId)?.folder, folder)
+    }
+
+    func testEmptyAccountListNeverResurrectsALegacyRecord() throws {
+        let keychain = MemoryKeychain()
+        let vault = MacSessionVault(keychain: keychain)
+        try vault.save(session, folder: UUID().uuidString)
+        let record = try XCTUnwrap(vault.load(userID: session.userId))
+        try vault.clear(userID: session.userId)
+        keychain.values["current"] = try JSONEncoder().encode(record)
+        XCTAssertTrue(try vault.loadAll().isEmpty)
+    }
+
+    func testPersonalAndCompanyNavigationUseTheSameDMRule() {
+        XCTAssertEqual(MacDestination.visible(isCompany: false), [.chats, .groups, .you])
+        XCTAssertEqual(MacDestination.visible(isCompany: true), [.chats, .work, .you])
+        XCTAssertTrue(MacDestination.groups.includes(isDm: false, isCompany: false))
+        XCTAssertFalse(MacDestination.chats.includes(isDm: false, isCompany: false))
+        XCTAssertTrue(MacDestination.chats.includes(isDm: false, isCompany: true))
+        XCTAssertTrue(MacDestination.chats.includes(isDm: true, isCompany: false))
     }
 
     func testRestoreNeverRecreatesAMissingCryptoStore() throws {

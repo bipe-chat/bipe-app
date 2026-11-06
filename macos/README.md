@@ -13,7 +13,11 @@ Started 6 November 2026. Tracking: [bipe#1018](https://github.com/bipe-chat/bipe
 - Restart restores the same device. A missing crypto store fails closed instead of making new keys under the saved device ID. SDK offline mode makes cached state available without waiting for a network response.
 - An authentication refusal ends the local session. Delayed refresh callbacks cannot save it again after revocation. The encrypted cache remains local; this spike makes no remote-erasure claim.
 
-The spike holds one linked account. The Mac uses Bipe's generated app icon, shared rounded typography, adaptive colors for light/dark/Increase Contrast, Phosphor glyphs and large native buttons. Desktop cards, message bubbles, account rows and the composer use the shared tokens. Multiple personal/work accounts, rich media, search, notifications, calls and the work UI remain in #1018. Windows follows the Mac spike evidence.
+The Mac holds multiple linked personal and company accounts. Each account keeps its own SDK client, sync and encrypted store. The first update copies the installed single-account Keychain record into an ordered account list without changing its device ID, tokens, store folder or encryption key. A failed migration preserves the old record. Refresh and revocation change only the affected account; linking an existing account twice cannot overwrite its working device.
+
+The desktop rail has Chats, Groups and You for personal accounts, or Chats, Work and You for company accounts. Company Chats includes groups. RoomInfo.isDm is the DM rule, including groups with two members. Local room-name search and the unread filter work in both lists. Account rows show names and handles; Matrix IDs stay internal. Company account avatars are rounded squares. The Work overview reads live today counts, tool states, catalog items and people. It does not infer an owner role or expose phone-authorized operations. Work editors, rich media, global search, notifications and calls remain in #1018. Windows follows the Mac evidence.
+
+The app is named Bipe in Finder, the menu bar and About. It uses Bipe's generated icon, shared rounded typography, adaptive colors for light/dark/Increase Contrast, Phosphor glyphs and large native buttons. Desktop cards, message bubbles, account rows and the composer use the shared tokens.
 
 QR codes use one binary byte segment, as the web does, so released phone scanners can read them. Apple's Core Image encoder mixed an alphanumeric MATRIX header with byte segments; the released iPhone scanner ignored that result. The native MIT-licensed Nayuki encoder is vendored unchanged, with source hashes and its notice in macos/QRCode. The regression test decodes the final bitmap with the released phone's byte-only rules. No phone update is needed for this compatibility fix.
 
@@ -21,11 +25,13 @@ QR codes use one binary byte segment, as the web does, so released phone scanner
 
 `.github/workflows/macos.yml` builds Debug and Release for both architectures. Hosted XCTest checks native SDK/SQLite loading without a server, Keychain error handling with synthetic records, same-device restoration, the approval gate and delayed refresh after revocation. Unit tests never read real credentials.
 
-The Release job uploads `bipe-mac-spike`, an ad hoc signed ZIP. This is a test artifact. Developer ID signing, notarization, store distribution and a supported updater remain later work. A build or synthetic test does not prove real-account linking or cross-device behavior.
+The Release job uploads `bipe-mac-spike`, containing `Bipe-Mac.zip` and its SHA-256 checksum. After both Mac configurations and native tests pass on main, the publish job updates the public `mac-preview` prerelease. The downloads page reads that URL from bipe-shared/product/distribution.json. The ZIP contains Bipe.app for macOS 15+, on Apple silicon and Intel. It uses an ad hoc signature; Developer ID signing, notarization, store distribution and a supported updater remain later work. A build or synthetic test does not prove real-account linking or cross-device behavior.
 
 ## Real-account acceptance record
 
 Record the build commit, Mac architecture/OS, phone platform/build and result in #1018. The following checks are pending until that evidence exists:
+
+MZ confirmed that phone linking works on 6 November 2026 with build 521 (ff3bede3). No phone update was needed. The remaining cross-device checks below still need evidence.
 
 - Link from iOS and Android; reject a wrong check code or a declined request.
 - Read available encrypted history and exchange text in both directions. Confirm local scam warnings.
