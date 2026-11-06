@@ -270,9 +270,12 @@ struct ContactsView: View {
         HStack(spacing: 12) {
             AvatarView(name: match.person.displayName, mxcUrl: match.person.avatarUrl, loader: model.people.media, size: 40, userId: match.person.userId)
             VStack(alignment: .leading, spacing: 2) {
-                Text(match.person.displayName)
-                    .foregroundStyle(BipeColor.inkPrimary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(match.person.displayName)
+                        .foregroundStyle(BipeColor.inkPrimary)
+                        .lineLimit(1)
+                    if BipeOfficialAccounts.isOfficial(match.person.userId) { OfficialBadge() }
+                }
                 if let age = match.numberMovedAge {
                     Text(BipeStrings.contactsNumberMoved(age))
                         .font(.caption)

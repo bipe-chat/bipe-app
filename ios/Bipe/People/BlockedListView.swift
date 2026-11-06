@@ -33,9 +33,12 @@ struct BlockedListView: View {
                             HStack(spacing: 12) {
                                 AvatarView(name: person.displayName, mxcUrl: person.avatarUrl, loader: people.media, size: 40, userId: person.userId)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(person.displayName)
-                                        .foregroundStyle(BipeColor.inkPrimary)
-                                        .lineLimit(1)
+                                    HStack(spacing: 6) {
+                                        Text(person.displayName)
+                                            .foregroundStyle(BipeColor.inkPrimary)
+                                            .lineLimit(1)
+                                        if BipeOfficialAccounts.isOfficial(person.userId) { OfficialBadge() }
+                                    }
                                     if let handle = person.handle {
                                         Text("@\(handle)")
                                             .font(.caption)

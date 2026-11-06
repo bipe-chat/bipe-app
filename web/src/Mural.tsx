@@ -18,12 +18,12 @@ import { useClient } from './media';
 import { tileMessages, type MuralTile, type TileMessage } from './mural-plan';
 import { paperPlaneRight } from './phosphor/icons';
 import { useIsNewsRoom } from './news-room';
-import { homeScore, isOfficial } from './registries';
+import { homeScore } from './registries';
+import { ChatOfficialBadge } from './ui/ChatOfficialBadge';
 import { Avatar, useIsCompany } from './ui/Avatar';
 import { ChatBadges, unreadLabel } from './ui/ChatBadges';
 import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
-import { OfficialBadge } from './ui/List';
 import { describe } from './util';
 
 type TileHandlers = {
@@ -155,7 +155,7 @@ function LargeTile({ tile, isFirst, ...handlers }: TileHandlers & { tile: MuralT
         <span className="flex items-center gap-3">
           <TileAvatar chat={chat} size={64} />
           <span className="min-w-0 flex-1 truncate text-headline text-ink-primary">{chat.face.name}</span>
-          {isOfficial(chat.face.peer?.userId) && <OfficialBadge />}
+          <ChatOfficialBadge roomId={chat.roomId} peerId={chat.face.peer?.userId} />
           <ChatBadges info={chat.info} />
         </span>
         <span className="flex flex-col gap-1">
@@ -184,7 +184,7 @@ function MediumTile({ tile, ...handlers }: TileHandlers & { tile: MuralTile }) {
             <span className="min-w-0 flex-1 truncate text-subheadline font-semibold text-ink-primary">
               {chat.face.name}
             </span>
-            {isOfficial(chat.face.peer?.userId) && <OfficialBadge />}
+            <ChatOfficialBadge roomId={chat.roomId} peerId={chat.face.peer?.userId} />
           </span>
           {reason && (
             <span className="truncate text-caption font-semibold text-accent-ink">
@@ -210,7 +210,7 @@ function SmallTile({ tile, ...handlers }: TileHandlers & { tile: MuralTile }) {
       <TileAvatar chat={chat} size={44} dot />
       <span className="flex max-w-full items-center gap-1">
         <span className="min-w-0 truncate text-footnote font-semibold text-ink-primary">{firstWord}</span>
-        {isOfficial(chat.face.peer?.userId) && <OfficialBadge />}
+        <ChatOfficialBadge roomId={chat.roomId} peerId={chat.face.peer?.userId} />
       </span>
       {/* Two lines: registries homeScore tile.tier3TextLines. Tailwind needs the whole class name in the source. */}
       <span className="line-clamp-2 max-w-full text-caption break-words text-ink-secondary">

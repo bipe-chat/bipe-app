@@ -20,6 +20,7 @@ import {
   type RoomPowerLevelsLike,
 } from './generated';
 import { PersonRow, SearchBox, usePeople } from './NewChat';
+import { useIsNewsRoom } from './news-room';
 import { isGroupsAccount, isOfficial } from './registries';
 import type { RoomFace } from './room-face';
 import { Alert } from './ui/Alert';
@@ -50,9 +51,10 @@ export function GroupDetails({
   room: Room;
   face: RoomFace;
   chats: ChatSummary[];
-  Header: (p: { name: string; avatarUrl?: string; subtitle?: string; members?: AvatarMember[] }) => React.ReactNode;
+  Header: (p: { name: string; avatarUrl?: string; badge?: boolean; subtitle?: string; members?: AvatarMember[] }) => React.ReactNode;
 }) {
   const [members, setMembers] = useState<RoomMember[]>();
+  const newsRoom = useIsNewsRoom(room.id());
   const [topic, setTopic] = useState(room.topic());
   const [count, setCount] = useState<number>();
   const [rights, setRights] = useState<Rights>({ edit: false, photo: false, invite: false, kick: false, roles: false });
@@ -123,6 +125,7 @@ export function GroupDetails({
       <Header
         name={face.name}
         avatarUrl={face.avatarUrl}
+        badge={newsRoom}
         members={face.members}
         subtitle={s('bipe_app_group_details_people', people.toLocaleString())}
       />

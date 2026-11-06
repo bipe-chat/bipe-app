@@ -976,7 +976,10 @@ private fun ComposerBar(
                                     // Spec composer nameAmbiguous: a member with no handle line shows the Matrix ID after a shared name.
                                     val label = suggestion.userId?.takeIf { suggestion.handle == null }
                                         ?.let { memberLabel(suggestion.name, it, suggestion.nameAmbiguous) } ?: suggestion.name
-                                    Text(label, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary)
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(label, style = MaterialTheme.typography.bodyLarge, color = colors.inkPrimary, modifier = Modifier.weight(1f, fill = false))
+                                        if (BipeOfficialAccounts.isOfficial(suggestion.userId)) OfficialBadge()
+                                    }
                                     suggestion.handle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors.inkSecondary) }
                                 }
                             }

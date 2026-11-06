@@ -13,7 +13,8 @@ import { useClient } from './media';
 import { ProfileFactsLines, RequestTrust, useHandle } from './Trust';
 import { Avatar } from './ui/Avatar';
 import { s } from './ui/i18n';
-import { NavBar } from './ui/List';
+import { isOfficial } from './registries';
+import { NavBar, OfficialBadge } from './ui/List';
 import { Spinner } from './ui/Spinner';
 import { describe } from './util';
 
@@ -50,7 +51,10 @@ export function RequestsList({
                 >
                   <Avatar name={who.name} size={48} userId={who.userId} />
                   <span className="flex min-h-[72px] min-w-0 flex-1 flex-col justify-center border-b-[0.5px] border-line-subtle pr-4">
-                    <span className="truncate text-headline text-ink-primary">{who.name}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="min-w-0 truncate text-headline text-ink-primary">{who.name}</span>
+                      {isOfficial(who.userId) && <OfficialBadge />}
+                    </span>
                   </span>
                 </button>
               </li>
@@ -101,7 +105,10 @@ export function RequestScreen({
       <NavBar title={s('bipe_requests_title')} onBack={onBack} />
       <div className="mx-auto flex w-full max-w-[480px] min-h-0 flex-1 flex-col items-center gap-4 overflow-y-auto p-6 text-center">
         <Avatar name={who.name} size={72} userId={who.userId} />
-        <h3 className="text-title2 text-ink-primary">{who.name}</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-title2 text-ink-primary">{who.name}</h3>
+          {isOfficial(who.userId) && <OfficialBadge />}
+        </div>
         {handle && <p className="text-subheadline text-ink-secondary">@{handle}</p>}
         <ProfileFactsLines userId={who.userId} />
         <RequestTrust userId={who.userId} name={who.name} contactNames={contactNames} />

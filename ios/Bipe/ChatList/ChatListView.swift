@@ -1008,10 +1008,13 @@ private struct FavouritesGrid<MenuContent: View>: View {
                             .overlay(Circle().stroke(BipeColor.surfaceBase, lineWidth: 2))
                     }
                 }
-            Text(chat.name)
-                .font(.caption)
-                .foregroundStyle(BipeColor.inkPrimary)
-                .lineLimit(1)
+            HStack(spacing: 4) {
+                Text(chat.name)
+                    .font(.caption)
+                    .foregroundStyle(BipeColor.inkPrimary)
+                    .lineLimit(1)
+                if chat.isOfficial { OfficialBadge() }
+            }
         }
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())

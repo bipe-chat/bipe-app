@@ -141,9 +141,12 @@ struct ChatSearchResults: View {
                             AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: 40, userId: chat.peerUserId, official: chat.isNewsRoom,
                                        members: chat.avatarMembers)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(chat.name)
-                                    .foregroundStyle(BipeColor.inkPrimary)
-                                    .lineLimit(1)
+                                HStack(spacing: 6) {
+                                    Text(chat.name)
+                                        .foregroundStyle(BipeColor.inkPrimary)
+                                        .lineLimit(1)
+                                    if chat.isOfficial { OfficialBadge() }
+                                }
                                 // Each result shows whether it is a chat or a group.
                                 Text(chat.isDm ? BipeStrings.tabChats : BipeStrings.tabGroups)
                                     .font(.caption)

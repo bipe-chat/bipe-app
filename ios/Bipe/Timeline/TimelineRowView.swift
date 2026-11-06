@@ -687,6 +687,7 @@ struct SenderNameText: View {
             case .moderator?: Text(label) + Text(" · " + BipeStrings.appRoleBadgeModerator).foregroundColor(BipeColor.accentInk)
             default: Text(label)
             }
+            if BipeOfficialAccounts.isOfficial(message.senderId) { OfficialBadge() }
             // Spec timeline-rows: the sender's seal (bipe-chat/bipe#596).
             SealMark(userId: message.senderId, size: 14)
         }

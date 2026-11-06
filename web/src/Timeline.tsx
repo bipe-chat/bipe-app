@@ -60,6 +60,9 @@ import { useClearedChats, useIgnoredUsers } from './chat-actions';
 import { clearedChatKeepsEvent } from './bipe/generated/lib/registries.mjs';
 import { useClient } from './media';
 import { useIsNewsRoom } from './news-room';
+import { isOfficial } from './registries';
+import { ChatOfficialBadge } from './ui/ChatOfficialBadge';
+import { OfficialBadge } from './ui/List';
 import { applyDiffs, describe, type DiffVariants } from './util';
 
 // The composer's mode (specs message-reply, message-edit): a reply bar or an edit bar above the field.
@@ -380,6 +383,7 @@ export function RoomTimeline({
           >
             <Avatar name={name} size={32} mxcUrl={face.avatarUrl} userId={face.peer?.userId} official={newsRoom} members={face.members} />
             <h2 className="truncate text-headline text-ink-primary">{name}</h2>
+            <ChatOfficialBadge roomId={room.id()} peerId={face.peer?.userId} />
           </button>
           {/* Buscar na conversa (spec chat-search with roomId). */}
           <button
@@ -771,6 +775,7 @@ function SuggestionList({
           >
             <Avatar name={m.name} size={32} mxcUrl={m.avatarUrl} userId={m.userId} />
             <span className="min-w-0 flex-1 truncate text-body text-ink-primary">{m.name}</span>
+            {isOfficial(m.userId) && <OfficialBadge />}
           </button>
         </li>
       ))}
